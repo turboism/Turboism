@@ -14,6 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
@@ -22,33 +24,48 @@ import java.util.jar.JarOutputStream;
 
 /** Offline tests for the exact 5.3.02 host row resolver; no pseudo host is in the probe build. */
 public final class ExactHostRowTargetTest {
-    private static final Path REVIEWED_HOST_JAR = Path.of(
-        "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar");
+    private static final String SHAPE_JAR_PROPERTY =
+        "turboism.validation.externalpsd.shapeJar";
+    private static final String SHAPE_CLASSPATH_PROPERTY =
+        "turboism.validation.externalpsd.shapeClasspath";
+    private static final String SHAPE_REQUIRED_PROPERTY =
+        "turboism.validation.externalpsd.shapeRequired";
+    private static final String SHAPE_JAR_ENV = "TURBOISM_EXTERNAL_PSD_SHAPE_JAR";
+    private static final String SHAPE_CLASSPATH_ENV = "TURBOISM_EXTERNAL_PSD_SHAPE_CLASSPATH";
+    private static final String SHAPE_REQUIRED_ENV = "TURBOISM_EXTERNAL_PSD_SHAPE_REQUIRED";
 
     public static void main(final String[] args) throws Exception {
+        final ShapeConfig shape = shapeConfig();
         testOffEdtRejected();
-        testReviewedArtifactShape();
         testPreflightMustRunOffEdt();
-        testWrongModelIdentityRejected();
         testWrongArtifactHashRejected();
         testAccessorShapeRejectsWrongOwnerAndSignatures();
         testOnlyExactArtMeshSourceIsAllowed();
         testNameColumnUsesModelIndexAfterReorderAndViewport();
         testDomainIdentitySurvivesRebuildAndDoesNotUseLabels();
+        if (shape.configured()) {
+            testReviewedArtifactShape(shape);
+            testWrongModelIdentityRejected(shape);
+            System.out.println("SHAPE=PASS: configured reviewed host artifact");
+        } else {
+            System.out.println("SHAPE=NOT_RUN: configure " + SHAPE_JAR_PROPERTY
+                + " and " + SHAPE_CLASSPATH_PROPERTY + " for the real-JAR shape check");
+        }
         System.out.println("PASS: ExactHostRowTargetTest");
     }
 
-    private static void testOffEdtRejected() {
+    private static void testOffEdtRejected() throws Exception {
         final ExactHostRowTarget.Resolution result = ExactHostRowTarget.resolve(new JTable(), 0);
         assertTrue(!result.available(), "off-EDT resolution is rejected");
         assertContains(result.reason(), "EDT", "off-EDT rejection explains the thread gate");
     }
 
-    private static void testReviewedArtifactShape() throws Exception {
-        final Path jar = reviewedJar();
-        try (URLClassLoader loader = reviewedLoader(jar)) {
+    private static void testReviewedArtifactShape(final ShapeConfig shape) throws Exception {
+        try (URLClassLoader loader = reviewedLoader(shape)) {
             final Class<?> modelClass = Class.forName(
                 "com.live2d.ui.treeTable.j", false, loader);
+            assertTrue(ExactHostRowTarget.isReviewedTableModelClass(modelClass),
+                "configured JAR exposes the reviewed table model binary name");
             final ExactHostRowTarget.HostAccessPreparation preparation =
                 ExactHostRowTarget.prepareHostAccess(modelClass);
             assertTrue(preparation.available(),
@@ -57,25 +74,21 @@ public final class ExactHostRowTargetTest {
             assertEquals(ExactHostRowTarget.HOST_JAR_SHA256,
                 preparation.context().artifactSha256(),
                 "preflight records the verified artifact digest");
-            assertEquals(jar.toRealPath(), preparation.context().artifact(),
+            assertEquals(shape.jar(), preparation.context().artifact(),
                 "preflight binds the code-source artifact path");
         }
     }
 
     private static void testPreflightMustRunOffEdt() throws Exception {
-        try (URLClassLoader loader = reviewedLoader(reviewedJar())) {
-            final Class<?> modelClass = Class.forName(
-                "com.live2d.ui.treeTable.j", false, loader);
-            final ExactHostRowTarget.HostAccessPreparation preparation = onEdt(
-                () -> ExactHostRowTarget.prepareHostAccess(modelClass));
-            assertTrue(!preparation.available(), "EDT preflight is rejected");
-            assertContains(preparation.reason(), "off EDT",
-                "preflight explains that JAR verification is not an EDT operation");
-        }
+        final ExactHostRowTarget.HostAccessPreparation preparation = onEdt(
+            () -> ExactHostRowTarget.prepareHostAccess(GoodTable.class));
+        assertTrue(!preparation.available(), "EDT preflight is rejected");
+        assertContains(preparation.reason(), "off EDT",
+            "preflight explains that JAR verification is not an EDT operation");
     }
 
-    private static void testWrongModelIdentityRejected() throws Exception {
-        try (URLClassLoader loader = reviewedLoader(reviewedJar())) {
+    private static void testWrongModelIdentityRejected(final ShapeConfig shape) throws Exception {
+        try (URLClassLoader loader = reviewedLoader(shape)) {
             final Class<?> modelClass = Class.forName(
                 "com.live2d.ui.treeTable.j", false, loader);
             final ExactHostRowTarget.HostAccessPreparation preparation =
@@ -263,22 +276,58 @@ public final class ExactHostRowTargetTest {
             new ExactHostRowTarget.VisibilityLockState(visible, locked));
     }
 
-    private static URLClassLoader reviewedLoader(final Path jar) throws Exception {
-        final Path kotlinStdlib = jar.getParent().resolve("kotlin-stdlib-1.7.21.jar");
-        final Path jdom = jar.getParent().resolve("jdom-1.1.jar");
-        assertTrue(Files.isRegularFile(kotlinStdlib),
-            "reviewed host Kotlin runtime is required for exact class linking");
-        assertTrue(Files.isRegularFile(jdom),
-            "reviewed host JDOM runtime is required for exact class linking");
-        return new URLClassLoader(new URL[] {jar.toUri().toURL(), kotlinStdlib.toUri().toURL(),
-            jdom.toUri().toURL()},
-            ClassLoader.getPlatformClassLoader());
+    private static URLClassLoader reviewedLoader(final ShapeConfig shape) throws Exception {
+        final List<URL> urls = new ArrayList<>();
+        urls.add(shape.jar().toUri().toURL());
+        for (final Path dependency : shape.dependencies()) urls.add(dependency.toUri().toURL());
+        return new URLClassLoader(urls.toArray(URL[]::new), ClassLoader.getPlatformClassLoader());
     }
 
-    private static Path reviewedJar() throws Exception {
-        assertTrue(Files.isRegularFile(REVIEWED_HOST_JAR),
-            "reviewed 5.3.02 JAR is required for the exact-shape test");
-        return REVIEWED_HOST_JAR.toRealPath();
+    private static ShapeConfig shapeConfig() throws Exception {
+        final String jarValue = configuredValue(SHAPE_JAR_PROPERTY, SHAPE_JAR_ENV);
+        final boolean required = Boolean.parseBoolean(
+            configuredValue(SHAPE_REQUIRED_PROPERTY, SHAPE_REQUIRED_ENV));
+        if (jarValue.isBlank()) {
+            if (required) {
+                throw new IllegalStateException("real-JAR shape check requested but "
+                    + SHAPE_JAR_PROPERTY + " is not configured");
+            }
+            return new ShapeConfig(false, null, List.of());
+        }
+        final Path jar = Path.of(jarValue).toAbsolutePath().normalize();
+        if (!Files.isRegularFile(jar)) {
+            throw new IllegalStateException("configured shape JAR is not a regular file: " + jar);
+        }
+        final String classpathValue = configuredValue(
+            SHAPE_CLASSPATH_PROPERTY, SHAPE_CLASSPATH_ENV);
+        if (classpathValue.isBlank()) {
+            throw new IllegalStateException("real-JAR shape check requires explicit "
+                + SHAPE_CLASSPATH_PROPERTY + " (Kotlin/JDOM dependencies)");
+        }
+        final List<Path> dependencies = new ArrayList<>();
+        for (final String value : classpathValue.split(
+            java.util.regex.Pattern.quote(java.io.File.pathSeparator))) {
+            if (value.isBlank()) continue;
+            final Path dependency = Path.of(value).toAbsolutePath().normalize();
+            if (!Files.isRegularFile(dependency)) {
+                throw new IllegalStateException(
+                    "configured shape classpath entry is not a regular file: " + dependency);
+            }
+            dependencies.add(dependency);
+        }
+        if (dependencies.isEmpty()) {
+            throw new IllegalStateException("configured shape classpath has no dependency entries");
+        }
+        return new ShapeConfig(true, jar.toRealPath(), List.copyOf(dependencies));
+    }
+
+    private static String configuredValue(final String property, final String environment) {
+        final String fromProperty = System.getProperty(property, "");
+        if (!fromProperty.isBlank()) return fromProperty;
+        return System.getenv().getOrDefault(environment, "");
+    }
+
+    private record ShapeConfig(boolean configured, Path jar, List<Path> dependencies) {
     }
 
     private static <T> T onEdt(final Callable<T> operation) throws Exception {

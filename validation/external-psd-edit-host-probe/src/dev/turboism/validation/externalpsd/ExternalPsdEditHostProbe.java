@@ -59,11 +59,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -99,6 +101,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private PluginContext context;
     private volatile boolean stopped;
     private Thread worker;
+    /** GUI-only cache: an off-EDT verified context is reused by all tables from one loader. */
+    private final Map<ClassLoader, ExactHostRowTarget.HostAccessPreparation> hostAccessByLoader =
+        new IdentityHashMap<>();
 
     @Override public void init(final PluginContext context) { this.context = context; }
 
@@ -477,7 +482,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             "Edit PSD Externally",
             "外部编辑 PSD", "外部編輯 PSD",
             "外部でPSDを編集", "외부에서 PSD 편집"));
-        final GuiClick click = clickContributedItem(labels, 64, result);
+        final GuiClick click = clickContributedItem(labels, 64, result, target);
         if (!click.clicked()) {
             throw new Blocked("context menu with the contributed item was reachable",
                 click.diagnostic());
@@ -1981,79 +1986,104 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
-     * Scans visible row widgets ({@link JTree} rows and {@link javax.swing.JList} cells — the
-     * object list is a CList wrapping a JList in this host), dispatches a real popup-trigger
-     * right-click on each, and clicks the first menu item whose text equals one of {@code labels}.
-     * Returns after the first successful click or when the row budget is exhausted.
+     * Scans only the reviewed host tree-table model, resolves the selected ArtMesh by its exact
+     * domain identity, and clicks the first popup item whose text equals one of {@code labels}.
+     * Generic Swing row diagnostics below remain offline test seams and are not a GUI fallback.
      */
     private GuiClick clickContributedItem(final Set<String> labels, final int rowBudget,
-        final Properties result) throws Exception {
+        final Properties result, final Target expectedTarget) throws Exception {
         int attempts = 0;
         int popups = 0;
         final Set<String> menuTexts = new LinkedHashSet<>();
         final List<String> rowDiagnostics = new ArrayList<>();
-        String diagnostic = "no visible row widget found";
+        String diagnostic = "no visible reviewed host tree-table row found";
+        hostAccessByLoader.clear();
         final long deadline = System.currentTimeMillis() + 120_000;
         while (System.currentTimeMillis() < deadline && !stopped) {
-            final List<RowWidget> widgets = visibleRowWidgets();
-            if (!widgets.isEmpty()) {
-                for (final RowWidget widget : widgets) {
-                    final List<CapturedRow> rows = widget.captureRows();
-                    for (final CapturedRow captured : rows) {
-                        if (attempts >= rowBudget) break;
-                        if (stopped) return new GuiClick(false, "probe stopped");
-                        attempts++;
-                        final RowAttempt rowAttempt = widget.rightClick(captured);
-                        popups += rowAttempt.popupCount();
-                        String menuDiagnostic = "no selected popup";
-                        final JPopupMenu popup = rowAttempt.popup();
-                        final AtomicReference<JMenuItem> foundItem = new AtomicReference<>();
-                        if (popup != null) {
-                            final Set<String> rowMenuTexts = new LinkedHashSet<>();
-                            final AtomicReference<String> popupMarker = new AtomicReference<>("");
-                            SwingUtilities.invokeAndWait(() -> {
-                                foundItem.set(findItem(popup, labels, rowMenuTexts));
-                                popupMarker.set(popupMarker(popup));
-                            });
-                            menuTexts.addAll(rowMenuTexts);
-                            menuDiagnostic = "selectedPopup=" + popupMarker.get()
-                                + " item=" + (foundItem.get() == null
-                                    ? "none" : foundItem.get().getText())
-                                + " menuTexts=" + rowMenuTexts;
-                        }
-                        final String rowDiagnostic = "attempt=" + attempts
-                            + " widget=" + widget.name() + " row=" + captured.row() + " "
-                            + rowAttempt.diagnostic() + " " + menuDiagnostic;
-                        rowDiagnostics.add(rowDiagnostic);
-                        result.setProperty("gui.row." + attempts, rowDiagnostic);
-                        if (!rowAttempt.dispatchFailureTrace().isBlank()) {
-                            result.setProperty("gui.row." + attempts
-                                + ".dispatchFailureTrace", rowAttempt.dispatchFailureTrace());
-                        }
-                        context.logger().warn("EXTERNAL_PSD_EDIT_GUI_ATTEMPT " + rowDiagnostic);
-                        result.setProperty("gui.rowDiagnostics", String.join("\n---\n", rowDiagnostics));
-                        final JMenuItem item = foundItem.get();
-                        if (popup == null) continue;
-                        if (item == null) {
-                            dismissPopup();
-                            continue;
-                        }
-                        result.setProperty("gui.popupRow", Integer.toString(rowAttempt.dispatchRow()));
-                        result.setProperty("gui.popupComponent", rowAttempt.dispatchComponent());
-                        clickItem(item);
-                        result.setProperty("gui.attempts", Integer.toString(attempts));
-                        result.setProperty("gui.popupsSeen", Integer.toString(popups));
-                        return new GuiClick(true,
-                            "clicked row " + rowAttempt.dispatchRow());
-                    }
-                    diagnostic = "rows exhausted without the item; popups seen " + popups
-                        + " widgets=" + widgets.stream().map(RowWidget::name).toList()
-                        + " menuTexts=" + menuTexts
-                        + " rowDiagnostics=" + String.join(" || ", rowDiagnostics);
-                }
+            final List<ExactTableRef> tables = visibleReviewedTables();
+            if (tables.isEmpty()) {
+                diagnostic = "no visible reviewed host JTable model found; generic Swing widgets "
+                    + "are intentionally not eligible";
+                Thread.sleep(1000);
+                continue;
             }
-            Thread.sleep(1000);
+            final ExactCapture capture = captureExactRows(tables, expectedTarget);
+            result.setProperty("gui.exactTableDiagnostics",
+                String.join("\n---\n", capture.tableDiagnostics()));
+            if (!capture.hostAvailable()) {
+                result.setProperty("gui.hostAccess.status", "BLOCKED");
+                result.setProperty("gui.hostAccess.diagnostic", capture.diagnostic());
+                return new GuiClick(false, "host access unavailable: " + capture.diagnostic());
+            }
+            result.setProperty("gui.hostAccess.status", "PREPARED_OFF_EDT");
+            result.setProperty("gui.hostAccess.preflightCount",
+                Integer.toString(hostAccessByLoader.size()));
+            if (capture.rows().size() > 1) {
+                diagnostic = "selected ArtMesh has ambiguous same-window exact rows: "
+                    + capture.rows().stream().map(ExactDispatchCapture::diagnostic).toList();
+                result.setProperty("gui.exactTarget.status", "AMBIGUOUS");
+                result.setProperty("gui.exactTarget.diagnostic", diagnostic);
+                return new GuiClick(false, diagnostic);
+            }
+            if (capture.rows().isEmpty()) {
+                diagnostic = capture.diagnostic();
+                Thread.sleep(1000);
+                continue;
+            }
+            final ExactDispatchCapture captured = capture.rows().get(0);
+            if (attempts >= rowBudget) break;
+            if (stopped) return new GuiClick(false, "probe stopped");
+            attempts++;
+            final RowAttempt rowAttempt = exactRowAttempt(captured);
+            popups += rowAttempt.popupCount();
+            String menuDiagnostic = "no selected popup";
+            final JPopupMenu popup = rowAttempt.popup();
+            final AtomicReference<JMenuItem> foundItem = new AtomicReference<>();
+            if (popup != null) {
+                final Set<String> rowMenuTexts = new LinkedHashSet<>();
+                final AtomicReference<String> popupMarker = new AtomicReference<>("");
+                SwingUtilities.invokeAndWait(() -> {
+                    foundItem.set(findItem(popup, labels, rowMenuTexts));
+                    popupMarker.set(popupMarker(popup));
+                });
+                menuTexts.addAll(rowMenuTexts);
+                menuDiagnostic = "selectedPopup=" + popupMarker.get()
+                    + " item=" + (foundItem.get() == null
+                        ? "none" : foundItem.get().getText())
+                    + " menuTexts=" + rowMenuTexts;
+            }
+            final String rowDiagnostic = "attempt=" + attempts
+                + " widget=" + captured.captured().widgetIdentity() + " row="
+                + captured.captured().viewRow() + " "
+                + rowAttempt.diagnostic() + " " + menuDiagnostic;
+            rowDiagnostics.add(rowDiagnostic);
+            result.setProperty("gui.row." + attempts, rowDiagnostic);
+            if (!rowAttempt.dispatchFailureTrace().isBlank()) {
+                result.setProperty("gui.row." + attempts
+                    + ".dispatchFailureTrace", rowAttempt.dispatchFailureTrace());
+            }
+            context.logger().warn("EXTERNAL_PSD_EDIT_GUI_ATTEMPT " + rowDiagnostic);
+            result.setProperty("gui.rowDiagnostics", String.join("\n---\n", rowDiagnostics));
+            if (rowAttempt.terminalRejection()) {
+                result.setProperty("gui.exactTarget.status", "REJECTED");
+                return new GuiClick(false, rowAttempt.diagnostic());
+            }
+            final JMenuItem item = foundItem.get();
+            if (popup == null) continue;
+            if (item == null) {
+                dismissPopup();
+                continue;
+            }
+            result.setProperty("gui.popupRow", Integer.toString(rowAttempt.dispatchRow()));
+            result.setProperty("gui.popupComponent", rowAttempt.dispatchComponent());
+            clickItem(item);
+            result.setProperty("gui.attempts", Integer.toString(attempts));
+            result.setProperty("gui.popupsSeen", Integer.toString(popups));
+            return new GuiClick(true, "clicked exact ArtMesh row " + rowAttempt.dispatchRow());
         }
+        diagnostic = "exact ArtMesh row exhausted without the item; popups seen " + popups
+            + " menuTexts=" + menuTexts
+            + " rowDiagnostics=" + String.join(" || ", rowDiagnostics);
         result.setProperty("gui.attempts", Integer.toString(attempts));
         result.setProperty("gui.popupsSeen", Integer.toString(popups));
         result.setProperty("gui.menuTexts", menuTexts.toString());
@@ -2062,7 +2092,408 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return new GuiClick(false, diagnostic);
     }
 
-    /** A selectable row widget the host popup can be raised on: JTree row, table cell, or JList cell. */
+    private List<ExactTableRef> visibleReviewedTables() throws Exception {
+        final AtomicReference<List<ExactTableRef>> found = new AtomicReference<>(List.of());
+        SwingUtilities.invokeAndWait(() -> {
+            final List<ExactTableRef> tables = new ArrayList<>();
+            for (final Window window : Window.getWindows()) {
+                if (window.isShowing()) collectReviewedTables(window, window, tables);
+            }
+            found.set(List.copyOf(tables));
+        });
+        return found.get();
+    }
+
+    private static void collectReviewedTables(final Container container, final Window window,
+        final List<ExactTableRef> tables) {
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JTable table && isLiveComponent(table)) {
+                final javax.swing.table.TableModel model = table.getModel();
+                if (model != null && ExactHostRowTarget.isReviewedTableModelClass(
+                    model.getClass())) {
+                    tables.add(new ExactTableRef(table, model.getClass(),
+                        componentIdentity(table), componentIdentity(window),
+                        objectIdentity(model)));
+                }
+            }
+            if (component instanceof Container child) {
+                collectReviewedTables(child, window, tables);
+            }
+        }
+    }
+
+    /** Runs exactly once per class loader for this GUI phase, always on the worker thread. */
+    private ExactHostRowTarget.HostAccessPreparation prepareHostAccess(
+        final ExactTableRef table) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("host access preflight must run off EDT");
+        }
+        final ClassLoader loader = table.modelClass().getClassLoader();
+        if (hostAccessByLoader.containsKey(loader)) return hostAccessByLoader.get(loader);
+        final ExactHostRowTarget.HostAccessPreparation preparation =
+            ExactHostRowTarget.prepareHostAccess(table.modelClass());
+        hostAccessByLoader.put(loader, preparation);
+        return preparation;
+    }
+
+    private ExactCapture captureExactRows(final List<ExactTableRef> tables,
+        final Target expectedTarget) throws Exception {
+        final List<String> tableDiagnostics = new ArrayList<>();
+        int availableContexts = 0;
+        for (final ExactTableRef table : tables) {
+            final ExactHostRowTarget.HostAccessPreparation preparation = prepareHostAccess(table);
+            if (preparation.available()) {
+                availableContexts++;
+                tableDiagnostics.add(table.diagnostic() + " preflight=available artifact="
+                    + preparation.context().artifact() + " sha256="
+                    + preparation.context().artifactSha256());
+            } else {
+                tableDiagnostics.add(table.diagnostic() + " preflight=unavailable reason="
+                    + preparation.reason());
+            }
+        }
+        if (availableContexts == 0) {
+            return new ExactCapture(List.of(), tableDiagnostics,
+                String.join(" || ", tableDiagnostics), false);
+        }
+
+        final AtomicReference<ExactCapture> captured = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final List<ExactDispatchCapture> rows = new ArrayList<>();
+            final List<String> currentDiagnostics = new ArrayList<>(tableDiagnostics);
+            for (final ExactTableRef table : tables) {
+                final ExactHostRowTarget.HostAccessPreparation preparation =
+                    hostAccessByLoader.get(table.modelClass().getClassLoader());
+                if (preparation == null || !preparation.available()) continue;
+                final JTable widget = table.table();
+                final Object model = widget.getModel();
+                if (model == null || model.getClass() != table.modelClass()) {
+                    currentDiagnostics.add(table.diagnostic()
+                        + " capture=table model was replaced before EDT capture");
+                    continue;
+                }
+                if (!isLiveComponent(widget)) {
+                    currentDiagnostics.add(table.diagnostic()
+                        + " capture=table became detached before EDT capture");
+                    continue;
+                }
+                final List<String> rowFacts = new ArrayList<>();
+                for (int row = 0; row < widget.getRowCount(); row++) {
+                    final ExactHostRowTarget.Resolution resolution =
+                        ExactHostRowTarget.resolve(widget, row, preparation.context());
+                    if (!resolution.available()) {
+                        rowFacts.add("row=" + row + " unavailable=" + resolution.reason());
+                        continue;
+                    }
+                    final ExactHostRowTarget.Target target = resolution.target();
+                    rowFacts.add("row=" + row + " identity=" + target.identity()
+                        + " state=" + target.state()
+                        + " cell=" + target.nameCell().bounds()
+                        + " click=" + target.nameClickPoint());
+                    if (!target.domainId().equals(expectedTarget.artMesh().id().value())) {
+                        continue;
+                    }
+                    final ExactCapturedRow descriptor = exactCapturedRow(widget, table, target);
+                    rows.add(new ExactDispatchCapture(descriptor, preparation.context()));
+                }
+                currentDiagnostics.add(table.diagnostic() + " rows=" + rowFacts);
+            }
+            final String diagnostic = rows.isEmpty()
+                ? "no exact ArtMesh row matched domain ID " + expectedTarget.artMesh().id().value()
+                : "exact target rows=" + rows.stream().map(ExactDispatchCapture::diagnostic).toList();
+            captured.set(new ExactCapture(List.copyOf(rows), List.copyOf(currentDiagnostics),
+                diagnostic, true));
+        });
+        return captured.get();
+    }
+
+    private static ExactCapturedRow exactCapturedRow(final JTable table,
+        final ExactTableRef tableRef, final ExactHostRowTarget.Target target) {
+        return new ExactCapturedRow(target.identity(), tableRef.widgetIdentity(),
+            tableRef.windowIdentity(), objectIdentity(table.getModel()), target.viewRow(),
+            target.modelRow(), target.nameCell(), target.state());
+    }
+
+    private static RowAttempt exactRowAttempt(final ExactDispatchCapture captured)
+        throws Exception {
+        final AtomicReference<RowDispatchResult> rowOutcome = new AtomicReference<>();
+        final AtomicReference<RightClickDispatchException> dispatchFailure =
+            new AtomicReference<>();
+        final AtomicReference<PopupAttempt> popupAttempt = new AtomicReference<>(dismissPopup());
+        final List<String> retryReasons = new ArrayList<>();
+        final int attempts = runBoundedRowDispatches(attemptNumber -> {
+            rowOutcome.set(null);
+            try {
+                final boolean triggerOnPress = popupTriggerOnPress(
+                    System.getProperty("os.name", ""));
+                SwingUtilities.invokeAndWait(() -> rowOutcome.set(
+                    dispatchExactCapturedRow(captured, triggerOnPress)));
+            } catch (InvocationTargetException wrapped) {
+                if (wrapped.getCause() instanceof RightClickDispatchException failure) {
+                    dispatchFailure.set(failure);
+                    return false;
+                }
+                throw wrapped;
+            }
+            final RowDispatchResult result = rowOutcome.get();
+            if (result == null || !result.retryable()) return false;
+            retryReasons.add("attempt=" + attemptNumber + " phase=" + result.phase()
+                + " reason=" + result.reason());
+            if (attemptNumber < MAX_ROW_DISPATCH_ATTEMPTS) {
+                popupAttempt.set(mergePopupAttempts(popupAttempt.get(), dismissPopup()));
+            }
+            return true;
+        });
+        final RowDispatchResult rowResult = rowOutcome.get();
+        final PopupCapture popup = rowResult != null && rowResult.terminalRejection()
+            ? new PopupCapture(null, 0, 0, "popupPolls=0 terminal exact target rejection")
+            : awaitPopup(popupAttempt.get());
+        final RightClickDispatchException failure = dispatchFailure.get();
+        final String dispatchDiagnostic = rowResult != null
+            ? rowResult.dispatch().diagnostic()
+            : failure != null
+                ? failure.dispatch().diagnostic() : "not-dispatched";
+        final String failureTrace = failure == null ? "" : stackTrace(failure);
+        final String diagnostic = "exactCapture=" + captured.diagnostic()
+            + " attempts=" + attempts
+            + " dispatchRow=" + (rowResult == null ? -1 : rowResult.row())
+            + " dispatchComponent=" + (rowResult == null ? "" : rowResult.component())
+            + " retryLimit=" + MAX_ROW_DISPATCH_ATTEMPTS
+            + " retryReasons=" + retryReasons
+            + " " + dispatchDiagnostic
+            + (failureTrace.isBlank() ? "" : " dispatchExceptionTrace=" + failureTrace)
+            + " popupCount=" + popup.popupCount()
+            + " popupMaxCount=" + popup.maxPopupCount()
+            + " " + popup.diagnostic();
+        return new RowAttempt(popup.popup(), popup.popupCount(), diagnostic, failureTrace,
+            rowResult == null ? -1 : rowResult.row(),
+            rowResult == null ? "" : rowResult.component(),
+            rowResult != null && rowResult.terminalRejection());
+    }
+
+    private static RowDispatchResult dispatchExactCapturedRow(
+        final ExactDispatchCapture captured, final boolean triggerOnPress) {
+        final ExactRowResolution selection = resolveExactActiveRow(captured.captured(),
+            captured.context());
+        if (!selection.available()) {
+            return RowDispatchResult.retry(captured.diagnostic(), "before-left",
+                selection.reason());
+        }
+        return dispatchExactResolvedSelection(captured.captured(), selection.row(),
+            triggerOnPress, () -> resolveExactActiveRow(captured.captured(), captured.context()));
+    }
+
+    private static RowDispatchResult dispatchExactResolvedSelection(
+        final ExactCapturedRow captured, final ExactCurrentRow selected,
+        final boolean triggerOnPress, final java.util.function.Supplier<ExactRowResolution> refreshed) {
+        if (!ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME.equals(
+            captured.identity().sourceClass())) {
+            return RowDispatchResult.rejected(captured.diagnostic(), "before-left",
+                "resolved row source class is not the supported ArtMesh class");
+        }
+        if (selected == null || !captured.identity().equals(selected.descriptor().identity())) {
+            return RowDispatchResult.rejected(captured.diagnostic(), "before-left",
+                "resolved row identity differs from captured exact target");
+        }
+        if (!isLiveComponent(selected.component())
+            || !validBounds(selected.descriptor().nameCell().bounds())) {
+            return RowDispatchResult.retry(captured.diagnostic(), "before-left",
+                "resolved exact table is not live or name bounds are invalid");
+        }
+        if (!sameExactState(captured, selected)) {
+            return RowDispatchResult.rejected(captured.diagnostic(), "before-left",
+                exactStateChange(captured, selected));
+        }
+
+        final String prefix = exactRowDispatchPrefix(captured, selected);
+        final AtomicReference<ExactRowResolution> afterSelection = new AtomicReference<>();
+        final AtomicReference<String> stateChange = new AtomicReference<>("");
+        final AtomicReference<String> identityChange = new AtomicReference<>("");
+        try {
+            final Point point = selected.descriptor().nameCell().clickPoint();
+            final RightClickDispatch dispatch = dispatchRightClickAfterSelection(
+                selected.component(), point.x, point.y, triggerOnPress, prefix, () -> {
+                    final ExactRowResolution resolved = refreshed.get();
+                    afterSelection.set(resolved);
+                    if (!resolved.available()) return null;
+                    final ExactCurrentRow current = resolved.row();
+                    if (!captured.identity().equals(current.descriptor().identity())) {
+                        identityChange.set("after-left exact row identity differs: captured="
+                            + captured.identity() + " after=" + current.descriptor().identity());
+                        return null;
+                    }
+                    if (!sameExactState(captured, current)) {
+                        stateChange.set(exactStateChange(captured, current));
+                        return null;
+                    }
+                    if (!isLiveComponent(current.component())
+                        || !validBounds(current.descriptor().nameCell().bounds())) {
+                        return null;
+                    }
+                    final Point freshPoint = current.descriptor().nameCell().clickPoint();
+                    return new DispatchTarget(current.component(), freshPoint.x, freshPoint.y,
+                        "afterLeft=" + current.diagnostic());
+                });
+            final ExactCurrentRow dispatched = afterSelection.get() == null
+                ? null : afterSelection.get().row();
+            if (dispatched == null) {
+                throw new RowRelocationException(
+                    "active exact row was not recorded after the selection click");
+            }
+            return RowDispatchResult.success(dispatch, dispatched);
+        } catch (RowRelocationException retry) {
+            final ExactRowResolution resolved = afterSelection.get();
+            final String reason = !identityChange.get().isBlank() ? identityChange.get()
+                : !stateChange.get().isBlank() ? stateChange.get()
+                : resolved == null ? retry.getMessage() : resolved.reason();
+            final String detail = captured.diagnostic() + " afterLeft="
+                + (resolved == null ? "unavailable" : resolved.diagnostic());
+            if (!identityChange.get().isBlank() || !stateChange.get().isBlank()) {
+                return RowDispatchResult.rejected(detail, "after-left", reason);
+            }
+            return RowDispatchResult.retry(detail, "after-left", reason);
+        }
+    }
+
+    private static ExactRowResolution resolveExactActiveRow(
+        final ExactCapturedRow captured, final ExactHostRowTarget.HostAccessContext context) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            return ExactRowResolution.unavailable("exact row resolution must run on EDT");
+        }
+        final List<ExactCurrentRow> rows = new ArrayList<>();
+        for (final Window window : Window.getWindows()) {
+            if (!window.isShowing() || !componentIdentity(window).equals(captured.windowIdentity())) {
+                continue;
+            }
+            collectExactCurrentRows(window, captured, context, rows);
+        }
+        return resolveExactActiveRow(captured, rows);
+    }
+
+    private static void collectExactCurrentRows(final Container container,
+        final ExactCapturedRow captured, final ExactHostRowTarget.HostAccessContext context,
+        final List<ExactCurrentRow> rows) {
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JTable table && isLiveComponent(table)) {
+                final Object model = table.getModel();
+                if (model != null && ExactHostRowTarget.isReviewedTableModelClass(
+                    model.getClass())) {
+                    for (int row = 0; row < table.getRowCount(); row++) {
+                        final ExactHostRowTarget.Resolution resolution =
+                            ExactHostRowTarget.resolve(table, row, context);
+                        if (!resolution.available()
+                            || !resolution.target().identity().equals(captured.identity())) {
+                            continue;
+                        }
+                        final ExactHostRowTarget.Target target = resolution.target();
+                        final ExactCapturedRow descriptor = new ExactCapturedRow(
+                            target.identity(), componentIdentity(table),
+                            componentIdentity(SwingUtilities.getWindowAncestor(table)),
+                            objectIdentity(model), target.viewRow(), target.modelRow(),
+                            target.nameCell(), target.state());
+                        rows.add(new ExactCurrentRow(descriptor, table));
+                    }
+                }
+            }
+            if (component instanceof Container child) {
+                collectExactCurrentRows(child, captured, context, rows);
+            }
+        }
+    }
+
+    /** Package-private seam for the exact GUI resolver; unlike the legacy resolver it has no key fallback. */
+    static ExactRowResolution resolveExactActiveRowForTest(final ExactCapturedRow captured,
+        final List<ExactCurrentRow> currentRows) {
+        return resolveExactActiveRow(captured, currentRows);
+    }
+
+    private static ExactRowResolution resolveExactActiveRow(final ExactCapturedRow captured,
+        final List<ExactCurrentRow> currentRows) {
+        if (captured == null) return ExactRowResolution.unavailable("captured exact row is unavailable");
+        if (captured.identity() == null) {
+            return ExactRowResolution.unavailable("captured exact row identity is unavailable");
+        }
+        if (!ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME.equals(
+            captured.identity().sourceClass())) {
+            return ExactRowResolution.unavailable(
+                "captured exact row source class is not the supported ArtMesh class");
+        }
+        final List<ExactCurrentRow> all = currentRows == null ? List.of() : currentRows;
+        final List<ExactCurrentRow> sameWindow = all.stream()
+            .filter(row -> row != null && row.descriptor() != null)
+            .filter(row -> captured.windowIdentity().equals(row.descriptor().windowIdentity()))
+            .filter(row -> captured.identity().equals(row.descriptor().identity()))
+            .filter(row -> isLiveComponent(row.component()))
+            .filter(row -> validBounds(row.descriptor().nameCell().bounds()))
+            .toList();
+        if (sameWindow.isEmpty()) {
+            final boolean otherWindow = all.stream()
+                .filter(row -> row != null && row.descriptor() != null)
+                .anyMatch(row -> captured.identity().equals(row.descriptor().identity())
+                    && !captured.windowIdentity().equals(row.descriptor().windowIdentity()));
+            return ExactRowResolution.unavailable(otherWindow
+                ? "matching exact row exists only in another window"
+                : "no live exact row matches family/source/domain identity");
+        }
+        if (sameWindow.size() > 1) {
+            return ExactRowResolution.unavailable(
+                "exact row identity is ambiguous in captured window: " + sameWindow.size());
+        }
+        return ExactRowResolution.available(sameWindow.get(0));
+    }
+
+    private static boolean sameExactState(final ExactCapturedRow captured,
+        final ExactCurrentRow current) {
+        return current != null && captured.state().equals(current.descriptor().state());
+    }
+
+    static boolean sameExactStateForTest(final ExactCapturedRow captured,
+        final ExactCurrentRow current) {
+        return sameExactState(captured, current);
+    }
+
+    /** Test seam for the same identity/state/coordinate gate used by the live exact dispatcher. */
+    static RightClickDispatch dispatchExactResolvedRowForTest(
+        final ExactCapturedRow captured, final ExactCurrentRow selected,
+        final ExactCurrentRow refreshed) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            return RightClickDispatch.notDispatched("exact test dispatch must run on EDT");
+        }
+        return dispatchExactResolvedSelection(captured, selected, true,
+            () -> refreshed == null ? ExactRowResolution.unavailable("refreshed row unavailable")
+                : ExactRowResolution.available(refreshed)).dispatch();
+    }
+
+    private static String exactStateChange(final ExactCapturedRow captured,
+        final ExactCurrentRow current) {
+        return "visible/locked changed: before=" + captured.state()
+            + " after=" + (current == null ? "unavailable" : current.descriptor().state());
+    }
+
+    private static String exactRowDispatchPrefix(final ExactCapturedRow captured,
+        final ExactCurrentRow selection) {
+        return "capture=" + captured.diagnostic()
+            + " selection=" + selection.diagnostic()
+            + " selectionStateUnchanged=" + sameExactState(captured, selection) + " ";
+    }
+
+    private static String objectIdentity(final Object value) {
+        if (value == null) return "null";
+        return value.getClass().getName() + '@'
+            + Integer.toHexString(System.identityHashCode(value));
+    }
+
+    private static String requireIdentityText(final String value, final String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        return value;
+    }
+
+    /**
+     * Offline-only generic resolver seams retained for regression tests. {@link #runGui} never
+     * calls these widgets or their label/value keys; the live GUI path is exact-table-only.
+     */
     private sealed interface RowWidget {
         String name();
         List<CapturedRow> captureRows() throws Exception;
@@ -2188,7 +2619,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             + " " + popup.diagnostic();
         return new RowAttempt(popup.popup(), popup.popupCount(), diagnostic, failureTrace,
             rowResult == null ? -1 : rowResult.row(),
-            rowResult == null ? "" : rowResult.component());
+            rowResult == null ? "" : rowResult.component(), false);
     }
 
     private static RowDispatchResult dispatchCapturedRow(final CapturedRow captured,
@@ -2308,7 +2739,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             triggerOnPress, diagnosticPrefix
                 + " dispatchWidget=" + componentIdentity(target.component())
                 + " dispatchState=" + componentState(target.component())
-                + " dispatchCoordinates=(" + target.x() + ',' + target.y() + ") ");
+                + " dispatchCoordinates=(" + target.x() + ',' + target.y() + ") "
+                + (target.diagnostic().isBlank() ? "" : target.diagnostic() + " "));
     }
 
     private static RightClickDispatch dispatchRightClickEvents(final Component target,
@@ -3011,7 +3443,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private record RowAttempt(JPopupMenu popup, int popupCount, String diagnostic,
-        String dispatchFailureTrace, int dispatchRow, String dispatchComponent) {
+        String dispatchFailureTrace, int dispatchRow, String dispatchComponent,
+        boolean terminalRejection) {
         RowAttempt {
             diagnostic = diagnostic == null ? "" : diagnostic;
             dispatchFailureTrace = dispatchFailureTrace == null ? "" : dispatchFailureTrace;
@@ -3078,25 +3511,135 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         boolean available() { return row != null; }
     }
 
+    private record ExactTableRef(JTable table, Class<?> modelClass, String widgetIdentity,
+        String windowIdentity, String modelIdentity) {
+        String diagnostic() {
+            return "widget=" + widgetIdentity + " window=" + windowIdentity
+                + " model=" + modelIdentity + " modelClass=" + modelClass.getName();
+        }
+    }
+
+    static record ExactCapturedRow(ExactHostRowTarget.Identity identity,
+        String widgetIdentity, String windowIdentity, String modelIdentity, int viewRow,
+        int modelRow, ExactHostRowTarget.NameCell nameCell,
+        ExactHostRowTarget.VisibilityLockState state) {
+        ExactCapturedRow {
+            Objects.requireNonNull(identity, "identity");
+            widgetIdentity = requireIdentityText(widgetIdentity, "widgetIdentity");
+            windowIdentity = requireIdentityText(windowIdentity, "windowIdentity");
+            modelIdentity = requireIdentityText(modelIdentity, "modelIdentity");
+            if (viewRow < 0 || modelRow < 0) {
+                throw new IllegalArgumentException("exact row coordinates must not be negative");
+            }
+            Objects.requireNonNull(nameCell, "nameCell");
+            Objects.requireNonNull(state, "state");
+        }
+
+        String diagnostic() {
+            return "identity=" + identity
+                + " widget=" + widgetIdentity
+                + " window=" + windowIdentity
+                + " model=" + modelIdentity
+                + " viewRow=" + viewRow
+                + " modelRow=" + modelRow
+                + " nameCell=" + nameCell.bounds()
+                + " click=" + nameCell.clickPoint()
+                + " state=" + state;
+        }
+    }
+
+    static record ExactCurrentRow(ExactCapturedRow descriptor, Component component) {
+        ExactCurrentRow {
+            Objects.requireNonNull(descriptor, "descriptor");
+            Objects.requireNonNull(component, "component");
+        }
+
+        String diagnostic() {
+            return descriptor.diagnostic() + " componentState=" + componentState(component);
+        }
+    }
+
+    static record ExactRowResolution(ExactCurrentRow row, String reason) {
+        ExactRowResolution {
+            reason = reason == null ? "" : reason;
+            if (row == null && reason.isBlank()) reason = "exact row unavailable";
+        }
+
+        static ExactRowResolution available(final ExactCurrentRow row) {
+            return new ExactRowResolution(Objects.requireNonNull(row, "row"), "");
+        }
+
+        static ExactRowResolution unavailable(final String reason) {
+            return new ExactRowResolution(null, reason);
+        }
+
+        boolean available() { return row != null; }
+
+        String diagnostic() {
+            return row == null ? "unavailable=" + reason : row.diagnostic();
+        }
+    }
+
+    private record ExactDispatchCapture(ExactCapturedRow captured,
+        ExactHostRowTarget.HostAccessContext context) {
+        String diagnostic() { return captured.diagnostic(); }
+    }
+
+    private record ExactCapture(List<ExactDispatchCapture> rows, List<String> tableDiagnostics,
+        String diagnostic, boolean hostAvailable) {
+        ExactCapture {
+            rows = List.copyOf(rows);
+            tableDiagnostics = List.copyOf(tableDiagnostics);
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+    }
+
     /** Coordinates and component chosen immediately before a popup-trigger dispatch. */
-    static record DispatchTarget(Component component, int x, int y) {
+    static record DispatchTarget(Component component, int x, int y, String diagnostic) {
+        DispatchTarget(final Component component, final int x, final int y) {
+            this(component, x, y, "");
+        }
+
+        DispatchTarget {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
     }
 
     private record RowDispatchResult(RightClickDispatch dispatch, int row, String component,
-        boolean retryable, String phase, String reason) {
+        boolean retryable, String phase, String reason, boolean terminalRejection) {
         static RowDispatchResult success(final RightClickDispatch dispatch,
             final CurrentRow row) {
             return new RowDispatchResult(dispatch, row.row(), componentIdentity(row.component()),
-                false, "", "");
+                false, "", "", false);
+        }
+
+        static RowDispatchResult success(final RightClickDispatch dispatch,
+            final ExactCurrentRow row) {
+            return new RowDispatchResult(dispatch, row.descriptor().viewRow(),
+                componentIdentity(row.component()), false, "", "", false);
         }
 
         static RowDispatchResult retry(final CapturedRow captured, final String phase,
             final String reason) {
+            return retry(captured.diagnostic(), phase, reason);
+        }
+
+        static RowDispatchResult retry(final String captureDiagnostic, final String phase,
+            final String reason) {
             final String actual = reason == null || reason.isBlank() ? "unknown" : reason;
             return new RowDispatchResult(
-                RightClickDispatch.notDispatched("capture=" + captured.diagnostic()
+                RightClickDispatch.notDispatched("capture=" + captureDiagnostic
                     + " phase=" + phase + " reason=" + actual),
-                -1, "", true, phase, actual);
+                -1, "", true, phase, actual, false);
+        }
+
+        static RowDispatchResult rejected(final String captureDiagnostic, final String phase,
+            final String reason) {
+            final String actual = reason == null || reason.isBlank() ? "unknown" : reason;
+            return new RowDispatchResult(
+                RightClickDispatch.notDispatched("capture=" + captureDiagnostic
+                    + " phase=" + phase + " reason=" + actual),
+                -1, "", false, phase, actual, true);
         }
     }
 

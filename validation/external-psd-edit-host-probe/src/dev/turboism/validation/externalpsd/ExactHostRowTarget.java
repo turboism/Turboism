@@ -67,6 +67,15 @@ public final class ExactHostRowTarget {
     private ExactHostRowTarget() { }
 
     /**
+     * Cheap discovery gate used on the EDT before the off-EDT artifact preflight. This checks
+     * only the reviewed binary name; {@link #prepareHostAccess(Class)} still verifies the exact
+     * class identity, loader, code source, digest, and accessor shape.
+     */
+    static boolean isReviewedTableModelClass(final Class<?> modelClass) {
+        return modelClass != null && TABLE_MODEL_CLASS_NAME.equals(modelClass.getName());
+    }
+
+    /**
      * Immutable identity issued by the off-EDT host preflight. The constructor is private so a
      * caller cannot manufacture a context from a claimed hash, path, or boolean. A context binds
      * the exact loader, all classes used by the accessor chain, and the code-source artifact.

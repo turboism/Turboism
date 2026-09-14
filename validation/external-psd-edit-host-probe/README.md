@@ -71,25 +71,32 @@ replace this RGB gate. The target hash arrives via
 ## gui
 
 Loads alongside the production `external-psd-edit` plugin jar (`EXTERNAL_PSD_WITH_PLUGIN`),
-dispatches a real popup-trigger right-click on visible `JTree`, `JTable`, or `JList` rows until
-a popup exposes the contributed item (`Edit PSD Externally`), clicks it, waits for the plugin's own
-`turboism-psd-*` session file, writes a mutated save, and verifies the plugin auto-imports
-it for the resolved target: the target must start with `isReplaced=false`, and success requires
-the same binding, generation, and raw image with `isReplaced` changing `false→true`. Any
-binding, generation, or raw-target change is stale evidence and is not success; an initial
-`isReplaced=true` target is `BLOCKED` because no new replacement can be observed. `BLOCKED`
-(not `FAIL`) when no popup can be raised — a blocked run terminates fast through the runner
-`--failure-marker`.
+discovers only a visible host `JTable` whose actual model class is the reviewed
+`com.live2d.ui.treeTable.j`, and performs the expensive artifact/shape preflight once per host
+classloader off the EDT. The returned private access context is reused by EDT row resolution;
+an unavailable or unverified host is `BLOCKED`, not a generic Swing fallback.
 
-Each captured row records its widget identity, row key, and bounds. Immediately before dispatch,
-the probe runs on the EDT and requires a showing, displayable widget with a parent and valid
-bounds. The selection click is followed by a second EDT validation; if the host replaced the
-table, the probe relocates a unique matching row by its full length-prefixed value key and fresh
-bounds, up to three attempts. Candidates must remain in the captured window: a same-type row in
-another window is rejected. Ambiguous, unavailable-key, or unrelocatable rows are rejected
-without a right-click; default `ClassName@identity` text is not a row key. Popup association is
-limited to a new or successfully dismissed popup from that attempt. Renderer preparation is
-diagnostic-only and runs after the right-click, or is skipped for a detached table.
+The selected SDK ArtMesh's complete domain ID is matched against the exact host accessor chain
+(`j.a` backing tree model → `j.b` JTree → node source → `getId().getIdString()`). Parts/deformer
+family and exact ArtMesh source class are retained in the target identity. A target is clicked
+only when it is unique in the captured window. The name model column is fixed at index `2` and
+converted to the current view column; its visible cell bounds supply both selection and popup
+coordinates. Draw/Lock columns, labels, row numbers, arbitrary JTree/JList rows, and other
+windows cannot be fallbacks.
+
+Before the left selection click and again immediately before the right-click, the EDT validates
+showing/displayable/parent state, fresh row bounds, family/source/domain identity, and visible/
+locked state. A detached or replaced table is re-resolved by the same identity with a bounded
+three-attempt retry. Any visible/locked change is rejected and recorded; the probe does not
+restore it. Diagnostics include complete capture/selection/after-left widget, window, model,
+row, identity, state, and coordinate fields. Popup association remains limited to a new or
+successfully dismissed popup from that attempt, with exactly one platform popup trigger.
+
+After the menu click, GUI success is limited to this fixture's first replacement observation:
+the target must start with `isReplaced=false`, and the same binding, generation, and raw image
+must remain unchanged while `isReplaced` changes `false→true`. A binding/generation/raw change,
+or initial `isReplaced=true`, is stale/blocked evidence rather than success. This does not claim
+content-difference or repeated-save persistence coverage.
 
 ## Validation-only decoder
 
@@ -112,7 +119,24 @@ bash validation/external-psd-edit-host-probe/test.sh
 ```
 
 `test.sh` runs the decoder's standalone main and the probe's offline focused main; neither
-starts Cubism or enqueues a host job.
+starts Cubism or enqueues a host job. The default helper test is portable and prints
+`SHAPE=NOT_RUN`; that output is not a real-host shape result. The test-only exact-name fixture is
+compiled only into the temporary test output, and the probe JAR asserts that it contains no
+`com/live2d/` entries.
+
+To run and record the real-JAR shape check, configure both the reviewed host JAR and its linking
+dependencies explicitly. `--shape` makes missing configuration a nonzero failure instead of a
+skip:
+
+```bash
+TURBOISM_EXTERNAL_PSD_SHAPE_JAR=/path/Live2D_Cubism.jar \
+TURBOISM_EXTERNAL_PSD_SHAPE_CLASSPATH=/path/kotlin-stdlib-1.7.21.jar:/path/jdom-1.1.jar \
+  bash validation/external-psd-edit-host-probe/test.sh --shape
+```
+
+The command must print `SHAPE=PASS` and exit `0` before an actual-host claim is made. Equivalent
+system properties are `turboism.validation.externalpsd.shapeJar`,
+`turboism.validation.externalpsd.shapeClasspath`, and `...shapeRequired=true`.
 
 ## Exact-host run (queued, serialized)
 
