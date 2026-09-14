@@ -3,6 +3,7 @@ package dev.turboism.validation.externalpsd;
 import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.io.ByteArrayOutputStream;
@@ -21,12 +22,16 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
+import javax.swing.SwingUtilities;
+import javax.swing.table.DefaultTableModel;
 
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
@@ -44,6 +49,7 @@ public final class ExternalPsdEditHostProbeTest {
         testRightClickDispatchFailure();
         testReplacedTargetAfterSelection();
         testUnrelocatableTargetIsRejected();
+        testExactRowResolverAndDispatchGuards();
         testActiveRowResolver();
         testStableRowKeySafety();
         testBoundedRowDispatches();
@@ -789,6 +795,132 @@ public final class ExternalPsdEditHostProbeTest {
             "row relocation retries are bounded");
     }
 
+    private static void testExactRowResolverAndDispatchGuards() throws Exception {
+        final String sourceClass = ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME;
+        final ExactHostRowTarget.Identity capturedIdentity = new ExactHostRowTarget.Identity(
+            ExactHostRowTarget.RowFamily.PARTS, sourceClass, "ArtMesh4");
+        final ExternalPsdEditHostProbe.ExactCapturedRow captured = exactCapturedRow(
+            capturedIdentity, "capture-table", "capture-window", "capture-model", 2,
+            true, false);
+        final LiveComponent rebuiltComponent = new LiveComponent();
+        final ExternalPsdEditHostProbe.ExactCurrentRow rebuilt = exactCurrentRow(
+            capturedIdentity, "replacement-table", "capture-window", "replacement-model", 8,
+            true, false, rebuiltComponent);
+        final var relocated = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+            captured, List.of(rebuilt));
+        assertTrue(relocated.available(), "same family/source/domain identity relocates after rebuild");
+        assertSame(rebuiltComponent, relocated.row().component(),
+            "same domain ID selects the rebuilt component");
+        assertEquals(8, relocated.row().descriptor().viewRow(),
+            "rebuild relocation uses the fresh row, not the captured row index");
+
+        final var differentId = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+            captured, List.of(exactCurrentRow(
+                new ExactHostRowTarget.Identity(ExactHostRowTarget.RowFamily.PARTS,
+                    sourceClass, "ArtMesh5"), "other-table", "capture-window", "other-model", 8,
+                true, false, new LiveComponent())));
+        assertTrue(!differentId.available(), "a different captured ArtMesh ID is not a candidate");
+        final var differentFamily = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+            captured, List.of(exactCurrentRow(
+                new ExactHostRowTarget.Identity(ExactHostRowTarget.RowFamily.DEFORMER,
+                    sourceClass, "ArtMesh4"), "other-table", "capture-window", "other-model", 8,
+                true, false, new LiveComponent())));
+        assertTrue(!differentFamily.available(), "a different row family is not a candidate");
+        final LiveComponent mismatchComponent = new LiveComponent();
+        final var mismatchDispatch = onEdt(() ->
+            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+                captured, exactCurrentRow(
+                    new ExactHostRowTarget.Identity(ExactHostRowTarget.RowFamily.PARTS,
+                        sourceClass, "ArtMesh5"), "other-table", "capture-window", "other-model", 2,
+                    true, false, mismatchComponent), rebuilt));
+        assertContains(mismatchDispatch.diagnostic(), "not-dispatched",
+            "different captured domain ID is rejected before any selection event");
+        assertEquals(0, mismatchComponent.mouseEvents().size(),
+            "different target receives no left or right click");
+
+        final var otherWindow = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+            captured, List.of(exactCurrentRow(capturedIdentity, "other-table", "other-window",
+                "other-model", 8, true, false, new LiveComponent())));
+        assertTrue(!otherWindow.available(), "same ID in another window is rejected");
+        assertContains(otherWindow.reason(), "another window",
+            "cross-window exact target rejection is explicit");
+
+        final var ambiguous = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+            captured, List.of(
+                rebuilt,
+                exactCurrentRow(capturedIdentity, "second-table", "capture-window", "second-model",
+                    9, true, false, new LiveComponent())));
+        assertTrue(!ambiguous.available(), "duplicate same-window exact IDs are rejected");
+        assertContains(ambiguous.reason(), "ambiguous",
+            "same-window exact ambiguity is explicit");
+
+        final var changedState = exactCurrentRow(capturedIdentity, "replacement-table",
+            "capture-window", "replacement-model", 8, false, false, rebuiltComponent);
+        assertTrue(!ExternalPsdEditHostProbe.sameExactStateForTest(captured, changedState),
+            "visibility change is not treated as the same exact target state");
+        final var stateDispatch = onEdt(() ->
+            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+                captured, changedState, changedState));
+        assertContains(stateDispatch.diagnostic(), "not-dispatched",
+            "state change is rejected before selection and right-click");
+        assertEquals(0, rebuiltComponent.mouseEvents().size(),
+            "state change does not click or auto-restore the row");
+
+        final NameRecordingTable nameTable = onEdt(NameRecordingTable::new);
+        final ExactHostRowTarget.NameCell nameCell = onEdt(() ->
+            ExactHostRowTarget.nameCellForTest(nameTable, 0).orElseThrow());
+        final ExactHostRowTarget.Identity nameIdentity = new ExactHostRowTarget.Identity(
+            ExactHostRowTarget.RowFamily.DEFORMER, sourceClass, "ArtMesh4");
+        final ExternalPsdEditHostProbe.ExactCapturedRow nameCaptured =
+            new ExternalPsdEditHostProbe.ExactCapturedRow(nameIdentity, "name-table",
+                "name-window", "name-model", nameCell.viewRow(), nameCell.modelRow(), nameCell,
+                new ExactHostRowTarget.VisibilityLockState(true, false));
+        final ExternalPsdEditHostProbe.ExactCurrentRow nameCurrent =
+            new ExternalPsdEditHostProbe.ExactCurrentRow(nameCaptured, nameTable);
+        final var offEdtDispatch =
+            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+                nameCaptured, nameCurrent, nameCurrent);
+        assertContains(offEdtDispatch.diagnostic(), "must run on EDT",
+            "exact Swing dispatch seam rejects off-EDT access");
+        assertEquals(0, nameTable.mouseEvents().size(),
+            "off-EDT exact dispatch does not touch the table");
+        final Object drawBefore = nameTable.getModel().getValueAt(0, 0);
+        final Object lockBefore = nameTable.getModel().getValueAt(0, 1);
+        final var nameDispatch = onEdt(() ->
+            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+                nameCaptured, nameCurrent, nameCurrent));
+        assertContains(nameDispatch.diagnostic(), "afterLeft=",
+            "exact dispatch records the refreshed row identity and state");
+        for (final MouseEvent event : nameTable.mouseEvents()) {
+            final int viewColumn = nameTable.columnAtPoint(new Point(event.getX(), event.getY()));
+            assertEquals(ExactHostRowTarget.NAME_MODEL_COLUMN,
+                nameTable.convertColumnIndexToModel(viewColumn),
+                "left/right events use the converted name column, never Draw or Lock");
+        }
+        assertEquals(drawBefore, nameTable.getModel().getValueAt(0, 0),
+            "name-column events do not change Draw state");
+        assertEquals(lockBefore, nameTable.getModel().getValueAt(0, 1),
+            "name-column events do not change Lock state");
+    }
+
+    private static ExternalPsdEditHostProbe.ExactCapturedRow exactCapturedRow(
+        final ExactHostRowTarget.Identity identity, final String widget, final String window,
+        final String model, final int row, final boolean visible, final boolean locked) {
+        final ExactHostRowTarget.NameCell cell = new ExactHostRowTarget.NameCell(
+            row, row, 2, ExactHostRowTarget.NAME_MODEL_COLUMN,
+            new Rectangle(0, row * 20, 120, 20), new Point(60, row * 20 + 10));
+        return new ExternalPsdEditHostProbe.ExactCapturedRow(identity, widget, window, model,
+            row, row, cell, new ExactHostRowTarget.VisibilityLockState(visible, locked));
+    }
+
+    private static ExternalPsdEditHostProbe.ExactCurrentRow exactCurrentRow(
+        final ExactHostRowTarget.Identity identity, final String widget, final String window,
+        final String model, final int row, final boolean visible, final boolean locked,
+        final Component component) {
+        return new ExternalPsdEditHostProbe.ExactCurrentRow(
+            exactCapturedRow(identity, widget, window, model, row, visible, locked), component);
+    }
+
     private static void testActiveRowResolver() {
         final Component original = new RecordingComponent();
         final Component replacement = new RecordingComponent();
@@ -1056,6 +1188,26 @@ public final class ExternalPsdEditHostProbeTest {
         }
     }
 
+    private static <T> T onEdt(final Callable<T> operation) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) return operation.call();
+        final AtomicReference<T> value = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                value.set(operation.call());
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        });
+        if (failure.get() != null) {
+            final Throwable error = failure.get();
+            if (error instanceof Exception exception) throw exception;
+            if (error instanceof Error exception) throw exception;
+            throw new java.lang.reflect.InvocationTargetException(error);
+        }
+        return value.get();
+    }
+
     private static final class RecordingComponent extends Component {
         private final List<MouseEvent> events = new ArrayList<>();
 
@@ -1086,6 +1238,64 @@ public final class ExternalPsdEditHostProbeTest {
         }
 
         private List<MouseEvent> events() { return events; }
+    }
+
+    private static final class LiveComponent extends Component {
+        private final Container parent = new Container();
+        private final List<MouseEvent> mouseEvents = new ArrayList<>();
+
+        private LiveComponent() {
+            enableEvents(AWTEvent.MOUSE_EVENT_MASK);
+        }
+
+        @Override public boolean isShowing() { return true; }
+        @Override public boolean isDisplayable() { return true; }
+        @Override public Container getParent() { return parent; }
+
+        @Override protected void processMouseEvent(final MouseEvent event) {
+            mouseEvents.add(event);
+        }
+
+        private List<MouseEvent> mouseEvents() { return mouseEvents; }
+    }
+
+    private static final class NameRecordingTable extends JTable {
+        private final Container parent = new Container();
+        private final List<MouseEvent> mouseEvents = new ArrayList<>();
+
+        private NameRecordingTable() {
+            super(new DefaultTableModel(
+                new Object[][]{{Boolean.TRUE, Boolean.FALSE, "mesh-name", "overlap"}},
+                new Object[]{"Draw", "Lock", "Name", "Overlap"}));
+            setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+            setRowHeight(24);
+            for (int column = 0; column < getColumnCount(); column++) {
+                getColumnModel().getColumn(column).setPreferredWidth(80);
+            }
+            final var columns = getColumnModel();
+            final var draw = columns.getColumn(0);
+            columns.removeColumn(draw);
+            columns.addColumn(draw);
+            final var lock = columns.getColumn(0);
+            columns.removeColumn(lock);
+            columns.addColumn(lock);
+            setSize(320, 24);
+            doLayout();
+            enableEvents(AWTEvent.MOUSE_EVENT_MASK);
+        }
+
+        @Override public boolean isShowing() { return true; }
+        @Override public boolean isDisplayable() { return true; }
+        @Override public Container getParent() { return parent; }
+        @Override public Rectangle getVisibleRect() {
+            return new Rectangle(0, 0, getWidth(), getHeight());
+        }
+
+        @Override protected void processMouseEvent(final MouseEvent event) {
+            mouseEvents.add(event);
+        }
+
+        private List<MouseEvent> mouseEvents() { return mouseEvents; }
     }
 
     private static final class ThrowingValue {
