@@ -16,10 +16,22 @@ class TextureUploadPreparationTransformerTest {
     @TempDir Path root;
 
     @Test void preservesProfileMipmapNativeErrorsAndCallbackFallback() throws Exception {
-        compileFixture();
+        var fixtureClasses = compileFixture();
         Path owner = root.resolve(TextureUploadPreparationTransformer.TARGET + ".class");
         byte[] original = Files.readAllBytes(owner);
-        try (var loader = new URLClassLoader(new java.net.URL[]{root.toUri().toURL()}, getClass().getClassLoader())) {
+        // The temp-compiled fixture names must resolve to this loader, not to any
+        // same-named fake on the parent test classpath (the shared
+        // com.live2d.graphics.CWritableImage fake keeps its field private).
+        try (var loader = new URLClassLoader(new java.net.URL[]{root.toUri().toURL()}, getClass().getClassLoader()) {
+            @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                synchronized (getClassLoadingLock(name)) {
+                    Class<?> type = findLoadedClass(name);
+                    if (type == null) type = fixtureClasses.contains(name) ? findClass(name) : super.loadClass(name, false);
+                    if (resolve) resolveClass(type);
+                    return type;
+                }
+            }
+        }) {
             var transformer = new TextureUploadPreparationTransformer(loader, null, original);
             byte[] changed = transformer.transform(null, loader, TextureUploadPreparationTransformer.TARGET, null, null, original);
             assertNotNull(changed, transformer.failure());
@@ -36,10 +48,17 @@ class TextureUploadPreparationTransformerTest {
             Object factory = factoryType.getConstructor().newInstance();
             var create = factoryType.getMethod("a", graphicsType, imageType, int.class, String.class);
             Class<?> io = loader.loadClass("com.jogamp.opengl.util.texture.awt.AWTTextureIO");
+            for (Class<?> fixtureType : java.util.List.of(profileType, graphicsType, imageType, factoryType, io))
+                assertSame(loader, fixtureType.getClassLoader(),
+                    "fixture class " + fixtureType.getName() + " must be defined by the temp loader");
+            assertTrue(java.lang.reflect.Modifier.isPublic(imageType.getField("image").getModifiers()),
+                "the temp fixture's public image field must be visible; the parent fake's is private");
             String previous = System.getProperty(TextureUploadPreparationBridge.ENABLE_PROPERTY);
             try (var bridge = new TextureUploadPreparationBridge(profileType)) {
                 System.setProperty(TextureUploadPreparationBridge.ENABLE_PROPERTY,"true"); bridge.install();
                 Object pair = create.invoke(factory,graphics,image,0,"test");
+                assertSame(loader, pair.getClass().getClassLoader(),
+                    "kotlin.Pair must resolve to the temp fixture, not the parent classpath");
                 Object texture = pair.getClass().getField("first").get(pair);
                 BufferedImage actual = (BufferedImage) texture.getClass().getField("image").get(texture);
                 assertNotSame(source,actual); assertTrue(actual.isAlphaPremultiplied());
@@ -75,7 +94,7 @@ class TextureUploadPreparationTransformerTest {
         }
     }
 
-    private void compileFixture() throws Exception {
+    private java.util.Set<String> compileFixture() throws Exception {
         Map<String,String> sources = Map.of(
             "com.jogamp.opengl.GLProfile", "package com.jogamp.opengl; public class GLProfile { public final boolean desktop; public GLProfile(boolean d){desktop=d;} public boolean isGL2GL3(){return desktop;} }",
             "com.live2d.graphics3d.a", "package com.live2d.graphics3d; public class a { public final com.jogamp.opengl.GLProfile profile; public a(com.jogamp.opengl.GLProfile p){profile=p;} }",
@@ -90,5 +109,6 @@ class TextureUploadPreparationTransformerTest {
             Path file=root.resolve(source.getKey().replace('.','/')+".java");Files.createDirectories(file.getParent());Files.writeString(file,source.getValue());args.add(file.toString());
         }
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,args.toArray(String[]::new)));
+        return sources.keySet();
     }
 }
