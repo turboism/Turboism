@@ -1,5 +1,7 @@
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 
 /*
  * Verification is deliberately layered by cost:
@@ -146,14 +148,24 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
 }
 
+// The Javadoc rule parses production sources through the JDK compiler tree API; the JDK 17
+// toolchain path is wired to the checker so it never depends on an incidental system JRE.
+val codeQualityJavaHome = project.extensions.getByType<JavaToolchainService>()
+    .compilerFor { languageVersion.set(JavaLanguageVersion.of(17)) }
+    .map { it.metadata.installationPath.asFile.absolutePath }
+
 val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs negative fixtures proving each code-quality rule fails closed."
     workingDir(rootDir)
     inputs.files(
         "scripts/test/check_code_quality.py",
-        "scripts/test/test_check_code_quality.py"
+        "scripts/test/test_check_code_quality.py",
+        fileTree("scripts/test/java") { include("**/*.java") }
     )
+    doFirst {
+        environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
+    }
     commandLine("python3", "scripts/test/test_check_code_quality.py")
 }
 
@@ -170,6 +182,7 @@ tasks.register<Exec>("checkCodeQuality") {
             "type names, and retired governance tokens in machine assets."
     workingDir(rootDir)
     inputs.files("scripts/test/check_code_quality.py")
+    inputs.files(fileTree("scripts/test/java") { include("**/*.java") })
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
@@ -180,6 +193,7 @@ tasks.register<Exec>("checkCodeQuality") {
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
     doFirst {
+        environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
         val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
         val command = mutableListOf(
             "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
