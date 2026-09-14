@@ -26,19 +26,25 @@ import dev.turboism.sdk.ui.UserFileRequestResult;
 
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
+import javax.swing.JTable;
 import javax.swing.JTree;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
+import javax.swing.table.TableCellRenderer;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dialog;
 import java.awt.Frame;
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.awt.PointerInfo;
 import java.awt.Window;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -1219,6 +1225,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         int attempts = 0;
         int popups = 0;
         final Set<String> menuTexts = new LinkedHashSet<>();
+        final List<String> rowDiagnostics = new ArrayList<>();
         String diagnostic = "no visible row widget found";
         final long deadline = System.currentTimeMillis() + 120_000;
         while (System.currentTimeMillis() < deadline && !stopped) {
@@ -1228,13 +1235,37 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     final int rows = widget.rows();
                     for (int row = 0; row < rows && attempts < rowBudget; row++, attempts++) {
                         if (stopped) return new GuiClick(false, "probe stopped");
-                        final JPopupMenu popup = widget.rightClick(row);
-                        if (popup == null) continue;
-                        popups++;
+                        final RowAttempt rowAttempt = widget.rightClick(row);
+                        popups += rowAttempt.popupCount();
+                        String menuDiagnostic = "no selected popup";
+                        final JPopupMenu popup = rowAttempt.popup();
                         final AtomicReference<JMenuItem> foundItem = new AtomicReference<>();
-                        SwingUtilities.invokeAndWait(() ->
-                            foundItem.set(findItem(popup, labels, menuTexts)));
+                        if (popup != null) {
+                            final Set<String> rowMenuTexts = new LinkedHashSet<>();
+                            final AtomicReference<String> popupMarker = new AtomicReference<>("");
+                            SwingUtilities.invokeAndWait(() -> {
+                                foundItem.set(findItem(popup, labels, rowMenuTexts));
+                                popupMarker.set(popupMarker(popup));
+                            });
+                            menuTexts.addAll(rowMenuTexts);
+                            menuDiagnostic = "selectedPopup=" + popupMarker.get()
+                                + " item=" + (foundItem.get() == null
+                                    ? "none" : foundItem.get().getText())
+                                + " menuTexts=" + rowMenuTexts;
+                        }
+                        final String rowDiagnostic = "attempt=" + (attempts + 1)
+                            + " widget=" + widget.name() + " row=" + row + " "
+                            + rowAttempt.diagnostic() + " " + menuDiagnostic;
+                        rowDiagnostics.add(rowDiagnostic);
+                        result.setProperty("gui.row." + (attempts + 1), rowDiagnostic);
+                        if (!rowAttempt.dispatchFailureTrace().isBlank()) {
+                            result.setProperty("gui.row." + (attempts + 1)
+                                + ".dispatchFailureTrace", rowAttempt.dispatchFailureTrace());
+                        }
+                        context.logger().warn("EXTERNAL_PSD_EDIT_GUI_ATTEMPT " + rowDiagnostic);
+                        result.setProperty("gui.rowDiagnostics", String.join("\n---\n", rowDiagnostics));
                         final JMenuItem item = foundItem.get();
+                        if (popup == null) continue;
                         if (item == null) {
                             dismissPopup();
                             continue;
@@ -1248,13 +1279,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     }
                     diagnostic = "rows exhausted without the item; popups seen " + popups
                         + " widgets=" + widgets.stream().map(RowWidget::name).toList()
-                        + " menuTexts=" + menuTexts;
+                        + " menuTexts=" + menuTexts
+                        + " rowDiagnostics=" + String.join(" || ", rowDiagnostics);
                 }
             }
             Thread.sleep(1000);
         }
         result.setProperty("gui.attempts", Integer.toString(attempts));
         result.setProperty("gui.popupsSeen", Integer.toString(popups));
+        result.setProperty("gui.menuTexts", menuTexts.toString());
+        result.setProperty("gui.rowDiagnostics", String.join("\n---\n", rowDiagnostics));
         result.setProperty("gui.hierarchy", hierarchyDigest());
         return new GuiClick(false, diagnostic);
     }
@@ -1263,7 +1297,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private sealed interface RowWidget {
         String name();
         int rows() throws Exception;
-        JPopupMenu rightClick(int row) throws Exception;
+        RowAttempt rightClick(int row) throws Exception;
     }
 
     private record TreeWidget(JTree tree) implements RowWidget {
@@ -1273,15 +1307,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             SwingUtilities.invokeAndWait(() -> rows.set(tree.getRowCount()));
             return rows.get();
         }
-        public JPopupMenu rightClick(final int row) throws Exception {
+        public RowAttempt rightClick(final int row) throws Exception {
             final PopupAttempt attempt = dismissPopup();
-            SwingUtilities.invokeAndWait(() -> {
+            return rowAttempt(attempt, tree, row, () -> {
                 tree.expandRow(row);
                 final var bounds = tree.getRowBounds(row);
-                if (bounds == null) return;
-                dispatchRightClick(tree, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+                if (bounds == null) return RightClickDispatch.notDispatched(
+                    "row bounds unavailable");
+                return dispatchRightClick(tree, bounds.x + bounds.width / 2,
+                    bounds.y + bounds.height / 2);
             });
-            return awaitPopup(attempt);
         }
     }
 
@@ -1292,14 +1327,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             SwingUtilities.invokeAndWait(() -> rows.set(table.getRowCount()));
             return rows.get();
         }
-        public JPopupMenu rightClick(final int row) throws Exception {
+        public RowAttempt rightClick(final int row) throws Exception {
             final PopupAttempt attempt = dismissPopup();
-            SwingUtilities.invokeAndWait(() -> {
+            return rowAttempt(attempt, table, row, () -> {
                 final var bounds = table.getCellRect(row, 0, true);
-                if (bounds == null) return;
-                dispatchRightClick(table, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+                if (bounds == null) return RightClickDispatch.notDispatched(
+                    "cell bounds unavailable");
+                return dispatchRightClick(table, bounds.x + bounds.width / 2,
+                    bounds.y + bounds.height / 2);
             });
-            return awaitPopup(attempt);
         }
     }
 
@@ -1310,15 +1346,49 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             SwingUtilities.invokeAndWait(() -> rows.set(list.getModel().getSize()));
             return rows.get();
         }
-        public JPopupMenu rightClick(final int row) throws Exception {
+        public RowAttempt rightClick(final int row) throws Exception {
             final PopupAttempt attempt = dismissPopup();
-            SwingUtilities.invokeAndWait(() -> {
+            return rowAttempt(attempt, list, row, () -> {
                 final var bounds = list.getCellBounds(row, row);
-                if (bounds == null) return;
-                dispatchRightClick(list, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+                if (bounds == null) return RightClickDispatch.notDispatched(
+                    "cell bounds unavailable");
+                return dispatchRightClick(list, bounds.x + bounds.width / 2,
+                    bounds.y + bounds.height / 2);
             });
-            return awaitPopup(attempt);
         }
+    }
+
+    private static RowAttempt rowAttempt(final PopupAttempt attempt, final Component target,
+        final int row, final java.util.function.Supplier<RightClickDispatch> dispatch)
+        throws Exception {
+        final AtomicReference<RightClickDispatch> outcome = new AtomicReference<>();
+        RightClickDispatchException dispatchFailure = null;
+        try {
+            SwingUtilities.invokeAndWait(() -> outcome.set(dispatch.get()));
+        } catch (InvocationTargetException wrapped) {
+            if (wrapped.getCause() instanceof RightClickDispatchException failure) {
+                dispatchFailure = failure;
+            } else {
+                throw wrapped;
+            }
+        }
+        final PopupCapture popup = awaitPopup(attempt);
+        final RightClickDispatch dispatchResult = outcome.get();
+        final String dispatchDiagnostic = dispatchResult != null
+            ? dispatchResult.diagnostic()
+            : dispatchFailure != null
+                ? dispatchFailure.dispatch().diagnostic()
+                : "not-dispatched";
+        final String failureTrace = dispatchFailure == null ? ""
+            : stackTrace(dispatchFailure);
+        final String diagnostic = "target=" + componentIdentity(target)
+            + " row=" + row
+            + " " + dispatchDiagnostic
+            + (failureTrace.isBlank() ? "" : " dispatchExceptionTrace=" + failureTrace)
+            + " popupCount=" + popup.popupCount()
+            + " popupMaxCount=" + popup.maxPopupCount()
+            + " " + popup.diagnostic();
+        return new RowAttempt(popup.popup(), popup.popupCount(), diagnostic, failureTrace);
     }
 
     private static void dispatchLeftClick(final Component target, final int x, final int y) {
@@ -1331,43 +1401,220 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
     }
 
-    static void dispatchRightClick(final Component target, final int x, final int y) {
-        dispatchRightClick(target, x, y,
+    static RightClickDispatch dispatchRightClick(final Component target, final int x, final int y) {
+        return dispatchRightClick(target, x, y,
             popupTriggerOnPress(System.getProperty("os.name", "")));
     }
 
-    static void dispatchRightClick(final Component target, final int x, final int y,
+    static RightClickDispatch dispatchRightClick(final Component target, final int x, final int y,
         final boolean triggerOnPress) {
         dispatchLeftClick(target, x, y);
         final long now = System.currentTimeMillis();
-        // Swing's popup-trigger phase is platform-specific. Dispatch exactly one trigger so a
-        // host that builds a popup in both handlers does not create two menus for one click.
+        final MouseEvent pressed = new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
+            InputEvent.BUTTON3_DOWN_MASK, x, y, 1, triggerOnPress, MouseEvent.BUTTON3);
+        final MouseEvent released = new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
+            InputEvent.BUTTON3_DOWN_MASK, x, y, 1, !triggerOnPress, MouseEvent.BUTTON3);
+        final RightClickDispatch dispatch = new RightClickDispatch(
+            "synthetic=" + mouseEventMarker(pressed) + "," + mouseEventMarker(released)
+                + " triggerPhase=" + (triggerOnPress ? "MOUSE_PRESSED" : "MOUSE_RELEASED")
+                + " target=" + componentState(target)
+                + " renderer=" + rendererState(target, x, y)
+                + " pointer=" + pointerState());
+        final List<DispatchFailure> failures = new ArrayList<>();
         try {
-            target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
-                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, triggerOnPress, MouseEvent.BUTTON3));
-        } catch (RuntimeException ignored) {
+            target.dispatchEvent(pressed);
+        } catch (RuntimeException failure) {
+            failures.add(new DispatchFailure("MOUSE_PRESSED", failure));
         }
         try {
-            target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
-                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, !triggerOnPress, MouseEvent.BUTTON3));
-        } catch (RuntimeException ignored) {
+            target.dispatchEvent(released);
+        } catch (RuntimeException failure) {
+            failures.add(new DispatchFailure("MOUSE_RELEASED", failure));
         }
+        if (!failures.isEmpty()) throw new RightClickDispatchException(dispatch, failures);
+        return dispatch;
     }
 
     static boolean popupTriggerOnPress(final String osName) {
         return !(osName == null ? "" : osName).toLowerCase(Locale.ROOT).contains("win");
     }
 
-    private static JPopupMenu awaitPopup(final PopupAttempt attempt) throws Exception {
+    private static PopupCapture awaitPopup(final PopupAttempt attempt) throws Exception {
         // The host may build and show the popup asynchronously after the event returns.
+        final List<String> polls = new ArrayList<>();
+        PopupSnapshot last = new PopupSnapshot(null, 0, "none", "[]");
+        int maxPopupCount = 0;
         for (int poll = 0; poll < 20; poll++) {
-            final AtomicReference<JPopupMenu> opened = new AtomicReference<>();
-            SwingUtilities.invokeAndWait(() -> opened.set(popupForAttempt(
-                attempt.visibleBefore(), attempt.dismissed(), popupMenus(true))));
-            if (opened.get() != null) return opened.get();
+            final AtomicReference<PopupSnapshot> snapshot = new AtomicReference<>();
+            SwingUtilities.invokeAndWait(() -> {
+                final List<JPopupMenu> visibleAfter = popupMenus(true);
+                final JPopupMenu associated = popupForAttempt(
+                    attempt.visibleBefore(), attempt.dismissed(), visibleAfter);
+                snapshot.set(new PopupSnapshot(associated, visibleAfter.size(),
+                    popupAssociation(attempt, associated), popupMarkers(visibleAfter)));
+            });
+            last = snapshot.get();
+            maxPopupCount = Math.max(maxPopupCount, last.popupCount());
+            polls.add("poll=" + poll + " popupCount=" + last.popupCount()
+                + " association=" + last.association() + " menus=" + last.markers());
+            if (last.popup() != null) {
+                return new PopupCapture(last.popup(), last.popupCount(), maxPopupCount,
+                    popupDiagnostic(polls));
+            }
             Thread.sleep(150);
         }
-        return null;
+        return new PopupCapture(null, last.popupCount(), maxPopupCount,
+            popupDiagnostic(polls));
+    }
+
+    private static String popupAssociation(final PopupAttempt attempt,
+        final JPopupMenu popup) {
+        if (popup == null) return "none";
+        if (containsIdentity(attempt.dismissed(), popup)) return "reused-dismissed";
+        if (containsIdentity(attempt.visibleBefore(), popup)) return "stale-visible-before";
+        return "new";
+    }
+
+    private static String popupDiagnostic(final List<String> polls) {
+        if (polls.isEmpty()) return "popupPolls=0";
+        return "popupPolls=" + polls.size() + " last=" + polls.get(polls.size() - 1)
+            + " history=" + String.join(" || ", polls);
+    }
+
+    private static String popupMarkers(final List<JPopupMenu> popups) {
+        final List<String> markers = new ArrayList<>(popups.size());
+        for (JPopupMenu popup : popups) markers.add(popupMarker(popup));
+        return markers.toString();
+    }
+
+    /** Returns an identity and Swing visibility marker without reading host-private state. */
+    static String popupMarker(final JPopupMenu popup) {
+        if (popup == null) return "null";
+        final StringBuilder marker = new StringBuilder(componentState(popup));
+        marker.append(" invoker=").append(componentState(popup.getInvoker()));
+        marker.append(" components=");
+        appendMenuComponents(popup, marker, 0);
+        return marker.toString();
+    }
+
+    private static void appendMenuComponents(final Container container,
+        final StringBuilder marker, final int depth) {
+        marker.append('[');
+        final Component[] components = container.getComponents();
+        for (int index = 0; index < components.length; index++) {
+            if (index > 0) marker.append(", ");
+            final Component component = components[index];
+            marker.append(index).append(':').append(menuComponentMarker(component));
+            if (depth < 4 && component instanceof Container child) {
+                marker.append(" children=");
+                appendMenuComponents(child, marker, depth + 1);
+            }
+        }
+        marker.append(']');
+    }
+
+    private static String menuComponentMarker(final Component component) {
+        final StringBuilder marker = new StringBuilder(componentState(component));
+        if (component instanceof JMenuItem item) {
+            marker.append(" menuItem=true text=").append(quoted(item.getText()))
+                .append(" actionCommand=").append(quoted(item.getActionCommand()));
+        }
+        return marker.toString();
+    }
+
+    private static String quoted(final String value) {
+        if (value == null) return "<null>";
+        return "'" + value.replace("\\", "\\\\")
+            .replace("\r", "\\r").replace("\n", "\\n") + "'";
+    }
+
+    private static String componentIdentity(final Component component) {
+        if (component == null) return "null";
+        return component.getClass().getName() + '@'
+            + Integer.toHexString(System.identityHashCode(component));
+    }
+
+    private static String componentState(final Component component) {
+        if (component == null) return "null";
+        final Container parent = component.getParent();
+        return componentIdentity(component)
+            + "{visible=" + component.isVisible()
+            + ",showing=" + component.isShowing()
+            + ",displayable=" + component.isDisplayable()
+            + ",enabled=" + component.isEnabled()
+            + ",parent=" + componentIdentity(parent)
+            + ",locationOnScreen=" + locationOnScreen(component) + '}';
+    }
+
+    private static String locationOnScreen(final Component component) {
+        try {
+            final Point point = component.getLocationOnScreen();
+            return '(' + Integer.toString(point.x) + ',' + Integer.toString(point.y) + ')';
+        } catch (RuntimeException failure) {
+            return "<" + failure + ">";
+        }
+    }
+
+    private static String rendererState(final Component target, final int x, final int y) {
+        if (!(target instanceof JTable table)) return "not-JTable";
+        final Point point = new Point(x, y);
+        final int row = table.rowAtPoint(point);
+        final int column = table.columnAtPoint(point);
+        if (row < 0 || column < 0) {
+            return "cell=none row=" + row + " column=" + column;
+        }
+        try {
+            final TableCellRenderer renderer = table.getCellRenderer(row, column);
+            final Component prepared = table.prepareRenderer(renderer, row, column);
+            return "cell=" + row + "," + column
+                + " renderer=" + rendererIdentity(renderer)
+                + " prepared=" + componentState(prepared);
+        } catch (RuntimeException failure) {
+            return "cell=" + row + "," + column
+                + " rendererError=" + failure;
+        }
+    }
+
+    private static String rendererIdentity(final TableCellRenderer renderer) {
+        if (renderer == null) return "null";
+        if (renderer instanceof Component component) return componentIdentity(component);
+        return renderer.getClass().getName() + '@'
+            + Integer.toHexString(System.identityHashCode(renderer));
+    }
+
+    private static String pointerState() {
+        try {
+            final PointerInfo pointer = MouseInfo.getPointerInfo();
+            if (pointer == null) return "null";
+            final Point location = pointer.getLocation();
+            return '(' + Integer.toString(location.x) + ',' + Integer.toString(location.y) + ')';
+        } catch (RuntimeException failure) {
+            return "<" + failure + ">";
+        }
+    }
+
+    private static String mouseEventMarker(final MouseEvent event) {
+        return "{" + mouseEventName(event.getID())
+            + ",local=(" + event.getX() + ',' + event.getY() + ')'
+            + ",screen=(" + event.getXOnScreen() + ',' + event.getYOnScreen() + ')'
+            + ",button=" + event.getButton()
+            + ",popupTrigger=" + event.isPopupTrigger()
+            + ",source=" + componentIdentity(event.getComponent()) + '}';
+    }
+
+    private static String mouseEventName(final int id) {
+        return switch (id) {
+            case MouseEvent.MOUSE_PRESSED -> "MOUSE_PRESSED";
+            case MouseEvent.MOUSE_RELEASED -> "MOUSE_RELEASED";
+            case MouseEvent.MOUSE_CLICKED -> "MOUSE_CLICKED";
+            default -> Integer.toString(id);
+        };
+    }
+
+    private static String stackTrace(final Throwable failure) {
+        final StringWriter trace = new StringWriter();
+        failure.printStackTrace(new java.io.PrintWriter(trace));
+        return trace.toString();
     }
 
     private record GuiClick(boolean clicked, String diagnostic) {
@@ -1585,6 +1832,59 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private record PopupAttempt(List<JPopupMenu> visibleBefore,
         List<JPopupMenu> dismissed) {}
+
+    private record PopupSnapshot(JPopupMenu popup, int popupCount,
+        String association, String markers) {}
+
+    private record PopupCapture(JPopupMenu popup, int popupCount, int maxPopupCount,
+        String diagnostic) {
+        PopupCapture {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+    }
+
+    private record RowAttempt(JPopupMenu popup, int popupCount, String diagnostic,
+        String dispatchFailureTrace) {
+        RowAttempt {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+            dispatchFailureTrace = dispatchFailureTrace == null ? "" : dispatchFailureTrace;
+        }
+    }
+
+    static record RightClickDispatch(String diagnostic) {
+        RightClickDispatch {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static RightClickDispatch notDispatched(final String diagnostic) {
+            return new RightClickDispatch("not-dispatched=" + diagnostic);
+        }
+    }
+
+    private record DispatchFailure(String phase, RuntimeException error) {}
+
+    /** Right-click handler failures are rethrown after both popup-trigger phases are attempted. */
+    static final class RightClickDispatchException extends RuntimeException {
+        private final RightClickDispatch dispatch;
+
+        RightClickDispatchException(final RightClickDispatch dispatch,
+            final List<DispatchFailure> failures) {
+            super("right-click dispatch failed phases="
+                + failures.stream().map(DispatchFailure::phase).toList()
+                + " " + dispatch.diagnostic(), phaseFailure(failures.get(0)));
+            this.dispatch = dispatch;
+            for (int index = 1; index < failures.size(); index++) {
+                addSuppressed(phaseFailure(failures.get(index)));
+            }
+        }
+
+        RightClickDispatch dispatch() { return dispatch; }
+    }
+
+    private static RuntimeException phaseFailure(final DispatchFailure failure) {
+        return new RuntimeException("right-click " + failure.phase() + " dispatch failed",
+            failure.error());
+    }
 
     static record GuiTargetState(boolean observed, String binding, long generation, String raw,
         boolean rawReplaced, String diagnostic) {
