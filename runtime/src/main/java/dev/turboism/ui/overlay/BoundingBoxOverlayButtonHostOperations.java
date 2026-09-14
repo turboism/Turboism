@@ -7,6 +7,12 @@ import java.util.List;
 /** Host-sensitive materialization seam invoked from the verified bounding-box update hook. */
 public interface BoundingBoxOverlayButtonHostOperations {
 
+    /**
+     * Installs the bounding-box overlay buttons described by {@code descriptors}.
+     *
+     * @param descriptors the buttons to materialize on the host overlay
+     * @return a registration that removes the installed buttons when disposed
+     */
     Registration install(List<BoundingBoxOverlayButtonDescriptor> descriptors);
 
     /**

@@ -24,6 +24,10 @@ public interface AtlasCacheReuseSettingsService {
     /** Persists the preference; a failure must surface as an exception, never as a silent success. */
     boolean save(boolean value);
 
+    /**
+     * @return a service reporting the default on {@link #read()} and refusing {@link #save(boolean)}
+     *         with {@link IllegalStateException}, for runtimes that cannot persist this preference
+     */
     static AtlasCacheReuseSettingsService unavailable() {
         return new AtlasCacheReuseSettingsService() {
             @Override

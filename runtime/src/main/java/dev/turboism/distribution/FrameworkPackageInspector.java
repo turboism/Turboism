@@ -11,11 +11,20 @@ import java.util.List;
  * read-only - it produces a plan, it never installs anything.
  */
 public interface FrameworkPackageInspector {
+    /**
+     * Inspects one framework package without installing anything.
+     *
+     * @param packagePath the package file to inspect
+     * @return {@link Accepted} with a validated install plan, or {@link Rejected} carrying
+     *         the observed problems; never throws
+     */
     Result inspect(Path packagePath);
 
+    /** The verdict of one inspection. */
     sealed interface Result permits Accepted, Rejected {
     }
 
+    /** Inspection succeeded; carries the validated install plan. */
     final class Accepted implements Result {
         private final FrameworkInstallPlan plan;
 
@@ -35,6 +44,11 @@ public interface FrameworkPackageInspector {
         @Override public String toString() { return "Accepted[plan=" + plan + "]"; }
     }
 
+    /**
+     * Inspection failed closed.
+     *
+     * @param problems the observed problems, copied defensively; never empty
+     */
     record Rejected(List<DistributionProblem> problems) implements Result {
         public Rejected {
             problems = List.copyOf(problems);
