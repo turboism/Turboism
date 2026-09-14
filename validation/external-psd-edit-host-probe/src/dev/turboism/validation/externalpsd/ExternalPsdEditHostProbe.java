@@ -293,6 +293,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final boolean persistValidation = "1".equals(
             System.getProperty("turboism.validation.externalpsd.persist"));
         final TempTracker tracker = new TempTracker();
+        Throwable pipelineFailure = null;
         try {
             final TrackedExport primary = exportTracked(result, target.raw(), tracker, "baseline");
             final Path tempFile = primary.path();
@@ -314,6 +315,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 // not a copy of the first export and is stopped before the save subscription starts.
                 final TrackedExport second = exportTracked(
                     result, target.raw(), tracker, "baselineSecond");
+                Throwable secondaryFailure = null;
                 try {
                     final PsdValidationContent.Fingerprint secondFingerprint = targetFingerprint(
                         Files.readAllBytes(second.path()), "pipeline second baseline");
@@ -322,8 +324,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     result.setProperty("persist.baselineSecondTargetRgbSha256",
                         secondFingerprint.sha256());
                     requireStableBaseline(baselineFingerprint, secondFingerprint);
+                } catch (Exception failure) {
+                    secondaryFailure = failure;
+                    throw failure;
+                } catch (Error failure) {
+                    secondaryFailure = failure;
+                    throw failure;
                 } finally {
-                    tracker.stop(second, result);
+                    stopPreservingPrimary(tracker, second, result, secondaryFailure);
                 }
             }
 
@@ -373,11 +381,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             } finally {
                 subscription.close();
             }
-        }
-        finally {
+        } catch (Exception failure) {
+            pipelineFailure = failure;
+            throw failure;
+        } catch (Error failure) {
+            pipelineFailure = failure;
+            throw failure;
+        } finally {
             // This is also the leak guard for an export whose path discovery or later assertion
             // failed. A failed stop is recorded and prevents any quarantine PASS claim.
-            tracker.stopAll(result);
+            stopAllPreservingPrimary(tracker, result, pipelineFailure);
         }
         result.setProperty("expected", "full pipeline assertions hold");
         result.setProperty("actual", "full pipeline assertions hold");
@@ -398,6 +411,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "reopen requires a canonical lowercase postEditTargetRgbSha256");
         }
         final TempTracker tracker = new TempTracker();
+        Throwable reopenFailure = null;
         try {
             final TrackedExport exported = exportTracked(result, target.raw(), tracker, "reopen");
             final byte[] bytes = Files.readAllBytes(exported.path());
@@ -417,8 +431,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 Boolean.toString(!expectedFile.isBlank()
                     && expectedFile.equals(result.getProperty("reopen.sha256"))));
             requireReopenTarget(expectedTarget, actual);
+        } catch (Exception failure) {
+            reopenFailure = failure;
+            throw failure;
+        } catch (Error failure) {
+            reopenFailure = failure;
+            throw failure;
         } finally {
-            tracker.stopAll(result);
+            stopAllPreservingPrimary(tracker, result, reopenFailure);
         }
         result.setProperty("expected", "reopened fixture retains the external-edit content");
         result.setProperty("actual", "decoded target RGB verified in a fresh native export");
@@ -760,10 +780,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private PsdValidationContent.Fingerprint exportTargetFingerprint(final Properties result,
         final RawImageId raw, final TempTracker tracker, final String label) throws Exception {
         final TrackedExport exported = exportTracked(result, raw, tracker, label);
+        Throwable primary = null;
         try {
             return targetFingerprint(Files.readAllBytes(exported.path()), label);
+        } catch (Exception failure) {
+            primary = failure;
+            throw failure;
+        } catch (Error failure) {
+            primary = failure;
+            throw failure;
         } finally {
-            tracker.stop(exported, result);
+            stopPreservingPrimary(tracker, exported, result, primary);
         }
     }
 
@@ -883,18 +910,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         Mutation lastMutation = null;
         for (int i = 1; i <= cycles; i++) {
             final byte[] current = Files.readAllBytes(tempFile);
-            final Mutation mutation = mutationFor(current, i)
-                .orElseThrow(() -> new IllegalStateException("PSD layer-name mutation failed"));
-            byte[] mutated = applyMutation(current, mutation);
-            final boolean finalCycle = validateTargetContent && isFinalRgbMutationCycle(i, cycles);
-            if (finalCycle) {
-                // The content mutation is deliberately performed once, only for the last valid
-                // cycle. The overlap path below applies another name-only mutation to this same
-                // byte array, so its final write still carries the RGB inversion.
-                mutated = PsdValidationContent.invertTargetLayerRgb(mutated);
-            }
+            final CycleWritePlan plan = prepareSaveCycleBytes(
+                current, i, cycles, validateTargetContent);
+            final Mutation mutation = plan.mutation();
+            final byte[] mutated = plan.firstWrite();
             result.setProperty("cycle." + i + ".targetRgbMutation",
-                finalCycle ? "INVERTED_ONCE" : "UNCHANGED");
+                plan.targetRgbMutated() ? "INVERTED_ONCE" : "UNCHANGED");
             lastMutation = mutation;
             final long writeStart = System.nanoTime();
             if (i == 2) {
@@ -906,13 +927,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             } else if (i == 3) {
                 // Overlapping save: a second distinct write lands inside the debounce
                 // window; latest-pending must win and publish a single revision.
-                final Mutation secondMutation = mutationFor(mutated, i + 100)
-                    .orElseThrow(() -> new IllegalStateException("Second mutation failed"));
-                final byte[] second = applyMutation(mutated, secondMutation);
                 Files.write(tempFile, mutated);
-                Files.write(tempFile, second);
+                Files.write(tempFile, plan.overlapFinalWrite());
                 result.setProperty("cycle." + i + ".overlapFinalContainsRgbMutation",
-                    Boolean.toString(finalCycle));
+                    Boolean.toString(plan.targetRgbMutated()));
             } else {
                 Files.write(tempFile, mutated);
             }
@@ -945,6 +963,47 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             }
         }
         return lastMutation;
+    }
+
+    /**
+     * Prepares the exact bytes written by one save cycle. The production loop uses this seam for
+     * both its atomic sibling move and its overlap second write, while offline tests can verify
+     * decoded fixture content rather than only the selected cycle number.
+     */
+    static CycleWritePlan prepareSaveCycleBytes(final byte[] current, final int cycle,
+        final int cycles, final boolean validateTargetContent) {
+        if (current == null) throw new IllegalArgumentException("current PSD bytes are required");
+        isFinalRgbMutationCycle(cycle, cycles);
+        final Mutation mutation = mutationFor(current, cycle)
+            .orElseThrow(() -> new IllegalStateException("PSD layer-name mutation failed"));
+        byte[] mutated = applyMutation(current, mutation);
+        final boolean finalCycle = validateTargetContent && isFinalRgbMutationCycle(cycle, cycles);
+        if (finalCycle) {
+            // Apply the decoded RGB mutation once. The overlap write below changes only a layer
+            // name on this same byte array, so it retains exactly one content inversion.
+            mutated = PsdValidationContent.invertTargetLayerRgb(mutated);
+        }
+        byte[] overlapFinal = mutated;
+        if (cycle == 3) {
+            final Mutation secondMutation = mutationFor(mutated, cycle + 100)
+                .orElseThrow(() -> new IllegalStateException("Second mutation failed"));
+            overlapFinal = applyMutation(mutated, secondMutation);
+        }
+        return new CycleWritePlan(mutation, mutated, overlapFinal, finalCycle);
+    }
+
+    record CycleWritePlan(Mutation mutation, byte[] firstWrite, byte[] overlapFinalWrite,
+        boolean targetRgbMutated) {
+        CycleWritePlan {
+            if (mutation == null || firstWrite == null || overlapFinalWrite == null) {
+                throw new IllegalArgumentException("cycle write plan is incomplete");
+            }
+            firstWrite = firstWrite.clone();
+            overlapFinalWrite = overlapFinalWrite.clone();
+        }
+
+        @Override public byte[] firstWrite() { return firstWrite.clone(); }
+        @Override public byte[] overlapFinalWrite() { return overlapFinalWrite.clone(); }
     }
 
     static boolean isFinalRgbMutationCycle(final int cycle, final int cycles) {
@@ -1321,6 +1380,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             // legacy full-file/composite values are retained only as optional diagnostics.
             final TrackedExport postExport = exportTracked(
                 result, target.raw(), tracker, "postAfterSave");
+            Throwable postExportFailure = null;
             try {
                 final byte[] postBytes = Files.readAllBytes(postExport.path());
                 final PsdValidationContent.Fingerprint post = targetFingerprint(
@@ -1336,8 +1396,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 }
                 requireChangedPost(baselineFingerprint, post);
                 result.setProperty("persist.targetContentChanged", "true");
+            } catch (Exception failure) {
+                postExportFailure = failure;
+                throw failure;
+            } catch (Error failure) {
+                postExportFailure = failure;
+                throw failure;
             } finally {
-                tracker.stop(postExport, result);
+                stopPreservingPrimary(tracker, postExport, result, postExportFailure);
             }
             tracker.quarantine(result, context.paths().stateDir());
             requirePersistEvidence(result);
@@ -1348,6 +1414,47 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
+    /**
+     * Stops every tracked export while preserving an already-failing phase as the primary cause.
+     * Cleanup failures are suppressed on that cause; with no primary failure they fail the phase.
+     */
+    static void stopAllPreservingPrimary(final TempTracker tracker, final Properties result,
+        final Throwable primary) throws Exception {
+        try {
+            tracker.stopAll(result);
+        } catch (Throwable cleanup) {
+            if (primary != null) {
+                addSuppressed(primary, cleanup);
+                return;
+            }
+            rethrowCleanup(cleanup);
+        }
+    }
+
+    private static void stopPreservingPrimary(final TempTracker tracker,
+        final TrackedExport export, final Properties result, final Throwable primary)
+        throws Exception {
+        try {
+            tracker.stop(export, result);
+        } catch (Throwable cleanup) {
+            if (primary != null) {
+                addSuppressed(primary, cleanup);
+                return;
+            }
+            rethrowCleanup(cleanup);
+        }
+    }
+
+    private static void addSuppressed(final Throwable primary, final Throwable cleanup) {
+        if (primary != cleanup) primary.addSuppressed(cleanup);
+    }
+
+    private static void rethrowCleanup(final Throwable failure) throws Exception {
+        if (failure instanceof Error error) throw error;
+        if (failure instanceof Exception exception) throw exception;
+        throw new IllegalStateException("cleanup failed", failure);
+    }
+
     private record TempCandidateSnapshot(Path root, Set<Path> directories) {
         private TempCandidateSnapshot {
             root = root.toAbsolutePath().normalize();
@@ -1355,7 +1462,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private static final class TrackedExport {
+    static final class TrackedExport {
         private final String label;
         private final PsdEditFile file;
         private Path path;
@@ -1374,11 +1481,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         private Path directory() { return path == null ? null : path.getParent(); }
     }
 
-    private static final class TempTracker {
+    static final class TempTracker {
         private final List<TrackedExport> exports = new ArrayList<>();
         private Path tempRoot;
 
-        private TrackedExport register(final String label, final PsdEditFile file,
+        TrackedExport register(final String label, final PsdEditFile file,
             final Path root) {
             if (label == null || label.isBlank() || file == null || root == null) {
                 throw new IllegalArgumentException("tracked export identity is incomplete");
@@ -1424,16 +1531,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         + tracked.label + " status=" + stopped.status());
                 }
                 return stopped;
-            } catch (Exception failure) {
+            } catch (Throwable failure) {
                 tracked.stopFailure = failure;
                 result.setProperty("export." + tracked.label + ".stopStatus", "FAILED");
                 result.setProperty("export." + tracked.label + ".stopDiagnostic",
                     failure.toString());
-                throw failure;
+                rethrowCleanup(failure);
+                return null;
             }
         }
 
-        private void stopAll(final Properties result) {
+        void stopAll(final Properties result) throws Exception {
+            final List<Throwable> failures = new ArrayList<>();
             for (final TrackedExport tracked : exports) {
                 try {
                     stop(tracked, result);
@@ -1441,13 +1550,24 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     result.setProperty("export." + tracked.label + ".stopStatus", "FAILED");
                     result.setProperty("export." + tracked.label + ".stopDiagnostic",
                         failure.toString());
+                    failures.add(failure);
                 }
+            }
+            if (!failures.isEmpty()) {
+                Throwable selected = failures.stream()
+                    .filter(failure -> failure instanceof Error)
+                    .findFirst()
+                    .orElse(failures.get(0));
+                for (final Throwable failure : failures) {
+                    if (failure != selected) addSuppressed(selected, failure);
+                }
+                rethrowCleanup(selected);
             }
         }
 
-        private boolean allStopped() {
+        boolean allStopped() {
             return !exports.isEmpty() && exports.stream().allMatch(export ->
-                export.stopAttempted && export.stopResult != null
+                export.stopAttempted && export.stopFailure == null && export.stopResult != null
                     && export.stopResult.status() == PsdFileOperationResult.Status.STOPPED);
         }
 
@@ -1493,6 +1613,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     Boolean.toString(report.taskOwned()));
                 result.setProperty("persist.tempQuarantine.sourceMissing",
                     Boolean.toString(report.sourceMissing()));
+                if (!report.diagnostic().isBlank()) {
+                    result.setProperty("persist.tempQuarantine.diagnostic", report.diagnostic());
+                }
+                if (!"MOVED".equals(report.status())) {
+                    throw new IllegalStateException(
+                        "per-directory quarantine move failed: " + report.diagnostic());
+                }
             } catch (Exception failure) {
                 result.setProperty("persist.tempQuarantine.status", "FAILED");
                 result.setProperty("persist.tempQuarantine.taskOwned", "false");
@@ -1513,9 +1640,22 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     static QuarantineReport moveTrackedTempDirectories(final List<Path> sources,
         final Path expectedTempRoot, final Path taskRoot, final Path destinationRoot)
         throws Exception {
+        return moveTrackedTempDirectories(sources, expectedTempRoot, taskRoot, destinationRoot,
+            (source, target) -> Files.move(source, target, StandardCopyOption.ATOMIC_MOVE));
+    }
+
+    /**
+     * Testable implementation of the per-directory atomic quarantine protocol. The injected
+     * mover must perform one no-overwrite atomic move; production passes only Files.move with
+     * ATOMIC_MOVE and never falls back to copy/delete.
+     */
+    static QuarantineReport moveTrackedTempDirectories(final List<Path> sources,
+        final Path expectedTempRoot, final Path taskRoot, final Path destinationRoot,
+        final AtomicDirectoryMove mover) throws Exception {
         if (sources == null || sources.isEmpty()) {
             throw new IllegalArgumentException("tracked temporary directories are required");
         }
+        if (mover == null) throw new IllegalArgumentException("atomic directory mover is required");
         final Path tempRoot = requireOwnedDirectory(expectedTempRoot, "temporary root");
         final Path owner = requireOwnedDirectory(taskRoot, "task quarantine root");
         final Path destination = destinationRoot.toAbsolutePath().normalize();
@@ -1566,29 +1706,44 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
 
         Files.createDirectory(destination);
-        for (final QuarantineEntry entry : entries) {
+        for (int index = 0; index < entries.size(); index++) {
+            final QuarantineEntry entry = entries.get(index);
             try {
-                Files.move(entry.source(), entry.target(), StandardCopyOption.ATOMIC_MOVE);
-            } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
-                throw new IllegalStateException(
-                    "atomic quarantine move is unsupported for " + entry.source(), unsupported);
+                mover.move(entry.source(), entry.target());
+                entries.set(index, new QuarantineEntry(entry.source(), entry.target(), true));
+            } catch (Exception failure) {
+                for (int check = index; check < entries.size(); check++) {
+                    final QuarantineEntry candidate = entries.get(check);
+                    entries.set(check, new QuarantineEntry(candidate.source(), candidate.target(),
+                        candidate.moved() || isCompletedDirectoryMove(candidate)));
+                }
+                return new QuarantineReport("FAILED", false, false, entries,
+                    failure.toString());
             }
         }
         boolean sourceMissing = true;
-        final List<QuarantineEntry> moved = new ArrayList<>(entries.size());
         for (final QuarantineEntry entry : entries) {
             final boolean missing = !Files.exists(entry.source(), LinkOption.NOFOLLOW_LINKS)
                 && !Files.isSymbolicLink(entry.source());
             sourceMissing &= missing;
             if (!Files.isDirectory(entry.target(), LinkOption.NOFOLLOW_LINKS)
                 || Files.isSymbolicLink(entry.target())) {
-                throw new IllegalStateException("quarantine target is not a real directory: "
-                    + entry.target());
+                return new QuarantineReport("FAILED", false, false, entries,
+                    "quarantine target is not a real directory: " + entry.target());
             }
-            moved.add(new QuarantineEntry(entry.source(), entry.target(), true));
         }
-        if (!sourceMissing) throw new IllegalStateException("not all tracked sources are missing");
-        return new QuarantineReport("MOVED", true, true, List.copyOf(moved));
+        if (!sourceMissing) {
+            return new QuarantineReport("FAILED", false, false, entries,
+                "not all tracked sources are missing");
+        }
+        return new QuarantineReport("MOVED", true, true, entries, "");
+    }
+
+    private static boolean isCompletedDirectoryMove(final QuarantineEntry entry) {
+        return !Files.exists(entry.source(), LinkOption.NOFOLLOW_LINKS)
+            && !Files.isSymbolicLink(entry.source())
+            && Files.isDirectory(entry.target(), LinkOption.NOFOLLOW_LINKS)
+            && !Files.isSymbolicLink(entry.target());
     }
 
     private static Path requireOwnedDirectory(final Path value, final String label) {
@@ -1605,11 +1760,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     record QuarantineEntry(Path source, Path target, boolean moved) {
     }
 
+    @FunctionalInterface
+    interface AtomicDirectoryMove {
+        void move(Path source, Path target) throws Exception;
+    }
+
     record QuarantineReport(String status, boolean taskOwned, boolean sourceMissing,
-        List<QuarantineEntry> entries) {
+        List<QuarantineEntry> entries, String diagnostic) {
         QuarantineReport {
             status = status == null ? "FAILED" : status;
             entries = List.copyOf(entries);
+            diagnostic = diagnostic == null ? "" : diagnostic;
         }
     }
 

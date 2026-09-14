@@ -48,6 +48,11 @@ GUI phase has no pixel-parser dependency.
    a fresh export after SAVE_AS must equal it again. Only then are all tracked export directories
    moved with no-overwrite atomic moves into a task-owned quarantine. The result must expose:
 
+   Each tracked export directory is moved by its own no-overwrite `ATOMIC_MOVE`. This is a
+   per-directory atomic protocol, not an all-or-nothing batch transaction: if a later move fails,
+   already-moved directories remain in quarantine, every item records its actual `moved` state,
+   and the quarantine result is `FAILED` with `taskOwned=false` and `sourceMissing=false`.
+
    `persist.baselineTargetRgbSha256`, `persist.baselineSecondTargetRgbSha256` (equal),
    `persist.postEditTargetRgbSha256` (different), `persist.targetContentChanged=true`,
    `persist.saveSucceeded=true`, and
