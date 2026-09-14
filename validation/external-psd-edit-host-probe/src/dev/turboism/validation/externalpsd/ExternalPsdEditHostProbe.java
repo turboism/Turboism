@@ -1252,10 +1252,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static void dispatchRightClick(final Component target, final int x, final int y) {
         dispatchLeftClick(target, x, y);
         final long now = System.currentTimeMillis();
-        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
-            InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
-        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
-            InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+        // Host handlers may throw while showing the popup on press (e.g. anchoring to a
+        // renderer component that is not on screen); the release path still runs.
+        try {
+            target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
+                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+        } catch (RuntimeException ignored) {
+        }
+        try {
+            target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
+                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private static JPopupMenu awaitPopup() throws Exception {
