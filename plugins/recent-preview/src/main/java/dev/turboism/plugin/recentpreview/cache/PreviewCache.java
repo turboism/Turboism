@@ -14,12 +14,15 @@ import java.util.concurrent.CompletionStage;
 public interface PreviewCache extends PreviewCacheStore {
 
     /**
-     * Loads the cached preview PNG for each given recent file.
+     * Loads the cached preview PNGs for the given recent files.
+     *
+     * <p>The read is bounded: inputs are consulted in list order but only up to the
+     * implementation's bound, so the tail of a long list is never read.</p>
      *
      * @param files the recent files to look up; must not be null
-     * @return a stage completing with a map from recent-file id to PNG bytes in input order;
-     *     files without a readable cached preview are absent from the map rather than failing
-     *     the read
+     * @return a stage completing with a map from recent-file id to PNG bytes; files without a
+     *     readable cached preview — and any beyond the read bound — are absent rather than
+     *     failing the read. The returned map makes no iteration-order promise.
      */
     CompletionStage<Map<RecentFileId, byte[]>> loadPng(List<RecentFileSummary> files);
 }
