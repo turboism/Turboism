@@ -509,16 +509,27 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         }
     }
 
+    /** Terminal outcome of this transformer's admission and weaving attempt. */
     public enum Outcome {
+        /** No target class has been seen yet. */
         NONE,
+        /** A target class was admitted and its methods were woven. */
         TARGET_TRANSFORMED,
+        /** A target class was admitted but weaving changed nothing. */
         TARGET_UNCHANGED,
+        /** The target transformed but the optional linked-deletion methods were not injected. */
         LINKED_DELETION_NOT_INJECTED,
+        /** The class was defined by a ClassLoader other than the admitted one. */
         LOADER_MISMATCH,
+        /** The class's code source did not digest-match the admitted artifact. */
         ARTIFACT_MISMATCH,
+        /** The class was defined by the bootstrap loader, which is never admitted. */
         BOOTSTRAP_LOADER_REJECTED,
+        /** A redefine/retransform attempt was refused; only first definition is admitted. */
         RETRANSFORM_REJECTED,
+        /** A required runtime helper class could not be injected into the host loader. */
         HELPER_UNAVAILABLE,
+        /** Weaving threw; the class was left untransformed. */
         TRANSFORMATION_FAILED
     }
 

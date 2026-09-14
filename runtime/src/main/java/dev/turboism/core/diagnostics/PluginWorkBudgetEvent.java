@@ -39,26 +39,43 @@ public record PluginWorkBudgetEvent(
         return CODE;
     }
 
+    /** The point in a governed task's life an event describes. */
     public enum Phase {
+        /** The task was handed to the governor. */
         SUBMITTED,
+        /** The task is waiting for an execution slot. */
         QUEUED,
+        /** The task began executing. */
         STARTED,
+        /** The task exceeded its time budget. */
         TIMED_OUT,
+        /** The plugin's circuit breaker opened. */
         CIRCUIT_OPEN,
+        /** The governor refused the task. */
         REJECTED,
+        /** The task finished normally. */
         COMPLETED,
+        /** The task finished with a failure. */
         FAILED
     }
 
+    /** Where the governor placed the work, or that it refused it. */
     public enum Decision {
+        /** Runs inline on the bounded plugin executor. */
         LIGHTWEIGHT,
+        /** Runs dispatched to the supervised sidecar. */
         SIDECAR,
+        /** The task was refused. */
         REJECTED
     }
 
+    /** How prominently an event should be reported. */
     public enum Severity {
+        /** Routine record. */
         INFO,
+        /** Elevated record worth attention. */
         WARNING,
+        /** A failure or refusal. */
         ERROR
     }
 }

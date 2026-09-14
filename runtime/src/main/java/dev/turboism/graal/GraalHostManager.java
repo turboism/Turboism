@@ -835,11 +835,22 @@ public final class GraalHostManager implements AutoCloseable {
         return value.length() <= max ? value : value.substring(0, max);
     }
 
+    /** Callback that serves one host call issued by a running script. */
     @FunctionalInterface
     public interface HostCallHandler {
+        /**
+         * @param operation the requested operation name
+         * @param payloadJson the call arguments as a JSON document
+         * @return the response payload as a JSON document
+         * @throws Exception when the host call cannot be served; the manager bounds the
+         *         failure back to the script
+         */
         String call(String operation, String payloadJson) throws Exception;
     }
 
+    /**
+     * A host call or script-side failure with a bounded, script-safe {@link #code()}.
+     */
     public static final class HostCallException extends Exception {
         private final String code;
 
@@ -854,6 +865,10 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
+    /**
+     * Handle for one submitted script execution: exposes its id and terminal completion
+     * stage; {@link #close()} requests cancellation and is idempotent.
+     */
     public final class Execution implements AutoCloseable {
         private final PendingExecution delegate;
 
@@ -904,11 +919,17 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
+    /** Terminal status of one script execution at the process transport. */
     public enum Status {
+        /** The script finished and produced output. */
         SUCCEEDED,
+        /** The script ran and failed. */
         FAILED,
+        /** The execution was cancelled before finishing. */
         CANCELLED,
+        /** The submission was refused before it ran. */
         REJECTED,
+        /** The execution exceeded its budget. */
         TIMED_OUT
     }
 

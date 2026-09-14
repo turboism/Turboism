@@ -15,6 +15,7 @@ public record FrameworkBuildInfo(
     private static final String RESOURCE = "/META-INF/turboism/framework-version.properties";
     private static final long MAX_BUILD_NUMBER = 9_007_199_254_740_991L;
 
+    /** The release channel the installed package was built for. */
     public enum Channel {
         STABLE, BETA, NIGHTLY, UNKNOWN;
         /** Lower-case wire/feed value used in properties and reports. */

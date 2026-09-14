@@ -23,10 +23,23 @@ public interface ProjectWorkspaceAdapter {
     String WORKSPACE_CAPABILITY_ID = "cubism.workspace.read";
     String ADAPTER_SLICE_ID = "adapter.project-workspace.readonly";
 
+    /**
+     * @return an available result carrying the active project (empty when none is open),
+     *         or an unavailable result whose diagnostic explains the failed read; never null
+     */
     AdapterResult<Optional<ProjectSnapshot>> activeProject();
 
+    /**
+     * @return an available result carrying the active document (empty when none is active),
+     *         or an unavailable result whose diagnostic explains the failed read; never null
+     */
     AdapterResult<Optional<DocumentSnapshot>> activeDocument();
 
+    /**
+     * @return an available result carrying the current workspace (empty when the host has
+     *         none to report), or an unavailable result whose diagnostic explains the failed
+     *         read; never null
+     */
     AdapterResult<Optional<WorkspaceSnapshot>> workspace();
 
     /** One ordered adapter admission for a coherent serialized project/workspace observation. */
@@ -58,13 +71,34 @@ public interface ProjectWorkspaceAdapter {
         );
     }
 
+    /**
+     * The raw host call surface this adapter guards.
+     *
+     * <p>Implementations talk to the real Editor; callers must go through
+     * {@link ProjectWorkspaceAdapter} so version and capability checks are applied and host
+     * failures become diagnostics instead of exceptions.</p>
+     */
     interface HostOperations {
+        /**
+         * @return the host application version string used for the reviewed-version check
+         */
         String hostVersion();
 
+        /**
+         * @return {@code true} when this host exposes the project/workspace read surface
+         */
         boolean supportsProjectWorkspaceRead();
 
+        /**
+         * @return the project currently open on the host; empty when none is open
+         * @throws AdapterHostException when the host call fails with a known diagnostic
+         */
         Optional<ProjectSnapshot> activeProject();
 
+        /**
+         * @return the document currently active on the host; the default reports none,
+         *         for hosts that cannot resolve the active document
+         */
         default Optional<DocumentSnapshot> activeDocument() {
             return Optional.empty();
         }
@@ -82,6 +116,11 @@ public interface ProjectWorkspaceAdapter {
             return new ActiveProjectDocument(activeProject(), activeDocument());
         }
 
+        /**
+         * @return the workspace currently in effect on the host; empty when the host has
+         *         none to report
+         * @throws AdapterHostException when the host call fails with a known diagnostic
+         */
         Optional<WorkspaceSnapshot> workspace();
     }
 
@@ -101,6 +140,14 @@ public interface ProjectWorkspaceAdapter {
         }
     }
 
+    /**
+     * The outcome of one guarded adapter read: either the observed {@code value} or the
+     * {@link SafeModeDiagnostic} explaining why it is absent.
+     *
+     * @param value the observed value, empty when the read was unavailable; never null
+     * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
+     * @param <T> the observed value type
+     */
     record AdapterResult<T>(
         Optional<T> value,
         Optional<SafeModeDiagnostic> diagnostic
@@ -146,6 +193,13 @@ public interface ProjectWorkspaceAdapter {
         }
     }
 
+    /**
+     * Guarded implementation of {@link ProjectWorkspaceAdapter}.
+     *
+     * <p>Every read checks the reviewed host version and the project/workspace capability
+     * before touching {@link HostOperations}, and converts {@link AdapterHostException} and
+     * unexpected runtime failures into unavailable results.</p>
+     */
     final class Impl implements ProjectWorkspaceAdapter {
         private final Optional<HostOperations> host;
 

@@ -11,10 +11,19 @@ import java.util.List;
  * whose recorded bytes must still be revalidated before publication.
  */
 public interface PluginPackageInspector {
+    /**
+     * Inspects one plugin package without installing anything.
+     *
+     * @param packagePath the package file to inspect
+     * @return {@link Accepted} with a validated install plan, or {@link Rejected} carrying
+     *         the observed problems; never throws
+     */
     Result inspect(Path packagePath);
 
+    /** The verdict of one inspection. */
     sealed interface Result permits Accepted, Rejected {}
 
+    /** Inspection succeeded; carries the validated install plan. */
     final class Accepted implements Result {
         private final PluginInstallPlan plan;
 
@@ -26,6 +35,11 @@ public interface PluginPackageInspector {
         public PluginInstallPlan plan() { return plan; }
     }
 
+    /**
+     * Inspection failed closed.
+     *
+     * @param problems the observed problems, copied defensively; never empty
+     */
     record Rejected(List<DistributionProblem> problems) implements Result {
         public Rejected {
             problems = List.copyOf(problems);

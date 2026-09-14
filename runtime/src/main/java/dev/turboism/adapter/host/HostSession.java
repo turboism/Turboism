@@ -627,6 +627,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * @return the texture-atlas data-model capture of the active connection
+     * @throws IllegalStateException when no verified connection is active or the active
+     *     connection cannot supply a texture-atlas capture
+     */
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
         textureAtlasDataModelCapture() {
         synchronized (lifecycleMonitor) {
@@ -1111,10 +1116,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
 
+    /** Lifecycle state of a host session. */
     public enum State {
+        /** No host is attached; the session answers through safe-mode surfaces. */
         SAFE_MODE,
+        /** A verified host connection is active. */
         ACTIVE,
+        /** The session left its healthy path; the last failure is retained for diagnostics. */
         FAILED,
+        /** The session is closed and must not serve further calls. */
         CLOSED
     }
 }

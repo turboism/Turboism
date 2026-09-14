@@ -40,9 +40,13 @@ public record NativeHistoryDecodeResult(
         return new NativeHistoryDecodeResult(Outcome.FAILED, Optional.empty(), diagnosticId);
     }
 
+    /** How one optional native decode attempt ended. */
     public enum Outcome {
+        /** The entry was decoded and {@link NativeHistoryDecodeResult#detail()} is present. */
         DECODED,
+        /** The entry's native shape is not covered by a verified decoder. */
         UNSUPPORTED,
+        /** A covered decode was attempted but failed; the diagnostic id says why. */
         FAILED
     }
 }

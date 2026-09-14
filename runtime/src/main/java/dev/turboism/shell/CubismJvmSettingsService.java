@@ -20,8 +20,17 @@ public interface CubismJvmSettingsService {
     String MANAGED_GRAAL_VERSION = "25.2.4";
     String MANAGED_JAVA_VERSION = "25.0.4";
 
+    /**
+     * @return the persisted JVM selection for the next managed launch
+     */
     CubismJvm read();
 
+    /**
+     * Persists the JVM selection for the next managed launch.
+     *
+     * @param value the JVM mode to persist
+     * @return the persisted value
+     */
     CubismJvm save(CubismJvm value);
 
     /** @return the optional user-configured GraalVM home or Java executable path */
@@ -74,6 +83,9 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /**
+     * @return whether {@link #graalVmJava()} currently resolves an executable
+     */
     default boolean graalVmAvailable() {
         return graalVmJava().isPresent();
     }
@@ -98,6 +110,10 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("managed GraalVM removal is unavailable");
     }
 
+    /**
+     * @return a service reporting the GraalVM default on {@link #read()} and refusing
+     *         {@link #save(CubismJvm)} with {@link IllegalStateException}
+     */
     static CubismJvmSettingsService unavailable() {
         return new CubismJvmSettingsService() {
             @Override public CubismJvm read() { return CubismJvm.GRAALVM; }
@@ -107,15 +123,28 @@ public interface CubismJvmSettingsService {
         };
     }
 
+    /** Lifecycle state of the Turboism-managed GraalVM runtime. */
     enum ManagedRuntimeState {
+        /** Nothing is installed. */
         ABSENT,
+        /** An install operation is in flight. */
         INSTALLING,
+        /** The managed runtime is installed and verified. */
         READY,
+        /** The last operation failed. */
         FAILED,
+        /** The last operation was cancelled. */
         CANCELLED,
+        /** Managed installation is not supported on this runtime. */
         UNSUPPORTED
     }
 
+    /**
+     * Point-in-time view of the managed runtime: {@code state}, detected versions and
+     * executable, transfer progress in bytes, and a stable diagnostic {@code code} with a
+     * human-readable {@code message}. Progress must satisfy
+     * {@code 0 <= completedBytes <= totalBytes}.
+     */
     record ManagedRuntimeStatus(
         ManagedRuntimeState state,
         String version,
@@ -146,12 +175,25 @@ public interface CubismJvmSettingsService {
         }
     }
 
+    /** Handle for one in-flight managed-runtime operation. */
     interface ManagedRuntimeOperation {
+        /**
+         * @return the latest observed status
+         */
         ManagedRuntimeStatus status();
+
+        /**
+         * @return a stage completing with the terminal status
+         */
         CompletionStage<ManagedRuntimeStatus> completion();
+
+        /**
+         * @return whether this call requested cancellation before terminal completion
+         */
         boolean cancel();
     }
 
+    /** Which JVM the managed launcher should start Cubism on. */
     enum CubismJvm {
         GRAALVM("graalvm"),
         BUNDLED("bundled");

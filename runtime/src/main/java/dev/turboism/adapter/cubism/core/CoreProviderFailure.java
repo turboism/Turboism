@@ -10,6 +10,7 @@ public record CoreProviderFailure(Code code, String message) {
         message = requireText(message, "message");
     }
 
+    /** The fail-closed failure category surfaced to callers of the Core provider seam. */
     public enum Code {
         ADAPTER_UNAVAILABLE,
         EVIDENCE_REJECTED,

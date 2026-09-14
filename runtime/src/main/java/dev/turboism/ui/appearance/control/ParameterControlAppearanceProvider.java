@@ -9,7 +9,13 @@ import java.util.Objects;
 
 /** Owns long-lived parameter-row bindings and transient native palette entries. */
 public final class ParameterControlAppearanceProvider implements AutoCloseable {
-    public enum Kind { PARAMETER, FOLDER }
+    /** Which kind of parameter-palette row a binding styles. */
+    public enum Kind {
+        /** A single parameter row, styled with the PARAMETER palette. */
+        PARAMETER,
+        /** A parameter folder row, styled with the PARAMETER_GROUP palette. */
+        FOLDER
+    }
 
     private final PaletteAppearanceCoordinator coordinator;
     private final NativeStyleTracker styles = new NativeStyleTracker();
