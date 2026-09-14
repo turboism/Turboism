@@ -2,15 +2,12 @@ package dev.turboism.tests.plugin;
 
 import org.junit.jupiter.api.Test;
 
-import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,7 +46,12 @@ class WindowsHistoryNativeUiHostCloseTest {
     void anInactiveProbeCannotCloseAWindowAfterItsRunEnds() {
         final WindowsHistoryNativeUiHostClose.CloseEligibility eligibility =
             WindowsHistoryNativeUiHostClose.eligibility(
-                true, false, true, "history-native-ui-5302-r1", "5302"
+                true,
+                false,
+                true,
+                "history-native-ui-5302-r1",
+                "5302",
+                "history-native-ui-5302-r1.cmo3"
             );
 
         assertFalse(eligibility.eligible());
@@ -63,7 +65,7 @@ class WindowsHistoryNativeUiHostCloseTest {
         )) {
             final WindowsHistoryNativeUiHostClose.CloseEligibility eligibility =
                 WindowsHistoryNativeUiHostClose.eligibility(
-                    true, true, true, runId, "5302"
+                    true, true, true, runId, "5302", "history-native-ui-5302-r1.cmo3"
                 );
 
             assertFalse(eligibility.eligible(), runId);
@@ -95,7 +97,12 @@ class WindowsHistoryNativeUiHostCloseTest {
     void anEligibleIdentitySelectsTheRobotRouteWithoutStartingAHostInThisTest() {
         final WindowsHistoryNativeUiHostClose.CloseEligibility eligibility =
             WindowsHistoryNativeUiHostClose.eligibility(
-                true, true, true, "history-native-ui-5302-r1", "5302"
+                true,
+                true,
+                true,
+                "history-native-ui-5302-r1",
+                "5302",
+                "history-native-ui-5302-r1.cmo3"
             );
 
         assertTrue(eligibility.eligible());
@@ -107,10 +114,15 @@ class WindowsHistoryNativeUiHostCloseTest {
     }
 
     @Test
-    void noVisibleHostWindowFailsClosed() {
+    void fixtureIdentityIsRequiredBeforeWindowSelection() {
         assertThrows(
             IllegalStateException.class,
-            () -> WindowsHistoryNativeUiHostClose.selectHostWindow(new java.awt.Window[0])
+            () -> WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(
+                List.of(new WindowsHistoryNativeUiHostClose.HostWindowCandidate(
+                    "Cubism Editor", ""
+                )),
+                "history-native-ui-5302-r1.cmo3"
+            )
         );
     }
 
@@ -119,60 +131,166 @@ class WindowsHistoryNativeUiHostCloseTest {
         assertEquals(
             WindowsHistoryNativeUiHostClose.HostCloseDecision.CLEAN_CLOSE,
             WindowsHistoryNativeUiHostClose.hostCloseDecision(
-                false, JOptionPane.DEFAULT_OPTION, 0
+                false,
+                null,
+                "history-native-ui-5302-r1.cmo3"
             )
         );
     }
 
     @Test
-    void onlyKnownConfirmationShapesPermitDiscard() {
+    void unknownYesNoConfirmationIsNotEnoughToPermitDiscard() {
         assertEquals(
-            WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
             WindowsHistoryNativeUiHostClose.hostCloseDecision(
-                true, JOptionPane.YES_NO_CANCEL_OPTION, 3
+                true,
+                dialog(
+                    "Confirm",
+                    "Are you sure?",
+                    JOptionPane.YES_NO_OPTION,
+                    button("Yes"),
+                    button("No")
+                ),
+                "history-native-ui-5302-r1.cmo3"
             )
         );
+    }
+
+    @Test
+    void negativeDiscardPhraseIsNotADiscardAction() {
         assertEquals(
-            WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
-            WindowsHistoryNativeUiHostClose.hostCloseDecision(
-                true, JOptionPane.DEFAULT_OPTION, 2
+            -1,
+            WindowsHistoryNativeUiHostClose.selectDiscardButton(
+                List.of(button("Do not discard"))
             )
         );
         assertEquals(
             WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
             WindowsHistoryNativeUiHostClose.hostCloseDecision(
-                true, JOptionPane.OK_CANCEL_OPTION, 2
+                true,
+                dialog(
+                    "Save Changes",
+                    "Do you want to save changes to history-native-ui-5302-r1.cmo3?",
+                    JOptionPane.YES_NO_OPTION,
+                    button("Yes"),
+                    button("Do not discard")
+                ),
+                "history-native-ui-5302-r1.cmo3"
             )
         );
     }
 
     @Test
-    void discardSelectionRequiresOneSemanticNoAction() {
-        final JButton save = new JButton("Save");
-        save.setActionCommand("save");
-        final JButton cancel = new JButton("Cancel");
-        cancel.setActionCommand("cancel");
-        final JButton no = new JButton("No (N)");
-        no.setActionCommand("No (N)");
-
-        assertSame(
-            no,
-            WindowsHistoryNativeUiHostClose.selectDiscardButton(List.of(save, cancel, no))
-        );
-        assertNull(
-            WindowsHistoryNativeUiHostClose.selectDiscardButton(
-                List.of(save, cancel, new JButton("Maybe"))
+    void otherFixtureSavePromptIsRejected() {
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "Save Changes",
+                    "Do you want to save changes to another-fixture.cmo3?",
+                    JOptionPane.YES_NO_OPTION,
+                    button("Yes"),
+                    button("No")
+                ),
+                "history-native-ui-5302-r1.cmo3"
             )
+        );
+    }
+
+    @Test
+    void legalTaskFixtureSavePromptSelectsItsExplicitNoAction() {
+        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot prompt = dialog(
+            "Save Changes",
+            "Do you want to save changes to history-native-ui-5302-r1.cmo3?",
+            JOptionPane.YES_NO_CANCEL_OPTION,
+            button("Yes"),
+            button("No (N)"),
+            button("Cancel")
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true, prompt, "history-native-ui-5302-r1.cmo3"
+            )
+        );
+        assertEquals(
+            1,
+            WindowsHistoryNativeUiHostClose.selectDiscardButton(prompt.buttons())
         );
     }
 
     @Test
     void ambiguousDiscardLabelsAreNotClicked() {
-        final JButton no = new JButton("No");
-        final JButton discard = new JButton("Discard");
+        assertEquals(
+            -1,
+            WindowsHistoryNativeUiHostClose.selectDiscardButton(
+                List.of(button("No"), button("Discard"))
+            )
+        );
+    }
 
-        assertNull(
-            WindowsHistoryNativeUiHostClose.selectDiscardButton(List.of(no, discard))
+    @Test
+    void windowCandidateSelectionRequiresOneFixtureTitleMatch() {
+        final String fixture = "history-native-ui-5302-r1.cmo3";
+        final List<WindowsHistoryNativeUiHostClose.HostWindowCandidate> candidates = List.of(
+            new WindowsHistoryNativeUiHostClose.HostWindowCandidate(
+                "" + fixture + " - Cubism Editor", ""
+            ),
+            new WindowsHistoryNativeUiHostClose.HostWindowCandidate("Other", "")
+        );
+
+        assertEquals(
+            0,
+            WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(candidates, fixture)
+        );
+        assertThrows(
+            IllegalStateException.class,
+            () -> WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(
+                List.of(
+                    new WindowsHistoryNativeUiHostClose.HostWindowCandidate(
+                        "" + fixture + " - Cubism Editor", ""
+                    ),
+                    new WindowsHistoryNativeUiHostClose.HostWindowCandidate(
+                        "Cubism - " + fixture, ""
+                    )
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void fixtureNameMustBelongToTheTaskRun() {
+        final WindowsHistoryNativeUiHostClose.CloseEligibility eligibility =
+            WindowsHistoryNativeUiHostClose.eligibility(
+                true,
+                true,
+                true,
+                "history-native-ui-5302-r1",
+                "5302",
+                "other-task.cmo3"
+            );
+
+        assertFalse(eligibility.eligible());
+        assertEquals("missing-or-invalid-fixture-name", eligibility.reason());
+    }
+
+    private static WindowsHistoryNativeUiHostClose.ButtonSnapshot button(final String text) {
+        return new WindowsHistoryNativeUiHostClose.ButtonSnapshot(
+            "javax.swing.JButton", text, text, null, text, true, true
+        );
+    }
+
+    private static WindowsHistoryNativeUiHostClose.CloseDialogSnapshot dialog(
+        final String title,
+        final String message,
+        final int optionType,
+        final WindowsHistoryNativeUiHostClose.ButtonSnapshot... buttons
+    ) {
+        return new WindowsHistoryNativeUiHostClose.CloseDialogSnapshot(
+            "javax.swing.JDialog", title, message, true, optionType, List.of(buttons)
         );
     }
 }

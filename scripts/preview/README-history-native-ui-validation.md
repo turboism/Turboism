@@ -122,18 +122,22 @@ to the current step's window.
 ## Automated normal exit
 
 After the terminal `summary` line is persisted, automated mode performs one
-bounded normal UI close. It first selects the visible, displayable Cubism/model
-window in the probe JVM. For the catalogued 5302 run it brings that window to the
-front, confirms it owns focus, and sends Robot `Alt+F4`. The existing 5203
-`WINDOW_CLOSING` route remains available only where that reviewed route applies;
-this native-UI catalog is still 5302-only.
+bounded normal UI close. It uses the Runner's task-scoped
+`turboism.validation.fixtureName` and selects exactly one visible, displayable
+Cubism/model Frame whose window title or explicit name identifies that copied
+fixture. A missing, mismatched, or multiple title match fails closed; there is
+no largest-window fallback. For the catalogued 5302 run it brings that window
+to the front, confirms it owns focus, and sends Robot `Alt+F4`. The existing
+5203 `WINDOW_CLOSING` route remains available only where that reviewed route
+applies; this native-UI catalog is still 5302-only.
 
 If the close produces an explicit unsaved-changes confirmation owned by that
-window, the helper clicks exactly one semantically identified discard/No button.
-It never saves the task-scoped fixture. An unknown, foreign, or ambiguous modal
-is reported as a close failure without guessing at a button or sending a global
-quit. Missing automation, run-id, or host-version identity also skips the close;
-manual runs therefore leave the Editor alone.
+window, the helper first requires a recognized save/unsaved prompt naming the
+same fixture, then clicks exactly one explicitly normalized discard/No action.
+It never saves the task-scoped fixture. An unknown, foreign, other-fixture, or
+ambiguous modal is reported as a close failure without guessing at a button or
+sending a global quit. Missing automation, run-id, fixture, or host-version
+identity skips the close; manual runs therefore leave the Editor alone.
 
 The close wait is bounded and emits diagnostics. A close failure does not rewrite
 the terminal result or pretend that the process exited normally: the host Runner
