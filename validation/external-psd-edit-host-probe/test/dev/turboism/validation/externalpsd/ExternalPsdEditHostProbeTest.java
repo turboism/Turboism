@@ -27,7 +27,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -60,6 +63,7 @@ public final class ExternalPsdEditHostProbeTest {
         testActiveRowResolver();
         testStableRowKeySafety();
         testGuiReadyTriggerProtocol();
+        testGuiWaitDiagnostics();
         testGuiReadyTriggerProductionPath();
         testGuiEnableAndEdtAreNonBlocking();
         testGuiWindowBinding();
@@ -1054,6 +1058,31 @@ public final class ExternalPsdEditHostProbeTest {
         }
     }
 
+    private static List<Path> diagnosticFiles(final Path stateDir) throws IOException {
+        try (var paths = Files.list(stateDir)) {
+            return paths.filter(path -> path.getFileName().toString()
+                .startsWith("external-psd-gui-thread-dump-"))
+                .sorted()
+                .toList();
+        }
+    }
+
+    private static final class MutableGuiDiagnosticClock
+        implements ExternalPsdEditHostProbe.GuiDiagnosticClock {
+        private final AtomicLong nanos = new AtomicLong();
+
+        @Override public long nanoTime() { return nanos.get(); }
+
+        @Override public java.time.Instant utcNow() {
+            return java.time.Instant.parse("2026-09-15T00:00:00Z")
+                .plusNanos(nanos.get());
+        }
+
+        private void advanceMillis(final long millis) {
+            nanos.addAndGet(millis * 1_000_000L);
+        }
+    }
+
     private static void testPopupTriggerDispatch() {
         assertTrue(!ExternalPsdEditHostProbe.popupTriggerOnPress("Windows 11"),
             "Windows popup trigger is on release");
@@ -1646,6 +1675,210 @@ public final class ExternalPsdEditHostProbeTest {
             restoreProperty("turboism.validation.externalpsd.phase", oldPhase);
             restoreProperty("turboism.validation.externalpsd.runId", oldRunId);
             deleteTree(state);
+        }
+    }
+
+    private static void testGuiWaitDiagnostics() throws Exception {
+        final Path notDueState = Files.createTempDirectory("external-psd-gui-diagnostic-not-due-");
+        try {
+            final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
+            final AtomicInteger samples = new AtomicInteger();
+            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+                notDueState, "not-due-run", clock.nanoTime(), () -> false, () -> false,
+                new AtomicReference<>("armed-waiting-for-trigger"), clock,
+                millis -> Thread.sleep(1L), () -> {
+                    samples.incrementAndGet();
+                    return "unexpected sample";
+                });
+            diagnostics.close("test-not-due");
+            assertTrue(diagnostics.awaitForTest(1000L),
+                "not-due diagnostic daemon stops when closed");
+            assertEquals(0, samples.get(), "an unelapsed diagnostic deadline is not sampled");
+            assertEquals(0, diagnosticFiles(notDueState).size(),
+                "not-due wait creates no diagnostic file");
+        } finally {
+            deleteTree(notDueState);
+        }
+
+        final Path readyState = Files.createTempDirectory("external-psd-gui-diagnostic-ready-");
+        try {
+            final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
+            final AtomicInteger samples = new AtomicInteger();
+            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+                readyState, "ready-run", clock.nanoTime(), () -> false, () -> true,
+                new AtomicReference<>("armed-waiting-for-trigger"), clock,
+                millis -> { throw new AssertionError("ready trigger must not be delayed"); },
+                () -> {
+                    samples.incrementAndGet();
+                    return "unexpected sample";
+                });
+            assertTrue(diagnostics.awaitForTest(1000L),
+                "ready trigger stops diagnostic daemon without sampling");
+            assertEquals(0, samples.get(), "a received trigger suppresses diagnostics");
+            assertEquals(0, diagnosticFiles(readyState).size(),
+                "ready wait creates no diagnostic file");
+        } finally {
+            deleteTree(readyState);
+        }
+
+        final Path twoState = Files.createTempDirectory("external-psd-gui-diagnostic-two-");
+        try {
+            final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
+            final AtomicBoolean trigger = new AtomicBoolean();
+            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+                twoState, "two-sample-run", clock.nanoTime(), () -> false, trigger::get,
+                new AtomicReference<>("armed-waiting-for-trigger"), clock,
+                millis -> {
+                    clock.advanceMillis(millis);
+                    Thread.yield();
+                }, () -> "fake full ThreadMXBean dump");
+            assertTrue(diagnostics.awaitForTest(5000L),
+                "continuous trigger wait completes its two bounded samples");
+            assertEquals(2, diagnostics.writtenSamples(),
+                "continuous wait writes no more than the two scheduled samples");
+            assertEquals(2, diagnosticFiles(twoState).size(),
+                "the two scheduled diagnostic files are task-local");
+            for (final Path file : diagnosticFiles(twoState)) {
+                final String content = Files.readString(file);
+                assertContains(content, "runId='two-sample-run'",
+                    "diagnostic records the task run ID");
+                assertContains(content, "sampleOrdinal=",
+                    "diagnostic records the sample ordinal");
+                assertContains(content, "sampleUtc=",
+                    "diagnostic records UTC sample time");
+                assertContains(content, "elapsedMillis=",
+                    "diagnostic records elapsed wait time");
+                assertContains(content, "waitingStage=armed-waiting-for-trigger",
+                    "diagnostic records the wait stage");
+            }
+        } finally {
+            deleteTree(twoState);
+        }
+
+        final Path failureState = Files.createTempDirectory(
+            "external-psd-gui-diagnostic-failure-");
+        try {
+            final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
+            final AtomicBoolean trigger = new AtomicBoolean();
+            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+                failureState, "failure-run", clock.nanoTime(), () -> false, trigger::get,
+                new AtomicReference<>("armed-waiting-for-trigger"), clock,
+                millis -> {
+                    clock.advanceMillis(millis);
+                    Thread.yield();
+                }, () -> { throw new IllegalStateException("injected sampler failure"); });
+            assertTrue(diagnostics.awaitForTest(5000L),
+                "sampler failures do not leave a diagnostic daemon running");
+            assertEquals(2, diagnostics.unavailableSamples(),
+                "each bounded sampler failure is recorded as unavailable");
+            assertTrue(!trigger.get(), "diagnostic sampler failures cannot create readiness");
+            for (final Path file : diagnosticFiles(failureState)) {
+                assertContains(Files.readString(file), "diagnostic unavailable",
+                    "sampler failure output is explicitly unavailable");
+                assertContains(Files.readString(file), "injected sampler failure",
+                    "sampler failure cause is retained");
+            }
+        } finally {
+            deleteTree(failureState);
+        }
+
+        final Path disabledState = Files.createTempDirectory(
+            "external-psd-gui-diagnostic-disabled-");
+        try {
+            final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
+            final CountDownLatch firstSample = new CountDownLatch(1);
+            final AtomicInteger samples = new AtomicInteger();
+            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+                disabledState, "disabled-run", clock.nanoTime(), () -> false, () -> false,
+                new AtomicReference<>("armed-waiting-for-trigger"), clock,
+                millis -> {
+                    if (firstSample.getCount() == 0) firstSample.await();
+                    clock.advanceMillis(millis);
+                }, () -> {
+                    samples.incrementAndGet();
+                    firstSample.countDown();
+                    return "first sample only";
+                });
+            assertTrue(firstSample.await(5L, java.util.concurrent.TimeUnit.SECONDS),
+                "diagnostic scheduler reaches its first deadline");
+            diagnostics.close("disabled");
+            assertTrue(diagnostics.awaitForTest(2000L),
+                "disable interrupts the diagnostic daemon");
+            assertEquals(1, samples.get(), "disable prevents the later diagnostic sample");
+            assertEquals(1, diagnosticFiles(disabledState).size(),
+                "disable leaves only the already-written bounded diagnostic");
+        } finally {
+            deleteTree(disabledState);
+        }
+
+        final Path boundedState = Files.createTempDirectory(
+            "external-psd-gui-diagnostic-bounded-");
+        try {
+            final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
+            final String oversized = "x".repeat(
+                ExternalPsdEditHostProbe.GUI_WAIT_DIAGNOSTIC_MAX_BYTES * 4);
+            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+                boundedState, "bounded-run", clock.nanoTime(), () -> false, () -> false,
+                new AtomicReference<>("armed-waiting-for-trigger"), clock,
+                millis -> {
+                    clock.advanceMillis(millis);
+                    Thread.yield();
+                }, () -> oversized);
+            assertTrue(diagnostics.awaitForTest(5000L),
+                "oversized diagnostic samples remain bounded and terminate");
+            for (final Path file : diagnosticFiles(boundedState)) {
+                assertTrue(Files.size(file)
+                    <= ExternalPsdEditHostProbe.GUI_WAIT_DIAGNOSTIC_MAX_BYTES,
+                    "diagnostic file size is bounded");
+                assertContains(Files.readString(file), "diagnostic output truncated",
+                    "oversized diagnostic output records truncation");
+            }
+        } finally {
+            deleteTree(boundedState);
+        }
+
+        final CountDownLatch releaseThreads = new CountDownLatch(1);
+        final CountDownLatch startedThreads = new CountDownLatch(2);
+        final Thread bootstrap = new Thread(() -> {
+            startedThreads.countDown();
+            try {
+                releaseThreads.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }, "turboism-bootstrap-test");
+        final Thread awt = new Thread(() -> {
+            startedThreads.countDown();
+            try {
+                releaseThreads.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }, "AWT-EventQueue-test");
+        bootstrap.setDaemon(true);
+        awt.setDaemon(true);
+        bootstrap.start();
+        awt.start();
+        try {
+            assertTrue(startedThreads.await(2L, java.util.concurrent.TimeUnit.SECONDS),
+                "real ThreadMXBean smoke threads started");
+            final String dump = ExternalPsdEditHostProbe.captureGuiThreadDumpForTest();
+            assertContains(dump,
+                "threadDumpSource=java.lang.management.ThreadMXBean.dumpAllThreads",
+                "real smoke uses the same-JVM ThreadMXBean dump");
+            assertContains(dump, "samplingThreadPresent=true",
+                "real dump includes the sampling thread in the all-thread result");
+            assertContains(dump, "name='turboism-bootstrap-test'",
+                "real dump retains bootstrap thread name and state");
+            assertContains(dump, "name='AWT-EventQueue-test'",
+                "real dump retains AWT event thread name and state");
+            assertContains(dump, "state=", "real dump records thread states");
+            assertContains(dump, "lockOwnerId=", "real dump records lock owners");
+            assertContains(dump, "stackFrames=", "real dump records bounded stacks");
+        } finally {
+            releaseThreads.countDown();
+            bootstrap.join(2000L);
+            awt.join(2000L);
         }
     }
 
