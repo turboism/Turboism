@@ -257,6 +257,15 @@ def check_pinned_checkout(step: dict, label: str, problems: list[str], require_e
         problems.append(f"{label}: checkout must pin ref to ${{{{ github.sha }}}}")
 
 
+def soft_fail_is_absent(value) -> bool:
+    """continue-on-error may only be absent or the YAML literal false.
+
+    Any other value — true, quoted strings, or GitHub expressions such as
+    ``${{ true }}`` — is not a confirmable hard failure boundary.
+    """
+    return value is None or value is False
+
+
 def check_ci_step_hygiene(steps: list[dict], label: str, problems: list[str]) -> None:
     """Every step in the ordinary gate must run unconditionally and fail the job."""
     for index, step in enumerate(steps):
@@ -265,7 +274,7 @@ def check_ci_step_hygiene(steps: list[dict], label: str, problems: list[str]) ->
         name = step.get("name", f"step {index}")
         if step.get("if") is not None:
             problems.append(f"{label}: step '{name}' carries an if condition")
-        if step.get("continue-on-error") is True:
+        if not soft_fail_is_absent(step.get("continue-on-error")):
             problems.append(f"{label}: step '{name}' uses continue-on-error")
         run = str(step.get("run", ""))
         for token in EXIT_SWALLOW_TOKENS:
@@ -316,7 +325,7 @@ def check_ci_workflow(document: dict) -> list[str]:
         problems.append(f"{label}: job permissions exceed contents: read")
     if job.get("if") is not None:
         problems.append(f"{label}: job-level if condition would bypass verification")
-    if job.get("continue-on-error") is True:
+    if not soft_fail_is_absent(job.get("continue-on-error")):
         problems.append(f"{label}: job-level continue-on-error softens verification")
 
     steps = job_steps(document, "dev-check")
@@ -348,12 +357,21 @@ def check_ci_workflow(document: dict) -> list[str]:
         problems.append(f"{label}: workflow does not execute this coverage guard")
     for step in guard_steps:
         tokens = single_command_tokens(str(step.get("run", "")))
+        # Only a literal ``python3 <script> [repo-root]`` argv runs the guard:
+        # interpreter flags like -c/-m would treat the filename as an argument,
+        # and -O/-OO/PYTHONOPTIMIZE strip the assert-based checks entirely.
         if (
             tokens is None
             or tokens[0] not in ("python3", "python")
-            or not any(token.endswith("test_ci_coverage.py") for token in tokens[1:])
+            or len(tokens) < 2
+            or not tokens[1].endswith("test_ci_coverage.py")
+            or tokens[1].startswith("-")
+            or any(token.startswith("-") for token in tokens[2:])
         ):
-            problems.append(f"{label}: coverage guard step is not a direct python invocation")
+            problems.append(f"{label}: coverage guard step is not a direct 'python3 <script>' invocation")
+        for env in (document.get("env"), job.get("env"), step.get("env")):
+            if isinstance(env, dict) and "PYTHONOPTIMIZE" in env:
+                problems.append(f"{label}: PYTHONOPTIMIZE would strip the guard's assertions")
 
     pip_steps = [step for step in steps if "PyYAML" in str(step.get("run", ""))]
     if not pip_steps:
@@ -438,7 +456,7 @@ def check_channel_workflow(document: dict) -> list[str]:
             continue
         if job.get("permissions") not in (None, {"contents": "read"}):
             problems.append(f"{label}: job '{job_name}' broadens permissions")
-        if job.get("continue-on-error") is True:
+        if not soft_fail_is_absent(job.get("continue-on-error")):
             problems.append(f"{label}: job '{job_name}' uses continue-on-error")
         for step in job.get("steps") or []:
             if not isinstance(step, dict):
@@ -451,7 +469,7 @@ def check_channel_workflow(document: dict) -> list[str]:
             if not retention:
                 if step.get("if") is not None:
                     problems.append(f"{label}:{job_name}: verification step '{name}' carries an if condition")
-                if step.get("continue-on-error") is True:
+                if not soft_fail_is_absent(step.get("continue-on-error")):
                     problems.append(f"{label}:{job_name}: step '{name}' uses continue-on-error")
             run = str(step.get("run", ""))
             if "gradlew" in run:
@@ -633,6 +651,26 @@ def case_ci_job_continue_on_error_rejected(root: Path) -> None:
     assert_rejected(mutate(_ci(root), soften), check_ci_workflow, "job-level continue-on-error")
 
 
+def case_ci_job_continue_on_error_expression_rejected(root: Path) -> None:
+    """'${{ true }}' is a valid GitHub expression that soft-fails the whole job."""
+    def soften(document: dict) -> None:
+        document["jobs"]["dev-check"]["continue-on-error"] = "${{ true }}"
+    assert_rejected(mutate(_ci(root), soften), check_ci_workflow, "job-level expression continue-on-error")
+
+
+def case_ci_step_continue_on_error_expression_rejected(root: Path) -> None:
+    def soften(document: dict) -> None:
+        ci_gradle_step(document)["continue-on-error"] = "${{ github.event_name == 'push' }}"
+    assert_rejected(mutate(_ci(root), soften), check_ci_workflow, "step-level expression continue-on-error")
+
+
+def case_ci_literal_false_soft_fail_allowed(root: Path) -> None:
+    """An explicit YAML false continues to mean 'do not soft-fail'."""
+    document = mutate(_ci(root), lambda d: ci_gradle_step(d).__setitem__("continue-on-error", False))
+    problems = check_ci_workflow(document)
+    assert not problems, "literal continue-on-error: false must stay legal:\n" + "\n".join(problems)
+
+
 def case_ci_if_bypass_rejected(root: Path) -> None:
     def bypass(document: dict) -> None:
         ci_gradle_step(document)["if"] = "github.event_name == 'push'"
@@ -760,6 +798,45 @@ def case_ci_guard_commented_rejected(root: Path) -> None:
             if "test_ci_coverage.py" in run:
                 step["run"] = f"# {run}"
     assert_rejected(mutate(_ci(root), comment), check_ci_workflow, "guard command commented out")
+
+
+def _guard_step(document: dict) -> dict:
+    return next(
+        step for step in job_steps(document, "dev-check")
+        if "test_ci_coverage.py" in str(step.get("run", ""))
+    )
+
+
+def case_ci_guard_python_c_rejected(root: Path) -> None:
+    """python3 -c pass <script> keeps the filename as an argv without running it."""
+    def fake(document: dict) -> None:
+        _guard_step(document)["run"] = "python3 -c pass scripts/test/test_ci_coverage.py"
+    assert_rejected(mutate(_ci(root), fake), check_ci_workflow, "guard filename as -c argument")
+
+
+def case_ci_guard_python_optimize_rejected(root: Path) -> None:
+    """python3 -O strips the assert statements the guard is built on."""
+    def optimize(document: dict) -> None:
+        _guard_step(document)["run"] = "python3 -O scripts/test/test_ci_coverage.py"
+    assert_rejected(mutate(_ci(root), optimize), check_ci_workflow, "guard under -O assertion stripping")
+
+
+def case_ci_guard_python_optimize2_rejected(root: Path) -> None:
+    def optimize(document: dict) -> None:
+        _guard_step(document)["run"] = "python3 -OO scripts/test/test_ci_coverage.py"
+    assert_rejected(mutate(_ci(root), optimize), check_ci_workflow, "guard under -OO assertion stripping")
+
+
+def case_ci_guard_pythonoptimize_env_rejected(root: Path) -> None:
+    def optimize(document: dict) -> None:
+        _guard_step(document)["env"] = {"PYTHONOPTIMIZE": "1"}
+    assert_rejected(mutate(_ci(root), optimize), check_ci_workflow, "guard under PYTHONOPTIMIZE env")
+
+
+def case_ci_job_env_pythonoptimize_rejected(root: Path) -> None:
+    def optimize(document: dict) -> None:
+        document["jobs"]["dev-check"]["env"] = {"PYTHONOPTIMIZE": "2"}
+    assert_rejected(mutate(_ci(root), optimize), check_ci_workflow, "job-level PYTHONOPTIMIZE env")
 
 
 def case_ci_unpinned_tool_rejected(root: Path) -> None:
@@ -938,6 +1015,12 @@ def case_channel_job_soft_fail_rejected(root: Path) -> None:
     assert_rejected(mutate(_channel(root), soften), check_channel_workflow, "package-check continue-on-error")
 
 
+def case_channel_expression_soft_fail_rejected(root: Path) -> None:
+    def soften(document: dict) -> None:
+        document["jobs"]["package-check"]["continue-on-error"] = "${{ true }}"
+    assert_rejected(mutate(_channel(root), soften), check_channel_workflow, "package-check expression continue-on-error")
+
+
 def case_channel_reports_removed_rejected(root: Path) -> None:
     def drop(document: dict) -> None:
         for job in document["jobs"].values():
@@ -962,6 +1045,9 @@ CASES = (
     case_ci_extra_task_rejected,
     case_ci_continue_on_error_rejected,
     case_ci_job_continue_on_error_rejected,
+    case_ci_job_continue_on_error_expression_rejected,
+    case_ci_step_continue_on_error_expression_rejected,
+    case_ci_literal_false_soft_fail_allowed,
     case_ci_if_bypass_rejected,
     case_ci_guard_step_if_rejected,
     case_ci_setup_step_if_rejected,
@@ -980,6 +1066,11 @@ CASES = (
     case_ci_checkout_ref_drift_rejected,
     case_ci_guard_removed_rejected,
     case_ci_guard_commented_rejected,
+    case_ci_guard_python_c_rejected,
+    case_ci_guard_python_optimize_rejected,
+    case_ci_guard_python_optimize2_rejected,
+    case_ci_guard_pythonoptimize_env_rejected,
+    case_ci_job_env_pythonoptimize_rejected,
     case_ci_unpinned_tool_rejected,
     case_ci_release_step_rejected,
     case_ci_host_step_rejected,
@@ -1003,6 +1094,7 @@ CASES = (
     case_channel_gradle_dry_run_rejected,
     case_channel_gradle_exclude_rejected,
     case_channel_job_soft_fail_rejected,
+    case_channel_expression_soft_fail_rejected,
     case_channel_reports_removed_rejected,
 )
 
