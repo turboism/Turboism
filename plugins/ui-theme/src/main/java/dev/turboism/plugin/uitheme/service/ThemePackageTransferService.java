@@ -118,6 +118,10 @@ public final class ThemePackageTransferService {
         }
     }
 
+    /**
+     * Outcome of an {@link ThemePackageTransferService#exportPackage} attempt: written,
+     * cancelled by the user, refused by the host, or failed to write.
+     */
     public enum ExportOutcome {
         EXPORTED,
         CANCELED,
@@ -125,6 +129,11 @@ public final class ThemePackageTransferService {
         FAILED
     }
 
+    /**
+     * Outcome of an {@link ThemePackageTransferService#importPackage} attempt: decoded and
+     * returned, cancelled by the user, refused by the host, malformed ({@code INVALID}), or
+     * unreadable.
+     */
     public enum ImportOutcome {
         IMPORTED,
         CANCELED,
