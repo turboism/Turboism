@@ -12,14 +12,21 @@ PyYAML==6.0.3. GitHub's ``on`` key must not be read through YAML 1.1 boolean
 semantics: PyYAML resolves it to ``True``, so trigger lookup goes through
 :func:`workflow_triggers`.
 
+Verification steps are checked by execution shape, not by substring: a
+``run`` block must be one direct command (comments and blank lines allowed,
+no pipes/chains/redirection), the Gradle gate must be literally
+``xvfb-run <opts> ./gradlew <args>`` with ``./gradlew`` in command position,
+and Gradle arguments are restricted to a fixed allowlist of the two gate
+tasks plus inert options. Anything the guard cannot confirm is rejected.
+
 Usage: test_ci_coverage.py [repo-root]
 """
 from __future__ import annotations
 
 import copy
 import re
+import shlex
 import sys
-import tempfile
 from pathlib import Path
 
 import yaml
@@ -52,6 +59,38 @@ EXPECTED_CHANNELS = {"stable", "beta", "nightly"}
 QA_BUILD_NUMBERS = ("900000000", "900000001", "900000002")
 
 CHECKOUT_PIN = re.compile(r"^actions/checkout@[0-9a-f]{40}$")
+SETUP_JAVA_PIN = re.compile(r"^actions/setup-java@[0-9a-f]{40}$")
+
+# Trigger keys that would narrow ordinary CI below "every pull request / every
+# main push". Negative filters (branches-ignore, paths-ignore) are included:
+# they exclude whole classes of changes just like positive whitelists do.
+PR_NARROWING_KEYS = ("paths", "paths-ignore", "types", "branches", "branches-ignore")
+PUSH_NARROWING_KEYS = ("paths", "paths-ignore", "tags", "tags-ignore", "branches-ignore")
+
+# Shell control tokens are rejected in guarded run blocks so that a retained
+# command string inside echo/comments/chains cannot fake execution.
+SHELL_META = ("&&", "||", "|", ";", "`", "$(", ">", "<", "&", "\n")
+
+# xvfb-run options this guard understands. Unknown options before ./gradlew are
+# rejected so the display wrapper cannot silently run a different command.
+XVFB_FLAG_OPTIONS = {"-a", "--auto-servernum", "-l", "--listen-tcp"}
+XVFB_ARG_OPTIONS = {
+    "-s", "--server-args", "-e", "--error-file", "-f", "-F", "--auth-file",
+    "-n", "--server-num", "-p", "--xauth-protocol", "-w",
+}
+
+# The ordinary gate must invoke exactly these Gradle tasks; every other token
+# must be an inert option. --dry-run/-m, -x/--exclude-task, --tests, -P/-D/-I
+# properties, init scripts and additional tasks are all rejected by absence.
+REQUIRED_GRADLE_TASKS = {"devCheck", "checkCompletedCommit"}
+ALLOWED_GRADLE_OPTIONS = {
+    "--no-daemon",
+    "--offline",
+    "--console=plain",
+    "--stacktrace",
+    "--continue",
+}
+REQUIRED_GRADLE_OPTIONS = {"--no-daemon"}
 
 # Tokens that must never appear in the ordinary CI job: publishing, product
 # build-number allocation, the release-only gate, real-host entry points and
@@ -82,6 +121,17 @@ FORBIDDEN_ORDINARY_TOKENS = (
     "validateStatusBarHost",
     "graalvm",
     "TURBOISM_GRAAL",
+)
+
+# Gradle flags that silently turn a "verification" step into a graph print or
+# task exclusion. Checked on every gradlew run block in the channel workflow;
+# the ordinary gate rejects them harder through the argument allowlist.
+# --tests is legitimate in the channel matrix, so it is not forbidden there.
+GRADLE_NOOP_FLAGS = (
+    re.compile(r"(?:^|\s)--dry-run(?:\s|$)"),
+    re.compile(r"(?:^|\s)-m(?:\s|$)"),
+    re.compile(r"(?:^|\s)--exclude-task(?:[\s=]|$)"),
+    re.compile(r"(?:^|\s)-x(?:\s|$)"),
 )
 
 EXIT_SWALLOW_TOKENS = ("|| true", "|| exit 0", "; true", "||:")
@@ -122,20 +172,73 @@ def run_texts(steps: list[dict]) -> list[str]:
     return [step["run"] for step in steps if isinstance(step, dict) and isinstance(step.get("run"), str)]
 
 
-def gradle_steps(steps: list[dict]) -> list[dict]:
-    return [
-        step
-        for step in steps
-        if isinstance(step, dict) and "gradlew" in str(step.get("run", ""))
-    ]
-
-
 def checkout_steps(steps: list[dict]) -> list[dict]:
     return [
         step
         for step in steps
         if isinstance(step, dict) and str(step.get("uses", "")).startswith("actions/checkout@")
     ]
+
+
+def single_command_tokens(run: str) -> list[str] | None:
+    """Tokenize a run block that must be one direct shell command.
+
+    Comment and blank lines are ignored. Anything else — extra commands,
+    pipes, chains, redirection, substitution — is not a confirmable direct
+    command and returns None so the caller fails closed.
+    """
+    lines = [
+        line.strip()
+        for line in run.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    if len(lines) != 1:
+        return None
+    try:
+        tokens = shlex.split(lines[0])
+    except ValueError:
+        return None
+    if not tokens:
+        return None
+    for token in tokens:
+        if any(meta in token for meta in SHELL_META):
+            return None
+    return tokens
+
+
+def ci_gradle_invocation(run: str) -> list[str] | None:
+    """Parse ``xvfb-run <opts> ./gradlew <args>`` and return the Gradle args.
+
+    Returns None unless xvfb-run is the command, every leading token is a
+    known xvfb-run option, and ``./gradlew`` sits in command position.
+    """
+    tokens = single_command_tokens(run)
+    if not tokens or tokens[0] != "xvfb-run":
+        return None
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token in ("./gradlew", "gradlew"):
+            break
+        if token in XVFB_FLAG_OPTIONS:
+            index += 1
+        elif token in XVFB_ARG_OPTIONS:
+            index += 2
+        else:
+            return None
+    if index >= len(tokens) or tokens[index] not in ("./gradlew", "gradlew"):
+        return None
+    args = tokens[index + 1:]
+    return args or None
+
+
+def gradle_args_are_inert(args: list[str]) -> bool:
+    """Every argument must be a required gate task or a whitelisted inert option.
+
+    This rejects --dry-run/-m, -x/--exclude-task, --tests, -P/-D/-I property
+    overrides, included builds, and any additional task by construction.
+    """
+    return all(arg in REQUIRED_GRADLE_TASKS or arg in ALLOWED_GRADLE_OPTIONS for arg in args)
 
 
 def check_permissions(document: dict, label: str, problems: list[str]) -> None:
@@ -154,11 +257,14 @@ def check_pinned_checkout(step: dict, label: str, problems: list[str], require_e
         problems.append(f"{label}: checkout must pin ref to ${{{{ github.sha }}}}")
 
 
-def check_no_soft_failures(steps: list[dict], label: str, problems: list[str]) -> None:
+def check_ci_step_hygiene(steps: list[dict], label: str, problems: list[str]) -> None:
+    """Every step in the ordinary gate must run unconditionally and fail the job."""
     for index, step in enumerate(steps):
         if not isinstance(step, dict):
             continue
         name = step.get("name", f"step {index}")
+        if step.get("if") is not None:
+            problems.append(f"{label}: step '{name}' carries an if condition")
         if step.get("continue-on-error") is True:
             problems.append(f"{label}: step '{name}' uses continue-on-error")
         run = str(step.get("run", ""))
@@ -183,7 +289,7 @@ def check_ci_workflow(document: dict) -> list[str]:
         problems.append(f"{label}: pull_request trigger is missing")
     else:
         pr = event_config(triggers, "pull_request")
-        for filter_key in ("paths", "paths-ignore", "types", "branches"):
+        for filter_key in PR_NARROWING_KEYS:
             if filter_key in pr:
                 problems.append(f"{label}: pull_request must cover every pull request, found '{filter_key}' filter")
     if "push" not in triggers:
@@ -192,7 +298,7 @@ def check_ci_workflow(document: dict) -> list[str]:
         push = event_config(triggers, "push")
         if sorted(push.get("branches") or []) != ["main"]:
             problems.append(f"{label}: push must target main only")
-        for filter_key in ("paths", "paths-ignore", "tags"):
+        for filter_key in PUSH_NARROWING_KEYS:
             if filter_key in push:
                 problems.append(f"{label}: push must not be filtered by '{filter_key}'")
 
@@ -210,9 +316,11 @@ def check_ci_workflow(document: dict) -> list[str]:
         problems.append(f"{label}: job permissions exceed contents: read")
     if job.get("if") is not None:
         problems.append(f"{label}: job-level if condition would bypass verification")
+    if job.get("continue-on-error") is True:
+        problems.append(f"{label}: job-level continue-on-error softens verification")
 
     steps = job_steps(document, "dev-check")
-    check_no_soft_failures(steps, label, problems)
+    check_ci_step_hygiene(steps, label, problems)
 
     checkouts = checkout_steps(steps)
     if len(checkouts) != 1:
@@ -221,33 +329,71 @@ def check_ci_workflow(document: dict) -> list[str]:
         check_pinned_checkout(step, label, problems, require_event_ref=True)
 
     java_steps = [s for s in steps if str(s.get("uses", "")).startswith("actions/setup-java@")]
-    if not java_steps or str((java_steps[0].get("with") or {}).get("java-version")) != "17":
-        problems.append(f"{label}: Java 17 setup step is missing")
+    if not java_steps:
+        problems.append(f"{label}: Java setup step is missing")
+    else:
+        java_step = java_steps[0]
+        if not SETUP_JAVA_PIN.match(str(java_step.get("uses", ""))):
+            problems.append(f"{label}: setup-java is not pinned to a full commit SHA")
+        if str((java_step.get("with") or {}).get("java-version")) != "17":
+            problems.append(f"{label}: Java 17 setup step is missing")
+    if not any("xvfb" in run and "install" in run for run in run_texts(steps)):
+        problems.append(f"{label}: no step provisions the xvfb display server")
 
-    runs = run_texts(steps)
-    if not any("test_ci_coverage.py" in run for run in runs):
+    guard_steps = [
+        step for step in steps
+        if "test_ci_coverage.py" in str(step.get("run", ""))
+    ]
+    if not guard_steps:
         problems.append(f"{label}: workflow does not execute this coverage guard")
-    if not any(re.search(r"PyYAML==6\.0\.3", run) and "pip" in run for run in runs):
-        problems.append(f"{label}: pinned PyYAML==6.0.3 install step is missing")
+    for step in guard_steps:
+        tokens = single_command_tokens(str(step.get("run", "")))
+        if (
+            tokens is None
+            or tokens[0] not in ("python3", "python")
+            or not any(token.endswith("test_ci_coverage.py") for token in tokens[1:])
+        ):
+            problems.append(f"{label}: coverage guard step is not a direct python invocation")
 
-    verification = gradle_steps(steps)
-    if not verification:
+    pip_steps = [step for step in steps if "PyYAML" in str(step.get("run", ""))]
+    if not pip_steps:
+        problems.append(f"{label}: pinned PyYAML=={PINNED_YAML_VERSION} install step is missing")
+    for step in pip_steps:
+        tokens = single_command_tokens(str(step.get("run", ""))) or []
+        if (
+            tokens[:4] != ["python3", "-m", "pip", "install"]
+            or f"PyYAML=={PINNED_YAML_VERSION}" not in tokens[4:]
+            or any("PyYAML" in token and token != f"PyYAML=={PINNED_YAML_VERSION}" for token in tokens[4:])
+        ):
+            problems.append(f"{label}: PyYAML install is not a pinned 'pip install PyYAML=={PINNED_YAML_VERSION}'")
+
+    gradle_mentions = [step for step in steps if "gradlew" in str(step.get("run", ""))]
+    if not gradle_mentions:
         problems.append(f"{label}: no Gradle verification step found")
-    combined = "\n".join(str(step.get("run", "")) for step in verification)
-    for gate in ("devCheck", "checkCompletedCommit"):
-        if not re.search(rf"(?<![\w-]){gate}(?![\w-])", combined):
-            problems.append(f"{label}: Gradle verification does not run {gate}")
-    for step in verification:
-        run = str(step.get("run", ""))
+    executed_tasks: set[str] = set()
+    for step in gradle_mentions:
         name = step.get("name", "Gradle step")
-        if step.get("if") is not None:
-            problems.append(f"{label}: '{name}' carries an if bypass")
-        if "xvfb-run" not in run:
-            problems.append(f"{label}: '{name}' does not isolate the display with xvfb-run")
-        if re.search(r"--tests\b", run):
-            problems.append(f"{label}: '{name}' filters tests with --tests")
-        if re.search(r"-P\w*[Tt]est", run):
-            problems.append(f"{label}: '{name}' filters tests with a -P property")
+        run = str(step.get("run", ""))
+        args = ci_gradle_invocation(run)
+        if args is None:
+            problems.append(
+                f"{label}: '{name}' mentions gradlew but is not a direct "
+                "'xvfb-run <opts> ./gradlew <args>' command"
+            )
+            continue
+        if not gradle_args_are_inert(args):
+            problems.append(
+                f"{label}: '{name}' carries non-allowlisted Gradle arguments: "
+                f"{[a for a in args if a not in REQUIRED_GRADLE_TASKS and a not in ALLOWED_GRADLE_OPTIONS]}"
+            )
+            continue
+        missing_options = REQUIRED_GRADLE_OPTIONS - set(args)
+        if missing_options:
+            problems.append(f"{label}: '{name}' is missing required option(s) {sorted(missing_options)}")
+        executed_tasks.update(arg for arg in args if arg in REQUIRED_GRADLE_TASKS)
+    missing_tasks = REQUIRED_GRADLE_TASKS - executed_tasks
+    if missing_tasks:
+        problems.append(f"{label}: executed Gradle tasks are missing {sorted(missing_tasks)}")
 
     return problems
 
@@ -292,6 +438,26 @@ def check_channel_workflow(document: dict) -> list[str]:
             continue
         if job.get("permissions") not in (None, {"contents": "read"}):
             problems.append(f"{label}: job '{job_name}' broadens permissions")
+        if job.get("continue-on-error") is True:
+            problems.append(f"{label}: job '{job_name}' uses continue-on-error")
+        for step in job.get("steps") or []:
+            if not isinstance(step, dict):
+                continue
+            name = step.get("name", "step")
+            retention = (
+                str(step.get("uses", "")).startswith("actions/upload-artifact@")
+                or str(name).startswith("Retain")
+            )
+            if not retention:
+                if step.get("if") is not None:
+                    problems.append(f"{label}:{job_name}: verification step '{name}' carries an if condition")
+                if step.get("continue-on-error") is True:
+                    problems.append(f"{label}:{job_name}: step '{name}' uses continue-on-error")
+            run = str(step.get("run", ""))
+            if "gradlew" in run:
+                for flag in GRADLE_NOOP_FLAGS:
+                    if flag.search(run):
+                        problems.append(f"{label}:{job_name}: '{name}' uses no-op Gradle flag '{flag.pattern}'")
         for step in checkout_steps(job.get("steps") or []):
             check_pinned_checkout(step, f"{label}:{job_name}", problems, require_event_ref=False)
 
@@ -358,7 +524,9 @@ def mutate(document: dict, mutation) -> dict:
 
 
 def ci_gradle_step(document: dict) -> dict:
-    return gradle_steps(job_steps(document, "dev-check"))[0]
+    return next(
+        step for step in job_steps(document, "dev-check") if "gradlew" in str(step.get("run", ""))
+    )
 
 
 def case_real_workflows_satisfy_contract(root: Path) -> None:
@@ -382,25 +550,75 @@ def _channel(root: Path) -> dict:
     return load_workflow(root, CHANNEL_WORKFLOW)
 
 
+def _append_gradle_arg(document: dict, extra: str) -> None:
+    step = ci_gradle_step(document)
+    step["run"] = f"{step['run']} {extra}"
+
+
 def case_ci_only_devcheck_rejected(root: Path) -> None:
     def strip(document: dict) -> None:
-        for step in gradle_steps(job_steps(document, "dev-check")):
-            step["run"] = str(step["run"]).replace("checkCompletedCommit", "")
+        step = ci_gradle_step(document)
+        step["run"] = str(step["run"]).replace("checkCompletedCommit", "")
     assert_rejected(mutate(_ci(root), strip), check_ci_workflow, "devCheck-only Gradle gate")
 
 
 def case_ci_test_filter_rejected(root: Path) -> None:
-    def narrow(document: dict) -> None:
-        step = ci_gradle_step(document)
-        step["run"] += " --tests dev.turboism.core.FrameworkBuildInfoTest"
-    assert_rejected(mutate(_ci(root), narrow), check_ci_workflow, "--tests filter")
+    assert_rejected(
+        mutate(_ci(root), lambda d: _append_gradle_arg(d, "--tests dev.turboism.core.FrameworkBuildInfoTest")),
+        check_ci_workflow,
+        "--tests filter",
+    )
 
 
 def case_ci_property_filter_rejected(root: Path) -> None:
-    def narrow(document: dict) -> None:
-        step = ci_gradle_step(document)
-        step["run"] += " -PtestFilter=sdk"
-    assert_rejected(mutate(_ci(root), narrow), check_ci_workflow, "-P test filter")
+    assert_rejected(
+        mutate(_ci(root), lambda d: _append_gradle_arg(d, "-PtestFilter=sdk")),
+        check_ci_workflow,
+        "-P test filter",
+    )
+
+
+def case_ci_dry_run_rejected(root: Path) -> None:
+    """--dry-run only prints the task graph; nothing executes."""
+    assert_rejected(
+        mutate(_ci(root), lambda d: _append_gradle_arg(d, "--dry-run")),
+        check_ci_workflow,
+        "--dry-run graph printing",
+    )
+
+
+def case_ci_dry_run_short_rejected(root: Path) -> None:
+    assert_rejected(
+        mutate(_ci(root), lambda d: _append_gradle_arg(d, "-m")),
+        check_ci_workflow,
+        "-m dry-run alias",
+    )
+
+
+def case_ci_exclude_test_task_rejected(root: Path) -> None:
+    """-x test removes every module test task from the graph."""
+    assert_rejected(
+        mutate(_ci(root), lambda d: _append_gradle_arg(d, "-x test")),
+        check_ci_workflow,
+        "-x test exclusion",
+    )
+
+
+def case_ci_exclude_task_long_rejected(root: Path) -> None:
+    assert_rejected(
+        mutate(_ci(root), lambda d: _append_gradle_arg(d, "--exclude-task :sdk:test")),
+        check_ci_workflow,
+        "--exclude-task exclusion",
+    )
+
+
+def case_ci_extra_task_rejected(root: Path) -> None:
+    """Only the two gate tasks may be invoked; substitutions are not allowed."""
+    assert_rejected(
+        mutate(_ci(root), lambda d: _append_gradle_arg(d, "checkRelease")),
+        check_ci_workflow,
+        "extra task argument",
+    )
 
 
 def case_ci_continue_on_error_rejected(root: Path) -> None:
@@ -409,10 +627,33 @@ def case_ci_continue_on_error_rejected(root: Path) -> None:
     assert_rejected(mutate(_ci(root), soften), check_ci_workflow, "continue-on-error")
 
 
+def case_ci_job_continue_on_error_rejected(root: Path) -> None:
+    def soften(document: dict) -> None:
+        document["jobs"]["dev-check"]["continue-on-error"] = True
+    assert_rejected(mutate(_ci(root), soften), check_ci_workflow, "job-level continue-on-error")
+
+
 def case_ci_if_bypass_rejected(root: Path) -> None:
     def bypass(document: dict) -> None:
         ci_gradle_step(document)["if"] = "github.event_name == 'push'"
     assert_rejected(mutate(_ci(root), bypass), check_ci_workflow, "conditional verification bypass")
+
+
+def case_ci_guard_step_if_rejected(root: Path) -> None:
+    """if: 'false' on the guard step skips the guard while keeping its name."""
+    def bypass(document: dict) -> None:
+        for step in job_steps(document, "dev-check"):
+            if "test_ci_coverage.py" in str(step.get("run", "")):
+                step["if"] = "false"
+    assert_rejected(mutate(_ci(root), bypass), check_ci_workflow, "guard step skipped by if")
+
+
+def case_ci_setup_step_if_rejected(root: Path) -> None:
+    def bypass(document: dict) -> None:
+        for step in job_steps(document, "dev-check"):
+            if str(step.get("uses", "")).startswith("actions/setup-java@"):
+                step["if"] = "matrix.experimental"
+    assert_rejected(mutate(_ci(root), bypass), check_ci_workflow, "setup step skipped by if")
 
 
 def case_ci_swallowed_exit_rejected(root: Path) -> None:
@@ -422,10 +663,48 @@ def case_ci_swallowed_exit_rejected(root: Path) -> None:
     assert_rejected(mutate(_ci(root), swallow), check_ci_workflow, "swallowed Gradle exit code")
 
 
+def case_ci_echo_fakes_gradle_rejected(root: Path) -> None:
+    """echo <command> keeps every token but never executes Gradle."""
+    def fake(document: dict) -> None:
+        step = ci_gradle_step(document)
+        step["run"] = f"echo {step['run']}"
+    assert_rejected(mutate(_ci(root), fake), check_ci_workflow, "echo wrapping the gate command")
+
+
+def case_ci_prepended_command_rejected(root: Path) -> None:
+    """A second line means the run block is not one confirmable direct command."""
+    def prepend(document: dict) -> None:
+        step = ci_gradle_step(document)
+        step["run"] = f"echo starting\n{step['run']}"
+    assert_rejected(mutate(_ci(root), prepend), check_ci_workflow, "multi-command run block")
+
+
+def case_ci_xvfb_wraps_echo_rejected(root: Path) -> None:
+    """xvfb-run must launch ./gradlew itself, not an echo of it."""
+    def fake(document: dict) -> None:
+        step = ci_gradle_step(document)
+        step["run"] = "xvfb-run -a echo './gradlew --no-daemon devCheck checkCompletedCommit'"
+    assert_rejected(mutate(_ci(root), fake), check_ci_workflow, "xvfb-run running echo")
+
+
+def case_ci_gradle_in_comment_rejected(root: Path) -> None:
+    def comment(document: dict) -> None:
+        step = ci_gradle_step(document)
+        step["run"] = f"# {step['run']}\necho done"
+    assert_rejected(mutate(_ci(root), comment), check_ci_workflow, "gate command commented out")
+
+
 def case_ci_pull_request_path_filter_rejected(root: Path) -> None:
     def filter_pr(document: dict) -> None:
         workflow_triggers(document)["pull_request"] = {"paths": ["sdk/**", "runtime/**"]}
     assert_rejected(mutate(_ci(root), filter_pr), check_ci_workflow, "pull_request path whitelist")
+
+
+def case_ci_pull_request_branches_ignore_rejected(root: Path) -> None:
+    """branches-ignore silently drops main-targeted pull requests."""
+    def filter_pr(document: dict) -> None:
+        workflow_triggers(document)["pull_request"] = {"branches-ignore": ["main"]}
+    assert_rejected(mutate(_ci(root), filter_pr), check_ci_workflow, "pull_request branches-ignore")
 
 
 def case_ci_missing_push_rejected(root: Path) -> None:
@@ -473,6 +752,16 @@ def case_ci_guard_removed_rejected(root: Path) -> None:
     assert_rejected(mutate(_ci(root), drop), check_ci_workflow, "coverage guard step removed")
 
 
+def case_ci_guard_commented_rejected(root: Path) -> None:
+    """A commented-out guard line keeps the token but runs nothing."""
+    def comment(document: dict) -> None:
+        for step in job_steps(document, "dev-check"):
+            run = str(step.get("run", ""))
+            if "test_ci_coverage.py" in run:
+                step["run"] = f"# {run}"
+    assert_rejected(mutate(_ci(root), comment), check_ci_workflow, "guard command commented out")
+
+
 def case_ci_unpinned_tool_rejected(root: Path) -> None:
     def loosen(document: dict) -> None:
         for step in job_steps(document, "dev-check"):
@@ -500,9 +789,19 @@ def case_ci_host_step_rejected(root: Path) -> None:
 
 def case_ci_unisolated_display_rejected(root: Path) -> None:
     def bare(document: dict) -> None:
-        for step in gradle_steps(job_steps(document, "dev-check")):
-            step["run"] = str(step["run"]).replace("xvfb-run -a -s '-screen 0 1920x1080x24' ", "")
+        for step in job_steps(document, "dev-check"):
+            run = str(step.get("run", ""))
+            if "gradlew" in run:
+                step["run"] = run.replace("xvfb-run -a -s '-screen 0 1920x1080x24' ", "")
     assert_rejected(mutate(_ci(root), bare), check_ci_workflow, "Gradle run without xvfb isolation")
+
+
+def case_ci_missing_no_daemon_rejected(root: Path) -> None:
+    """Without --no-daemon the gate could share a stale Gradle daemon."""
+    def daemon(document: dict) -> None:
+        step = ci_gradle_step(document)
+        step["run"] = str(step["run"]).replace("--no-daemon ", "")
+    assert_rejected(mutate(_ci(root), daemon), check_ci_workflow, "missing --no-daemon")
 
 
 def case_ci_job_renamed_rejected(root: Path) -> None:
@@ -606,6 +905,39 @@ def case_channel_release_gate_removed_rejected(root: Path) -> None:
     assert_rejected(mutate(_channel(root), drop), check_channel_workflow, "checkRelease step removed")
 
 
+def case_channel_release_step_if_rejected(root: Path) -> None:
+    """A conditional checkRelease step would silently skip the release gate."""
+    def bypass(document: dict) -> None:
+        for step in job_steps(document, "package-check"):
+            if "checkRelease" in str(step.get("run", "")):
+                step["if"] = "false"
+    assert_rejected(mutate(_channel(root), bypass), check_channel_workflow, "checkRelease skipped by if")
+
+
+def case_channel_gradle_dry_run_rejected(root: Path) -> None:
+    def noop(document: dict) -> None:
+        for step in job_steps(document, "package-check"):
+            run = str(step.get("run", ""))
+            if "gradlew" in run and "checkRelease" in run:
+                step["run"] = run + " --dry-run"
+    assert_rejected(mutate(_channel(root), noop), check_channel_workflow, "dry-run release gate")
+
+
+def case_channel_gradle_exclude_rejected(root: Path) -> None:
+    def exclude(document: dict) -> None:
+        for step in job_steps(document, "package-check"):
+            run = str(step.get("run", ""))
+            if "gradlew" in run and "checkRelease" in run:
+                step["run"] = run + " -x test"
+    assert_rejected(mutate(_channel(root), exclude), check_channel_workflow, "release gate excluding tests")
+
+
+def case_channel_job_soft_fail_rejected(root: Path) -> None:
+    def soften(document: dict) -> None:
+        document["jobs"]["package-check"]["continue-on-error"] = True
+    assert_rejected(mutate(_channel(root), soften), check_channel_workflow, "package-check continue-on-error")
+
+
 def case_channel_reports_removed_rejected(root: Path) -> None:
     def drop(document: dict) -> None:
         for job in document["jobs"].values():
@@ -623,10 +955,23 @@ CASES = (
     case_ci_only_devcheck_rejected,
     case_ci_test_filter_rejected,
     case_ci_property_filter_rejected,
+    case_ci_dry_run_rejected,
+    case_ci_dry_run_short_rejected,
+    case_ci_exclude_test_task_rejected,
+    case_ci_exclude_task_long_rejected,
+    case_ci_extra_task_rejected,
     case_ci_continue_on_error_rejected,
+    case_ci_job_continue_on_error_rejected,
     case_ci_if_bypass_rejected,
+    case_ci_guard_step_if_rejected,
+    case_ci_setup_step_if_rejected,
     case_ci_swallowed_exit_rejected,
+    case_ci_echo_fakes_gradle_rejected,
+    case_ci_prepended_command_rejected,
+    case_ci_xvfb_wraps_echo_rejected,
+    case_ci_gradle_in_comment_rejected,
     case_ci_pull_request_path_filter_rejected,
+    case_ci_pull_request_branches_ignore_rejected,
     case_ci_missing_push_rejected,
     case_ci_old_branch_rejected,
     case_ci_permissions_rejected,
@@ -634,10 +979,12 @@ CASES = (
     case_ci_checkout_unpinned_rejected,
     case_ci_checkout_ref_drift_rejected,
     case_ci_guard_removed_rejected,
+    case_ci_guard_commented_rejected,
     case_ci_unpinned_tool_rejected,
     case_ci_release_step_rejected,
     case_ci_host_step_rejected,
     case_ci_unisolated_display_rejected,
+    case_ci_missing_no_daemon_rejected,
     case_ci_job_renamed_rejected,
     case_channel_old_branch_rejected,
     case_channel_push_unscoped_rejected,
@@ -652,6 +999,10 @@ CASES = (
     case_channel_identity_real_numbers_rejected,
     case_channel_credentials_rejected,
     case_channel_release_gate_removed_rejected,
+    case_channel_release_step_if_rejected,
+    case_channel_gradle_dry_run_rejected,
+    case_channel_gradle_exclude_rejected,
+    case_channel_job_soft_fail_rejected,
     case_channel_reports_removed_rejected,
 )
 
