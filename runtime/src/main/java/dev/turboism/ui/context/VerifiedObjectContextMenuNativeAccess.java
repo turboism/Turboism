@@ -94,7 +94,15 @@ public final class VerifiedObjectContextMenuNativeAccess
         Objects.requireNonNull(menu, "menu");
         Objects.requireNonNull(contribution, "contribution");
         Objects.requireNonNull(action, "action");
-        place(menu, nativeEntry(contribution.entry(), action), contribution.placement());
+        final Object item = nativeEntry(contribution.entry(), action);
+        place(menu, item, contribution.placement());
+        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+            "context-menu",
+            "appended " + contribution.contributionId()
+                + " menu=" + menu.getClass().getName()
+                + " item=" + item.getClass().getName()
+                + " attachment=" + attachment(item)
+        );
     }
 
     /** Appends to a persistent native Q menu and returns reversible Swing removal. */
@@ -119,6 +127,19 @@ public final class VerifiedObjectContextMenuNativeAccess
                 parent.repaint();
             }
         };
+    }
+
+    private String attachment(final Object item) {
+        try {
+            final Object component = resolver.invoke(MENU_COMPONENT, item);
+            final java.awt.Container parent =
+                component instanceof java.awt.Component awt ? awt.getParent() : null;
+            return "component=" + (component == null ? "null" : component.getClass().getName())
+                + " parent=" + (parent == null ? "null" : parent.getClass().getName())
+                + " popupComponents=" + (parent == null ? -1 : parent.getComponentCount());
+        } catch (Throwable failure) {
+            return "unavailable:" + failure.getClass().getSimpleName();
+        }
     }
 
     private Object nativeEntry(
