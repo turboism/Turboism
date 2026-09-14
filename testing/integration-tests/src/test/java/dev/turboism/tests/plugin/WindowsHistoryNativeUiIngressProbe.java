@@ -16,6 +16,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -3800,26 +3802,134 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     /**
      * Checks one step's events against what that step is supposed to be.
      *
-     * <p>An action the operator performs must be observed as a host edit and must be announced by
-     * the entry hook first. A native Undo or Redo is not an edit entry at all, so it must produce
-     * no {@code before} event and must be attributed as navigation.</p>
+     * <p>An action must have a hook-presence {@code before} event and at least one complete
+     * host-UI confirmation pair. The generic {@code before} event is deliberately not associated
+     * with a confirmation pair: native before and confirmed events may carry different sequences.
+     * A native Undo or Redo is not an edit entry at all, so it must produce no {@code before} event
+     * and exactly one confirmation pair whose operation and origin both identify the navigation.</p>
      */
     static Verdict checkStep(final Step step, final List<Observed> events) {
-        final long before = events.stream().filter(event -> event.phase().equals("before")).count();
-        final long confirmed = events.stream()
-            .filter(event -> event.phase().equals("on") || event.phase().equals("after"))
+        final List<Observed> safeEvents = events == null ? List.of() : events;
+        final long before = countPhase(safeEvents, "before");
+        final long confirmed = safeEvents.stream()
+            .filter(event -> event != null
+                && ("on".equals(event.phase()) || "after".equals(event.phase())))
             .count();
         final String seen = "before=" + before + ",confirmed=" + confirmed
-            + ",events=" + events.size();
-        if (step.kind().equals("ACTION")) {
-            if (before == 0) return new Verdict(false, "no-before-event", seen);
-            if (confirmed == 0) return new Verdict(false, "no-confirmed-event", seen);
-            return new Verdict(true, "action-announced-before-it-was-observed", seen);
+            + ",events=" + safeEvents.size();
+        if (step == null || !supportedStepKind(step.kind())) {
+            return new Verdict(false, "unknown-step-kind", seen);
         }
-        if (before != 0) return new Verdict(false, "navigation-was-announced-as-an-edit", seen);
-        final boolean attributed = events.stream().anyMatch(event -> event.origin().equals(step.kind()));
-        if (!attributed) return new Verdict(false, "navigation-not-attributed", seen);
-        return new Verdict(true, "navigation-attributed-without-an-edit", seen);
+        if ("ACTION".equals(step.kind())) {
+            if (before == 0) return new Verdict(false, "no-before-event", seen);
+        } else if (before != 0) {
+            return new Verdict(false, "navigation-was-announced-as-an-edit", seen);
+        }
+        final ConfirmationCheck confirmations = checkConfirmations(safeEvents);
+        if (!confirmations.valid()) {
+            return new Verdict(false, confirmations.code(), seen);
+        }
+        if ("ACTION".equals(step.kind())) {
+            if (confirmed == 0 || confirmations.pairs().isEmpty()) {
+                return new Verdict(false, "no-confirmed-event", seen);
+            }
+            if (confirmations.pairs().stream()
+                .anyMatch(pair -> !"HOST_UI".equals(pair.on().origin()))) {
+                return new Verdict(false, "confirmation-not-host-ui", seen);
+            }
+            return new Verdict(true, "action-hook-and-host-ui-pair-observed", seen);
+        }
+        if (confirmations.pairs().isEmpty()) {
+            return new Verdict(false, "navigation-not-attributed", seen);
+        }
+        if (confirmations.pairs().size() != 1 || safeEvents.size() != 2) {
+            return new Verdict(false, "navigation-requires-one-confirmation-pair", seen);
+        }
+        final ConfirmationPair pair = confirmations.pairs().get(0);
+        if (!step.kind().equals(pair.on().operation())
+            || !step.kind().equals(pair.on().origin())) {
+            return new Verdict(false, "navigation-not-attributed", seen);
+        }
+        return new Verdict(true, "navigation-pair-confirmed-without-an-edit", seen);
+    }
+
+    private static long countPhase(final List<Observed> events, final String phase) {
+        return events.stream()
+            .filter(event -> event != null && phase.equals(event.phase()))
+            .count();
+    }
+
+    private static boolean supportedStepKind(final String kind) {
+        return "ACTION".equals(kind) || "UNDO".equals(kind) || "REDO".equals(kind);
+    }
+
+    /** Validates only the confirmed lifecycle; before events remain independent hook evidence. */
+    private static ConfirmationCheck checkConfirmations(final List<Observed> events) {
+        final Set<Long> beforeSequences = new HashSet<>();
+        final Map<Long, Observed> onBySequence = new LinkedHashMap<>();
+        final Map<Long, Observed> afterBySequence = new HashMap<>();
+        for (Observed event : events) {
+            if (event == null) return ConfirmationCheck.invalid("null-event");
+            final String phase = event.phase();
+            if ("before".equals(phase)) {
+                if (!beforeSequences.add(event.sequence())) {
+                    return ConfirmationCheck.invalid("duplicate-confirmation-phase");
+                }
+                continue;
+            }
+            if ("on".equals(phase)) {
+                if (onBySequence.containsKey(event.sequence())) {
+                    return ConfirmationCheck.invalid("duplicate-confirmation-phase");
+                }
+                if (afterBySequence.containsKey(event.sequence())) {
+                    return ConfirmationCheck.invalid("confirmation-reversed");
+                }
+                onBySequence.put(event.sequence(), event);
+                continue;
+            }
+            if ("after".equals(phase)) {
+                if (afterBySequence.containsKey(event.sequence())) {
+                    return ConfirmationCheck.invalid("duplicate-confirmation-phase");
+                }
+                final Observed on = onBySequence.get(event.sequence());
+                if (on == null) {
+                    return ConfirmationCheck.invalid(
+                        onBySequence.isEmpty()
+                            ? "orphan-after-event"
+                            : "confirmation-sequence-mismatch"
+                    );
+                }
+                if (blank(on.operation()) || blank(on.origin())) {
+                    return ConfirmationCheck.invalid("confirmation-fields-missing");
+                }
+                if (!sameConfirmationFields(on, event)) {
+                    return ConfirmationCheck.invalid("confirmation-fields-mismatch");
+                }
+                afterBySequence.put(event.sequence(), event);
+                continue;
+            }
+            return ConfirmationCheck.invalid("unknown-event-phase");
+        }
+        final List<ConfirmationPair> pairs = new ArrayList<>(onBySequence.size());
+        for (Map.Entry<Long, Observed> entry : onBySequence.entrySet()) {
+            final Observed after = afterBySequence.get(entry.getKey());
+            if (after == null) return ConfirmationCheck.invalid("orphan-on-event");
+            pairs.add(new ConfirmationPair(entry.getValue(), after));
+        }
+        return new ConfirmationCheck(true, "", List.copyOf(pairs));
+    }
+
+    private static boolean sameConfirmationFields(
+        final Observed on,
+        final Observed after
+    ) {
+        return Objects.equals(on.operation(), after.operation())
+            && Objects.equals(on.origin(), after.origin())
+            && Objects.equals(on.subjectId(), after.subjectId());
+    }
+
+    private static boolean blank(final String value) {
+        return value == null || value.isBlank();
     }
 
     /**
@@ -4590,6 +4700,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** One operator instruction and the kind of native outcome it must produce. */
     record Step(String id, String kind, String instruction) {
+    }
+
+    private record ConfirmationPair(Observed on, Observed after) {
+    }
+
+    private record ConfirmationCheck(
+        boolean valid,
+        String code,
+        List<ConfirmationPair> pairs
+    ) {
+        private static ConfirmationCheck invalid(final String code) {
+            return new ConfirmationCheck(false, code, List.of());
+        }
     }
 
     /** One semantic event as the probe saw it. */
