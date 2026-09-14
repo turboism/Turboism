@@ -310,6 +310,37 @@ if ($ProbeAgent) {
     exit $LASTEXITCODE
 }
 
+function Read-PreviewZgcPreference {
+    param([string]$Home)
+    # Matches the managed launcher's default-on semantics: absent
+    # config/field means enabled; only an explicit false opts out.
+    $config = Join-Path $Home "config.json"
+    if (-not (Test-Path -LiteralPath $config -PathType Leaf)) {
+        return $true
+    }
+    if ((Get-Item -LiteralPath $config).Length -gt 65536) {
+        throw "Turboism config exceeds 64 KiB: $config"
+    }
+    try {
+        $document = Get-Content -LiteralPath $config -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw "Turboism config is invalid: $config"
+    }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) {
+        return $true
+    }
+    $zgcProperty = $launcherProperty.Value.PSObject.Properties["zgc"]
+    if ($null -eq $zgcProperty -or $null -eq $zgcProperty.Value) {
+        return $true
+    }
+    if ($zgcProperty.Value -isnot [bool]) {
+        throw "Turboism launcher.zgc setting is invalid"
+    }
+    return [bool]$zgcProperty.Value
+}
+
 $classPath = Read-OfficialClassPath -Root $cubism
 $nativePath = "app\dll64;app\dll64\windows-amd64"
 $javaArgs = @(
@@ -324,6 +355,9 @@ $javaArgs = @(
     "-javaagent:$agent=home=$previewRoot;timeoutSeconds=120",
     "-Djava.locale.providers=CLDR,SPI"
 )
+if (Read-PreviewZgcPreference -Home $previewRoot) {
+    $javaArgs += "-XX:+UseZGC"
+}
 if (-not [string]::IsNullOrWhiteSpace($graalHostJava)) {
     $javaArgs += "-Dturboism.graal.enabled=true"
     $javaArgs += "-Dturboism.graal.java=$graalHostJava"
