@@ -543,7 +543,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         final byte[] mutated = mutateLayerName(writeSnapshot.bytes(), 900)
             .orElseThrow(() -> new IllegalStateException("session PSD has no mutable layer name"));
-        Files.write(writeSnapshot.path(), mutated);
+        writeSessionFile(writeSnapshot, mutated);
 
         final AutoImportObservation observation = awaitAutoImport(target, before, 90);
         result.setProperty("gui.autoImportApplied", Boolean.toString(observation.applied()));
@@ -1227,6 +1227,19 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private static final String TEMP_DIRECTORY_PREFIX = "turboism-psd-";
     private static final String TEMP_FILE_NAME = "external-edit.psd";
+
+    /**
+     * Narrow test seam for the platform file-object token.  The production implementation is
+     * {@link BasicFileAttributes#fileKey()}; tests may return {@code null} or a controlled token
+     * to exercise the portable path/content protocol without introducing a native file-ID API.
+     */
+    @FunctionalInterface
+    interface FileKeySupplier {
+        Object fileKey(BasicFileAttributes attributes);
+    }
+
+    private static final FileKeySupplier PLATFORM_FILE_KEY_SUPPLIER =
+        BasicFileAttributes::fileKey;
 
     private Path tempRoot() throws Exception {
         final String configured = System.getProperty("java.io.tmpdir", "");
@@ -2427,17 +2440,33 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             sha256 = sha256 == null ? "" : sha256;
             Objects.requireNonNull(structure, "PSD structure observation");
         }
+
+        long size() { return identity.size(); }
+
+        long modifiedMillis() { return identity.modifiedMillis(); }
+
+        String realPath() { return identity.realPath().toString(); }
+
+        String fileKeyStatus() { return identity.fileKeyStatus(); }
+
+        boolean identityVerified() { return identity.identityVerified(); }
     }
 
     private record FileIdentity(Path realPath, long size, long modifiedMillis, Object fileKey) {
         FileIdentity {
             Objects.requireNonNull(realPath, "real path");
-            Objects.requireNonNull(fileKey, "file key");
         }
+
+        String fileKeyStatus() { return fileKey == null ? "UNAVAILABLE" : "VERIFIED"; }
+
+        boolean identityVerified() { return fileKey != null; }
 
         String diagnostic() {
             return "path=" + realPath + " size=" + size + " mtime=" + modifiedMillis
-                + " fileKey=" + safeDiagnostic(String.valueOf(fileKey));
+                + " fileKeyStatus=" + fileKeyStatus()
+                + " identityVerified=" + identityVerified()
+                + " fileKey=" + safeDiagnostic(fileKey == null ? "<unavailable>"
+                    : String.valueOf(fileKey));
         }
     }
 
@@ -4734,8 +4763,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     /**
      * Binds the GUI session to exactly one directory created after the click and waits for a
-     * complete, repeatedly identical PSD snapshot.  The file's mtime is diagnostic only; it is
-     * never used to choose a candidate.
+     * complete, repeatedly identical PSD snapshot.  The file's mtime is compared as stability
+     * metadata, but it is never used to choose a candidate.
      */
     private StablePsdSnapshot awaitSessionTempFile(final TempCandidateSnapshot before,
         final int timeoutSeconds, final Properties result) throws Exception {
@@ -4743,36 +4772,75 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             throw new IllegalArgumentException("session PSD timeout must be positive");
         }
         return awaitStableSessionFile(before, timeoutSeconds * 1000L, result,
-            () -> stopped, this::snapshotTempCandidates, Thread::sleep);
+            () -> stopped, this::snapshotTempCandidates, Thread::sleep,
+            PLATFORM_FILE_KEY_SUPPLIER);
     }
 
     /** Offline seam exercising the exact production candidate/readiness helper on real files. */
     static StablePsdSnapshot awaitSessionFileForTest(final Path temporaryRoot,
         final Set<Path> beforeDirectories, final long timeoutMillis,
         final BooleanSupplier stopped, final TriggerSleeper sleeper) throws Exception {
+        return awaitSessionFileForTest(temporaryRoot, beforeDirectories, timeoutMillis, stopped,
+            sleeper, PLATFORM_FILE_KEY_SUPPLIER);
+    }
+
+    /** Offline seam with a controlled platform file-object token for readiness regression tests. */
+    static StablePsdSnapshot awaitSessionFileForTest(final Path temporaryRoot,
+        final Set<Path> beforeDirectories, final long timeoutMillis,
+        final BooleanSupplier stopped, final TriggerSleeper sleeper,
+        final FileKeySupplier fileKeySupplier) throws Exception {
+        return awaitSessionFileForTest(temporaryRoot, beforeDirectories, timeoutMillis, null,
+            stopped, sleeper, fileKeySupplier);
+    }
+
+    /** Offline seam retaining the production result diagnostics for readiness regression tests. */
+    static StablePsdSnapshot awaitSessionFileForTest(final Path temporaryRoot,
+        final Set<Path> beforeDirectories, final long timeoutMillis, final Properties result,
+        final BooleanSupplier stopped, final TriggerSleeper sleeper,
+        final FileKeySupplier fileKeySupplier) throws Exception {
         final Path root = requireOwnedDirectory(temporaryRoot, "temporary root");
         if (beforeDirectories == null) {
             throw new IllegalArgumentException("before candidate directories are required");
         }
+        Objects.requireNonNull(fileKeySupplier, "file key supplier");
         final Set<Path> before = new LinkedHashSet<>();
         for (final Path directory : beforeDirectories) {
             if (directory == null) throw new IllegalArgumentException("null before candidate");
             before.add(directory.toAbsolutePath().normalize());
         }
         return awaitStableSessionFile(new TempCandidateSnapshot(root, before), timeoutMillis,
-            null, stopped, () -> snapshotTempCandidates(root), sleeper);
+            result, stopped, () -> snapshotTempCandidates(root), sleeper, fileKeySupplier);
     }
 
     static StablePsdSnapshot confirmSessionFileForWriteForTest(
         final StablePsdSnapshot snapshot) throws Exception {
-        return confirmSessionFileForWrite(snapshot, null);
+        return confirmSessionFileForWrite(snapshot, null, PLATFORM_FILE_KEY_SUPPLIER);
+    }
+
+    /** Offline seam with a controlled platform file-object token for write-check tests. */
+    static StablePsdSnapshot confirmSessionFileForWriteForTest(
+        final StablePsdSnapshot snapshot, final FileKeySupplier fileKeySupplier) throws Exception {
+        return confirmSessionFileForWriteForTest(snapshot, null, fileKeySupplier);
+    }
+
+    /** Offline seam retaining the production result diagnostics for write-check tests. */
+    static StablePsdSnapshot confirmSessionFileForWriteForTest(
+        final StablePsdSnapshot snapshot, final Properties result,
+        final FileKeySupplier fileKeySupplier) throws Exception {
+        return confirmSessionFileForWrite(snapshot, result, fileKeySupplier);
     }
 
     private static StablePsdSnapshot confirmSessionFileForWrite(final StablePsdSnapshot snapshot,
         final Properties result) throws Exception {
+        return confirmSessionFileForWrite(snapshot, result, PLATFORM_FILE_KEY_SUPPLIER);
+    }
+
+    private static StablePsdSnapshot confirmSessionFileForWrite(final StablePsdSnapshot snapshot,
+        final Properties result, final FileKeySupplier fileKeySupplier) throws Exception {
         if (snapshot == null || snapshot.path() == null || snapshot.observation() == null) {
             throw new SessionFileReadinessException("write precondition has no validated session PSD");
         }
+        Objects.requireNonNull(fileKeySupplier, "file key supplier");
         try {
             requireNoSymlinkPath(snapshot.path(), "validated session PSD path");
         } catch (RuntimeException failure) {
@@ -4782,7 +4850,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             throw new SessionFileReadinessException(rejected.diagnostic(), failure);
         }
         final SessionFileRead read = readSessionFile(snapshot.path(),
-            snapshot.observation().identity());
+            snapshot.observation().identity(), fileKeySupplier);
         recordSessionWriteCheck(result, read);
         if (!read.complete() || read.bytes() == null
             || !Arrays.equals(snapshot.bytes(), read.bytes())
@@ -4793,14 +4861,35 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return new StablePsdSnapshot(snapshot.path(), read.bytes(), read.observation());
     }
 
+    /** Reconfirms the complete snapshot and path immediately before the probe's external write. */
+    private static void writeSessionFile(final StablePsdSnapshot snapshot,
+        final byte[] replacement) throws Exception {
+        final StablePsdSnapshot verified = confirmSessionFileForWrite(snapshot, null);
+        final Path path = verified.path().toAbsolutePath().normalize();
+        requireNoSymlinkPath(path, "session PSD path before write");
+        if (Files.isSymbolicLink(path)
+            || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new SessionFileReadinessException(
+                "session PSD path is not a regular non-symlink file before write: " + path);
+        }
+        final Path real = path.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        requireNoSymlinkPath(real, "session PSD real path before write");
+        if (!real.equals(path)) {
+            throw new SessionFileReadinessException(
+                "session PSD real path changed before write from " + path + " to " + real);
+        }
+        Files.write(real, replacement);
+    }
+
     private static StablePsdSnapshot awaitStableSessionFile(
         final TempCandidateSnapshot before, final long timeoutMillis, final Properties result,
         final BooleanSupplier stopped, final CandidateSnapshotSupplier snapshots,
-        final TriggerSleeper sleeper) throws Exception {
+        final TriggerSleeper sleeper, final FileKeySupplier fileKeySupplier) throws Exception {
         Objects.requireNonNull(before, "before candidate snapshot");
         Objects.requireNonNull(stopped, "stopped");
         Objects.requireNonNull(snapshots, "candidate snapshot supplier");
         Objects.requireNonNull(sleeper, "session PSD sleeper");
+        Objects.requireNonNull(fileKeySupplier, "file key supplier");
         if (SwingUtilities.isEventDispatchThread()) {
             throw new SessionFileReadinessException(
                 "session PSD readiness must run off the EDT");
@@ -4930,7 +5019,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 throw new SessionFileReadinessException(lastDiagnostic);
             }
 
-            final SessionFileRead read = readSessionFile(file, boundIdentity);
+            final SessionFileRead read = readSessionFile(file, boundIdentity, fileKeySupplier);
             lastRead = read;
             if (read.observation() != null && boundIdentity == null) {
                 boundIdentity = read.observation().identity();
@@ -4962,10 +5051,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         Integer.toString(stableReads));
                     result.setProperty("gui.session.read.bytes",
                         Integer.toString(stableBytes.length));
+                    result.setProperty("gui.session.read.realPath",
+                        stableObservation.realPath());
                     result.setProperty("gui.session.read.sha256",
                         stableObservation.sha256());
                     result.setProperty("gui.session.read.section",
                         stableObservation.structure().section());
+                    result.setProperty("gui.session.read.fileKeyStatus",
+                        stableObservation.fileKeyStatus());
+                    result.setProperty("gui.session.read.identityVerified",
+                        Boolean.toString(stableObservation.identityVerified()));
                 }
                 return new StablePsdSnapshot(boundFile, stableBytes, stableObservation);
             }
@@ -5001,10 +5096,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private static SessionFileRead readSessionFile(final Path file,
-        final FileIdentity expectedIdentity) {
+        final FileIdentity expectedIdentity, final FileKeySupplier fileKeySupplier) {
         final FileIdentity before;
         try {
-            before = readFileIdentity(file);
+            before = readFileIdentity(file, fileKeySupplier);
         } catch (Exception failure) {
             return SessionFileRead.failed("READ_FAILED",
                 "PSD metadata before read failed: " + failure);
@@ -5012,12 +5107,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (expectedIdentity != null && !sameFileIdentity(expectedIdentity, before)) {
             return SessionFileRead.replaced(before,
                 "PSD file identity changed before read from " + expectedIdentity.diagnostic()
-                    + " to " + before.diagnostic());
+                    + " to " + before.diagnostic() + "; "
+                    + identityMismatch(expectedIdentity, before));
         }
 
         final byte[] bytes;
         try {
-            bytes = Files.readAllBytes(file);
+            bytes = Files.readAllBytes(before.realPath());
         } catch (Exception failure) {
             return SessionFileRead.failed("READ_FAILED",
                 "PSD bytes could not be read: " + failure);
@@ -5032,7 +5128,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
         final FileIdentity after;
         try {
-            after = readFileIdentity(file);
+            after = readFileIdentity(file, fileKeySupplier);
         } catch (Exception failure) {
             return new SessionFileRead("READ_FAILED", bytes,
                 new FileObservation(before, digest,
@@ -5045,7 +5141,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (!sameFileIdentity(before, after)) {
             return SessionFileRead.replaced(observation,
                 "PSD file identity changed during read from " + before.diagnostic()
-                    + " to " + after.diagnostic());
+                    + " to " + after.diagnostic() + "; "
+                    + identityMismatch(before, after));
         }
         if (!sameFileMetadata(before, after)) {
             return new SessionFileRead("CHANGED_DURING_READ", bytes, observation,
@@ -5053,10 +5150,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     + " to " + after.diagnostic() + " section=" + structure.section()
                     + " reason=" + structure.reason());
         }
+        if (bytes.length != before.size() || bytes.length != after.size()) {
+            return new SessionFileRead("CHANGED_DURING_READ", bytes, observation,
+                "PSD byte length " + bytes.length + " disagrees with file size before/after "
+                    + before.size() + "/" + after.size() + " section=" + structure.section()
+                    + " reason=" + structure.reason());
+        }
         if (expectedIdentity != null && !sameFileIdentity(expectedIdentity, after)) {
             return SessionFileRead.replaced(observation,
                 "PSD file identity changed from " + expectedIdentity.diagnostic()
-                    + " to " + after.diagnostic());
+                    + " to " + after.diagnostic() + "; "
+                    + identityMismatch(expectedIdentity, after));
         }
         if (!structure.complete()) {
             return new SessionFileRead("INCOMPLETE", bytes, observation,
@@ -5067,25 +5171,55 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             "PSD structure complete bytes=" + bytes.length + " sha256=" + digest);
     }
 
-    private static FileIdentity readFileIdentity(final Path file) throws Exception {
-        final Path real = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
+    private static FileIdentity readFileIdentity(final Path file,
+        final FileKeySupplier fileKeySupplier) throws Exception {
+        Objects.requireNonNull(fileKeySupplier, "file key supplier");
+        if (file == null) throw new IllegalArgumentException("PSD file is null");
+        final Path normalized = file.toAbsolutePath().normalize();
+        requireNoSymlinkPath(normalized, "PSD file");
+        if (Files.isSymbolicLink(normalized)
+            || !Files.isRegularFile(normalized, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("path is not a regular non-symlink file: " + normalized);
+        }
+        final Path real = normalized.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        requireNoSymlinkPath(real, "PSD file");
         final BasicFileAttributes attributes = Files.readAttributes(real,
             BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!attributes.isRegularFile()) {
             throw new IllegalStateException("path is not a regular file: " + real);
         }
-        if (attributes.fileKey() == null) {
-            throw new IllegalStateException("file identity key is unavailable: " + real);
-        }
         return new FileIdentity(real, attributes.size(),
-            attributes.lastModifiedTime().toMillis(), attributes.fileKey());
+            attributes.lastModifiedTime().toMillis(), fileKeySupplier.fileKey(attributes));
     }
 
     private static boolean sameFileIdentity(final FileIdentity first,
         final FileIdentity second) {
         return first != null && second != null
             && first.realPath().equals(second.realPath())
-            && Objects.equals(first.fileKey(), second.fileKey());
+            && sameFileKey(first.fileKey(), second.fileKey());
+    }
+
+    private static boolean sameFileKey(final Object first, final Object second) {
+        return first == null && second == null
+            || first != null && second != null && Objects.equals(first, second);
+    }
+
+    private static String identityMismatch(final FileIdentity first,
+        final FileIdentity second) {
+        if (first == null || second == null) return "file identity observation is unavailable";
+        if (!first.realPath().equals(second.realPath())) {
+            return "real path changed from " + first.realPath() + " to " + second.realPath();
+        }
+        if (first.fileKey() == null && second.fileKey() != null) {
+            return "fileKey availability changed UNAVAILABLE→VERIFIED";
+        }
+        if (first.fileKey() != null && second.fileKey() == null) {
+            return "fileKey availability changed VERIFIED→UNAVAILABLE";
+        }
+        if (first.fileKey() != null && !Objects.equals(first.fileKey(), second.fileKey())) {
+            return "fileKey changed while available";
+        }
+        return "file identity changed";
     }
 
     private static boolean sameFileMetadata(final FileIdentity first,
@@ -5123,8 +5257,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             final FileObservation observation = read.observation();
             result.setProperty(prefix + "size", observation == null ? "-1"
                 : Long.toString(observation.identity().size()));
+            result.setProperty(prefix + "byteLength", read.bytes() == null ? "-1"
+                : Integer.toString(read.bytes().length));
             result.setProperty(prefix + "mtime", observation == null ? "-1"
                 : Long.toString(observation.identity().modifiedMillis()));
+            result.setProperty(prefix + "realPath", observation == null
+                ? "" : observation.realPath());
             result.setProperty(prefix + "sha256", observation == null
                 ? "" : observation.sha256());
             result.setProperty(prefix + "section", observation == null
@@ -5133,13 +5271,21 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 ? "-1" : Integer.toString(observation.structure().offset()));
             result.setProperty(prefix + "sectionReason", observation == null
                 ? "" : safeDiagnostic(observation.structure().reason()));
+            result.setProperty(prefix + "fileKeyStatus", observation == null
+                ? "UNAVAILABLE" : observation.fileKeyStatus());
+            result.setProperty(prefix + "identityVerified", observation == null
+                ? "false" : Boolean.toString(observation.identityVerified()));
         } else {
             result.setProperty(prefix + "size", "-1");
+            result.setProperty(prefix + "byteLength", "-1");
             result.setProperty(prefix + "mtime", "-1");
             result.setProperty(prefix + "sha256", "");
             result.setProperty(prefix + "section", "unavailable");
             result.setProperty(prefix + "sectionOffset", "-1");
             result.setProperty(prefix + "sectionReason", "");
+            result.setProperty(prefix + "realPath", "");
+            result.setProperty(prefix + "fileKeyStatus", "UNAVAILABLE");
+            result.setProperty(prefix + "identityVerified", "false");
         }
         result.setProperty("gui.session.read.attempts", Integer.toString(attempt));
         result.setProperty("gui.session.read.lastState", safeDiagnostic(state));
@@ -5147,13 +5293,31 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (read != null && read.observation() != null) {
             result.setProperty("gui.session.read.lastSize",
                 Long.toString(read.observation().identity().size()));
+            result.setProperty("gui.session.read.lastByteLength", read.bytes() == null ? "-1"
+                : Integer.toString(read.bytes().length));
             result.setProperty("gui.session.read.lastMtime",
                 Long.toString(read.observation().identity().modifiedMillis()));
+            result.setProperty("gui.session.read.lastRealPath",
+                read.observation().realPath());
             result.setProperty("gui.session.read.lastSha256", read.observation().sha256());
             result.setProperty("gui.session.read.lastSection",
                 read.observation().structure().section());
             result.setProperty("gui.session.read.lastSectionReason",
                 safeDiagnostic(read.observation().structure().reason()));
+            result.setProperty("gui.session.read.lastFileKeyStatus",
+                read.observation().fileKeyStatus());
+            result.setProperty("gui.session.read.lastIdentityVerified",
+                Boolean.toString(read.observation().identityVerified()));
+        } else {
+            result.setProperty("gui.session.read.lastSize", "-1");
+            result.setProperty("gui.session.read.lastByteLength", "-1");
+            result.setProperty("gui.session.read.lastMtime", "-1");
+            result.setProperty("gui.session.read.lastSha256", "");
+            result.setProperty("gui.session.read.lastSection", "unavailable");
+            result.setProperty("gui.session.read.lastSectionReason", "");
+            result.setProperty("gui.session.read.lastRealPath", "");
+            result.setProperty("gui.session.read.lastFileKeyStatus", "UNAVAILABLE");
+            result.setProperty("gui.session.read.lastIdentityVerified", "false");
         }
     }
 
@@ -5165,11 +5329,34 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (read.observation() != null) {
             result.setProperty("gui.session.writeCheck.size",
                 Long.toString(read.observation().identity().size()));
+            result.setProperty("gui.session.writeCheck.byteLength", read.bytes() == null ? "-1"
+                : Integer.toString(read.bytes().length));
             result.setProperty("gui.session.writeCheck.mtime",
                 Long.toString(read.observation().identity().modifiedMillis()));
+            result.setProperty("gui.session.writeCheck.realPath",
+                read.observation().realPath());
             result.setProperty("gui.session.writeCheck.sha256", read.observation().sha256());
             result.setProperty("gui.session.writeCheck.section",
                 read.observation().structure().section());
+            result.setProperty("gui.session.writeCheck.sectionOffset",
+                Integer.toString(read.observation().structure().offset()));
+            result.setProperty("gui.session.writeCheck.sectionReason",
+                safeDiagnostic(read.observation().structure().reason()));
+            result.setProperty("gui.session.writeCheck.fileKeyStatus",
+                read.observation().fileKeyStatus());
+            result.setProperty("gui.session.writeCheck.identityVerified",
+                Boolean.toString(read.observation().identityVerified()));
+        } else {
+            result.setProperty("gui.session.writeCheck.size", "-1");
+            result.setProperty("gui.session.writeCheck.byteLength", "-1");
+            result.setProperty("gui.session.writeCheck.mtime", "-1");
+            result.setProperty("gui.session.writeCheck.sha256", "");
+            result.setProperty("gui.session.writeCheck.section", "unavailable");
+            result.setProperty("gui.session.writeCheck.sectionOffset", "-1");
+            result.setProperty("gui.session.writeCheck.sectionReason", "");
+            result.setProperty("gui.session.writeCheck.realPath", "");
+            result.setProperty("gui.session.writeCheck.fileKeyStatus", "UNAVAILABLE");
+            result.setProperty("gui.session.writeCheck.identityVerified", "false");
         }
     }
 

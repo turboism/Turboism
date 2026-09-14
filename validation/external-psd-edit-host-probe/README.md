@@ -152,17 +152,28 @@ or initial `isReplaced=true`, is stale/blocked evidence rather than success. Thi
 content-difference or repeated-save persistence coverage.
 
 Before the GUI mutation, the probe records `gui.session.read.attempt.N.*` for every bounded
-candidate/file-read state. Each readable attempt records file size, mtime, full-file SHA-256,
-and the structural section/offset/reason. The gate accepts only the reviewed PSD v1 RGB 8-bit
-raw/PackBits forms. A PSD is not ready merely because it is a regular file or has a mutable
-layer name: header, declared sections, layer records, channel data,
-PackBits/raw boundaries, and composite data must all be complete. Three consecutive reads
-must agree on file identity, size, mtime, full bytes, and structure. Any in-place write resets
-the stability window; a replacement identity, symlink, ambiguous/new-directory change, or
-timeout is rejected. Immediately before the test mutation, the same file is read again and
-the complete byte snapshot must still match; otherwise no write occurs. This is only an
-export-file readiness gate and does not claim that the production session has subscribed to
-save notifications; the later strict `false -> true` target observation remains the GUI pass
+candidate/file-read state. Each readable attempt records the authenticated real path, file size,
+read byte length, mtime, full-file SHA-256, and the structural section/offset/reason. It also
+records `fileKeyStatus` and
+`identityVerified`: a non-null platform `BasicFileAttributes.fileKey()` is compared as an
+additional file-object check, while a null key is explicitly `UNAVAILABLE` and never claims
+object identity verification. If both reads have null keys, the gate may use only the
+authenticated task path plus size, mtime, complete bytes, and structure; a key appearing,
+disappearing, or changing is rejected rather than treated as `null == null` identity.
+
+The gate accepts only the reviewed PSD v1 RGB 8-bit raw/PackBits forms. A PSD is not ready
+merely because it is a regular file or has a mutable layer name: header, declared sections,
+layer records, channel data, PackBits/raw boundaries, and composite data must all be complete.
+Three consecutive reads must agree on the same real task path, size, mtime, full bytes, and
+structure, with equal file keys whenever keys are available. Any in-place write resets the
+stability window; a replacement identity, symlink, ambiguous/new-directory change, or timeout
+is rejected. Immediately before the test mutation, the complete byte snapshot is read and
+confirmed again, and the path is checked again before writing; otherwise no write occurs. The
+portable path/content protocol cannot distinguish a same-path replacement with identical
+content and metadata; task-owned directory binding is the scope of this validation and it does
+not claim a native file-object identity under a null-key filesystem. This is only an export-file
+readiness gate and does not claim that the production session has subscribed to save
+notifications; the later strict `false -> true` target observation remains the GUI pass
 condition.
 
 ## Validation-only decoder

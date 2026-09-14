@@ -77,6 +77,8 @@ public final class ExternalPsdEditHostProbeTest {
         testTempCandidateBinding();
         testRawPsdStructureBoundaries();
         testSessionPsdReadiness();
+        testNullFileKeySessionReadiness();
+        testFileKeyTransitionsFailClosed();
         testConfiguredRealSessionPsd();
         testQuarantineMovesAllTrackedDirectories();
         testQuarantineRejectsConflictAndSymlink();
@@ -238,6 +240,7 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static void testSessionPsdReadiness() throws Exception {
         final byte[] valid = validationPsd();
+        final ExternalPsdEditHostProbe.FileKeySupplier unavailableKey = attributes -> null;
         final byte[] unsupportedDepth = valid.clone();
         unsupportedDepth[22] = 0;
         unsupportedDepth[23] = 16;
@@ -285,7 +288,7 @@ public final class ExternalPsdEditHostProbeTest {
             final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
                 ExternalPsdEditHostProbe.awaitSessionFileForTest(
                     root, before, 5000L, () -> false,
-                    millis -> Thread.sleep(Math.min(millis, 5L)));
+                    millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
             writer.join(2000L);
             if (writerFailure.get() != null) throw new AssertionError(
                 "segmented session writer failed", writerFailure.get());
@@ -294,12 +297,13 @@ public final class ExternalPsdEditHostProbeTest {
             assertTrue(snapshot.observation().structure().complete(),
                 "stable session snapshot includes complete PSD structure evidence");
 
-            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot);
+            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot, unavailableKey);
             final byte[] renamed = ExternalPsdEditHostProbe.mutateLayerName(snapshot.bytes(), 1)
                 .orElseThrow();
             Files.write(snapshot.path(), renamed);
             expectSessionReadinessFailure(
-                () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot),
+                () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+                    snapshot, unavailableKey),
                 "write precondition rejects a changed session snapshot");
         } finally {
             deleteTree(root);
@@ -316,7 +320,8 @@ public final class ExternalPsdEditHostProbeTest {
             final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
                     () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
-                        truncatedRoot, Set.of(), 30L, () -> false, millis -> Thread.sleep(1L)),
+                        truncatedRoot, Set.of(), 30L, () -> false, millis -> Thread.sleep(1L),
+                        unavailableKey),
                     "truncated PSD cannot pass merely because a layer name is readable");
             assertContains(failure.getMessage(), "composite",
                 "truncated PSD reports the incomplete composite section");
@@ -333,7 +338,7 @@ public final class ExternalPsdEditHostProbeTest {
                     () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
                         ambiguousRoot, Set.of(), 1000L, () -> false, millis -> {
                             throw new AssertionError("ambiguous candidates must fail immediately");
-                        }), "multiple new candidate directories are rejected");
+                        }, attributes -> null), "multiple new candidate directories are rejected");
             assertContains(failure.getMessage(), "ambiguous",
                 "candidate ambiguity is explicit");
         } finally {
@@ -365,7 +370,7 @@ public final class ExternalPsdEditHostProbeTest {
                     () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
                         symlinkRoot, Set.of(), 1000L, () -> false, millis -> {
                             throw new AssertionError("symlink candidate must fail immediately");
-                        }), "candidate symlink is rejected before file access");
+                        }, unavailableKey), "candidate symlink is rejected before file access");
             assertContains(failure.getMessage(), "symlink",
                 "candidate symlink rejection is explicit");
         } finally {
@@ -413,13 +418,14 @@ public final class ExternalPsdEditHostProbeTest {
             final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
                 ExternalPsdEditHostProbe.awaitSessionFileForTest(
                     parentSymlinkRoot, Set.of(), 5000L, () -> false,
-                    millis -> Thread.sleep(Math.min(millis, 5L)));
+                    millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
             final Path moved = parentSymlinkRoot.resolve("turboism-psd-parent-moved");
             Files.move(directory, moved);
             Files.createSymbolicLink(directory, parentOutside);
             final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot),
+                    () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+                        snapshot, unavailableKey),
                     "write precondition rejects a parent-directory symlink replacement");
             assertContains(failure.getMessage(), "symlink",
                 "parent-directory symlink replacement is explicit");
@@ -440,6 +446,115 @@ public final class ExternalPsdEditHostProbeTest {
                 "stopped readiness is diagnosed rather than written");
         } finally {
             deleteTree(stoppedRoot);
+        }
+    }
+
+    private static void testFileKeyTransitionsFailClosed() throws Exception {
+        final byte[] valid = validationPsd();
+        assertFileKeyTransition(valid, new Object[]{"available", "available", null},
+            "VERIFIED→UNAVAILABLE", "available key becoming null is rejected");
+        assertFileKeyTransition(valid, new Object[]{null, null, "available"},
+            "UNAVAILABLE→VERIFIED", "null key becoming available is rejected");
+        assertFileKeyTransition(valid, new Object[]{"first", "first", "second"},
+            "fileKey changed while available", "an available key change is rejected");
+    }
+
+    private static void assertFileKeyTransition(final byte[] valid, final Object[] keys,
+        final String expectedDiagnostic, final String message) throws Exception {
+        final Path root = Files.createTempDirectory("external PSD file-key transition ");
+        try {
+            final Path directory = Files.createDirectory(
+                root.resolve("turboism-psd-transition"));
+            Files.write(directory.resolve("external-edit.psd"), valid);
+            final AtomicInteger keyIndex = new AtomicInteger();
+            final ExternalPsdEditHostProbe.FileKeySupplier changingKey = attributes -> {
+                final int index = keyIndex.getAndIncrement();
+                return keys[Math.min(index, keys.length - 1)];
+            };
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                        root, Set.of(), 3000L, () -> false,
+                        millis -> Thread.sleep(Math.min(millis, 5L)), changingKey), message);
+            assertContains(failure.getMessage(), expectedDiagnostic, message + " diagnostic");
+        } finally {
+            deleteTree(root);
+        }
+    }
+
+    private static void testNullFileKeySessionReadiness() throws Exception {
+        final byte[] valid = validationPsd();
+        final ExternalPsdEditHostProbe.FileKeySupplier unavailableKey = attributes -> null;
+        final Path root = Files.createTempDirectory("external PSD null file-key readiness ");
+        try {
+            final Path directory = Files.createDirectory(
+                root.resolve("turboism-psd-null-key"));
+            final Path file = directory.resolve("external-edit.psd");
+            Files.write(file, valid);
+            final Properties readiness = new Properties();
+
+            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
+                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    root, Set.of(), 3000L, readiness, () -> false,
+                    millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
+            assertArrayEquals(valid, snapshot.bytes(),
+                "a complete PSD remains readable when the platform file key is unavailable");
+            assertEquals("UNAVAILABLE", snapshot.observation().fileKeyStatus(),
+                "null file key is recorded as unavailable");
+            assertTrue(!snapshot.observation().identityVerified(),
+                "null file key never claims object identity verification");
+            assertEquals((long) valid.length, snapshot.observation().size(),
+                "null-key observation records the actual file size");
+            assertEquals(sha256(valid), snapshot.observation().sha256(),
+                "null-key observation records the complete content SHA-256");
+            assertTrue(snapshot.observation().structure().complete(),
+                "null-key observation records complete PSD structure");
+            assertEquals("UNAVAILABLE", readiness.getProperty("gui.session.read.fileKeyStatus"),
+                "readiness result records unavailable file key");
+            assertEquals("false", readiness.getProperty("gui.session.read.identityVerified"),
+                "readiness result does not claim null-key identity verification");
+            assertEquals(Long.toString(valid.length),
+                readiness.getProperty("gui.session.read.lastSize"),
+                "readiness result records the actual null-key file size");
+            assertEquals(Integer.toString(valid.length),
+                readiness.getProperty("gui.session.read.lastByteLength"),
+                "readiness result records the bytes read with an unavailable file key");
+            assertTrue(!readiness.getProperty("gui.session.read.lastMtime", "-1").equals("-1"),
+                "readiness result records mtime with an unavailable file key");
+            assertEquals(sha256(valid), readiness.getProperty("gui.session.read.lastSha256"),
+                "readiness result records the full null-key file SHA-256");
+            assertTrue(!readiness.getProperty("gui.session.read.lastRealPath", "").isBlank(),
+                "readiness result records the authenticated real task path");
+
+            final Properties writeCheck = new Properties();
+            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+                snapshot, writeCheck, unavailableKey);
+            assertEquals("UNAVAILABLE",
+                writeCheck.getProperty("gui.session.writeCheck.fileKeyStatus"),
+                "write check records unavailable file key");
+            assertEquals("false",
+                writeCheck.getProperty("gui.session.writeCheck.identityVerified"),
+                "write check does not claim null-key identity verification");
+            assertEquals(Integer.toString(valid.length),
+                writeCheck.getProperty("gui.session.writeCheck.byteLength"),
+                "write check records the complete bytes read before mutation");
+
+            final byte[] changed = ExternalPsdEditHostProbe.mutateLayerName(valid, 1)
+                .orElseThrow();
+            Files.write(file, changed);
+            Files.setLastModifiedTime(file,
+                java.nio.file.attribute.FileTime.fromMillis(
+                    snapshot.observation().modifiedMillis()));
+            final Properties changedWriteCheck = new Properties();
+            expectSessionReadinessFailure(
+                () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+                    snapshot, changedWriteCheck, unavailableKey),
+                "null-key write confirmation rejects changed bytes even with the old mtime");
+            assertEquals("UNAVAILABLE",
+                changedWriteCheck.getProperty("gui.session.writeCheck.fileKeyStatus"),
+                "changed null-key write check retains file-key diagnostic");
+        } finally {
+            deleteTree(root);
         }
     }
 
@@ -497,13 +612,16 @@ public final class ExternalPsdEditHostProbeTest {
             final Path directory = Files.createDirectory(root.resolve("turboism-psd-real-copy"));
             final Path copy = directory.resolve("external-edit.psd");
             Files.copy(source, copy);
+            final ExternalPsdEditHostProbe.FileKeySupplier unavailableKey = attributes -> null;
             final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
                 ExternalPsdEditHostProbe.awaitSessionFileForTest(
                     root, Set.of(), 5000L, () -> false,
-                    millis -> Thread.sleep(Math.min(millis, 5L)));
+                    millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
             assertArrayEquals(original, snapshot.bytes(),
                 "production readiness helper reads the exact real PSD bytes in a temp copy");
-            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot);
+            assertEquals("UNAVAILABLE", snapshot.observation().fileKeyStatus(),
+                "real PSD copy exercises the null-key readiness path");
+            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot, unavailableKey);
             assertArrayEquals(original, Files.readAllBytes(copy),
                 "production write precondition is read-only for the real PSD copy");
             System.out.println("REAL_SESSION_SAMPLE_HELPERS=PASS copy=" + copy
