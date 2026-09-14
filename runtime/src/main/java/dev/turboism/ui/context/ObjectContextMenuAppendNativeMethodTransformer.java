@@ -85,14 +85,55 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
         final ProtectionDomain protectionDomain,
         final byte[] classfileBuffer
     ) {
-        if (!ownerInternalName.equals(className)
-            || loader != expectedClassLoader
-            || classfileBuffer == null) {
+        if (!ownerInternalName.equals(className) || classfileBuffer == null) {
             return null;
         }
+        if (loader != expectedClassLoader) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "context-menu",
+                "Context-menu transform skipped for " + className
+                    + " under loader " + loader + " (expected " + expectedClassLoader + ")");
+            return null;
+        }
+        try {
+            return transformMatched(className, classfileBuffer);
+        } catch (Throwable failure) {
+            // A throwing transformer must fail the weave, not the host class load.
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "context-menu",
+                "Context-menu transform failed for " + className
+                    + " (" + failure.getClass().getName() + ": " + failure.getMessage() + ")",
+                null);
+            return null;
+        }
+    }
+
+    private byte[] transformMatched(final String className, final byte[] classfileBuffer) {
         final int[] appendPoints = {0};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected String getCommonSuperClass(final String left, final String right) {
+                try {
+                    final Class<?> leftType =
+                        Class.forName(left.replace('/', '.'), false, expectedClassLoader);
+                    final Class<?> rightType =
+                        Class.forName(right.replace('/', '.'), false, expectedClassLoader);
+                    if (leftType.isAssignableFrom(rightType)) return left;
+                    if (rightType.isAssignableFrom(leftType)) return right;
+                    if (leftType.isInterface() || rightType.isInterface()) {
+                        return "java/lang/Object";
+                    }
+                    Class<?> current = leftType;
+                    do {
+                        current = current.getSuperclass();
+                    } while (!current.isAssignableFrom(rightType));
+                    return current.getName().replace('.', '/');
+                } catch (Throwable ignored) {
+                    return "java/lang/Object";
+                }
+            }
+        };
         reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(
@@ -169,7 +210,18 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                 };
             }
         }, ClassReader.EXPAND_FRAMES);
-        return appendPoints[0] == expectedAppendPoints ? writer.toByteArray() : null;
+        if (appendPoints[0] == expectedAppendPoints) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                "context-menu",
+                "Context-menu transform applied to " + className
+                    + " appendPoints=" + appendPoints[0]);
+            return writer.toByteArray();
+        }
+        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+            "context-menu",
+            "Context-menu binding found " + appendPoints[0] + " append points in "
+                + className + " (expected " + expectedAppendPoints + ")");
+        return null;
     }
 
 
