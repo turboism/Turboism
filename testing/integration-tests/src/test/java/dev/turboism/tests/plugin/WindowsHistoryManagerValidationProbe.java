@@ -181,11 +181,13 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final List<SdkEntry> entries = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             final HistoryEntry entry = history.entries().get(index);
+            final HistoryEntryDetail detail = entry.detail();
             entries.add(new SdkEntry(
                 entry.index(),
                 entry.entryId().map(value -> value.value()).orElse(""),
                 boundedLabel(entry.label()),
-                sdkDetailJson(entry.detail(), 0)
+                sdkDetailJson(detail, 0),
+                detail
             ));
         }
         return new SdkHistorySnapshot(
@@ -846,7 +848,22 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         }
     }
 
-    record SdkEntry(int index, String entryId, String label, String detailJson) {
+    record SdkEntry(
+        int index,
+        String entryId,
+        String label,
+        String detailJson,
+        HistoryEntryDetail detail
+    ) {
+        SdkEntry(
+            final int index,
+            final String entryId,
+            final String label,
+            final String detailJson
+        ) {
+            this(index, entryId, label, detailJson, null);
+        }
+
         String json() {
             return "{\"index\":" + index
                 + ",\"entryId\":\"" + WindowsHistoryManagerValidationProbe.json(entryId)
