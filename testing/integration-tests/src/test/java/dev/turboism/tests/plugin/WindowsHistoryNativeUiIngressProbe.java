@@ -2,6 +2,8 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.SwingUtilities;
@@ -12,7 +14,13 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,6 +44,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final long MAX_EVIDENCE_BYTES = 2_097_152L;
     private static final long TERMINAL_RESERVE_BYTES = 4_096L;
     private static final int MAX_RECORDED_EVENTS = 512;
+    private static final int MAX_PARAMETER_VALUES = 128;
+    private static final int MAX_PARAMETER_ID_LENGTH = 256;
+    private static final int MAX_PARAMETER_LIFECYCLE_EVENTS = 256;
+    private static final int PARAMETER_ACTOR_POLLS = 10;
     private static final long POLL_MILLIS = 250L;
 
     /**
@@ -180,6 +192,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private final Object lock = new Object();
     private final List<Observed> observed = new ArrayList<>();
+    private final List<ParameterLifecycleEvent> parameterLifecycle = new ArrayList<>();
+    private long parameterLifecycleSequence;
     private PluginContext context;
     private Path artifact;
     private Thread worker;
@@ -228,6 +242,29 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         record("after", event);
     }
 
+    @Override
+    public float beforeSetParameterValue(final Parameter parameter, final float value) {
+        recordParameterLifecycle(
+            "before", parameter, readFiniteParameterValue(parameter), finiteValue(value));
+        return value;
+    }
+
+    @Override
+    public void onParameterValueChanged(
+        final Parameter parameter,
+        final float oldValue,
+        final float newValue
+    ) {
+        recordParameterLifecycle(
+            "on", parameter, finiteValue(oldValue), finiteValue(newValue));
+    }
+
+    @Override
+    public void afterSetParameterValue(final Parameter parameter, final float value) {
+        recordParameterLifecycle(
+            "after", parameter, null, finiteValue(value));
+    }
+
     /**
      * Records one semantic event.
      *
@@ -259,6 +296,53 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
+    /** Records a bounded immutable parameter callback without touching model state. */
+    private void recordParameterLifecycle(
+        final String phase,
+        final Parameter parameter,
+        final Float oldValue,
+        final Float newValue
+    ) {
+        try {
+            final String parameterId = parameter == null || parameter.id() == null
+                ? "" : parameter.id().value();
+            final ParameterLifecycleEvent value;
+            synchronized (lock) {
+                value = new ParameterLifecycleEvent(
+                    ++parameterLifecycleSequence,
+                    phase,
+                    parameterId == null ? "" : parameterId,
+                    oldValue,
+                    newValue,
+                    Thread.currentThread().getName()
+                );
+                if (parameterLifecycle.size() >= MAX_PARAMETER_LIFECYCLE_EVENTS) {
+                    parameterLifecycle.remove(0);
+                }
+                parameterLifecycle.add(value);
+            }
+        } catch (Throwable ignored) {
+            // A probe callback must never disturb the native parameter operation.
+        }
+    }
+
+    private static Float finiteValue(final float value) {
+        return Float.isFinite(value) ? value : null;
+    }
+
+    private static Float finiteValue(final Float value) {
+        return value == null || !Float.isFinite(value) ? null : value;
+    }
+
+    private static Float readFiniteParameterValue(final Parameter parameter) {
+        if (parameter == null) return null;
+        try {
+            return finiteValue(parameter.getValue());
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
     private void run() {
         artifact = context.paths().dataDir().resolve("history-native-ui-ingress.jsonl");
         try {
@@ -284,6 +368,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             for (int index = 0; ready && index < STEPS.size(); index++) {
                 final Step step = STEPS.get(index);
                 final int start = cursor();
+                final long parameterLifecycleStart = parameterLifecycleCursor();
                 final String instruction = "STEP " + (index + 1) + "/" + STEPS.size()
                     + " [" + step.id() + "] " + step.instruction();
                 write(
@@ -297,8 +382,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 );
                 context.logger().info(instruction);
 
+                final ParameterStateSnapshot parameterBefore =
+                    "native-parameter".equals(step.id()) ? readParameterSnapshot() : null;
+                if (parameterBefore != null) {
+                    write(
+                        artifact,
+                        parameterStateJson("native-parameter", "before", parameterBefore),
+                        false
+                    );
+                }
+
                 if (AUTOMATE) {
-                    final String actor = act(step, knownSignificant, knownPosition);
+                    final String actor = act(
+                        step, knownSignificant, knownPosition, parameterBefore);
                     write(
                         artifact,
                         "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
@@ -314,6 +410,94 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                             + "\",\"at\":\"" + Instant.now()
                             + "\",\"map\":\"" + json(uiMap(), UI_MAP_MAX_CHARS) + "\"}\n", false);
                     }
+                }
+
+                if ("native-parameter".equals(step.id())) {
+                    final ParameterChangeObservation parameterObservation =
+                        awaitParameterChange(parameterBefore);
+                    final WindowsHistoryManagerValidationProbe.Snapshot after = sample();
+                    final ParameterStateSnapshot parameterAfter = parameterObservation.after();
+                    final ParameterStateOutcome valueStatus = parameterObservation.outcome();
+                    final ParameterHistoryAdmission historyAdmission =
+                        after == null
+                            ? ParameterHistoryAdmission.UNAVAILABLE
+                            : parameterHistoryAdmission(
+                                knownSignificant, significantSequence(after));
+                    final Set<String> changedParameterIds = changedParameterIds(
+                        parameterBefore, parameterAfter);
+                    final List<ParameterLifecycleEvent> lifecycleEvents =
+                        parameterLifecycleSince(parameterLifecycleStart);
+                    final ParameterLifecycleStatus lifecycleStatus = parameterLifecycleStatus(
+                        lifecycleEvents, changedParameterIds, valueStatus == ParameterStateOutcome.CHANGED);
+
+                    write(
+                        artifact,
+                        parameterStateJson(
+                            "native-parameter", "after",
+                            parameterAfter == null
+                                ? ParameterStateSnapshot.unavailable("no-readback")
+                                : parameterAfter
+                        ),
+                        false
+                    );
+                    write(
+                        artifact,
+                        parameterEvidenceJson(
+                            "native-parameter",
+                            parameterBefore,
+                            parameterAfter,
+                            valueStatus,
+                            historyAdmission,
+                            lifecycleStatus,
+                            changedParameterIds,
+                            lifecycleEvents
+                        ),
+                        false
+                    );
+                    write(artifact, paired(after, step.id()), false);
+
+                    final List<Observed> events;
+                    synchronized (lock) {
+                        events = List.copyOf(
+                            observed.subList(Math.min(start, observed.size()), observed.size()));
+                    }
+                    for (Observed event : events) {
+                        write(artifact, event.json(step.id()), false);
+                    }
+
+                    final String parameterDetail = "valueStatus=" + valueStatus.code()
+                        + ",historyAdmission=" + historyAdmission.code()
+                        + ",lifecycle=" + lifecycleStatus.code();
+                    final Verdict valueVerdict = new Verdict(
+                        valueStatus == ParameterStateOutcome.CHANGED,
+                        "parameter-value-" + valueStatus.code(),
+                        parameterDetail
+                    );
+                    write(artifact, valueVerdict.json(step.id()), false);
+                    if (!valueVerdict.ok()) {
+                        failures.add(step.id() + ":" + valueVerdict.code());
+                    }
+                    final Verdict lifecycleVerdict = new Verdict(
+                        lifecycleStatus == ParameterLifecycleStatus.COMPLETE,
+                        "parameter-lifecycle-" + lifecycleStatus.code(),
+                        parameterDetail
+                    );
+                    write(artifact, lifecycleVerdict.json(step.id()), false);
+                    if (!lifecycleVerdict.ok()) {
+                        failures.add(step.id() + ":" + lifecycleVerdict.code());
+                    }
+                    hookFired |= events.stream().anyMatch(event -> event.phase().equals("before"));
+                    observerFired |= events.stream().anyMatch(
+                        event -> event.phase().equals("on") || event.phase().equals("after")
+                    );
+                    labelSeen |= events.stream().anyMatch(
+                        event -> event.phase().equals("before") && !event.label().isBlank()
+                    );
+                    if (after != null) {
+                        knownSignificant = significantSequence(after);
+                        knownPosition = position(after);
+                    }
+                    continue;
                 }
 
                 final WindowsHistoryManagerValidationProbe.Snapshot after =
@@ -526,7 +710,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * significant entry and the operator window runs its course.</p>
      */
     String act(final Step step, final String knownSignificant) {
-        return act(step, knownSignificant, -1L);
+        return act(step, knownSignificant, -1L, null);
     }
 
     String act(
@@ -534,12 +718,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final String knownSignificant,
         final long knownPosition
     ) {
+        return act(step, knownSignificant, knownPosition, null);
+    }
+
+    private String act(
+        final Step step,
+        final String knownSignificant,
+        final long knownPosition,
+        final ParameterStateSnapshot parameterBefore
+    ) {
         final Thread raiser = hostWindowRaiser();
         try {
             return switch (step.id()) {
                 case "parts-tree-drag", "deformer-assign" -> dragPartRow(knownSignificant);
                 case "canvas-move", "canvas-deform" -> dragCanvas(knownSignificant);
-                case "native-parameter" -> dragParameterSlider(knownSignificant);
+                case "native-parameter" -> dragParameterSlider(parameterBefore);
                 case "native-color" -> editColorField(knownSignificant);
                 case "native-undo" -> shortcut(
                     java.awt.event.KeyEvent.VK_Z, knownPosition, step.kind());
@@ -868,12 +1061,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * commits no undo entry (a view zoom, for instance) simply produces no significant entry and
      * the actor moves to the next candidate.</p>
      */
-    private String dragParameterSlider(final String knownSignificant) throws Exception {
+    private String dragParameterSlider(final ParameterStateSnapshot parameterBefore) throws Exception {
+        if (parameterBefore == null || !parameterBefore.available()) {
+            final String reason = parameterBefore == null
+                ? "no-before-readback" : parameterBefore.reason();
+            return "unresolved:parameter-state:" + reason;
+        }
         // The Parameter palette's value rows are CSlider widgets whose Swing mirrors are
         // com.live2d.ui.swingImpl.A (a JSlider subclass). They only exist inside the
         // parameter tab's dock column — the status-bar zoom slider is also an A, so the
-        // palette rows must be scoped to that column. A row whose drag changes the value
-        // commits a significant undo entry.
+        // palette rows must be scoped to that column. Readback, not Undo admission, decides
+        // whether this actor stops after a gesture.
         final java.awt.Robot robot = new java.awt.Robot();
         String paletteNote = "";
         List<javax.swing.JSlider> dockSliders = onEdt(
@@ -897,12 +1095,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int[] plan = onEdt(() -> sliderDragPlan(slider));
             if (plan == null) continue;
             robotDrag(plan[0], plan[1], plan[2], plan[3]);
-            for (int settle = 0; settle < 12; settle++) {
-                Thread.sleep(POLL_MILLIS);
-                if (!significantSequence(sample()).equals(knownSignificant)) {
-                    return "dragged:param-row:" + slider.getClass().getName()
-                        + ":attempt=" + (tried.size() + 1);
-                }
+            final ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+            if (changed.outcome() == ParameterStateOutcome.CHANGED) {
+                return "changed:param-row:" + slider.getClass().getName()
+                    + ":attempt=" + (tried.size() + 1);
+            }
+            if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
+                return "unresolved:parameter-state:" + changed.outcome().code();
             }
             tried.add("dock:" + slider.getClass().getSimpleName()
                 + "@" + plan[0] + "," + plan[1]);
@@ -921,18 +1120,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     ? null : onEdt(() -> fieldCentre(surface));
                 if (at == null) continue;
                 robotDrag(at[0] - 6, at[1], at[0] + 18, at[1]);
-                for (int settle = 0; settle < 10; settle++) {
-                    Thread.sleep(POLL_MILLIS);
-                    if (!significantSequence(sample()).equals(knownSignificant)) {
-                        return "dragged:cslider:attempt=" + (tried.size() + 1);
-                    }
+                ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+                if (changed.outcome() == ParameterStateOutcome.CHANGED) {
+                    return "changed:cslider:attempt=" + (tried.size() + 1);
+                }
+                if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
+                    return "unresolved:parameter-state:" + changed.outcome().code();
                 }
                 robotDrag(at[0], at[1] - 6, at[0], at[1] + 14);
-                for (int settle = 0; settle < 10; settle++) {
-                    Thread.sleep(POLL_MILLIS);
-                    if (!significantSequence(sample()).equals(knownSignificant)) {
-                        return "dragged:cslider-v:attempt=" + (tried.size() + 1);
-                    }
+                changed = awaitParameterGesture(parameterBefore);
+                if (changed.outcome() == ParameterStateOutcome.CHANGED) {
+                    return "changed:cslider-v:attempt=" + (tried.size() + 1);
+                }
+                if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
+                    return "unresolved:parameter-state:" + changed.outcome().code();
                 }
                 // The scrub may be below the field's slide threshold — a double-click
                 // opens the embedded JTextField so a typed value commits the edit.
@@ -962,11 +1163,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         }
                         robot.keyPress(java.awt.event.KeyEvent.VK_ENTER);
                         robot.keyRelease(java.awt.event.KeyEvent.VK_ENTER);
-                        for (int settle = 0; settle < 10; settle++) {
-                            Thread.sleep(POLL_MILLIS);
-                            if (!significantSequence(sample()).equals(knownSignificant)) {
-                                return "typed:cslidable:attempt=" + (tried.size() + 1);
-                            }
+                        changed = awaitParameterGesture(parameterBefore);
+                        if (changed.outcome() == ParameterStateOutcome.CHANGED) {
+                            return "changed:typed-cslidable:attempt=" + (tried.size() + 1);
+                        }
+                        if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
+                            return "unresolved:parameter-state:" + changed.outcome().code();
                         }
                     }
                 }
@@ -980,12 +1182,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int[] at = onEdt(() -> fieldCentre(row));
             if (at == null) continue;
             robotDrag(at[0] - 8, at[1], at[0] + 24, at[1]);
-            for (int settle = 0; settle < 12; settle++) {
-                Thread.sleep(POLL_MILLIS);
-                if (!significantSequence(sample()).equals(knownSignificant)) {
-                    return "dragged:param-row:" + row.getClass().getName()
-                        + ":attempt=" + (tried.size() + 1);
-                }
+            final ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+            if (changed.outcome() == ParameterStateOutcome.CHANGED) {
+                return "changed:param-row:" + row.getClass().getName()
+                    + ":attempt=" + (tried.size() + 1);
+            }
+            if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
+                return "unresolved:parameter-state:" + changed.outcome().code();
             }
             tried.add(row.getClass().getSimpleName() + "@" + at[0] + "," + at[1]);
             if (tried.size() >= 6) break;
@@ -999,18 +1202,143 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int[] plan = onEdt(() -> sliderDragPlan(slider));
             if (plan == null) continue;
             robotDrag(plan[0], plan[1], plan[2], plan[3]);
-            for (int settle = 0; settle < 12; settle++) {
-                Thread.sleep(POLL_MILLIS);
-                if (!significantSequence(sample()).equals(knownSignificant)) {
-                    return "dragged:" + slider.getClass().getName() + ":attempt=" + (tried.size() + 1);
-                }
+            final ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+            if (changed.outcome() == ParameterStateOutcome.CHANGED) {
+                return "changed:" + slider.getClass().getName()
+                    + ":attempt=" + (tried.size() + 1);
+            }
+            if (changed.outcome() != ParameterStateOutcome.UNCHANGED) {
+                return "unresolved:parameter-state:" + changed.outcome().code();
             }
             tried.add(slider.getClass().getSimpleName() + "@" + plan[0] + "," + plan[1]);
             if (tried.size() >= 6) break;
         }
-        return "dragged:" + tried.size() + "-sliders:no-significant-entry:" + String.join("|", tried)
+        return "unresolved:no-parameter-value-change:" + tried.size() + "-candidates:"
+            + String.join("|", tried)
             + (paletteNote.isEmpty() ? "" : ":" + paletteNote)
             + ":" + onEdt(WindowsHistoryNativeUiIngressProbe::parameterWidgetCensus);
+    }
+
+    /** Bounded post-gesture readback used to stop the actor on the first actual value change. */
+    private ParameterChangeObservation awaitParameterGesture(
+        final ParameterStateSnapshot before
+    ) throws Exception {
+        ParameterStateSnapshot latest = before;
+        for (int poll = 0; poll < PARAMETER_ACTOR_POLLS; poll++) {
+            Thread.sleep(POLL_MILLIS);
+            final ParameterStateSnapshot current = readParameterSnapshot();
+            final ParameterStateOutcome outcome = compareParameterState(before, current);
+            if (outcome != ParameterStateOutcome.UNCHANGED) {
+                return new ParameterChangeObservation(outcome, current, outcome.code());
+            }
+            latest = current;
+        }
+        return new ParameterChangeObservation(
+            ParameterStateOutcome.UNCHANGED, latest, "gesture-window-expired");
+    }
+
+    /**
+     * Waits for a native parameter value transition without consulting Undo as the exit signal.
+     * Any read failure or model change stops the actor fail-closed.
+     */
+    private ParameterChangeObservation awaitParameterChange(
+        final ParameterStateSnapshot before
+    ) throws Exception {
+        if (before == null || !before.available()) {
+            return new ParameterChangeObservation(
+                ParameterStateOutcome.UNAVAILABLE,
+                null,
+                before == null ? "no-before-readback" : before.reason()
+            );
+        }
+        final long deadline = System.currentTimeMillis() + STEP_TIMEOUT_MILLIS;
+        ParameterStateSnapshot latest = before;
+        while (System.currentTimeMillis() < deadline) {
+            if (!running) throw new InterruptedException("Probe disabled while awaiting a parameter");
+            Thread.sleep(POLL_MILLIS);
+            final ParameterStateSnapshot current = readParameterSnapshot();
+            final ParameterStateOutcome outcome = compareParameterState(before, current);
+            if (outcome == ParameterStateOutcome.CHANGED) {
+                Thread.sleep(ACTION_SETTLE_MILLIS);
+                final ParameterStateSnapshot settled = readParameterSnapshot();
+                final ParameterStateOutcome settledOutcome = compareParameterState(before, settled);
+                return new ParameterChangeObservation(
+                    settledOutcome,
+                    settled,
+                    settledOutcome.code()
+                );
+            }
+            if (outcome != ParameterStateOutcome.UNCHANGED) {
+                return new ParameterChangeObservation(outcome, current, outcome.code());
+            }
+            latest = current;
+        }
+        return new ParameterChangeObservation(
+            ParameterStateOutcome.UNCHANGED, latest, "parameter-window-expired");
+    }
+
+    /** Reads the active model and its bounded parameter values on the host EDT. */
+    private ParameterStateSnapshot readParameterSnapshot() {
+        try {
+            final ParameterStateSnapshot snapshot = onEdt(this::readParameterSnapshotOnEdt);
+            return snapshot == null
+                ? ParameterStateSnapshot.unavailable("null-readback") : snapshot;
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable failure) {
+            return ParameterStateSnapshot.unavailable(
+                "read-failed:" + failure.getClass().getSimpleName());
+        }
+    }
+
+    private ParameterStateSnapshot readParameterSnapshotOnEdt() {
+        try {
+            if (context == null) return ParameterStateSnapshot.unavailable("no-context");
+            final CubismModel model = context.cubism().model().active();
+            if (model == null || model.id() == null || model.id().value() == null
+                || model.id().value().isBlank()
+                || model.id().value().length() > MAX_PARAMETER_ID_LENGTH) {
+                return ParameterStateSnapshot.unavailable("model-identity-unavailable");
+            }
+            final String modelId = model.id().value();
+            final List<Parameter> parameters = model.parameters().all();
+            if (parameters == null) {
+                return ParameterStateSnapshot.unavailable("parameters-unavailable");
+            }
+            if (parameters.size() > MAX_PARAMETER_VALUES) {
+                return ParameterStateSnapshot.unavailable("parameter-snapshot-limit");
+            }
+            final Set<String> ids = new LinkedHashSet<>();
+            final List<ParameterValueSample> values = new ArrayList<>(parameters.size());
+            for (final Parameter parameter : parameters) {
+                if (parameter == null || parameter.id() == null
+                    || parameter.id().value() == null
+                    || parameter.id().value().isBlank()
+                    || parameter.id().value().length() > MAX_PARAMETER_ID_LENGTH) {
+                    return ParameterStateSnapshot.unavailable("parameter-identity-unavailable");
+                }
+                final String parameterId = parameter.id().value();
+                if (!ids.add(parameterId)) {
+                    return ParameterStateSnapshot.unavailable("duplicate-parameter-id");
+                }
+                final float value = parameter.getValue();
+                if (!Float.isFinite(value)) {
+                    return ParameterStateSnapshot.unavailable("non-finite-parameter-value");
+                }
+                values.add(new ParameterValueSample(parameterId, value));
+            }
+            final CubismModel activeAgain = context.cubism().model().active();
+            if (activeAgain == null || activeAgain.id() == null
+                || !modelId.equals(activeAgain.id().value())) {
+                return ParameterStateSnapshot.unavailable("model-changed");
+            }
+            return ParameterStateSnapshot.available(modelId, values);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable failure) {
+            return ParameterStateSnapshot.unavailable(
+                "read-failed:" + failure.getClass().getSimpleName());
+        }
     }
 
     /**
@@ -3401,6 +3729,170 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return sequence.toString();
     }
 
+    private long parameterLifecycleCursor() {
+        synchronized (lock) {
+            return parameterLifecycleSequence;
+        }
+    }
+
+    private List<ParameterLifecycleEvent> parameterLifecycleSince(final long cursor) {
+        synchronized (lock) {
+            return parameterLifecycle.stream()
+                .filter(event -> event.sequence() > cursor)
+                .toList();
+        }
+    }
+
+    static ParameterStateOutcome compareParameterState(
+        final ParameterStateSnapshot before,
+        final ParameterStateSnapshot after
+    ) {
+        if (before == null || after == null || !before.available() || !after.available()) {
+            return ParameterStateOutcome.UNAVAILABLE;
+        }
+        if (!before.modelId().equals(after.modelId())) {
+            return ParameterStateOutcome.MODEL_CHANGED;
+        }
+        final Map<String, Float> beforeValues = parameterValueMap(before);
+        final Map<String, Float> afterValues = parameterValueMap(after);
+        if (beforeValues == null || afterValues == null
+            || !beforeValues.keySet().equals(afterValues.keySet())) {
+            return ParameterStateOutcome.UNAVAILABLE;
+        }
+        for (final Map.Entry<String, Float> entry : beforeValues.entrySet()) {
+            if (Float.compare(entry.getValue(), afterValues.get(entry.getKey())) != 0) {
+                return ParameterStateOutcome.CHANGED;
+            }
+        }
+        return ParameterStateOutcome.UNCHANGED;
+    }
+
+    static Set<String> changedParameterIds(
+        final ParameterStateSnapshot before,
+        final ParameterStateSnapshot after
+    ) {
+        if (compareParameterState(before, after) != ParameterStateOutcome.CHANGED) {
+            return Set.of();
+        }
+        final Map<String, Float> beforeValues = parameterValueMap(before);
+        final Map<String, Float> afterValues = parameterValueMap(after);
+        final Set<String> changed = new LinkedHashSet<>();
+        for (final Map.Entry<String, Float> entry : beforeValues.entrySet()) {
+            if (Float.compare(entry.getValue(), afterValues.get(entry.getKey())) != 0) {
+                changed.add(entry.getKey());
+            }
+        }
+        return Collections.unmodifiableSet(changed);
+    }
+
+    private static Map<String, Float> parameterValueMap(final ParameterStateSnapshot snapshot) {
+        if (snapshot == null || !snapshot.available()) return null;
+        final Map<String, Float> values = new HashMap<>();
+        for (final ParameterValueSample sample : snapshot.values()) {
+            if (sample == null || values.put(sample.parameterId(), sample.value()) != null) {
+                return null;
+            }
+        }
+        return values;
+    }
+
+    static ParameterHistoryAdmission parameterHistoryAdmission(
+        final String beforeSignificant,
+        final String afterSignificant
+    ) {
+        if (beforeSignificant == null || afterSignificant == null) {
+            return ParameterHistoryAdmission.UNAVAILABLE;
+        }
+        return beforeSignificant.equals(afterSignificant)
+            ? ParameterHistoryAdmission.NOT_OBSERVED
+            : ParameterHistoryAdmission.OBSERVED;
+    }
+
+    static List<ParameterLifecycleEvent> relevantParameterLifecycle(
+        final List<ParameterLifecycleEvent> events,
+        final Set<String> parameterIds
+    ) {
+        if (events == null || events.isEmpty() || parameterIds == null || parameterIds.isEmpty()) {
+            return List.of();
+        }
+        return events.stream()
+            .filter(event -> event != null && parameterIds.contains(event.parameterId()))
+            .toList();
+    }
+
+    static ParameterLifecycleStatus parameterLifecycleStatus(
+        final List<ParameterLifecycleEvent> events,
+        final Set<String> changedIds,
+        final boolean valueChanged
+    ) {
+        if (events == null || events.isEmpty()) return ParameterLifecycleStatus.MISSING;
+        final List<ParameterLifecycleEvent> relevant = relevantParameterLifecycle(events, changedIds);
+        if (changedIds == null || changedIds.isEmpty() || relevant.isEmpty()) {
+            return ParameterLifecycleStatus.OBSERVED_UNRELATED;
+        }
+        if (!valueChanged) return ParameterLifecycleStatus.INCOMPLETE;
+        for (final String changedId : changedIds) {
+            final List<ParameterLifecycleEvent> perParameter = relevant.stream()
+                .filter(event -> event.parameterId().equals(changedId))
+                .toList();
+            final boolean before = perParameter.stream()
+                .anyMatch(event -> event.phase().equals("before"));
+            final boolean on = perParameter.stream()
+                .anyMatch(event -> event.phase().equals("on"));
+            final boolean after = perParameter.stream()
+                .anyMatch(event -> event.phase().equals("after"));
+            if (!(before && on && after)) return ParameterLifecycleStatus.INCOMPLETE;
+        }
+        return ParameterLifecycleStatus.COMPLETE;
+    }
+
+    private String parameterStateJson(
+        final String step,
+        final String phase,
+        final ParameterStateSnapshot snapshot
+    ) {
+        return "{\"type\":\"parameter-state\",\"step\":\""
+            + json(step) + "\",\"phase\":\"" + json(phase)
+            + "\",\"availability\":\"" + snapshot.availability().code()
+            + "\",\"modelId\":\"" + json(snapshot.modelId())
+            + "\",\"reason\":\"" + json(snapshot.reason())
+            + "\",\"parameters\":["
+            + snapshot.values().stream().map(ParameterValueSample::json)
+                .reduce((left, right) -> left + "," + right).orElse("")
+            + "]}\n";
+    }
+
+    private String parameterEvidenceJson(
+        final String step,
+        final ParameterStateSnapshot before,
+        final ParameterStateSnapshot after,
+        final ParameterStateOutcome valueStatus,
+        final ParameterHistoryAdmission historyAdmission,
+        final ParameterLifecycleStatus lifecycleStatus,
+        final Set<String> changedIds,
+        final List<ParameterLifecycleEvent> lifecycleEvents
+    ) {
+        final Set<String> relevantIds = changedIds == null ? Set.of() : changedIds;
+        return "{\"type\":\"parameter-evidence\",\"step\":\"" + json(step)
+            + "\",\"modelIdBefore\":\"" + json(modelId(before))
+            + "\",\"modelIdAfter\":\"" + json(modelId(after))
+            + "\",\"valueStatus\":\"" + valueStatus.code()
+            + "\",\"historyAdmission\":\"" + historyAdmission.code()
+            + "\",\"lifecycle\":\"" + lifecycleStatus.code()
+            + "\",\"changedParameterIds\":["
+            + relevantIds.stream().map(WindowsHistoryNativeUiIngressProbe::quoted)
+                .reduce((left, right) -> left + "," + right).orElse("")
+            + "],\"callbacks\":["
+            + (lifecycleEvents == null ? "" : lifecycleEvents.stream()
+                .map(event -> event.json(relevantIds))
+                .reduce((left, right) -> left + "," + right).orElse(""))
+            + "]}\n";
+    }
+
+    private static String modelId(final ParameterStateSnapshot snapshot) {
+        return snapshot == null ? "" : snapshot.modelId();
+    }
+
     enum ShortcutResolution {
         DELIVERED,
         WRONG_DIRECTION,
@@ -3581,6 +4073,169 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
         });
         return escaped.toString();
+    }
+
+    enum ParameterStateAvailability {
+        AVAILABLE("available"),
+        UNAVAILABLE("unavailable");
+
+        private final String code;
+
+        ParameterStateAvailability(final String code) {
+            this.code = code;
+        }
+
+        String code() {
+            return code;
+        }
+    }
+
+    enum ParameterStateOutcome {
+        CHANGED("changed"),
+        UNCHANGED("unchanged"),
+        MODEL_CHANGED("model-changed"),
+        UNAVAILABLE("unavailable");
+
+        private final String code;
+
+        ParameterStateOutcome(final String code) {
+            this.code = code;
+        }
+
+        String code() {
+            return code;
+        }
+    }
+
+    enum ParameterHistoryAdmission {
+        OBSERVED("observed"),
+        NOT_OBSERVED("not-observed"),
+        UNAVAILABLE("unavailable");
+
+        private final String code;
+
+        ParameterHistoryAdmission(final String code) {
+            this.code = code;
+        }
+
+        String code() {
+            return code;
+        }
+    }
+
+    enum ParameterLifecycleStatus {
+        COMPLETE("complete"),
+        MISSING("missing"),
+        INCOMPLETE("incomplete"),
+        OBSERVED_UNRELATED("observed-unrelated");
+
+        private final String code;
+
+        ParameterLifecycleStatus(final String code) {
+            this.code = code;
+        }
+
+        String code() {
+            return code;
+        }
+    }
+
+    record ParameterValueSample(String parameterId, float value) {
+        ParameterValueSample {
+            parameterId = Objects.requireNonNull(parameterId, "parameterId");
+            if (parameterId.isBlank() || parameterId.length() > MAX_PARAMETER_ID_LENGTH) {
+                throw new IllegalArgumentException("parameterId is unavailable");
+            }
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException("parameter value must be finite");
+            }
+        }
+
+        String json() {
+            return "{\"id\":\"" + WindowsHistoryNativeUiIngressProbe.json(parameterId)
+                + "\",\"value\":" + Float.toString(value) + "}";
+        }
+    }
+
+    record ParameterStateSnapshot(
+        ParameterStateAvailability availability,
+        String modelId,
+        List<ParameterValueSample> values,
+        String reason
+    ) {
+        ParameterStateSnapshot {
+            availability = Objects.requireNonNull(availability, "availability");
+            modelId = modelId == null ? "" : modelId;
+            values = List.copyOf(Objects.requireNonNull(values, "values"));
+            reason = reason == null ? "" : reason;
+            if (modelId.length() > MAX_PARAMETER_ID_LENGTH) {
+                throw new IllegalArgumentException("modelId is unavailable");
+            }
+            if (availability == ParameterStateAvailability.AVAILABLE
+                && (modelId.isBlank() || values.size() > MAX_PARAMETER_VALUES)) {
+                throw new IllegalArgumentException("available parameter snapshot is invalid");
+            }
+        }
+
+        static ParameterStateSnapshot available(
+            final String modelId,
+            final List<ParameterValueSample> values
+        ) {
+            return new ParameterStateSnapshot(
+                ParameterStateAvailability.AVAILABLE, modelId, values, "");
+        }
+
+        static ParameterStateSnapshot unavailable(final String reason) {
+            return new ParameterStateSnapshot(
+                ParameterStateAvailability.UNAVAILABLE, "", List.of(),
+                reason == null || reason.isBlank() ? "unavailable" : reason);
+        }
+
+        boolean available() {
+            return availability == ParameterStateAvailability.AVAILABLE;
+        }
+    }
+
+    record ParameterChangeObservation(
+        ParameterStateOutcome outcome,
+        ParameterStateSnapshot after,
+        String reason
+    ) {
+        ParameterChangeObservation {
+            outcome = Objects.requireNonNull(outcome, "outcome");
+            reason = reason == null ? "" : reason;
+        }
+    }
+
+    record ParameterLifecycleEvent(
+        long sequence,
+        String phase,
+        String parameterId,
+        Float oldValue,
+        Float newValue,
+        String thread
+    ) {
+        ParameterLifecycleEvent {
+            phase = phase == null ? "" : phase;
+            parameterId = parameterId == null ? "" : parameterId;
+            oldValue = finiteValue(oldValue);
+            newValue = finiteValue(newValue);
+            thread = thread == null ? "" : thread;
+        }
+
+        String json(final Set<String> relatedIds) {
+            final boolean related = relatedIds != null && relatedIds.contains(parameterId);
+            return "{\"phase\":\"" + WindowsHistoryNativeUiIngressProbe.json(phase)
+                + "\",\"parameterId\":\"" + WindowsHistoryNativeUiIngressProbe.json(parameterId)
+                + "\",\"oldValue\":" + numberOrNull(oldValue)
+                + ",\"newValue\":" + numberOrNull(newValue)
+                + ",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
+                + "\",\"related\":" + related + "}";
+        }
+
+        private static String numberOrNull(final Float value) {
+            return value == null ? "null" : Float.toString(value);
+        }
     }
 
     /** One operator instruction and the kind of native outcome it must produce. */
