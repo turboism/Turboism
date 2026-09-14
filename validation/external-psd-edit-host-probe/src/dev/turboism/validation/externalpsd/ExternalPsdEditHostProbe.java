@@ -1662,7 +1662,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (samples > Integer.MAX_VALUE) {
                 throw structureInvalid(section, channel.position(), "raw channel is too large");
             }
-            channel.require((int) samples, section + " raw samples");
+            channel.skip((int) samples, section + " raw samples");
             if (channel.remaining() != 0) {
                 throw structureInvalid(section, channel.position(),
                     "raw channel has unread bytes " + channel.remaining());
@@ -1685,7 +1685,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (samples > Integer.MAX_VALUE) {
                 throw structureInvalid(section, file.position(), "raw composite is too large");
             }
-            file.require((int) samples, section + " raw samples");
+            file.skip((int) samples, section + " raw samples");
             if (file.remaining() != 0) {
                 throw structureInvalid(section, file.position(),
                     "raw composite has unread bytes " + file.remaining());
@@ -4349,6 +4349,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Properties result) throws Exception {
         if (snapshot == null || snapshot.path() == null || snapshot.observation() == null) {
             throw new SessionFileReadinessException("write precondition has no validated session PSD");
+        }
+        try {
+            requireNoSymlinkPath(snapshot.path(), "validated session PSD path");
+        } catch (RuntimeException failure) {
+            final SessionFileRead rejected = SessionFileRead.failed("REJECTED_PATH",
+                "validated session PSD path contains a symlink: " + failure.getMessage());
+            recordSessionWriteCheck(result, rejected);
+            throw new SessionFileReadinessException(rejected.diagnostic(), failure);
         }
         final SessionFileRead read = readSessionFile(snapshot.path(),
             snapshot.observation().identity());
