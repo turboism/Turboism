@@ -46,8 +46,12 @@ Loads alongside the production `external-psd-edit` plugin jar (`EXTERNAL_PSD_WIT
 dispatches a real popup-trigger right-click on visible `JTree` rows until a popup exposes
 the contributed item (`Edit PSD Externally`), clicks it, waits for the plugin's own
 `turboism-psd-*` session file, writes a mutated save, and verifies the plugin auto-imports
-it (relation `isReplaced` flip or generation bump). `BLOCKED` (not `FAIL`) when no popup
-can be raised — a blocked run terminates fast through the runner `--failure-marker`.
+it for the resolved target: the target must start with `isReplaced=false`, and success requires
+the same binding, generation, and raw image with `isReplaced` changing `false→true`. Any
+binding, generation, or raw-target change is stale evidence and is not success; an initial
+`isReplaced=true` target is `BLOCKED` because no new replacement can be observed. `BLOCKED`
+(not `FAIL`) when no popup can be raised — a blocked run terminates fast through the runner
+`--failure-marker`.
 
 ## Build / offline test
 

@@ -1,16 +1,26 @@
 package dev.turboism.validation.externalpsd;
 
+import java.awt.AWTEvent;
+import java.awt.Component;
+import java.awt.event.MouseEvent;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** Offline unit coverage for the probe's structural PSD name mutation. */
+import javax.swing.JPopupMenu;
+
+/** Offline unit coverage for the probe's PSD mutation, popup dispatch, and GUI evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
     public static void main(final String[] args) throws java.io.IOException {
+        testPopupTriggerDispatch();
+        testPopupAttemptAssociation();
+        testAutoImportEvidence();
+
         final byte[] psd = syntheticPsd("LayerA", "B2");
         final List<int[]> names = ExternalPsdEditHostProbe.layerNameRanges(psd);
         assertEquals(2, names.size(), "two layer names parsed");
@@ -55,6 +65,66 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(marker.letter(), (char) mutated[markedRange[0] + marker.nameOffset()],
             "persisted byte equals the recorded marker letter");
         System.out.println("PASS: ExternalPsdEditHostProbeTest");
+    }
+
+    private static void testPopupTriggerDispatch() {
+        assertTrue(!ExternalPsdEditHostProbe.popupTriggerOnPress("Windows 11"),
+            "Windows popup trigger is on release");
+        assertTrue(ExternalPsdEditHostProbe.popupTriggerOnPress("Linux"),
+            "non-Windows popup trigger is on press");
+
+        assertSinglePopupTrigger(true, MouseEvent.MOUSE_PRESSED);
+        assertSinglePopupTrigger(false, MouseEvent.MOUSE_RELEASED);
+    }
+
+    private static void assertSinglePopupTrigger(final boolean triggerOnPress,
+        final int expectedTriggerEvent) {
+        final RecordingComponent component = new RecordingComponent();
+        ExternalPsdEditHostProbe.dispatchRightClick(component, 10, 12, triggerOnPress);
+        final List<MouseEvent> right = component.events().stream()
+            .filter(event -> event.getButton() == MouseEvent.BUTTON3)
+            .toList();
+        assertEquals(2, right.size(), "right click dispatches press and release");
+        assertEquals(expectedTriggerEvent,
+            right.stream().filter(MouseEvent::isPopupTrigger).findFirst().orElseThrow().getID(),
+            "exactly one right-click event is the popup trigger");
+        assertEquals(1L, right.stream().filter(MouseEvent::isPopupTrigger).count(),
+            "one popup trigger per right click");
+    }
+
+    private static void testPopupAttemptAssociation() {
+        final JPopupMenu old = new JPopupMenu();
+        final JPopupMenu fresh = new JPopupMenu();
+        assertSame(old, ExternalPsdEditHostProbe.popupForAttempt(
+            List.of(old), List.of(old), List.of(old)),
+            "a successfully dismissed popup may be reused for this attempt");
+        assertSame(fresh, ExternalPsdEditHostProbe.popupForAttempt(
+            List.of(old), List.of(), List.of(old, fresh)),
+            "a new visible popup is associated with this attempt");
+        assertNull(ExternalPsdEditHostProbe.popupForAttempt(
+            List.of(old), List.of(), List.of(old)),
+            "an old popup that was not dismissed is rejected as stale");
+    }
+
+    private static void testAutoImportEvidence() {
+        final var before = new ExternalPsdEditHostProbe.GuiTargetState(
+            true, "binding-a", 7L, "raw-a", false, "");
+        final var applied = new ExternalPsdEditHostProbe.GuiTargetState(
+            true, "binding-a", 7L, "raw-a", true, "");
+        assertTrue(ExternalPsdEditHostProbe.acceptsAutoImport(before, applied, "raw-a"),
+            "same target false-to-true replacement is accepted");
+        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(before,
+            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-b", 7L, "raw-a", true, ""),
+            "raw-a"), "binding change is not replacement evidence");
+        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(before,
+            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-a", 8L, "raw-a", true, ""),
+            "raw-a"), "generation change is not replacement evidence");
+        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(before,
+            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-a", 7L, "raw-b", true, ""),
+            "raw-a"), "raw target change is not replacement evidence");
+        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(
+            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-a", 7L, "raw-a", true, ""),
+            applied, "raw-a"), "initial isReplaced=true is not new replacement evidence");
     }
 
     private static String slice(final byte[] psd, final int[] range) {
@@ -125,10 +195,35 @@ public final class ExternalPsdEditHostProbeTest {
         if (!condition) throw new AssertionError(message);
     }
 
+    private static void assertSame(final Object expected, final Object actual,
+        final String message) {
+        if (expected != actual) {
+            throw new AssertionError(message + " expected=" + expected + " actual=" + actual);
+        }
+    }
+
+    private static void assertNull(final Object actual, final String message) {
+        if (actual != null) throw new AssertionError(message + " actual=" + actual);
+    }
+
     private static void assertEquals(final Object expected, final Object actual,
         final String message) {
         if (!expected.equals(actual)) {
             throw new AssertionError(message + " expected=" + expected + " actual=" + actual);
         }
+    }
+
+    private static final class RecordingComponent extends Component {
+        private final List<MouseEvent> events = new ArrayList<>();
+
+        private RecordingComponent() {
+            enableEvents(AWTEvent.MOUSE_EVENT_MASK);
+        }
+
+        @Override protected void processMouseEvent(final MouseEvent event) {
+            events.add(event);
+        }
+
+        private List<MouseEvent> events() { return events; }
     }
 }
