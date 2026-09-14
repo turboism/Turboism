@@ -194,10 +194,26 @@ class DeformerFormListUndoDecoderTest {
     }
 
     @Test
-    void aGroupOfUniformPerKeyformMovesHoistsToTheMovedSubject() {
+    void aGroupOfUniformPerKeyformMovesRetainsTheSubjectButReportsVaryingScope() {
         // The host commits a canvas drag as one SimpleUndo per keyform of the same deformer.
-        // Every child proves the same MOVE on the same target, so the row may name the subject.
-        final Source source = new Source("Warp1", "Body warp", new Grid(List.of(), Map.of()));
+        // Every child proves the same MOVE on the same target, but the different coordinates make
+        // one FULL aggregate scope impossible.
+        final Parameter angleX = new Parameter(new HostId("ParamAngleX"), "Angle X");
+        final Binding binding = new Binding(angleX);
+        final Guid firstGuid = new Guid("form-a");
+        final Guid secondGuid = new Guid("form-b");
+        final Grid grid = new Grid(
+            List.of(binding),
+            Map.of(
+                firstGuid.value(), List.of(new KeyformOnGrid(new AccessKey(List.of(
+                    new KeyOnParameter(binding, -30.0F)
+                )))),
+                secondGuid.value(), List.of(new KeyformOnGrid(new AccessKey(List.of(
+                    new KeyOnParameter(binding, 30.0F)
+                ))))
+            )
+        );
+        final Source source = new Source("Warp1", "Body warp", grid);
         final float[] moved = {2.0F, -1.0F, 3.0F, -1.0F, 3.0F, 0.0F, 2.0F, 0.0F};
         final WarpForm firstBefore = warp(source, "form-a", 1.0F, QUAD);
         final WarpForm firstLive = warp(source, "form-a", 1.0F, moved);
@@ -212,13 +228,17 @@ class DeformerFormListUndoDecoderTest {
             resolver(), group, "Move", true
         ).detail().orElseThrow();
 
-        assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals("history.detail.group-scope-vary", detail.degradationCode().orElseThrow());
         assertEquals(1, detail.targets().size());
         assertEquals("Warp1", detail.targets().get(0).id().orElseThrow());
         assertEquals(1, detail.changes().size());
         assertEquals(HistoryChange.Operation.MOVE, detail.changes().get(0).operation());
+        assertEquals(HistoryEditContext.Kind.UNKNOWN, detail.changes().get(0).context().kind());
         assertTrue(detail.group().isPresent(), "bounded children stay attached for audit");
         assertEquals(2, detail.group().orElseThrow().children().size());
+        assertTrue(detail.group().orElseThrow().children().stream()
+            .allMatch(child -> child.detailLevel() == HistoryAction.DetailLevel.FULL));
     }
 
     @Test

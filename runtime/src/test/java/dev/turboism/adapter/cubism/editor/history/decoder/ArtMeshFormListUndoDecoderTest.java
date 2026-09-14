@@ -128,6 +128,163 @@ class ArtMeshFormListUndoDecoderTest {
     }
 
     @Test
+    void differentKeyformCoordinatesDoNotBecomeAnObjectLevelFullChange() {
+        final Parameter angleX = new Parameter(new HostId("ParamAngleX"), "Angle X");
+        final Binding binding = new Binding(angleX);
+        final Grid grid = new Grid(
+            List.of(binding),
+            Map.of(
+                "form-minus-30", List.of(new KeyformOnGrid(new AccessKey(List.of(
+                    new KeyOnParameter(binding, -30.0F)
+                )))),
+                "form-plus-30", List.of(new KeyformOnGrid(new AccessKey(List.of(
+                    new KeyOnParameter(binding, 30.0F)
+                ))))
+            )
+        );
+        final Source source = new Source("ArtMesh1", "Face shadow", grid);
+        final Form firstBefore = form(source, "form-minus-30", color(1, 1, 1), color(0, 0, 0));
+        final Form firstAfter = form(source, "form-minus-30", color(1, 0, 0), color(0, 0, 0));
+        final Form secondBefore = form(source, "form-plus-30", color(1, 1, 1), color(0, 0, 0));
+        final Form secondAfter = form(source, "form-plus-30", color(1, 0, 0), color(0, 0, 0));
+        final GroupEntry group = new GroupEntry(List.of(
+            new SimpleEntry(firstAfter, firstBefore, null),
+            new SimpleEntry(secondAfter, secondBefore, null)
+        ));
+
+        final HistoryEntryDetail detail = new NativeHistoryDecoderRegistry()
+            .decode(resolver(), group, "Color", true)
+            .detail().orElseThrow();
+
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals("history.detail.group-scope-vary", detail.degradationCode().orElseThrow());
+        assertEquals("ArtMesh1", detail.targets().get(0).id().orElseThrow());
+        assertEquals(HistoryEditContext.Kind.UNKNOWN, detail.changes().get(0).context().kind());
+        assertEquals(List.of(), detail.changes().get(0).context().coordinates());
+        assertEquals(2, detail.group().orElseThrow().children().size());
+        for (final HistoryEntryDetail child : detail.group().orElseThrow().children()) {
+            assertEquals(HistoryAction.DetailLevel.FULL, child.detailLevel());
+            assertEquals(
+                HistoryEditContext.Kind.KEYFORM,
+                child.changes().get(0).context().kind()
+            );
+        }
+    }
+
+    @Test
+    void defaultFormAndKeyformScopesDoNotBecomeAnObjectLevelFullChange() {
+        final Source defaultSource = new Source(
+            "ArtMesh1", "Face shadow", new Grid(List.of(), Map.of())
+        );
+        final Parameter angleX = new Parameter(new HostId("ParamAngleX"), "Angle X");
+        final Binding binding = new Binding(angleX);
+        final Guid keyGuid = new Guid("form-key");
+        final AccessKey key = new AccessKey(List.of(new KeyOnParameter(binding, 30.0F)));
+        final Grid keyformGrid = new Grid(
+            List.of(binding),
+            Map.of(keyGuid.value(), List.of(new KeyformOnGrid(key)))
+        );
+        final Source keyformSource = new Source("ArtMesh1", "Face shadow", keyformGrid);
+        final Form defaultBefore = form(
+            defaultSource, "form-default", color(1, 1, 1), color(0, 0, 0)
+        );
+        final Form defaultAfter = form(
+            defaultSource, "form-default", color(1, 0, 0), color(0, 0, 0)
+        );
+        final Form keyformBefore = form(
+            keyformSource, keyGuid.value(), color(1, 1, 1), color(0, 0, 0)
+        );
+        final Form keyformAfter = form(
+            keyformSource, keyGuid.value(), color(1, 0, 0), color(0, 0, 0)
+        );
+        final GroupEntry group = new GroupEntry(List.of(
+            new SimpleEntry(defaultAfter, defaultBefore, null),
+            new SimpleEntry(keyformAfter, keyformBefore, null)
+        ));
+
+        final HistoryEntryDetail detail = new NativeHistoryDecoderRegistry()
+            .decode(resolver(), group, "Color", true)
+            .detail().orElseThrow();
+
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals("history.detail.group-scope-vary", detail.degradationCode().orElseThrow());
+        assertEquals(HistoryEditContext.Kind.UNKNOWN, detail.changes().get(0).context().kind());
+        final var children = detail.group().orElseThrow().children();
+        assertEquals(HistoryEditContext.Kind.DEFAULT_FORM,
+            children.get(0).changes().get(0).context().kind());
+        assertEquals(HistoryEditContext.Kind.KEYFORM,
+            children.get(1).changes().get(0).context().kind());
+        assertEquals(HistoryAction.DetailLevel.FULL, children.get(0).detailLevel());
+        assertEquals(HistoryAction.DetailLevel.FULL, children.get(1).detailLevel());
+    }
+
+    @Test
+    void sameKeyformScopeAndValuesRemainFullWhenHoisted() {
+        final Parameter angleX = new Parameter(new HostId("ParamAngleX"), "Angle X");
+        final Binding binding = new Binding(angleX);
+        final Guid guid = new Guid("form-key");
+        final AccessKey key = new AccessKey(List.of(new KeyOnParameter(binding, 30.0F)));
+        final Source source = new Source(
+            "ArtMesh1", "Face shadow", new Grid(
+                List.of(binding),
+                Map.of(guid.value(), List.of(new KeyformOnGrid(key)))
+            )
+        );
+        final Form firstBefore = form(source, guid.value(), color(1, 1, 1), color(0, 0, 0));
+        final Form firstAfter = form(source, guid.value(), color(1, 0, 0), color(0, 0, 0));
+        final Form secondBefore = form(source, guid.value(), color(1, 1, 1), color(0, 0, 0));
+        final Form secondAfter = form(source, guid.value(), color(1, 0, 0), color(0, 0, 0));
+        final GroupEntry group = new GroupEntry(List.of(
+            new SimpleEntry(firstAfter, firstBefore, null),
+            new SimpleEntry(secondAfter, secondBefore, null)
+        ));
+
+        final HistoryEntryDetail detail = new NativeHistoryDecoderRegistry()
+            .decode(resolver(), group, "Color", true)
+            .detail().orElseThrow();
+
+        assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
+        assertEquals(java.util.Optional.empty(), detail.degradationCode());
+        assertEquals(HistoryEditContext.Kind.KEYFORM, detail.changes().get(0).context().kind());
+        assertEquals(List.of("ParamAngleX"), detail.changes().get(0).context().coordinates()
+            .stream().map(coordinate -> coordinate.parameter().id().orElseThrow()).toList());
+        assertEquals(2, detail.group().orElseThrow().children().size());
+    }
+
+    @Test
+    void sameKeyformScopeWithDifferentValuesKeepsItsExistingPartialDegradation() {
+        final Parameter angleX = new Parameter(new HostId("ParamAngleX"), "Angle X");
+        final Binding binding = new Binding(angleX);
+        final Guid guid = new Guid("form-key");
+        final AccessKey key = new AccessKey(List.of(new KeyOnParameter(binding, 30.0F)));
+        final Source source = new Source(
+            "ArtMesh1", "Face shadow", new Grid(
+                List.of(binding),
+                Map.of(guid.value(), List.of(new KeyformOnGrid(key)))
+            )
+        );
+        final Form firstBefore = form(source, guid.value(), color(1, 1, 1), color(0, 0, 0));
+        final Form firstAfter = form(source, guid.value(), color(1, 0, 0), color(0, 0, 0));
+        final Form secondBefore = form(source, guid.value(), color(1, 1, 1), color(0, 0, 0));
+        final Form secondAfter = form(source, guid.value(), color(0, 0, 1), color(0, 0, 0));
+        final GroupEntry group = new GroupEntry(List.of(
+            new SimpleEntry(firstAfter, firstBefore, null),
+            new SimpleEntry(secondAfter, secondBefore, null)
+        ));
+
+        final HistoryEntryDetail detail = new NativeHistoryDecoderRegistry()
+            .decode(resolver(), group, "Color", true)
+            .detail().orElseThrow();
+
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals("history.detail.group-values-vary", detail.degradationCode().orElseThrow());
+        assertEquals(HistoryEditContext.Kind.KEYFORM, detail.changes().get(0).context().kind());
+        assertEquals(java.util.Optional.empty(), detail.changes().get(0).before());
+        assertEquals(java.util.Optional.empty(), detail.changes().get(0).after());
+        assertEquals(2, detail.group().orElseThrow().children().size());
+    }
+
+    @Test
     void groupedSameTargetWithoutRedoDoesNotInventIntermediateAfter() {
         final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
         final Form a = form(source, "form-default", color(1, 1, 1), color(0, 0, 0));
