@@ -27,6 +27,7 @@ import dev.turboism.sdk.ui.UserFileRequestResult;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JTree;
+import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
@@ -54,6 +55,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -380,8 +382,24 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Target target = resolveTarget(result);
         result.setProperty("gui.menuLabel", System.getProperty(
             "turboism.validation.externalpsd.menuLabel", "Edit PSD Externally"));
-        final long generationBefore = generationOnEdt();
-        result.setProperty("gui.generationBefore", Long.toString(generationBefore));
+        final GuiTargetState before = observeGuiTarget(target);
+        recordGuiTargetState(result, "before", before);
+        result.setProperty("gui.generationBefore", Long.toString(before.generation()));
+        recordGuiTargetState(result, "after",
+            GuiTargetState.unobserved("auto-import not attempted"));
+        if (!before.observed()) {
+            throw new Blocked("target-specific GUI replacement observation is available",
+                "gui.before unavailable: " + before.diagnostic());
+        }
+        if (before.binding().isBlank() || before.generation() < 0 || before.raw().isBlank()
+            || !target.raw().value().equals(before.raw())) {
+            throw new Blocked("GUI target remains bound to the resolved document and raw image",
+                "gui.before target identity is unavailable or stale: " + before);
+        }
+        if (before.rawReplaced()) {
+            throw new Blocked("fixture target starts with isReplaced=false",
+                "gui.before.rawReplaced=true; no available new replacement observation");
+        }
         final Path marker = tempMarker();
 
         final Set<String> labels = new LinkedHashSet<>(List.of(result.getProperty("gui.menuLabel"),
@@ -402,11 +420,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             .orElseThrow(() -> new IllegalStateException("session PSD has no mutable layer name"));
         Files.write(sessionFile, mutated);
 
-        final boolean applied = awaitAutoImport(target, generationBefore, 90);
-        result.setProperty("gui.autoImportApplied", Boolean.toString(applied));
-        result.setProperty("gui.generationAfter", Long.toString(generationOnEdt()));
-        if (!applied) {
-            throw new IllegalStateException("plugin session did not auto-import the written save");
+        final AutoImportObservation observation = awaitAutoImport(target, before, 90);
+        result.setProperty("gui.autoImportApplied", Boolean.toString(observation.applied()));
+        recordGuiTargetState(result, "after", observation.after());
+        result.setProperty("gui.generationAfter", Long.toString(observation.after().generation()));
+        if (!observation.applied()) {
+            if (observation.stale()) {
+                throw new Blocked("GUI target binding, generation and raw image remain stable",
+                    observation.diagnostic());
+            }
+            throw new IllegalStateException(
+                "plugin session did not auto-import the written save: "
+                    + observation.diagnostic());
         }
         result.setProperty("expected", "context-menu item starts a session and auto-imports saves");
         result.setProperty("actual", "menu click → session file → written save auto-applied");
@@ -1119,23 +1144,74 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private long generationOnEdt() throws Exception {
-        final AtomicReference<Long> generation = new AtomicReference<>(-1L);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                generation.set(
-                    context.cubism().model().active().textures().relations().generation());
-            } catch (RuntimeException unavailable) {
-                // -1 stays; callers treat it as "unobserved".
-            }
-        });
-        return generation.get();
+    private GuiTargetState observeGuiTarget(final Target target) throws Exception {
+        final AtomicReference<GuiTargetState> observed = new AtomicReference<>(
+            GuiTargetState.unobserved("target state was not observed"));
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final var relations = context.cubism().model().active().textures().relations();
+                    if (!relations.isAvailable()) throw new IllegalStateException(
+                        "relations unavailable");
+                    final RawImageId currentRaw = relations.modelImage(target.modelImage())
+                        .flatMap(image -> image.currentRawImageId())
+                        .orElseThrow(() -> new IllegalStateException(
+                            "target model image has no current raw image"));
+                    final boolean rawReplaced = relations.rawImage(currentRaw)
+                        .map(dev.turboism.sdk.cubism.model.RawImageDetails::isReplaced)
+                        .orElseThrow(() -> new IllegalStateException(
+                            "target raw image details unavailable"));
+                    observed.set(new GuiTargetState(true, relations.binding(),
+                        relations.generation(), currentRaw.value(), rawReplaced, ""));
+                } catch (RuntimeException unavailable) {
+                    observed.set(GuiTargetState.unobserved(unavailable.toString()));
+                }
+            });
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return GuiTargetState.unobserved("observation interrupted");
+        } catch (Exception unavailable) {
+            return GuiTargetState.unobserved(unavailable.toString());
+        }
+        return observed.get();
+    }
+
+    private static void recordGuiTargetState(final Properties result, final String phase,
+        final GuiTargetState state) {
+        final String prefix = "gui." + phase + ".";
+        result.setProperty(prefix + "observed", Boolean.toString(state.observed()));
+        result.setProperty(prefix + "binding", state.binding());
+        result.setProperty(prefix + "generation", Long.toString(state.generation()));
+        result.setProperty(prefix + "raw", state.raw());
+        result.setProperty(prefix + "rawReplaced", Boolean.toString(state.rawReplaced()));
+        if (!state.diagnostic().isBlank()) {
+            result.setProperty(prefix + "diagnostic", state.diagnostic());
+        }
+    }
+
+    static boolean acceptsAutoImport(final GuiTargetState before,
+        final GuiTargetState after, final String expectedRaw) {
+        return before.observed() && after.observed()
+            && !before.rawReplaced() && after.rawReplaced()
+            && before.binding().equals(after.binding())
+            && before.generation() == after.generation()
+            && expectedRaw.equals(before.raw())
+            && expectedRaw.equals(after.raw());
+    }
+
+    private static boolean sameGuiTarget(final GuiTargetState before,
+        final GuiTargetState after, final String expectedRaw) {
+        return before.observed() && after.observed()
+            && before.binding().equals(after.binding())
+            && before.generation() == after.generation()
+            && expectedRaw.equals(before.raw())
+            && expectedRaw.equals(after.raw());
     }
 
     /**
      * Scans visible row widgets ({@link JTree} rows and {@link javax.swing.JList} cells — the
      * object list is a CList wrapping a JList in this host), dispatches a real popup-trigger
-     * right-click on each, and clicks the first menu item whose text equals {@code label}.
+     * right-click on each, and clicks the first menu item whose text equals one of {@code labels}.
      * Returns after the first successful click or when the row budget is exhausted.
      */
     private GuiClick clickContributedItem(final Set<String> labels, final int rowBudget,
@@ -1155,7 +1231,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         final JPopupMenu popup = widget.rightClick(row);
                         if (popup == null) continue;
                         popups++;
-                        final JMenuItem item = findItem(popup, labels, menuTexts);
+                        final AtomicReference<JMenuItem> foundItem = new AtomicReference<>();
+                        SwingUtilities.invokeAndWait(() ->
+                            foundItem.set(findItem(popup, labels, menuTexts)));
+                        final JMenuItem item = foundItem.get();
                         if (item == null) {
                             dismissPopup();
                             continue;
@@ -1195,13 +1274,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             return rows.get();
         }
         public JPopupMenu rightClick(final int row) throws Exception {
+            final PopupAttempt attempt = dismissPopup();
             SwingUtilities.invokeAndWait(() -> {
                 tree.expandRow(row);
                 final var bounds = tree.getRowBounds(row);
                 if (bounds == null) return;
                 dispatchRightClick(tree, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
             });
-            return awaitPopup();
+            return awaitPopup(attempt);
         }
     }
 
@@ -1213,12 +1293,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             return rows.get();
         }
         public JPopupMenu rightClick(final int row) throws Exception {
+            final PopupAttempt attempt = dismissPopup();
             SwingUtilities.invokeAndWait(() -> {
                 final var bounds = table.getCellRect(row, 0, true);
                 if (bounds == null) return;
                 dispatchRightClick(table, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
             });
-            return awaitPopup();
+            return awaitPopup(attempt);
         }
     }
 
@@ -1230,12 +1311,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             return rows.get();
         }
         public JPopupMenu rightClick(final int row) throws Exception {
+            final PopupAttempt attempt = dismissPopup();
             SwingUtilities.invokeAndWait(() -> {
                 final var bounds = list.getCellBounds(row, row);
                 if (bounds == null) return;
                 dispatchRightClick(list, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
             });
-            return awaitPopup();
+            return awaitPopup(attempt);
         }
     }
 
@@ -1249,28 +1331,39 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
     }
 
-    private static void dispatchRightClick(final Component target, final int x, final int y) {
+    static void dispatchRightClick(final Component target, final int x, final int y) {
+        dispatchRightClick(target, x, y,
+            popupTriggerOnPress(System.getProperty("os.name", "")));
+    }
+
+    static void dispatchRightClick(final Component target, final int x, final int y,
+        final boolean triggerOnPress) {
         dispatchLeftClick(target, x, y);
         final long now = System.currentTimeMillis();
-        // Host handlers may throw while showing the popup on press (e.g. anchoring to a
-        // renderer component that is not on screen); the release path still runs.
+        // Swing's popup-trigger phase is platform-specific. Dispatch exactly one trigger so a
+        // host that builds a popup in both handlers does not create two menus for one click.
         try {
             target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
-                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, triggerOnPress, MouseEvent.BUTTON3));
         } catch (RuntimeException ignored) {
         }
         try {
             target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
-                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, !triggerOnPress, MouseEvent.BUTTON3));
         } catch (RuntimeException ignored) {
         }
     }
 
-    private static JPopupMenu awaitPopup() throws Exception {
+    static boolean popupTriggerOnPress(final String osName) {
+        return !(osName == null ? "" : osName).toLowerCase(Locale.ROOT).contains("win");
+    }
+
+    private static JPopupMenu awaitPopup(final PopupAttempt attempt) throws Exception {
         // The host may build and show the popup asynchronously after the event returns.
-        for (int attempt = 0; attempt < 20; attempt++) {
+        for (int poll = 0; poll < 20; poll++) {
             final AtomicReference<JPopupMenu> opened = new AtomicReference<>();
-            SwingUtilities.invokeAndWait(() -> opened.set(currentPopup()));
+            SwingUtilities.invokeAndWait(() -> opened.set(popupForAttempt(
+                attempt.visibleBefore(), attempt.dismissed(), popupMenus(true))));
             if (opened.get() != null) return opened.get();
             Thread.sleep(150);
         }
@@ -1352,27 +1445,56 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private static JPopupMenu currentPopup() {
-        final var path = MenuSelectionManager.defaultManager().getSelectedPath();
-        if (path.length > 0 && path[0] instanceof JPopupMenu popup && popup.isVisible()) {
-            return popup;
+    private static List<JPopupMenu> popupMenus(final boolean visibleOnly) {
+        final List<JPopupMenu> popups = new ArrayList<>();
+        for (final MenuElement element : MenuSelectionManager.defaultManager().getSelectedPath()) {
+            if (element instanceof JPopupMenu popup
+                && (!visibleOnly || popup.isVisible())) {
+                addPopup(popups, popup);
+            }
         }
         for (final Window window : Window.getWindows()) {
-            final JPopupMenu popup = findPopup(window);
-            if (popup != null) return popup;
+            collectPopupMenus(window, popups, visibleOnly);
+        }
+        return popups;
+    }
+
+    private static void collectPopupMenus(final Container container,
+        final List<JPopupMenu> popups, final boolean visibleOnly) {
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JPopupMenu popup
+                && (!visibleOnly || popup.isVisible())) {
+                addPopup(popups, popup);
+            }
+            if (component instanceof Container child) {
+                collectPopupMenus(child, popups, visibleOnly);
+            }
+        }
+    }
+
+    private static void addPopup(final List<JPopupMenu> popups, final JPopupMenu candidate) {
+        for (final JPopupMenu popup : popups) {
+            if (popup == candidate) return;
+        }
+        popups.add(candidate);
+    }
+
+    static JPopupMenu popupForAttempt(final List<JPopupMenu> visibleBefore,
+        final List<JPopupMenu> dismissed, final List<JPopupMenu> visibleAfter) {
+        for (final JPopupMenu popup : visibleAfter) {
+            if (!containsIdentity(visibleBefore, popup) || containsIdentity(dismissed, popup)) {
+                return popup;
+            }
         }
         return null;
     }
 
-    private static JPopupMenu findPopup(final Container container) {
-        for (final Component component : container.getComponents()) {
-            if (component instanceof JPopupMenu popup && popup.isVisible()) return popup;
-            if (component instanceof Container child) {
-                final JPopupMenu popup = findPopup(child);
-                if (popup != null) return popup;
-            }
+    private static boolean containsIdentity(final List<JPopupMenu> popups,
+        final JPopupMenu candidate) {
+        for (final JPopupMenu popup : popups) {
+            if (popup == candidate) return true;
         }
-        return null;
+        return false;
     }
 
     private static JMenuItem findItem(final JPopupMenu popup, final Set<String> labels,
@@ -1396,9 +1518,21 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return null;
     }
 
-    private void dismissPopup() throws Exception {
-        SwingUtilities.invokeAndWait(() ->
-            MenuSelectionManager.defaultManager().clearSelectedPath());
+    private static PopupAttempt dismissPopup() throws Exception {
+        final AtomicReference<PopupAttempt> attempt = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final List<JPopupMenu> visibleBefore = popupMenus(true);
+            for (final JPopupMenu popup : visibleBefore) popup.setVisible(false);
+            MenuSelectionManager.defaultManager().clearSelectedPath();
+            // Clearing the selection can repost or retain a host-owned popup; enforce the close
+            // after the manager has processed the selected path as well.
+            for (final JPopupMenu popup : visibleBefore) popup.setVisible(false);
+            final List<JPopupMenu> dismissed = visibleBefore.stream()
+                .filter(popup -> !popup.isVisible())
+                .toList();
+            attempt.set(new PopupAttempt(List.copyOf(visibleBefore), dismissed));
+        });
+        return attempt.get();
     }
 
     private void clickItem(final JMenuItem item) throws Exception {
@@ -1425,32 +1559,48 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             "plugin session temp file did not appear within " + timeoutSeconds + "s");
     }
 
-    /** Waits for the plugin's auto-import: isReplaced flip or relation generation bump. */
-    private boolean awaitAutoImport(final Target target, final long generationBefore,
+    /** Waits for a target-specific false-to-true replacement without accepting stale state. */
+    private AutoImportObservation awaitAutoImport(final Target target,
+        final GuiTargetState before,
         final int timeoutSeconds) throws Exception {
         final long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
+        GuiTargetState last = GuiTargetState.unobserved("no post-click target observation");
         while (System.currentTimeMillis() < deadline && !stopped) {
-            final AtomicReference<Boolean> replaced = new AtomicReference<>(false);
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    final var relations =
-                        context.cubism().model().active().textures().relations();
-                    if (relations.generation() != generationBefore) {
-                        replaced.set(true);
-                        return;
-                    }
-                    relations.rawImage(target.raw()).ifPresent(raw -> {
-                        if (raw.isReplaced()) replaced.set(true);
-                    });
-                } catch (RuntimeException unavailable) {
-                    // keep polling until the deadline
+            last = observeGuiTarget(target);
+            if (last.observed()) {
+                if (!sameGuiTarget(before, last, target.raw().value())) {
+                    return new AutoImportObservation(false, true, last,
+                        "GUI target became stale: before=" + before + " after=" + last);
                 }
-            });
-            if (replaced.get()) return true;
+                if (acceptsAutoImport(before, last, target.raw().value())) {
+                    return new AutoImportObservation(true, false, last,
+                        "target raw isReplaced changed false-to-true");
+                }
+            }
             Thread.sleep(500);
         }
-        return false;
+        return new AutoImportObservation(false, false, last,
+            "no target-specific false-to-true replacement observed before timeout");
     }
+
+    private record PopupAttempt(List<JPopupMenu> visibleBefore,
+        List<JPopupMenu> dismissed) {}
+
+    static record GuiTargetState(boolean observed, String binding, long generation, String raw,
+        boolean rawReplaced, String diagnostic) {
+        GuiTargetState {
+            binding = binding == null ? "" : binding;
+            raw = raw == null ? "" : raw;
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static GuiTargetState unobserved(final String diagnostic) {
+            return new GuiTargetState(false, "", -1L, "", false, diagnostic);
+        }
+    }
+
+    private record AutoImportObservation(boolean applied, boolean stale,
+        GuiTargetState after, String diagnostic) {}
 
     private record Target(ArtMeshTextureInputs artMesh,
         dev.turboism.sdk.cubism.id.ModelImageId modelImage, RawImageId raw, boolean rawReplaced) {}
