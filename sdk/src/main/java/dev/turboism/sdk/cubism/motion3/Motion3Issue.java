@@ -5,6 +5,7 @@ import java.util.Objects;
 /** One finding reported by {@link Motion3Validator}. */
 public record Motion3Issue(Severity severity, String path, String message) {
 
+    /** How severe the reported motion3 inconsistency is. */
     public enum Severity {
         /** The document violates the motion3 format and may fail to load. */
         ERROR,

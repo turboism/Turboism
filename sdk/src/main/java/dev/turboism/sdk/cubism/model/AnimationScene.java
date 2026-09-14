@@ -34,6 +34,7 @@ public interface AnimationScene {
     /** Output frame height in pixels. */
     int height();
 
+    /** Whether the scene loops during playback. */
     boolean loopMotion();
 
     /** Work-area start frame. */

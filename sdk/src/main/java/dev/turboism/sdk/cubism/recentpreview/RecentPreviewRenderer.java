@@ -12,5 +12,9 @@ import java.util.Optional;
 @FunctionalInterface
 public interface RecentPreviewRenderer {
 
+    /**
+     * Produces popup content for {@code summary}, or {@link Optional#empty()} when this
+     * renderer has nothing to show for that file.
+     */
     Optional<RecentPreviewContent> render(RecentFileSummary summary);
 }

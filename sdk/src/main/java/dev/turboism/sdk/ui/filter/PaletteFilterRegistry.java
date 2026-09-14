@@ -26,6 +26,14 @@ public interface PaletteFilterRegistry {
      */
     Registration contribute(PaletteFilterContribution contribution);
 
+    /**
+     * Descriptor of one palette filter-box contribution.
+     *
+     * @param contributionId stable identifier of this contribution
+     * @param paletteId the {@code PALETTE_*} identifier of the palette tab to attach to
+     * @param placeholderKey localization key for the filter box's placeholder text
+     * @param order ordering position relative to other contributions on the same tab
+     */
     record PaletteFilterContribution(
         String contributionId,
         String paletteId,

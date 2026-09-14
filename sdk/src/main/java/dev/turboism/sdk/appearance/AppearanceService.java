@@ -15,10 +15,28 @@ import java.util.concurrent.CompletionStage;
  */
 public interface AppearanceService {
 
+    /**
+     * Returns the appearance state currently in force on the host.
+     *
+     * @return the observed status; the stage completes with a value rather than failing
+     */
     CompletionStage<AppearanceStatus> current();
 
+    /**
+     * Overlays this plugin's appearance on the Editor.
+     *
+     * @param request the requested appearance, including the {@code expectedRevision}
+     *     optimistic-concurrency token from an earlier {@link #current()} result
+     * @return the outcome of the attempt; rejection and failure arrive as values, not exceptions
+     */
     CompletionStage<AppearanceApplyResult> apply(AppearanceRequest request);
 
+    /**
+     * Removes the appearance overlay this plugin owns, putting the Editor's own appearance back.
+     *
+     * @return the outcome; {@code NO_OWNED_OVERRIDE} reports a clean no-op when this plugin had
+     *     nothing installed
+     */
     CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance();
 
     /**

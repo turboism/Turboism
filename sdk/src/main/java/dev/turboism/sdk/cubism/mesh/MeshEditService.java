@@ -21,13 +21,16 @@ public interface MeshEditService {
     /** Adds points at the given positions; Cubism assigns their ids. */
     MeshEditResult addPoints(List<MeshPointPosition> points);
 
+    /** Deletes the referenced live points; stale references are rejected. */
     MeshEditResult deletePoints(List<MeshPointRef> points);
 
     /** Moves each live point id to the position carried by its reference. */
     MeshEditResult movePoints(List<MeshPointRef> points);
 
+    /** Adds edges between pairs of live point ids; each call is one host undo step. */
     MeshEditResult addEdges(List<MeshEdgeRef> edges);
 
+    /** Deletes the referenced edges; stale references are rejected. */
     MeshEditResult deleteEdges(List<MeshEdgeRef> edges);
 
     /** The current mesh, or an empty snapshot when no mesh is being edited. */

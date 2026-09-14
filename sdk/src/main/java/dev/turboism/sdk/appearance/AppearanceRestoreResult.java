@@ -32,6 +32,7 @@ public record AppearanceRestoreResult(
         });
     }
 
+    /** What happened to a restore request; failures are values, never thrown exceptions. */
     public enum Outcome {
         RESTORED,
         NO_OWNED_OVERRIDE,

@@ -13,5 +13,12 @@ package dev.turboism.sdk.cubism.mesh;
 @FunctionalInterface
 public interface MeshEditParticipant {
 
+    /**
+     * Computes this participant's contribution to a host-initiated mesh deletion.
+     *
+     * @param deletion the pending deletion, backed by live host geometry
+     * @return the contribution folded into the host's undo group;
+     *     {@link MeshEditContribution#none()} leaves the host edit untouched
+     */
     MeshEditContribution onDeleting(MeshDeletion deletion);
 }

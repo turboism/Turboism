@@ -12,8 +12,10 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
             WarpDeformerGridEvent.On,
             WarpDeformerGridEvent.After {
 
+    /** Returns the detached Warp Deformer projection participating in the operation. */
     WarpDeformer deformer();
 
+    /** Synchronous state published before the host grid replacement. */
     final class Before implements WarpDeformerGridEvent {
         private final WarpDeformer deformer;
         private final WarpGrid requestedGrid;
@@ -50,6 +52,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
         }
 
         @Override public WarpDeformer deformer() { return deformer; }
+        /** Returns the grid value originally requested by the write call. */
         public WarpGrid requestedGrid() { return requestedGrid; }
         /** Returns the candidate grid value that will be applied. */
         public WarpGrid grid() { return grid; }
@@ -60,6 +63,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
             this.grid = Objects.requireNonNull(grid, "grid");
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -102,6 +106,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful grid replacement that changed the value. */
     record On(WarpDeformer deformer, WarpGrid oldGrid, WarpGrid newGrid)
         implements WarpDeformerGridEvent {
         public On {
@@ -111,6 +116,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
         }
     }
 
+    /** State published after every successful grid replacement. */
     record After(WarpDeformer deformer, WarpGrid finalGrid)
         implements WarpDeformerGridEvent {
         public After {

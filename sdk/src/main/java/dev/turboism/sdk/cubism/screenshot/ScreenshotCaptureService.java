@@ -11,6 +11,11 @@ import java.util.concurrent.CompletionStage;
  */
 public interface ScreenshotCaptureService {
 
+    /**
+     * Starts an asynchronous capture for {@code request}. The returned stage completes on the
+     * host UI thread with the captured image, or exceptionally when the surface is
+     * unavailable, the target changed, or permission is denied.
+     */
     CompletionStage<ScreenshotCaptureResult> capture(ScreenshotCaptureRequest request);
 
     /** Safe-mode instance: every capture completes exceptionally (fail closed). */
@@ -18,6 +23,7 @@ public interface ScreenshotCaptureService {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements ScreenshotCaptureService {
         INSTANCE;
 

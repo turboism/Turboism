@@ -82,6 +82,7 @@ public interface FileChooserHistoryService {
     /** Handle for a provider registration; {@link #unregister()} is idempotent. */
         interface Registration extends AutoCloseable {
 
+        /** Removes the registered provider; idempotent and safe to call more than once. */
         void unregister();
 
         @Override
@@ -90,6 +91,7 @@ public interface FileChooserHistoryService {
         }
     }
 
+        /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
         enum Unavailable implements FileChooserHistoryService {
         INSTANCE;
 

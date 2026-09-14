@@ -11,8 +11,10 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
             DeformerVisibilityEvent.On,
             DeformerVisibilityEvent.After {
 
+    /** Returns the detached Deformer projection participating in the operation. */
     Deformer deformer();
 
+    /** Synchronous state published before the host visibility write. */
     final class Before implements DeformerVisibilityEvent {
         private final Deformer deformer;
         private final boolean requestedVisible;
@@ -49,6 +51,7 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
         }
 
         @Override public Deformer deformer() { return deformer; }
+        /** Returns the visibility value originally requested by the write call. */
         public boolean requestedVisible() { return requestedVisible; }
         /** Returns the candidate visibility value that will be applied. */
         public boolean visible() { return visible; }
@@ -59,6 +62,7 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
             this.visible = visible;
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -101,11 +105,13 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful visibility write that changed the value. */
     record On(Deformer deformer, boolean oldVisible, boolean newVisible)
         implements DeformerVisibilityEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
+    /** State published after every successful visibility write. */
     record After(Deformer deformer, boolean finalVisible)
         implements DeformerVisibilityEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }

@@ -8,8 +8,15 @@ import java.util.function.Consumer;
 /** Declarative contributions for Cubism's native mesh-edit tool area. */
 public interface MeshEditUiService {
 
+    /**
+     * Contributes an angle control for the mesh mirror axis to the native mesh-edit tool area.
+     *
+     * @param contribution the control definition
+     * @return the registration; closing it removes the contribution
+     */
     Registration contributeMirrorAxisAngleControl(MirrorAxisAngleControl contribution);
 
+    /** Definition of one contributed mirror-axis angle control; degrees bound the range. */
     record MirrorAxisAngleControl(
         String contributionId,
         String label,
