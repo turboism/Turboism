@@ -352,6 +352,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private void run() {
         artifact = context.paths().dataDir().resolve("history-native-ui-ingress.jsonl");
+        boolean terminalSummaryWritten = false;
         try {
             Files.createDirectories(artifact.getParent());
             if (Files.exists(artifact)) {
@@ -604,6 +605,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 false
             );
             write(artifact, summaryLine(failures.isEmpty()), true);
+            terminalSummaryWritten = true;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             // The Editor was closed while a step was pending. The runner matches a whole line, so
@@ -617,6 +619,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
                     true
                 );
+                terminalSummaryWritten = true;
             } catch (Exception ignored) {
                 context.logger().error("Native UI ingress evidence could not be written", ignored);
             }
@@ -630,8 +633,33 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
                     true
                 );
+                terminalSummaryWritten = true;
             } catch (Exception ignored) {
                 context.logger().error("Native UI ingress evidence could not be written", ignored);
+            }
+        } finally {
+            if (AUTOMATE && terminalSummaryWritten) {
+                try {
+                    final WindowsHistoryNativeUiHostClose.CloseResult close =
+                        WindowsHistoryNativeUiHostClose.closeIfEligible(
+                            AUTOMATE,
+                            running,
+                            terminalSummaryWritten,
+                            System.getProperty(WindowsHistoryNativeUiHostClose.RUN_ID_PROPERTY),
+                            System.getProperty(WindowsHistoryNativeUiHostClose.HOST_VERSION_PROPERTY)
+                        );
+                    context.logger().info(
+                        "Native UI ingress automated host close status=" + close.status()
+                            + " reason=" + close.reason()
+                    );
+                } catch (Exception closeFailure) {
+                    // The summary was already persisted. Keep the failure visible so the Runner's
+                    // normal-exit gate, rather than this probe, decides whether the task passed.
+                    context.logger().error(
+                        "Native UI ingress automated host close failed; normal exit remains unverified",
+                        closeFailure
+                    );
+                }
             }
         }
     }
