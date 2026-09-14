@@ -282,6 +282,151 @@ class WindowsHistoryNativeUiHostCloseTest {
     }
 
     @Test
+    void observedR80ChineseSavePromptSelectsItsExplicitNoAction() {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot prompt = dialog(
+            "确定",
+            "你想保存" + fixture + "的文件吗?",
+            JOptionPane.YES_NO_CANCEL_OPTION,
+            button("Yes(Y)"),
+            button("No(N)"),
+            button("Cancel(C)")
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(true, prompt, fixture)
+        );
+        assertEquals(1, WindowsHistoryNativeUiHostClose.selectDiscardButton(prompt.buttons()));
+    }
+
+    @Test
+    void observedR80ChineseSavePromptForAnotherFixtureIsRejected() {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "确定",
+                    "你想保存other-queue.cmo3的文件吗?",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    button("Yes(Y)"),
+                    button("No(N)"),
+                    button("Cancel(C)")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void observedR80ChineseSavePromptWithPrefixedFixtureIsRejected() {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "确定",
+                    "你想保存prefix-" + fixture + "的文件吗?",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    button("Yes(Y)"),
+                    button("No(N)"),
+                    button("Cancel(C)")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void observedR80ChineseSavePromptWithSuffixedFixtureIsRejected() {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "确定",
+                    "你想保存" + fixture + "-backup的文件吗?",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    button("Yes(Y)"),
+                    button("No(N)"),
+                    button("Cancel(C)")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void negativeR80ChinesePromptIsRejected() {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "确定",
+                    "不要保存" + fixture + "的文件吗?",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    button("Yes(Y)"),
+                    button("No(N)"),
+                    button("Cancel(C)")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void unrelatedR80ChinesePromptIsRejected() {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "确定",
+                    "你想打开" + fixture + "的文件吗?",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    button("Yes(Y)"),
+                    button("No(N)"),
+                    button("Cancel(C)")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void observedR80ChinesePromptWithAmbiguousDiscardButtonsIsRejected() {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "确定",
+                    "你想保存" + fixture + "的文件吗?",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    button("Yes(Y)"),
+                    button("No(N)"),
+                    button("不保存")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
     void ambiguousDiscardLabelsAreNotClicked() {
         assertEquals(
             -1,
