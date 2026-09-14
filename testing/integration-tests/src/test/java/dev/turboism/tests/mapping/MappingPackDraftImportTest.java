@@ -339,20 +339,33 @@ class MappingPackDraftImportTest {
         final int recordSelectorCount = evidence.path("selectors").size();
         final int recordCapabilityCount = evidence.path("capabilityIds").size();
 
-        assertFieldViolation(pack, evidence, recordSha256, "selectorCount",
-            metadata -> metadata.put("selectorCount", recordSelectorCount + 1));
-        assertFieldViolation(pack, evidence, recordSha256, "capabilityCount",
-            metadata -> metadata.put("capabilityCount", recordCapabilityCount + 1));
-        assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
-            metadata -> ((ArrayNode) metadata.get("capabilityIds")).remove(0));
-        assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
-            metadata -> ((ArrayNode) metadata.get("capabilityIds"))
-                .add("cubism.editor-model.nonexistent-capability"));
-        assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
-            metadata -> ((ArrayNode) metadata.get("capabilityIds"))
-                .set(1, metadata.get("capabilityIds").get(0)));
-        assertFieldViolation(pack, evidence, recordSha256, "verificationRecordSha256",
-            metadata -> metadata.put("verificationRecordSha256", "0".repeat(64)));
+        assertAll(
+            () -> assertFieldViolation(pack, evidence, recordSha256, "selectorCount",
+                metadata -> metadata.put("selectorCount", recordSelectorCount + 1)),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "selectorCount",
+                metadata -> metadata.put("selectorCount", recordSelectorCount + 0.5)),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "selectorCount",
+                metadata -> metadata.put("selectorCount", (1L << 32) + recordSelectorCount)),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "selectorCount",
+                metadata -> metadata.put("selectorCount", String.valueOf(recordSelectorCount))),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "capabilityCount",
+                metadata -> metadata.put("capabilityCount", recordCapabilityCount + 1)),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "capabilityCount",
+                metadata -> metadata.put("capabilityCount", recordCapabilityCount + 0.5)),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "capabilityCount",
+                metadata -> metadata.put("capabilityCount", (1L << 32) + recordCapabilityCount)),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "capabilityCount",
+                metadata -> metadata.put("capabilityCount", String.valueOf(recordCapabilityCount))),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
+                metadata -> ((ArrayNode) metadata.get("capabilityIds")).remove(0)),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
+                metadata -> ((ArrayNode) metadata.get("capabilityIds"))
+                    .add("cubism.editor-model.nonexistent-capability")),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
+                metadata -> ((ArrayNode) metadata.get("capabilityIds"))
+                    .set(1, metadata.get("capabilityIds").get(0))),
+            () -> assertFieldViolation(pack, evidence, recordSha256, "verificationRecordSha256",
+                metadata -> metadata.put("verificationRecordSha256", "0".repeat(64))));
     }
 
     private void assertFieldViolation(JsonNode pack, JsonNode evidence, String recordSha256,
@@ -372,9 +385,11 @@ class MappingPackDraftImportTest {
         final JsonNode metadata = pack.path("metadata");
 
         final int selectorCount = record.path("selectors").size();
-        if (metadata.path("selectorCount").asInt(-1) != selectorCount) {
-            violations.add("selectorCount " + metadata.path("selectorCount").asInt(-1)
-                + " does not match record selector count " + selectorCount);
+        final JsonNode selectorCountNode = metadata.path("selectorCount");
+        if (!selectorCountNode.isIntegralNumber() || !selectorCountNode.canConvertToInt()
+                || selectorCountNode.intValue() != selectorCount) {
+            violations.add("selectorCount " + selectorCountNode.asText()
+                + " is not an exact int equal to record selector count " + selectorCount);
         }
 
         final List<String> recordCapabilities = new ArrayList<>();
@@ -387,9 +402,11 @@ class MappingPackDraftImportTest {
         if (!packCapabilities.equals(recordCapabilities)) {
             violations.add("capabilityIds does not exactly match record capabilityIds");
         }
-        if (metadata.path("capabilityCount").asInt(-1) != recordCapabilities.size()) {
-            violations.add("capabilityCount " + metadata.path("capabilityCount").asInt(-1)
-                + " does not match record capability count " + recordCapabilities.size());
+        final JsonNode capabilityCountNode = metadata.path("capabilityCount");
+        if (!capabilityCountNode.isIntegralNumber() || !capabilityCountNode.canConvertToInt()
+                || capabilityCountNode.intValue() != recordCapabilities.size()) {
+            violations.add("capabilityCount " + capabilityCountNode.asText()
+                + " is not an exact int equal to record capability count " + recordCapabilities.size());
         }
 
         if (!recordSha256.equals(metadata.path("verificationRecordSha256").asText())) {
