@@ -28,7 +28,11 @@ for class_name in \
   'WindowsHistoryManagerValidationProbe$Snapshot' \
   'WindowsHistoryManagerValidationProbe$NativeDetail' \
   WindowsHistoryFloatProbe \
-  WindowsHistoryNativeUiIngressProbe; do
+  WindowsHistoryNativeUiIngressProbe \
+  WindowsHistoryNativeUiIngressProbeTest \
+  WindowsHistoryNativeUiHostClose \
+  'WindowsHistoryNativeUiHostClose$CloseResult' \
+  'WindowsMeshEditValidationProbe$SelectionAttempt'; do
   printf 'class fixture\n' > "$class_root/$class_name.class"
 done
 
@@ -64,12 +68,20 @@ native_ui_jar="$bundle_root/plugins/history-native-ui-probe.jar"
 for entry in \
   'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressProbe.class' \
   'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe.class' \
-  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$Snapshot.class'; do
+  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$Snapshot.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiHostClose.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiHostClose$CloseResult.class' \
+  'dev/turboism/tests/plugin/WindowsMeshEditValidationProbe$SelectionAttempt.class'; do
   if ! jar tf "$native_ui_jar" | grep -Fxq "$entry"; then
     printf 'error: native UI probe package is missing %s\n' "$entry" >&2
     exit 1
   fi
 done
+if jar tf "$native_ui_jar" \
+  | grep -Eq 'WindowsHistoryNativeUiIngressProbeTest|WindowsHistoryNativeUiHostCloseTest|\.java$'; then
+  printf 'error: native UI probe package contains test/source artifacts\n' >&2
+  exit 1
+fi
 
 printf '[test] history validation probe packaging includes i18n and embedded native sampler dependencies\n'
 wrapper="$repo_root/scripts/preview/run-history-primary-validation.sh"
