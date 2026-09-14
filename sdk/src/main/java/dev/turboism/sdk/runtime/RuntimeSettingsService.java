@@ -9,7 +9,7 @@ public interface RuntimeSettingsService {
     /** Persists {@code settings} and returns the stored result. */
     RuntimeSettings save(RuntimeSettings settings);
 
-    /** Removes empty dock entries from the stored settings and reports what was done. */
+    /** Prunes empty dock palette boxes from the host's live workspace split tree and reports what was done. */
     DockCleanupResult cleanEmptyDocks();
 
     /** Result of {@link #cleanEmptyDocks()}; {@code message} is a non-blank summary. */
