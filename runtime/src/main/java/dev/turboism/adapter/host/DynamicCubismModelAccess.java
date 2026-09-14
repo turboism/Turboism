@@ -2121,6 +2121,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
 
+        private DynamicCubismModelAccess ownerAccess() {
+            return DynamicCubismModelAccess.this;
+        }
+
         @Override public String id() {
             return guarded(generation, delegate::id);
         }
@@ -2221,6 +2225,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         final dev.turboism.sdk.cubism.model.AnimationAttribute value
     ) {
         if (value instanceof SessionAnimationAttribute session
+            && session.ownerAccess() == this
             && session.generation == expectedGeneration) {
             return session.delegate;
         }

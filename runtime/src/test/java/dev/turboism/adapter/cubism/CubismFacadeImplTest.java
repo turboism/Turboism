@@ -1677,7 +1677,7 @@ class CubismFacadeImplTest {
             () -> animationGraphModel(new ArrayList<>())
         );
         final AnimationAttribute otherOwner = deepAnimationAttribute(otherFacade.model().active());
-        final AnimationAttribute otherGeneration =
+        final AnimationAttribute separateView =
             deepAnimationAttribute(facade.model().active());
         calls.clear();
 
@@ -1689,17 +1689,18 @@ class CubismFacadeImplTest {
         assertThrows(IllegalArgumentException.class,
             () -> target.copyKeyframesFrom(otherOwner, false));
 
-        // An attribute from a different active-model view of the same facade is
-        // a different wrapper generation and must not rebind.
-        assertThrows(IllegalArgumentException.class,
-            () -> target.copyKeyframesFrom(otherGeneration, false));
-
         assertThrows(NullPointerException.class,
             () -> target.copyKeyframesFrom(null, false));
         assertEquals(List.of(), calls);
 
         assertEquals(0, target.copyKeyframesFrom(legal, false));
-        assertEquals(List.of("attr.copyKeyframesFrom"), calls);
+
+        // A source obtained through a second active() view of the same facade
+        // over the unchanged backend shares the same authorization ownership
+        // and session generation; it must stay legal.
+        assertEquals(0, target.copyKeyframesFrom(separateView, false));
+        assertEquals(
+            List.of("attr.copyKeyframesFrom", "attr.copyKeyframesFrom"), calls);
     }
 
     private static AnimationAttribute deepAnimationAttribute(final CubismModel model) {
