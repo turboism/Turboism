@@ -20,12 +20,20 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.psd.PsdEditFile;
+import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
+import dev.turboism.sdk.cubism.psd.PsdFileRevision;
+import dev.turboism.sdk.plugin.Registration;
 
 /** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
@@ -48,7 +56,10 @@ public final class ExternalPsdEditHostProbeTest {
         testTempCandidateBinding();
         testQuarantineMovesAllTrackedDirectories();
         testQuarantineRejectsConflictAndSymlink();
+        testQuarantinePartialMoveEvidence();
+        testTrackerStopAggregation();
         testFinalCycleSelection();
+        testSaveCycleBytes();
 
         final byte[] psd = syntheticPsd("LayerA", "B2");
         final List<int[]> names = ExternalPsdEditHostProbe.layerNameRanges(psd);
@@ -273,6 +284,123 @@ public final class ExternalPsdEditHostProbeTest {
         }
     }
 
+    private static void testQuarantinePartialMoveEvidence() throws Exception {
+        final Path tempRoot = Files.createTempDirectory("external PSD partial temp ");
+        final Path taskRoot = Files.createTempDirectory("external PSD partial task ");
+        try {
+            final Path first = Files.createDirectory(tempRoot.resolve("turboism-psd-first"));
+            final Path second = Files.createDirectory(tempRoot.resolve("turboism-psd-second"));
+            Files.write(first.resolve("external-edit.psd"), new byte[]{1});
+            Files.write(second.resolve("external-edit.psd"), new byte[]{2});
+            final Path destination = taskRoot.resolve("quarantine with spaces");
+            final AtomicInteger calls = new AtomicInteger();
+            final ExternalPsdEditHostProbe.QuarantineReport report =
+                ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+                    List.of(first, second), tempRoot, taskRoot, destination,
+                    (source, target) -> {
+                        if (calls.incrementAndGet() == 2) {
+                            throw new IOException("injected second move failure");
+                        }
+                        Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                    });
+            assertEquals("FAILED", report.status(), "partial quarantine is failed");
+            assertTrue(!report.taskOwned(), "partial quarantine cannot claim task ownership");
+            assertTrue(!report.sourceMissing(), "partial quarantine cannot claim source missing");
+            assertEquals(2, report.entries().size(), "partial report retains every item");
+            assertTrue(report.entries().get(0).moved(), "first move is recorded as moved");
+            assertTrue(!report.entries().get(1).moved(), "failed move is recorded as unmoved");
+            assertTrue(Files.exists(destination.resolve(first.getFileName()),
+                LinkOption.NOFOLLOW_LINKS), "first destination is retained");
+            assertTrue(Files.exists(second, LinkOption.NOFOLLOW_LINKS),
+                "second source is retained after failure");
+            assertContains(report.diagnostic(), "injected second move failure",
+                "partial failure keeps a diagnostic");
+        } finally {
+            deleteTree(taskRoot);
+            deleteTree(tempRoot);
+        }
+    }
+
+    /** Cleanup failures fail the phase, but every handle is still attempted. */
+    private static void testTrackerStopAggregation() throws Exception {
+        final ExternalPsdEditHostProbe.TempTracker tracker =
+            new ExternalPsdEditHostProbe.TempTracker();
+        final AtomicInteger laterStops = new AtomicInteger();
+        tracker.register("failed", stoppingFile(new IllegalStateException(
+            "injected stop failure"), new AtomicInteger()), Path.of("/tmp"));
+        tracker.register("later", stoppingFile(null, laterStops), Path.of("/tmp"));
+        try {
+            tracker.stopAll(new Properties());
+            throw new AssertionError("cleanup failure was silently converted into success");
+        } catch (Exception failure) {
+            assertContains(failure.toString(), "injected stop failure",
+                "cleanup failure must be propagated as an exception");
+        }
+        assertEquals(1, laterStops.get(), "later handles are still stopped after a failure");
+        assertTrue(!tracker.allStopped(), "a stop failure prevents allStopped success");
+
+        final ExternalPsdEditHostProbe.TempTracker aggregateTracker =
+            new ExternalPsdEditHostProbe.TempTracker();
+        aggregateTracker.register("first-failure", stoppingFile(new IllegalStateException(
+            "first cleanup failure"), new AtomicInteger()), Path.of("/tmp"));
+        aggregateTracker.register("second-failure", stoppingFile(new IllegalStateException(
+            "second cleanup failure"), new AtomicInteger()), Path.of("/tmp"));
+        try {
+            aggregateTracker.stopAll(new Properties());
+            throw new AssertionError("multiple cleanup failures were silently ignored");
+        } catch (Exception failure) {
+            assertTrue(failure.getSuppressed().length == 1,
+                "all cleanup failures are aggregated on the primary cleanup failure");
+            assertContains(failure.getSuppressed()[0].toString(), "second cleanup failure",
+                "the later cleanup failure is retained");
+        }
+
+        final AtomicInteger afterErrorStops = new AtomicInteger();
+        final ExternalPsdEditHostProbe.TempTracker errorTracker =
+            new ExternalPsdEditHostProbe.TempTracker();
+        errorTracker.register("error", stoppingFile(new AssertionError("injected error"),
+            new AtomicInteger()), Path.of("/tmp"));
+        errorTracker.register("after-error", stoppingFile(null, afterErrorStops), Path.of("/tmp"));
+        try {
+            errorTracker.stopAll(new Properties());
+            throw new AssertionError("Error from stop was swallowed");
+        } catch (AssertionError expected) {
+            // Error remains the phase failure after later handles have been attempted.
+        }
+        assertEquals(1, afterErrorStops.get(), "Error cleanup still attempts later handles");
+
+        final ExternalPsdEditHostProbe.TempTracker primaryTracker =
+            new ExternalPsdEditHostProbe.TempTracker();
+        primaryTracker.register("cleanup", stoppingFile(new IllegalStateException(
+            "cleanup root"), new AtomicInteger()), Path.of("/tmp"));
+        final IllegalStateException primary = new IllegalStateException("phase root");
+        ExternalPsdEditHostProbe.stopAllPreservingPrimary(
+            primaryTracker, new Properties(), primary);
+        assertTrue(primary.getSuppressed().length == 1,
+            "cleanup failure is suppressed on the phase's primary failure");
+    }
+
+    private static PsdEditFile stoppingFile(final Throwable failure, final AtomicInteger stops) {
+        return new PsdEditFile() {
+            @Override public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
+                return CompletableFuture.completedFuture(new PsdFileOperationResult(
+                    PsdFileOperationResult.Status.OPENED, "test"));
+            }
+
+            @Override public Registration observeSaves(final Consumer<PsdFileRevision> listener) {
+                return () -> { };
+            }
+
+            @Override public CompletionStage<PsdFileOperationResult> stop() {
+                stops.incrementAndGet();
+                if (failure instanceof Error error) throw error;
+                if (failure != null) return CompletableFuture.failedFuture(failure);
+                return CompletableFuture.completedFuture(new PsdFileOperationResult(
+                    PsdFileOperationResult.Status.STOPPED, "test"));
+            }
+        };
+    }
+
     private static void testFinalCycleSelection() {
         assertTrue(!ExternalPsdEditHostProbe.isFinalRgbMutationCycle(1, 3),
             "early cycles do not invert RGB content");
@@ -286,6 +414,192 @@ public final class ExternalPsdEditHostProbeTest {
             "zero cycle is rejected");
         expectIllegalArgument(() -> ExternalPsdEditHostProbe.isFinalRgbMutationCycle(4, 3),
             "cycle beyond requested count is rejected");
+    }
+
+    private static void testSaveCycleBytes() {
+        for (int cycles = 1; cycles <= 3; cycles++) {
+            final byte[] baselineBytes = validationPsd();
+            final String baseline = targetFingerprint(baselineBytes);
+            byte[] current = baselineBytes;
+            for (int cycle = 1; cycle <= cycles; cycle++) {
+                final ExternalPsdEditHostProbe.CycleWritePlan plan =
+                    ExternalPsdEditHostProbe.prepareSaveCycleBytes(
+                        current, cycle, cycles, true);
+                final String first = targetFingerprint(plan.firstWrite());
+                if (cycle < cycles) {
+                    assertEquals(baseline, first,
+                        "cycle " + cycle + " of " + cycles + " leaves target RGB unchanged");
+                } else {
+                    assertTrue(!baseline.equals(first),
+                        "last cycle of " + cycles + " changes decoded target RGB");
+                }
+                if (cycle == 3) {
+                    assertEquals(first, targetFingerprint(plan.overlapFinalWrite()),
+                        "overlap second write retains exactly one RGB inversion");
+                }
+                current = plan.overlapFinalWrite();
+            }
+            assertTrue(!baseline.equals(targetFingerprint(current)),
+                "saved final bytes for " + cycles + " cycles contain the final content change");
+        }
+    }
+
+    private static String targetFingerprint(final byte[] psd) {
+        return PsdValidationContent.targetLayerRgbFingerprint(psd).sha256();
+    }
+
+    /** Valid RLE1 fixture used only to prove the production cycle-byte seam. */
+    private static byte[] validationPsd() {
+        final List<ValidationLayer> layers = List.of(
+            ValidationLayer.create(0, 0, 1000, 1000, "layer0"),
+            ValidationLayer.create(0, 0, 100, 100, "layer1"),
+            ValidationLayer.create(100, 100, 200, 200, "layer2"),
+            ValidationLayer.create(200, 200, 300, 300, "layer3"),
+            ValidationLayer.create(250, 250, 350, 350, "layer4"),
+            ValidationLayer.create(350, 350, 450, 450, "layer5"),
+            ValidationLayer.create(450, 450, 550, 550, "layer6"));
+        final PsdBytes layerInfo = new PsdBytes();
+        layerInfo.u16(layers.size());
+        for (final ValidationLayer layer : layers) layerInfo.bytes(layer.record());
+        for (final ValidationLayer layer : layers) {
+            for (final byte[] channel : layer.channels()) layerInfo.bytes(channel);
+        }
+        final PsdBytes layerMask = new PsdBytes();
+        layerMask.u32(layerInfo.size());
+        layerMask.bytes(layerInfo.toByteArray());
+        layerMask.u32(0);
+
+        final PsdBytes composite = new PsdBytes();
+        composite.u16(1);
+        final int compositeRows = 4 * 1000;
+        final int compositeRowTable = composite.size();
+        composite.zeros(compositeRows * 2);
+        for (int channel = 0; channel < 4; channel++) {
+            for (int row = 0; row < 1000; row++) {
+                final int start = composite.size();
+                repeatChunks(composite, 1000, 1 + channel);
+                composite.patchU16(compositeRowTable + (channel * 1000 + row) * 2,
+                    composite.size() - start);
+            }
+        }
+
+        final PsdBytes file = new PsdBytes();
+        file.ascii("8BPS");
+        file.u16(1);
+        file.zeros(6);
+        file.u16(4);
+        file.u32(1000);
+        file.u32(1000);
+        file.u16(8);
+        file.u16(3);
+        file.u32(0);
+        file.u32(0);
+        file.u32(layerMask.size());
+        file.bytes(layerMask.toByteArray());
+        file.bytes(composite.toByteArray());
+        return file.toByteArray();
+    }
+
+    private record ValidationLayer(byte[] record, List<byte[]> channels) {
+        private static ValidationLayer create(final int top, final int left,
+            final int bottom, final int right, final String name) {
+            final int width = right - left;
+            final int height = bottom - top;
+            final List<byte[]> channels = List.of(
+                validationChannel(width, height, 0, top == 450 && left == 450),
+                validationChannel(width, height, 1, top == 450 && left == 450),
+                validationChannel(width, height, 2, top == 450 && left == 450),
+                validationChannel(width, height, 3, top == 450 && left == 450));
+            final PsdBytes record = new PsdBytes();
+            record.u32(top);
+            record.u32(left);
+            record.u32(bottom);
+            record.u32(right);
+            record.u16(channels.size());
+            for (int channel = 0; channel < channels.size(); channel++) {
+                record.u16(channel == 3 ? 0xffff : channel);
+                record.u32(channels.get(channel).length);
+            }
+            record.ascii("8BIM");
+            record.ascii("norm");
+            record.u8(255);
+            record.u8(0);
+            record.u8(0);
+            record.u8(0);
+            final PsdBytes extra = new PsdBytes();
+            extra.u32(0);
+            extra.u32(0);
+            final byte[] nameBytes = name.getBytes(StandardCharsets.US_ASCII);
+            extra.u8(nameBytes.length);
+            extra.bytes(nameBytes);
+            final int padded = (nameBytes.length + 1 + 3) & ~3;
+            extra.zeros(padded - nameBytes.length - 1);
+            record.u32(extra.size());
+            record.bytes(extra.toByteArray());
+            return new ValidationLayer(record.toByteArray(), channels);
+        }
+    }
+
+    private static byte[] validationChannel(final int width, final int height,
+        final int channel, final boolean target) {
+        final PsdBytes data = new PsdBytes();
+        data.u16(1);
+        final int rows = data.size();
+        data.zeros(height * 2);
+        for (int row = 0; row < height; row++) {
+            final int start = data.size();
+            final int value = target ? 0x20 + channel + (row & 0x0f) : 0x50 + channel;
+            repeatChunks(data, width, value);
+            data.patchU16(rows + row * 2, data.size() - start);
+        }
+        return data.toByteArray();
+    }
+
+    private static void repeatChunks(final PsdBytes data, final int width, final int value) {
+        int remaining = width;
+        while (remaining > 0) {
+            final int count = Math.min(128, remaining);
+            if (count == 1) {
+                data.u8(0);
+                data.u8(value);
+            } else {
+                data.u8(257 - count);
+                data.u8(value);
+            }
+            remaining -= count;
+        }
+    }
+
+    private static final class PsdBytes {
+        private final ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        private int size() { return output.size(); }
+        private void u8(final int value) { output.write(value & 0xff); }
+        private void u16(final int value) {
+            output.write((value >>> 8) & 0xff);
+            output.write(value & 0xff);
+        }
+        private void u32(final long value) {
+            output.write((int) (value >>> 24) & 0xff);
+            output.write((int) (value >>> 16) & 0xff);
+            output.write((int) (value >>> 8) & 0xff);
+            output.write((int) value & 0xff);
+        }
+        private void ascii(final String value) {
+            bytes(value.getBytes(StandardCharsets.US_ASCII));
+        }
+        private void zeros(final int count) {
+            for (int index = 0; index < count; index++) output.write(0);
+        }
+        private void bytes(final byte[] value) { output.write(value, 0, value.length); }
+        private void patchU16(final int offset, final int value) {
+            final byte[] current = output.toByteArray();
+            current[offset] = (byte) (value >>> 8);
+            current[offset + 1] = (byte) value;
+            output.reset();
+            output.write(current, 0, current.length);
+        }
+        private byte[] toByteArray() { return output.toByteArray(); }
     }
 
     private static Properties validPersistEvidence() {
