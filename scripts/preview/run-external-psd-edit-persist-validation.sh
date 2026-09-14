@@ -205,7 +205,7 @@ property() {
   || die 'stage A temporary PSD source still exists after quarantine; stage B was not started'
 
 is_sha256() {
-  [[ "$1" =~ ^[0-9a-fA-F]{64}$ ]]
+  [[ "$1" =~ ^[0-9a-f]{64}$ ]]
 }
 
 baseline_target_sha256="$(property "$result_a" persist.baselineTargetRgbSha256)"
@@ -272,7 +272,13 @@ stage_b_result="$stage_b_terminal_path"
   || die "stage B result runId is not bound to queue run $stage_b_run_id"
 [ "$(property "$stage_b_result" phase)" = reopen ] \
   || die 'stage B result is not the reopen phase'
-[ "$(property "$stage_b_result" reopen.expectedTargetRgbSha256)" = "$post_target_sha256" ] \
+stage_b_expected_target_sha256="$(property "$stage_b_result" reopen.expectedTargetRgbSha256)"
+stage_b_actual_target_sha256="$(property "$stage_b_result" reopen.targetRgbSha256)"
+is_sha256 "$stage_b_expected_target_sha256" \
+  || die 'stage B has no valid reopen.expectedTargetRgbSha256'
+is_sha256 "$stage_b_actual_target_sha256" \
+  || die 'stage B has no valid reopen.targetRgbSha256'
+[ "$stage_b_expected_target_sha256" = "$post_target_sha256" ] \
   || die 'stage B expected target RGB SHA does not match the stage A post-edit target RGB SHA'
-[ "$(property "$stage_b_result" reopen.targetRgbSha256)" = "$post_target_sha256" ] \
+[ "$stage_b_actual_target_sha256" = "$post_target_sha256" ] \
   || die 'stage B reopened target RGB SHA does not match the stage A post-edit target RGB SHA'
