@@ -46,6 +46,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final int MAX_RECORDED_EVENTS = 512;
     private static final int MAX_PARAMETER_VALUES = 128;
     private static final int MAX_PARAMETER_ID_LENGTH = 256;
+    private static final int MAX_PARAMETER_THREAD_LENGTH = 128;
+    private static final int MAX_PARAMETER_PHASE_LENGTH = 16;
     private static final int MAX_PARAMETER_LIFECYCLE_EVENTS = 256;
     private static final int PARAMETER_ACTOR_POLLS = 10;
     private static final long POLL_MILLIS = 250L;
@@ -194,6 +196,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private final List<Observed> observed = new ArrayList<>();
     private final List<ParameterLifecycleEvent> parameterLifecycle = new ArrayList<>();
     private long parameterLifecycleSequence;
+    private volatile ParameterChangeObservation parameterActorTermination;
     private PluginContext context;
     private Path artifact;
     private Thread worker;
@@ -334,6 +337,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return value == null || !Float.isFinite(value) ? null : value;
     }
 
+    private static String boundedText(final String value, final int limit) {
+        return value == null || value.length() > limit ? "" : value;
+    }
+
     private static Float readFiniteParameterValue(final Parameter parameter) {
         if (parameter == null) return null;
         try {
@@ -392,9 +399,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     );
                 }
 
+                ParameterChangeObservation actorParameterTermination = null;
                 if (AUTOMATE) {
                     final String actor = act(
                         step, knownSignificant, knownPosition, parameterBefore);
+                    actorParameterTermination = parameterActorTermination;
                     write(
                         artifact,
                         "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
@@ -414,7 +423,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
                 if ("native-parameter".equals(step.id())) {
                     final ParameterChangeObservation parameterObservation =
-                        awaitParameterChange(parameterBefore);
+                        awaitParameterChange(parameterBefore, actorParameterTermination);
                     final WindowsHistoryManagerValidationProbe.Snapshot after = sample();
                     final ParameterStateSnapshot parameterAfter = parameterObservation.after();
                     final ParameterStateOutcome valueStatus = parameterObservation.outcome();
@@ -427,8 +436,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         parameterBefore, parameterAfter);
                     final List<ParameterLifecycleEvent> lifecycleEvents =
                         parameterLifecycleSince(parameterLifecycleStart);
-                    final ParameterLifecycleStatus lifecycleStatus = parameterLifecycleStatus(
-                        lifecycleEvents, changedParameterIds, valueStatus == ParameterStateOutcome.CHANGED);
+                    final boolean lifecycleWindowComplete =
+                        parameterLifecycleWindowComplete(parameterLifecycleStart);
+                    final ParameterLifecycleAssessment lifecycleAssessment =
+                        assessParameterLifecycle(
+                            lifecycleEvents,
+                            parameterBefore,
+                            parameterAfter,
+                            changedParameterIds,
+                            valueStatus == ParameterStateOutcome.CHANGED,
+                            lifecycleWindowComplete
+                        );
 
                     write(
                         artifact,
@@ -448,7 +466,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                             parameterAfter,
                             valueStatus,
                             historyAdmission,
-                            lifecycleStatus,
+                            lifecycleAssessment,
                             changedParameterIds,
                             lifecycleEvents
                         ),
@@ -467,7 +485,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
                     final String parameterDetail = "valueStatus=" + valueStatus.code()
                         + ",historyAdmission=" + historyAdmission.code()
-                        + ",lifecycle=" + lifecycleStatus.code();
+                        + ",lifecycle=" + lifecycleAssessment.status().code()
+                        + ",modelCorrelation=" + lifecycleAssessment.modelCorrelation().code();
                     final Verdict valueVerdict = new Verdict(
                         valueStatus == ParameterStateOutcome.CHANGED,
                         "parameter-value-" + valueStatus.code(),
@@ -478,8 +497,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         failures.add(step.id() + ":" + valueVerdict.code());
                     }
                     final Verdict lifecycleVerdict = new Verdict(
-                        lifecycleStatus == ParameterLifecycleStatus.COMPLETE,
-                        "parameter-lifecycle-" + lifecycleStatus.code(),
+                        lifecycleAssessment.status() == ParameterLifecycleStatus.COMPLETE,
+                        "parameter-lifecycle-" + lifecycleAssessment.status().code(),
                         parameterDetail
                     );
                     write(artifact, lifecycleVerdict.json(step.id()), false);
@@ -727,6 +746,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final long knownPosition,
         final ParameterStateSnapshot parameterBefore
     ) {
+        if ("native-parameter".equals(step.id())) {
+            parameterActorTermination = null;
+        }
         final Thread raiser = hostWindowRaiser();
         try {
             return switch (step.id()) {
@@ -1057,14 +1079,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * thumb, moved along the track, released.
      *
      * <p>Every showing horizontal slider in any visible window is a candidate — the Parameter
-     * palette's sliders are the common case, and a slider that turns out to drive something that
-     * commits no undo entry (a view zoom, for instance) simply produces no significant entry and
-     * the actor moves to the next candidate.</p>
+     * palette's sliders are the common case. A candidate is abandoned only after its bounded
+     * readback window remains unchanged; the first actual parameter transition stops the actor,
+     * independently of native Undo admission.</p>
      */
     private String dragParameterSlider(final ParameterStateSnapshot parameterBefore) throws Exception {
         if (parameterBefore == null || !parameterBefore.available()) {
             final String reason = parameterBefore == null
                 ? "no-before-readback" : parameterBefore.reason();
+            recordParameterActorTermination(new ParameterChangeObservation(
+                parameterBefore != null && "model-changed".equals(reason)
+                    ? ParameterStateOutcome.MODEL_CHANGED : ParameterStateOutcome.UNAVAILABLE,
+                parameterBefore,
+                reason
+            ));
             return "unresolved:parameter-state:" + reason;
         }
         // The Parameter palette's value rows are CSlider widgets whose Swing mirrors are
@@ -1095,7 +1123,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int[] plan = onEdt(() -> sliderDragPlan(slider));
             if (plan == null) continue;
             robotDrag(plan[0], plan[1], plan[2], plan[3]);
-            final ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+            final ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
             if (changed.outcome() == ParameterStateOutcome.CHANGED) {
                 return "changed:param-row:" + slider.getClass().getName()
                     + ":attempt=" + (tried.size() + 1);
@@ -1120,7 +1148,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     ? null : onEdt(() -> fieldCentre(surface));
                 if (at == null) continue;
                 robotDrag(at[0] - 6, at[1], at[0] + 18, at[1]);
-                ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+                ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
                 if (changed.outcome() == ParameterStateOutcome.CHANGED) {
                     return "changed:cslider:attempt=" + (tried.size() + 1);
                 }
@@ -1128,7 +1156,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     return "unresolved:parameter-state:" + changed.outcome().code();
                 }
                 robotDrag(at[0], at[1] - 6, at[0], at[1] + 14);
-                changed = awaitParameterGesture(parameterBefore);
+                changed = awaitParameterGestureAndRecord(parameterBefore);
                 if (changed.outcome() == ParameterStateOutcome.CHANGED) {
                     return "changed:cslider-v:attempt=" + (tried.size() + 1);
                 }
@@ -1163,7 +1191,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         }
                         robot.keyPress(java.awt.event.KeyEvent.VK_ENTER);
                         robot.keyRelease(java.awt.event.KeyEvent.VK_ENTER);
-                        changed = awaitParameterGesture(parameterBefore);
+                        changed = awaitParameterGestureAndRecord(parameterBefore);
                         if (changed.outcome() == ParameterStateOutcome.CHANGED) {
                             return "changed:typed-cslidable:attempt=" + (tried.size() + 1);
                         }
@@ -1182,7 +1210,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final int[] at = onEdt(() -> fieldCentre(row));
             if (at == null) continue;
             robotDrag(at[0] - 8, at[1], at[0] + 24, at[1]);
-            final ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+            final ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
             if (changed.outcome() == ParameterStateOutcome.CHANGED) {
                 return "changed:param-row:" + row.getClass().getName()
                     + ":attempt=" + (tried.size() + 1);
@@ -1195,14 +1223,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
         List<javax.swing.JSlider> sliders = onEdt(
             WindowsHistoryNativeUiIngressProbe::parameterSliders);
-        if (sliders.isEmpty() && rows.isEmpty()) return "unresolved:no-slider-or-param-row:"
-            + paletteNote + ":"
-            + onEdt(WindowsHistoryNativeUiIngressProbe::canvasRejects);
+        if (sliders.isEmpty() && rows.isEmpty()) {
+            recordParameterActorTermination(new ParameterChangeObservation(
+                ParameterStateOutcome.UNCHANGED,
+                parameterBefore,
+                "no-slider-or-param-row"
+            ));
+            return "unresolved:no-slider-or-param-row:"
+                + paletteNote + ":"
+                + onEdt(WindowsHistoryNativeUiIngressProbe::canvasRejects);
+        }
         for (final javax.swing.JSlider slider : sliders) {
             final int[] plan = onEdt(() -> sliderDragPlan(slider));
             if (plan == null) continue;
             robotDrag(plan[0], plan[1], plan[2], plan[3]);
-            final ParameterChangeObservation changed = awaitParameterGesture(parameterBefore);
+            final ParameterChangeObservation changed = awaitParameterGestureAndRecord(parameterBefore);
             if (changed.outcome() == ParameterStateOutcome.CHANGED) {
                 return "changed:" + slider.getClass().getName()
                     + ":attempt=" + (tried.size() + 1);
@@ -1213,6 +1248,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             tried.add(slider.getClass().getSimpleName() + "@" + plan[0] + "," + plan[1]);
             if (tried.size() >= 6) break;
         }
+        recordParameterActorTermination(new ParameterChangeObservation(
+            ParameterStateOutcome.UNCHANGED,
+            parameterBefore,
+            "no-parameter-value-change"
+        ));
         return "unresolved:no-parameter-value-change:" + tried.size() + "-candidates:"
             + String.join("|", tried)
             + (paletteNote.isEmpty() ? "" : ":" + paletteNote)
@@ -1237,6 +1277,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             ParameterStateOutcome.UNCHANGED, latest, "gesture-window-expired");
     }
 
+    private ParameterChangeObservation awaitParameterGestureAndRecord(
+        final ParameterStateSnapshot before
+    ) throws Exception {
+        final ParameterChangeObservation observation = awaitParameterGesture(before);
+        recordParameterActorTermination(observation);
+        return observation;
+    }
+
+    private void recordParameterActorTermination(
+        final ParameterChangeObservation observation
+    ) {
+        if (observation != null) parameterActorTermination = observation;
+    }
+
     /**
      * Waits for a native parameter value transition without consulting Undo as the exit signal.
      * Any read failure or model change stops the actor fail-closed.
@@ -1259,13 +1313,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final ParameterStateSnapshot current = readParameterSnapshot();
             final ParameterStateOutcome outcome = compareParameterState(before, current);
             if (outcome == ParameterStateOutcome.CHANGED) {
-                Thread.sleep(ACTION_SETTLE_MILLIS);
-                final ParameterStateSnapshot settled = readParameterSnapshot();
-                final ParameterStateOutcome settledOutcome = compareParameterState(before, settled);
-                return new ParameterChangeObservation(
-                    settledOutcome,
-                    settled,
-                    settledOutcome.code()
+                return settleParameterChange(
+                    before,
+                    new ParameterChangeObservation(outcome, current, outcome.code())
                 );
             }
             if (outcome != ParameterStateOutcome.UNCHANGED) {
@@ -1275,6 +1325,44 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
         return new ParameterChangeObservation(
             ParameterStateOutcome.UNCHANGED, latest, "parameter-window-expired");
+    }
+
+    private ParameterChangeObservation awaitParameterChange(
+        final ParameterStateSnapshot before,
+        final ParameterChangeObservation actorTermination
+    ) throws Exception {
+        if (actorTermination != null) {
+            if (actorTermination.outcome() == ParameterStateOutcome.UNAVAILABLE
+                || actorTermination.outcome() == ParameterStateOutcome.MODEL_CHANGED) {
+                return actorTermination;
+            }
+            if (actorTermination.outcome() == ParameterStateOutcome.CHANGED) {
+                return settleParameterChange(before, actorTermination);
+            }
+        }
+        return awaitParameterChange(before);
+    }
+
+    private ParameterChangeObservation settleParameterChange(
+        final ParameterStateSnapshot before,
+        final ParameterChangeObservation detected
+    ) throws Exception {
+        ParameterChangeObservation latest = detected;
+        final long deadline = System.currentTimeMillis() + ACTION_SETTLE_MILLIS;
+        while (System.currentTimeMillis() < deadline) {
+            if (!running) throw new InterruptedException("Probe disabled while settling a parameter");
+            Thread.sleep(POLL_MILLIS);
+            final ParameterStateSnapshot current = readParameterSnapshot();
+            final ParameterStateOutcome outcome = compareParameterState(before, current);
+            if (outcome == ParameterStateOutcome.UNAVAILABLE
+                || outcome == ParameterStateOutcome.MODEL_CHANGED) {
+                return new ParameterChangeObservation(outcome, current, outcome.code());
+            }
+            if (outcome == ParameterStateOutcome.CHANGED) {
+                latest = new ParameterChangeObservation(outcome, current, outcome.code());
+            }
+        }
+        return preserveParameterActorOutcome(detected, latest);
     }
 
     /** Reads the active model and its bounded parameter values on the host EDT. */
@@ -3743,6 +3831,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
+    private boolean parameterLifecycleWindowComplete(final long cursor) {
+        synchronized (lock) {
+            for (final ParameterLifecycleEvent event : parameterLifecycle) {
+                if (event.sequence() > cursor) return event.sequence() == cursor + 1L;
+            }
+            return parameterLifecycleSequence == cursor;
+        }
+    }
+
     static ParameterStateOutcome compareParameterState(
         final ParameterStateSnapshot before,
         final ParameterStateSnapshot after
@@ -3825,25 +3922,192 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final Set<String> changedIds,
         final boolean valueChanged
     ) {
+        return parameterLifecycleStatus(events, null, null, changedIds, valueChanged, true);
+    }
+
+    static ParameterLifecycleStatus parameterLifecycleStatus(
+        final List<ParameterLifecycleEvent> events,
+        final ParameterStateSnapshot before,
+        final ParameterStateSnapshot after,
+        final Set<String> changedIds,
+        final boolean valueChanged
+    ) {
+        return parameterLifecycleStatus(
+            events, before, after, changedIds, valueChanged, true);
+    }
+
+    static ParameterLifecycleStatus parameterLifecycleStatus(
+        final List<ParameterLifecycleEvent> events,
+        final ParameterStateSnapshot before,
+        final ParameterStateSnapshot after,
+        final Set<String> changedIds,
+        final boolean valueChanged,
+        final boolean lifecycleWindowComplete
+    ) {
+        if (!lifecycleWindowComplete) return ParameterLifecycleStatus.INCOMPLETE;
         if (events == null || events.isEmpty()) return ParameterLifecycleStatus.MISSING;
-        final List<ParameterLifecycleEvent> relevant = relevantParameterLifecycle(events, changedIds);
-        if (changedIds == null || changedIds.isEmpty() || relevant.isEmpty()) {
+        if (changedIds == null || changedIds.isEmpty()) {
             return ParameterLifecycleStatus.OBSERVED_UNRELATED;
         }
         if (!valueChanged) return ParameterLifecycleStatus.INCOMPLETE;
+        if (before == null || after == null || !before.available() || !after.available()
+            || !before.modelId().equals(after.modelId())) {
+            return ParameterLifecycleStatus.UNAVAILABLE;
+        }
+        final Map<String, Float> beforeValues = parameterValueMap(before);
+        final Map<String, Float> afterValues = parameterValueMap(after);
+        final Set<String> actualChangedIds = changedParameterIds(before, after);
+        if (beforeValues == null || afterValues == null
+            || !actualChangedIds.equals(changedIds)) {
+            return ParameterLifecycleStatus.UNAVAILABLE;
+        }
+        if (!strictLifecycleSequence(events)) return ParameterLifecycleStatus.INCOMPLETE;
+        final List<ParameterLifecycleEvent> relevant = relevantParameterLifecycle(events, changedIds);
+        if (relevant.isEmpty()) return ParameterLifecycleStatus.OBSERVED_UNRELATED;
         for (final String changedId : changedIds) {
+            final Float beforeValue = beforeValues.get(changedId);
+            final Float afterValue = afterValues.get(changedId);
+            if (beforeValue == null || afterValue == null) {
+                return ParameterLifecycleStatus.UNAVAILABLE;
+            }
             final List<ParameterLifecycleEvent> perParameter = relevant.stream()
                 .filter(event -> event.parameterId().equals(changedId))
                 .toList();
-            final boolean before = perParameter.stream()
-                .anyMatch(event -> event.phase().equals("before"));
-            final boolean on = perParameter.stream()
-                .anyMatch(event -> event.phase().equals("on"));
-            final boolean after = perParameter.stream()
-                .anyMatch(event -> event.phase().equals("after"));
-            if (!(before && on && after)) return ParameterLifecycleStatus.INCOMPLETE;
+            if (!validParameterLifecycle(perParameter, beforeValue, afterValue)) {
+                return ParameterLifecycleStatus.INCOMPLETE;
+            }
         }
         return ParameterLifecycleStatus.COMPLETE;
+    }
+
+    static ParameterLifecycleAssessment assessParameterLifecycle(
+        final List<ParameterLifecycleEvent> events,
+        final ParameterStateSnapshot before,
+        final ParameterStateSnapshot after,
+        final Set<String> changedIds,
+        final boolean valueChanged
+    ) {
+        return assessParameterLifecycle(
+            events, before, after, changedIds, valueChanged, true);
+    }
+
+    static ParameterLifecycleAssessment assessParameterLifecycle(
+        final List<ParameterLifecycleEvent> events,
+        final ParameterStateSnapshot before,
+        final ParameterStateSnapshot after,
+        final Set<String> changedIds,
+        final boolean valueChanged,
+        final boolean lifecycleWindowComplete
+    ) {
+        return new ParameterLifecycleAssessment(
+            parameterLifecycleStatus(
+                events, before, after, changedIds, valueChanged, lifecycleWindowComplete),
+            ParameterModelCorrelation.UNAVAILABLE
+        );
+    }
+
+    private static boolean strictLifecycleSequence(
+        final List<ParameterLifecycleEvent> events
+    ) {
+        long previous = Long.MIN_VALUE;
+        for (final ParameterLifecycleEvent event : events) {
+            if (event == null || event.sequence() <= previous) return false;
+            previous = event.sequence();
+        }
+        return true;
+    }
+
+    private static boolean validParameterLifecycle(
+        final List<ParameterLifecycleEvent> events,
+        final float beforeValue,
+        final float afterValue
+    ) {
+        if (events == null || events.isEmpty() || Float.compare(beforeValue, afterValue) == 0) {
+            return false;
+        }
+        boolean open = false;
+        boolean segmentChanged = false;
+        boolean sawOn = false;
+        boolean sawAfter = false;
+        float current = beforeValue;
+        for (final ParameterLifecycleEvent event : events) {
+            if (event == null) return false;
+            switch (event.phase()) {
+                case "before" -> {
+                    if (open || !finite(event.oldValue()) || !finite(event.newValue())
+                        || !same(event.oldValue(), current)) return false;
+                    open = true;
+                    segmentChanged = false;
+                }
+                case "on" -> {
+                    if (!open || !finite(event.oldValue()) || !finite(event.newValue())
+                        || !same(event.oldValue(), current)
+                        || !movesToward(event.oldValue(), event.newValue(), beforeValue, afterValue)) {
+                        return false;
+                    }
+                    current = event.newValue();
+                    segmentChanged = true;
+                    sawOn = true;
+                }
+                case "after" -> {
+                    if (!open || !segmentChanged || !finite(event.newValue())
+                        || !same(event.newValue(), current)
+                        || !within(event.newValue(), beforeValue, afterValue)) return false;
+                    open = false;
+                    segmentChanged = false;
+                    sawAfter = true;
+                }
+                default -> {
+                    return false;
+                }
+            }
+        }
+        return !open && sawOn && sawAfter && same(current, afterValue);
+    }
+
+    private static boolean finite(final Float value) {
+        return value != null && Float.isFinite(value);
+    }
+
+    private static boolean same(final Float left, final float right) {
+        return finite(left) && Float.compare(left, right) == 0;
+    }
+
+    private static boolean within(final Float value, final float start, final float end) {
+        if (!finite(value)) return false;
+        final float low = Math.min(start, end);
+        final float high = Math.max(start, end);
+        return value >= low && value <= high;
+    }
+
+    private static boolean movesToward(
+        final Float oldValue,
+        final Float newValue,
+        final float start,
+        final float end
+    ) {
+        if (!finite(oldValue) || !finite(newValue)
+            || !within(oldValue, start, end) || !within(newValue, start, end)) {
+            return false;
+        }
+        return end > start
+            ? newValue > oldValue && newValue <= end
+            : newValue < oldValue && newValue >= end;
+    }
+
+    static ParameterChangeObservation preserveParameterActorOutcome(
+        final ParameterChangeObservation actorObservation,
+        final ParameterChangeObservation followupObservation
+    ) {
+        if (actorObservation == null) return followupObservation;
+        return switch (actorObservation.outcome()) {
+            case UNAVAILABLE, MODEL_CHANGED -> actorObservation;
+            case CHANGED -> followupObservation == null
+                || followupObservation.outcome() == ParameterStateOutcome.UNCHANGED
+                ? actorObservation : followupObservation;
+            case UNCHANGED -> followupObservation == null
+                ? actorObservation : followupObservation;
+        };
     }
 
     private String parameterStateJson(
@@ -3868,7 +4132,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final ParameterStateSnapshot after,
         final ParameterStateOutcome valueStatus,
         final ParameterHistoryAdmission historyAdmission,
-        final ParameterLifecycleStatus lifecycleStatus,
+        final ParameterLifecycleAssessment lifecycleAssessment,
         final Set<String> changedIds,
         final List<ParameterLifecycleEvent> lifecycleEvents
     ) {
@@ -3878,7 +4142,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             + "\",\"modelIdAfter\":\"" + json(modelId(after))
             + "\",\"valueStatus\":\"" + valueStatus.code()
             + "\",\"historyAdmission\":\"" + historyAdmission.code()
-            + "\",\"lifecycle\":\"" + lifecycleStatus.code()
+            + "\",\"lifecycle\":\"" + lifecycleAssessment.status().code()
+            + "\",\"modelCorrelation\":\""
+            + lifecycleAssessment.modelCorrelation().code()
             + "\",\"changedParameterIds\":["
             + relevantIds.stream().map(WindowsHistoryNativeUiIngressProbe::quoted)
                 .reduce((left, right) -> left + "," + right).orElse("")
@@ -4127,7 +4393,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         COMPLETE("complete"),
         MISSING("missing"),
         INCOMPLETE("incomplete"),
-        OBSERVED_UNRELATED("observed-unrelated");
+        OBSERVED_UNRELATED("observed-unrelated"),
+        UNAVAILABLE("unavailable");
 
         private final String code;
 
@@ -4137,6 +4404,30 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         String code() {
             return code;
+        }
+    }
+
+    enum ParameterModelCorrelation {
+        UNAVAILABLE("unavailable");
+
+        private final String code;
+
+        ParameterModelCorrelation(final String code) {
+            this.code = code;
+        }
+
+        String code() {
+            return code;
+        }
+    }
+
+    record ParameterLifecycleAssessment(
+        ParameterLifecycleStatus status,
+        ParameterModelCorrelation modelCorrelation
+    ) {
+        ParameterLifecycleAssessment {
+            status = Objects.requireNonNull(status, "status");
+            modelCorrelation = Objects.requireNonNull(modelCorrelation, "modelCorrelation");
         }
     }
 
@@ -4216,16 +4507,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         String thread
     ) {
         ParameterLifecycleEvent {
-            phase = phase == null ? "" : phase;
-            parameterId = parameterId == null ? "" : parameterId;
+            phase = boundedText(phase, MAX_PARAMETER_PHASE_LENGTH);
+            parameterId = boundedText(parameterId, MAX_PARAMETER_ID_LENGTH);
             oldValue = finiteValue(oldValue);
             newValue = finiteValue(newValue);
-            thread = thread == null ? "" : thread;
+            thread = boundedText(thread, MAX_PARAMETER_THREAD_LENGTH);
         }
 
         String json(final Set<String> relatedIds) {
             final boolean related = relatedIds != null && relatedIds.contains(parameterId);
-            return "{\"phase\":\"" + WindowsHistoryNativeUiIngressProbe.json(phase)
+            return "{\"sequence\":" + sequence
+                + ",\"phase\":\"" + WindowsHistoryNativeUiIngressProbe.json(phase)
                 + "\",\"parameterId\":\"" + WindowsHistoryNativeUiIngressProbe.json(parameterId)
                 + "\",\"oldValue\":" + numberOrNull(oldValue)
                 + ",\"newValue\":" + numberOrNull(newValue)
