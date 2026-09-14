@@ -53,6 +53,17 @@ result_name="external-psd-edit-result.properties"
 
 printf 'phase=%s\n' "$phase" >> "$log"
 
+convert_result_to_crlf() {
+  python3 - "$1" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+raw = path.read_bytes()
+path.write_bytes(raw.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+PY
+}
+
 write_job() {
   local job_id="$1" run_id="$2" task_dir="$3" result_path="$4" state="$5" evidence_mode="${6:-complete}"
   python3 - "$job_id" "$run_id" "$task_dir" "$result_path" "$state" "$evidence_mode" <<'PY'
@@ -139,6 +150,9 @@ if [ "$phase" = reopen ]; then
     printf 'reopen.expectedImageSha256=%s\n' "$b_expected"
     printf 'reopen.imageSha256=%s\n' "$b_actual"
   } > "$b_result"
+  if [ "$mode" = crlf ]; then
+    convert_result_to_crlf "$b_result"
+  fi
   printf 'stageB.job=%s\n' "$b_job_id" >> "$log"
   printf 'stageB.run=%s\n' "$b_run_id" >> "$log"
   printf 'stageB.taskDir=%s\n' "$b_task_dir" >> "$log"
@@ -223,6 +237,11 @@ else
   } > "$a_result"
 fi
 
+if [ "$mode" = crlf ]; then
+  convert_result_to_crlf "$a_result"
+fi
+printf 'stageA.result=%s\n' "$a_result" >> "$log"
+
 if [ "$mode" = adjacent-job ]; then
   unrelated="$host_root/external-psd-edit-pipeline/5302-025-us4/queue-unrelated"
   sleep 1
@@ -303,6 +322,35 @@ run_success_case() {
 
 run_success_case correct
 run_success_case adjacent-job
+run_success_case crlf
+
+assert_logged_result_is_crlf() {
+  local log="$1" key="$2" description="$3" result_path
+  result_path="$(awk -F= -v wanted="$key" \
+    '$1 == wanted { print substr($0, index($0, "=") + 1); exit }' "$log")"
+  if [ -z "$result_path" ]; then
+    record_failure "$description (result path was not logged)"
+    return
+  fi
+  if ! python3 - "$result_path" <<'PY'
+import sys
+from pathlib import Path
+
+raw = Path(sys.argv[1]).read_bytes()
+if b"\r\n" not in raw:
+    raise SystemExit("result has no CRLF line endings")
+if b"\n" in raw.replace(b"\r\n", b""):
+    raise SystemExit("result contains a bare LF line ending")
+PY
+  then
+    record_failure "$description (result is not CRLF)"
+  fi
+}
+
+assert_logged_result_is_crlf "$test_root/crlf/stub.log" stageA.result \
+  'stage A result must preserve CRLF input'
+assert_logged_result_is_crlf "$test_root/crlf/stub.log" stageB.result \
+  'stage B result must preserve CRLF input'
 
 run_driver_case image-only 0 >/dev/null
 assert_file_contains "$test_root/image-only/stub.log" 'phase=reopen' \

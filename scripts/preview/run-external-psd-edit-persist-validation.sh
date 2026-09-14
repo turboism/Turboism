@@ -179,7 +179,12 @@ result_a="$stage_a_terminal_path"
 
 property() {
   local file="$1" key="$2"
-  awk -F= -v wanted="$key" '$1 == wanted { print substr($0, index($0, "=") + 1); exit }' "$file"
+  awk -F= -v wanted="$key" '$1 == wanted {
+    value = substr($0, index($0, "=") + 1)
+    sub(/\r$/, "", value)
+    print value
+    exit
+  }' "$file"
 }
 
 [ "$(property "$result_a" status)" = PASS ] \
