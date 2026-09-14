@@ -2,6 +2,10 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -392,6 +396,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 );
                 context.logger().info(instruction);
 
+                final WindowsHistoryManagerValidationProbe.Snapshot semanticBaseline =
+                    "parts-tree-drag".equals(step.id()) ? sample() : null;
+                if ("parts-tree-drag".equals(step.id())) {
+                    write(artifact, paired(semanticBaseline, step.id() + "-semantic-baseline"), false);
+                }
+
                 final ParameterStateSnapshot parameterBefore =
                     "native-parameter".equals(step.id()) ? readParameterSnapshot() : null;
                 if (parameterBefore != null) {
@@ -532,6 +542,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                             .json(step.id()),
                         false
                     );
+                    if ("parts-tree-drag".equals(step.id())) {
+                        final Verdict semanticVerdict = checkPartMembershipStep(
+                            sdkHistory(semanticBaseline),
+                            null
+                        );
+                        write(
+                            artifact,
+                            semanticVerdict.json("parts-tree-drag-semantic"),
+                            false
+                        );
+                        if (!semanticVerdict.ok()) {
+                            failures.add(step.id() + ":semantic-" + semanticVerdict.code());
+                        }
+                    }
                     continue;
                 }
                 knownSignificant = significantSequence(after);
@@ -547,6 +571,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 final Verdict verdict = checkStep(step, events);
                 write(artifact, verdict.json(step.id()), false);
                 if (!verdict.ok()) failures.add(step.id() + ":" + verdict.code());
+                if ("parts-tree-drag".equals(step.id())) {
+                    final Verdict semanticVerdict = checkPartMembershipStep(
+                        sdkHistory(semanticBaseline),
+                        sdkHistory(after)
+                    );
+                    write(
+                        artifact,
+                        semanticVerdict.json("parts-tree-drag-semantic"),
+                        false
+                    );
+                    if (!semanticVerdict.ok()) {
+                        failures.add(step.id() + ":semantic-" + semanticVerdict.code());
+                    }
+                }
                 hookFired |= events.stream().anyMatch(event -> event.phase().equals("before"));
                 observerFired |= events.stream().anyMatch(
                     event -> event.phase().equals("on") || event.phase().equals("after")
@@ -3851,6 +3889,381 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return new Verdict(false, "navigation-not-attributed", seen);
         }
         return new Verdict(true, "navigation-pair-confirmed-without-an-edit", seen);
+    }
+
+    /**
+     * Checks the typed SDK history delta for the Parts-tree semantic claim.
+     *
+     * <p>This is deliberately independent of {@link #checkStep(Step, List)}. The event check proves
+     * only that the native UI ingress carried a complete event pair; this check proves only that a
+     * newly admitted, applied SDK entry contains one complete Part-membership relation. In
+     * particular, two one-sided native entries are never coalesced here.</p>
+     */
+    static Verdict checkPartMembershipStep(
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after
+    ) {
+        final String seen = historySeen(before, after);
+        final String gateFailure = historyGateFailure(before, after);
+        if (gateFailure != null) return new Verdict(false, gateFailure, seen);
+
+        final Set<String> beforeIds = new HashSet<>();
+        for (WindowsHistoryManagerValidationProbe.SdkEntry entry : before.entries()) {
+            if (entry != null && stableEntryId(entry.entryId())) beforeIds.add(entry.entryId());
+        }
+        final List<WindowsHistoryManagerValidationProbe.SdkEntry> candidates = after.entries().stream()
+            .filter(Objects::nonNull)
+            .filter(entry -> entry.index() >= 0 && entry.index() < after.position())
+            .filter(entry -> stableEntryId(entry.entryId()))
+            .filter(entry -> !beforeIds.contains(entry.entryId()))
+            .toList();
+        if (candidates.isEmpty()) {
+            return new Verdict(false, "no-new-entry", seen + ",candidates=0");
+        }
+
+        final List<PartCandidate> assessments = candidates.stream()
+            .map(WindowsHistoryNativeUiIngressProbe::assessPartCandidate)
+            .toList();
+        final List<PartCandidate> relationCandidates = assessments.stream()
+            .filter(PartCandidate::hasRelation)
+            .toList();
+        final String candidateSeen = seen
+            + ",candidates=" + candidates.size()
+            + ",relationCandidates=" + relationCandidates.size();
+        if (relationCandidates.isEmpty()) {
+            return new Verdict(false, "no-proven-membership-change", candidateSeen);
+        }
+        if (relationCandidates.size() > 1) {
+            final boolean allPartial = relationCandidates.stream()
+                .allMatch(candidate -> "partial-relation".equals(candidateFailureCode(candidate)));
+            return new Verdict(
+                false,
+                allPartial ? "partial-relation" : "ambiguous-candidate",
+                candidateSeen
+            );
+        }
+
+        final PartCandidate candidate = relationCandidates.get(0);
+        final String candidateFailure = candidateFailureCode(candidate);
+        if (!"proven-membership-change".equals(candidateFailure)) {
+            return new Verdict(false, candidateFailure, candidateSeen);
+        }
+        // A label-only/unstructured entry can be a selection side effect. Any additional typed
+        // facts are evidence that the delta is not one unambiguous membership edit.
+        if (assessments.stream()
+            .filter(other -> other != candidate)
+            .anyMatch(PartCandidate::structured)) {
+            return new Verdict(false, "ambiguous-candidate", candidateSeen);
+        }
+        return new Verdict(true, "proven-membership-change", candidateSeen);
+    }
+
+    private static String historyGateFailure(
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after
+    ) {
+        if (!usableSdkHistory(before) || !usableSdkHistory(after)) return "history-unavailable";
+        if (!sameNonBlank(before.documentBindingId(), after.documentBindingId())
+            || !sameNonBlank(before.managerBindingId(), after.managerBindingId())
+            || before.generation() != after.generation()) {
+            return "binding-changed";
+        }
+        if (truncatedSdkHistory(before) || truncatedSdkHistory(after)) return "history-truncated";
+        if (!validSdkShape(before) || !validSdkShape(after)) return "history-unavailable";
+        return null;
+    }
+
+    private static boolean usableSdkHistory(
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
+    ) {
+        return snapshot != null
+            && "AVAILABLE".equals(snapshot.availability())
+            && nonBlank(snapshot.documentBindingId())
+            && nonBlank(snapshot.managerBindingId())
+            && snapshot.entries() != null;
+    }
+
+    private static boolean truncatedSdkHistory(
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
+    ) {
+        return snapshot.totalEntries() > snapshot.entries().size()
+            || snapshot.totalEntries() != snapshot.entries().size();
+    }
+
+    private static boolean validSdkShape(
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
+    ) {
+        if (snapshot.generation() < 0 || snapshot.revision() < 0
+            || snapshot.totalEntries() < 0
+            || snapshot.position() < 0
+            || snapshot.position() > snapshot.entries().size()) {
+            return false;
+        }
+        for (int index = 0; index < snapshot.entries().size(); index++) {
+            final WindowsHistoryManagerValidationProbe.SdkEntry entry = snapshot.entries().get(index);
+            if (entry == null || entry.index() != index) return false;
+        }
+        return true;
+    }
+
+    private static boolean sameNonBlank(final String left, final String right) {
+        return nonBlank(left) && Objects.equals(left, right);
+    }
+
+    private static boolean nonBlank(final String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static boolean stableEntryId(final String value) {
+        return nonBlank(value);
+    }
+
+    private static String historySeen(
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after
+    ) {
+        return "before=" + sdkHistorySeen(before) + ",after=" + sdkHistorySeen(after);
+    }
+
+    private static String sdkHistorySeen(
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
+    ) {
+        if (snapshot == null) return "null";
+        return snapshot.availability()
+            + ":generation=" + snapshot.generation()
+            + ":position=" + snapshot.position()
+            + ":total=" + snapshot.totalEntries();
+    }
+
+    private static PartCandidate assessPartCandidate(
+        final WindowsHistoryManagerValidationProbe.SdkEntry entry
+    ) {
+        final HistoryEntryDetail detail = entry.detail();
+        if (detail == null) {
+            return new PartCandidate(
+                entry.entryId(),
+                true,
+                true,
+                false,
+                Set.of(),
+                List.of()
+            );
+        }
+        final DetailWalk walk = walkDetail(detail, 0, new int[] {0});
+        return new PartCandidate(
+            entry.entryId(),
+            walk.structured(),
+            walk.complete(),
+            walk.unstableTarget(),
+            walk.targetKeys(),
+            walk.relations()
+        );
+    }
+
+    private static String candidateFailureCode(final PartCandidate candidate) {
+        if (!candidate.hasRelation()) return "no-proven-membership-change";
+        if (!candidate.complete()) return "partial-relation";
+        if (candidate.relations().size() != 1 || candidate.unstableTarget()
+            || candidate.targetKeys().size() != 1) {
+            return "ambiguous-candidate";
+        }
+        return switch (candidate.relations().get(0).status()) {
+            case COMPLETE -> "proven-membership-change";
+            case PARTIAL -> "partial-relation";
+            case INVALID_TARGET_INDEX -> "target-index-invalid";
+            case SAME_ENDPOINT, NON_MEMBERSHIP -> "no-proven-membership-change";
+        };
+    }
+
+    private static DetailWalk walkDetail(
+        final HistoryEntryDetail detail,
+        final int depth,
+        final int[] nodes
+    ) {
+        if (detail == null || depth > WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
+            || nodes[0] >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
+            return DetailWalk.incomplete();
+        }
+        nodes[0]++;
+        final Set<TargetKey> targetKeys = new LinkedHashSet<>();
+        boolean unstableTarget = false;
+        if (detail.targets() == null || detail.changes() == null) {
+            return new DetailWalk(false, true, true, targetKeys, List.of());
+        }
+        for (HistoryTarget target : detail.targets()) {
+            if (!stableTarget(target)) {
+                unstableTarget = true;
+            } else {
+                targetKeys.add(targetKey(target));
+            }
+        }
+        final List<RelationObservation> relations = new ArrayList<>();
+        for (HistoryChange change : detail.changes()) {
+            if (change == null || change.relation() == null || change.relation().isEmpty()) continue;
+            relations.add(relationObservation(detail, change));
+        }
+
+        boolean complete = true;
+        final boolean structured = !detail.targets().isEmpty()
+            || !detail.changes().isEmpty()
+            || detail.group() != null && detail.group().isPresent();
+        if (detail.group() != null && detail.group().isPresent()) {
+            final var group = detail.group().orElse(null);
+            if (group == null || group.truncated()
+                || group.observedChildCount() < group.children().size()
+                || group.children().size() > WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
+                complete = false;
+            }
+            if (group != null) {
+                if (depth >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
+                    && !group.children().isEmpty()) {
+                    complete = false;
+                } else {
+                    for (HistoryEntryDetail child : group.children()) {
+                        if (nodes[0] >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
+                            complete = false;
+                            break;
+                        }
+                        final DetailWalk childWalk = walkDetail(child, depth + 1, nodes);
+                        complete &= childWalk.complete();
+                        unstableTarget |= childWalk.unstableTarget();
+                        targetKeys.addAll(childWalk.targetKeys());
+                        relations.addAll(childWalk.relations());
+                    }
+                }
+            }
+        }
+        return new DetailWalk(
+            complete,
+            structured,
+            unstableTarget,
+            targetKeys,
+            relations
+        );
+    }
+
+    private static RelationObservation relationObservation(
+        final HistoryEntryDetail detail,
+        final HistoryChange change
+    ) {
+        final HistoryRelationChange relation = change.relation().orElse(null);
+        if (relation == null || relation.kind() != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
+            return new RelationObservation(RelationStatus.NON_MEMBERSHIP);
+        }
+        if (change.targetIndex() == null || change.targetIndex().isEmpty()) {
+            return new RelationObservation(RelationStatus.INVALID_TARGET_INDEX);
+        }
+        final int targetIndex = change.targetIndex().orElse(-1);
+        if (targetIndex < 0 || targetIndex >= detail.targets().size()) {
+            return new RelationObservation(RelationStatus.INVALID_TARGET_INDEX);
+        }
+        if (!stableTarget(detail.targets().get(targetIndex))) {
+            return new RelationObservation(RelationStatus.PARTIAL);
+        }
+        final EndpointIdentity before = endpointIdentity(relation.before());
+        final EndpointIdentity after = endpointIdentity(relation.after());
+        if (before == null || after == null) return new RelationObservation(RelationStatus.PARTIAL);
+        if (sameEndpoint(before, after)) {
+            return new RelationObservation(RelationStatus.SAME_ENDPOINT);
+        }
+        return new RelationObservation(RelationStatus.COMPLETE);
+    }
+
+    private static boolean stableTarget(final HistoryTarget target) {
+        return target != null
+            && nonBlank(target.type())
+            && target.id() != null
+            && target.id().filter(WindowsHistoryNativeUiIngressProbe::nonBlank).isPresent();
+    }
+
+    private static TargetKey targetKey(final HistoryTarget target) {
+        return new TargetKey(target.type(), target.id().orElseThrow());
+    }
+
+    private static EndpointIdentity endpointIdentity(
+        final HistoryRelationChange.Endpoint endpoint
+    ) {
+        if (endpoint == null || endpoint.state() == null || endpoint.target() == null) return null;
+        return switch (endpoint.state()) {
+            case ROOT -> endpoint.target().isEmpty()
+                ? new EndpointIdentity(HistoryRelationChange.State.ROOT, null)
+                : null;
+            case TARGET -> endpoint.target().filter(WindowsHistoryNativeUiIngressProbe::stableTarget)
+                .map(WindowsHistoryNativeUiIngressProbe::targetKey)
+                .map(key -> new EndpointIdentity(HistoryRelationChange.State.TARGET, key))
+                .orElse(null);
+            case UNKNOWN -> null;
+        };
+    }
+
+    private static boolean sameEndpoint(
+        final EndpointIdentity left,
+        final EndpointIdentity right
+    ) {
+        if (left.state() != right.state()) return false;
+        return left.state() == HistoryRelationChange.State.ROOT
+            || Objects.equals(left.target(), right.target());
+    }
+
+    private enum RelationStatus {
+        COMPLETE,
+        PARTIAL,
+        INVALID_TARGET_INDEX,
+        SAME_ENDPOINT,
+        NON_MEMBERSHIP
+    }
+
+    private record TargetKey(String type, String id) {
+    }
+
+    private record EndpointIdentity(
+        HistoryRelationChange.State state,
+        TargetKey target
+    ) {
+    }
+
+    private record RelationObservation(RelationStatus status) {
+    }
+
+    private record DetailWalk(
+        boolean complete,
+        boolean structured,
+        boolean unstableTarget,
+        Set<TargetKey> targetKeys,
+        List<RelationObservation> relations
+    ) {
+        private DetailWalk {
+            targetKeys = Set.copyOf(targetKeys);
+            relations = List.copyOf(relations);
+        }
+
+        private static DetailWalk incomplete() {
+            return new DetailWalk(false, true, true, Set.of(), List.of());
+        }
+    }
+
+    private record PartCandidate(
+        String entryId,
+        boolean structured,
+        boolean complete,
+        boolean unstableTarget,
+        Set<TargetKey> targetKeys,
+        List<RelationObservation> relations
+    ) {
+        private PartCandidate {
+            targetKeys = Set.copyOf(targetKeys);
+            relations = List.copyOf(relations);
+        }
+
+        private boolean hasRelation() {
+            return !relations.isEmpty();
+        }
+    }
+
+    private static WindowsHistoryManagerValidationProbe.SdkHistorySnapshot sdkHistory(
+        final WindowsHistoryManagerValidationProbe.Snapshot snapshot
+    ) {
+        return snapshot == null ? null : snapshot.sdkHistory();
     }
 
     private static long countPhase(final List<Observed> events, final String phase) {

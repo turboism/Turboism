@@ -17,6 +17,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WindowsHistoryManagerValidationProbeTest {
@@ -375,6 +377,25 @@ class WindowsHistoryManagerValidationProbeTest {
         assertEquals("PART_MEMBERSHIP", nestedChange.get("relation").get("kind").asText());
         assertEquals("ROOT", nestedChange.get("relation").get("after").get("state").asText());
         assertTrue(nestedChange.get("relation").get("after").get("target").isNull());
+    }
+
+    @Test
+    void sdkEntryRetainsTheOriginalTypedDetailAlongsideTheExistingJsonProjection() {
+        final HistoryEntryDetail detail = HistoryEntryDetail.labelOnly("selection");
+        final String detailJson = WindowsHistoryManagerValidationProbe.sdkDetailJson(detail, 0);
+        final WindowsHistoryManagerValidationProbe.SdkEntry typed =
+            new WindowsHistoryManagerValidationProbe.SdkEntry(
+                0, "entry-1", "selection", detailJson, detail
+            );
+        final WindowsHistoryManagerValidationProbe.SdkEntry legacy =
+            new WindowsHistoryManagerValidationProbe.SdkEntry(
+                0, "entry-1", "selection", detailJson
+            );
+
+        assertSame(detail, typed.detail(), "semantic verification must use the SDK value itself");
+        assertEquals(detailJson, typed.detailJson());
+        assertNull(legacy.detail(), "the compatibility constructor must not parse JSON");
+        assertEquals(typed.json(), legacy.json(), "the serialized evidence shape must not change");
     }
 
     private static HistoryRelationChange.Endpoint targetEndpoint(final HistoryTarget target) {

@@ -1,16 +1,26 @@
 package dev.turboism.tests.plugin;
 
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEditContext;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import org.junit.jupiter.api.Test;
 
 import java.awt.Rectangle;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -330,6 +340,431 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         assertFalse(verdict.ok());
         assertEquals("unknown-step-kind", verdict.code());
+    }
+
+    @Test
+    void partsSemanticVerifierProvesOneCompleteTargetToTargetMembership() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            partVerdict(membershipDetail(
+                targetEndpoint("PART", "part-a", "A"),
+                targetEndpoint("PART", "part-b", "B"),
+                HistoryAction.DetailLevel.FULL
+            ));
+
+        assertTrue(verdict.ok(), verdict.detail());
+        assertEquals("proven-membership-change", verdict.code());
+    }
+
+    @Test
+    void partsSemanticVerifierAcceptsAConfirmedRootEndpoint() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            partVerdict(membershipDetail(
+                rootEndpoint(),
+                targetEndpoint("PART", "part-b", "B"),
+                HistoryAction.DetailLevel.FULL
+            ));
+
+        assertTrue(verdict.ok(), verdict.detail());
+    }
+
+    @Test
+    void partsSemanticVerifierAcceptsDetachingToRoot() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            partVerdict(membershipDetail(
+                targetEndpoint("PART", "part-a", "A"),
+                rootEndpoint(),
+                HistoryAction.DetailLevel.FULL
+            ));
+
+        assertTrue(verdict.ok(), verdict.detail());
+    }
+
+    @Test
+    void partsSemanticVerifierRecursesThroughCompleteGroups() {
+        final HistoryEntryDetail child = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final HistoryEntryDetail grouped = new HistoryEntryDetail(
+            "group",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(Optional.of("group-1"), 1, List.of(child), false)),
+            Optional.empty()
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(grouped);
+
+        assertTrue(verdict.ok(), verdict.detail());
+    }
+
+    @Test
+    void selectionOnlyAndMissingRelationCannotProveMembership() {
+        assertEquals(
+            "no-proven-membership-change",
+            partVerdict(HistoryEntryDetail.labelOnly("selection")).code()
+        );
+        assertEquals(
+            "no-proven-membership-change",
+            partVerdict(missingRelationDetail()).code()
+        );
+    }
+
+    @Test
+    void unknownEndpointOnEitherSideIsPartialAndNeverTreatedAsRoot() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict unknownBefore = partVerdict(
+            membershipDetail(
+                unknownEndpoint(),
+                targetEndpoint("PART", "part-b", "B"),
+                HistoryAction.DetailLevel.PARTIAL
+            )
+        );
+        final WindowsHistoryNativeUiIngressProbe.Verdict unknownAfter = partVerdict(
+            membershipDetail(
+                targetEndpoint("PART", "part-a", "A"),
+                unknownEndpoint(),
+                HistoryAction.DetailLevel.PARTIAL
+            )
+        );
+
+        assertFalse(unknownBefore.ok());
+        assertEquals("partial-relation", unknownBefore.code());
+        assertFalse(unknownAfter.ok());
+        assertEquals("partial-relation", unknownAfter.code());
+    }
+
+    @Test
+    void twoPartialEntriesAreNotCoalescedIntoACompleteMove() {
+        final HistoryEntryDetail remove = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            unknownEndpoint(),
+            HistoryAction.DetailLevel.PARTIAL
+        );
+        final HistoryEntryDetail add = membershipDetail(
+            unknownEndpoint(),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.PARTIAL
+        );
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            partVerdict(List.of(remove, add));
+
+        assertFalse(verdict.ok());
+        assertEquals("partial-relation", verdict.code());
+    }
+
+    @Test
+    void sameEndpointAndNonMembershipRelationsAreRejected() {
+        final HistoryTarget same = new HistoryTarget(
+            "PART", Optional.of("part-a"), Optional.of("A")
+        );
+        final HistoryRelationChange unchanged = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            targetEndpoint(same),
+            targetEndpoint(same)
+        );
+        final WindowsHistoryNativeUiIngressProbe.Verdict sameEndpoint =
+            partVerdict(relationDetail(unchanged, HistoryAction.DetailLevel.PARTIAL));
+        final HistoryRelationChange deformer = new HistoryRelationChange(
+            HistoryRelationChange.Kind.DEFORMER_PARENT,
+            targetEndpoint("WARP_DEFORMER", "warp-a", "A"),
+            targetEndpoint("WARP_DEFORMER", "warp-b", "B")
+        );
+        final WindowsHistoryNativeUiIngressProbe.Verdict wrongKind =
+            partVerdict(relationDetail(deformer, HistoryAction.DetailLevel.PARTIAL));
+
+        assertFalse(sameEndpoint.ok());
+        assertEquals("no-proven-membership-change", sameEndpoint.code());
+        assertFalse(wrongKind.ok());
+        assertEquals("no-proven-membership-change", wrongKind.code());
+    }
+
+    @Test
+    void endpointIdentityIgnoresDisplayNameWhenRejectingAnUnchangedRelation() {
+        final HistoryRelationChange unchanged = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            targetEndpoint("PART", "part-a", "old name"),
+            targetEndpoint("PART", "part-a", "renamed name")
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            partVerdict(relationDetail(unchanged, HistoryAction.DetailLevel.PARTIAL));
+
+        assertFalse(verdict.ok());
+        assertEquals("no-proven-membership-change", verdict.code());
+    }
+
+    @Test
+    void conflictingRelationsInOneCandidateFailClosed() {
+        final HistoryTarget child = childTarget();
+        final HistoryChange first = relationChange(new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B")
+        ));
+        final HistoryChange second = relationChange(new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            targetEndpoint("PART", "part-b", "B"),
+            rootEndpoint()
+        ));
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "conflict",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(child),
+            List.of(first, second),
+            Optional.empty(),
+            Optional.of("fixture.conflict")
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(detail);
+
+        assertFalse(verdict.ok());
+        assertEquals("ambiguous-candidate", verdict.code());
+    }
+
+    @Test
+    void multipleCandidateObjectsFailEvenWhenOneRelationIsComplete() {
+        final HistoryTarget first = childTarget();
+        final HistoryTarget second = new HistoryTarget(
+            "ART_MESH", Optional.of("child-2"), Optional.of("Other child")
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "two objects",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(first, second),
+            List.of(relationChange(new HistoryRelationChange(
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                targetEndpoint("PART", "part-a", "A"),
+                targetEndpoint("PART", "part-b", "B")
+            ))),
+            Optional.empty(),
+            Optional.of("fixture.two-targets")
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(detail);
+
+        assertFalse(verdict.ok());
+        assertEquals("ambiguous-candidate", verdict.code());
+    }
+
+    @Test
+    void aRelationWithoutATargetIndexCannotProveMembership() {
+        final HistoryChange missingTargetIndex = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.empty()
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "missing target index",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(childTarget()),
+            List.of(missingTargetIndex),
+            Optional.empty(),
+            Optional.of("fixture.target-index-missing")
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(detail);
+
+        assertFalse(verdict.ok());
+        assertEquals("no-proven-membership-change", verdict.code());
+    }
+
+    @Test
+    void outOfRangeRelationTargetIndexIsRejectedByTheTypedSdkDetail() {
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B")
+        );
+        final HistoryChange invalid = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(1),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new HistoryEntryDetail(
+                "invalid target index",
+                HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.hostUnattributed(),
+                List.of(childTarget()),
+                List.of(invalid),
+                Optional.empty(),
+                Optional.of("fixture.target-index-invalid")
+            )
+        );
+    }
+
+    @Test
+    void truncatedGroupCannotClaimCompleteMembership() {
+        final HistoryEntryDetail child = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final HistoryEntryDetail truncated = new HistoryEntryDetail(
+            "truncated",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(Optional.of("group-1"), 2, List.of(child), true)),
+            Optional.of("fixture.truncated")
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(truncated);
+
+        assertFalse(verdict.ok());
+        assertEquals("partial-relation", verdict.code());
+    }
+
+    @Test
+    void oldEntriesAndRedoTailAreNotNewAppliedCandidates() {
+        final HistoryEntryDetail complete = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final WindowsHistoryManagerValidationProbe.SdkEntry old =
+            sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
+        final WindowsHistoryManagerValidationProbe.SdkEntry redo =
+            sdkEntry(1, "redo-tail", complete);
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(old, redo), 1),
+                sdkHistory(List.of(old, redo), 1)
+            );
+
+        assertFalse(verdict.ok());
+        assertEquals("no-new-entry", verdict.code());
+    }
+
+    @Test
+    void candidateMustHaveAStableIdAndBeInsideTheAppliedAfterRange() {
+        final HistoryEntryDetail complete = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final WindowsHistoryManagerValidationProbe.SdkEntry old =
+            sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
+        final WindowsHistoryManagerValidationProbe.SdkEntry noId =
+            sdkEntry(1, "", complete);
+        final WindowsHistoryManagerValidationProbe.SdkEntry unapplied =
+            sdkEntry(1, "unapplied", complete);
+
+        assertEquals(
+            "no-new-entry",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(old), 1),
+                sdkHistory(List.of(old, noId), 2)
+            ).code()
+        );
+        assertEquals(
+            "no-new-entry",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(old), 1),
+                sdkHistory(List.of(old, unapplied), 1)
+            ).code()
+        );
+    }
+
+    @Test
+    void unavailableBindingChangeGenerationAndTruncationFailClosed() {
+        final HistoryEntryDetail complete = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final WindowsHistoryManagerValidationProbe.SdkEntry old =
+            sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
+        final WindowsHistoryManagerValidationProbe.SdkEntry fresh =
+            sdkEntry(1, "fresh", complete);
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before =
+            sdkHistory(List.of(old), 1);
+        final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after =
+            sdkHistory(List.of(old, fresh), 2);
+
+        assertEquals(
+            "history-unavailable",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                    "UNAVAILABLE", 0, 0, 0, false, false, "", "", 0, List.of()
+                ),
+                after
+            ).code()
+        );
+        assertEquals(
+            "binding-changed",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                before,
+                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                    "AVAILABLE", 7, 2, 2, true, false,
+                    "document-2", "manager-1", 2, List.of(old, fresh)
+                )
+            ).code()
+        );
+        assertEquals(
+            "binding-changed",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                before,
+                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                    "AVAILABLE", 8, 2, 2, true, false,
+                    "document-1", "manager-1", 2, List.of(old, fresh)
+                )
+            ).code()
+        );
+        assertEquals(
+            "history-truncated",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                before,
+                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                    "AVAILABLE", 7, 2, 2, true, false,
+                    "document-1", "manager-1", 3, List.of(old, fresh)
+                )
+            ).code()
+        );
+    }
+
+    @Test
+    void legacyJsonOnlySdkEntryCannotBeParsedIntoAFalseSemanticProof() {
+        final HistoryEntryDetail complete = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final WindowsHistoryManagerValidationProbe.SdkEntry old =
+            sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
+        final WindowsHistoryManagerValidationProbe.SdkEntry jsonOnly =
+            new WindowsHistoryManagerValidationProbe.SdkEntry(
+                1,
+                "new",
+                "new",
+                WindowsHistoryManagerValidationProbe.sdkDetailJson(complete, 0)
+            );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(old), 1),
+                sdkHistory(List.of(old, jsonOnly), 2)
+            );
+
+        assertFalse(verdict.ok());
+        assertEquals("no-proven-membership-change", verdict.code());
     }
 
     @Test
@@ -1235,6 +1670,162 @@ class WindowsHistoryNativeUiIngressProbeTest {
     ) {
         return new WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent(
             sequence, phase, parameterId, oldValue, newValue, thread
+        );
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.Verdict partVerdict(
+        final HistoryEntryDetail detail
+    ) {
+        return partVerdict(List.of(detail));
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.Verdict partVerdict(
+        final List<HistoryEntryDetail> details
+    ) {
+        final WindowsHistoryManagerValidationProbe.SdkEntry old =
+            sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
+        final java.util.ArrayList<WindowsHistoryManagerValidationProbe.SdkEntry> after =
+            new java.util.ArrayList<>();
+        after.add(old);
+        for (int index = 0; index < details.size(); index++) {
+            after.add(sdkEntry(index + 1, "new-" + index, details.get(index)));
+        }
+        return WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+            sdkHistory(List.of(old), 1),
+            sdkHistory(after, after.size())
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.SdkHistorySnapshot sdkHistory(
+        final List<WindowsHistoryManagerValidationProbe.SdkEntry> entries,
+        final int position
+    ) {
+        return new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+            "AVAILABLE",
+            7L,
+            1L,
+            position,
+            position > 0,
+            false,
+            "document-1",
+            "manager-1",
+            entries.size(),
+            List.copyOf(entries)
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.SdkEntry sdkEntry(
+        final int index,
+        final String entryId,
+        final HistoryEntryDetail detail
+    ) {
+        return new WindowsHistoryManagerValidationProbe.SdkEntry(
+            index,
+            entryId,
+            "entry-" + index,
+            WindowsHistoryManagerValidationProbe.sdkDetailJson(detail, 0),
+            detail
+        );
+    }
+
+    private static HistoryEntryDetail membershipDetail(
+        final HistoryRelationChange.Endpoint before,
+        final HistoryRelationChange.Endpoint after,
+        final HistoryAction.DetailLevel level
+    ) {
+        return relationDetail(
+            new HistoryRelationChange(HistoryRelationChange.Kind.PART_MEMBERSHIP, before, after),
+            level
+        );
+    }
+
+    private static HistoryEntryDetail relationDetail(
+        final HistoryRelationChange relation,
+        final HistoryAction.DetailLevel level
+    ) {
+        final HistoryChange change = relationChange(relation);
+        return new HistoryEntryDetail(
+            "membership",
+            level,
+            HistoryOrigin.hostUnattributed(),
+            List.of(childTarget()),
+            List.of(change),
+            Optional.empty(),
+            level == HistoryAction.DetailLevel.FULL
+                ? Optional.empty()
+                : Optional.of("fixture.partial")
+        );
+    }
+
+    private static HistoryEntryDetail missingRelationDetail() {
+        final HistoryChange change = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.empty()
+        );
+        return new HistoryEntryDetail(
+            "missing relation",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(childTarget()),
+            List.of(change),
+            Optional.empty(),
+            Optional.of("fixture.missing-relation")
+        );
+    }
+
+    private static HistoryChange relationChange(final HistoryRelationChange relation) {
+        return new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        );
+    }
+
+    private static HistoryTarget childTarget() {
+        return new HistoryTarget(
+            "ART_MESH", Optional.of("child-1"), Optional.of("Child")
+        );
+    }
+
+    private static HistoryTarget target(final String type, final String id, final String name) {
+        return new HistoryTarget(type, Optional.of(id), Optional.of(name));
+    }
+
+    private static HistoryRelationChange.Endpoint targetEndpoint(
+        final String type,
+        final String id,
+        final String name
+    ) {
+        return targetEndpoint(target(type, id, name));
+    }
+
+    private static HistoryRelationChange.Endpoint targetEndpoint(final HistoryTarget target) {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.TARGET,
+            Optional.of(target)
+        );
+    }
+
+    private static HistoryRelationChange.Endpoint rootEndpoint() {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.ROOT,
+            Optional.empty()
+        );
+    }
+
+    private static HistoryRelationChange.Endpoint unknownEndpoint() {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.UNKNOWN,
+            Optional.empty()
         );
     }
 
