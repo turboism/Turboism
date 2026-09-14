@@ -48,12 +48,16 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -143,10 +147,87 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 dir.resolve("external-psd-edit-result.properties"),
                 StandardCopyOption.REPLACE_EXISTING);
             context.logger().info("EXTERNAL_PSD_EDIT_RESULT status=" + result.getProperty("status"));
+            armExitWatchdog(dir);
+            closeDefaultApplication();
             Runtime.getRuntime().exit("PASS".equals(result.getProperty("status")) ? 0 : 2);
         } catch (Exception error) {
             context.logger().warn("EXTERNAL_PSD_EDIT_RESULT_WRITE_FAILED " + error);
         }
+    }
+
+    /**
+     * Simulates the user closing their external editor. The task-scoped .psd association opens
+     * notepad.exe as a detached session process; Proton waits for the whole wine session, so a
+     * surviving editor would hold the launcher open after the JVM exits and defeat the runner's
+     * graceful-exit evidence. Bounded and recorded, never gated.
+     */
+    private static void closeDefaultApplication() {
+        try {
+            final Process taskkill = new ProcessBuilder(
+                "taskkill.exe", "/F", "/IM", "notepad.exe").start();
+            taskkill.waitFor(15, TimeUnit.SECONDS);
+        } catch (Throwable ignored) {
+            // Editor teardown is best-effort; the exit watchdog still bounds the run.
+        }
+    }
+
+    /**
+     * Daemon watchdog armed just before {@code Runtime.exit}: if shutdown hooks stall, it dumps all
+     * thread stacks as evidence and then halts so the run still terminates inside the exit window.
+     */
+    private static void armExitWatchdog(final Path stateDir) {
+        try {
+            Files.writeString(
+                stateDir.resolve("external-psd-exit-armed.txt"),
+                "watchdog armed " + java.time.Instant.now());
+        } catch (Throwable ignored) {
+        }
+        final Thread dumper = new Thread(() -> {
+            try {
+                Thread.sleep(15000);
+                // Per-thread stack traces use handshakes, not a global safepoint, so a thread
+                // wedged in native code cannot stall the dump itself.
+                final var text = new StringBuilder("JVM exit watchdog: shutdown stalled\n");
+                for (Thread thread : allThreads()) {
+                    text.append('\n').append('"').append(thread.getName()).append('"')
+                        .append(' ').append(thread.getState());
+                    for (StackTraceElement frame : thread.getStackTrace()) {
+                        text.append("\n    at ").append(frame);
+                    }
+                }
+                Files.writeString(stateDir.resolve("external-psd-exit-threads.txt"), text);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } catch (Throwable ignored) {
+            }
+        }, "external-psd-exit-dump");
+        final Thread killer = new Thread(() -> {
+            try {
+                Thread.sleep(35000);
+            } catch (InterruptedException interrupted) {
+                return;
+            }
+            // Runtime.halt would block on the shutdown lock while a wedged hook still holds it;
+            // destroying our own process bypasses the JVM shutdown machinery entirely.
+            ProcessHandle.current().destroyForcibly();
+        }, "external-psd-exit-watchdog");
+        dumper.setDaemon(true);
+        killer.setDaemon(true);
+        dumper.start();
+        killer.start();
+    }
+
+    private static List<Thread> allThreads() {
+        ThreadGroup group = Thread.currentThread().getThreadGroup();
+        while (group.getParent() != null) group = group.getParent();
+        Thread[] threads = new Thread[group.activeCount() + 16];
+        int count;
+        while ((count = group.enumerate(threads, true)) == threads.length) {
+            threads = new Thread[threads.length * 2];
+        }
+        final List<Thread> alive = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) alive.add(threads[index]);
+        return alive;
     }
 
     /** Full save→replace→undo→stop→recover pipeline plus optional persist tail. */
@@ -747,6 +828,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      */
     private void runPersistTail(final Properties result) throws Exception {
         final List<ProjectFileLifecycleEvent.After> saves = new CopyOnWriteArrayList<>();
+        final AtomicInteger beforeEvents = new AtomicInteger();
+        final AtomicInteger onEvents = new AtomicInteger();
         final Registration subscription = context.eventBus().subscribe(
             ProjectFileLifecycleEvent.After.class,
             event -> {
@@ -754,6 +837,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     saves.add(event);
                 }
             });
+        final Registration beforeSub = context.eventBus().subscribe(
+            ProjectFileLifecycleEvent.Before.class,
+            event -> beforeEvents.incrementAndGet());
+        final Registration onSub = context.eventBus().subscribe(
+            ProjectFileLifecycleEvent.On.class,
+            event -> onEvents.incrementAndGet());
         try {
             final UserFileRequestResult granted = context.userFiles().request(
                 new UserFileRequest(
@@ -766,12 +855,25 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("persist.grant.status", granted.status().name());
             final UserFileHandle handle = granted.handle().orElseThrow(() ->
                 new IllegalStateException("No write grant issued: " + granted.status()));
-            final EditorCommandResult saved = context.editorCommands().execute(
-                new EditorFileCommandRequest(
-                    EditorFileCommand.SAVE_AS, handle, EditorOverwritePolicy.REPLACE_EXISTING));
+            final Set<java.awt.Window> baselineWindows = Set.of(java.awt.Window.getWindows());
+            final DialogAnswerWatcher watcher = new DialogAnswerWatcher(baselineWindows);
+            final EditorCommandResult saved;
+            try {
+                saved = context.editorCommands().execute(
+                    new EditorFileCommandRequest(
+                        EditorFileCommand.SAVE_AS, handle, EditorOverwritePolicy.REPLACE_EXISTING));
+            } finally {
+                watcher.close();
+            }
             result.setProperty("persist.saveAs.status", saved.status().name());
             result.setProperty("persist.saveAs.executed", Boolean.toString(saved.executed()));
+            if (!watcher.actions.isEmpty()) {
+                result.setProperty("persist.dialogActions", watcher.actions.toString());
+            }
             if (!saved.executed()) {
+                // A blocked native save leaves its modal dialog open; record which windows
+                // are up so the failure identifies the blocker instead of a bare FAILED.
+                result.setProperty("persist.openWindows", describeWindows());
                 throw new IllegalStateException("SAVE_AS did not execute: " + saved.status());
             }
             final long deadline = System.currentTimeMillis() + 15_000;
@@ -779,6 +881,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 Thread.sleep(200);
             }
             result.setProperty("persist.saveEvents", Integer.toString(saves.size()));
+            result.setProperty("persist.beforeEvents", Integer.toString(beforeEvents.get()));
+            result.setProperty("persist.onEvents", Integer.toString(onEvents.get()));
             if (saves.isEmpty()) {
                 throw new IllegalStateException("SAVE lifecycle event not observed");
             }
@@ -793,6 +897,150 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("documentPersistence", "SAVE_AS executed + SAVE event confirmed");
         } finally {
             subscription.close();
+            beforeSub.close();
+            onSub.close();
+        }
+    }
+
+    /**
+     * Snapshot of currently showing top-level windows taken from a non-EDT thread: class,
+     * title, and for dialogs the visible button labels and text so a blocking modal can be
+     * identified from evidence alone.
+     */
+    private static String describeWindows() {
+        final StringBuilder text = new StringBuilder();
+        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+            if (!window.isShowing()) {
+                continue;
+            }
+            if (text.length() > 0) {
+                text.append(" | ");
+            }
+            text.append(window.getClass().getSimpleName());
+            final String title = window instanceof java.awt.Dialog dialog ? dialog.getTitle()
+                : window instanceof java.awt.Frame frame ? frame.getTitle() : null;
+            if (title != null && !title.isBlank()) {
+                text.append('\'').append(title).append('\'');
+            }
+            if (window instanceof java.awt.Dialog) {
+                final List<String> buttons = new ArrayList<>();
+                final List<String> labels = new ArrayList<>();
+                collectDialogText(window, buttons, labels, 0);
+                if (!buttons.isEmpty()) {
+                    text.append(" buttons=").append(buttons);
+                }
+                if (!labels.isEmpty()) {
+                    text.append(" text=").append(labels);
+                }
+            }
+        }
+        return text.length() == 0 ? "none" : text.toString();
+    }
+
+    private static void collectDialogText(final java.awt.Component component,
+        final List<String> buttons, final List<String> labels, final int depth) {
+        if (depth > 6) {
+            return;
+        }
+        if (component instanceof javax.swing.AbstractButton button
+            && button.getText() != null && !button.getText().isBlank()) {
+            buttons.add(button.getText().trim());
+        }
+        if (component instanceof javax.swing.JLabel label
+            && label.getText() != null && !label.getText().isBlank()) {
+            labels.add(label.getText().replaceAll("\\s+", " ").trim());
+        }
+        if (component instanceof javax.swing.text.JTextComponent textComponent
+            && textComponent.getText() != null && !textComponent.getText().isBlank()) {
+            labels.add(textComponent.getText().replaceAll("\\s+", " ").trim());
+        }
+        if (component instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                collectDialogText(child, buttons, labels, depth + 1);
+            }
+        }
+    }
+
+    /**
+     * Polls for JDialogs that appear while a mediated save runs on the EDT. Native save flows
+     * can open a modal confirmation (e.g. unused raw images); without an answer the EDT task
+     * times out. Each new dialog's content is recorded; a button is clicked only when its
+     * label unambiguously means "keep / do not remove" so the save proceeds untouched.
+     */
+    private static final class DialogAnswerWatcher implements AutoCloseable {
+        private static final List<String> KEEP_LABELS = List.of(
+            "いいえ", "不删除", "保留", "否", "No(N)", "No", "Keep", "Keep all");
+        private final Set<java.awt.Window> baseline;
+        final List<String> actions = new CopyOnWriteArrayList<>();
+        private final AtomicBoolean stopped = new AtomicBoolean();
+        private final Thread thread;
+
+        DialogAnswerWatcher(final Set<java.awt.Window> baseline) {
+            this.baseline = baseline;
+            thread = new Thread(this::poll, "external-psd-dialog-watcher");
+            thread.setDaemon(true);
+            thread.start();
+        }
+
+        private void poll() {
+            final Set<java.awt.Window> answered = new HashSet<>();
+            while (!stopped.get()) {
+                for (final java.awt.Window window : java.awt.Window.getWindows()) {
+                    if (!(window instanceof java.awt.Dialog dialog)
+                        || baseline.contains(window) || !dialog.isShowing()
+                        || answered.contains(window)) {
+                        continue;
+                    }
+                    answered.add(window);
+                    final List<String> buttons = new ArrayList<>();
+                    final List<String> labels = new ArrayList<>();
+                    collectDialogText(dialog, buttons, labels, 0);
+                    actions.add("dialog title='" + dialog.getTitle()
+                        + "' buttons=" + buttons + " text=" + labels);
+                    final javax.swing.AbstractButton keep =
+                        findButton(dialog, KEEP_LABELS, 0);
+                    if (keep != null) {
+                        // Modal dialogs run a nested event pump, so a queued click still runs.
+                        SwingUtilities.invokeLater(() -> keep.doClick());
+                        actions.add("clicked '" + keep.getText().trim() + "'");
+                    }
+                }
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+
+        private static javax.swing.AbstractButton findButton(final java.awt.Component component,
+            final List<String> wanted, final int depth) {
+            if (depth > 6 || !(component instanceof java.awt.Container container)) {
+                return null;
+            }
+            for (final java.awt.Component child : container.getComponents()) {
+                if (child instanceof javax.swing.AbstractButton button
+                    && button.getText() != null
+                    && wanted.stream().anyMatch(w -> button.getText().trim().equals(w))) {
+                    return button;
+                }
+                final javax.swing.AbstractButton nested = findButton(child, wanted, depth + 1);
+                if (nested != null) {
+                    return nested;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public void close() {
+            stopped.set(true);
+            try {
+                thread.join(2000);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

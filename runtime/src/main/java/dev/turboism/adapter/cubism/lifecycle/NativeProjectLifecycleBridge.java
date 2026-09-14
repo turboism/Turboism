@@ -21,6 +21,8 @@ public final class NativeProjectLifecycleBridge {
 
     private static final AtomicReference<NativeProjectLifecycleBridge> INSTALLED =
         new AtomicReference<>();
+    private static final java.util.concurrent.atomic.AtomicBoolean CONTENT_INGRESS_SEEN =
+        new java.util.concurrent.atomic.AtomicBoolean();
 
     private final ProjectFileLifecycleCoordinator projectFiles;
     private final EditorLifecycleCoordinator editor;
@@ -115,6 +117,15 @@ public final class NativeProjectLifecycleBridge {
         final int kindOrdinal,
         final int operationOrdinal
     ) {
+        if (CONTENT_INGRESS_SEEN.compareAndSet(false, true)) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                "lifecycle",
+                "First lifecycle content ingress: content="
+                    + (content == null ? "null" : content.getClass().getName())
+                    + " kind=" + enumNameOrDash(ProjectContentKind.values(), kindOrdinal)
+                    + " operation="
+                    + enumNameOrDash(ProjectFileOperationType.values(), operationOrdinal));
+        }
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginExisting(
@@ -246,6 +257,7 @@ public final class NativeProjectLifecycleBridge {
         try {
             beginExisting(content, kind, operation);
         } catch (Throwable ignored) {
+            reportSwallowed("beginContent", ignored);
             files.get().push(FileInvocation.skipped());
         }
     }
@@ -279,6 +291,7 @@ public final class NativeProjectLifecycleBridge {
             completeFile(returnedContent, succeeded, failure);
         } catch (Throwable ignored) {
             // Native completion must never destabilize Cubism.
+            reportSwallowed("completeFile", ignored);
         }
     }
 
@@ -453,6 +466,18 @@ public final class NativeProjectLifecycleBridge {
         Objects.requireNonNull(value, name);
         if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
         return value;
+    }
+
+    /**
+     * Native ingress still fails open, but the swallowed cause is reported to runtime diagnostics
+     * so host-validation evidence keeps the real failure instead of a silent event gap.
+     */
+    private static void reportSwallowed(final String phase, final Throwable failure) {
+        dev.turboism.runtime.log.RuntimeDiagnostics.error(
+            "lifecycle",
+            "Lifecycle ingress swallowed at " + phase
+                + " (" + failure.getClass().getName() + ": " + failure.getMessage() + ")",
+            null);
     }
 
     private record FileInvocation(
