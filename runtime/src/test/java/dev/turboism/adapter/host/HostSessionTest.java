@@ -4,7 +4,11 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.editor.history.NativeEditIngressSessionTest;
+import dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
@@ -172,6 +176,101 @@ class HostSessionTest {
         assertEquals(HostSession.State.SAFE_MODE, session.refresh());
         assertTrue(rejectedEntry.resolved().bold().isEmpty());
         session.close();
+    }
+
+    @Test
+    void successfulModelOpenAndCreateCompletionsRequestNativeIngressRecovery() throws Exception {
+        final NativeUndoIngressObserverTest.Manager opened =
+            new NativeUndoIngressObserverTest.Manager();
+        final VerifiedMemberResolver resolver =
+            NativeEditIngressSessionTest.resolverForTest(opened);
+        final NativeUndoIngressObserverTest.Manager created =
+            new NativeUndoIngressObserverTest.Manager();
+        final HostSession session = nativeHistorySession(resolver);
+        try {
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(1, opened.listenerCount());
+
+            new NativeEditIngressSessionTest.App(created);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.OPEN, true, null
+            );
+            flushEdt();
+
+            assertEquals(0, opened.listenerCount());
+            assertEquals(1, created.listenerCount(), "successful MODEL OPEN requests recovery");
+
+            final NativeUndoIngressObserverTest.Manager recreated =
+                new NativeUndoIngressObserverTest.Manager();
+            new NativeEditIngressSessionTest.App(recreated);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.CREATE, true, null
+            );
+            flushEdt();
+
+            assertEquals(0, created.listenerCount());
+            assertEquals(1, recreated.listenerCount(), "successful MODEL CREATE requests recovery");
+        } finally {
+            session.close();
+        }
+    }
+
+    @Test
+    void failedRejectedAnimationAndModelSaveCompletionsDoNotRequestNativeIngressRecovery()
+        throws Exception {
+        final NativeUndoIngressObserverTest.Manager attached =
+            new NativeUndoIngressObserverTest.Manager();
+        final VerifiedMemberResolver resolver =
+            NativeEditIngressSessionTest.resolverForTest(attached);
+        final NativeUndoIngressObserverTest.Manager failedOpen =
+            new NativeUndoIngressObserverTest.Manager();
+        final NativeUndoIngressObserverTest.Manager failedCreate =
+            new NativeUndoIngressObserverTest.Manager();
+        final NativeUndoIngressObserverTest.Manager animation =
+            new NativeUndoIngressObserverTest.Manager();
+        final NativeUndoIngressObserverTest.Manager saved =
+            new NativeUndoIngressObserverTest.Manager();
+        final HostSession session = nativeHistorySession(resolver);
+        try {
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(1, attached.listenerCount());
+
+            new NativeEditIngressSessionTest.App(failedOpen);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.OPEN, false, null
+            );
+            flushEdt();
+
+            new NativeEditIngressSessionTest.App(failedCreate);
+            completeProjectFile(
+                session,
+                ProjectContentKind.MODEL,
+                ProjectFileOperationType.CREATE,
+                true,
+                new IllegalStateException("rejected by host")
+            );
+            flushEdt();
+
+            new NativeEditIngressSessionTest.App(animation);
+            completeProjectFile(
+                session, ProjectContentKind.ANIMATION, ProjectFileOperationType.OPEN, true, null
+            );
+            flushEdt();
+
+            new NativeEditIngressSessionTest.App(saved);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.SAVE, true, null
+            );
+            flushEdt();
+
+            assertEquals(1, attached.listenerCount());
+            assertEquals(0, failedOpen.listenerCount());
+            assertEquals(0, failedCreate.listenerCount());
+            assertEquals(0, animation.listenerCount());
+            assertEquals(0, saved.listenerCount());
+        } finally {
+            session.close();
+        }
     }
 
     @Test
@@ -860,6 +959,61 @@ class HostSessionTest {
             Thread.sleep(1);
         }
         fail("thread did not wait for the in-flight registration close");
+    }
+
+    private static HostSession nativeHistorySession(final VerifiedMemberResolver resolver) {
+        return new HostSession(
+            () -> Optional.of(descriptor("native-history")),
+            ignored -> new HostAdapterConnection() {
+                @Override public RuntimeHostAdapters adapters() {
+                    return RuntimeHostAdapters.safeMode();
+                }
+
+                @Override public VerifiedMemberResolver editorModelResolver() {
+                    return resolver;
+                }
+
+                @Override public void close() {
+                }
+            }
+        );
+    }
+
+    private static void completeProjectFile(
+        final HostSession session,
+        final ProjectContentKind kind,
+        final ProjectFileOperationType operationType,
+        final boolean succeeded,
+        final Throwable failure
+    ) {
+        final ProjectFileOperation operation = new ProjectFileOperation(
+            kind,
+            operationType,
+            Optional.empty(),
+            "Model",
+            Optional.empty()
+        );
+        final ProjectFileLifecycleCoordinator.Invocation invocation =
+            session.projectFileLifecycle().begin(operation);
+        session.projectFileLifecycle().complete(
+            invocation,
+            new ProjectContentSnapshot(
+                "content",
+                "Content",
+                kind,
+                Optional.empty(),
+                List.of(),
+                List.of()
+            ),
+            succeeded,
+            failure
+        );
+    }
+
+    private static void flushEdt() throws Exception {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeAndWait(() -> { });
+        }
     }
 
     static HostInstanceDescriptor descriptor(final String sessionId) {
