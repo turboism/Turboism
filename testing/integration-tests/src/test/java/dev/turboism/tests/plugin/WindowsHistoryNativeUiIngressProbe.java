@@ -4058,6 +4058,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
         boolean open = false;
         boolean segmentChanged = false;
+        boolean segmentNeutral = false;
         boolean sawOn = false;
         boolean sawAfter = false;
         float current = beforeValue;
@@ -4069,6 +4070,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         || !same(event.oldValue(), current)) return false;
                     open = true;
                     segmentChanged = false;
+                    segmentNeutral = same(event.oldValue(), event.newValue())
+                        && same(event.newValue(), current);
                 }
                 case "on" -> {
                     if (!open || !finite(event.oldValue()) || !finite(event.newValue())
@@ -4078,14 +4081,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     }
                     current = event.newValue();
                     segmentChanged = true;
+                    segmentNeutral = false;
                     sawOn = true;
                 }
                 case "after" -> {
-                    if (!open || !segmentChanged || !finite(event.newValue())
+                    if (!open || (!segmentChanged && !segmentNeutral) || !finite(event.newValue())
                         || !same(event.newValue(), current)
                         || !within(event.newValue(), beforeValue, afterValue)) return false;
                     open = false;
                     segmentChanged = false;
+                    segmentNeutral = false;
                     sawAfter = true;
                 }
                 default -> {

@@ -596,6 +596,105 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
+    void parameterLifecycleAcceptsR79TraceWithTrailingNoChangeSegment() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "41f72ac0-bd7f-4431-8011-be1ee7131e8a", "ParamAngleY", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "41f72ac0-bd7f-4431-8011-be1ee7131e8a", "ParamAngleY", 1.4399999f);
+        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+            lifecycle(1L, "before", "ParamAngleY", 0.0f, 0.06f, "AWT-EventQueue-0"),
+            lifecycle(
+                2L, "on", "ParamAngleY", 0.0f, 0.06f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            ),
+            lifecycle(
+                3L, "after", "ParamAngleY", null, 0.06f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            ),
+            lifecycle(4L, "before", "ParamAngleY", 0.06f, 0.29999998f, "AWT-EventQueue-0"),
+            lifecycle(
+                5L, "on", "ParamAngleY", 0.06f, 0.29999998f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            ),
+            lifecycle(
+                6L, "after", "ParamAngleY", null, 0.29999998f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            ),
+            lifecycle(7L, "before", "ParamAngleY", 0.29999998f, 1.4399999f, "AWT-EventQueue-0"),
+            lifecycle(
+                8L, "on", "ParamAngleY", 0.29999998f, 1.4399999f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            ),
+            lifecycle(
+                9L, "after", "ParamAngleY", null, 1.4399999f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            ),
+            lifecycle(10L, "before", "ParamAngleY", 1.4399999f, 1.4399999f, "AWT-EventQueue-0"),
+            lifecycle(
+                11L, "after", "ParamAngleY", null, 1.4399999f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            )
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                callbacks, before, after, Set.of("ParamAngleY"), true
+            )
+        );
+    }
+
+    @Test
+    void parameterLifecyclePureNoChangeCannotSucceed() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", "ParamAngleY", 1.4399999f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", "ParamAngleY", 1.4399999f);
+        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+            lifecycle(1L, "before", "ParamAngleY", 1.4399999f, 1.4399999f, "AWT-EventQueue-0"),
+            lifecycle(
+                2L, "after", "ParamAngleY", null, 1.4399999f,
+                "bulkhead-dev.turboism.validation.history-native-ui-1"
+            )
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.OBSERVED_UNRELATED,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                callbacks, before, after, Set.of(), false
+            )
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                callbacks, before, after, Set.of("ParamAngleY"), false
+            )
+        );
+    }
+
+    @Test
+    void parameterLifecycleNeutralSegmentCannotHideMissingOn() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", "ParamAngleY", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", "ParamAngleY", 5.0f);
+        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+            lifecycle(1L, "before", "ParamAngleY", 0.0f, 5.0f, "AWT-EventQueue-0"),
+            lifecycle(2L, "on", "ParamAngleY", 0.0f, 5.0f, "callback"),
+            lifecycle(3L, "after", "ParamAngleY", null, 5.0f, "callback"),
+            lifecycle(4L, "before", "ParamAngleY", 5.0f, 9.0f, "AWT-EventQueue-0"),
+            lifecycle(5L, "after", "ParamAngleY", null, 5.0f, "callback")
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                callbacks, before, after, Set.of("ParamAngleY"), true
+            )
+        );
+    }
+
+    @Test
     void parameterLifecycleRejectsReversedAndUnrelatedValues() {
         final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
             "model-A", 0.0f);
@@ -875,9 +974,17 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final String modelId,
         final float value
     ) {
+        return parameterSnapshot(modelId, "ParamAngleX", value);
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot parameterSnapshot(
+        final String modelId,
+        final String parameterId,
+        final float value
+    ) {
         return WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
             modelId,
-            List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", value))
+            List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample(parameterId, value))
         );
     }
 
