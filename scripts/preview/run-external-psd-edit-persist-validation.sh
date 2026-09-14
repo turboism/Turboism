@@ -133,8 +133,21 @@ if not isinstance(task_dir, str) or not task_dir or not Path(task_dir).is_absolu
 task_path = Path(task_dir)
 if ".." in task_path.parts or task_path == Path("/") or task_path.name != run_id:
     raise SystemExit(f"{stage_name} Supervisor evidence has an unsafe task directory")
+terminal_sha256 = terminal_result.get("sha256")
+if not isinstance(terminal_sha256, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", terminal_sha256):
+    raise SystemExit(f"{stage_name} Supervisor evidence has no valid terminal result sha256")
+terminal_path = terminal_result.get("path")
+if not isinstance(terminal_path, str) or not terminal_path or any(char in terminal_path for char in "\t\r\n"):
+    raise SystemExit(f"{stage_name} Supervisor evidence has no safe terminal result path")
+terminal_file = Path(terminal_path)
+if not terminal_file.is_absolute() or ".." in terminal_file.parts:
+    raise SystemExit(f"{stage_name} Supervisor evidence has an unsafe terminal result path")
+try:
+    terminal_file.relative_to(task_path)
+except ValueError:
+    raise SystemExit(f"{stage_name} terminal result is outside its bound task directory")
 
-print("\t".join((job_id, attempt_id, run_id, digest, task_dir)))
+print("\t".join((job_id, attempt_id, run_id, digest, task_dir, terminal_sha256, terminal_path)))
 PY
 }
 
@@ -142,25 +155,41 @@ if ! stage_a_binding="$(read_terminal_job "$stage_a_log" stage-A)"; then
   die "stage A lacks complete final Supervisor evidence; stage B was not started"
 fi
 IFS=$'\t' read -r stage_a_job_id stage_a_attempt_id stage_a_run_id stage_a_digest stage_a_task_dir \
+  stage_a_terminal_sha256 stage_a_terminal_path \
   <<< "$stage_a_binding"
 [ -n "${stage_a_job_id:-}" ] && [ -n "${stage_a_attempt_id:-}" ] \
   && [ -n "${stage_a_run_id:-}" ] && [ -n "${stage_a_digest:-}" ] \
-  && [ -n "${stage_a_task_dir:-}" ] \
+  && [ -n "${stage_a_task_dir:-}" ] && [ -n "${stage_a_terminal_sha256:-}" ] \
+  && [ -n "${stage_a_terminal_path:-}" ] \
   || die 'stage A queue binding is incomplete; stage B was not started'
 
 task_dir="$stage_a_task_dir"
 [ ! -L "$task_dir" ] || die "stage A task directory is a symlink: $task_dir"
-result_a="$task_dir/evidence/result/external-psd-edit-result.properties"
-[ -f "$result_a" ] && [ ! -L "$result_a" ] \
-  || die "stage A result missing for job $stage_a_job_id / run $stage_a_run_id: $result_a"
-
-property() {
-  local key="$1"
-  awk -F= -v wanted="$key" '$1 == wanted { print substr($0, index($0, "=") + 1); exit }' "$result_a"
+verify_terminal_result() {
+  local stage_name="$1" terminal_sha256="$2" terminal_path="$3" actual_sha256
+  [ -f "$terminal_path" ] && [ ! -L "$terminal_path" ] \
+    || die "$stage_name terminal result missing for its bound job: $terminal_path"
+  actual_sha256="$(sha256sum -- "$terminal_path" | awk '{ print $1 }')"
+  [ "$actual_sha256" = "$terminal_sha256" ] \
+    || die "$stage_name terminal result SHA does not match Supervisor evidence: $terminal_path"
 }
 
-[ "$(property status)" = PASS ] \
+verify_terminal_result stage-A "$stage_a_terminal_sha256" "$stage_a_terminal_path"
+result_a="$stage_a_terminal_path"
+
+property() {
+  local file="$1" key="$2"
+  awk -F= -v wanted="$key" '$1 == wanted { print substr($0, index($0, "=") + 1); exit }' "$file"
+}
+
+[ "$(property "$result_a" status)" = PASS ] \
   || die "stage A result did not PASS for job $stage_a_job_id / run $stage_a_run_id"
+[ "$(property "$result_a" runId)" = "$stage_a_run_id" ] \
+  || die "stage A result runId is not bound to queue run $stage_a_run_id"
+[ "$(property "$result_a" phase)" = pipeline ] \
+  || die 'stage A result is not the pipeline phase; stage B was not started'
+[ "$(property "$result_a" persist.saveSucceeded)" = true ] \
+  || die 'stage A did not record persist.saveSucceeded=true; stage B was not started'
 
 saved="$task_dir/turboism-home/persisted-document.cmo3"
 [ -f "$saved" ] && [ ! -L "$saved" ] \
@@ -169,8 +198,8 @@ saved="$task_dir/turboism-home/persisted-document.cmo3"
 # The reopen probe gates on exported image data. The full-file digest is useful
 # context and is optional; the retired marker coordinates are intentionally not
 # read or forwarded.
-post_file_sha256="$(property persist.postEditSha256)"
-post_image_sha256="$(property persist.postEditImageSha256)"
+post_file_sha256="$(property "$result_a" persist.postEditSha256)"
+post_image_sha256="$(property "$result_a" persist.postEditImageSha256)"
 [[ "$post_image_sha256" =~ ^[0-9a-fA-F]{64}$ ]] \
   || die "stage A is missing a valid persist.postEditImageSha256; stage B was not started"
 if [ -n "$post_file_sha256" ] && [[ ! "$post_file_sha256" =~ ^[0-9a-fA-F]{64}$ ]]; then
@@ -197,10 +226,26 @@ if ! stage_b_binding="$(read_terminal_job "$stage_b_log" stage-B)"; then
   die 'stage B lacks complete final Supervisor evidence'
 fi
 IFS=$'\t' read -r stage_b_job_id stage_b_attempt_id stage_b_run_id stage_b_digest stage_b_task_dir \
+  stage_b_terminal_sha256 stage_b_terminal_path \
   <<< "$stage_b_binding"
-stage_b_result="$stage_b_task_dir/evidence/result/external-psd-edit-result.properties"
-[ -f "$stage_b_result" ] && [ ! -L "$stage_b_result" ] \
-  || die "stage B result missing for job $stage_b_job_id / run $stage_b_run_id: $stage_b_result"
-awk -F= '$1 == "status" { found = ($2 == "PASS"); seen = 1; exit } END { exit !(seen && found) }' \
-  "$stage_b_result" \
+[ "$stage_b_job_id" != "$stage_a_job_id" ] \
+  || die 'stage B reused the stage A job; reopen was not independently executed'
+[ "$stage_b_run_id" != "$stage_a_run_id" ] \
+  || die 'stage B reused the stage A run; reopen was not independently executed'
+[ "$stage_b_task_dir" != "$stage_a_task_dir" ] \
+  || die 'stage B reused the stage A task directory; reopen was not independently executed'
+[ ! -L "$stage_b_task_dir" ] \
+  || die "stage B task directory is a symlink: $stage_b_task_dir"
+
+verify_terminal_result stage-B "$stage_b_terminal_sha256" "$stage_b_terminal_path"
+stage_b_result="$stage_b_terminal_path"
+[ "$(property "$stage_b_result" status)" = PASS ] \
   || die "stage B result did not PASS for job $stage_b_job_id / run $stage_b_run_id"
+[ "$(property "$stage_b_result" runId)" = "$stage_b_run_id" ] \
+  || die "stage B result runId is not bound to queue run $stage_b_run_id"
+[ "$(property "$stage_b_result" phase)" = reopen ] \
+  || die 'stage B result is not the reopen phase'
+[ "$(property "$stage_b_result" reopen.expectedImageSha256)" = "$post_image_sha256" ] \
+  || die 'stage B expected image SHA does not match the stage A post-edit image SHA'
+[ "$(property "$stage_b_result" reopen.imageSha256)" = "$post_image_sha256" ] \
+  || die 'stage B reopened image SHA does not match the stage A post-edit image SHA'

@@ -43,24 +43,33 @@ host_root="${DRIVER_STUB_HOST_ROOT:?}"
 log="${DRIVER_STUB_LOG:?}"
 file_hash="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 image_hash="1111111111111111111111111111111111111111111111111111111111111111"
-run_id="queue-run-a"
-job_id="job-a"
-task_dir="$host_root/external-psd-edit-pipeline/5302-025-us4/$run_id"
+a_run_id="queue-run-a"
+a_job_id="job-a"
+a_task_dir="$host_root/external-psd-edit-pipeline/5302-025-us4/$a_run_id"
+b_run_id="queue-run-b"
+b_job_id="job-b"
+b_task_dir="$host_root/external-psd-edit-pipeline/5302-025-us4/$b_run_id"
+result_name="external-psd-edit-result.properties"
 
 printf 'phase=%s\n' "$phase" >> "$log"
 
 write_job() {
-  local state="$1" incomplete="${2:-0}"
-  python3 - "$job_id" "$run_id" "$state" "$incomplete" "$task_dir" <<'PY'
+  local job_id="$1" run_id="$2" task_dir="$3" result_path="$4" state="$5" evidence_mode="${6:-complete}"
+  python3 - "$job_id" "$run_id" "$task_dir" "$result_path" "$state" "$evidence_mode" <<'PY'
+import hashlib
 import json
 import sys
+from pathlib import Path
 
-job_id, run_id, state, incomplete, task_dir = sys.argv[1:]
+job_id, run_id, task_dir, result_path, state, evidence_mode = sys.argv[1:]
 attempt_id = "attempt-" + job_id
 digest = "digest-" + job_id
-if incomplete == "1":
+if evidence_mode == "incomplete":
     evidence = {"schemaVersion": 1}
 else:
+    result_sha256 = hashlib.sha256(Path(result_path).read_bytes()).hexdigest()
+    if evidence_mode == "bad-terminal-sha":
+        result_sha256 = "0" * 64
     evidence = {
         "schemaVersion": 1,
         "jobId": job_id,
@@ -79,7 +88,11 @@ else:
             "taskDir": task_dir,
             "validationComplete": True,
             "taskOwnedCleanup": True,
-            "postContainmentChecks": {"terminalResult": {"passed": True}},
+            "postContainmentChecks": {"terminalResult": {
+                "passed": True,
+                "path": result_path,
+                "sha256": result_sha256,
+            }},
         },
     }
 job = {
@@ -101,7 +114,46 @@ if [ "$phase" = reopen ]; then
   printf 'stageB.markerLayer=%s\n' "${EXTERNAL_PSD_MARKERLAYER:-}" >> "$log"
   printf 'stageB.markerOffset=%s\n' "${EXTERNAL_PSD_MARKEROFFSET:-}" >> "$log"
   printf 'stageB.markerChar=%s\n' "${EXTERNAL_PSD_MARKERCHAR:-}" >> "$log"
-  write_job succeeded
+  if [ "$mode" = reuse-a-evidence ]; then
+    write_job "$a_job_id" "$a_run_id" "$a_task_dir" \
+      "$a_task_dir/evidence/result/$result_name" succeeded
+    exit 0
+  fi
+
+  b_result="$b_task_dir/evidence/result/$result_name"
+  mkdir -p "$(dirname "$b_result")"
+  b_expected="${EXTERNAL_PSD_POSTEDITIMAGESHA256:-}"
+  b_actual="$b_expected"
+  b_phase=reopen
+  b_result_run_id="$b_run_id"
+  case "$mode" in
+    wrong-phase) b_phase=pipeline ;;
+    wrong-run) b_result_run_id="$a_run_id" ;;
+    wrong-expected-image) b_expected="$file_hash" ;;
+    wrong-image) b_actual="$file_hash" ;;
+  esac
+  {
+    printf 'status=PASS\n'
+    printf 'runId=%s\n' "$b_result_run_id"
+    printf 'phase=%s\n' "$b_phase"
+    printf 'reopen.expectedImageSha256=%s\n' "$b_expected"
+    printf 'reopen.imageSha256=%s\n' "$b_actual"
+  } > "$b_result"
+  printf 'stageB.job=%s\n' "$b_job_id" >> "$log"
+  printf 'stageB.run=%s\n' "$b_run_id" >> "$log"
+  printf 'stageB.taskDir=%s\n' "$b_task_dir" >> "$log"
+  printf 'stageB.result=%s\n' "$b_result" >> "$log"
+  if [ "$mode" = stage-b-failure ]; then
+    write_job "$b_job_id" "$b_run_id" "$b_task_dir" "$b_result" failed
+    exit 42
+  fi
+  if [ "$mode" = stage-b-incomplete-supervisor ]; then
+    write_job "$b_job_id" "$b_run_id" "$b_task_dir" "$b_result" succeeded incomplete
+  elif [ "$mode" = terminal-sha-mismatch ]; then
+    write_job "$b_job_id" "$b_run_id" "$b_task_dir" "$b_result" succeeded bad-terminal-sha
+  else
+    write_job "$b_job_id" "$b_run_id" "$b_task_dir" "$b_result" succeeded
+  fi
   exit 0
 fi
 
@@ -119,30 +171,56 @@ if [ "$mode" = stage-failure ]; then
   exit 42
 fi
 
-mkdir -p "$task_dir/evidence/result" "$task_dir/turboism-home"
-printf 'persisted copy from %s\n' "$mode" > "$task_dir/turboism-home/persisted-document.cmo3"
+a_result="$a_task_dir/evidence/result/$result_name"
+mkdir -p "$(dirname "$a_result")" "$a_task_dir/turboism-home"
+printf 'persisted copy from %s\n' "$mode" > "$a_task_dir/turboism-home/persisted-document.cmo3"
+a_result_run_id="$a_run_id"
+a_phase=pipeline
+a_save_succeeded=true
+case "$mode" in
+  wrong-a-run) a_result_run_id=queue-run-other ;;
+  wrong-a-phase) a_phase=reopen ;;
+  save-not-succeeded) a_save_succeeded=false ;;
+esac
 
 if [ "$mode" = missing-hash ]; then
   {
     printf 'status=PASS\n'
+    printf 'runId=%s\n' "$a_result_run_id"
+    printf 'phase=%s\n' "$a_phase"
+    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
     printf 'persist.markerLayer=3\n'
     printf 'persist.markerOffset=4\n'
     printf 'persist.markerChar=5\n'
-  } > "$task_dir/evidence/result/external-psd-edit-result.properties"
+  } > "$a_result"
+elif [ "$mode" = invalid-hash ]; then
+  {
+    printf 'status=PASS\n'
+    printf 'runId=%s\n' "$a_result_run_id"
+    printf 'phase=%s\n' "$a_phase"
+    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
+    printf 'persist.postEditImageSha256=not-a-sha256\n'
+  } > "$a_result"
 elif [ "$mode" = image-only ]; then
   {
     printf 'status=PASS\n'
+    printf 'runId=%s\n' "$a_result_run_id"
+    printf 'phase=%s\n' "$a_phase"
+    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
     printf 'persist.postEditImageSha256=%s\n' "$image_hash"
-  } > "$task_dir/evidence/result/external-psd-edit-result.properties"
+  } > "$a_result"
 else
   {
     printf 'status=PASS\n'
+    printf 'runId=%s\n' "$a_result_run_id"
+    printf 'phase=%s\n' "$a_phase"
+    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
     printf 'persist.markerLayer=legacy\n'
     printf 'persist.markerOffset=legacy\n'
     printf 'persist.markerChar=legacy\n'
     printf 'persist.postEditSha256=%s\n' "$file_hash"
     printf 'persist.postEditImageSha256=%s\n' "$image_hash"
-  } > "$task_dir/evidence/result/external-psd-edit-result.properties"
+  } > "$a_result"
 fi
 
 if [ "$mode" = adjacent-job ]; then
@@ -161,9 +239,9 @@ if [ "$mode" = adjacent-job ]; then
 fi
 
 if [ "$mode" = incomplete-supervisor ]; then
-  write_job succeeded 1
+  write_job "$a_job_id" "$a_run_id" "$a_task_dir" "$a_result" succeeded incomplete
 else
-  write_job succeeded
+  write_job "$a_job_id" "$a_run_id" "$a_task_dir" "$a_result" succeeded
 fi
 STUB
   chmod +x "$sandbox/scripts/preview/run-external-psd-edit-host-validation.sh"
@@ -206,6 +284,13 @@ run_success_case() {
   assert_file_contains "$case_root/stub.log" 'phase=reopen' "$mode must run stage B"
   assert_file_contains "$case_root/stub.log" "stageB.fixture=$expected_saved" \
     "$mode must bind stage B to the stage A run"
+  assert_file_contains "$case_root/stub.log" 'stageB.job=job-b' \
+    "$mode must receive an independently queued stage B job"
+  assert_file_contains "$case_root/stub.log" 'stageB.run=queue-run-b' \
+    "$mode must receive an independently bound stage B run"
+  assert_file_contains "$case_root/stub.log" \
+    "stageB.taskDir=$host_root/external-psd-edit-pipeline/5302-025-us4/queue-run-b" \
+    "$mode must write stage B evidence in an independent task directory"
   assert_file_contains "$case_root/stub.log" \
     'stageB.postImage=1111111111111111111111111111111111111111111111111111111111111111' \
     "$mode must pass the post-edit image hash"
@@ -228,13 +313,44 @@ assert_file_contains "$test_root/image-only/stub.log" \
   'stageB.postImage=1111111111111111111111111111111111111111111111111111111111111111' \
   'image-only evidence must pass the required image hash'
 
+run_stage_b_rejection_case() {
+  local mode="$1"
+  run_driver_case "$mode" 1 >/dev/null
+  assert_file_contains "$test_root/$mode/stub.log" 'phase=reopen' \
+    "$mode must reach stage B before its malformed evidence is rejected"
+}
+
+run_stage_b_rejection_case reuse-a-evidence
+run_stage_b_rejection_case wrong-phase
+run_stage_b_rejection_case wrong-run
+run_stage_b_rejection_case wrong-expected-image
+run_stage_b_rejection_case wrong-image
+run_stage_b_rejection_case terminal-sha-mismatch
+run_stage_b_rejection_case stage-b-failure
+run_stage_b_rejection_case stage-b-incomplete-supervisor
+
 run_driver_case stage-failure 1 >/dev/null
 assert_file_not_contains "$test_root/stage-failure/stub.log" 'phase=reopen' \
   'stage A failure must not start stage B'
 
+run_stage_a_rejection_case() {
+  local mode="$1"
+  run_driver_case "$mode" 1 >/dev/null
+  assert_file_not_contains "$test_root/$mode/stub.log" 'phase=reopen' \
+    "$mode must fail the stage A gate before stage B"
+}
+
+run_stage_a_rejection_case wrong-a-run
+run_stage_a_rejection_case wrong-a-phase
+run_stage_a_rejection_case save-not-succeeded
+
 run_driver_case missing-hash 1 >/dev/null
 assert_file_not_contains "$test_root/missing-hash/stub.log" 'phase=reopen' \
   'missing post-edit hash must fail before stage B'
+
+run_driver_case invalid-hash 1 >/dev/null
+assert_file_not_contains "$test_root/invalid-hash/stub.log" 'phase=reopen' \
+  'invalid post-edit hash must fail before stage B'
 
 run_driver_case incomplete-supervisor 1 >/dev/null
 assert_file_not_contains "$test_root/incomplete-supervisor/stub.log" 'phase=reopen' \
