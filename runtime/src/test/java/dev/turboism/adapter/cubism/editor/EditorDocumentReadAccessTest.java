@@ -407,6 +407,33 @@ class EditorDocumentReadAccessTest {
     }
 
     @Test
+    void scaleKeyframeTimesPreservesHandlePrecisionAtLargeOrigins() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            writeResolver("5.3.02"), "session-a"
+        ).active();
+
+        // Identity scaling is a no-op even at origins that are not exactly
+        // representable as float; the affine math must not round origin or
+        // handle offsets through float before scaling.
+        for (final int origin : List.of(16777217, -16777217)) {
+            final int scaled =
+                scene1Parameter(model).scaleKeyframeTimes(1.0, origin);
+
+            assertEquals(3, scaled);
+            final AnimationAttribute reloaded = scene1Parameter(model);
+            assertEquals(List.of(0, 30, 60), frames(reloaded));
+            final var bezierKey = reloaded.keyframes().get(1);
+            assertEquals(24.5F, bezierKey.inHandle().orElseThrow().frame());
+            assertEquals(36.0F, bezierKey.outHandle().orElseThrow().frame());
+            assertEquals(0.4, bezierKey.inHandle().orElseThrow().value());
+            assertEquals(0.6, bezierKey.outHandle().orElseThrow().value());
+            assertTrue(bezierKey.outHandle().orElseThrow().corner());
+        }
+    }
+
+    @Test
     void scaleKeyframeTimesRollsBackKeysAndHandlesWhenMutationFails() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;

@@ -159,6 +159,52 @@ class AnimationScopeCompositionTest {
         }
     }
 
+    @Test
+    void animationCopyAcrossActiveViewsStaysLegalWithinPluginScope()
+        throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final RuntimeScheduler scheduler = scheduler();
+        try {
+            final List<String> calls = new ArrayList<>();
+            final DefaultCubismServicesFactory factory =
+                DefaultCubismServicesFactoryTestSupport.withModelAccess(
+                    RuntimeHostAdapters.safeMode(),
+                    () -> animationGraphModel(calls)
+                );
+            final CorePluginContext.Dependencies dependencies =
+                new CorePluginContext.Dependencies(
+                    descriptor("turboism.cubism.model.read", "turboism.cubism.model.write"),
+                    logger(),
+                    paths(),
+                    uiScheduler(),
+                    scheduler,
+                    diagnostics(),
+                    scope,
+                    noopHostSnapshotSource(),
+                    ignored -> { },
+                    CLOCK
+                );
+            final CubismFacade facade = factory.create(dependencies).cubismFacade();
+
+            // Same facade, unchanged backend, live scope: a source obtained
+            // through a second active() view shares authorization ownership
+            // and session generation, so the copy must stay legal.
+            final AnimationAttribute target = facade.model().active()
+                .animationDocuments().get(0).scenes().get(0)
+                .tracks().get(1).children().get(0).attributes().get(0);
+            final AnimationAttribute separateViewSource = facade.model().active()
+                .animationDocuments().get(0).scenes().get(0)
+                .tracks().get(0).attributes().get(0);
+            calls.clear();
+
+            assertEquals(0, target.copyKeyframesFrom(separateViewSource, false));
+            assertEquals(List.of("attr.copyKeyframesFrom"), calls);
+        } finally {
+            scope.close();
+            if (!scheduler.isClosed()) scheduler.shutdown();
+        }
+    }
+
     private static CubismModel animationGraphModel(final List<String> calls) {
         final AnimationAttribute leaf = animationAttribute("attr-leaf", calls);
         final AnimationTrack childTrack = animationTrack(

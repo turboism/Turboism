@@ -1460,7 +1460,7 @@ final class EditorAnimationTimelineAccess {
 
         HandleData scaled(final int originFrame, final double factor) {
             return new HandleData(
-                (float) (originFrame + (frame - originFrame) * factor),
+                (float) (originFrame + ((double) frame - originFrame) * factor),
                 value,
                 corner
             );

@@ -97,6 +97,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
+    private final Object animationGraphOwner = new Object();
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -1255,7 +1256,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("model.animationDocuments");
             return delegate.animationDocuments().stream()
                 .map(document -> (dev.turboism.sdk.cubism.model.AnimationDocument)
-                    new PermissionCheckedAnimationDocument(wrapperOwner, document))
+                    new PermissionCheckedAnimationDocument(animationGraphOwner, document))
                 .toList();
         }
         @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
@@ -1961,7 +1962,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         if (!(value instanceof PermissionCheckedAnimationAttribute checked)
             || checked.owner != expectedOwner) {
             throw new IllegalArgumentException(
-                "Animation attribute belongs to another Cubism facade or model generation"
+                "Animation attribute belongs to another Cubism facade"
             );
         }
         return checked.delegate;
