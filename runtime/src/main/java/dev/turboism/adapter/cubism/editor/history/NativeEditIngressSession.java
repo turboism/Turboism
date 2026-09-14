@@ -53,13 +53,14 @@ public final class NativeEditIngressSession implements AutoCloseable {
     private final NativeEditBeginBridge.BeforeSink beforeSink;
     private final Consumer<Runnable> eventThread;
     private final AtomicBoolean drainScheduled = new AtomicBoolean();
+    private final AtomicBoolean rebindScheduled = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final RetryPolicy retry;
-    private final AtomicBoolean retrying = new AtomicBoolean();
 
     private final Object bindLock = new Object();
+    private volatile BindingRequest requested;
     private volatile Pending pending;
-    private volatile Thread retryThread;
+    private RetryTask retryTask;
     private NativeEditIngress ingress;
     private Object manager;
     private long generation = -1;
@@ -109,58 +110,110 @@ public final class NativeEditIngressSession implements AutoCloseable {
      */
     public boolean bind(final long generation, final VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
-        if (closed.get()) return false;
+        final BindingRequest request;
+        final Thread obsoleteRetry;
+        synchronized (bindLock) {
+            if (closed.get()) return false;
+            request = new BindingRequest(generation, resolver);
+            obsoleteRetry = supersedeRetryLocked();
+            requested = request;
+            if (ingress != null && this.generation != generation) {
+                closeLocked();
+            }
+        }
+        interrupt(obsoleteRetry);
+        return attemptBind(request);
+    }
+
+    /**
+     * Requests one deferred rebind for the current host/document binding.
+     *
+     * <p>The request is posted to the same host event thread used for drains and is coalesced while
+     * one request is queued. This is the lifecycle-triggered recovery path for a document that was
+     * not available when the startup retry budget ended; it performs no work when the session has
+     * been deactivated, closed, or superseded by another generation.</p>
+     */
+    public void retryBinding() {
+        final BindingRequest request;
+        synchronized (bindLock) {
+            if (closed.get() || requested == null) return;
+            request = requested;
+        }
+        if (!rebindScheduled.compareAndSet(false, true)) return;
+        try {
+            eventThread.accept(() -> {
+                rebindScheduled.set(false);
+                if (isCurrent(request)) {
+                    attemptBind(request);
+                }
+            });
+        } catch (VirtualMachineError fatal) {
+            rebindScheduled.set(false);
+            throw fatal;
+        } catch (Throwable refused) {
+            rebindScheduled.set(false);
+        }
+    }
+
+    private boolean attemptBind(final BindingRequest request) {
+        if (!isCurrent(request)) return false;
         final Object resolved;
         try {
-            resolved = EditorHistoryNativeBindings.undoManager(resolver);
+            resolved = EditorHistoryNativeBindings.undoManager(request.resolver());
         } catch (RuntimeException unavailable) {
             // The Editor builds its own controllers later than the host connection is admitted, so
             // the first resolve legitimately finds nothing. Treating that as "this host has no
             // history" would leave the ingress dead for the whole session.
-            scheduleRetry(generation, resolver, unavailable);
+            scheduleRetry(request, unavailable);
             return false;
         }
+        Thread obsoleteRetry = null;
         synchronized (bindLock) {
-            if (closed.get()) return false;
+            if (!isCurrentLocked(request)) return false;
             pending = null;
-            if (ingress != null && this.manager == resolved && this.generation == generation) {
-                return true;
-            }
-            closeLocked();
-            final NativeEditIngress candidate = new NativeEditIngress(
-                resolver,
-                resolved,
-                publisher,
-                this::requestDrain
-            );
-            try {
-                candidate.attach();
-            } catch (RuntimeException refused) {
-                attachFailureCount++;
-                candidate.close();
-                RuntimeDiagnostics.warn(
-                    COMPONENT,
-                    "Native edit ingress listener was refused on "
-                        + resolved.getClass().getName() + ": " + describe(refused)
+            if (ingress != null
+                && this.manager == resolved
+                && this.generation == request.generation()) {
+                obsoleteRetry = finishRetryLocked(request);
+            } else {
+                closeLocked();
+                final NativeEditIngress candidate = new NativeEditIngress(
+                    request.resolver(),
+                    resolved,
+                    publisher,
+                    this::requestDrain
                 );
-                return false;
+                try {
+                    candidate.attach();
+                } catch (RuntimeException refused) {
+                    attachFailureCount++;
+                    candidate.close();
+                    RuntimeDiagnostics.warn(
+                        COMPONENT,
+                        "Native edit ingress listener was refused on "
+                            + resolved.getClass().getName() + ": " + describe(refused)
+                    );
+                    return false;
+                }
+                ingress = candidate;
+                // The hook fires from the host's edit entry, which is not the listener's thread
+                // contract, so the bridge only queues and asks this session for the same coalesced
+                // drain. Binding it here keeps one drain order: observed starts first, then the
+                // observation that the commit produced.
+                NativeEditBeginBridge.bind(beforeSink, this::requestDrain);
+                manager = resolved;
+                this.generation = request.generation();
+                bindCount++;
+                RuntimeDiagnostics.info(
+                    COMPONENT,
+                    "Native edit ingress listening on " + resolved.getClass().getName()
+                        + " for editor-UI generation " + request.generation()
+                );
+                obsoleteRetry = finishRetryLocked(request);
             }
-            ingress = candidate;
-            // The hook fires from the host's edit entry, which is not the listener's thread
-            // contract, so the bridge only queues and asks this session for the same coalesced
-            // drain. Binding it here keeps one drain order: observed starts first, then the
-            // observation that the commit produced.
-            NativeEditBeginBridge.bind(beforeSink, this::requestDrain);
-            manager = resolved;
-            this.generation = generation;
-            bindCount++;
-            RuntimeDiagnostics.info(
-                COMPONENT,
-                "Native edit ingress listening on " + resolved.getClass().getName()
-                    + " for editor-UI generation " + generation
-            );
-            return true;
         }
+        interrupt(obsoleteRetry);
+        return true;
     }
 
     /**
@@ -289,32 +342,47 @@ public final class NativeEditIngressSession implements AutoCloseable {
      * so a later connection never races an older attempt onto the ingress.</p>
      */
     private void scheduleRetry(
-        final long generation,
-        final VerifiedMemberResolver resolver,
+        final BindingRequest request,
         final RuntimeException cause
     ) {
+        final Thread obsoleteRetry;
+        final Thread thread;
         synchronized (bindLock) {
-            if (closed.get()) return;
-            pending = new Pending(generation, cause);
+            if (!isCurrentLocked(request)) return;
+            pending = new Pending(request, cause);
+            if (retryTask != null && retryTask.request() == request) return;
+            obsoleteRetry = retryTask == null ? null : retryTask.thread();
+            retryTask = null;
+            thread = new Thread(
+                () -> retryUntilBound(request),
+                "turboism-native-edit-ingress-bind"
+            );
+            thread.setDaemon(true);
+            retryTask = new RetryTask(request, thread);
         }
-        if (!retrying.compareAndSet(false, true)) return;
-        final Thread thread = new Thread(
-            () -> retryUntilBound(generation, resolver),
-            "turboism-native-edit-ingress-bind"
-        );
-        thread.setDaemon(true);
-        retryThread = thread;
-        thread.start();
+        interrupt(obsoleteRetry);
+        try {
+            thread.start();
+        } catch (Throwable failure) {
+            synchronized (bindLock) {
+                if (retryTask != null
+                    && retryTask.request() == request
+                    && retryTask.thread() == thread) {
+                    retryTask = null;
+                    if (pending != null && pending.request() == request) pending = null;
+                }
+            }
+            throw failure;
+        }
     }
 
-    private void retryUntilBound(final long generation, final VerifiedMemberResolver resolver) {
+    private void retryUntilBound(final BindingRequest request) {
         RuntimeException lastFailure = null;
         try {
             for (int attempt = 1; attempt <= retry.maxAttempts(); attempt++) {
                 Thread.sleep(retry.intervalMillis());
-                final Pending current = pending;
-                if (closed.get() || current == null || current.generation() != generation) return;
-                if (bind(generation, resolver)) {
+                if (!isCurrent(request)) return;
+                if (attemptBind(request)) {
                     RuntimeDiagnostics.info(
                         COMPONENT,
                         "Native edit ingress attached on deferred attempt " + attempt
@@ -322,6 +390,8 @@ public final class NativeEditIngressSession implements AutoCloseable {
                     );
                     return;
                 }
+                final Pending current = pending;
+                if (!isCurrent(request) || current == null || current.request() != request) return;
                 lastFailure = current.cause();
             }
             RuntimeDiagnostics.warn(
@@ -333,27 +403,71 @@ public final class NativeEditIngressSession implements AutoCloseable {
             Thread.currentThread().interrupt();
         } finally {
             synchronized (bindLock) {
-                if (pending != null && pending.generation() == generation) {
-                    pending = null;
+                if (retryTask != null
+                    && retryTask.request() == request
+                    && retryTask.thread() == Thread.currentThread()) {
+                    retryTask = null;
+                    if (pending != null && pending.request() == request) pending = null;
                 }
             }
-            retryThread = null;
-            retrying.set(false);
         }
     }
 
     private void cancelRetry() {
+        final Thread thread;
         synchronized (bindLock) {
+            requested = null;
             pending = null;
+            final RetryTask task = retryTask;
+            retryTask = null;
+            thread = task == null ? null : task.thread();
         }
-        final Thread thread = retryThread;
-        retryThread = null;
-        if (thread != null) thread.interrupt();
-        retrying.set(false);
+        rebindScheduled.set(false);
+        interrupt(thread);
+    }
+
+    private Thread supersedeRetryLocked() {
+        final RetryTask task = retryTask;
+        retryTask = null;
+        pending = null;
+        return task == null ? null : task.thread();
+    }
+
+    private Thread finishRetryLocked(final BindingRequest request) {
+        if (retryTask == null || retryTask.request() != request) return null;
+        final Thread thread = retryTask.thread();
+        retryTask = null;
+        pending = null;
+        return thread;
+    }
+
+    private boolean isCurrent(final BindingRequest request) {
+        synchronized (bindLock) {
+            return isCurrentLocked(request);
+        }
+    }
+
+    private boolean isCurrentLocked(final BindingRequest request) {
+        return !closed.get() && requested == request;
+    }
+
+    private static void interrupt(final Thread thread) {
+        if (thread != null && thread != Thread.currentThread()) thread.interrupt();
     }
 
     /** One binding request whose native document could not be resolved yet. */
-    private record Pending(long generation, RuntimeException cause) {
+    private record Pending(BindingRequest request, RuntimeException cause) {
+    }
+
+    /** One retry worker owned by one binding request. */
+    private record RetryTask(BindingRequest request, Thread thread) {
+    }
+
+    /** One generation-aware request; identity is the stale-work fence. */
+    private record BindingRequest(
+        long generation,
+        VerifiedMemberResolver resolver
+    ) {
     }
 
     private void closeLocked() {
