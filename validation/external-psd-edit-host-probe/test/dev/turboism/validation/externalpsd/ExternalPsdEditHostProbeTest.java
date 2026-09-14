@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -70,7 +71,9 @@ public final class ExternalPsdEditHostProbeTest {
         testNativeFingerprintGates();
         testHistoryMovesRequireMoved();
         testTempCandidateBinding();
+        testRawPsdStructureBoundaries();
         testSessionPsdReadiness();
+        testConfiguredRealSessionPsd();
         testQuarantineMovesAllTrackedDirectories();
         testQuarantineRejectsConflictAndSymlink();
         testQuarantinePartialMoveEvidence();
@@ -395,6 +398,32 @@ public final class ExternalPsdEditHostProbeTest {
             deleteTree(replacementRoot);
         }
 
+        final Path parentSymlinkRoot = Files.createTempDirectory(
+            "external PSD parent symlink readiness ");
+        final Path parentOutside = Files.createTempDirectory("external PSD parent outside ");
+        try {
+            final Path directory = Files.createDirectory(
+                parentSymlinkRoot.resolve("turboism-psd-parent"));
+            final Path file = directory.resolve("external-edit.psd");
+            Files.write(file, valid);
+            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
+                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    parentSymlinkRoot, Set.of(), 5000L, () -> false,
+                    millis -> Thread.sleep(Math.min(millis, 5L)));
+            final Path moved = parentSymlinkRoot.resolve("turboism-psd-parent-moved");
+            Files.move(directory, moved);
+            Files.createSymbolicLink(directory, parentOutside);
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot),
+                    "write precondition rejects a parent-directory symlink replacement");
+            assertContains(failure.getMessage(), "symlink",
+                "parent-directory symlink replacement is explicit");
+        } finally {
+            deleteTree(parentSymlinkRoot);
+            deleteTree(parentOutside);
+        }
+
         final Path stoppedRoot = Files.createTempDirectory("external PSD stopped readiness ");
         try {
             final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
@@ -408,6 +437,146 @@ public final class ExternalPsdEditHostProbeTest {
         } finally {
             deleteTree(stoppedRoot);
         }
+    }
+
+    private static void testRawPsdStructureBoundaries() {
+        final RawPsdFixture fixture = rawPsd();
+        final ExternalPsdEditHostProbe.PsdStructureValidation valid =
+            ExternalPsdEditHostProbe.inspectPsdStructure(fixture.bytes());
+        assertTrue(valid.complete(), "raw layer and composite boundaries are accepted");
+
+        final byte[] shortLayer = fixture.bytes().clone();
+        putU32(shortLayer, fixture.firstLayerChannelLengthOffset(), 2);
+        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(shortLayer).complete(),
+            "raw layer one-byte-short boundary is rejected");
+
+        final byte[] longLayer = fixture.bytes().clone();
+        putU32(longLayer, fixture.firstLayerChannelLengthOffset(), 4);
+        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(longLayer).complete(),
+            "raw layer one-byte-long boundary is rejected");
+
+        final byte[] shortComposite = Arrays.copyOf(
+            fixture.bytes(), fixture.bytes().length - 1);
+        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(shortComposite).complete(),
+            "raw composite one-byte-short boundary is rejected");
+
+        final byte[] longComposite = Arrays.copyOf(
+            fixture.bytes(), fixture.bytes().length + 1);
+        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(longComposite).complete(),
+            "raw composite one-byte-long boundary is rejected");
+    }
+
+    /** Optional read-only source check for the retained 958a6 real export. */
+    private static void testConfiguredRealSessionPsd() throws Exception {
+        final String configuredPath = System.getProperty(
+            "turboism.validation.externalpsd.sessionSample", "");
+        if (configuredPath.isBlank()) {
+            System.out.println("REAL_SESSION_SAMPLE=NOT_RUN");
+            return;
+        }
+        final Path source = Path.of(configuredPath);
+        assertTrue(!Files.isSymbolicLink(source)
+            && Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS),
+            "configured real session sample is a regular non-symlink file");
+        final byte[] original = Files.readAllBytes(source);
+        final String digest = sha256(original);
+        final ExternalPsdEditHostProbe.PsdStructureValidation structure =
+            ExternalPsdEditHostProbe.inspectPsdStructure(original);
+        System.out.println("REAL_SESSION_SAMPLE path=" + source + " bytes=" + original.length
+            + " sha256=" + digest + " complete=" + structure.complete()
+            + " layers=" + structure.layerCount() + " compositeEnd=" + structure.compositeEnd()
+            + " section=" + structure.section() + " reason=" + structure.reason());
+        assertTrue(structure.complete(), "retained real session PSD has complete structure");
+
+        final Path root = Files.createTempDirectory("external PSD real session copy ");
+        try {
+            final Path directory = Files.createDirectory(root.resolve("turboism-psd-real-copy"));
+            final Path copy = directory.resolve("external-edit.psd");
+            Files.copy(source, copy);
+            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
+                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    root, Set.of(), 5000L, () -> false,
+                    millis -> Thread.sleep(Math.min(millis, 5L)));
+            assertArrayEquals(original, snapshot.bytes(),
+                "production readiness helper reads the exact real PSD bytes in a temp copy");
+            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot);
+            assertArrayEquals(original, Files.readAllBytes(copy),
+                "production write precondition is read-only for the real PSD copy");
+            System.out.println("REAL_SESSION_SAMPLE_HELPERS=PASS copy=" + copy
+                + " structureComplete=" + snapshot.observation().structure().complete());
+        } finally {
+            deleteTree(root);
+        }
+    }
+
+    private record RawPsdFixture(byte[] bytes, int firstLayerChannelLengthOffset,
+        int compositeOffset) {
+    }
+
+    private static RawPsdFixture rawPsd() {
+        final PsdBytes record = new PsdBytes();
+        record.u32(0);
+        record.u32(0);
+        record.u32(1);
+        record.u32(1);
+        record.u16(4);
+        int firstLengthOffsetInRecord = -1;
+        for (int channel = 0; channel < 4; channel++) {
+            record.u16(channel == 3 ? 0xffff : channel);
+            if (channel == 0) firstLengthOffsetInRecord = record.size();
+            record.u32(3);
+        }
+        record.ascii("8BIM");
+        record.ascii("norm");
+        record.u8(255);
+        record.u8(0);
+        record.u8(0);
+        record.u8(0);
+        final PsdBytes extra = new PsdBytes();
+        extra.u32(0);
+        extra.u32(0);
+        extra.u8(1);
+        extra.u8('x');
+        extra.zeros(2);
+        record.u32(extra.size());
+        record.bytes(extra.toByteArray());
+
+        final PsdBytes layerInfo = new PsdBytes();
+        layerInfo.u16(1);
+        layerInfo.bytes(record.toByteArray());
+        for (int channel = 0; channel < 4; channel++) {
+            layerInfo.u16(0);
+            layerInfo.u8(0x20 + channel);
+        }
+        final PsdBytes layerMask = new PsdBytes();
+        layerMask.u32(layerInfo.size());
+        layerMask.bytes(layerInfo.toByteArray());
+        layerMask.u32(0);
+
+        final PsdBytes file = new PsdBytes();
+        file.ascii("8BPS");
+        file.u16(1);
+        file.zeros(6);
+        file.u16(4);
+        file.u32(1);
+        file.u32(1);
+        file.u16(8);
+        file.u16(3);
+        file.u32(0);
+        file.u32(0);
+        file.u32(layerMask.size());
+        final int layerMaskPayloadStart = file.size();
+        file.bytes(layerMask.toByteArray());
+        final int compositeOffset = file.size();
+        file.u16(0);
+        file.u8(0x11);
+        file.u8(0x22);
+        file.u8(0x33);
+        file.u8(0x44);
+        final int layerInfoPayloadStart = layerMaskPayloadStart + 4;
+        final int firstLengthOffset = layerInfoPayloadStart + 2
+            + firstLengthOffsetInRecord;
+        return new RawPsdFixture(file.toByteArray(), firstLengthOffset, compositeOffset);
     }
 
     private static int compositeOffset(final byte[] psd) {
@@ -1704,6 +1873,34 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static byte[] int16(final int value) {
         return ByteBuffer.allocate(2).order(ByteOrder.BIG_ENDIAN).putShort((short) value).array();
+    }
+
+    private static void putU32(final byte[] bytes, final int offset, final long value) {
+        bytes[offset] = (byte) (value >>> 24);
+        bytes[offset + 1] = (byte) (value >>> 16);
+        bytes[offset + 2] = (byte) (value >>> 8);
+        bytes[offset + 3] = (byte) value;
+    }
+
+    private static String sha256(final byte[] bytes) {
+        try {
+            final byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            final StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (final byte value : digest) {
+                hex.append(String.format("%02x", value));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException failure) {
+            throw new AssertionError("SHA-256 is unavailable", failure);
+        }
+    }
+
+    private static void assertArrayEquals(final byte[] expected, final byte[] actual,
+        final String message) {
+        if (!Arrays.equals(expected, actual)) {
+            throw new AssertionError(message + " expected length=" + expected.length
+                + " actual length=" + actual.length);
+        }
     }
 
     private static void assertTrue(final boolean condition, final String message) {
