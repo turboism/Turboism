@@ -5,19 +5,27 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Asynchronous bounded preview capture for a recent project file. The capture runs on
- * the host UI thread; failures (unavailable surface, target changed, permission) are
- * reported on the returned stage and never escape the calling thread.
+ * Asynchronous bounded preview capture for a recent project file. Implementations may
+ * validate the call synchronously — permission checks and argument checks can throw before
+ * a stage is returned; once returned, the stage's completion thread and failure modes are
+ * implementation-defined.
  */
 public interface ScreenshotCaptureService {
 
+    /**
+     * Starts a capture for {@code request}. Permission and argument validation may throw
+     * synchronously; otherwise the host's capture stage is returned, completing with the
+     * captured image or exceptionally (for example when the surface is unavailable or the
+     * target changed).
+     */
     CompletionStage<ScreenshotCaptureResult> capture(ScreenshotCaptureRequest request);
 
-    /** Safe-mode instance: every capture completes exceptionally (fail closed). */
+    /** Safe-mode instance: every call returns an already-failed stage (fail closed). */
     static ScreenshotCaptureService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements ScreenshotCaptureService {
         INSTANCE;
 

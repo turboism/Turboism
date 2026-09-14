@@ -393,7 +393,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
     /**
      * Routes a panel-tab menu click through the plugin action registry so that
-     * permission checks and the plugin-owned handler (core plugin) are exercised,
+     * permission checks and the plugin-owned handler (framework shell) are exercised,
      * instead of invoking the runtime toggle directly.
      */
     void routePanelTabAction(

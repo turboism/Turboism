@@ -64,6 +64,7 @@ public record HistoryOrigin(
         return normalized;
     }
 
+    /** Who produced the change: a Turboism operation or an unattributed host action. */
     public enum Kind {
         TURBOISM,
         HOST_UNATTRIBUTED

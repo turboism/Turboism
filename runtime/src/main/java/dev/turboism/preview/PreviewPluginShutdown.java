@@ -49,6 +49,17 @@ final class PreviewPluginShutdown {
         );
     }
 
+    /**
+     * Drops every hook registration attributed to one event-owner key. The framework shell
+     * closes outside the plugin machinery but shares this safety net.
+     */
+    void unregisterOwnedHooks(final dev.turboism.core.event.PluginEventOwnerKey key) {
+        projectLifecycleHookRegistry.unregister(key);
+        editorObjectHookRegistry.unregister(key);
+        partHookRegistry.unregister(key);
+        parameterHookRegistry.unregister(key);
+    }
+
     List<LocalPluginRuntime.LoadedPluginSummary> closeAll(
         final List<LocalPluginRuntime.LoadedPlugin> loaded
     ) {

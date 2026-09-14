@@ -1661,9 +1661,12 @@ function Read-CubismZgcPreference {
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
-    if ($null -eq $document.launcher -or $null -eq $document.launcher.zgc) { return $true }
-    if ($document.launcher.zgc -isnot [bool]) { throw "Turboism launcher.zgc setting is invalid" }
-    return [bool]$document.launcher.zgc
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $true }
+    $zgcProperty = $launcherProperty.Value.PSObject.Properties["zgc"]
+    if ($null -eq $zgcProperty -or $null -eq $zgcProperty.Value) { return $true }
+    if ($zgcProperty.Value -isnot [bool]) { throw "Turboism launcher.zgc setting is invalid" }
+    return [bool]$zgcProperty.Value
 }
 
 function ConvertTo-JdkOptionToken {
@@ -1680,12 +1683,15 @@ function Read-CubismJvmPreference {
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
-    if ($null -eq $document.launcher -or $null -eq $document.launcher.cubismJvm) { return "graalvm" }
-    if ($document.launcher.cubismJvm -isnot [string] -or
-        @("graalvm", "bundled") -notcontains [string]$document.launcher.cubismJvm) {
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return "graalvm" }
+    $jvmProperty = $launcherProperty.Value.PSObject.Properties["cubismJvm"]
+    if ($null -eq $jvmProperty -or $null -eq $jvmProperty.Value) { return "graalvm" }
+    if ($jvmProperty.Value -isnot [string] -or
+        @("graalvm", "bundled") -notcontains [string]$jvmProperty.Value) {
         throw "Turboism Cubism JVM setting is invalid"
     }
-    return [string]$document.launcher.cubismJvm
+    return [string]$jvmProperty.Value
 }
 
 function Read-CubismGraalVmPath {

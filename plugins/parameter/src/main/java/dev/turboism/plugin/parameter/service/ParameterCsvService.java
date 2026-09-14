@@ -336,10 +336,26 @@ public final class ParameterCsvService {
         return parseCsvStrict(csvText).rows();
     }
 
+    /**
+     * Supplies the text of the CSV file the user picked to
+     * {@link ParameterCsvService#importCsv()}.
+     *
+     * <p>A seam that keeps file access outside this service: callers wire in whichever granted
+     * read path is appropriate, while the default provider reports the content as
+     * unavailable.</p>
+     */
     @FunctionalInterface
     public interface CsvContentProvider {
+        /**
+         * @param relativePath the file the user chose in the import chooser
+         * @return the file's CSV text, or empty when it cannot be read
+         */
         Optional<String> read(String relativePath);
 
+        /**
+         * @return a provider whose reads always come back empty, so import reports the content
+         *     as unavailable instead of touching the filesystem
+         */
         static CsvContentProvider unavailable() {
             return ignored -> Optional.empty();
         }

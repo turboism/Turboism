@@ -117,15 +117,36 @@ public final class RuntimeSceneTableService implements SceneTableService {
         return value;
     }
 
+    /** Host seam the scene-table service drives for its single supported table. */
     public interface Host {
+        /**
+         * Renames one column header.
+         *
+         * @param columnId the column to rename
+         * @param label the new header text
+         */
         void setHeader(String columnId, String label);
 
+        /**
+         * Moves one item to an absolute position.
+         *
+         * @param itemId the row to move
+         * @param position the target index
+         */
         void setItemPosition(String itemId, int position);
 
-
+        /**
+         * Reorders all rows to the given id order.
+         *
+         * @param itemIds the complete row ordering
+         */
         void setItemOrder(List<String> itemIds);
 
-
+        /**
+         * Enables or disables the host's own drag-to-reorder affordance.
+         *
+         * @param enabled whether users may reorder rows manually
+         */
         void setManualReordering(boolean enabled);
     }
 }

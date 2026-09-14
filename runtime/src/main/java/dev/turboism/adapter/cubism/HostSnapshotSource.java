@@ -27,17 +27,48 @@ import java.util.Optional;
  */
 public interface HostSnapshotSource {
 
+    /**
+     * @return the project currently open on the host; empty when no host is attached or no
+     *         project is open
+     */
     Optional<HostProject> activeProject();
 
+    /**
+     * @return the document currently active on the host; empty when no host is attached or no
+     *         document is active
+     */
     Optional<HostDocument> activeDocument();
 
     /** Model owned by the active MODEL document only. */
     Optional<HostModel> activeModel();
 
+    /**
+     * @return the observed selection; an empty-valued snapshot when no host is attached,
+     *         never null
+     */
     HostSelection selection();
 
+    /**
+     * @return whether this source currently observes host content; the meaning is
+     *         implementation-defined (e.g. whether a project or document was observed), not
+     *         a transport-level connection indicator — when {@code false} the accessors
+     *         answer with empty values rather than throwing
+     */
     boolean isHostPresent();
 
+    /**
+     * An implementation-defined invalidation signal: it advances when the inputs this
+     * particular source watches change.
+     *
+     * <p>What counts as a change is specific to each implementation — a source may advance
+     * only when its own observed inputs differ, so an observable value that is not part of
+     * those inputs can change without advancing the token. The token is therefore a
+     * may-have-changed signal, not a complete change counter.</p>
+     *
+     * @return the current token; comparing two tokens detects possible invalidation but
+     *         equality alone does not prove nothing changed unless the implementation
+     *         documents stronger semantics
+     */
     long invalidationToken();
 
     /**
@@ -189,6 +220,15 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of one host project.
+     *
+     * @param projectId stable host identity of the project
+     * @param name display name of the project
+     * @param projectDirectory on-disk project directory when the host reported one; never null
+     * @param contents project contents (copied defensively); never null
+     * @param documents documents belonging to the project (copied defensively); never null
+     */
     record HostProject(
         String projectId,
         String name,
@@ -212,6 +252,16 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of one project content entry.
+     *
+     * @param contentId stable host identity of the content
+     * @param name display name of the content
+     * @param kind the project content classification; never null
+     * @param filePath on-disk file when the host reported one; never null
+     * @param documentIds ids of the documents this content produced (copied defensively); never null
+     * @param resources resources attached to the content (copied defensively); never null
+     */
     record HostProjectContent(
         String contentId,
         String name,
@@ -228,6 +278,14 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of one resource attached to a project content.
+     *
+     * @param resourceId stable host identity of the resource
+     * @param name display name of the resource
+     * @param kind the resource classification; never null
+     * @param relativePath project-relative path when the host reported one; never null
+     */
     record HostProjectResource(
         String resourceId,
         String name,
@@ -240,6 +298,20 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of one open host document.
+     *
+     * @param documentId stable host identity of the document
+     * @param name display name of the document
+     * @param kind the document classification; never null
+     * @param relativePath project-relative path of the document
+     * @param filePath on-disk file when the host reported one; never null
+     * @param contentId id of the owning project content when known; never null
+     * @param model the model owned by a {@link DocumentKind#MODEL} document; must be empty for
+     *        any other kind; never null
+     * @param animation the animation owned by an {@link DocumentKind#ANIMATION_SCENE} document;
+     *        must be empty for any other kind; never null
+     */
     record HostDocument(
         String documentId,
         String name,
@@ -286,6 +358,16 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of one animation owned by an ANIMATION_SCENE document.
+     *
+     * @param animationId stable host identity of the animation
+     * @param name display name of the animation
+     * @param filePath on-disk file when the host reported one; never null
+     * @param sceneDocumentIds ids of the scene documents inside the animation (copied
+     *        defensively); never null
+     * @param activeSceneDocumentId id of the currently active scene when one is active; never null
+     */
     record HostAnimation(
         String animationId,
         String name,
@@ -303,6 +385,15 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of the model owned by a MODEL document.
+     *
+     * @param modelId stable host identity of the model
+     * @param name display name of the model
+     * @param parameters model parameters (copied defensively); never null
+     * @param artMeshes model ArtMeshes (copied defensively); never null
+     * @param deformers model deformers (copied defensively); never null
+     */
     record HostModel(
         String modelId,
         String name,
@@ -317,6 +408,15 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of the host selection.
+     *
+     * @param selectedObjectIds ids of all currently selected objects (copied defensively);
+     *        never null
+     * @param activeParameterId id of the active parameter when one is active; never null
+     * @param activeArtMeshId id of the active ArtMesh when one is active; never null
+     * @param activeDeformerId id of the active deformer when one is active; never null
+     */
     record HostSelection(
         List<String> selectedObjectIds,
         Optional<String> activeParameterId,
@@ -331,6 +431,18 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of one model parameter.
+     *
+     * @param id stable parameter identity
+     * @param name display name
+     * @param value the observed value at snapshot time
+     * @param defaultValue the parameter's default value
+     * @param minValue the parameter's minimum value
+     * @param maxValue the parameter's maximum value
+     * @param visible whether the parameter is visible in the host palette
+     * @param editable whether the parameter can be edited through the host palette
+     */
     record HostParameter(
         String id,
         String name,
@@ -343,6 +455,16 @@ public interface HostSnapshotSource {
     ) {
     }
 
+    /**
+     * Immutable projection of one ArtMesh.
+     *
+     * @param id stable ArtMesh identity
+     * @param name display name
+     * @param textureId id of the texture the ArtMesh is bound to when known; never null
+     * @param visible whether the ArtMesh is marked visible
+     * @param renderable whether the ArtMesh can actually render (for example not fully
+     *        masked or clipped away)
+     */
     record HostArtMesh(
         String id,
         String name,
@@ -355,6 +477,15 @@ public interface HostSnapshotSource {
         }
     }
 
+    /**
+     * Immutable projection of one deformer.
+     *
+     * @param id stable deformer identity
+     * @param name display name
+     * @param type the deformer classification; never null
+     * @param parentId id of the parent deformer when one exists; never null
+     * @param childIds ids of the child deformers (copied defensively); never null
+     */
     record HostDeformer(
         String id,
         String name,

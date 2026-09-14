@@ -10,16 +10,20 @@ import java.util.Objects;
 public sealed interface EditorExitEvent extends TurboismEvent
     permits EditorExitEvent.Before, EditorExitEvent.On, EditorExitEvent.After {
 
+    /** Returns the snapshot of the Editor instance this event concerns. */
     EditorLifecycleSnapshot editor();
 
+    /** State published synchronously before the exit request proceeds. */
     record Before(EditorLifecycleSnapshot editor) implements EditorExitEvent {
         public Before { editor = Objects.requireNonNull(editor, "editor"); }
     }
 
+    /** State published when the exit request is accepted. */
     record On(EditorLifecycleSnapshot editor) implements EditorExitEvent {
         public On { editor = Objects.requireNonNull(editor, "editor"); }
     }
 
+    /** State published after the exit request resolved with {@code result}. */
     record After(EditorExitResult result) implements EditorExitEvent {
         public After { result = Objects.requireNonNull(result, "result"); }
         @Override public EditorLifecycleSnapshot editor() { return result.editor(); }

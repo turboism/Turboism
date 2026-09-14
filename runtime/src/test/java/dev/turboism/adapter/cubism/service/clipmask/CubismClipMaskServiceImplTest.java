@@ -1,6 +1,15 @@
 package dev.turboism.adapter.cubism.service.clipmask;
 
+import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
+import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
+import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
+import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
+import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
+import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
@@ -29,6 +38,7 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import org.junit.jupiter.api.Test;
 
@@ -36,8 +46,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CubismClipMaskServiceImplTest {
@@ -257,6 +270,124 @@ class CubismClipMaskServiceImplTest {
         assertEquals("Face", service.collectClipMaskRecords().get(0).displayName());
     }
 
+    @Test
+    void scopedModelAccessStopsReachingTheModelAfterScopeCloses() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final AtomicInteger modelReads = new AtomicInteger();
+        final CubismModelAccess scoped = PluginScopedCubismModelAccess.bind(
+            () -> {
+                modelReads.incrementAndGet();
+                return namedModel(new FakeDrawable("guid-aaaa-1", "Scoped Name", "ArtMesh_7"));
+            },
+            scope
+        );
+        final FakeCubismRead read = new FakeCubismRead(
+            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+            List.of()
+        );
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, scoped);
+
+        assertEquals("Scoped Name", service.collectClipMaskRecords().get(0).displayName());
+        final int readsWhileActive = modelReads.get();
+        assertTrue(readsWhileActive > 0);
+
+        scope.close();
+
+        // The bound access is deactivated: collection degrades to the short-GUID
+        // fallback instead of reaching the underlying model.
+        final List<CubismClipMaskService.ClipMaskRecord> after = service.collectClipMaskRecords();
+        assertEquals(readsWhileActive, modelReads.get());
+        assertEquals("guid-aaa", after.get(0).displayName());
+    }
+
+    @Test
+    void staleReadServiceRejectsCollectionBeforeTouchingAdapterOrModel() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        scope.register(() -> {
+            scopeActive.set(false);
+        });
+        final AtomicInteger adapterReads = new AtomicInteger();
+        final AtomicInteger modelReads = new AtomicInteger();
+        final CubismReadCapabilityServiceImpl read = new CubismReadCapabilityServiceImpl(
+            new UnreadableFacade(),
+            M12ReadSnapshotSource.EMPTY,
+            ThemeStatusAdapterImpl.safeMode(),
+            RenderStatusAdapter.Impl.safeMode(),
+            ProjectWorkspaceAdapter.Impl.safeMode(),
+            ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
+                @Override public String hostVersion() { return "5.3.02"; }
+                @Override public boolean supportsClipMaskRead() { return true; }
+                @Override public List<ClipMaskSnapshot> clipMasks() {
+                    adapterReads.incrementAndGet();
+                    return List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false));
+                }
+            }),
+            "plugin.clipmask.test",
+            (permissionId, operationId, capabilityId) -> { },
+            scopeActive::get
+        );
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
+            read,
+            PluginScopedCubismModelAccess.bind(
+                () -> {
+                    modelReads.incrementAndGet();
+                    return namedModel(new FakeDrawable("guid-aaaa-1", "Scoped Name", "ArtMesh_7"));
+                },
+                scope
+            )
+        );
+
+        assertEquals("Scoped Name", service.collectClipMaskRecords().get(0).displayName());
+        assertEquals(1, adapterReads.get());
+        assertEquals(1, modelReads.get());
+
+        scope.close();
+
+        assertThrows(IllegalStateException.class, service::collectClipMaskRecords);
+        assertEquals(1, adapterReads.get());
+        assertEquals(1, modelReads.get());
+    }
+
+    private static CubismModel namedModel(final FakeDrawable... drawables) {
+        return new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-1"); }
+            @Override public Parameters parameters() { throw new UnsupportedOperationException(); }
+            @Override public Parts parts() { throw new UnsupportedOperationException(); }
+            @Override public Drawables drawables() {
+                return new Drawables() {
+                    @Override public List<Drawable> all() { return List.of(drawables); }
+                    @Override public Drawable find(final ArtMeshId id) { throw new NoSuchElementException(); }
+                };
+            }
+            @Override public Deformers deformers() { throw new UnsupportedOperationException(); }
+            @Override public Glues glues() { throw new UnsupportedOperationException(); }
+            @Override public void update() { }
+        };
+    }
+
+    /** Facade serving an empty runtime; the host-specific snapshot reads do not go through it. */
+    private static final class UnreadableFacade implements CubismFacade {
+        @Override public Optional<ProjectSnapshot> activeProject() { throw new AssertionError("facade must not be read"); }
+        @Override public Optional<DocumentSnapshot> activeDocument() { throw new AssertionError("facade must not be read"); }
+        @Override public Optional<ModelSnapshot> activeModel() { throw new AssertionError("facade must not be read"); }
+        @Override public CubismRuntimeSnapshot runtime() {
+            return new CubismRuntimeSnapshot(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+            );
+        }
+        @Override public boolean isHostPresent() { return false; }
+        @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
+            throw new UnsupportedOperationException();
+        }
+    }
 
     /** Fake read service: clip-mask and mesh data are fully controlled. */
     static final class FakeCubismRead implements CubismReadCapabilityService {

@@ -3,8 +3,13 @@
 
 Four rules, all fail-closed:
 
-1. Every public type and every non-``@Override`` public method in the production roots carries
-   Javadoc. ``@Override`` implementations inherit their supertype documentation and are exempt.
+1. Every publicly reachable type and every non-``@Override`` public method in the production
+   roots carries Javadoc, decided by the JDK compiler tree API (``JavacTask.parse`` +
+   ``DocTrees``) rather than line patterns: interface-implicit ``public``/``default``/``static``
+   methods and nested public types count, ordinary block comments and string literals do not,
+   and ``@Override`` implementations inherit their supertype documentation and are exempt.
+   The scan needs a full JDK 17 toolchain and fails closed when one is unavailable or a
+   source file cannot be parsed.
 2. The reviewed Cubism digests appear only in their single production declaration and its guard
    test. A second copy can drift from the reviewed record and silently widen admission.
 3. No production type name encodes a Cubism version. Versions are declared as data so that no
@@ -16,8 +21,12 @@ Usage: check_code_quality.py [repo-root] [--rules RULE[,RULE...]] [--report]
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 PRODUCTION_ROOTS = (
@@ -62,11 +71,6 @@ GRANDFATHERED_ASSETS = (
     "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json",
 )
 
-TYPE_DECLARATION = re.compile(
-    r"^public\s+(?:final\s+|abstract\s+|sealed\s+|non-sealed\s+|static\s+)*"
-    r"(?:class|interface|record|enum)\s+(\w+)"
-)
-METHOD_DECLARATION = re.compile(r"^public\s+[\w<>\[\],\s.?]+\s+(\w+)\s*\(")
 VERSION_SUFFIXED_TYPE = re.compile(r"^\w+(?:52|53|5203|5302)$")
 
 ALL_RULES = ("javadoc", "digests", "naming", "assets")
@@ -86,51 +90,102 @@ def java_sources(root: Path, relative: str) -> list[Path]:
     return sorted(base.rglob("*.java"))
 
 
-def documented(lines: list[str], index: int) -> tuple[bool, bool]:
-    """Returns (has_javadoc, is_override) for a declaration at ``index``."""
-    cursor = index - 1
-    is_override = False
-    while cursor >= 0:
-        stripped = lines[cursor].strip()
-        if stripped.startswith("@"):
-            is_override = is_override or stripped.startswith("@Override")
-            cursor -= 1
-            continue
-        if not stripped:
-            cursor -= 1
-            continue
-        break
-    return (cursor >= 0 and lines[cursor].strip().endswith("*/")), is_override
+class QualityToolError(Exception):
+    """A required verification tool could not produce a trustworthy result."""
+
+
+# The Javadoc rule is enforced by scripts/test/java/JavadocPublicApiScan.java, a JDK-only
+# helper run through the JDK 17 toolchain resolved below. It is build tooling, never a
+# product dependency.
+JAVADOC_HELPER = Path(__file__).resolve().parent / "java" / "JavadocPublicApiScan.java"
+JAVADOC_HELPER_MAIN = "JavadocPublicApiScan"
+JAVADOC_HELPER_TIMEOUT_SECONDS = 600
+JAVADOC_COMPILE_TIMEOUT_SECONDS = 180
+
+
+def _jdk_home() -> Path:
+    """Resolves the JDK 17+ home used for the Javadoc scan; prefers the toolchain Gradle wires in."""
+    for variable in ("TURBOISM_QUALITY_JAVA_HOME", "JAVA17_HOME", "JAVA_HOME"):
+        candidate = os.environ.get(variable)
+        if candidate and (Path(candidate) / "bin" / "javac").is_file():
+            return Path(candidate)
+    javac = shutil.which("javac")
+    if javac:
+        return Path(javac).resolve().parent.parent
+    raise QualityToolError(
+        "javadoc rule requires a JDK 17 toolchain with javac; set "
+        "TURBOISM_QUALITY_JAVA_HOME or JAVA_HOME, or put javac on PATH"
+    )
+
+
+def _javadoc_findings(root: Path, sources: list[Path]) -> list[tuple[str, str, str, str]]:
+    """Compiles the helper once, parses every source in one batch, returns (kind, name, path, line)."""
+    home = _jdk_home()
+    javac = home / "bin" / "javac"
+    java = home / "bin" / "java"
+    if not java.is_file():
+        raise QualityToolError(f"javadoc rule requires a complete JDK; {java} is missing")
+    try:
+        with tempfile.TemporaryDirectory(prefix="turboism-quality-javadoc-") as work:
+            workdir = Path(work)
+            classes = workdir / "classes"
+            classes.mkdir()
+            compile_result = subprocess.run(
+                [
+                    str(javac), "--release", "17", "-encoding", "UTF-8",
+                    "-d", str(classes), str(JAVADOC_HELPER),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=JAVADOC_COMPILE_TIMEOUT_SECONDS,
+            )
+            if compile_result.returncode != 0:
+                raise QualityToolError(
+                    f"javadoc helper failed to compile with {javac} "
+                    f"(exit {compile_result.returncode}): "
+                    f"{(compile_result.stderr or compile_result.stdout).strip()}"
+                )
+            listing = workdir / "sources.txt"
+            listing.write_text(
+                "".join(
+                    f"{source.relative_to(root).as_posix()}\t{source}\n"
+                    for source in sources
+                ),
+                encoding="utf-8",
+            )
+            run = subprocess.run(
+                [str(java), "-cp", str(classes), JAVADOC_HELPER_MAIN, str(listing)],
+                capture_output=True,
+                text=True,
+                timeout=JAVADOC_HELPER_TIMEOUT_SECONDS,
+            )
+    except (OSError, subprocess.TimeoutExpired) as failure:
+        raise QualityToolError(f"javadoc helper could not run: {failure}") from failure
+    if run.returncode != 0:
+        raise QualityToolError(
+            f"javadoc scan failed (helper exit {run.returncode}): "
+            f"{(run.stderr or run.stdout).strip()}"
+        )
+    findings = []
+    for line in run.stdout.splitlines():
+        fields = line.split("\t")
+        if len(fields) != 5 or fields[0] != "FINDING":
+            raise QualityToolError(f"javadoc helper produced unrecognised output: {line!r}")
+        findings.append((fields[1], fields[2], fields[3], fields[4]))
+    return findings
 
 
 def check_javadoc(root: Path) -> list[str]:
-    failures = []
-    for relative in PRODUCTION_ROOTS + (PLUGIN_ROOT,):
-        for source in java_sources(root, relative):
-            if source.name == "package-info.java":
-                continue
-            display = source.relative_to(root).as_posix()
-            lines = source.read_text(encoding="utf-8").split("\n")
-            for index, line in enumerate(lines):
-                stripped = line.strip()
-                indent = len(line) - len(line.lstrip())
-                type_match = TYPE_DECLARATION.match(stripped)
-                if type_match and indent == 0:
-                    has_doc, _ = documented(lines, index)
-                    if not has_doc:
-                        failures.append(
-                            f"undocumented public type {type_match.group(1)}: {display}:{index + 1}"
-                        )
-                    continue
-                method_match = METHOD_DECLARATION.match(stripped)
-                if method_match and " class " not in stripped and " interface " not in stripped:
-                    has_doc, is_override = documented(lines, index)
-                    if not has_doc and not is_override:
-                        failures.append(
-                            f"undocumented public method {method_match.group(1)}: "
-                            f"{display}:{index + 1}"
-                        )
-    return failures
+    sources = [
+        source
+        for relative in PRODUCTION_ROOTS + (PLUGIN_ROOT,)
+        for source in java_sources(root, relative)
+        if source.name != "package-info.java"
+    ]
+    return [
+        f"undocumented public {kind} {name}: {display}:{line}"
+        for kind, name, display, line in _javadoc_findings(root, sources)
+    ]
 
 
 def check_digests(root: Path) -> list[str]:
@@ -225,7 +280,11 @@ def main() -> int:
         print(f"FAIL: unknown rule(s): {', '.join(unknown)}", file=sys.stderr)
         return 2
 
-    results = {rule: CHECKS[rule](root) for rule in selected}
+    try:
+        results = {rule: CHECKS[rule](root) for rule in selected}
+    except QualityToolError as error:
+        print(f"FAIL: {error}", file=sys.stderr)
+        return 2
 
     if args.report:
         for rule, failures in results.items():

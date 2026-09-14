@@ -169,6 +169,11 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
 
     /** Single-owner sink for scene filtering; implemented by the scene table host. */
     public interface SceneFilterSink {
+        /**
+         * Applies the scene-row keyword filter.
+         *
+         * @param keyword the filter text; empty clears the filter
+         */
         void setSceneFilter(String keyword);
     }
 

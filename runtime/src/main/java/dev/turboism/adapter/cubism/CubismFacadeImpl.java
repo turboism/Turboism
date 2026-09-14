@@ -97,6 +97,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
+    private final Object animationGraphOwner = new Object();
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -1253,7 +1254,10 @@ public final class CubismFacadeImpl implements CubismFacade {
 
         @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
             requireModelRead("model.animationDocuments");
-            return delegate.animationDocuments();
+            return delegate.animationDocuments().stream()
+                .map(document -> (dev.turboism.sdk.cubism.model.AnimationDocument)
+                    new PermissionCheckedAnimationDocument(animationGraphOwner, document))
+                .toList();
         }
         @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
             requireModelRead("model.textures");
@@ -1946,6 +1950,19 @@ public final class CubismFacadeImpl implements CubismFacade {
             || checked.owner != expectedOwner) {
             throw new IllegalArgumentException(
                 "Part belongs to another Cubism facade or model generation"
+            );
+        }
+        return checked.delegate;
+    }
+
+    private dev.turboism.sdk.cubism.model.AnimationAttribute unwrapAnimationAttribute(
+        final Object expectedOwner,
+        final dev.turboism.sdk.cubism.model.AnimationAttribute value
+    ) {
+        if (!(value instanceof PermissionCheckedAnimationAttribute checked)
+            || checked.owner != expectedOwner) {
+            throw new IllegalArgumentException(
+                "Animation attribute belongs to another Cubism facade"
             );
         }
         return checked.delegate;
@@ -2879,6 +2896,344 @@ public final class CubismFacadeImpl implements CubismFacade {
                 delegate::getOpacity,
                 () -> partLifecycle.setOpacity(this, opacity, delegate::setOpacity)
             );
+        }
+    }
+
+    private final class PermissionCheckedAnimationDocument
+        implements dev.turboism.sdk.cubism.model.AnimationDocument {
+        private final Object owner;
+        private final dev.turboism.sdk.cubism.model.AnimationDocument delegate;
+
+        private PermissionCheckedAnimationDocument(
+            final Object owner,
+            final dev.turboism.sdk.cubism.model.AnimationDocument delegate
+        ) {
+            this.owner = Objects.requireNonNull(owner, "owner");
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public String animationName() {
+            requireModelRead("model.animationDocument.name");
+            return delegate.animationName();
+        }
+        @Override public int sceneCount() {
+            requireModelRead("model.animationDocument.sceneCount");
+            return delegate.sceneCount();
+        }
+        @Override public Optional<String> currentSceneName() {
+            requireModelRead("model.animationDocument.currentSceneName");
+            return delegate.currentSceneName();
+        }
+        @Override public List<String> sceneNames() {
+            requireModelRead("model.animationDocument.sceneNames");
+            return delegate.sceneNames();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationScene> scenes() {
+            requireModelRead("model.animationDocument.scenes");
+            return delegate.scenes().stream()
+                .map(scene -> (dev.turboism.sdk.cubism.model.AnimationScene)
+                    new PermissionCheckedAnimationScene(owner, scene))
+                .toList();
+        }
+    }
+
+    private final class PermissionCheckedAnimationScene
+        implements dev.turboism.sdk.cubism.model.AnimationScene {
+        private final Object owner;
+        private final dev.turboism.sdk.cubism.model.AnimationScene delegate;
+
+        private PermissionCheckedAnimationScene(
+            final Object owner,
+            final dev.turboism.sdk.cubism.model.AnimationScene delegate
+        ) {
+            this.owner = Objects.requireNonNull(owner, "owner");
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public String name() {
+            requireModelRead("model.animationScene.name");
+            return delegate.name();
+        }
+        @Override public String guid() {
+            requireModelRead("model.animationScene.guid");
+            return delegate.guid();
+        }
+        @Override public Optional<String> tag() {
+            requireModelRead("model.animationScene.tag");
+            return delegate.tag();
+        }
+        @Override public java.util.Map<Integer, String> markers() {
+            requireModelRead("model.animationScene.markers");
+            return delegate.markers();
+        }
+        @Override public int startFrame() {
+            requireModelRead("model.animationScene.startFrame");
+            return delegate.startFrame();
+        }
+        @Override public int durationFrames() {
+            requireModelRead("model.animationScene.durationFrames");
+            return delegate.durationFrames();
+        }
+        @Override public double framesPerSecond() {
+            requireModelRead("model.animationScene.framesPerSecond");
+            return delegate.framesPerSecond();
+        }
+        @Override public int width() {
+            requireModelRead("model.animationScene.width");
+            return delegate.width();
+        }
+        @Override public int height() {
+            requireModelRead("model.animationScene.height");
+            return delegate.height();
+        }
+        @Override public boolean loopMotion() {
+            requireModelRead("model.animationScene.loopMotion");
+            return delegate.loopMotion();
+        }
+        @Override public int workspaceStartFrame() {
+            requireModelRead("model.animationScene.workspaceStartFrame");
+            return delegate.workspaceStartFrame();
+        }
+        @Override public int workspaceEndFrame() {
+            requireModelRead("model.animationScene.workspaceEndFrame");
+            return delegate.workspaceEndFrame();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationTrack> tracks() {
+            requireModelRead("model.animationScene.tracks");
+            return delegate.tracks().stream()
+                .map(track -> (dev.turboism.sdk.cubism.model.AnimationTrack)
+                    new PermissionCheckedAnimationTrack(owner, track))
+                .toList();
+        }
+        @Override public int playheadFrame() {
+            requireModelRead("model.animationScene.playheadFrame");
+            return delegate.playheadFrame();
+        }
+        @Override public void seekTo(final int frame) {
+            requireModelWrite("model.animationScene.seekTo");
+            delegate.seekTo(frame);
+        }
+        @Override public boolean current() {
+            requireModelRead("model.animationScene.current");
+            return delegate.current();
+        }
+        @Override public void activate() {
+            requireModelWrite("model.animationScene.activate");
+            delegate.activate();
+        }
+        @Override public dev.turboism.sdk.cubism.model.AnimationCurveType defaultCurveType() {
+            requireModelRead("model.animationScene.defaultCurveType");
+            return delegate.defaultCurveType();
+        }
+        @Override public void setDefaultCurveType(
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            requireModelWrite("model.animationScene.setDefaultCurveType");
+            delegate.setDefaultCurveType(curveType);
+        }
+        @Override public void rename(final String name) {
+            requireModelWrite("model.animationScene.rename");
+            delegate.rename(name);
+        }
+    }
+
+    private final class PermissionCheckedAnimationTrack
+        implements dev.turboism.sdk.cubism.model.AnimationTrack {
+        private final Object owner;
+        private final dev.turboism.sdk.cubism.model.AnimationTrack delegate;
+
+        private PermissionCheckedAnimationTrack(
+            final Object owner,
+            final dev.turboism.sdk.cubism.model.AnimationTrack delegate
+        ) {
+            this.owner = Objects.requireNonNull(owner, "owner");
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public String guid() {
+            requireModelRead("model.animationTrack.guid");
+            return delegate.guid();
+        }
+        @Override public String name() {
+            requireModelRead("model.animationTrack.name");
+            return delegate.name();
+        }
+        @Override public dev.turboism.sdk.cubism.model.AnimationTrackKind kind() {
+            requireModelRead("model.animationTrack.kind");
+            return delegate.kind();
+        }
+        @Override public int startFrame() {
+            requireModelRead("model.animationTrack.startFrame");
+            return delegate.startFrame();
+        }
+        @Override public int durationFrames() {
+            requireModelRead("model.animationTrack.durationFrames");
+            return delegate.durationFrames();
+        }
+        @Override public List<Integer> keyframeFrames() {
+            requireModelRead("model.animationTrack.keyframeFrames");
+            return delegate.keyframeFrames();
+        }
+        @Override public boolean visible() {
+            requireModelRead("model.animationTrack.visible");
+            return delegate.visible();
+        }
+        @Override public boolean editable() {
+            requireModelRead("model.animationTrack.editable");
+            return delegate.editable();
+        }
+        @Override public boolean muted() {
+            requireModelRead("model.animationTrack.muted");
+            return delegate.muted();
+        }
+        @Override public boolean repeat() {
+            requireModelRead("model.animationTrack.repeat");
+            return delegate.repeat();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationTrack> children() {
+            requireModelRead("model.animationTrack.children");
+            return delegate.children().stream()
+                .map(child -> (dev.turboism.sdk.cubism.model.AnimationTrack)
+                    new PermissionCheckedAnimationTrack(owner, child))
+                .toList();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationAttribute> attributes() {
+            requireModelRead("model.animationTrack.attributes");
+            return delegate.attributes().stream()
+                .map(attribute -> (dev.turboism.sdk.cubism.model.AnimationAttribute)
+                    new PermissionCheckedAnimationAttribute(owner, attribute))
+                .toList();
+        }
+        @Override public Optional<String> linkedModelGuid() {
+            requireModelRead("model.animationTrack.linkedModelGuid");
+            return delegate.linkedModelGuid();
+        }
+        @Override public Optional<String> linkedSceneGuid() {
+            requireModelRead("model.animationTrack.linkedSceneGuid");
+            return delegate.linkedSceneGuid();
+        }
+    }
+
+    private final class PermissionCheckedAnimationAttribute
+        implements dev.turboism.sdk.cubism.model.AnimationAttribute {
+        private final Object owner;
+        private final dev.turboism.sdk.cubism.model.AnimationAttribute delegate;
+
+        private PermissionCheckedAnimationAttribute(
+            final Object owner,
+            final dev.turboism.sdk.cubism.model.AnimationAttribute delegate
+        ) {
+            this.owner = Objects.requireNonNull(owner, "owner");
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public String id() {
+            requireModelRead("model.animationAttribute.id");
+            return delegate.id();
+        }
+        @Override public String name() {
+            requireModelRead("model.animationAttribute.name");
+            return delegate.name();
+        }
+        @Override public String guid() {
+            requireModelRead("model.animationAttribute.guid");
+            return delegate.guid();
+        }
+        @Override public String effectId() {
+            requireModelRead("model.animationAttribute.effectId");
+            return delegate.effectId();
+        }
+        @Override public Optional<dev.turboism.sdk.cubism.id.ParameterId> parameterId() {
+            requireModelRead("model.animationAttribute.parameterId");
+            return delegate.parameterId();
+        }
+        @Override public dev.turboism.sdk.cubism.model.AnimationAttributeKind kind() {
+            requireModelRead("model.animationAttribute.kind");
+            return delegate.kind();
+        }
+        @Override public boolean active() {
+            requireModelRead("model.animationAttribute.active");
+            return delegate.active();
+        }
+        @Override public boolean editable() {
+            requireModelRead("model.animationAttribute.editable");
+            return delegate.editable();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationKeyframe> keyframes() {
+            requireModelRead("model.animationAttribute.keyframes");
+            return delegate.keyframes();
+        }
+        @Override public void setKeyframe(final int frame, final double value) {
+            requireModelWrite("model.animationAttribute.setKeyframe");
+            delegate.setKeyframe(frame, value);
+        }
+        @Override public void setKeyframe(
+            final int frame,
+            final double value,
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            requireModelWrite("model.animationAttribute.setKeyframeCurve");
+            delegate.setKeyframe(frame, value, curveType);
+        }
+        @Override public void setKeyframe(final int frame, final float x, final float y) {
+            requireModelWrite("model.animationAttribute.setKeyframePoint");
+            delegate.setKeyframe(frame, x, y);
+        }
+        @Override public void removeKeyframe(final int frame) {
+            requireModelWrite("model.animationAttribute.removeKeyframe");
+            delegate.removeKeyframe(frame);
+        }
+        @Override public int offsetKeyframes(final int frameDelta) {
+            requireModelWrite("model.animationAttribute.offsetKeyframes");
+            return delegate.offsetKeyframes(frameDelta);
+        }
+        @Override public int scaleKeyframeTimes(final double factor, final int originFrame) {
+            requireModelWrite("model.animationAttribute.scaleKeyframeTimes");
+            return delegate.scaleKeyframeTimes(factor, originFrame);
+        }
+        @Override public int quantizeKeyframes(final int stepFrames) {
+            requireModelWrite("model.animationAttribute.quantizeKeyframes");
+            return delegate.quantizeKeyframes(stepFrames);
+        }
+        @Override public int copyKeyframesFrom(
+            final dev.turboism.sdk.cubism.model.AnimationAttribute source,
+            final boolean replace
+        ) {
+            requireModelWrite("model.animationAttribute.copyKeyframesFrom");
+            Objects.requireNonNull(source, "source");
+            return delegate.copyKeyframesFrom(
+                unwrapAnimationAttribute(owner, source), replace
+            );
+        }
+        @Override public int applyCurveType(
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            requireModelWrite("model.animationAttribute.applyCurveType");
+            return delegate.applyCurveType(curveType);
+        }
+        @Override public int applyCurveType(
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType,
+            final int fromFrame,
+            final int toFrame
+        ) {
+            requireModelWrite("model.animationAttribute.applyCurveTypeRange");
+            return delegate.applyCurveType(curveType, fromFrame, toFrame);
+        }
+        @Override public void recordKeyframe(
+            final int frame,
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            requireModelWrite("model.animationAttribute.recordKeyframe");
+            delegate.recordKeyframe(frame, curveType);
+        }
+        @Override public int bakeEvaluated(
+            final int fromFrame,
+            final int toFrame,
+            final int stepFrames,
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            requireModelWrite("model.animationAttribute.bakeEvaluated");
+            return delegate.bakeEvaluated(fromFrame, toFrame, stepFrames, curveType);
         }
     }
 }

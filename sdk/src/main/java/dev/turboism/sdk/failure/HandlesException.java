@@ -13,5 +13,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface HandlesException {
 
+    /** Returns the exception types the annotated method advises. */
     Class<? extends Throwable>[] value();
 }

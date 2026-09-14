@@ -13,27 +13,35 @@ import java.util.Optional;
 @CubismEditor({"5.2.03", "5.3.02"})
 public interface Drawable {
 
+    /** Returns this ArtMesh's stable identity within the model. */
     ArtMeshId id();
 
     /** Returns this ArtMesh's Cubism palette UI projection. */
     default DrawableAppearance ui() { return DrawableAppearance.unavailable(); }
 
+    /** Returns this ArtMesh's position within its owner's child list. */
     default int index() { throw unavailable("ArtMesh index"); }
 
+    /** Returns whether this ArtMesh renders on both faces (no back-face culling). */
     default boolean doubleSided() { throw unavailable("ArtMesh double-sided state"); }
 
+    /** Returns this ArtMesh's current evaluation state. */
     default DrawableEvaluationState evaluationState() {
         throw unavailable("ArtMesh evaluation state");
     }
 
+    /** Returns the parent Part identity, or empty when this ArtMesh is not under a Part. */
     default Optional<PartId> parentPartId() { throw unavailable("ArtMesh parent Part"); }
 
+    /** Returns the parent Deformer identity, or empty when this ArtMesh is at the model root. */
     default Optional<DeformerId> parentDeformerId() {
         throw unavailable("ArtMesh parent Deformer");
     }
 
+    /** Returns the identities of the parameters bound to this ArtMesh. */
     default List<ParameterId> parameterIds() { throw unavailable("ArtMesh parameters"); }
 
+    /** Returns the identities of the ArtMeshes in this ArtMesh's clipping-mask list. */
     default List<ArtMeshId> maskIds() { throw unavailable("ArtMesh masks"); }
 
     /** Stable ArtMesh GUID (distinct from {@link #id()}); unavailable until the host access implements it. */
@@ -67,48 +75,63 @@ public interface Drawable {
         throw unavailable("Drawable reparenting");
     }
 
+    /** Returns this ArtMesh's Editor display name. */
     default String name() {
         throw unavailable("ArtMesh name");
     }
 
+    /** Returns this ArtMesh's own visibility flag. */
     default boolean visible() {
         throw unavailable("ArtMesh visibility");
     }
 
+    /** Writes this ArtMesh's visibility flag through the Editor authoring path. */
     default void setVisible(final boolean visible) {
         throw unavailable("ArtMesh visibility editing");
     }
 
+    /** Returns this ArtMesh's own lock flag. */
     default boolean locked() {
         throw unavailable("ArtMesh lock state");
     }
 
+    /** Writes this ArtMesh's lock flag through the Editor authoring path. */
     default void setLocked(final boolean locked) {
         throw unavailable("ArtMesh lock editing");
     }
 
+    /** Returns whether this ArtMesh is effectively visible, including ancestor state. */
     default boolean visibleInHierarchy() {
         throw unavailable("ArtMesh effective visibility");
     }
 
+    /** Returns whether this ArtMesh is effectively locked, including ancestor state. */
     default boolean lockedInHierarchy() {
         throw unavailable("ArtMesh effective lock state");
     }
 
+    /** Returns the Core constant flag bitmask for this ArtMesh. */
     byte constantFlag();
 
+    /** Returns the Core dynamic flag bitmask for this ArtMesh. */
     byte dynamicFlag();
 
+    /** Returns this ArtMesh's blend mode. */
     BlendMode blendMode();
 
+    /** Returns the index of the texture this ArtMesh samples. */
     int textureIndex();
 
+    /** Returns this ArtMesh's keyform draw order. */
     int drawOrder();
 
+    /** Returns this ArtMesh's evaluated render order. */
     int renderOrder();
 
+    /** Returns this ArtMesh's opacity in {@code [0,1]}. */
     float getOpacity();
 
+    /** Writes this ArtMesh's opacity through the Editor authoring path. */
     default void setOpacity(final float opacity) {
         throw unavailable("ArtMesh opacity editing");
     }
@@ -225,34 +248,46 @@ public interface Drawable {
     default void replaceGeometry(final ArtMeshGeometry geometry) {
         throw unavailable("ArtMesh geometry editing");
     }
+    /** Returns the Core drawable indexes in this ArtMesh's clipping-mask list. */
     IntSequence masks();
 
+    /** Returns whether this ArtMesh's clipping mask is inverted. */
     default boolean invertedMask() {
         throw unavailable("ArtMesh inverted-mask state");
     }
 
+    /** Returns whether this ArtMesh is culled. */
     default boolean culling() {
         throw unavailable("ArtMesh culling state");
     }
 
+    /** Returns this ArtMesh's free-form user data string. */
     default String userData() {
         throw unavailable("ArtMesh user data");
     }
 
+    /** Returns the evaluated vertex positions as flat x/y pairs. */
     FloatSequence vertexPositions();
 
+    /** Returns the vertex UV coordinates as flat u/v pairs. */
     FloatSequence vertexUvs();
 
+    /** Returns the triangle index list into the vertex arrays. */
     IntSequence indices();
 
+    /** Returns this ArtMesh's multiply (base) color, channels in {@code [0,1]}. */
     Color multiplyColor();
 
+    /** Returns this ArtMesh's screen (effect) color, channels in {@code [0,1]}. */
     Color screenColor();
 
+    /** Returns the Core index of the parent Part, or a negative value when there is none. */
     int parentPartIndex();
 
+    /** Returns the Core index of the parent Deformer, or a negative value when there is none. */
     int parentDeformerIndex();
 
+    /** Returns the Core parameter indexes bound to this ArtMesh. */
     IntSequence parameters();
 
     /**

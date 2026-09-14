@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Process-wide route for framework diagnostics that must not leak into Cubism's native log. */
 public final class RuntimeDiagnostics {
 
+    /** Severity of one framework diagnostic record. */
     public enum Level {
         TRACE,
         DEBUG,
@@ -14,8 +15,20 @@ public final class RuntimeDiagnostics {
         ERROR
     }
 
+    /** Where framework diagnostic records are delivered. */
     @FunctionalInterface
     public interface Sink {
+        /**
+         * Receives one diagnostic record.
+         *
+         * <p>Called from arbitrary threads, including premain-phase replay; a sink must be
+         *   cheap and must not throw — the caller swallows its failures.</p>
+         *
+         * @param level the record severity
+         * @param component the subsystem the record belongs to
+         * @param message the human-readable record text
+         * @param failure the associated throwable, or {@code null}
+         */
         void write(Level level, String component, String message, Throwable failure);
     }
 

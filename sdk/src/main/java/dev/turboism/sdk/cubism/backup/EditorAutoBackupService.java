@@ -108,6 +108,7 @@ public interface EditorAutoBackupService {
         return Unavailable.INSTANCE;
     }
 
+    /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements EditorAutoBackupService {
         INSTANCE;
 

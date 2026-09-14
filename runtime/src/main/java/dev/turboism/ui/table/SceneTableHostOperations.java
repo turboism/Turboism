@@ -850,11 +850,17 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         void schedule(int delayMillis, Runnable operation);
     }
 
+    /** Connection state of the scene-table host binding. */
     public enum State {
+        /** No host connection is bound. */
         DISCONNECTED,
+        /** The connected host does not support scene-table operations. */
         UNSUPPORTED,
+        /** A host connection is being established. */
         CONNECTING,
+        /** The scene-table host is bound and live. */
         CONNECTED,
+        /** The binding failed; the failure is recorded for diagnostics. */
         FAILED
     }
 }

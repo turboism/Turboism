@@ -11,8 +11,10 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
             DrawableVisibilityEvent.On,
             DrawableVisibilityEvent.After {
 
+    /** Returns the detached ArtMesh projection participating in the operation. */
     Drawable drawable();
 
+    /** Synchronous state published before the host visibility write. */
     final class Before implements DrawableVisibilityEvent {
         private final Drawable drawable;
         private final boolean requestedVisible;
@@ -49,6 +51,7 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
         }
 
         @Override public Drawable drawable() { return drawable; }
+        /** Returns the visibility value originally requested by the write call. */
         public boolean requestedVisible() { return requestedVisible; }
         /** Returns the candidate visibility value that will be applied. */
         public boolean visible() { return visible; }
@@ -59,6 +62,7 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
             this.visible = visible;
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -101,11 +105,13 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful visibility write that changed the value. */
     record On(Drawable drawable, boolean oldVisible, boolean newVisible)
         implements DrawableVisibilityEvent {
         public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
+    /** State published after every successful visibility write. */
     record After(Drawable drawable, boolean finalVisible)
         implements DrawableVisibilityEvent {
         public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
