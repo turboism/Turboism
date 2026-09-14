@@ -137,6 +137,10 @@ final class ExternalPsdEditSessionManager {
             return;
         }
 
+        final String binding = relations.binding();
+        final List<Session> reopenSessions = new ArrayList<>();
+        final List<Session> inFlightSessions = new ArrayList<>();
+        final List<Session> staleSessions = new ArrayList<>();
         final List<RawImageId> fresh = new ArrayList<>();
         synchronized (sessions) {
             if (stopped) {
@@ -146,18 +150,37 @@ final class ExternalPsdEditSessionManager {
                 final Session existing = sessions.get(target);
                 if (existing == null || !existing.isLive()) {
                     fresh.add(target);
+                } else if (!existing.binding.equals(binding)) {
+                    staleSessions.add(existing);
+                    fresh.add(target);
+                } else if (existing.isReopenable()) {
+                    reopenSessions.add(existing);
+                } else {
+                    inFlightSessions.add(existing);
                 }
             }
         }
-        if (fresh.isEmpty()) {
+        for (final Session stale : staleSessions) {
+            invalidate(stale, "document or model binding changed");
+        }
+        if (reopenSessions.isEmpty() && fresh.isEmpty()) {
             notifyStatus("external-psd-edit.status.already-open", "INFO",
                 text("external-psd-edit.status.already-open"));
             return;
         }
-        if (fresh.size() > 1 && !confirmMultiple(fresh.size())) {
+        final int openCount = reopenSessions.size() + fresh.size();
+        if (openCount > 1 && !confirmMultiple(openCount)) {
             return;
         }
-        final String binding = relations.binding();
+        for (final Session inFlight : inFlightSessions) {
+            notifyStatus("external-psd-edit.status.already-open", "INFO",
+                text("external-psd-edit.status.already-open"));
+        }
+        for (final Session existing : reopenSessions) {
+            notifyStatus("external-psd-edit.status.already-open", "INFO",
+                text("external-psd-edit.status.already-open"));
+            reopenSession(existing, binding);
+        }
         for (final RawImageId target : fresh) {
             try {
                 beginSession(model.textures(), binding, target);
@@ -240,6 +263,43 @@ final class ExternalPsdEditSessionManager {
             onExportComplete(session, result, failure));
     }
 
+    private void reopenSession(final Session session, final String binding) {
+        final PsdEditFile file;
+        synchronized (sessions) {
+            if (stopped || sessions.get(session.rawImageId) != session
+                || !session.binding.equals(binding)) {
+                return;
+            }
+            file = session.reopenableFile();
+        }
+        if (file == null) {
+            return;
+        }
+        try {
+            file.openInDefaultApplication().whenComplete((result, failure) ->
+                onReopenComplete(session, result, failure));
+        } catch (RuntimeException failure) {
+            onReopenComplete(session, null, failure);
+        }
+    }
+
+    private void onReopenComplete(
+        final Session session,
+        final PsdFileOperationResult result,
+        final Throwable failure
+    ) {
+        synchronized (sessions) {
+            if (stopped || sessions.get(session.rawImageId) != session) {
+                return;
+            }
+        }
+        if (failure != null || result == null
+            || result.status() != PsdFileOperationResult.Status.OPENED) {
+            notifyStatus("external-psd-edit.error.open-failed", "ERROR", format(
+                "external-psd-edit.error.open-failed", session.rawImageId.value()));
+        }
+    }
+
     private void onExportComplete(
         final Session session,
         final PsdExportResult result,
@@ -294,14 +354,18 @@ final class ExternalPsdEditSessionManager {
                 "external-psd-edit.error.open-failed", session.rawImageId.value()));
             return;
         }
-        session.state = State.ACTIVE;
+        synchronized (session) {
+            if (session.state == State.OPENING) {
+                session.state = State.ACTIVE;
+            }
+        }
         notifyStatus("external-psd-edit.status.editing", "INFO",
             format("external-psd-edit.status.editing", session.rawImageId.value()));
     }
 
     private void onSave(final Session session, final PsdFileRevision revision) {
         synchronized (session) {
-            if (session.state != State.ACTIVE || session.file == null) {
+            if (!session.acceptsSaves()) {
                 return;
             }
         }
@@ -311,7 +375,7 @@ final class ExternalPsdEditSessionManager {
 
     private void importSave(final Session session, final PsdFileRevision revision) {
         synchronized (session) {
-            if (session.state != State.ACTIVE || session.file == null) {
+            if (!session.acceptsSaves()) {
                 return;
             }
         }
@@ -402,7 +466,9 @@ final class ExternalPsdEditSessionManager {
                 format("external-psd-edit.confirm.open-multiple.body", count)
             ));
         } catch (RuntimeException unavailable) {
-            return true;
+            notifyStatus("external-psd-edit.error.confirmation-unavailable", "ERROR",
+                text("external-psd-edit.error.confirmation-unavailable"));
+            return false;
         }
     }
 
@@ -492,6 +558,18 @@ final class ExternalPsdEditSessionManager {
 
         private synchronized boolean isLive() {
             return state != State.STOPPED;
+        }
+
+        private synchronized boolean isReopenable() {
+            return (state == State.ACTIVE || state == State.PAUSED) && file != null;
+        }
+
+        private synchronized boolean acceptsSaves() {
+            return (state == State.ACTIVE || state == State.OPENING) && file != null;
+        }
+
+        private synchronized PsdEditFile reopenableFile() {
+            return isReopenable() ? file : null;
         }
 
         private synchronized void stop() {
