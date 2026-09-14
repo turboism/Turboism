@@ -98,6 +98,19 @@ non-regular path, invalid state directory, or timeout; the trigger itself is onl
 handshake and is never feature-pass evidence. The arm/trigger protocol uses no fixed sleep or
 mtime heuristic, and the wait has no Swing/EDT or runtime-log access.
 
+While a GUI wait remains armed but has not received its trigger, a separate daemon may take at
+most two observational JVM samples at 120s and 180s after arming. Each sample uses this JVM's
+`ThreadMXBean.dumpAllThreads(true, true)` and writes one bounded
+`external-psd-gui-thread-dump-1.txt` or `-2.txt` file below the authenticated task state
+directory. The file records `runId`, UTC time, elapsed time, wait stage, every included thread's
+name/state/lock owner and a bounded complete stack for that thread; bootstrap and
+`AWT-EventQueue` threads are prioritized in the bounded output, and the sampling daemon is part
+of the all-thread dump. The output is capped at 256 KiB and the two-file limit is fixed.
+`diagnostic unavailable` is evidence that the observation could not be collected, never a ready
+signal or PASS condition. A received trigger, timeout completion, or `disable()` stops further
+sampling; the daemon never waits on the readiness worker, EDT, or host, and it does not extend
+the Runner timeout or alter hook behavior.
+
 The wrapper also registers `Turboism object context-menu hook disabled safely` as a Runner
 failure marker for GUI runs. The current shared Runner scans failure markers only after it has
 created `gui-ready.flag`; therefore a hook-disabled line written before that point can still
