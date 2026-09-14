@@ -196,9 +196,11 @@ public interface ProjectWorkspaceAdapter {
     /**
      * Guarded implementation of {@link ProjectWorkspaceAdapter}.
      *
-     * <p>Every read checks the reviewed host version and the project/workspace capability
-     * before touching {@link HostOperations}, and converts {@link AdapterHostException} and
-     * unexpected runtime failures into unavailable results.</p>
+     * <p>Every read checks the reviewed host version and the corresponding capability before
+     * issuing the data read — the gate itself already calls
+     * {@link HostOperations#hostVersion()} and the capability probe, so admission gates the
+     * data read, not all host access. {@link AdapterHostException} and unexpected runtime
+     * failures become unavailable results.</p>
      */
     final class Impl implements ProjectWorkspaceAdapter {
         private final Optional<HostOperations> host;

@@ -109,8 +109,12 @@ public interface ClipMaskReadAdapter {
      * Guarded implementation of {@link ClipMaskReadAdapter}.
      *
      * <p>Every read checks the reviewed host version and the clip-mask capability before
-     * touching {@link HostOperations}, copies the observed list defensively, and converts
-     * {@link AdapterHostException} and unexpected runtime failures into unavailable results.</p>
+     * issuing the clip-mask data read — the gate itself already calls
+     * {@link HostOperations#hostVersion()} and
+     * {@link HostOperations#supportsClipMaskRead()}, so admission gates the data read, not
+     * all host access. Observed lists are copied defensively, and
+     * {@link AdapterHostException} and unexpected runtime failures become unavailable
+     * results.</p>
      */
     final class Impl implements ClipMaskReadAdapter {
         private final Optional<HostOperations> host;

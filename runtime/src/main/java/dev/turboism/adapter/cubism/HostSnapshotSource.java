@@ -49,14 +49,21 @@ public interface HostSnapshotSource {
     HostSelection selection();
 
     /**
-     * @return {@code true} when a live host is attached; when {@code false} the accessors
+     * @return whether this source currently observes host content; the meaning is
+     *         implementation-defined (e.g. whether a project or document was observed), not
+     *         a transport-level connection indicator — when {@code false} the accessors
      *         answer with empty values rather than throwing
      */
     boolean isHostPresent();
 
     /**
-     * A monotonically advancing token that changes whenever anything observable through
-     * this source may have changed.
+     * An implementation-defined invalidation signal: it advances when the inputs this
+     * particular source watches change.
+     *
+     * <p>What counts as a change is specific to each implementation — a source may advance
+     * only when its own observed inputs differ, so an observable value that is not part of
+     * those inputs can change without advancing the token. The token is therefore a
+     * may-have-changed signal, not a complete change counter.</p>
      *
      * @return the current token; comparing two tokens detects possible invalidation but
      *         equality alone does not prove nothing changed unless the implementation
