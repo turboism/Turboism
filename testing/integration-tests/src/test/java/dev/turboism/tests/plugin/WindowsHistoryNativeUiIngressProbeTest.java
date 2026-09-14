@@ -764,8 +764,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         assertEquals(
             WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
-            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
-                actorFailure, laterChange
+            WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                actorFailure, List.of(laterChange)
             ).outcome()
         );
 
@@ -777,14 +777,59 @@ class WindowsHistoryNativeUiIngressProbeTest {
             );
         assertEquals(
             WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
-            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
-                unavailable, laterChange
+            WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                unavailable, List.of(laterChange)
             ).outcome()
         );
     }
 
     @Test
-    void parameterActorChangeMayUseAChangedSettledReadButNotEraseTheChange() {
+    void parameterSettleFailureCannotBeRecoveredByALaterNormalRead() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation actorChange =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+                parameterSnapshot("model-A", 5.0f),
+                "changed"
+            );
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation laterChange =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+                parameterSnapshot("model-A", 12.5f),
+                "changed"
+            );
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation modelChanged =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
+                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable(
+                    "model-changed"
+                ),
+                "model-changed"
+            );
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation unavailable =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable(
+                    "read-failed"
+                ),
+                "read-failed"
+            );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
+            WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                actorChange, List.of(modelChanged, laterChange)
+            ).outcome()
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
+            WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                actorChange, List.of(unavailable, laterChange)
+            ).outcome()
+        );
+    }
+
+    @Test
+    void parameterSettleUsesTheLatestSuccessfulReadbackAsFinalState() {
         final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation actorChange =
             new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
                 WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
@@ -806,16 +851,23 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         assertEquals(
             12.5f,
-            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
-                actorChange, settledChange
+            WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                actorChange, List.of(settledChange)
             ).after().values().get(0).value(),
             0.0f
         );
         assertEquals(
-            WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
-            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
-                actorChange, unchanged
+            WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNCHANGED,
+            WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                actorChange, List.of(unchanged)
             ).outcome()
+        );
+        assertEquals(
+            0.0f,
+            WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                actorChange, List.of(unchanged)
+            ).after().values().get(0).value(),
+            0.0f
         );
     }
 

@@ -1347,7 +1347,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final ParameterStateSnapshot before,
         final ParameterChangeObservation detected
     ) throws Exception {
-        ParameterChangeObservation latest = detected;
+        final List<ParameterChangeObservation> settleObservations = new ArrayList<>();
         final long deadline = System.currentTimeMillis() + ACTION_SETTLE_MILLIS;
         while (System.currentTimeMillis() < deadline) {
             if (!running) throw new InterruptedException("Probe disabled while settling a parameter");
@@ -1356,13 +1356,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final ParameterStateOutcome outcome = compareParameterState(before, current);
             if (outcome == ParameterStateOutcome.UNAVAILABLE
                 || outcome == ParameterStateOutcome.MODEL_CHANGED) {
-                return new ParameterChangeObservation(outcome, current, outcome.code());
+                settleObservations.add(new ParameterChangeObservation(
+                    outcome, current, outcome.code()));
+                return settleParameterObservations(detected, settleObservations);
             }
-            if (outcome == ParameterStateOutcome.CHANGED) {
-                latest = new ParameterChangeObservation(outcome, current, outcome.code());
-            }
+            // Every successful read is a candidate final state. In particular, an unchanged
+            // readback proves that the gesture returned to its before value and must not be
+            // replaced by the earlier changed observation.
+            settleObservations.add(new ParameterChangeObservation(outcome, current, outcome.code()));
         }
-        return preserveParameterActorOutcome(detected, latest);
+        return settleParameterObservations(detected, settleObservations);
     }
 
     /** Reads the active model and its bounded parameter values on the host EDT. */
@@ -4099,15 +4102,37 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final ParameterChangeObservation actorObservation,
         final ParameterChangeObservation followupObservation
     ) {
-        if (actorObservation == null) return followupObservation;
-        return switch (actorObservation.outcome()) {
-            case UNAVAILABLE, MODEL_CHANGED -> actorObservation;
-            case CHANGED -> followupObservation == null
-                || followupObservation.outcome() == ParameterStateOutcome.UNCHANGED
-                ? actorObservation : followupObservation;
-            case UNCHANGED -> followupObservation == null
-                ? actorObservation : followupObservation;
-        };
+        return settleParameterObservations(
+            actorObservation,
+            followupObservation == null ? List.of() : List.of(followupObservation)
+        );
+    }
+
+    /**
+     * Applies the same final-readback decision used by the real settle loop to a bounded trace.
+     * Unresolved actor outcomes are terminal, while every successful follow-up observation is a
+     * new final candidate, including a readback that is unchanged from the original value.
+     */
+    static ParameterChangeObservation settleParameterObservations(
+        final ParameterChangeObservation actorObservation,
+        final List<ParameterChangeObservation> settleObservations
+    ) {
+        if (actorObservation != null
+            && (actorObservation.outcome() == ParameterStateOutcome.UNAVAILABLE
+                || actorObservation.outcome() == ParameterStateOutcome.MODEL_CHANGED)) {
+            return actorObservation;
+        }
+        ParameterChangeObservation latest = actorObservation;
+        if (settleObservations == null) return latest;
+        for (final ParameterChangeObservation observation : settleObservations) {
+            if (observation == null) continue;
+            if (observation.outcome() == ParameterStateOutcome.UNAVAILABLE
+                || observation.outcome() == ParameterStateOutcome.MODEL_CHANGED) {
+                return observation;
+            }
+            latest = observation;
+        }
+        return latest;
     }
 
     private String parameterStateJson(
