@@ -24,6 +24,7 @@ public final class PsdValidationContentTest {
     public static void main(final String[] args) throws Exception {
         testMutationAndFingerprint();
         testFingerprintIgnoresNameAndComposite();
+        testFingerprintUsesDecodedRgbAndIgnoresAlphaEncoding();
         testMalformedRowsAndPacketsAreRejected();
         testUnsupportedProfileIsRejected();
         testRealSampleIfRequested();
@@ -39,7 +40,7 @@ public final class PsdValidationContentTest {
         assertEquals(550, before.bounds().bottom(), "target bottom bound");
         assertEquals(100, before.width(), "target width");
         assertEquals(100, before.height(), "target height");
-        assertEquals(List.of(0, 1, 2, -1), before.channelIds(), "target channel layout");
+        assertEquals(List.of(0, 1, 2), before.channelIds(), "target RGB channel identifiers");
 
         // The fixture exercises a literal packet, repeat packet, row boundary, and the
         // maximum 128-sample repeat packet in the full-size layer.
@@ -63,7 +64,8 @@ public final class PsdValidationContentTest {
         final PsdValidationContent.Fingerprint after = fingerprint(mutated);
         assertTrue(!before.sha256().equals(after.sha256()), "target fingerprint changes");
         assertEquals(before.bounds(), after.bounds(), "bounds survive mutation");
-        assertEquals(before.channelIds(), after.channelIds(), "channel layout survives mutation");
+        assertEquals(before.channelIds(), after.channelIds(),
+            "RGB channel identifiers survive mutation");
 
         // XOR is intentionally its own inverse, including repeat packet sample bytes.
         final byte[] restored = PsdValidationContent.invertTargetLayerRgb(mutated);
@@ -91,6 +93,33 @@ public final class PsdValidationContentTest {
             "target RGB sample change is inside target content fingerprint");
     }
 
+    private static void testFingerprintUsesDecodedRgbAndIgnoresAlphaEncoding() {
+        final Fixture baseline = Fixture.valid();
+        final String baselineFingerprint = fingerprint(baseline.bytes).sha256();
+
+        final Fixture equivalentRgb = Fixture.equivalentRgbEncoding();
+        assertTrue(!Arrays.equals(baseline.bytes, equivalentRgb.bytes),
+            "equivalent RGB fixture uses different RLE bytes");
+        assertEquals(baselineFingerprint, fingerprint(equivalentRgb.bytes).sha256(),
+            "equivalent repeat/literal/no-op RGB encoding has the same fingerprint");
+
+        final Fixture alphaChanged = Fixture.alphaContentChanged();
+        assertTrue(!Arrays.equals(baseline.bytes, alphaChanged.bytes),
+            "alpha-only fixture changes bytes");
+        assertEquals(baselineFingerprint, fingerprint(alphaChanged.bytes).sha256(),
+            "alpha-only content does not affect target RGB fingerprint");
+
+        final Fixture alphaReencoded = Fixture.equivalentAlphaEncoding();
+        assertTrue(alphaReencoded.targetAlphaLength != baseline.targetAlphaLength,
+            "equivalent alpha encoding changes declared encoded length");
+        assertEquals(baselineFingerprint, fingerprint(alphaReencoded.bytes).sha256(),
+            "equivalent alpha encoding does not affect target RGB fingerprint");
+
+        final byte[] changedRgb = PsdValidationContent.invertTargetLayerRgb(baseline.bytes);
+        assertTrue(!baselineFingerprint.equals(fingerprint(changedRgb).sha256()),
+            "decoded target RGB modification changes fingerprint");
+    }
+
     private static void testMalformedRowsAndPacketsAreRejected() {
         final Fixture fixture = Fixture.valid();
 
@@ -100,6 +129,10 @@ public final class PsdValidationContentTest {
         final byte[] badRowLength = fixture.bytes.clone();
         putU16(badRowLength, fixture.targetFirstRowLengthOffset, 1);
         expectReject("decoded row length", badRowLength);
+
+        final byte[] repeatWithoutSample = fixture.bytes.clone();
+        putU16(repeatWithoutSample, fixture.targetRepeatRowLengthOffset, 1);
+        expectReject("repeat packet without sample", repeatWithoutSample);
 
         final byte[] literalOverrun = fixture.bytes.clone();
         literalOverrun[fixture.targetFullLiteralControlOffset] = (byte) 0x7f;
@@ -117,6 +150,16 @@ public final class PsdValidationContentTest {
         final byte[] compositeRowLength = fixture.bytes.clone();
         putU16(compositeRowLength, fixture.compositeFirstRowLengthOffset, 1);
         expectReject("composite row length", compositeRowLength);
+
+        final byte[] layerSectionBoundary = fixture.bytes.clone();
+        putU32(layerSectionBoundary, fixture.layerMaskLengthOffset,
+            fixture.layerMaskLength + 1L);
+        expectReject("layer section length boundary", layerSectionBoundary);
+
+        final byte[] layerInfoBoundary = fixture.bytes.clone();
+        putU32(layerInfoBoundary, fixture.layerInfoLengthOffset,
+            fixture.layerInfoLength + 1L);
+        expectReject("layer info length boundary", layerInfoBoundary);
 
         // All rejection paths must fail before exposing a partially mutated clone or changing
         // the caller's source array.
@@ -280,6 +323,7 @@ public final class PsdValidationContentTest {
         private final int targetAlphaStart;
         private final int targetAlphaLength;
         private final int targetFirstRowLengthOffset;
+        private final int targetRepeatRowLengthOffset;
         private final int targetLiteralControlOffset;
         private final int targetRepeatControlOffset;
         private final int targetFullLiteralControlOffset;
@@ -291,17 +335,24 @@ public final class PsdValidationContentTest {
         private final int targetRecordStart;
         private final int compositeFirstRowLengthOffset;
         private final int compositeCompressionOffset;
+        private final int layerMaskLengthOffset;
+        private final int layerMaskLength;
+        private final int layerInfoLengthOffset;
+        private final int layerInfoLength;
 
         private Fixture(final byte[] bytes, final int[] targetRgbSampleOffsets,
             final int targetNameByteOffset, final int compositeSampleOffset,
             final int compositeStart, final int compositeLength, final int targetAlphaStart,
             final int targetAlphaLength, final int targetFirstRowLengthOffset,
+            final int targetRepeatRowLengthOffset,
             final int targetLiteralControlOffset, final int targetRepeatControlOffset,
             final int targetFullLiteralControlOffset, final int canvasRepeatControlOffset,
             final int targetRedCompressionOffset, final int targetRedChannelLengthOffset,
             final int targetRedChannelLength, final int targetChannelIdOffset,
             final int targetRecordStart, final int compositeFirstRowLengthOffset,
-            final int compositeCompressionOffset) {
+            final int compositeCompressionOffset, final int layerMaskLengthOffset,
+            final int layerMaskLength, final int layerInfoLengthOffset,
+            final int layerInfoLength) {
             this.bytes = bytes;
             this.targetRgbSampleOffsets = targetRgbSampleOffsets;
             this.targetNameByteOffset = targetNameByteOffset;
@@ -311,6 +362,7 @@ public final class PsdValidationContentTest {
             this.targetAlphaStart = targetAlphaStart;
             this.targetAlphaLength = targetAlphaLength;
             this.targetFirstRowLengthOffset = targetFirstRowLengthOffset;
+            this.targetRepeatRowLengthOffset = targetRepeatRowLengthOffset;
             this.targetLiteralControlOffset = targetLiteralControlOffset;
             this.targetRepeatControlOffset = targetRepeatControlOffset;
             this.targetFullLiteralControlOffset = targetFullLiteralControlOffset;
@@ -322,9 +374,30 @@ public final class PsdValidationContentTest {
             this.targetRecordStart = targetRecordStart;
             this.compositeFirstRowLengthOffset = compositeFirstRowLengthOffset;
             this.compositeCompressionOffset = compositeCompressionOffset;
+            this.layerMaskLengthOffset = layerMaskLengthOffset;
+            this.layerMaskLength = layerMaskLength;
+            this.layerInfoLengthOffset = layerInfoLengthOffset;
+            this.layerInfoLength = layerInfoLength;
         }
 
         private static Fixture valid() {
+            return create(false, false, false);
+        }
+
+        private static Fixture equivalentRgbEncoding() {
+            return create(true, false, false);
+        }
+
+        private static Fixture alphaContentChanged() {
+            return create(false, false, true);
+        }
+
+        private static Fixture equivalentAlphaEncoding() {
+            return create(false, true, false);
+        }
+
+        private static Fixture create(final boolean equivalentRgb, final boolean equivalentAlpha,
+            final boolean alphaChanged) {
             final List<Layer> layers = new ArrayList<>();
             layers.add(Layer.create(0, 0, CANVAS_SIZE, CANVAS_SIZE, "layer0"));
             layers.add(Layer.create(0, 0, 100, 100, "layer1"));
@@ -332,7 +405,8 @@ public final class PsdValidationContentTest {
             layers.add(Layer.create(200, 200, 300, 300, "layer3"));
             layers.add(Layer.create(250, 250, 350, 350, "layer4"));
             layers.add(Layer.create(350, 350, 450, 450, "layer5"));
-            layers.add(Layer.create(450, 450, 550, 550, "layer6"));
+            layers.add(Layer.create(450, 450, 550, 550, "layer6", equivalentRgb,
+                equivalentAlpha, alphaChanged));
 
             final Bytes layerInfo = new Bytes();
             layerInfo.u16(layers.size());
@@ -357,7 +431,9 @@ public final class PsdValidationContentTest {
             file.u32(0); // color mode data length
             file.u32(resources.length);
             file.bytes(resources);
+            final int layerMaskLengthOffset = file.size();
             file.u32(outerLength);
+            final int layerInfoLengthOffset = file.size();
             file.u32(layerInfo.size());
             final int layerInfoStart = file.size();
             file.bytes(layerInfo.toByteArray());
@@ -378,6 +454,7 @@ public final class PsdValidationContentTest {
             int targetRedStart = -1;
             int targetRedLength = -1;
             int targetFirstRowLengthOffset = -1;
+            int targetRepeatRowLengthOffset = -1;
             int targetLiteralControlOffset = -1;
             int targetRepeatControlOffset = -1;
             int targetFullLiteralControlOffset = -1;
@@ -404,6 +481,8 @@ public final class PsdValidationContentTest {
                             targetRedStart = currentDataOffset;
                             targetRedLength = channel.data.length;
                             targetFirstRowLengthOffset = currentDataOffset + channel.firstRowLengthOffset;
+                            targetRepeatRowLengthOffset = currentDataOffset
+                                + channel.repeatRowLengthOffset;
                             targetLiteralControlOffset = currentDataOffset
                                 + channel.firstLiteralControlOffset;
                             targetRepeatControlOffset = currentDataOffset
@@ -428,11 +507,13 @@ public final class PsdValidationContentTest {
             return new Fixture(bytes, targetSamples.stream().mapToInt(Integer::intValue).toArray(),
                 targetNameByteOffset, compositeStart + composite.sampleOffset, compositeStart,
                 composite.data.length, targetAlphaStart, targetAlphaLength,
-                targetFirstRowLengthOffset, targetLiteralControlOffset, targetRepeatControlOffset,
+                targetFirstRowLengthOffset, targetRepeatRowLengthOffset,
+                targetLiteralControlOffset, targetRepeatControlOffset,
                 targetFullLiteralControlOffset, canvasRepeatControlOffset, targetRedStart,
                 targetRedLengthOffset, targetRedLength, targetChannelIdOffset, targetRecordStart,
                 compositeStart + composite.firstRowLengthOffset,
-                compositeStart + composite.compressionOffset);
+                compositeStart + composite.compressionOffset, layerMaskLengthOffset, outerLength,
+                layerInfoLengthOffset, layerInfo.size());
         }
 
         private static byte[] resourceSection() {
@@ -461,15 +542,25 @@ public final class PsdValidationContentTest {
 
         private static Layer create(final int top, final int left, final int bottom,
             final int right, final String name) {
+            return create(top, left, bottom, right, name, false, false, false);
+        }
+
+        private static Layer create(final int top, final int left, final int bottom,
+            final int right, final String name, final boolean equivalentRgb,
+            final boolean equivalentAlpha, final boolean alphaChanged) {
             final int width = right - left;
             final int height = bottom - top;
             final boolean target = top == 450 && left == 450
                 && bottom == 550 && right == 550;
             final List<Channel> channels = List.of(
-                Channel.create(0, width, height, target, 0),
-                Channel.create(1, width, height, target, 1),
-                Channel.create(2, width, height, target, 2),
-                Channel.create(-1, width, height, target, 3));
+                Channel.create(0, width, height, target, 0, equivalentRgb, equivalentAlpha,
+                    alphaChanged),
+                Channel.create(1, width, height, target, 1, equivalentRgb, equivalentAlpha,
+                    alphaChanged),
+                Channel.create(2, width, height, target, 2, equivalentRgb, equivalentAlpha,
+                    alphaChanged),
+                Channel.create(-1, width, height, target, 3, equivalentRgb, equivalentAlpha,
+                    alphaChanged));
             final Bytes record = new Bytes();
             record.u32(top);
             record.u32(left);
@@ -532,13 +623,15 @@ public final class PsdValidationContentTest {
         private final int idOffset;
         private final int lengthOffset;
         private final int firstRowLengthOffset;
+        private final int repeatRowLengthOffset;
         private final int firstControlOffset;
         private final int firstLiteralControlOffset;
         private final int firstRepeatControlOffset;
         private final int fullLiteralControlOffset;
 
         private Channel(final int id, final byte[] data, final List<Integer> sampleOffsets,
-            final int firstRowLengthOffset, final int firstControlOffset,
+            final int firstRowLengthOffset, final int repeatRowLengthOffset,
+            final int firstControlOffset,
             final int firstLiteralControlOffset, final int firstRepeatControlOffset,
             final int fullLiteralControlOffset, final int channelIndex) {
             this.id = id;
@@ -547,6 +640,7 @@ public final class PsdValidationContentTest {
             this.idOffset = 18 + channelIndex * 6;
             this.lengthOffset = 20 + channelIndex * 6;
             this.firstRowLengthOffset = firstRowLengthOffset;
+            this.repeatRowLengthOffset = repeatRowLengthOffset;
             this.firstControlOffset = firstControlOffset;
             this.firstLiteralControlOffset = firstLiteralControlOffset;
             this.firstRepeatControlOffset = firstRepeatControlOffset;
@@ -554,7 +648,8 @@ public final class PsdValidationContentTest {
         }
 
         private static Channel create(final int id, final int width, final int height,
-            final boolean target, final int channelIndex) {
+            final boolean target, final int channelIndex, final boolean equivalentRgb,
+            final boolean equivalentAlpha, final boolean alphaChanged) {
             final Bytes data = new Bytes();
             data.u16(1);
             final int rowTableOffset = data.size();
@@ -566,34 +661,58 @@ public final class PsdValidationContentTest {
             int fullLiteralControlOffset = -1;
             for (int row = 0; row < height; row++) {
                 final int rowStart = data.size();
-                if (row == 0 && target) {
+                final boolean alternate = target
+                    && ((channelIndex < 3 && equivalentRgb)
+                    || (channelIndex == 3 && equivalentAlpha));
+                if (target && alternate) {
                     firstControlOffset = rowStart;
                     firstLiteralControlOffset = rowStart;
+                    final byte[] values = targetRowValues(width, row, channelIndex,
+                        alphaChanged);
+                    if (row == 0 || row == 1) {
+                        encodeLiteral(data, values, 0, values.length, sampleOffsets);
+                    } else if (row == 2) {
+                        fullLiteralControlOffset = rowStart;
+                        encodeLiteral(data, values, 0, 40, sampleOffsets);
+                        encodeLiteral(data, values, 40, values.length - 40, sampleOffsets);
+                    } else {
+                        data.u8(0x80); // legal PackBits no-op, changing encoded length only
+                        if (firstRepeatControlOffset < 0) firstRepeatControlOffset = data.size();
+                        encodeRepeat(data, values[0] & 0xff, values.length, sampleOffsets);
+                    }
+                } else if (row == 0 && target) {
+                    firstControlOffset = rowStart;
+                    firstLiteralControlOffset = rowStart;
+                    final byte[] values = targetRowValues(width, row, channelIndex,
+                        alphaChanged);
                     data.u8(0);
                     sampleOffsets.add(data.size());
-                    data.u8(0x20 + channelIndex);
+                    data.u8(values[0] & 0xff);
                     data.u8(257 - 99);
                     firstRepeatControlOffset = data.size() - 1;
                     sampleOffsets.add(data.size());
-                    data.u8(0x30 + channelIndex);
+                    data.u8(values[1] & 0xff);
                 } else if (row == 1 && target) {
                     firstRepeatControlOffset = rowStart;
-                    data.u8(257 - 100);
-                    sampleOffsets.add(data.size());
-                    data.u8(0x40 + channelIndex);
+                    final byte[] values = targetRowValues(width, row, channelIndex,
+                        alphaChanged);
+                    encodeRepeat(data, values[0] & 0xff, values.length, sampleOffsets);
                 } else if (row == 2 && target) {
                     fullLiteralControlOffset = rowStart;
-                    data.u8(width - 1);
-                    for (int sample = 0; sample < width; sample++) {
-                        sampleOffsets.add(data.size());
-                        data.u8(0x50 + channelIndex + (sample & 0x0f));
-                    }
+                    final byte[] values = targetRowValues(width, row, channelIndex,
+                        alphaChanged);
+                    encodeLiteral(data, values, 0, values.length, sampleOffsets);
                 } else if (!target && width == CANVAS_SIZE) {
                     if (row == 0 && channelIndex == 0) firstControlOffset = rowStart;
                     encodeRepeatChunks(data, width, 0x10 + channelIndex, null);
                 } else {
-                    encodeRepeatChunks(data, width, 0x60 + channelIndex, target
-                        ? sampleOffsets : null);
+                    if (target) {
+                        final byte[] values = targetRowValues(width, row, channelIndex,
+                            alphaChanged);
+                        encodeRepeat(data, values[0] & 0xff, values.length, sampleOffsets);
+                    } else {
+                        encodeRepeatChunks(data, width, 0x60 + channelIndex, null);
+                    }
                 }
                 final int rowLength = data.size() - rowStart;
                 data.patchU16(rowTableOffset + row * 2, rowLength);
@@ -602,8 +721,51 @@ public final class PsdValidationContentTest {
                 throw new AssertionError("target channel did not encode row zero");
             }
             return new Channel(id, data.toByteArray(), sampleOffsets, rowTableOffset,
-                firstControlOffset, firstLiteralControlOffset, firstRepeatControlOffset,
+                rowTableOffset + 2, firstControlOffset, firstLiteralControlOffset,
+                firstRepeatControlOffset,
                 fullLiteralControlOffset, channelIndex);
+        }
+
+        private static byte[] targetRowValues(final int width, final int row,
+            final int channelIndex, final boolean alphaChanged) {
+            final byte[] values = new byte[width];
+            for (int sample = 0; sample < width; sample++) {
+                final int value;
+                if (row == 0) {
+                    value = sample == 0 ? 0x20 + channelIndex : 0x30 + channelIndex;
+                } else if (row == 1) {
+                    value = 0x40 + channelIndex;
+                } else if (row == 2) {
+                    value = 0x50 + channelIndex + (sample & 0x0f);
+                } else {
+                    value = 0x60 + channelIndex;
+                }
+                values[sample] = (byte) ((alphaChanged && channelIndex == 3)
+                    ? value ^ 0x01 : value);
+            }
+            return values;
+        }
+
+        private static void encodeLiteral(final Bytes data, final byte[] values,
+            final int offset, final int length, final List<Integer> sampleOffsets) {
+            if (length < 1 || length > 128 || offset < 0 || offset + length > values.length) {
+                throw new AssertionError("invalid fixture literal packet");
+            }
+            data.u8(length - 1);
+            for (int sample = offset; sample < offset + length; sample++) {
+                sampleOffsets.add(data.size());
+                data.u8(values[sample] & 0xff);
+            }
+        }
+
+        private static void encodeRepeat(final Bytes data, final int value, final int count,
+            final List<Integer> sampleOffsets) {
+            if (count < 2 || count > 128) {
+                throw new AssertionError("invalid fixture repeat packet");
+            }
+            data.u8(257 - count);
+            sampleOffsets.add(data.size());
+            data.u8(value);
         }
     }
 
