@@ -52,6 +52,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -384,7 +385,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Path marker = tempMarker();
 
         final GuiClick click = clickContributedItem(
-            result.getProperty("gui.menuLabel"), 64, result);
+            Set.of(result.getProperty("gui.menuLabel"),
+                "Edit PSD Externally",
+                "外部编辑 PSD", "外部編輯 PSD",
+                "外部でPSDを編集", "외부에서 PSD 편집"),
+            64, result);
         if (!click.clicked()) {
             throw new Blocked("context menu with the contributed item was reachable",
                 click.diagnostic());
@@ -1134,10 +1139,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * right-click on each, and clicks the first menu item whose text equals {@code label}.
      * Returns after the first successful click or when the row budget is exhausted.
      */
-    private GuiClick clickContributedItem(final String label, final int rowBudget,
+    private GuiClick clickContributedItem(final Set<String> labels, final int rowBudget,
         final Properties result) throws Exception {
         int attempts = 0;
         int popups = 0;
+        final Set<String> menuTexts = new LinkedHashSet<>();
         String diagnostic = "no visible row widget found";
         final long deadline = System.currentTimeMillis() + 120_000;
         while (System.currentTimeMillis() < deadline && !stopped) {
@@ -1150,7 +1156,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         final JPopupMenu popup = widget.rightClick(row);
                         if (popup == null) continue;
                         popups++;
-                        final JMenuItem item = findItem(popup, label);
+                        final JMenuItem item = findItem(popup, labels, menuTexts);
                         if (item == null) {
                             dismissPopup();
                             continue;
@@ -1163,7 +1169,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         return new GuiClick(true, "clicked row " + row);
                     }
                     diagnostic = "rows exhausted without the item; popups seen " + popups
-                        + " widgets=" + widgets.stream().map(RowWidget::name).toList();
+                        + " widgets=" + widgets.stream().map(RowWidget::name).toList()
+                        + " menuTexts=" + menuTexts;
                 }
             }
             Thread.sleep(1000);
@@ -1233,7 +1240,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
+    private static void dispatchLeftClick(final Component target, final int x, final int y) {
+        final long now = System.currentTimeMillis();
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
+            InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
+            InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_CLICKED, now,
+            InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, MouseEvent.BUTTON1));
+    }
+
     private static void dispatchRightClick(final Component target, final int x, final int y) {
+        dispatchLeftClick(target, x, y);
         final long now = System.currentTimeMillis();
         target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
             InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
@@ -1350,10 +1368,22 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return null;
     }
 
-    private static JMenuItem findItem(final JPopupMenu popup, final String label) {
-        for (final Component component : popup.getComponents()) {
-            if (component instanceof JMenuItem item && label.equals(item.getText())) {
-                return item;
+    private static JMenuItem findItem(final JPopupMenu popup, final Set<String> labels,
+        final Set<String> seen) {
+        return findItem(popup, labels, seen, 0);
+    }
+
+    private static JMenuItem findItem(final Container container, final Set<String> labels,
+        final Set<String> seen, final int depth) {
+        if (depth > 4) return null;
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JMenuItem item) {
+                if (seen.size() < 200) seen.add(item.getText());
+                if (labels.contains(item.getText())) return item;
+            }
+            if (component instanceof Container child) {
+                final JMenuItem item = findItem(child, labels, seen, depth + 1);
+                if (item != null) return item;
             }
         }
         return null;
