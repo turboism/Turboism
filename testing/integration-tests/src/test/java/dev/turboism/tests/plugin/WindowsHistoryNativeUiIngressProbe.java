@@ -3969,7 +3969,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return "binding-changed";
         }
         if (truncatedSdkHistory(before) || truncatedSdkHistory(after)) return "history-truncated";
-        if (!validSdkShape(before) || !validSdkShape(after)) return "history-unavailable";
+        if (!completeEntryIdentities(before) || !completeEntryIdentities(after)) {
+            return "history-unavailable";
+        }
         return null;
     }
 
@@ -3986,22 +3988,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static boolean truncatedSdkHistory(
         final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
     ) {
-        return snapshot.totalEntries() > snapshot.entries().size()
-            || snapshot.totalEntries() != snapshot.entries().size();
+        return snapshot.totalEntries() != snapshot.entries().size();
     }
 
-    private static boolean validSdkShape(
+    private static boolean completeEntryIdentities(
         final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot snapshot
     ) {
-        if (snapshot.generation() < 0 || snapshot.revision() < 0
-            || snapshot.totalEntries() < 0
-            || snapshot.position() < 0
-            || snapshot.position() > snapshot.entries().size()) {
-            return false;
-        }
-        for (int index = 0; index < snapshot.entries().size(); index++) {
-            final WindowsHistoryManagerValidationProbe.SdkEntry entry = snapshot.entries().get(index);
-            if (entry == null || entry.index() != index) return false;
+        final Set<String> identities = new HashSet<>();
+        for (WindowsHistoryManagerValidationProbe.SdkEntry entry : snapshot.entries()) {
+            if (entry == null || !stableEntryId(entry.entryId())
+                || !identities.add(entry.entryId())) {
+                return false;
+            }
         }
         return true;
     }
@@ -4046,7 +4044,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 true,
                 false,
                 Set.of(),
-                List.of()
+                List.of(),
+                true
             );
         }
         final DetailWalk walk = walkDetail(detail, 0, new int[] {0});
@@ -4056,12 +4055,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             walk.complete(),
             walk.unstableTarget(),
             walk.targetKeys(),
-            walk.relations()
+            walk.relations(),
+            walk.hasNonRelationChange()
         );
     }
 
     private static String candidateFailureCode(final PartCandidate candidate) {
         if (!candidate.hasRelation()) return "no-proven-membership-change";
+        if (candidate.hasNonRelationChange()) return "ambiguous-candidate";
         if (!candidate.complete()) return "partial-relation";
         if (candidate.relations().size() != 1 || candidate.unstableTarget()
             || candidate.targetKeys().size() != 1) {
@@ -4080,16 +4081,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final int depth,
         final int[] nodes
     ) {
-        if (detail == null || depth > WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
+        if (depth > WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
             || nodes[0] >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
             return DetailWalk.incomplete();
         }
         nodes[0]++;
         final Set<TargetKey> targetKeys = new LinkedHashSet<>();
         boolean unstableTarget = false;
-        if (detail.targets() == null || detail.changes() == null) {
-            return new DetailWalk(false, true, true, targetKeys, List.of());
-        }
         for (HistoryTarget target : detail.targets()) {
             if (!stableTarget(target)) {
                 unstableTarget = true;
@@ -4098,38 +4096,41 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
         }
         final List<RelationObservation> relations = new ArrayList<>();
+        boolean hasNonRelationChange = false;
         for (HistoryChange change : detail.changes()) {
-            if (change == null || change.relation() == null || change.relation().isEmpty()) continue;
+            if (change.relation().isEmpty()) {
+                hasNonRelationChange = true;
+                continue;
+            }
             relations.add(relationObservation(detail, change));
         }
 
         boolean complete = true;
         final boolean structured = !detail.targets().isEmpty()
             || !detail.changes().isEmpty()
-            || detail.group() != null && detail.group().isPresent();
-        if (detail.group() != null && detail.group().isPresent()) {
-            final var group = detail.group().orElse(null);
-            if (group == null || group.truncated()
+            || detail.group().isPresent();
+        if (detail.group().isPresent()) {
+            final var group = detail.group().orElseThrow();
+            if (group.truncated()
                 || group.observedChildCount() < group.children().size()
                 || group.children().size() > WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
                 complete = false;
             }
-            if (group != null) {
-                if (depth >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
-                    && !group.children().isEmpty()) {
-                    complete = false;
-                } else {
-                    for (HistoryEntryDetail child : group.children()) {
-                        if (nodes[0] >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
-                            complete = false;
-                            break;
-                        }
-                        final DetailWalk childWalk = walkDetail(child, depth + 1, nodes);
-                        complete &= childWalk.complete();
-                        unstableTarget |= childWalk.unstableTarget();
-                        targetKeys.addAll(childWalk.targetKeys());
-                        relations.addAll(childWalk.relations());
+            if (depth >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_DEPTH
+                && !group.children().isEmpty()) {
+                complete = false;
+            } else {
+                for (HistoryEntryDetail child : group.children()) {
+                    if (nodes[0] >= WindowsHistoryManagerValidationProbe.MAX_DETAIL_NODES) {
+                        complete = false;
+                        break;
                     }
+                    final DetailWalk childWalk = walkDetail(child, depth + 1, nodes);
+                    complete &= childWalk.complete();
+                    unstableTarget |= childWalk.unstableTarget();
+                    hasNonRelationChange |= childWalk.hasNonRelationChange();
+                    targetKeys.addAll(childWalk.targetKeys());
+                    relations.addAll(childWalk.relations());
                 }
             }
         }
@@ -4138,7 +4139,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             structured,
             unstableTarget,
             targetKeys,
-            relations
+            relations,
+            hasNonRelationChange
         );
     }
 
@@ -4146,11 +4148,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final HistoryEntryDetail detail,
         final HistoryChange change
     ) {
-        final HistoryRelationChange relation = change.relation().orElse(null);
-        if (relation == null || relation.kind() != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
+        final HistoryRelationChange relation = change.relation().orElseThrow();
+        if (relation.kind() != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
             return new RelationObservation(RelationStatus.NON_MEMBERSHIP);
         }
-        if (change.targetIndex() == null || change.targetIndex().isEmpty()) {
+        if (change.targetIndex().isEmpty()) {
             return new RelationObservation(RelationStatus.INVALID_TARGET_INDEX);
         }
         final int targetIndex = change.targetIndex().orElse(-1);
@@ -4172,7 +4174,6 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static boolean stableTarget(final HistoryTarget target) {
         return target != null
             && nonBlank(target.type())
-            && target.id() != null
             && target.id().filter(WindowsHistoryNativeUiIngressProbe::nonBlank).isPresent();
     }
 
@@ -4183,7 +4184,6 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static EndpointIdentity endpointIdentity(
         final HistoryRelationChange.Endpoint endpoint
     ) {
-        if (endpoint == null || endpoint.state() == null || endpoint.target() == null) return null;
         return switch (endpoint.state()) {
             case ROOT -> endpoint.target().isEmpty()
                 ? new EndpointIdentity(HistoryRelationChange.State.ROOT, null)
@@ -4230,7 +4230,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         boolean structured,
         boolean unstableTarget,
         Set<TargetKey> targetKeys,
-        List<RelationObservation> relations
+        List<RelationObservation> relations,
+        boolean hasNonRelationChange
     ) {
         private DetailWalk {
             targetKeys = Set.copyOf(targetKeys);
@@ -4238,7 +4239,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
 
         private static DetailWalk incomplete() {
-            return new DetailWalk(false, true, true, Set.of(), List.of());
+            return new DetailWalk(false, true, true, Set.of(), List.of(), true);
         }
     }
 
@@ -4248,7 +4249,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         boolean complete,
         boolean unstableTarget,
         Set<TargetKey> targetKeys,
-        List<RelationObservation> relations
+        List<RelationObservation> relations,
+        boolean hasNonRelationChange
     ) {
         private PartCandidate {
             targetKeys = Set.copyOf(targetKeys);

@@ -414,6 +414,22 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
+    void aSelectionOnlyAuxiliaryEntryDoesNotSupplyOrContaminateMembershipProof() {
+        final HistoryEntryDetail complete = membershipDetail(
+            targetEndpoint("PART", "part-a", "A"),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(
+            List.of(HistoryEntryDetail.labelOnly("selection"), complete)
+        );
+
+        assertTrue(verdict.ok(), verdict.detail());
+        assertEquals("proven-membership-change", verdict.code());
+    }
+
+    @Test
     void unknownEndpointOnEitherSideIsPartialAndNeverTreatedAsRoot() {
         final WindowsHistoryNativeUiIngressProbe.Verdict unknownBefore = partVerdict(
             membershipDetail(
@@ -520,6 +536,64 @@ class WindowsHistoryNativeUiIngressProbeTest {
         );
 
         final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(detail);
+
+        assertFalse(verdict.ok());
+        assertEquals("ambiguous-candidate", verdict.code());
+    }
+
+    @Test
+    void completeMembershipMixedWithAPropertyChangeIsAmbiguous() {
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            rootEndpoint(),
+            targetEndpoint("PART", "part-b", "B")
+        );
+        final HistoryChange property = HistoryChange.set(0, "opacity", "1", "0.5");
+        final HistoryEntryDetail mixed = new HistoryEntryDetail(
+            "mixed",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(childTarget()),
+            List.of(relationChange(relation), property),
+            Optional.empty(),
+            Optional.empty()
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(mixed);
+
+        assertFalse(verdict.ok());
+        assertEquals("ambiguous-candidate", verdict.code());
+    }
+
+    @Test
+    void nestedGroupSiblingPropertyChangeIsAmbiguous() {
+        final HistoryEntryDetail relation = membershipDetail(
+            rootEndpoint(),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final HistoryEntryDetail property = new HistoryEntryDetail(
+            "opacity",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(childTarget()),
+            List.of(HistoryChange.set(0, "opacity", "1", "0.5")),
+            Optional.empty(),
+            Optional.empty()
+        );
+        final HistoryEntryDetail grouped = new HistoryEntryDetail(
+            "mixed group",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.of("mixed-group"), 2, List.of(relation, property), false
+            )),
+            Optional.empty()
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(grouped);
 
         assertFalse(verdict.ok());
         assertEquals("ambiguous-candidate", verdict.code());
@@ -668,7 +742,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
             sdkEntry(1, "unapplied", complete);
 
         assertEquals(
-            "no-new-entry",
+            "history-unavailable",
             WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
                 sdkHistory(List.of(old), 1),
                 sdkHistory(List.of(old, noId), 2)
@@ -679,6 +753,50 @@ class WindowsHistoryNativeUiIngressProbeTest {
             WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
                 sdkHistory(List.of(old), 1),
                 sdkHistory(List.of(old, unapplied), 1)
+            ).code()
+        );
+    }
+
+    @Test
+    void blankOrDuplicateEntryIdsInEitherSnapshotFailClosed() {
+        final HistoryEntryDetail complete = membershipDetail(
+            rootEndpoint(),
+            targetEndpoint("PART", "part-b", "B"),
+            HistoryAction.DetailLevel.FULL
+        );
+        final WindowsHistoryManagerValidationProbe.SdkEntry old =
+            sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
+        final WindowsHistoryManagerValidationProbe.SdkEntry blank =
+            sdkEntry(1, "", HistoryEntryDetail.labelOnly("selection"));
+        final WindowsHistoryManagerValidationProbe.SdkEntry fresh =
+            sdkEntry(1, "fresh", complete);
+
+        assertEquals(
+            "history-unavailable",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(sdkEntry(0, "", complete)), 1),
+                sdkHistory(List.of(sdkEntry(0, "known-now", complete)), 1)
+            ).code()
+        );
+        assertEquals(
+            "history-unavailable",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(old), 1),
+                sdkHistory(List.of(old, fresh, blank), 3)
+            ).code()
+        );
+        assertEquals(
+            "history-unavailable",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(old), 1),
+                sdkHistory(List.of(old, fresh, sdkEntry(2, "fresh", complete)), 3)
+            ).code()
+        );
+        assertEquals(
+            "history-unavailable",
+            WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                sdkHistory(List.of(old, sdkEntry(1, "old", HistoryEntryDetail.labelOnly("old"))), 2),
+                sdkHistory(List.of(old, sdkEntry(1, "old", HistoryEntryDetail.labelOnly("old"))), 2)
             ).code()
         );
     }
