@@ -76,13 +76,17 @@ discovers only a visible host `JTable` whose actual model class is the reviewed
 classloader off the EDT. The returned private access context is reused by EDT row resolution;
 an unavailable or unverified host is `BLOCKED`, not a generic Swing fallback.
 
-The selected SDK ArtMesh's complete domain ID is matched against the exact host accessor chain
-(`j.a` backing tree model → `j.b` JTree → node source → `getId().getIdString()`). Parts/deformer
-family and exact ArtMesh source class are retained in the target identity. A target is clicked
-only when it is unique in the captured window. The name model column is fixed at index `2` and
-converted to the current view column; its visible cell bounds supply both selection and popup
-coordinates. Draw/Lock columns, labels, row numbers, arbitrary JTree/JList rows, and other
-windows cannot be fallbacks.
+The probe first requires an AWT active, showing, displayable target window and scans reviewed
+tables in that window only; a window that cannot be proven active is rejected, and another
+window is never a fallback. The selected SDK ArtMesh's complete domain ID is matched against
+the exact host accessor chain (`j.a` backing tree model → `j.b` JTree → node source →
+`getId().getIdString()`). Parts/deformer family and exact ArtMesh source class are retained in
+the target identity. Candidates are grouped by window, row family, source class, and complete
+domain ID: one Parts and one Deformer entrance for the same ArtMesh are valid and tried in
+Deformer-then-Parts order, while multiple candidates in one family are rejected. The name model
+column is fixed at index `2` and converted to the current view column; its visible cell bounds
+supply both selection and popup coordinates. Draw/Lock columns, labels, row numbers, arbitrary
+JTree/JList rows, and other windows cannot be fallbacks.
 
 Before the left selection click and again immediately before the right-click, the EDT validates
 showing/displayable/parent state, fresh row bounds, family/source/domain identity, and visible/

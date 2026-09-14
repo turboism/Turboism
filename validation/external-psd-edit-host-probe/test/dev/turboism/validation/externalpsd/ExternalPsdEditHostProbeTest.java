@@ -50,6 +50,7 @@ public final class ExternalPsdEditHostProbeTest {
         testReplacedTargetAfterSelection();
         testUnrelocatableTargetIsRejected();
         testExactRowResolverAndDispatchGuards();
+        testExactTargetFamilySelection();
         testActiveRowResolver();
         testStableRowKeySafety();
         testBoundedRowDispatches();
@@ -971,6 +972,84 @@ public final class ExternalPsdEditHostProbeTest {
         assertTrue(!unavailable.available(), "an unavailable capture key is rejected");
         assertContains(unavailable.reason(), "no stable key",
             "unavailable key rejection explains why index reuse is unsafe");
+    }
+
+    private static void testExactTargetFamilySelection() {
+        final String sourceClass = ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME;
+        final String expectedDomainId = "ArtMesh4";
+        final ExactHostRowTarget.Identity partsIdentity = new ExactHostRowTarget.Identity(
+            ExactHostRowTarget.RowFamily.PARTS, sourceClass, expectedDomainId);
+        final ExactHostRowTarget.Identity deformerIdentity = new ExactHostRowTarget.Identity(
+            ExactHostRowTarget.RowFamily.DEFORMER, sourceClass, expectedDomainId);
+        final ExternalPsdEditHostProbe.ExactCapturedRow parts = exactCapturedRow(
+            partsIdentity, "parts-table", "active-window", "parts-model", 4, true, false);
+        final ExternalPsdEditHostProbe.ExactCapturedRow deformer = exactCapturedRow(
+            deformerIdentity, "deformer-table", "active-window", "deformer-model", 2,
+            true, false);
+
+        final var bothFamilies = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+            List.of(parts, deformer), "active-window", expectedDomainId);
+        assertTrue(bothFamilies.available(),
+            "one Parts and one Deformer row for the same ArtMesh are legal entrances");
+        assertEquals(2, bothFamilies.rows().size(),
+            "both legal row families remain available for ordered attempts");
+        assertEquals(ExactHostRowTarget.RowFamily.DEFORMER,
+            bothFamilies.rows().get(0).identity().rowFamily(),
+            "Deformer is the deterministic first entrance");
+        assertEquals(ExactHostRowTarget.RowFamily.PARTS,
+            bothFamilies.rows().get(1).identity().rowFamily(),
+            "Parts is the deterministic fallback entrance");
+
+        final var duplicateFamily = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+            List.of(parts, exactCapturedRow(partsIdentity, "parts-table-2", "active-window",
+                "parts-model-2", 9, true, false)), "active-window", expectedDomainId);
+        assertTrue(!duplicateFamily.available(),
+            "multiple active candidates in one row family are rejected");
+        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.AMBIGUOUS,
+            duplicateFamily.status(), "same-family duplication is classified as ambiguous");
+        assertContains(duplicateFamily.reason(), "same row family",
+            "same-family ambiguity explains the target constraint");
+
+        final var activeAndOtherWindow = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+            List.of(parts, exactCapturedRow(deformerIdentity, "other-window-table",
+                "other-window", "other-model", 1, true, false)),
+            "active-window", expectedDomainId);
+        assertTrue(activeAndOtherWindow.available(),
+            "a proven active-window target is not made ambiguous by another window");
+        assertEquals(1, activeAndOtherWindow.rows().size(),
+            "the other window is not an entrance candidate");
+        assertEquals("active-window",
+            activeAndOtherWindow.rows().get(0).windowIdentity(),
+            "selection cannot fall back to another window");
+
+        final var onlyOtherWindow = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+            List.of(exactCapturedRow(deformerIdentity, "other-window-table", "other-window",
+                "other-model", 1, true, false)), "active-window", expectedDomainId);
+        assertTrue(!onlyOtherWindow.available(),
+            "a matching row only in another window is rejected");
+        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.REJECTED,
+            onlyOtherWindow.status(), "cross-window fallback is a hard rejection");
+        assertContains(onlyOtherWindow.reason(), "another window",
+            "cross-window rejection is explicit");
+
+        final var unknownWindow = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+            List.of(parts, deformer), "", expectedDomainId);
+        assertTrue(!unknownWindow.available(),
+            "an unproven active window cannot select any target");
+        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.REJECTED,
+            unknownWindow.status(), "unknown active window is fail-closed");
+
+        final var differentId = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+            List.of(exactCapturedRow(new ExactHostRowTarget.Identity(
+                ExactHostRowTarget.RowFamily.PARTS, sourceClass, "ArtMesh5"),
+                "different-id-table", "active-window", "different-id-model", 3,
+                true, false)), "active-window", expectedDomainId);
+        assertTrue(!differentId.available(),
+            "a different ArtMesh domain ID cannot be selected");
+        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.NOT_FOUND,
+            differentId.status(), "different domain IDs are not treated as ambiguity");
+        assertEquals(0, differentId.rows().size(),
+            "a different domain ID produces no click candidate");
     }
 
     private static void testStableRowKeySafety() {
