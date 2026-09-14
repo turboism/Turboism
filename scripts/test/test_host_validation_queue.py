@@ -570,7 +570,7 @@ class PreparedStoreTest(unittest.TestCase):
         tools = Path(__file__).resolve().parents[1] / "preview"
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "fps-resize-driver.sh",
-                     "host_validation.py", "host_validation_queue.py",
+                     "host_validation.py", "host_validation_queue.py", "host_validation_retention.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
         fixture = self.base / "fixture.cmo3"
@@ -607,6 +607,9 @@ class PreparedStoreTest(unittest.TestCase):
             f"q.account_root = lambda: Path({str(self.store.root)!r})\n")
         client_env = {key: value for key, value in env.items() if not key.startswith("TURBOISM_QUEUE_")}
         client_env["PYTHONPATH"] = os.pathsep.join((str(injection), str(self.preview)))
+        # This isolated interpreter resolves the account root to its tiny test queue;
+        # use a test-sized storage reserve, never alter the production policy.
+        queue.atomic_json(self.store.root / "retention-policy.json", {"minFreeGiB": 0.001})
         context = multiprocessing.get_context("spawn")
         stop = context.Event()
         worker = context.Process(target=worker_process, args=(str(self.store.root), stop, 1))
