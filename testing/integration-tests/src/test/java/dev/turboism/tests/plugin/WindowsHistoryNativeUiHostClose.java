@@ -48,6 +48,9 @@ final class WindowsHistoryNativeUiHostClose {
     private static final long EDT_TIMEOUT_MILLIS = 5_000L;
     private static final Pattern TASK_RUN_ID = Pattern.compile("[A-Za-z0-9._-]{1,128}");
     private static final Pattern SAFE_FIXTURE_NAME = Pattern.compile("[A-Za-z0-9._-]{1,255}");
+    private static final String CHINESE_SAVE_CONFIRMATION_TITLE = "确定";
+    private static final String CHINESE_SAVE_CONFIRMATION_PREFIX = "你想保存";
+    private static final String CHINESE_SAVE_CONFIRMATION_SUFFIX = "的文件吗?";
 
     /** Exact normalized labels only; phrases such as {@code Do not discard} are not included. */
     private static final Set<String> DISCARD_LABELS = Set.of(
@@ -439,8 +442,9 @@ final class WindowsHistoryNativeUiHostClose {
             return HostCloseDecision.UNSUPPORTED_CONFIRMATION;
         }
         final String promptText = snapshot.dialogTitle() + " " + snapshot.messageText();
-        if (!containsFixtureName(promptText, fixtureName)
-            || !hasKnownSavePrompt(promptText)
+        if (!(matchesObservedChineseSavePrompt(snapshot, fixtureName)
+                || (containsFixtureName(promptText, fixtureName)
+                    && hasKnownSavePrompt(promptText)))
             || !supportedConfirmationShape(snapshot.optionType(), snapshot.buttons().size())) {
             return HostCloseDecision.UNSUPPORTED_CONFIRMATION;
         }
@@ -825,6 +829,15 @@ final class WindowsHistoryNativeUiHostClose {
             }
             return !expectedWords.isEmpty() && compact.contains(normalizeCompact(phrase));
         });
+    }
+
+    private static boolean matchesObservedChineseSavePrompt(
+        final CloseDialogSnapshot snapshot,
+        final String fixtureName
+    ) {
+        return CHINESE_SAVE_CONFIRMATION_TITLE.equals(snapshot.dialogTitle())
+            && (CHINESE_SAVE_CONFIRMATION_PREFIX + fixtureName
+                + CHINESE_SAVE_CONFIRMATION_SUFFIX).equals(snapshot.messageText());
     }
 
     private static boolean containsWordPhrase(final String text, final String phrase) {
