@@ -547,6 +547,10 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
             || left.length % 2 != 0 || right.length % 2 != 0) {
             return "history.value-codec-unavailable";
         }
+        if (!finiteCoordinates(left) || !finiteCoordinates(right)
+            || !finiteDifferences(left, right)) {
+            return "history.value-codec-unavailable";
+        }
         final int changed = changedPoints(left, right);
         if (changed == 0) return "";
         if (changes.size() >= NativeHistoryDecodeContext.MAX_NODES) {
@@ -582,16 +586,37 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
      */
     private static float[] uniformDelta(final float[] before, final float[] after) {
         if (before.length != after.length || before.length < 2) return null;
+        if (!finiteCoordinates(before) || !finiteCoordinates(after)) return null;
         final float dx = after[0] - before[0];
         final float dy = after[1] - before[1];
-        if (dx == 0.0F && dy == 0.0F) return null;
+        if (!Float.isFinite(dx) || !Float.isFinite(dy) || (dx == 0.0F && dy == 0.0F)) {
+            return null;
+        }
         for (int index = 2; index + 1 < before.length; index += 2) {
-            if (Float.compare(after[index] - before[index], dx) != 0
-                || Float.compare(after[index + 1] - before[index + 1], dy) != 0) {
+            final float currentDx = after[index] - before[index];
+            final float currentDy = after[index + 1] - before[index + 1];
+            if (!Float.isFinite(currentDx) || !Float.isFinite(currentDy)
+                || Float.compare(currentDx, dx) != 0
+                || Float.compare(currentDy, dy) != 0) {
                 return null;
             }
         }
         return new float[] {dx, dy};
+    }
+
+    private static boolean finiteCoordinates(final float[] values) {
+        for (final float value : values) {
+            if (!Float.isFinite(value)) return false;
+        }
+        return true;
+    }
+
+    private static boolean finiteDifferences(final float[] before, final float[] after) {
+        final int shared = Math.min(before.length, after.length);
+        for (int index = 0; index < shared; index++) {
+            if (!Float.isFinite(after[index] - before[index])) return false;
+        }
+        return true;
     }
 
     private static String point(final float x, final float y) {

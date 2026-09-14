@@ -6,6 +6,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -84,6 +85,45 @@ class DeformerFormListUndoDecoderTest {
         assertEquals("controlPointPositions", change.property().orElseThrow());
         assertEquals("points=4", change.before().orElseThrow());
         assertEquals("points=4;changed=2", change.after().orElseThrow());
+    }
+
+    @Test
+    void aLaterNaNPointDegradesInsteadOfBecomingTrustedGeometry() {
+        final HistoryEntryDetail detail = decodeWarpPositions(
+            QUAD,
+            new float[] {2.0F, -1.0F, 3.0F, -1.0F, Float.NaN, 0.0F, 2.0F, 0.0F}
+        );
+
+        assertInvalidPositionDetail(detail);
+    }
+
+    @Test
+    void aLaterInfinityPointDegradesInsteadOfBecomingTrustedGeometry() {
+        final HistoryEntryDetail detail = decodeWarpPositions(
+            QUAD,
+            new float[] {2.0F, -1.0F, 3.0F, -1.0F, Float.POSITIVE_INFINITY, 0.0F, 2.0F, 0.0F}
+        );
+
+        assertInvalidPositionDetail(detail);
+    }
+
+    @Test
+    void anUnchangedNaNPointDoesNotDisappearAsNoChange() {
+        final float[] nonFinite = {0.0F, 0.0F, Float.NaN, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F};
+        final HistoryEntryDetail detail = decodeWarpPositions(nonFinite, nonFinite.clone());
+
+        assertInvalidPositionDetail(detail);
+    }
+
+    @Test
+    void anOverflowingFinitePointDeltaDegradesInsteadOfBecomingAMove() {
+        final float max = Float.MAX_VALUE;
+        final HistoryEntryDetail detail = decodeWarpPositions(
+            new float[] {max, 0.0F, max, 1.0F, max, 2.0F, max, 3.0F},
+            new float[] {-max, 0.0F, -max, 1.0F, -max, 2.0F, -max, 3.0F}
+        );
+
+        assertInvalidPositionDetail(detail);
     }
 
     @Test
@@ -198,6 +238,33 @@ class DeformerFormListUndoDecoderTest {
         assertTrue(detail.targets().isEmpty(), "two subjects must not be conflated into one row");
         assertTrue(detail.changes().isEmpty());
         assertEquals(2, detail.group().orElseThrow().children().size());
+    }
+
+    private static HistoryEntryDetail decodeWarpPositions(
+        final float[] before,
+        final float[] after
+    ) {
+        final Source source = new Source("Warp1", "Body warp", new Grid(List.of(), Map.of()));
+        return new NativeHistoryDecoderRegistry().decode(
+            resolver(),
+            new ListEntry(
+                List.of(warp(source, "form-default", 1.0F, before)),
+                List.of(warp(source, "form-default", 1.0F, after))
+            ),
+            "Edit"
+        ).detail().orElseThrow();
+    }
+
+    private static void assertInvalidPositionDetail(final HistoryEntryDetail detail) {
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals("history.value-codec-unavailable", detail.degradationCode().orElseThrow());
+        assertTrue(detail.changes().stream()
+            .noneMatch(change -> change.operation() == HistoryChange.Operation.MOVE));
+        assertTrue(detail.changes().stream().noneMatch(change ->
+            change.before().orElse("").contains("NaN")
+                || change.before().orElse("").contains("Infinity")
+                || change.after().orElse("").contains("NaN")
+                || change.after().orElse("").contains("Infinity")));
     }
 
     private static final float[] QUAD = {0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F};
