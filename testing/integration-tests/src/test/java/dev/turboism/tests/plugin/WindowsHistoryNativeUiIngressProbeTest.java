@@ -2,10 +2,14 @@ package dev.turboism.tests.plugin;
 
 import org.junit.jupiter.api.Test;
 
+import java.awt.Rectangle;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -322,6 +326,125 @@ class WindowsHistoryNativeUiIngressProbeTest {
         assertTrue(
             WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 8L, significant, 7L),
             "the same holds for a redo"
+        );
+    }
+
+    @Test
+    void inspectorContentSelectionUsesTheSelectedLowerStackedTab() {
+        // Mirrors r77: the dock is one 159x924 column, while the selected Inspector tab is
+        // below the upper tool-details pane at about y=530 and its content starts at y=551.
+        final Rectangle dock = new Rectangle(100, 66, 159, 924);
+        final Rectangle selectedTab = new Rectangle(100, 530, 78, 21);
+        final Object upperColumnRoot = new Object();
+        final Object upperToolDetails = new Object();
+        final Object inspectorContent = new Object();
+        final WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate selected =
+            WindowsHistoryNativeUiIngressProbe.selectInspectorContentCandidate(
+                List.of(
+                    new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                        upperColumnRoot, new Rectangle(100, 66, 159, 924), true, 100
+                    ),
+                    new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                        upperToolDetails, new Rectangle(100, 66, 159, 459), true, 20
+                    ),
+                    new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                        inspectorContent,
+                        new Rectangle(100, selectedTab.y + selectedTab.height, 159, 438),
+                        true,
+                        8
+                    )
+                ),
+                selectedTab,
+                dock
+            );
+
+        assertSame(inspectorContent, selected.widget());
+    }
+
+    @Test
+    void inspectorContentSelectionRejectsHiddenRootAndMissingCandidates() {
+        final Rectangle dock = new Rectangle(100, 66, 159, 924);
+        final Rectangle selectedTab = new Rectangle(100, 530, 78, 21);
+        final Object hiddenRoot = new Object();
+        final Object visibleContent = new Object();
+
+        final WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate selected =
+            WindowsHistoryNativeUiIngressProbe.selectInspectorContentCandidate(
+                List.of(
+                    new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                        hiddenRoot, new Rectangle(100, 551, 159, 438), false, 100
+                    ),
+                    new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                        visibleContent, new Rectangle(100, 551, 159, 438), true, 4
+                    )
+                ),
+                selectedTab,
+                dock
+            );
+
+        assertSame(visibleContent, selected.widget(), "a hidden high-score root is not usable");
+        assertNull(
+            WindowsHistoryNativeUiIngressProbe.selectInspectorContentCandidate(
+                List.of(
+                    new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                        hiddenRoot, new Rectangle(100, 551, 159, 438), false, 100
+                    )
+                ),
+                selectedTab,
+                dock
+            ),
+            "no visible candidate must leave the inspector root unresolved"
+        );
+    }
+
+    @Test
+    void menuNavigationFallsBackOnlyAfterMeasuredUnchangedSamples() {
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.DELIVERED,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, 7L)
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.WRONG_DIRECTION,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, 9L),
+            "a shortcut that moved the cursor the wrong way still must not be repeated"
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.FALLBACK,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, 8L)
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.DELIVERED,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution("REDO", 7L, 8L)
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.WRONG_DIRECTION,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution("REDO", 8L, 7L)
+        );
+    }
+
+    @Test
+    void menuNavigationDoesNotFallbackWhenPositionEvidenceIsUnknown() {
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.UNKNOWN,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", -1L, List.of(7L))
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.UNAVAILABLE,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution(
+                "UNDO", 8L, Arrays.asList(null, null)
+            )
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.UNAVAILABLE,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution(
+                "UNDO", 8L, Arrays.asList(null, 8L)
+            ),
+            "one unavailable sample still leaves a possible menu action unobserved"
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ShortcutResolution.FALLBACK,
+            WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, List.of(8L, 8L)),
+            "only measured unchanged samples authorize Robot fallback"
         );
     }
 

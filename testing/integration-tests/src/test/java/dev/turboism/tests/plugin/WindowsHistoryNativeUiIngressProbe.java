@@ -298,7 +298,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 context.logger().info(instruction);
 
                 if (AUTOMATE) {
-                    final String actor = act(step, knownSignificant);
+                    final String actor = act(step, knownSignificant, knownPosition);
                     write(
                         artifact,
                         "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
@@ -526,6 +526,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * significant entry and the operator window runs its course.</p>
      */
     String act(final Step step, final String knownSignificant) {
+        return act(step, knownSignificant, -1L);
+    }
+
+    String act(
+        final Step step,
+        final String knownSignificant,
+        final long knownPosition
+    ) {
         final Thread raiser = hostWindowRaiser();
         try {
             return switch (step.id()) {
@@ -533,8 +541,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 case "canvas-move", "canvas-deform" -> dragCanvas(knownSignificant);
                 case "native-parameter" -> dragParameterSlider(knownSignificant);
                 case "native-color" -> editColorField(knownSignificant);
-                case "native-undo" -> shortcut(java.awt.event.KeyEvent.VK_Z, knownSignificant);
-                case "native-redo" -> shortcut(java.awt.event.KeyEvent.VK_Y, knownSignificant);
+                case "native-undo" -> shortcut(
+                    java.awt.event.KeyEvent.VK_Z, knownPosition, step.kind());
+                case "native-redo" -> shortcut(
+                    java.awt.event.KeyEvent.VK_Y, knownPosition, step.kind());
                 default -> "none";
             };
         } catch (InterruptedException interrupted) {
@@ -864,6 +874,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         // parameter tab's dock column — the status-bar zoom slider is also an A, so the
         // palette rows must be scoped to that column. A row whose drag changes the value
         // commits a significant undo entry.
+        final java.awt.Robot robot = new java.awt.Robot();
         String paletteNote = "";
         List<javax.swing.JSlider> dockSliders = onEdt(
             WindowsHistoryNativeUiIngressProbe::parameterDockSliders);
@@ -898,18 +909,65 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (tried.size() >= 6) break;
         }
         // Palettes whose rows live only in the CWidget tree expose no Swing sliders —
-        // their CSlider widgets still carry on-screen rects a Robot drag can ride.
+        // their row widgets still carry on-screen rects a Robot drag can ride. The
+        // parameter value control is CSlidableFloat: a scrub gestures sideways, and a
+        // double-click opens its embedded text editor for direct typing.
         if (tried.size() < 6) {
-            final List<java.awt.Component> cwSliders = onEdt(
-                WindowsHistoryNativeUiIngressProbe::parameterCWidgetSliders);
-            for (final java.awt.Component surface : cwSliders) {
-                final int[] at = onEdt(() -> fieldCentre(surface));
+            final List<Object> cwRows = onEdt(
+                WindowsHistoryNativeUiIngressProbe::parameterCWidgetRows);
+            for (final Object rowWidget : cwRows) {
+                final java.awt.Component surface = onEdt(() -> cwidgetSurface(rowWidget));
+                final int[] at = surface == null
+                    ? null : onEdt(() -> fieldCentre(surface));
                 if (at == null) continue;
-                robotDrag(at[0] - 8, at[1], at[0] + 24, at[1]);
-                for (int settle = 0; settle < 12; settle++) {
+                robotDrag(at[0] - 6, at[1], at[0] + 18, at[1]);
+                for (int settle = 0; settle < 10; settle++) {
                     Thread.sleep(POLL_MILLIS);
                     if (!significantSequence(sample()).equals(knownSignificant)) {
                         return "dragged:cslider:attempt=" + (tried.size() + 1);
+                    }
+                }
+                robotDrag(at[0], at[1] - 6, at[0], at[1] + 14);
+                for (int settle = 0; settle < 10; settle++) {
+                    Thread.sleep(POLL_MILLIS);
+                    if (!significantSequence(sample()).equals(knownSignificant)) {
+                        return "dragged:cslider-v:attempt=" + (tried.size() + 1);
+                    }
+                }
+                // The scrub may be below the field's slide threshold — a double-click
+                // opens the embedded JTextField so a typed value commits the edit.
+                robot.mouseMove(at[0], at[1]);
+                robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+                robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+                Thread.sleep(70L);
+                robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+                robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+                Thread.sleep(POLL_MILLIS);
+                final javax.swing.text.JTextComponent editor = onEdt(
+                    () -> cwidgetEditor(rowWidget));
+                if (editor != null) {
+                    final int[] eat = onEdt(() -> fieldCentre(editor));
+                    if (eat != null) {
+                        robot.mouseMove(eat[0], eat[1]);
+                        robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+                        robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+                        Thread.sleep(120L);
+                        robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
+                        robot.keyPress(java.awt.event.KeyEvent.VK_A);
+                        robot.keyRelease(java.awt.event.KeyEvent.VK_A);
+                        robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+                        Thread.sleep(60L);
+                        for (final char digit : "37".toCharArray()) {
+                            typeChar(robot, digit);
+                        }
+                        robot.keyPress(java.awt.event.KeyEvent.VK_ENTER);
+                        robot.keyRelease(java.awt.event.KeyEvent.VK_ENTER);
+                        for (int settle = 0; settle < 10; settle++) {
+                            Thread.sleep(POLL_MILLIS);
+                            if (!significantSequence(sample()).equals(knownSignificant)) {
+                                return "typed:cslidable:attempt=" + (tried.size() + 1);
+                            }
+                        }
                     }
                 }
                 tried.add("cw@" + at[0] + "," + at[1]);
@@ -1340,9 +1398,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** Whether a dock tab carrying one of {@code markers} is currently selected. */
     private static boolean paletteTabSelected(final String[] markers) {
-        final StringBuilder ignored = new StringBuilder(1);
-        final javax.swing.AbstractButton tab = paletteTab(markers, ignored);
-        return tab != null && tab.isSelected();
+        return selectedPaletteTab(markers) != null;
     }
 
     /** The CWidget behind the popup item whose text matches a marker, or null. The menu must
@@ -1542,8 +1598,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 // and CWidget.traverse exposes the real controls: the colour row
                 // holds a CColorChooserButton plus an ARGB CTextField whose
                 // JTextComponent mirror accepts real Robot typing.
-                final java.awt.Component contentPanel = onEdt(
-                    WindowsHistoryNativeUiIngressProbe::inspectorContentPanel);
+                final List<javax.swing.text.JTextComponent> argb = new ArrayList<>();
+                final List<javax.swing.text.JTextComponent> argbOther = new ArrayList<>();
+                final List<java.awt.Component> chooser = new ArrayList<>();
+                final List<java.awt.Component> chooserOther = new ArrayList<>();
+                for (int scan = 0; scan < 4; scan++) {
+                final Object contentWidget = onEdt(
+                    WindowsHistoryNativeUiIngressProbe::inspectorContentWidget);
                 final java.awt.Container dockScope = onEdt(
                     WindowsHistoryNativeUiIngressProbe::inspectorDockScope);
                 final java.awt.Rectangle dockRect = onEdt(() -> {
@@ -1553,17 +1614,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         origin.x, origin.y,
                         dockScope.getWidth(), dockScope.getHeight());
                 });
-                final List<javax.swing.text.JTextComponent> argb = new ArrayList<>();
-                final List<javax.swing.text.JTextComponent> argbOther = new ArrayList<>();
-                final List<java.awt.Component> chooser = new ArrayList<>();
-                final List<java.awt.Component> chooserOther = new ArrayList<>();
                 cwidgetNote[0] = onEdt(() -> {
-                    Object root = cwidgetOf(contentPanel);
-                    if (root == null) {
-                        final javax.swing.AbstractButton tab = paletteTab(
-                            INSPECTOR_MARKERS, new StringBuilder(1));
-                        root = cwidgetTop(cwidgetOf(tab));
-                    }
+                    final Object root = contentWidget;
                     final List<Object> widgets = cwidgetTree(root);
                     for (final Object widget : widgets) {
                         if (dockRect != null) {
@@ -1592,6 +1644,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         + ":n=" + widgets.size()
                         + ":" + cwidgetCensus(widgets) + "}";
                 });
+                // The inspector fills its widget tree a beat after the selection
+                // lands — rescan until the colour controls materialise.
+                if (!argb.isEmpty() || !argbOther.isEmpty()
+                    || !chooser.isEmpty() || !chooserOther.isEmpty()) {
+                    break;
+                }
+                Thread.sleep(POLL_MILLIS);
+                }
                 fields.addAll(argb);
                 fields.addAll(argbOther);
                 // The swatch is a small coloured component inside the inspector palette;
@@ -1608,13 +1668,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     // The inspector paints its property rows onto one component rather than
                     // hosting Swing children — the swatch is a painted square on a row. Scan
                     // the panel's actual pixels for saturated colour blocks and press those.
-                    final java.awt.Component panel = onEdt(
-                        WindowsHistoryNativeUiIngressProbe::inspectorContentPanel);
-                    final int[] bounds = onEdt(() -> {
-                        if (panel == null) return null;
-                        final java.awt.Point p = panel.getLocationOnScreen();
-                        return new int[] {p.x, p.y, panel.getWidth(), panel.getHeight()};
-                    });
+                    final java.awt.Rectangle panel = onEdt(
+                        WindowsHistoryNativeUiIngressProbe::inspectorContentBounds);
+                    final int[] bounds = panel == null ? null
+                        : new int[] {panel.x, panel.y, panel.width, panel.height};
                     if (bounds != null) {
                         for (final int[] point : saturatedBlocks(robot, bounds)) {
                             final int fx = point[0];
@@ -1933,9 +1990,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (window.isVisible()) collectColorSwatches(window, found, false, 0);
         }
         if (found.isEmpty()) {
-            final StringBuilder ignored = new StringBuilder(1);
-            final javax.swing.AbstractButton tab = paletteTab(INSPECTOR_MARKERS, ignored);
-            if (tab != null && tab.isSelected()) {
+            final javax.swing.AbstractButton tab = selectedPaletteTab(INSPECTOR_MARKERS);
+            if (tab != null) {
                 // The palette content lives in a sibling cell of the same dock column, not
                 // inside the tab's own cell — climb to the column (the narrow container
                 // holding every docked palette) and search it, skipping the tab strips.
@@ -2024,14 +2080,23 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * selected.
      */
     private static java.awt.Container dockScopeFor(final String[] markers) {
-        final javax.swing.AbstractButton tab = paletteTab(markers, new StringBuilder(1));
-        if (tab == null || !tab.isSelected()) return null;
+        final javax.swing.AbstractButton tab = selectedPaletteTab(markers);
+        if (tab == null) return null;
         java.awt.Container scope = tab.getParent();
         while (scope != null && scope.getParent() != null
             && scope.getParent().getWidth() <= 200) {
             scope = scope.getParent();
         }
         return scope;
+    }
+
+    /** The selected dock tab carrying one of {@code markers}, or null. Runs on the EDT. */
+    private static javax.swing.AbstractButton selectedPaletteTab(final String[] markers) {
+        for (final javax.swing.AbstractButton tab
+            : paletteTabs(markers, new StringBuilder(1))) {
+            if (tab.isSelected()) return tab;
+        }
+        return null;
     }
 
     /**
@@ -2059,8 +2124,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * parameter tab's dock column — for palettes whose rows exist only in the custom
      * widget tree, not as Swing children. Runs on the EDT.
      */
-    private static List<java.awt.Component> parameterCWidgetSliders() {
-        final List<java.awt.Component> found = new ArrayList<>();
+    private static List<Object> parameterCWidgetRows() {
+        final List<Object> found = new ArrayList<>();
+        final List<Object> backup = new ArrayList<>();
         for (final javax.swing.AbstractButton tab
             : paletteTabs(PARAMETER_MARKERS, new StringBuilder(1))) {
             if (!tab.isSelected()) continue;
@@ -2077,52 +2143,169 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (root == null) root = cwidgetTop(cwidgetOf(tab));
             for (final Object widget : cwidgetTree(root)) {
                 final String name = widget.getClass().getName();
-                // Parameter rows are palette.parameter widgets — a horizontal drag
-                // across a row scrubs its value; CSlider mirrors qualify too.
-                final boolean row = name.endsWith("CSlider")
-                    || name.contains(".palette.parameter");
-                if (!row) continue;
+                // The row's value control is a CSlidableFloat — a horizontal drag
+                // across it scrubs the parameter. Other palette.parameter widgets
+                // (the row surface, its value bar) qualify as weaker candidates.
+                final int rank = name.endsWith("CSlidableFloat") ? 0
+                    : name.endsWith("CSlider") ? 1
+                    : name.contains(".palette.parameter") ? 2 : -1;
+                if (rank < 0) continue;
                 final java.awt.Rectangle rect = cwidgetRect(widget);
                 if (rect == null || !rect.intersects(dockRect)
-                    || rect.width < 48 || rect.height < 6
+                    || rect.width < 24 || rect.height < 6
                     || rect.height > 60) continue;
-                final java.awt.Component surface = cwidgetSurface(widget);
-                if (surface != null && !found.contains(surface)) {
-                    found.add(surface);
+                if (cwidgetShowing(widget)) {
+                    (rank == 0 ? found : backup).add(widget);
                 }
             }
         }
+        found.addAll(backup);
         return found;
     }
 
-    private static java.awt.Component inspectorContentPanel() {
-        final java.awt.Container scope = inspectorDockScope();
-        if (scope == null) return null;
-        final java.awt.Component[] best = {null};
-        findInspectorPanel(scope, best, 0);
-        return best[0];
+    /**
+     * The editable text component inside a CWidget's Swing mirror — e.g. a
+     * CSlidableFloat's embedded editor once the row enters edit mode. Null when the
+     * mirror hosts none. Runs on the EDT.
+     */
+    private static javax.swing.text.JTextComponent cwidgetEditor(final Object widget) {
+        try {
+            final Object mirror = widget.getClass().getMethod("getJComponent")
+                .invoke(widget);
+            if (!(mirror instanceof java.awt.Component component)) return null;
+            final javax.swing.text.JTextComponent[] hit = {null};
+            collectEditableText(component, hit, 0);
+            return hit[0];
+        } catch (final Exception e) {
+            return null;
+        }
     }
 
-    private static void findInspectorPanel(
+    private static void collectEditableText(
         final java.awt.Component component,
-        final java.awt.Component[] best,
+        final javax.swing.text.JTextComponent[] hit,
         final int depth
     ) {
-        if (depth > CANVAS_SCAN_DEPTH + 4 || !component.isShowing()) return;
-        if (component.getClass().getName().equals("com.live2d.ui.swingImpl.u")
-            && component.getHeight() >= 120 && component.getWidth() >= 100) {
-            final java.awt.Component current = best[0];
-            if (current == null
-                || (long) component.getHeight() * component.getWidth()
-                    > (long) current.getHeight() * current.getWidth()) {
-                best[0] = component;
-            }
+        if (hit[0] != null || depth > 8 || !component.isVisible()) return;
+        if (component instanceof javax.swing.text.JTextComponent text
+            && text.isShowing() && text.isEnabled() && text.isEditable()) {
+            hit[0] = text;
+            return;
         }
         if (component instanceof java.awt.Container container) {
             for (java.awt.Component child : container.getComponents()) {
-                findInspectorPanel(child, best, depth + 1);
+                collectEditableText(child, hit, depth + 1);
             }
         }
+    }
+
+    /**
+     * Finds the custom-widget content belonging to the selected inspector tab.
+     *
+     * <p>The dock column can contain two stacked panes: the upper tool-details pane and the
+     * lower inspector pane. The Swing mirror exposes the whole column as one {@code u}, and the
+     * first {@code CBorderPane} in its widget tree is therefore not a reliable content root. We
+     * keep the selected tab's actual screen rectangle, enumerate a bounded widget tree, and only
+     * accept visible candidates wholly inside the dock and below that tab. A visible-content score
+     * makes the chosen candidate the panel rather than one of its small child controls.</p>
+     */
+    private static Object inspectorContentWidget() {
+        final java.awt.Container scope = inspectorDockScope();
+        final javax.swing.AbstractButton tab = selectedPaletteTab(INSPECTOR_MARKERS);
+        if (scope == null || tab == null) return null;
+        final java.awt.Rectangle dockRect = screenBounds(scope);
+        final Object tabWidget = cwidgetOf(tab);
+        final java.awt.Rectangle tabRect = tabWidget == null
+            ? screenBounds(tab) : cwidgetRect(tabWidget);
+        final Object root = cwidgetTop(tabWidget);
+        if (dockRect == null || tabRect == null || root == null) return null;
+
+        final List<InspectorContentCandidate> candidates = new ArrayList<>();
+        for (final Object widget : cwidgetTree(root)) {
+            final java.awt.Rectangle rect = cwidgetRect(widget);
+            if (rect == null || rect.width < 100 || rect.height < 120) continue;
+            final int contentScore = visibleInspectorContentScore(widget, tabRect, dockRect);
+            if (contentScore > 0) {
+                candidates.add(new InspectorContentCandidate(
+                    widget, rect, cwidgetShowing(widget), contentScore));
+            }
+        }
+        final InspectorContentCandidate selected = selectInspectorContentCandidate(
+            candidates, tabRect, dockRect);
+        return selected == null ? null : selected.widget();
+    }
+
+    /**
+     * The smallest seam for the inspector-root rule. It deliberately uses relative widget
+     * geometry, selected-tab ownership and visible content rather than a fixed screen coordinate.
+     */
+    static InspectorContentCandidate selectInspectorContentCandidate(
+        final List<InspectorContentCandidate> candidates,
+        final java.awt.Rectangle selectedTabRect,
+        final java.awt.Rectangle dockRect
+    ) {
+        if (selectedTabRect == null || dockRect == null) return null;
+        final int tabBottom = selectedTabRect.y + selectedTabRect.height;
+        InspectorContentCandidate best = null;
+        for (final InspectorContentCandidate candidate : candidates) {
+            final java.awt.Rectangle rect = candidate.rect();
+            if (candidate.widget() == null || !candidate.showing()
+                || rect == null || rect.isEmpty() || candidate.contentScore() <= 0
+                || !dockRect.contains(rect) || rect.y < tabBottom) {
+                continue;
+            }
+            if (best == null || candidate.contentScore() > best.contentScore()) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static int visibleInspectorContentScore(
+        final Object widget,
+        final java.awt.Rectangle selectedTabRect,
+        final java.awt.Rectangle dockRect
+    ) {
+        final int tabBottom = selectedTabRect.y + selectedTabRect.height;
+        int score = 0;
+        for (final Object child : cwidgetTree(widget)) {
+            final java.awt.Rectangle rect = cwidgetRect(child);
+            if (rect == null || !cwidgetShowing(child) || !dockRect.contains(rect)
+                || rect.y < tabBottom) {
+                continue;
+            }
+            final String name = child.getClass().getName();
+            score += name.endsWith("CColorChooserButton") || name.endsWith("CTextField")
+                ? 4 : 1;
+        }
+        return score;
+    }
+
+    /** The selected inspector content's real screen rectangle, or null. Runs on the EDT. */
+    private static java.awt.Rectangle inspectorContentBounds() {
+        final Object widget = inspectorContentWidget();
+        final java.awt.Rectangle rect = widget == null ? null : cwidgetRect(widget);
+        return rect == null ? null : new java.awt.Rectangle(rect);
+    }
+
+    private static java.awt.Rectangle screenBounds(final java.awt.Component component) {
+        if (component == null || !component.isShowing()) return null;
+        try {
+            final java.awt.Point origin = component.getLocationOnScreen();
+            return new java.awt.Rectangle(
+                origin.x, origin.y, component.getWidth(), component.getHeight());
+        } catch (java.awt.IllegalComponentStateException notShowing) {
+            return null;
+        }
+    }
+
+    /** Candidate root from a selected dock's bounded CWidget traversal. */
+    record InspectorContentCandidate(
+        Object widget,
+        java.awt.Rectangle rect,
+        boolean showing,
+        int contentScore
+    ) {
     }
 
     /**
@@ -2304,28 +2487,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      */
     private void dumpRegionScreenshot(final java.awt.Robot robot, final String name) {
         try {
-            final byte[] png = onEdt(() -> {
-                final java.awt.Component panel = inspectorContentPanel();
-                if (panel == null || panel.getWidth() < 4 || panel.getHeight() < 4) {
-                    return null;
-                }
-                // Paint the component itself rather than grabbing screen pixels — Robot
-                // captures whatever window happens to cover the region, while printing
-                // gives the inspector's real rendered rows.
-                final java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(
-                    panel.getWidth(), panel.getHeight(),
-                    java.awt.image.BufferedImage.TYPE_INT_RGB);
-                final java.awt.Graphics2D g = image.createGraphics();
-                try {
-                    panel.printAll(g);
-                } finally {
-                    g.dispose();
-                }
-                final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-                javax.imageio.ImageIO.write(image, "png", out);
-                return out.toByteArray();
-            });
-            if (png == null) return;
+            final java.awt.Rectangle rect = onEdt(
+                WindowsHistoryNativeUiIngressProbe::inspectorContentBounds);
+            if (rect == null || rect.width < 4 || rect.height < 4) return;
+            final java.awt.Rectangle clipped = rect.intersection(
+                new java.awt.Rectangle(
+                    java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+                        .getMaximumWindowBounds()));
+            if (clipped.width < 4 || clipped.height < 4) return;
+            final java.awt.image.BufferedImage image = robot.createScreenCapture(clipped);
+            final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(image, "png", out);
+            final byte[] png = out.toByteArray();
             write(artifact, "{\"type\":\"screenshot\",\"region\":" + quoted(name)
                 + ",\"png\":\"" + java.util.Base64.getEncoder().encodeToString(png)
                 + "\"}\n", false);
@@ -2409,8 +2582,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * Runs on the EDT.
      */
     private static String inspectorLeafCensus() {
-        final StringBuilder ignored = new StringBuilder(1);
-        final javax.swing.AbstractButton tab = paletteTab(INSPECTOR_MARKERS, ignored);
+        final javax.swing.AbstractButton tab = selectedPaletteTab(INSPECTOR_MARKERS);
         if (tab == null) return "no-tab";
         java.awt.Container scope = tab.getParent();
         while (scope != null && scope.getParent() != null
@@ -2654,22 +2826,46 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /**
      * Sends one native Ctrl+key shortcut exactly as the operator would: the enabled menu
-     * accelerator first, then a focused-window Robot keystroke when no menu item claims it.
+     * accelerator first, then a focused-window Robot keystroke only when every post-menu history
+     * position sample was available and unchanged. Unknown evidence is recorded as unresolved so
+     * a menu action can never be repeated merely because the probe could not observe it.
      */
-    private String shortcut(final int key, final String knownSignificant) throws Exception {
+    private String shortcut(
+        final int key,
+        final long knownPosition,
+        final String kind
+    ) throws Exception {
         String route = "none";
         primeMenus();
         if (Boolean.TRUE.equals(onEdt(() -> menuShortcut(key)))) {
             route = "menu-accelerator";
-            // A mirror menu item can be enabled yet disconnected from the real action —
-            // only treat the accelerator as delivered when the edit position moves.
+            if (knownPosition < 0L) {
+                return route + ":unresolved:unknown-position";
+            }
+            // Undo/Redo do not change the entry sequence; their only reliable delivery signal is
+            // the cursor moving. Once it moves, even in the wrong direction, do not send Robot a
+            // second shortcut and risk applying two native actions.
+            final List<Long> positionSamples = new ArrayList<>();
             for (int poll = 0; poll < 10; poll++) {
                 Thread.sleep(POLL_MILLIS);
-                if (!significantSequence(sample()).equals(knownSignificant)) {
-                    return route;
+                final WindowsHistoryManagerValidationProbe.Snapshot current = sample();
+                positionSamples.add(current == null ? null : position(current));
+                final ShortcutResolution resolution = shortcutResolution(
+                    kind, knownPosition, positionSamples);
+                if (resolution == ShortcutResolution.DELIVERED) return route;
+                if (resolution == ShortcutResolution.WRONG_DIRECTION) {
+                    return route + ":wrong-direction";
                 }
             }
-            route += ":silent";
+            final ShortcutResolution resolution = shortcutResolution(
+                kind, knownPosition, positionSamples);
+            if (resolution != ShortcutResolution.FALLBACK) {
+                return route + ":unresolved:" + switch (resolution) {
+                    case UNKNOWN -> "unknown-position";
+                    case UNAVAILABLE -> "history-position-unavailable";
+                    default -> "history-position-unresolved";
+                };
+            }
         }
         final java.awt.Robot robot = new java.awt.Robot();
         // No focusing click: a press on the model canvas is itself recorded as a drag-select
@@ -3203,6 +3399,68 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             sequence.append(entry.index()).append(':').append(entry.label());
         }
         return sequence.toString();
+    }
+
+    enum ShortcutResolution {
+        DELIVERED,
+        WRONG_DIRECTION,
+        /** The menu action was measured unchanged; Robot may be used as a fallback. */
+        FALLBACK,
+        /** The baseline position was not valid, so menu delivery cannot be classified. */
+        UNKNOWN,
+        /** One or more post-menu position samples were unavailable. */
+        UNAVAILABLE
+    }
+
+    /**
+     * Resolves whether a menu-delivered navigation already happened. An opposite move is still a
+     * response and must not be repeated; {@link #hasMoved} will reject it for the requested step.
+     */
+    static ShortcutResolution shortcutResolution(
+        final String kind,
+        final long knownPosition,
+        final long currentPosition
+    ) {
+        if (knownPosition < 0L) return ShortcutResolution.UNKNOWN;
+        if (currentPosition < 0L) return ShortcutResolution.UNAVAILABLE;
+        if (currentPosition == knownPosition) return ShortcutResolution.FALLBACK;
+        final boolean expected = "UNDO".equals(kind)
+            ? currentPosition < knownPosition
+            : "REDO".equals(kind) && currentPosition > knownPosition;
+        return expected
+            ? ShortcutResolution.DELIVERED
+            : ShortcutResolution.WRONG_DIRECTION;
+    }
+
+    /**
+     * Resolves the bounded sample window after a menu accelerator. A missing sample remains an
+     * unknown observation even when another sample was unchanged: without a complete window the
+     * probe cannot prove that the menu did not already execute.
+     */
+    static ShortcutResolution shortcutResolution(
+        final String kind,
+        final long knownPosition,
+        final List<Long> currentPositions
+    ) {
+        if (knownPosition < 0L) return ShortcutResolution.UNKNOWN;
+        if (currentPositions == null || currentPositions.isEmpty()) {
+            return ShortcutResolution.UNAVAILABLE;
+        }
+        boolean unavailable = false;
+        for (final Long currentPosition : currentPositions) {
+            if (currentPosition == null) {
+                unavailable = true;
+                continue;
+            }
+            final ShortcutResolution resolution = shortcutResolution(
+                kind, knownPosition, currentPosition.longValue());
+            if (resolution == ShortcutResolution.DELIVERED
+                || resolution == ShortcutResolution.WRONG_DIRECTION) {
+                return resolution;
+            }
+            unavailable |= resolution == ShortcutResolution.UNAVAILABLE;
+        }
+        return unavailable ? ShortcutResolution.UNAVAILABLE : ShortcutResolution.FALLBACK;
     }
 
     /**
