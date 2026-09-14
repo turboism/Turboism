@@ -2,6 +2,7 @@ external-psd-edit.action.open
 external-psd-edit.confirm.open-multiple.body
 external-psd-edit.confirm.open-multiple.title
 external-psd-edit.enable.rollback-failed
+external-psd-edit.error.confirmation-unavailable
 external-psd-edit.error.document-changed
 external-psd-edit.error.export-failed
 external-psd-edit.error.model-unavailable
