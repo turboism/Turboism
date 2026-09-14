@@ -221,10 +221,17 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
         }
     }
 
+    /**
+     * Which bridge entry/completion pair a {@link Binding} weaves into its host method.
+     */
     public enum HookShape {
+        /** Host model open; reported to the bridge as {@code MODEL}/{@code OPEN}. */
         MODEL_OPEN,
+        /** Host animation open; reported to the bridge as {@code ANIMATION}/{@code OPEN}. */
         ANIMATION_OPEN,
+        /** Boolean-returning operation on open content; the returned boolean is the success signal. */
         CONTENT_BOOLEAN,
+        /** Host editor exit; carries no content kind or operation. */
         EDITOR_EXIT
     }
 

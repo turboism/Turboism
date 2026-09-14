@@ -29,6 +29,7 @@ public interface RecentPreviewContributionService {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements RecentPreviewContributionService {
         INSTANCE;
 

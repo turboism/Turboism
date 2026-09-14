@@ -9,15 +9,18 @@ import java.util.List;
 /** One Cubism parameter. */
 public interface Parameter {
 
+    /** Returns this parameter's stable identity within the model. */
     ParameterId id();
 
     /** Returns this Parameter's Cubism parameter-palette UI projection. */
     default ParameterAppearance ui() { return ParameterAppearance.unavailable(); }
 
+    /** Returns this parameter's position within the model's parameter list. */
     default int index() {
         throw new UnsupportedOperationException("Cubism parameter index is unavailable.");
     }
 
+    /** Returns the parameter's key values in declaration order. */
     default FloatSequence keyValues() {
         throw new UnsupportedOperationException("Cubism parameter key values are unavailable.");
     }
@@ -87,16 +90,21 @@ public interface Parameter {
         );
     }
 
+    /** Returns whether this parameter is a Blend Shape (morph) parameter. */
     default boolean isBlendShape() {
         return type() == ParameterType.BLEND_SHAPE;
     }
 
+    /** Returns the parameter's current value. */
     float getValue();
 
+    /** Returns the parameter's minimum value. */
     float getMinimumValue();
 
+    /** Returns the parameter's maximum value. */
     float getMaximumValue();
 
+    /** Returns the parameter's default value. */
     float getDefaultValue();
 
     /** Resets this parameter to its current default value through the normal write path. */
@@ -104,6 +112,10 @@ public interface Parameter {
         setValue(getDefaultValue());
     }
 
+    /**
+     * Writes the parameter's value through the Editor authoring path when this object belongs to
+     * an Editor document, including validation and Undo integration.
+     */
     void setValue(float value);
 
     /**

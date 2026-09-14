@@ -81,25 +81,36 @@ public interface CubismReadCapabilityService {
         return ActiveReadProjections.projectContentOf(activeProject(), activeDocument());
     }
 
+    /** Returns a snapshot of the Editor's current selection. */
     SelectionSnapshot selection();
 
+    /** Returns snapshots of the active model's parameters, in stable model order. */
     List<ParameterSnapshot> parameters();
 
+    /** Returns snapshots of the active model's objects, in stable model order. */
     List<ModelObjectSnapshot> modelObjects();
 
+    /** Returns snapshots of the active model's ArtMeshes, in stable model order. */
     List<ArtMeshSnapshot> meshes();
 
+    /** Returns snapshots of the active model's Deformers, in stable model order. */
     List<DeformerSnapshot> deformers();
 
+    /** Returns snapshots of the project's layered image (PSD) documents. */
     List<PsdDocumentSnapshot> psdDocuments();
 
+    /** Returns snapshots of the active model's clip masks. */
     List<ClipMaskSnapshot> clipMasks();
 
+    /** Returns snapshots of the model's texture atlases. */
     List<TextureAtlasSnapshot> textureAtlases();
 
+    /** Returns the current render status, or empty when no render state is reported. */
     Optional<RenderStatusSnapshot> renderStatus();
 
+    /** Returns the active workspace layout snapshot, or empty when none is open. */
     Optional<WorkspaceSnapshot> workspace();
 
+    /** Returns the current theme status, or empty when the host does not report one. */
     Optional<ThemeStatusSnapshot> themeStatus();
 }

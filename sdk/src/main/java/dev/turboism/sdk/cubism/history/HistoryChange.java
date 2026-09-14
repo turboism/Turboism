@@ -113,6 +113,7 @@ public record HistoryChange(
         return normalized;
     }
 
+    /** The mutation kind a change applied to its target; {@code UNKNOWN} when unrecognized. */
     public enum Operation {
         SET,
         ADD,

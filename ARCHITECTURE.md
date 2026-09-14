@@ -26,7 +26,13 @@ The authoritative project list is `settings.gradle.kts`.
 
 :runtime
   Plugin runtime, policies, Cubism/Editor adapters, providers, mapping,
-  hook infrastructure, transactions, diagnostics, and shared services.
+  hook infrastructure, transactions, diagnostics, shared services, and the
+  framework shell (`dev.turboism.shell`): the built-in Turboism menu,
+  main-toolbar home entry, embedded panel, settings, logs, About, plugin
+  management, and update hints. The shell is runtime-owned framework code,
+  not a plugin; it consumes the same PluginContext surfaces plugins use
+  under the reserved `turboism.core` identity, which external packages
+  remain forbidden from declaring.
 
 :plugins:*
   First-party plugins. They are treated like external consumers and depend

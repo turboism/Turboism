@@ -12,10 +12,13 @@ public sealed interface SettingsControl permits
     SettingsControl.Text,
     SettingsControl.Note {
 
+    /** Returns the control's stable identifier within its tab. */
     String id();
 
+    /** Returns the control's display label. */
     String label();
 
+    /** One selectable option of a {@link Choice} control. */
     record Option(String value, String label) {
         public Option {
             value = requireText(value, "value", 256);
@@ -24,6 +27,7 @@ public sealed interface SettingsControl permits
         @Override public String toString() { return label; }
     }
 
+    /** Single-select dropdown control bound to a {@code String} value. */
     record Choice(
         String id,
         String label,
@@ -59,6 +63,7 @@ public sealed interface SettingsControl permits
         }
     }
 
+    /** Checkbox control bound to a {@code Boolean} value. */
     record Toggle(
         String id,
         String label,
@@ -81,6 +86,7 @@ public sealed interface SettingsControl permits
         }
     }
 
+    /** Free-text input control bound to a {@code String} value; {@code columns} sizes the field. */
     record Text(
         String id,
         String label,

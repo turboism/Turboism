@@ -15,8 +15,30 @@ import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
  * result.</p>
  */
 public interface WorkspaceHostProvider {
+    /**
+     * @return the host's current workspace state
+     */
     WorkspaceStatus readStatus();
+
+    /**
+     * Switches the active workspace.
+     *
+     * @param workspaceId the workspace to activate
+     * @return the operation outcome; failures surface as a failed outcome
+     */
     WorkspaceOperationResult.Outcome switchTo(WorkspaceId workspaceId);
+
+    /**
+     * Records the current layout as the workspace default.
+     *
+     * @return the operation outcome
+     */
     WorkspaceOperationResult.Outcome updateDefault();
+
+    /**
+     * Restores the workspace to the host's default layout.
+     *
+     * @return the operation outcome
+     */
     WorkspaceOperationResult.Outcome resetToDefault();
 }

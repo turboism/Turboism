@@ -350,7 +350,7 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
     "--proton-wrapper", "--proton-runner", "--local-evidence-dir", "--transport",
-    "--remote-pre-launch-arg"})
+    "--remote-pre-launch-arg", "--aux-agent-before-main"})
 
 # Reviewed pre-launch hook inventory: hook file name -> (protocol flags the
 # invocation must carry, error description). Each entry is an explicit review of
@@ -365,6 +365,14 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
     "host-locale-environment-language-hook.sh": (
         frozenset({"--remote-pre-launch-arg"}),
         "host-locale environment-language hook requires its language argument",
+    ),
+    # The restart-phase hook copies restart-state/ into state/ and rebinds
+    # stagedJar inside pending.json; the staged plugin-management state must
+    # arrive as a declared --home-dir input, so the flag is part of the
+    # reviewed protocol.
+    "plugin-management-restart-remote-pre-launch.sh": (
+        frozenset({"--home-dir"}),
+        "plugin-management restart hook requires the staged state via --home-dir",
     ),
 }
 

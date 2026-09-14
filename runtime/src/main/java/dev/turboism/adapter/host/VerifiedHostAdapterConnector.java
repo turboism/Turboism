@@ -909,7 +909,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                             verificationEvidence(topMenu.admission())
                         ),
                         new VerifiedTopMenuHostOperations(topMenu.resolver()),
-                        editorUiActionRouter
+                        editorUiActionRouter,
+                        dev.turboism.ui.menu.TopMenuText.sharedRootLabel(effectiveLocale)
                     ));
                 }
                 if (overlay != null) {

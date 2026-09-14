@@ -25,7 +25,8 @@ class TopMenuContributionProviderTest {
         TopMenuContributionProvider provider = new TopMenuContributionProvider(
             admission(7),
             host,
-            (pluginId, actionId) -> actions.add(pluginId + ":" + actionId)
+            (pluginId, actionId) -> actions.add(pluginId + ":" + actionId),
+            "Plugins"
         );
 
         Registration registration = provider.apply(7, List.of(
@@ -59,7 +60,8 @@ class TopMenuContributionProviderTest {
         TopMenuContributionProvider provider = new TopMenuContributionProvider(
             admission(7),
             host,
-            (pluginId, actionId) -> { }
+            (pluginId, actionId) -> { },
+            "Plugins"
         );
 
         Registration registration = provider.apply(7, List.of(
@@ -79,7 +81,8 @@ class TopMenuContributionProviderTest {
         TopMenuContributionProvider provider = new TopMenuContributionProvider(
             admission(7),
             host,
-            (pluginId, actionId) -> { }
+            (pluginId, actionId) -> { },
+            "Plugins"
         );
 
         assertThrows(
@@ -97,7 +100,8 @@ class TopMenuContributionProviderTest {
         TopMenuContributionProvider provider = new TopMenuContributionProvider(
             admission(7),
             host,
-            (pluginId, actionId) -> { }
+            (pluginId, actionId) -> { },
+            "Plugins"
         );
 
         assertThrows(
@@ -116,7 +120,8 @@ class TopMenuContributionProviderTest {
         final TopMenuContributionProvider provider = new TopMenuContributionProvider(
             admission(7),
             host,
-            (pluginId, actionId) -> actions.add(pluginId + ":" + actionId)
+            (pluginId, actionId) -> actions.add(pluginId + ":" + actionId),
+            "插件"
         );
 
         final Registration registration = provider.apply(7, List.of(
@@ -125,9 +130,9 @@ class TopMenuContributionProviderTest {
         ));
 
         assertEquals(
-            List.of("Turboism"),
+            List.of("插件"),
             host.installed.stream().map(TopMenuDescriptor::label).toList(),
-            "the reserved Turboism root must materialize as ONE top-level menu"
+            "the shared root displays the framework-localized label, not the route key"
         );
         final TopMenuDescriptor turboism = host.installed.get(0);
         assertTrue(turboism.menuId().contains("shared"),
@@ -155,7 +160,8 @@ class TopMenuContributionProviderTest {
         final TopMenuContributionProvider provider = new TopMenuContributionProvider(
             admission(7),
             host,
-            (pluginId, actionId) -> { }
+            (pluginId, actionId) -> { },
+            "Plugins"
         );
 
         final Registration registration = provider.apply(7, List.of(
