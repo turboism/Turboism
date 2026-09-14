@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.SwingUtilities;
@@ -26,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -82,6 +84,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     /** Bound on how many candidate surfaces the canvas actor will drag in one step. */
     private static final int MAX_CANVAS_CANDIDATES = 6;
+
+    private static final String INTERNAL_ROOT_PART_ID = "__RootPart__";
+    private static final int MAX_PART_GESTURE_PAIRS = 8;
 
     /**
      * Deepest level the canvas scan may reach.
@@ -820,7 +825,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final Thread raiser = hostWindowRaiser();
         try {
             return switch (step.id()) {
-                case "parts-tree-drag", "deformer-assign" -> dragPartRow(knownSignificant);
+                case "parts-tree-drag" -> dragPartsTree(knownSignificant);
+                case "deformer-assign" -> dragPartRow(knownSignificant);
                 case "canvas-move", "canvas-deform" -> dragCanvas(knownSignificant);
                 case "native-parameter" -> dragParameterSlider(parameterBefore);
                 case "native-color" -> editColorField(knownSignificant);
@@ -892,6 +898,503 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return null;
         });
         Thread.sleep(POLL_MILLIS);
+    }
+
+    /**
+     * Drives only the Part-membership actor. Deformer assignment intentionally keeps the older
+     * row actor below: the two gestures share a palette, but they do not share an admission rule.
+     */
+    private String dragPartsTree(final String knownSignificant) throws Exception {
+        final PartModelSnapshot initial;
+        try {
+            initial = onEdt(this::readPartModel);
+        } catch (Exception unavailable) {
+            return "unresolved:part-model-unavailable:" + unavailable.getClass().getSimpleName();
+        }
+        final List<PartPair> pairs = safePartPairs(initial);
+        if (pairs.isEmpty()) return "unresolved:no-safe-part-pair";
+
+        String lastSignificant = knownSignificant == null ? "" : knownSignificant;
+        final List<String> attempts = new ArrayList<>();
+        int pairCount = 0;
+        boolean sawVisiblePair = false;
+        for (final PartPair pair : pairs) {
+            if (pairCount++ >= MAX_PART_GESTURE_PAIRS) break;
+            for (int drop = 0; drop < 2; drop++) {
+                final PartGesturePreparation preparation = onEdt(
+                    () -> preparePartGesture(pair));
+                if (!preparation.ready()) {
+                    if ("no-safe-visible-pair".equals(preparation.reason())) continue;
+                    return "unresolved:" + preparation.reason() + ":sourceId="
+                        + pair.source().id() + ":targetId=" + pair.target().id();
+                }
+                sawVisiblePair = true;
+                if (!Objects.equals(lastSignificant, preparation.significantSequence())) {
+                    return "mismatch:significant-changed-before-gesture:"
+                        + partEvidence(pair, pair.source().parentId(),
+                            pair.source().parentId());
+                }
+
+                final java.awt.Point sourcePoint = preparation.layout().source().screenPoint();
+                final java.awt.Point targetPoint = preparation.layout().target().screenPoint();
+                if (sourcePoint == null || targetPoint == null) {
+                    return "unresolved:part-screen-point-unavailable:"
+                        + partEvidence(pair, pair.source().parentId(),
+                            pair.source().parentId());
+                }
+                final int targetY = targetPoint.y
+                    + (drop == 0
+                        ? 0
+                        : Math.max(1, preparation.layout().target().cell().height - 2));
+                robotDrag(sourcePoint.x, sourcePoint.y, targetPoint.x, targetY);
+
+                PartDragCheck lastCheck = null;
+                for (int settle = 0; settle < 12; settle++) {
+                    Thread.sleep(POLL_MILLIS);
+                    final WindowsHistoryManagerValidationProbe.Snapshot history = sample();
+                    final String afterSignificant = history == null
+                        ? null : significantSequence(history);
+                    final PartModelSnapshot after;
+                    try {
+                        after = onEdt(this::readPartModel);
+                    } catch (Exception unavailable) {
+                        return "unresolved:part-readback-unavailable:"
+                            + partEvidence(pair, pair.source().parentId(), Optional.empty());
+                    }
+                    final PartDragCheck check = assessPartDrag(
+                        pair,
+                        preparation.model(),
+                        after,
+                        preparation.significantSequence(),
+                        afterSignificant
+                    );
+                    lastCheck = check;
+                    if (check.status() == PartDragStatus.CHANGED) {
+                        attempts.add(check.evidence());
+                        return "changed:" + check.evidence() + ":attempts=" + attempts;
+                    }
+                    if (check.status() == PartDragStatus.MISMATCH) {
+                        attempts.add(check.evidence());
+                        return "mismatch:" + check.evidence() + ":attempts=" + attempts;
+                    }
+                    if (check.status() == PartDragStatus.UNAVAILABLE) continue;
+                    lastSignificant = afterSignificant;
+                    break;
+                }
+                if (lastCheck != null) attempts.add(lastCheck.evidence());
+                if (lastCheck != null && lastCheck.status() == PartDragStatus.UNAVAILABLE) {
+                    return "unresolved:" + lastCheck.code() + ":attempts=" + attempts;
+                }
+            }
+        }
+        if (!sawVisiblePair) return "unresolved:no-safe-visible-part-pair";
+        return "unresolved:no-membership-change:attempts=" + attempts + ":dnd="
+            + onEdt(WindowsHistoryNativeUiIngressProbe::partsTreeDnD);
+    }
+
+    private PartGesturePreparation preparePartGesture(final PartPair pair) {
+        final PartModelSnapshot current = readPartModel();
+        if (!partPairMatches(current, pair)) {
+            return PartGesturePreparation.unavailable(current, "part-model-changed");
+        }
+        final PartPairLayout layout = locatePartPair(pair.source().name(), pair.target().name());
+        if (layout == null) {
+            return PartGesturePreparation.unavailable(current, "no-safe-visible-pair");
+        }
+        final WindowsHistoryManagerValidationProbe.Snapshot history;
+        try {
+            history = WindowsHistoryManagerValidationProbe.sample(context);
+        } catch (Exception unavailable) {
+            return PartGesturePreparation.unavailable(current, "history-unavailable");
+        }
+        if (history == null) {
+            return PartGesturePreparation.unavailable(current, "history-unavailable");
+        }
+        return new PartGesturePreparation(
+            current,
+            layout,
+            significantSequence(history),
+            ""
+        );
+    }
+
+    private PartModelSnapshot readPartModel() {
+        final CubismModel model = context.cubism().model().active();
+        if (model == null || model.id() == null || model.id().value().isBlank()) {
+            throw new IllegalStateException("active model identity is unavailable");
+        }
+        final List<Part> sdkParts = model.parts().all();
+        if (sdkParts == null || sdkParts.isEmpty()) {
+            throw new IllegalStateException("active model has no readable Parts");
+        }
+        final List<ActorPart> parts = new ArrayList<>();
+        for (final Part part : sdkParts) {
+            if (part == null || part.id() == null || part.id().value().isBlank()) {
+                throw new IllegalStateException("Part identity is unavailable");
+            }
+            final Optional<String> parentId = part.parentId().map(value -> value.value());
+            final List<String> childIds = part.childIds().stream()
+                .map(value -> value.value())
+                .toList();
+            parts.add(new ActorPart(
+                part.id().value(),
+                part.name(),
+                parentId,
+                childIds
+            ));
+        }
+        final PartModelSnapshot snapshot = new PartModelSnapshot(model.id().value(), parts);
+        if (partIndex(snapshot) == null) {
+            throw new IllegalStateException("Part relationship snapshot is incomplete");
+        }
+        return snapshot;
+    }
+
+    /** Returns only identity-safe source/target pairs; names are lookup hints, never identity. */
+    static List<PartPair> safePartPairs(final PartModelSnapshot snapshot) {
+        final Map<String, ActorPart> byId = partIndex(snapshot);
+        if (byId == null) return List.of();
+        final Map<String, Integer> nameCounts = new HashMap<>();
+        for (final ActorPart part : byId.values()) {
+            if (part.name() != null && !part.name().isBlank()) {
+                nameCounts.merge(part.name(), 1, Integer::sum);
+            }
+        }
+        final List<PartPair> pairs = new ArrayList<>();
+        for (final ActorPart source : byId.values()) {
+            if (!sourceEligible(source) || !uniqueName(source, nameCounts)) continue;
+            for (final ActorPart target : byId.values()) {
+                if (!targetEligible(target) || !uniqueName(target, nameCounts)
+                    || source.id().equals(target.id())
+                    || source.parentId().filter(target.id()::equals).isPresent()
+                    || isDescendant(source.id(), target.id(), byId)) {
+                    continue;
+                }
+                pairs.add(new PartPair(snapshot.modelId(), source, target));
+            }
+        }
+        return List.copyOf(pairs);
+    }
+
+    static boolean partPairMatches(final PartModelSnapshot snapshot, final PartPair pair) {
+        if (snapshot == null || pair == null || !Objects.equals(snapshot.modelId(), pair.modelId())) {
+            return false;
+        }
+        final Map<String, ActorPart> byId = partIndex(snapshot);
+        if (byId == null) return false;
+        return samePartState(pair.source(), byId.get(pair.source().id()))
+            && samePartState(pair.target(), byId.get(pair.target().id()));
+    }
+
+    private static boolean samePartState(final ActorPart expected, final ActorPart actual) {
+        return expected != null && actual != null
+            && expected.id().equals(actual.id())
+            && Objects.equals(expected.parentId(), actual.parentId())
+            && Objects.equals(expected.childIds(), actual.childIds());
+    }
+
+    /** Classifies only the selected source's read-only parent transition. */
+    static PartDragCheck assessPartDrag(
+        final PartPair pair,
+        final PartModelSnapshot before,
+        final PartModelSnapshot after,
+        final String beforeSignificant,
+        final String afterSignificant
+    ) {
+        final ActorPart beforeSource = partOf(before, pair == null ? null : pair.source().id());
+        final ActorPart afterSource = partOf(after, pair == null ? null : pair.source().id());
+        final Optional<String> parentBefore = parentOf(beforeSource);
+        final Optional<String> parentAfter = parentOf(afterSource);
+        final String sourceId = pair == null || pair.source() == null ? "" : pair.source().id();
+        final String targetId = pair == null || pair.target() == null ? "" : pair.target().id();
+        if (pair == null || before == null || after == null
+            || !Objects.equals(before.modelId(), after.modelId())
+            || !Objects.equals(pair.modelId(), after.modelId())) {
+            return new PartDragCheck(
+                PartDragStatus.MISMATCH, "model-changed", sourceId, targetId,
+                parentBefore, parentAfter
+            );
+        }
+        if (beforeSource == null || afterSource == null || partOf(after, targetId) == null) {
+            return new PartDragCheck(
+                PartDragStatus.UNAVAILABLE, "selected-part-unavailable", sourceId, targetId,
+                parentBefore, parentAfter
+            );
+        }
+        if (parentBefore.filter(targetId::equals).isPresent()) {
+            return new PartDragCheck(
+                PartDragStatus.MISMATCH, "same-parent", sourceId, targetId,
+                parentBefore, parentAfter
+            );
+        }
+        if (parentAfter.filter(targetId::equals).isPresent()
+            && !Objects.equals(parentBefore, parentAfter)) {
+            return new PartDragCheck(
+                PartDragStatus.CHANGED, "selected-parent-changed", sourceId, targetId,
+                parentBefore, parentAfter
+            );
+        }
+        if (!Objects.equals(parentBefore, parentAfter)) {
+            return new PartDragCheck(
+                PartDragStatus.MISMATCH, "wrong-parent", sourceId, targetId,
+                parentBefore, parentAfter
+            );
+        }
+        if (beforeSignificant == null || afterSignificant == null) {
+            return new PartDragCheck(
+                PartDragStatus.UNAVAILABLE, "history-unavailable", sourceId, targetId,
+                parentBefore, parentAfter
+            );
+        }
+        if (!Objects.equals(beforeSignificant, afterSignificant)) {
+            return new PartDragCheck(
+                PartDragStatus.MISMATCH, "unselected-significant-change", sourceId, targetId,
+                parentBefore, parentAfter
+            );
+        }
+        return new PartDragCheck(
+            PartDragStatus.NO_CHANGE, "no-selected-parent-change", sourceId, targetId,
+            parentBefore, parentAfter
+        );
+    }
+
+    private static String partEvidence(
+        final PartPair pair,
+        final Optional<String> parentBefore,
+        final Optional<String> parentAfter
+    ) {
+        return "sourceId=" + pair.source().id()
+            + ":targetId=" + pair.target().id()
+            + ":parentBefore=" + parentText(parentBefore)
+            + ":parentAfter=" + parentText(parentAfter);
+    }
+
+    private static String parentText(final Optional<String> parent) {
+        return parent == null ? "<unavailable>" : parent.orElse("<none>");
+    }
+
+    private static ActorPart partOf(
+        final PartModelSnapshot snapshot,
+        final String id
+    ) {
+        if (snapshot == null || id == null) return null;
+        final Map<String, ActorPart> byId = partIndex(snapshot);
+        return byId == null ? null : byId.get(id);
+    }
+
+    private static Optional<String> parentOf(final ActorPart part) {
+        return part == null ? Optional.empty() : part.parentId();
+    }
+
+    private static boolean sourceEligible(final ActorPart part) {
+        return part != null
+            && !INTERNAL_ROOT_PART_ID.equals(part.id())
+            && part.parentId().isPresent();
+    }
+
+    private static boolean targetEligible(final ActorPart part) {
+        return part != null && !INTERNAL_ROOT_PART_ID.equals(part.id())
+            && part.parentId().isPresent();
+    }
+
+    private static boolean uniqueName(
+        final ActorPart part,
+        final Map<String, Integer> nameCounts
+    ) {
+        return part.name() != null && !part.name().isBlank()
+            && nameCounts.getOrDefault(part.name(), 0) == 1;
+    }
+
+    private static boolean isDescendant(
+        final String sourceId,
+        final String candidateId,
+        final Map<String, ActorPart> byId
+    ) {
+        final ArrayDeque<String> pending = new ArrayDeque<>();
+        final Set<String> visited = new HashSet<>();
+        pending.add(sourceId);
+        while (!pending.isEmpty()) {
+            final String current = pending.removeFirst();
+            final ActorPart part = byId.get(current);
+            if (part == null || !visited.add(current)) continue;
+            for (final String childId : part.childIds()) {
+                if (candidateId.equals(childId)) return true;
+                pending.addLast(childId);
+            }
+        }
+        return false;
+    }
+
+    /** Validates the complete read-only relation snapshot before any UI gesture is attempted. */
+    private static Map<String, ActorPart> partIndex(final PartModelSnapshot snapshot) {
+        if (snapshot == null || snapshot.modelId() == null || snapshot.modelId().isBlank()
+            || snapshot.parts() == null || snapshot.parts().isEmpty()) {
+            return null;
+        }
+        final Map<String, ActorPart> byId = new LinkedHashMap<>();
+        for (final ActorPart part : snapshot.parts()) {
+            if (part == null || part.id() == null || part.id().isBlank()
+                || byId.put(part.id(), part) != null) {
+                return null;
+            }
+            final Set<String> childIds = new HashSet<>();
+            for (final String childId : part.childIds()) {
+                if (childId == null || childId.isBlank() || !childIds.add(childId)) return null;
+            }
+        }
+        for (final ActorPart part : byId.values()) {
+            if (part.parentId().filter(parent -> !byId.containsKey(parent)).isPresent()) {
+                return null;
+            }
+            for (final String childId : part.childIds()) {
+                final ActorPart child = byId.get(childId);
+                if (child == null || child.parentId().filter(part.id()::equals).isEmpty()) {
+                    return null;
+                }
+            }
+        }
+        for (final ActorPart part : byId.values()) {
+            final Set<String> visited = new HashSet<>();
+            ActorPart current = part;
+            while (current.parentId().isPresent()) {
+                if (!visited.add(current.id())) return null;
+                current = byId.get(current.parentId().orElseThrow());
+                if (current == null) return null;
+            }
+        }
+        return byId;
+    }
+
+    private static PartPairLayout locatePartPair(
+        final String sourceName,
+        final String targetName
+    ) {
+        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+            if (!window.isVisible()) continue;
+            final javax.swing.JTable table = findPartsTable(window);
+            if (table == null || !table.isShowing()) continue;
+            final javax.swing.JTree tree = WindowsMeshEditValidationProbe.extractTree(table);
+            if (tree == null) continue;
+            final PartPairLayout local = locatePartPairRows(table, tree, sourceName, targetName);
+            if (local == null) continue;
+            try {
+                return local.withScreenPoints(table);
+            } catch (java.awt.IllegalComponentStateException notShowing) {
+                // The palette was replaced between layout and conversion; re-discover it.
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Computes one final shared viewport layout. Package-private for the headless Swing test: it
+     * exercises the same expansion, scrolling, row/path and point checks as the native actor.
+     */
+    static PartPairLayout locatePartPairRows(
+        final javax.swing.JTable table,
+        final javax.swing.JTree tree,
+        final String sourceName,
+        final String targetName
+    ) {
+        if (table == null || tree == null || sourceName == null || targetName == null
+            || sourceName.equals(targetName)) return null;
+        javax.swing.tree.TreePath sourcePath = uniquePartPath(tree, sourceName);
+        javax.swing.tree.TreePath targetPath = uniquePartPath(tree, targetName);
+        if (sourcePath == null || targetPath == null || sourcePath.equals(targetPath)) return null;
+        expandAncestors(tree, sourcePath);
+        expandAncestors(tree, targetPath);
+        tree.expandPath(targetPath);
+
+        sourcePath = uniquePartPath(tree, sourceName);
+        targetPath = uniquePartPath(tree, targetName);
+        PartRowLocation source = partRowLocation(table, tree, sourcePath);
+        PartRowLocation target = partRowLocation(table, tree, targetPath);
+        if (source == null || target == null) return null;
+        table.scrollRectToVisible(target.cell());
+
+        // Target scrolling can move the source. Resolve both again before considering a gesture.
+        sourcePath = uniquePartPath(tree, sourceName);
+        targetPath = uniquePartPath(tree, targetName);
+        source = partRowLocation(table, tree, sourcePath);
+        target = partRowLocation(table, tree, targetPath);
+        if (source == null || target == null) return null;
+        if (!fullyVisible(table, source.cell()) || !fullyVisible(table, target.cell())) {
+            final java.awt.Rectangle union = source.cell().union(target.cell());
+            if (union.height > table.getVisibleRect().height
+                || union.width > table.getVisibleRect().width) {
+                return null;
+            }
+            table.scrollRectToVisible(union);
+            // A final read is required after the shared scroll as well; no point from before it
+            // may be reused for Robot input.
+            sourcePath = uniquePartPath(tree, sourceName);
+            targetPath = uniquePartPath(tree, targetName);
+            source = partRowLocation(table, tree, sourcePath);
+            target = partRowLocation(table, tree, targetPath);
+        }
+        if (source == null || target == null
+            || !fullyVisible(table, source.cell()) || !fullyVisible(table, target.cell())) {
+            return null;
+        }
+        return new PartPairLayout(source, target);
+    }
+
+    private static javax.swing.tree.TreePath uniquePartPath(
+        final javax.swing.JTree tree,
+        final String name
+    ) {
+        final List<javax.swing.tree.TreePath> paths =
+            WindowsMeshEditValidationProbe.findTreePaths(tree, name);
+        return paths.size() == 1 ? paths.get(0) : null;
+    }
+
+    private static void expandAncestors(
+        final javax.swing.JTree tree,
+        final javax.swing.tree.TreePath path
+    ) {
+        javax.swing.tree.TreePath parent = path == null ? null : path.getParentPath();
+        while (parent != null) {
+            tree.expandPath(parent);
+            parent = parent.getParentPath();
+        }
+    }
+
+    private static PartRowLocation partRowLocation(
+        final javax.swing.JTable table,
+        final javax.swing.JTree tree,
+        final javax.swing.tree.TreePath path
+    ) {
+        if (path == null) return null;
+        final int row = tree.getRowForPath(path);
+        if (row < 0 || row >= table.getRowCount() || !path.equals(tree.getPathForRow(row))) {
+            return null;
+        }
+        int column = 0;
+        int widest = -1;
+        for (int index = 0; index < table.getColumnCount(); index++) {
+            final int width = table.getColumnModel().getColumn(index).getWidth();
+            if (width > widest) {
+                widest = width;
+                column = index;
+            }
+        }
+        final java.awt.Rectangle cell = table.getCellRect(row, column, true);
+        final java.awt.Rectangle viewport = table.getVisibleRect();
+        if (cell.isEmpty() || viewport.isEmpty()) return null;
+        final java.awt.Point local = new java.awt.Point(
+            cell.x + Math.max(1, cell.width / 2),
+            cell.y + Math.max(1, cell.height / 2));
+        if (table.rowAtPoint(local) != row) return null;
+        return new PartRowLocation(path, row, column, cell, viewport, local, null);
+    }
+
+    private static boolean fullyVisible(
+        final javax.swing.JTable table,
+        final java.awt.Rectangle cell
+    ) {
+        final java.awt.Rectangle viewport = table.getVisibleRect();
+        return viewport.contains(cell.x, cell.y)
+            && viewport.contains(cell.x + cell.width - 1, cell.y + cell.height - 1);
     }
 
     /**
@@ -5111,6 +5614,129 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         private static String numberOrNull(final Float value) {
             return value == null ? "null" : Float.toString(value);
         }
+    }
+
+    /** Immutable read-only Part facts used by the Parts actor. */
+    record ActorPart(
+        String id,
+        String name,
+        Optional<String> parentId,
+        List<String> childIds
+    ) {
+        ActorPart {
+            Objects.requireNonNull(id, "id");
+            parentId = parentId == null ? Optional.empty() : parentId;
+            childIds = childIds == null ? List.of() : List.copyOf(childIds);
+        }
+    }
+
+    record PartModelSnapshot(String modelId, List<ActorPart> parts) {
+        PartModelSnapshot {
+            Objects.requireNonNull(modelId, "modelId");
+            parts = parts == null ? List.of() : List.copyOf(parts);
+        }
+    }
+
+    record PartPair(String modelId, ActorPart source, ActorPart target) {
+        PartPair {
+            Objects.requireNonNull(modelId, "modelId");
+            Objects.requireNonNull(source, "source");
+            Objects.requireNonNull(target, "target");
+        }
+    }
+
+    enum PartDragStatus {
+        CHANGED,
+        NO_CHANGE,
+        MISMATCH,
+        UNAVAILABLE
+    }
+
+    record PartDragCheck(
+        PartDragStatus status,
+        String code,
+        String sourceId,
+        String targetId,
+        Optional<String> parentBefore,
+        Optional<String> parentAfter
+    ) {
+        PartDragCheck {
+            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(code, "code");
+            parentBefore = parentBefore == null ? Optional.empty() : parentBefore;
+            parentAfter = parentAfter == null ? Optional.empty() : parentAfter;
+        }
+
+        String evidence() {
+            return "code=" + code
+                + ":sourceId=" + sourceId
+                + ":targetId=" + targetId
+                + ":parentBefore=" + parentText(parentBefore)
+                + ":parentAfter=" + parentText(parentAfter);
+        }
+    }
+
+    record PartGesturePreparation(
+        PartModelSnapshot model,
+        PartPairLayout layout,
+        String significantSequence,
+        String reason
+    ) {
+        boolean ready() {
+            return layout != null && reason != null && reason.isBlank();
+        }
+
+        static PartGesturePreparation unavailable(
+            final PartModelSnapshot model,
+            final String reason
+        ) {
+            return new PartGesturePreparation(model, null, null, reason);
+        }
+    }
+
+    record PartRowLocation(
+        javax.swing.tree.TreePath path,
+        int row,
+        int column,
+        java.awt.Rectangle cell,
+        java.awt.Rectangle viewport,
+        java.awt.Point localPoint,
+        java.awt.Point screenPoint
+    ) {
+        PartRowLocation {
+            Objects.requireNonNull(path, "path");
+            cell = new java.awt.Rectangle(Objects.requireNonNull(cell, "cell"));
+            viewport = new java.awt.Rectangle(Objects.requireNonNull(viewport, "viewport"));
+            localPoint = new java.awt.Point(Objects.requireNonNull(localPoint, "localPoint"));
+            screenPoint = screenPoint == null ? null : new java.awt.Point(screenPoint);
+        }
+
+        PartRowLocation withScreenPoint(final java.awt.Point point) {
+            return new PartRowLocation(path, row, column, cell, viewport, localPoint, point);
+        }
+    }
+
+    record PartPairLayout(PartRowLocation source, PartRowLocation target) {
+        PartPairLayout {
+            Objects.requireNonNull(source, "source");
+            Objects.requireNonNull(target, "target");
+        }
+
+        PartPairLayout withScreenPoints(final javax.swing.JTable table) {
+            return new PartPairLayout(
+                source.withScreenPoint(toScreenPoint(table, source.localPoint())),
+                target.withScreenPoint(toScreenPoint(table, target.localPoint()))
+            );
+        }
+    }
+
+    private static java.awt.Point toScreenPoint(
+        final javax.swing.JTable table,
+        final java.awt.Point local
+    ) {
+        final java.awt.Point screen = new java.awt.Point(local);
+        SwingUtilities.convertPointToScreen(screen, table);
+        return screen;
     }
 
     /** One operator instruction and the kind of native outcome it must produce. */
