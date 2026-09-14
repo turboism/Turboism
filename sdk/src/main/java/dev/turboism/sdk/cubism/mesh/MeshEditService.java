@@ -27,7 +27,10 @@ public interface MeshEditService {
     /** Moves each live point id to the position carried by its reference. */
     MeshEditResult movePoints(List<MeshPointRef> points);
 
-    /** Adds edges between pairs of live point ids; each call is one host undo step. */
+    /**
+     * Adds edges between pairs of live point ids. An accepted call is applied as one host
+     * undo step; a refused call — or a {@code null}/empty request — performs no edit.
+     */
     MeshEditResult addEdges(List<MeshEdgeRef> edges);
 
     /** Deletes the referenced edges; stale references are rejected. */

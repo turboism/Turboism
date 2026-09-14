@@ -8,17 +8,21 @@ import java.util.concurrent.CompletionStage;
  * A plugin's handle on the Editor appearance: read the current state, overlay its own, and put the
  * Editor's back.
  *
- * <p>Every operation is asynchronous and completes on the host's schedule; results are returned as
- * values rather than thrown, so callers branch on the outcome enums instead of catching. A plugin
- * may only restore an appearance it owns. Where the host offers no appearance control at all,
- * {@link #unavailable()} supplies a conformant no-op implementation.
+ * <p>Business outcomes — rejection, unavailability, apply and restore failures — are reported as
+ * result values on the returned stages, so callers can branch on the outcome enums. That does not
+ * make the calls total: an implementation may throw synchronously before returning a stage (for
+ * example on permission denial, a {@code null} argument or a provider error), and a returned stage
+ * may itself complete exceptionally. A plugin may only restore an appearance it owns. Where the
+ * host offers no appearance control at all, {@link #unavailable()} supplies a conformant no-op
+ * implementation.
  */
 public interface AppearanceService {
 
     /**
      * Returns the appearance state currently in force on the host.
      *
-     * @return the observed status; the stage completes with a value rather than failing
+     * @return a stage for the observed status; see the class contract — synchronous validation
+     *     failures may still be thrown
      */
     CompletionStage<AppearanceStatus> current();
 
@@ -27,15 +31,16 @@ public interface AppearanceService {
      *
      * @param request the requested appearance, including the {@code expectedRevision}
      *     optimistic-concurrency token from an earlier {@link #current()} result
-     * @return the outcome of the attempt; rejection and failure arrive as values, not exceptions
+     * @return a stage for the outcome of the attempt; business rejection and failure arrive as
+     *     values, while permission denial and provider errors may throw synchronously
      */
     CompletionStage<AppearanceApplyResult> apply(AppearanceRequest request);
 
     /**
      * Removes the appearance overlay this plugin owns, putting the Editor's own appearance back.
      *
-     * @return the outcome; {@code NO_OWNED_OVERRIDE} reports a clean no-op when this plugin had
-     *     nothing installed
+     * @return a stage for the outcome; {@code NO_OWNED_OVERRIDE} reports a clean no-op when this
+     *     plugin had nothing installed; permission denial may throw synchronously
      */
     CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance();
 
@@ -43,7 +48,7 @@ public interface AppearanceService {
      * @return a service that changes nothing: {@link #current()} reports
      *     {@link AppearanceStatus.Availability#UNAVAILABLE} at revision 0, and both mutating calls
      *     complete with an {@code UNAVAILABLE} outcome and the {@code appearance.unavailable}
-     *     diagnostic id. Never returns {@code null} and never fails.
+     *     diagnostic id. Never returns {@code null}; argument validation still applies.
      */
     static AppearanceService unavailable() {
         final AppearanceStatus status = new AppearanceStatus(

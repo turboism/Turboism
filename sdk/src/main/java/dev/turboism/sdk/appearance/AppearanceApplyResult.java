@@ -7,11 +7,14 @@ import java.util.Optional;
 /**
  * Outcome of an {@link AppearanceService#apply} call.
  *
- * <p>Failure is reported as a value, never as a thrown exception: {@code REJECTED} means the
- * request was refused (for example on a stale {@code expectedRevision}), {@code UNAVAILABLE} means
- * the host exposes no appearance control, {@code FAILED_RESTORED} means the apply failed but the
- * previous appearance was put back, and {@code FAILED_RESTORE} means even that rollback failed.
- * The compact constructor rejects {@code null} components and a blank diagnostic id.
+ * <p>When {@code apply} returns a result, business failures are reported through it:
+ * {@code REJECTED} means the request was refused (for example on a stale
+ * {@code expectedRevision}), {@code UNAVAILABLE} means the host exposes no appearance control,
+ * {@code FAILED_RESTORED} means the apply failed but the previous appearance was put back, and
+ * {@code FAILED_RESTORE} means even that rollback failed. This type does not cover synchronous
+ * validation failures — permission denial or a {@code null} argument may be thrown by the service
+ * before a stage is returned. The compact constructor rejects {@code null} components and a blank
+ * diagnostic id.
  *
  * @param outcome what happened to the request
  * @param status the appearance state observed after the attempt
@@ -33,7 +36,7 @@ public record AppearanceApplyResult(
         });
     }
 
-    /** What happened to an apply request; failures are values, never thrown exceptions. */
+    /** What happened to an apply request; the business outcome of a completed attempt. */
     public enum Outcome {
         APPLIED,
         NO_CHANGE,

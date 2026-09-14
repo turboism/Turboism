@@ -52,7 +52,11 @@ public interface CubismFacade {
         return ActiveReadProjections.projectContentOf(activeProject(), activeDocument());
     }
 
-    /** Returns whether a Cubism host is actually connected behind this facade. */
+    /**
+     * Returns whether the backing snapshot source currently observes a host session — in
+     * practice whether a project or document is visible to it. This is the source's
+     * observability signal, not a guarantee that a physical host connection is alive.
+     */
     boolean isHostPresent();
 
     /** Returns permission-checked Cubism Core metadata and MOC inspection. */
