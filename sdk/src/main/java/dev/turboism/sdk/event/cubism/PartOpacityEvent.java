@@ -49,6 +49,7 @@ public sealed interface PartOpacityEvent extends TurboismEvent
         }
 
         @Override public Part part() { return part; }
+        /** Returns the opacity value originally requested by the write call. */
         public float requestedOpacity() { return requestedOpacity; }
         /** Returns the candidate opacity value that will be applied. */
         public float opacity() { return opacity; }

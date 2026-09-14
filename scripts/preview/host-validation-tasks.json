@@ -555,6 +555,22 @@
       "resources": {
         "host-slot": 1
       }
+    },
+    "animation-timeline": {
+      "description": "Animation workspace SDK validation (enumeration, timeline, playback, scene ops, keyframe/easing writes, evaluated bake, native undo).",
+      "command": "scripts/preview/run-animation-timeline-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     }
   }
 }

@@ -539,6 +539,33 @@ class PreparedStoreTest(unittest.TestCase):
                 {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
                 self.source, "host-locale:5302")
 
+    def test_reviewed_plugin_management_restart_hook_is_admitted(self) -> None:
+        hook = self.preview / "plugin-management-restart-remote-pre-launch.sh"
+        hook.write_text("# reviewed hook fixture, never executed\n")
+        # The reviewed protocol is the hook plus its staged state input: without
+        # --home-dir the hook has no pending journal to rebind and fails closed.
+        with self.assertRaisesRegex(queue.QueueError, "staged state"):
+            self.prepared.capture(
+                {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(hook)]},
+                self.source, "plugin-management-direct-jar-restart:5302")
+        state = self.base / "restart-state-source"
+        state.mkdir()
+        prepared = self.prepared.capture(
+            {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(hook),
+                                       "--home-dir", str(state) + ":restart-state"]},
+            self.source, "plugin-management-direct-jar-restart:5302")
+        names = sorted(Path(entry["source"]).name for entry in prepared["sourceInputs"])
+        self.assertEqual(["input with spaces.jar", "plugin-management-restart-remote-pre-launch.sh",
+                          "restart-state-source"], names)
+        # The same file name is not an approval outside scripts/preview.
+        outside = self.base / hook.name
+        outside.write_text("# unreviewed copy\n")
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture(
+                {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(outside),
+                                           "--home-dir", str(state) + ":restart-state"]},
+                self.source, "plugin-management-direct-jar-restart:5302")
+
     def test_real_runner_prepare_snapshot_and_replay_are_host_side_effect_free(self) -> None:
         tools = Path(__file__).resolve().parents[1] / "preview"
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",

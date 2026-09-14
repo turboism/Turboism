@@ -1,6 +1,6 @@
 package dev.turboism.config;
 
-import dev.turboism.plugin.core.CubismJvmSettingsService;
+import dev.turboism.shell.CubismJvmSettingsService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

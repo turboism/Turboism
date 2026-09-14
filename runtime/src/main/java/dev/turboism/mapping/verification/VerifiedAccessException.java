@@ -36,8 +36,11 @@ public final class VerifiedAccessException extends RuntimeException {
         return failureKind;
     }
 
+    /** Which stage of a verified selector call failed. */
     public enum FailureKind {
+        /** The call site itself could not be resolved or used. */
         RESOLUTION,
+        /** The host member ran and threw. */
         INVOCATION
     }
 

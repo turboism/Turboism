@@ -121,8 +121,15 @@ public final class NativeObjectContextMenuBridge {
 
 
 
+    /** Callback invoked while the host builds an object context menu. */
     @FunctionalInterface
     public interface Handler {
+        /**
+         * @param menu the host menu being built
+         * @param location the menu location the host reports
+         * @param source the native selection source object
+         * @return the menu to show — {@code menu} itself when unchanged
+         */
         Object augment(Object menu, Location location, Object source);
     }
 }

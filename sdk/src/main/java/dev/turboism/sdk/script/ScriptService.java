@@ -16,20 +16,30 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface ScriptService {
 
+    /** Returns every discovered script. */
     List<ScriptDescriptor> list();
 
+    /** Returns the descriptor for {@code id}, or empty when no such script exists. */
     Optional<ScriptDescriptor> find(ScriptId id);
 
+    /**
+     * Starts {@code request} as an out-of-process execution and returns its handle.
+     *
+     * @param request the script and arguments to run
+     */
     ScriptRunHandle run(ScriptRunRequest request);
 
+    /** Returns whether script execution is available in this runtime. */
     default boolean available() {
         return true;
     }
 
+    /** Returns a fail-closed service: no scripts are listed and runs are rejected. */
     static ScriptService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements ScriptService {
         INSTANCE;
 

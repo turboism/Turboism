@@ -71,7 +71,7 @@ val performanceProbeCarrierJar by tasks.registering(Jar::class) {
 }
 
 val performanceProbeAgentJar by tasks.registering(Jar::class) {
-    // Declare all runtimeClasspath producers (incl. :plugins:core:jar) so the
+    // Declare all runtimeClasspath producers (incl. :runtime:jar) so the
     // probe agent fat JAR can coexist with previewBundle in one task graph.
     dependsOn(configurations.runtimeClasspath, performanceProbeCarrierJar)
     archiveBaseName.set("turboism-performance-probe-agent")

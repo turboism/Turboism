@@ -25,6 +25,7 @@ public interface CubismLogService {
     /** Returns the currently published filter. */
     LogFilter filter();
 
+    /** Severity levels reported by the Cubism log stream. */
     enum LogLevel {
         TRACE, DEBUG, INFO, WARN, ERROR, FATAL
     }
@@ -72,6 +73,10 @@ public interface CubismLogService {
         }
     }
 
+    /**
+     * Returns a fail-closed instance: subscriptions deliver nothing and the filter is kept
+     * locally without reaching the host.
+     */
     static CubismLogService unavailable() {
         return new CubismLogService() {
             private LogFilter filter = LogFilter.all();

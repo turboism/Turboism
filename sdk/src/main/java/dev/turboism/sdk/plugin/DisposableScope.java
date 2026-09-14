@@ -5,42 +5,55 @@ import java.util.List;
 
 /**
  * Collects registrations and closes them in reverse order.
+ *
+ * <p>Each successful {@link #register(AutoCloseable)} call creates an
+ * independent entry that is released at most once, whether it is released
+ * through its {@link Registration} handle or through this scope.
  */
 public final class DisposableScope implements AutoCloseable {
 
-    private final List<AutoCloseable> closeables = new ArrayList<>();
+    private final List<Entry> closeables = new ArrayList<>();
     private boolean closed = false;
 
     /**
      * Adds a closeable to this scope so it is closed when the scope closes.
      *
+     * <p>Entries are identified by registration, not by the closeable:
+     * registering equal or identical closeables still creates independent
+     * entries, and closing one handle never releases another registration.
+     *
      * @param closeable the resource to take ownership of
-     * @return a handle that detaches the closeable from this scope and closes it
-     *     immediately, swallowing any failure from that close
+     * @return a handle that detaches this registration from the scope and
+     *     closes it immediately, swallowing any failure from that close;
+     *     closing the handle more than once has no further effect
      * @throws IllegalStateException when the scope has already been closed; the
      *     closeable is then not registered and not closed
      */
     public Registration register(AutoCloseable closeable) {
+        Entry entry = new Entry(closeable);
         synchronized (this) {
             if (closed) {
                 throw new IllegalStateException("DisposableScope is already closed");
             }
-            closeables.add(closeable);
-            return new Registration() {
-                @Override
-                public void close() {
-                    synchronized (DisposableScope.this) {
-                        closeables.remove(closeable);
-                    }
-                    closeSafely(closeable);
-                }
-            };
+            closeables.add(entry);
         }
+        return new Registration() {
+            @Override
+            public void close() {
+                if (!entry.claim()) {
+                    return;
+                }
+                synchronized (DisposableScope.this) {
+                    closeables.remove(entry);
+                }
+                closeSafely(entry.closeable);
+            }
+        };
     }
 
     @Override
     public void close() throws Exception {
-        List<AutoCloseable> toClose;
+        List<Entry> toClose;
         synchronized (this) {
             if (closed) {
                 return;
@@ -51,8 +64,12 @@ public final class DisposableScope implements AutoCloseable {
         }
         Exception first = null;
         for (int i = toClose.size() - 1; i >= 0; i--) {
+            Entry entry = toClose.get(i);
+            if (!entry.claim()) {
+                continue;
+            }
             try {
-                toClose.get(i).close();
+                entry.closeable.close();
             } catch (Exception e) {
                 if (first == null) {
                     first = e;
@@ -70,6 +87,28 @@ public final class DisposableScope implements AutoCloseable {
         try {
             closeable.close();
         } catch (Exception ignored) {
+        }
+    }
+
+    /**
+     * One registration's shared release ownership between the scope and its
+     * handle. The claim is taken before user close code runs so that
+     * concurrent or reentrant close paths release the entry exactly once.
+     */
+    private static final class Entry {
+        private final AutoCloseable closeable;
+        private boolean claimed;
+
+        Entry(AutoCloseable closeable) {
+            this.closeable = closeable;
+        }
+
+        synchronized boolean claim() {
+            if (claimed) {
+                return false;
+            }
+            claimed = true;
+            return true;
         }
     }
 }

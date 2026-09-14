@@ -98,7 +98,7 @@ allprojects {
         isReproducibleFileOrder = true
         // The SDK remains a byte-exact reviewed library, not a numbered product.
         if (project.path != ":sdk" && turboismBuildNumber.isNotEmpty()
-            && (!project.path.startsWith(":plugins:") || project.path == ":plugins:core")) {
+            && !project.path.startsWith(":plugins:")) {
             manifest.attributes(
                 "Turboism-Build-Number" to turboismBuildNumber,
                 "Turboism-Source-Revision" to turboismBuildSource,
