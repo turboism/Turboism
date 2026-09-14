@@ -9,7 +9,8 @@ sdk=("$root/build/worktree/$id/sdk/libs/"sdk-*.jar)
 src="$root/validation/external-psd-edit-host-probe/src"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
-javac --release 17 -cp "${sdk[0]}" -d "$out" \
+javac --release 17 -Xlint:all -cp "${sdk[0]}" -d "$out" \
+  "$src/dev/turboism/validation/externalpsd/PsdValidationContent.java" \
   "$src/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbe.java"
 cp -R "$src/META-INF" "$out/"
 [[ $# -eq 0 ]] || { echo 'Usage: build.sh' >&2; exit 2; }
