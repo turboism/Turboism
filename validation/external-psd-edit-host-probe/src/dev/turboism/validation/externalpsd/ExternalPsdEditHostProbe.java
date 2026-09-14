@@ -35,6 +35,7 @@ import java.awt.Frame;
 import java.awt.Window;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowEvent;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -149,7 +150,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             context.logger().info("EXTERNAL_PSD_EDIT_RESULT status=" + result.getProperty("status"));
             armExitWatchdog(dir);
             closeDefaultApplication();
-            Runtime.getRuntime().exit("PASS".equals(result.getProperty("status")) ? 0 : 2);
+            // Native save initializes JOGL/GlueGen; letting the JVM fall into ExitProcess with
+            // live GL resources deadlocks DLL detach under Wine and freezes the whole session.
+            // Drive the host's own close path instead so it releases the engine first.
+            closeHostGracefully();
         } catch (Exception error) {
             context.logger().warn("EXTERNAL_PSD_EDIT_RESULT_WRITE_FAILED " + error);
         }
@@ -168,6 +172,41 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             taskkill.waitFor(15, TimeUnit.SECONDS);
         } catch (Throwable ignored) {
             // Editor teardown is best-effort; the exit watchdog still bounds the run.
+        }
+    }
+
+    /**
+     * Drives Cubism's own window-close path (equivalent to Alt+F4 on the document frame) so the
+     * host releases its engine and GL resources before the JVM reaches ExitProcess.
+     */
+    private static void closeHostGracefully() {
+        try {
+            final Runnable close = () -> {
+                Frame modelFrame = null;
+                Frame cubismFrame = null;
+                Frame fallbackFrame = null;
+                for (final Frame frame : Frame.getFrames()) {
+                    if (!frame.isVisible()) continue;
+                    if (fallbackFrame == null) fallbackFrame = frame;
+                    final String title = frame.getTitle();
+                    if (title != null && title.contains(".cmo3")) {
+                        modelFrame = frame;
+                        break;
+                    }
+                    if (cubismFrame == null && title != null && title.contains("Cubism")) {
+                        cubismFrame = frame;
+                    }
+                }
+                final Frame frame = modelFrame != null
+                    ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
+                if (frame != null) {
+                    frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+                }
+            };
+            if (SwingUtilities.isEventDispatchThread()) close.run();
+            else SwingUtilities.invokeAndWait(close);
+        } catch (Throwable ignored) {
+            // The exit watchdog still bounds the run if the close event is refused.
         }
     }
 
