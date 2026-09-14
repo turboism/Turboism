@@ -130,6 +130,15 @@ public final class ThemeSelectionService {
         return new SelectionResult(SelectionOutcome.DELETED, Optional.empty());
     }
 
+    /**
+     * Outcome of a selection operation.
+     *
+     * <p>{@code SELECTED}, {@code RESTORED_NATIVE} and {@code DELETED} report completed
+     * changes; {@code APPLY_FAILED} and {@code RESTORE_FAILED} mean the host refused and
+     * nothing was persisted or deleted; {@code INVALID_SELECTION_CLEARED} means a selection
+     * naming a missing package was removed after a successful restore; {@code NO_CHANGE} means
+     * the persisted selection was already absent or still valid.</p>
+     */
     public enum SelectionOutcome {
         SELECTED,
         APPLY_FAILED,
@@ -156,22 +165,49 @@ public final class ThemeSelectionService {
         }
     }
 
+    /** Looks up whether a theme id still resolves to an installed package. */
     @FunctionalInterface
     public interface ThemeLookup {
+        /**
+         * @param themeId the package id to resolve
+         * @return the package, or empty when no installed package has that id
+         */
         Optional<ThemePackageData> find(String themeId);
     }
 
+    /** Deletes one installed theme package; failures are thrown, not reported. */
     @FunctionalInterface
     public interface ThemeDelete {
+        /**
+         * Removes one package.
+         *
+         * @param themeId the package id to delete
+         */
         void delete(String themeId);
     }
 
+    /**
+     * The persisted record of which theme is currently selected.
+     *
+     * <p>Implemented by {@link ThemeSelectionConfig} over the plugin config registry; the
+     * record survives restarts so a selection can be re-applied or validated later.</p>
+     */
     public interface SelectionStore {
+        /**
+         * @return the persisted id of the selected theme, or empty when the native appearance
+         *     is in force or nothing was persisted
+         */
         Optional<String> selectedThemeId();
 
+        /**
+         * Persists {@code themeId} as the current selection.
+         *
+         * @param themeId the theme to record as selected
+         */
         void saveSelectedThemeId(String themeId);
 
 
+        /** Removes the persisted selection, returning to the native-appearance state. */
         void clearSelectedThemeId();
     }
 }

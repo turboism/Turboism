@@ -96,6 +96,7 @@ public record PsdClipMaskPlan(
         }
     }
 
+    /** Why a relationship became a {@link Skip} instead of an {@link Assignment} or {@link Conflict}. */
     public enum SkipReason {
         /** The ArtMesh bound to the PSD layer does not exist in the model. */
         TARGET_UNRESOLVED,
