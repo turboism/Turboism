@@ -520,11 +520,15 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void parameterLifecycleEvidenceKeepsRelatedAndUnrelatedCallbacksSeparate() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", 12.5f);
         final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
-            lifecycle("before", "ParamAngleX", 0.0f, 12.5f, "EDT"),
-            lifecycle("on", "ParamAngleX", 0.0f, 12.5f, "callback"),
-            lifecycle("after", "ParamAngleX", null, 12.5f, "callback"),
-            lifecycle("on", "ParamOpacity", 1.0f, 0.8f, "callback")
+            lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "EDT"),
+            lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
+            lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback"),
+            lifecycle(4L, "on", "ParamOpacity", 1.0f, 0.8f, "callback")
         );
 
         assertEquals(
@@ -536,13 +540,17 @@ class WindowsHistoryNativeUiIngressProbeTest {
         assertEquals(
             WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE,
             WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
-                callbacks, Set.of("ParamAngleX"), true
+                callbacks, before, after, Set.of("ParamAngleX"), true
             )
+        );
+        assertTrue(
+            callbacks.get(1).json(Set.of("ParamAngleX")).contains("\"sequence\":2"),
+            "callback sequence must be retained for evidence review"
         );
         assertEquals(
             WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.OBSERVED_UNRELATED,
             WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
-                List.of(lifecycle("on", "ParamOpacity", 1.0f, 0.8f, "callback")),
+                List.of(lifecycle(1L, "on", "ParamOpacity", 1.0f, 0.8f, "callback")),
                 Set.of(),
                 false
             )
@@ -566,6 +574,261 @@ class WindowsHistoryNativeUiIngressProbeTest {
         );
     }
 
+    @Test
+    void parameterLifecycleAcceptsAContinuousNativeValueChain() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", 12.5f);
+        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+            lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
+            lifecycle(2L, "on", "ParamAngleX", 0.0f, 5.0f, "callback"),
+            lifecycle(3L, "on", "ParamAngleX", 5.0f, 12.5f, "callback"),
+            lifecycle(4L, "after", "ParamAngleX", null, 12.5f, "callback")
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                callbacks, before, after, Set.of("ParamAngleX"), true
+            )
+        );
+    }
+
+    @Test
+    void parameterLifecycleRejectsReversedAndUnrelatedValues() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", 12.5f);
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                List.of(
+                    lifecycle(1L, "after", "ParamAngleX", null, 999.0f, "callback"),
+                    lifecycle(2L, "on", "ParamAngleX", 999.0f, 999.0f, "callback"),
+                    lifecycle(3L, "before", "ParamAngleX", null, null, "callback")
+                ),
+                before,
+                after,
+                Set.of("ParamAngleX"),
+                true
+            )
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                List.of(
+                    lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
+                    lifecycle(2L, "on", "ParamAngleX", 0.0f, 999.0f, "callback"),
+                    lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback")
+                ),
+                before,
+                after,
+                Set.of("ParamAngleX"),
+                true
+            )
+        );
+    }
+
+    @Test
+    void parameterLifecycleRejectsNoChangeMissingPhaseAndMissingValues() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", 12.5f);
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                List.of(
+                    lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
+                    lifecycle(2L, "on", "ParamAngleX", 0.0f, 0.0f, "callback"),
+                    lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback")
+                ),
+                before,
+                after,
+                Set.of("ParamAngleX"),
+                true
+            )
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                List.of(
+                    lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
+                    lifecycle(2L, "after", "ParamAngleX", null, 12.5f, "callback")
+                ),
+                before,
+                after,
+                Set.of("ParamAngleX"),
+                true
+            )
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                List.of(
+                    lifecycle(1L, "before", "ParamAngleX", null, null, "callback"),
+                    lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
+                    lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback")
+                ),
+                before,
+                after,
+                Set.of("ParamAngleX"),
+                true
+            )
+        );
+    }
+
+    @Test
+    void parameterLifecycleWithoutReadbackCannotBeComplete() {
+        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+            lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
+            lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
+            lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback")
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.UNAVAILABLE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                callbacks, Set.of("ParamAngleX"), true
+            )
+        );
+    }
+
+    @Test
+    void parameterLifecycleSampleLossIsExplicitlyIncomplete() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", 12.5f);
+        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+            lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
+            lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
+            lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback")
+        );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
+            WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                callbacks, before, after, Set.of("ParamAngleX"), true, false
+            )
+        );
+    }
+
+    @Test
+    void parameterLifecycleReportsCallbackModelCorrelationAsUnavailable() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot(
+            "model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot(
+            "model-A", 12.5f);
+        final WindowsHistoryNativeUiIngressProbe.ParameterLifecycleAssessment assessment =
+            WindowsHistoryNativeUiIngressProbe.assessParameterLifecycle(
+                List.of(
+                    lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
+                    lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
+                    lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback")
+                ),
+                before,
+                after,
+                Set.of("ParamAngleX"),
+                true
+            );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE,
+            assessment.status()
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterModelCorrelation.UNAVAILABLE,
+            assessment.modelCorrelation()
+        );
+    }
+
+    @Test
+    void parameterActorModelFailureCannotBeRecoveredByALaterNormalRead() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation actorFailure =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
+                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable("model-changed"),
+                "model-changed"
+            );
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation laterChange =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+                parameterSnapshot("model-B", 12.5f),
+                "changed"
+            );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
+            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
+                actorFailure, laterChange
+            ).outcome()
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation unavailable =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable("read-failed"),
+                "read-failed"
+            );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
+            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
+                unavailable, laterChange
+            ).outcome()
+        );
+    }
+
+    @Test
+    void parameterActorChangeMayUseAChangedSettledReadButNotEraseTheChange() {
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation actorChange =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+                parameterSnapshot("model-A", 5.0f),
+                "changed"
+            );
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation settledChange =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+                parameterSnapshot("model-A", 12.5f),
+                "changed"
+            );
+        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation unchanged =
+            new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
+                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNCHANGED,
+                parameterSnapshot("model-A", 0.0f),
+                "unchanged"
+            );
+
+        assertEquals(
+            12.5f,
+            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
+                actorChange, settledChange
+            ).after().values().get(0).value(),
+            0.0f
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+            WindowsHistoryNativeUiIngressProbe.preserveParameterActorOutcome(
+                actorChange, unchanged
+            ).outcome()
+        );
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot parameterSnapshot(
+        final String modelId,
+        final float value
+    ) {
+        return WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
+            modelId,
+            List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", value))
+        );
+    }
+
     private static WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent lifecycle(
         final String phase,
         final String parameterId,
@@ -573,8 +836,19 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final Float newValue,
         final String thread
     ) {
+        return lifecycle(0L, phase, parameterId, oldValue, newValue, thread);
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent lifecycle(
+        final long sequence,
+        final String phase,
+        final String parameterId,
+        final Float oldValue,
+        final Float newValue,
+        final String thread
+    ) {
         return new WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent(
-            0L, phase, parameterId, oldValue, newValue, thread
+            sequence, phase, parameterId, oldValue, newValue, thread
         );
     }
 
