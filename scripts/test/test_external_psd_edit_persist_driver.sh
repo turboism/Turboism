@@ -43,8 +43,10 @@ host_root="${DRIVER_STUB_HOST_ROOT:?}"
 log="${DRIVER_STUB_LOG:?}"
 file_hash="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 image_hash="1111111111111111111111111111111111111111111111111111111111111111"
-baseline_target_hash="2222222222222222222222222222222222222222222222222222222222222222"
-post_target_hash="3333333333333333333333333333333333333333333333333333333333333333"
+baseline_target_hash="abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+post_target_hash="fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedc"
+case_baseline_target_hash="$baseline_target_hash"
+legacy_reopen_image_hash="8888888888888888888888888888888888888888888888888888888888888888"
 a_run_id="queue-run-a"
 a_job_id="job-a"
 a_task_dir="$host_root/external-psd-edit-pipeline/5302-025-us4/$a_run_id"
@@ -148,6 +150,11 @@ if [ "$phase" = reopen ]; then
     wrong-expected-target) b_expected_target="$file_hash" ;;
     wrong-target) b_actual_target="$file_hash" ;;
     missing-target) b_expected_target=""; b_actual_target="" ;;
+    target-case-variant)
+      b_expected_target="${b_expected_target^^}"
+      b_actual_target="${b_actual_target^^}"
+      ;;
+    legacy-composite-different) b_actual="$legacy_reopen_image_hash" ;;
   esac
   {
     printf 'status=PASS\n'
@@ -165,6 +172,8 @@ if [ "$phase" = reopen ]; then
   printf 'stageB.run=%s\n' "$b_run_id" >> "$log"
   printf 'stageB.taskDir=%s\n' "$b_task_dir" >> "$log"
   printf 'stageB.result=%s\n' "$b_result" >> "$log"
+  printf 'stageB.resultImage=%s\n' "$b_actual" >> "$log"
+  printf 'stageB.resultTarget=%s\n' "$b_actual_target" >> "$log"
   if [ "$mode" = stage-b-failure ]; then
     write_job "$b_job_id" "$b_run_id" "$b_task_dir" "$b_result" failed
     exit 42
@@ -209,15 +218,22 @@ a_quarantine_source_missing=true
 a_post_file_hash="$file_hash"
 a_post_image_hash="$image_hash"
 a_omit_target_fields=0
+a_omit_legacy_fields=0
 case "$mode" in
   wrong-a-run) a_result_run_id=queue-run-other ;;
   wrong-a-phase) a_phase=reopen ;;
   save-not-succeeded) a_save_succeeded=false ;;
   missing-hash|old-composite-only|target-missing|image-only) a_omit_target_fields=1 ;;
+  rgb-only) a_omit_legacy_fields=1 ;;
   invalid-hash) a_post_target_hash=not-a-sha256 ;;
   baseline-unstable) a_second_target_hash="4444444444444444444444444444444444444444444444444444444444444444" ;;
   target-unchanged) a_post_target_hash="$a_baseline_target_hash" ;;
   target-mismatch) a_target_changed=false ;;
+  hash-case-variant)
+    a_baseline_target_hash="$case_baseline_target_hash"
+    a_second_target_hash="$case_baseline_target_hash"
+    a_post_target_hash="${case_baseline_target_hash^^}"
+    ;;
   quarantine-failure) a_quarantine_status=FAILED ;;
   quarantine-incomplete)
     a_quarantine_owned=false
@@ -246,14 +262,18 @@ esac
     printf 'persist.tempQuarantine.taskOwned=%s\n' "$a_quarantine_owned"
     printf 'persist.tempQuarantine.sourceMissing=%s\n' "$a_quarantine_source_missing"
   fi
-  printf 'persist.postEditSha256=%s\n' "$a_post_file_hash"
-  printf 'persist.postEditImageSha256=%s\n' "$a_post_image_hash"
+  if [ "$a_omit_legacy_fields" = 0 ]; then
+    printf 'persist.postEditSha256=%s\n' "$a_post_file_hash"
+    printf 'persist.postEditImageSha256=%s\n' "$a_post_image_hash"
+  fi
 } > "$a_result"
 
 if [ "$mode" = crlf ]; then
   convert_result_to_crlf "$a_result"
 fi
 printf 'stageA.result=%s\n' "$a_result" >> "$log"
+printf 'stageA.resultImage=%s\n' "$a_post_image_hash" >> "$log"
+printf 'stageA.resultTarget=%s\n' "$a_post_target_hash" >> "$log"
 
 if [ "$mode" = adjacent-job ]; then
   unrelated="$host_root/external-psd-edit-pipeline/5302-025-us4/queue-unrelated"
@@ -327,7 +347,7 @@ run_success_case() {
     'stageB.postImage=1111111111111111111111111111111111111111111111111111111111111111' \
     "$mode must pass the post-edit image hash"
   assert_file_contains "$case_root/stub.log" \
-    'stageB.postTarget=3333333333333333333333333333333333333333333333333333333333333333' \
+    'stageB.postTarget=fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedc' \
     "$mode must pass the post-edit target RGB hash"
   assert_file_contains "$case_root/stub.log" \
     'stageB.postFile=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' \
@@ -344,11 +364,34 @@ run_driver_case legacy-composite-different 0 >/dev/null
 assert_file_contains "$test_root/legacy-composite-different/stub.log" 'phase=reopen' \
   'different legacy composite evidence must not block a valid target RGB round trip'
 assert_file_contains "$test_root/legacy-composite-different/stub.log" \
-  'stageB.postTarget=3333333333333333333333333333333333333333333333333333333333333333' \
+  'stageB.postTarget=fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedc' \
   'target RGB evidence remains the stage B gate when legacy hashes differ'
 assert_file_contains "$test_root/legacy-composite-different/stub.log" \
-  'stageB.postImage=9999999999999999999999999999999999999999999999999999999999999999' \
-  'legacy composite evidence is forwarded only as optional diagnostics'
+  'stageB.resultImage=8888888888888888888888888888888888888888888888888888888888888888' \
+  'stage B may report a legacy composite digest different from stage A while RGB evidence matches'
+assert_file_contains "$test_root/legacy-composite-different/stub.log" \
+  'stageA.resultImage=9999999999999999999999999999999999999999999999999999999999999999' \
+  'stage A legacy composite digest must be recorded for the mismatch regression'
+assert_file_not_contains "$test_root/legacy-composite-different/stub.log" \
+  'stageB.resultImage=9999999999999999999999999999999999999999999999999999999999999999' \
+  'legacy composite mismatch must not be hidden by replaying the stage A digest'
+assert_file_contains "$test_root/legacy-composite-different/stub.log" \
+  'stageB.resultTarget=fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedc' \
+  'legacy composite mismatch must retain matching RGB reopen evidence'
+legacy_a_image="$(awk -F= '$1 == "stageA.resultImage" { print substr($0, index($0, "=") + 1); exit }' \
+  "$test_root/legacy-composite-different/stub.log")"
+legacy_b_image="$(awk -F= '$1 == "stageB.resultImage" { print substr($0, index($0, "=") + 1); exit }' \
+  "$test_root/legacy-composite-different/stub.log")"
+if [ -z "$legacy_a_image" ] || [ -z "$legacy_b_image" ] || [ "$legacy_a_image" = "$legacy_b_image" ]; then
+  record_failure 'legacy composite success case did not prove a distinct stage B reopen.imageSha256'
+fi
+legacy_a_target="$(awk -F= '$1 == "stageA.resultTarget" { print substr($0, index($0, "=") + 1); exit }' \
+  "$test_root/legacy-composite-different/stub.log")"
+legacy_b_target="$(awk -F= '$1 == "stageB.resultTarget" { print substr($0, index($0, "=") + 1); exit }' \
+  "$test_root/legacy-composite-different/stub.log")"
+if [ -z "$legacy_a_target" ] || [ "$legacy_a_target" != "$legacy_b_target" ]; then
+  record_failure 'legacy composite success case did not prove matching stage A/B target RGB evidence'
+fi
 
 assert_logged_result_is_crlf() {
   local log="$1" key="$2" description="$3" result_path
@@ -391,6 +434,7 @@ run_stage_b_rejection_case wrong-run
 run_stage_b_rejection_case wrong-expected-target
 run_stage_b_rejection_case wrong-target
 run_stage_b_rejection_case missing-target
+run_stage_b_rejection_case target-case-variant
 run_stage_b_rejection_case terminal-sha-mismatch
 run_stage_b_rejection_case stage-b-failure
 run_stage_b_rejection_case stage-b-incomplete-supervisor
@@ -417,8 +461,20 @@ run_stage_a_rejection_case invalid-hash
 run_stage_a_rejection_case baseline-unstable
 run_stage_a_rejection_case target-unchanged
 run_stage_a_rejection_case target-mismatch
+run_stage_a_rejection_case hash-case-variant
 run_stage_a_rejection_case quarantine-failure
 run_stage_a_rejection_case quarantine-incomplete
+
+run_driver_case rgb-only 0 >/dev/null
+assert_file_contains "$test_root/rgb-only/stub.log" 'phase=reopen' \
+  'RGB-only evidence must run stage B without legacy diagnostics'
+assert_file_contains "$test_root/rgb-only/stub.log" \
+  'stageB.postTarget=fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedc' \
+  'RGB-only evidence must pass the target RGB hash'
+assert_file_contains "$test_root/rgb-only/stub.log" 'stageB.postImage=' \
+  'RGB-only evidence must not synthesize a legacy composite hash'
+assert_file_contains "$test_root/rgb-only/stub.log" 'stageB.postFile=' \
+  'RGB-only evidence must not synthesize a legacy file hash'
 
 run_driver_case incomplete-supervisor 1 >/dev/null
 assert_file_not_contains "$test_root/incomplete-supervisor/stub.log" 'phase=reopen' \
