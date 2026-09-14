@@ -19,6 +19,7 @@ float_descriptor="$repo_root/scripts/preview/windows-history-float-plugin.json"
 seed_descriptor="$repo_root/scripts/preview/windows-history-seed-validation-plugin.json"
 native_ui_class="WindowsHistoryNativeUiIngressProbe"
 native_ui_descriptor="$repo_root/scripts/preview/windows-history-native-ui-plugin.json"
+host_close_class="WindowsHistoryNativeUiHostClose"
 # The native-UI probe's Parts-tree actor reuses the mesh probe's structural tree
 # selection, so its classes travel inside the probe jar too.
 mesh_edit_class="WindowsMeshEditValidationProbe"
@@ -154,6 +155,7 @@ mkdir -p "$tmp4/$probe_class_dir" "$tmp4/META-INF/turboism/i18n"
 # read-only manager probe classes are packaged here too.
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
   \( -name "$native_ui_class.class" -o -name "$native_ui_class\$*.class" \
+     -o -name "$host_close_class.class" -o -name "$host_close_class\$*.class" \
      -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \
      -o -name "$mesh_edit_class.class" -o -name "$mesh_edit_class\$*.class" \) \
   -exec cp {} "$tmp4/$probe_class_dir/" \;
@@ -173,6 +175,12 @@ fi
 if ! jar tf "$bundle_root/plugins/history-native-ui-probe.jar" \
   | grep -Fxq "$probe_class_dir/$native_ui_class.class"; then
   printf 'error: native UI probe package is missing its entrypoint\n' >&2
+  exit 1
+fi
+if [ -f "$test_classes/$probe_class_dir/$host_close_class.class" ] \
+  && ! jar tf "$bundle_root/plugins/history-native-ui-probe.jar" \
+    | grep -Fxq "$probe_class_dir/$host_close_class.class"; then
+  printf 'error: native UI probe package is missing its normal-close helper\n' >&2
   exit 1
 fi
 if ! jar tf "$bundle_root/plugins/history-native-ui-probe.jar" \

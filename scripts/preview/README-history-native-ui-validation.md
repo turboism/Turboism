@@ -16,8 +16,9 @@ manager, and writes down what it saw.
   unrelated edit becomes indistinguishable from the intended one.
 - **Do not close the Editor until the terminal `summary` line is written.** The
   probe samples the Editor's own thread; closing it while a step is pending stops
-  that thread and the run ends with no verdict and no summary. If you want to
-  stop early, say so and leave the window open.
+  that thread and the run ends with no verdict and no summary. In manual mode the
+  probe never closes the Editor for you. Automated mode requests a close only
+  after that terminal line has been durably written.
 - Keep the model window and the Parts tree visible, because two of the steps are
   drag operations.
 
@@ -117,6 +118,26 @@ the native manager moved the way the step requires. Do not touch the mouse or
 keyboard while an automated run is in progress — real input and operator input
 are indistinguishable to the undo manager, and your action would be attributed
 to the current step's window.
+
+## Automated normal exit
+
+After the terminal `summary` line is persisted, automated mode performs one
+bounded normal UI close. It first selects the visible, displayable Cubism/model
+window in the probe JVM. For the catalogued 5302 run it brings that window to the
+front, confirms it owns focus, and sends Robot `Alt+F4`. The existing 5203
+`WINDOW_CLOSING` route remains available only where that reviewed route applies;
+this native-UI catalog is still 5302-only.
+
+If the close produces an explicit unsaved-changes confirmation owned by that
+window, the helper clicks exactly one semantically identified discard/No button.
+It never saves the task-scoped fixture. An unknown, foreign, or ambiguous modal
+is reported as a close failure without guessing at a button or sending a global
+quit. Missing automation, run-id, or host-version identity also skips the close;
+manual runs therefore leave the Editor alone.
+
+The close wait is bounded and emits diagnostics. A close failure does not rewrite
+the terminal result or pretend that the process exited normally: the host Runner
+must still observe normal exit and task-owned cleanup.
 
 ## What the artifact says
 
