@@ -34,11 +34,15 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
             WindowsHistoryNativeUiIngressProbe.checkStep(
                 ACTION,
-                List.of(event("before", 1, "HOST_UI"), event("on", 2, "HOST_UI"))
+                List.of(
+                    event("before", 1, "HOST_UI"),
+                    event("on", 2, "HOST_UI"),
+                    event("after", 2, "HOST_UI")
+                )
             );
 
         assertTrue(verdict.ok(), verdict.detail());
-        assertEquals("action-announced-before-it-was-observed", verdict.code());
+        assertEquals("action-hook-and-host-ui-pair-observed", verdict.code());
     }
 
     @Test
@@ -81,20 +85,20 @@ class WindowsHistoryNativeUiIngressProbeTest {
     void nativeNavigationMustBeAttributedAndMayNotLookLikeAnEdit() {
         final WindowsHistoryNativeUiIngressProbe.Verdict undo =
             WindowsHistoryNativeUiIngressProbe.checkStep(
-                UNDO, List.of(event("on", 4, "UNDO"), event("after", 5, "UNDO"))
+                UNDO, List.of(navigationEvent("on", 4, "UNDO"), navigationEvent("after", 4, "UNDO"))
             );
         assertTrue(undo.ok(), undo.detail());
-        assertEquals("navigation-attributed-without-an-edit", undo.code());
+        assertEquals("navigation-pair-confirmed-without-an-edit", undo.code());
 
         final WindowsHistoryNativeUiIngressProbe.Verdict redo =
             WindowsHistoryNativeUiIngressProbe.checkStep(
-                REDO, List.of(event("on", 6, "REDO"), event("after", 7, "REDO"))
+                REDO, List.of(navigationEvent("on", 6, "REDO"), navigationEvent("after", 6, "REDO"))
             );
         assertTrue(redo.ok(), redo.detail());
 
         final WindowsHistoryNativeUiIngressProbe.Verdict unattributed =
             WindowsHistoryNativeUiIngressProbe.checkStep(
-                UNDO, List.of(event("on", 4, "HOST_UI"), event("after", 5, "HOST_UI"))
+                UNDO, List.of(event("on", 4, "HOST_UI"), event("after", 4, "HOST_UI"))
             );
         assertFalse(unattributed.ok(), "an un-attributed navigation is not evidence of Undo");
         assertEquals("navigation-not-attributed", unattributed.code());
@@ -103,6 +107,229 @@ class WindowsHistoryNativeUiIngressProbeTest {
             WindowsHistoryNativeUiIngressProbe.checkStep(UNDO, List.of());
         assertFalse(silent.ok());
         assertEquals("navigation-not-attributed", silent.code());
+    }
+
+    @Test
+    void r82ActionFixtureAcceptsIndependentBeforeAndMultipleHostUiPairs() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 1, "HOST_UI", "选择对象"),
+                    event("on", 2, "HOST_UI", "选择对象"),
+                    event("after", 2, "HOST_UI", "选择对象"),
+                    event("before", 3, "HOST_UI", "物体的移动"),
+                    event("on", 4, "HOST_UI", "物体的移动"),
+                    event("after", 4, "HOST_UI", "物体的移动")
+                )
+            );
+
+        assertTrue(verdict.ok(), verdict.detail());
+        assertEquals("action-hook-and-host-ui-pair-observed", verdict.code());
+        assertEquals("before=2,confirmed=4,events=6", verdict.detail());
+    }
+
+    @Test
+    void r82NavigationFixturesRequireTheExactOperationAndOriginPair() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict undo =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                UNDO,
+                List.of(navigationEvent("on", 21, "UNDO"), navigationEvent("after", 21, "UNDO"))
+            );
+        final WindowsHistoryNativeUiIngressProbe.Verdict redo =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                REDO,
+                List.of(navigationEvent("on", 22, "REDO"), navigationEvent("after", 22, "REDO"))
+            );
+
+        assertTrue(undo.ok(), undo.detail());
+        assertTrue(redo.ok(), redo.detail());
+    }
+
+    @Test
+    void r82ActionFixtureKeepsUnpairedGenericBeforeAsHookEvidence() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 16, "HOST_UI", "选择对象"),
+                    event("on", 17, "HOST_UI", "选择对象"),
+                    event("after", 17, "HOST_UI", "选择对象"),
+                    event("before", 18, "HOST_UI", "正片叠底色 の編集"),
+                    event("before", 19, "HOST_UI", "全选"),
+                    event("on", 20, "HOST_UI", "全选"),
+                    event("after", 20, "HOST_UI", "全选")
+                )
+            );
+
+        assertTrue(verdict.ok(), verdict.detail());
+    }
+
+    @Test
+    void anActionWithOnlyOneConfirmationPhaseFailsClosed() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict onlyOn =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(event("before", 1, "HOST_UI"), event("on", 2, "HOST_UI"))
+            );
+        final WindowsHistoryNativeUiIngressProbe.Verdict onlyAfter =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(event("before", 1, "HOST_UI"), event("after", 2, "HOST_UI"))
+            );
+
+        assertFalse(onlyOn.ok());
+        assertEquals("orphan-on-event", onlyOn.code());
+        assertFalse(onlyAfter.ok());
+        assertEquals("orphan-after-event", onlyAfter.code());
+    }
+
+    @Test
+    void confirmationAfterMustFollowOnAndReuseItsSequence() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict reversed =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 1, "HOST_UI"),
+                    event("after", 2, "HOST_UI"),
+                    event("on", 2, "HOST_UI")
+                )
+            );
+        final WindowsHistoryNativeUiIngressProbe.Verdict wrongSequence =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 1, "HOST_UI"),
+                    event("on", 2, "HOST_UI"),
+                    event("after", 3, "HOST_UI")
+                )
+            );
+
+        assertFalse(reversed.ok());
+        assertEquals("orphan-after-event", reversed.code());
+        assertFalse(wrongSequence.ok());
+        assertEquals("confirmation-sequence-mismatch", wrongSequence.code());
+    }
+
+    @Test
+    void confirmationRejectsDuplicatePhasesAndMismatchedFields() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict duplicate =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 1, "HOST_UI"),
+                    event("on", 2, "HOST_UI"),
+                    event("on", 2, "HOST_UI"),
+                    event("after", 2, "HOST_UI")
+                )
+            );
+        final WindowsHistoryNativeUiIngressProbe.Verdict mismatched =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 1, "HOST_UI"),
+                    eventWithFields("on", 2, "operation-a", "HOST_UI", "subject-a", "label-a"),
+                    eventWithFields("after", 2, "operation-b", "HOST_UI", "subject-a", "label-b")
+                )
+            );
+
+        assertFalse(duplicate.ok());
+        assertEquals("duplicate-confirmation-phase", duplicate.code());
+        assertFalse(mismatched.ok());
+        assertEquals("confirmation-fields-mismatch", mismatched.code());
+    }
+
+    @Test
+    void actionRequiresAHostUiConfirmationAndDoesNotUseLabelsAsIdentity() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict wrongOrigin =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 1, "HOST_UI", "selection label"),
+                    eventWithFields("on", 2, "operation", "OTHER", "", "same visible label"),
+                    eventWithFields("after", 2, "operation", "OTHER", "", "same visible label")
+                )
+            );
+        final WindowsHistoryNativeUiIngressProbe.Verdict blankOperation =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 1, "HOST_UI"),
+                    eventWithFields("on", 2, "", "HOST_UI", "", "selection label"),
+                    eventWithFields("after", 2, "", "HOST_UI", "", "selection label")
+                )
+            );
+
+        assertFalse(wrongOrigin.ok());
+        assertEquals("confirmation-not-host-ui", wrongOrigin.code());
+        assertFalse(blankOperation.ok());
+        assertEquals("confirmation-fields-missing", blankOperation.code());
+    }
+
+    @Test
+    void navigationRejectsWrongOperationOriginAndMultiplePairs() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict wrongOperation =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                UNDO,
+                List.of(
+                    navigationEvent("on", 21, "UNDO", "EXECUTE_EDITOR_COMMAND"),
+                    navigationEvent("after", 21, "UNDO", "EXECUTE_EDITOR_COMMAND")
+                )
+            );
+        final WindowsHistoryNativeUiIngressProbe.Verdict wrongOrigin =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                REDO,
+                List.of(
+                    navigationEvent("on", 22, "HOST_UI"),
+                    navigationEvent("after", 22, "HOST_UI")
+                )
+            );
+        final WindowsHistoryNativeUiIngressProbe.Verdict doubleUndo =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                UNDO,
+                List.of(
+                    navigationEvent("on", 21, "UNDO"),
+                    navigationEvent("after", 21, "UNDO"),
+                    navigationEvent("on", 23, "UNDO"),
+                    navigationEvent("after", 23, "UNDO")
+                )
+            );
+
+        assertFalse(wrongOperation.ok());
+        assertEquals("navigation-not-attributed", wrongOperation.code());
+        assertFalse(wrongOrigin.ok());
+        assertEquals("navigation-not-attributed", wrongOrigin.code());
+        assertFalse(doubleUndo.ok());
+        assertEquals("navigation-requires-one-confirmation-pair", doubleUndo.code());
+    }
+
+    @Test
+    void confirmationPairOrderDoesNotDependOnNumericSequenceOrObservedTime() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                ACTION,
+                List.of(
+                    event("before", 30, "HOST_UI"),
+                    eventWithFields("on", 20, "operation-a", "HOST_UI", "", "later label"),
+                    eventWithFields("after", 20, "operation-a", "HOST_UI", "", "earlier label"),
+                    eventWithFields("on", 10, "operation-b", "HOST_UI", "", "next label"),
+                    eventWithFields("after", 10, "operation-b", "HOST_UI", "", "next label")
+                )
+            );
+
+        assertTrue(verdict.ok(), verdict.detail());
+    }
+
+    @Test
+    void unknownStepKindFailsClosed() {
+        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+            WindowsHistoryNativeUiIngressProbe.checkStep(
+                new WindowsHistoryNativeUiIngressProbe.Step("future", "FUTURE", "future"),
+                List.of(event("before", 1, "HOST_UI"), event("on", 2, "HOST_UI"), event("after", 2, "HOST_UI"))
+            );
+
+        assertFalse(verdict.ok());
+        assertEquals("unknown-step-kind", verdict.code());
     }
 
     @Test
@@ -1033,13 +1260,57 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final long sequence,
         final String origin
     ) {
-        return new WindowsHistoryNativeUiIngressProbe.Observed(
+        return event(phase, sequence, origin, "Add Part");
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.Observed event(
+        final String phase,
+        final long sequence,
+        final String origin,
+        final String label
+    ) {
+        return eventWithFields(
             phase,
             sequence,
             "EXECUTE_EDITOR_COMMAND",
             origin,
             "",
-            "Add Part",
+            label
+        );
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.Observed navigationEvent(
+        final String phase,
+        final long sequence,
+        final String kind
+    ) {
+        return navigationEvent(phase, sequence, kind, kind);
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.Observed navigationEvent(
+        final String phase,
+        final long sequence,
+        final String origin,
+        final String operation
+    ) {
+        return eventWithFields(phase, sequence, operation, origin, "", "");
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.Observed eventWithFields(
+        final String phase,
+        final long sequence,
+        final String operation,
+        final String origin,
+        final String subjectId,
+        final String label
+    ) {
+        return new WindowsHistoryNativeUiIngressProbe.Observed(
+            phase,
+            sequence,
+            operation,
+            origin,
+            subjectId,
+            label,
             "AWT-EventQueue-0",
             "2026-01-01T00:00:00Z"
         );
