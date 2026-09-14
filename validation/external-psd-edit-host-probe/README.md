@@ -56,9 +56,11 @@ binding, generation, or raw-target change is stale evidence and is not success; 
 Each captured row records its widget identity, row key, and bounds. Immediately before dispatch,
 the probe runs on the EDT and requires a showing, displayable widget with a parent and valid
 bounds. The selection click is followed by a second EDT validation; if the host replaced the
-table, the probe relocates a unique matching row by key and fresh bounds, up to three attempts.
-Ambiguous, unkeyed, or unrelocatable rows are rejected without a right-click. Popup association
-is limited to a new or successfully dismissed popup from that attempt. Renderer preparation is
+table, the probe relocates a unique matching row by its full length-prefixed value key and fresh
+bounds, up to three attempts. Candidates must remain in the captured window: a same-type row in
+another window is rejected. Ambiguous, unavailable-key, or unrelocatable rows are rejected
+without a right-click; default `ClassName@identity` text is not a row key. Popup association is
+limited to a new or successfully dismissed popup from that attempt. Renderer preparation is
 diagnostic-only and runs after the right-click, or is skipped for a detached table.
 
 ## Build / offline test

@@ -1345,6 +1345,22 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private static final int MAX_ROW_DISPATCH_ATTEMPTS = 3;
 
+    @FunctionalInterface
+    interface RowDispatchAttempt {
+        boolean retry(int attemptNumber) throws Exception;
+    }
+
+    /** Runs the same bounded retry policy used by the live row dispatcher. */
+    static int runBoundedRowDispatches(final RowDispatchAttempt operation) throws Exception {
+        if (operation == null) throw new IllegalArgumentException("row dispatch operation is required");
+        int attempts = 0;
+        while (attempts < MAX_ROW_DISPATCH_ATTEMPTS) {
+            attempts++;
+            if (!operation.retry(attempts)) break;
+        }
+        return attempts;
+    }
+
     private static RowAttempt rightClickRow(final CapturedRow captured) throws Exception {
         return rowAttempt(dismissPopup(), captured);
     }
@@ -1357,10 +1373,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static RowAttempt rowAttempt(PopupAttempt attempt, final CapturedRow captured)
         throws Exception {
         final AtomicReference<RowDispatchResult> rowOutcome = new AtomicReference<>();
-        RightClickDispatchException dispatchFailure = null;
+        final AtomicReference<RightClickDispatchException> dispatchFailure = new AtomicReference<>();
+        final AtomicReference<PopupAttempt> popupAttempt = new AtomicReference<>(attempt);
         final List<String> retryReasons = new ArrayList<>();
-        for (int attemptNumber = 1; attemptNumber <= MAX_ROW_DISPATCH_ATTEMPTS;
-            attemptNumber++) {
+        final int attempts = runBoundedRowDispatches(attemptNumber -> {
             rowOutcome.set(null);
             try {
                 final boolean triggerOnPress = popupTriggerOnPress(
@@ -1369,31 +1385,33 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     dispatchCapturedRow(captured, triggerOnPress)));
             } catch (InvocationTargetException wrapped) {
                 if (wrapped.getCause() instanceof RightClickDispatchException failure) {
-                    dispatchFailure = failure;
-                    break;
+                    dispatchFailure.set(failure);
+                    return false;
                 }
                 throw wrapped;
             }
 
             final RowDispatchResult result = rowOutcome.get();
-            if (result == null || !result.retryable()) break;
+            if (result == null || !result.retryable()) return false;
             retryReasons.add("attempt=" + attemptNumber + " phase=" + result.phase()
                 + " reason=" + result.reason());
             if (attemptNumber < MAX_ROW_DISPATCH_ATTEMPTS) {
                 final PopupAttempt retryPopup = dismissPopup();
-                attempt = mergePopupAttempts(attempt, retryPopup);
+                popupAttempt.set(mergePopupAttempts(popupAttempt.get(), retryPopup));
             }
-        }
-        final PopupCapture popup = awaitPopup(attempt);
+            return true;
+        });
+        final PopupCapture popup = awaitPopup(popupAttempt.get());
         final RowDispatchResult rowResult = rowOutcome.get();
+        final RightClickDispatchException failure = dispatchFailure.get();
         final String dispatchDiagnostic = rowResult != null
             ? rowResult.dispatch().diagnostic()
-            : dispatchFailure != null
-                ? dispatchFailure.dispatch().diagnostic()
+            : failure != null
+                ? failure.dispatch().diagnostic()
                 : "not-dispatched";
-        final String failureTrace = dispatchFailure == null ? ""
-            : stackTrace(dispatchFailure);
+        final String failureTrace = failure == null ? "" : stackTrace(failure);
         final String diagnostic = "capture=" + captured.diagnostic()
+            + " attempts=" + attempts
             + " dispatchRow=" + (rowResult == null ? -1 : rowResult.row())
             + " dispatchComponent=" + (rowResult == null ? "" : rowResult.component())
             + " retryLimit=" + MAX_ROW_DISPATCH_ATTEMPTS
@@ -1850,12 +1868,19 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
+    /** Package-private seam for exercising the same row-key calculation as captureRowsOnEdt. */
+    static RowKey rowKeyForTest(final Component component, final RowKind kind, final int row) {
+        return rowKey(component, kind, row);
+    }
+
     private static RowKey treeRowKey(final JTree tree, final int row) {
         final javax.swing.tree.TreePath path = tree.getPathForRow(row);
         if (path == null) return RowKey.unavailable();
         final StringBuilder key = new StringBuilder("tree:");
         for (final Object value : path.getPath()) {
-            key.append(stableRowValue(value)).append('/');
+            final Optional<String> stable = stableRowValue(value);
+            if (stable.isEmpty()) return RowKey.unavailable();
+            key.append(stable.get());
         }
         return RowKey.of(key.toString());
     }
@@ -1864,25 +1889,57 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (table.getColumnCount() == 0) return RowKey.unavailable();
         final StringBuilder key = new StringBuilder("table:");
         for (int column = 0; column < table.getColumnCount(); column++) {
-            key.append(stableRowValue(table.getValueAt(row, column))).append('|');
+            final Optional<String> stable = stableRowValue(table.getValueAt(row, column));
+            if (stable.isEmpty()) return RowKey.unavailable();
+            key.append(stable.get());
         }
         return RowKey.of(key.toString());
     }
 
     private static RowKey listRowKey(final javax.swing.JList<?> list, final int row) {
-        return RowKey.of("list:" + stableRowValue(list.getModel().getElementAt(row)));
+        final Optional<String> stable = stableRowValue(list.getModel().getElementAt(row));
+        return stable.isEmpty() ? RowKey.unavailable() : RowKey.of("list:" + stable.get());
     }
 
-    private static String stableRowValue(final Object value) {
-        if (value == null) return "<null>";
+    /**
+     * Returns a full, structured value token for the host's row values. The table/tree/list
+     * models expose labels and other value objects through toString; identity-only text cannot
+     * relocate a row across a host component replacement, so it is deliberately unavailable.
+     */
+    private static Optional<String> stableRowValue(final Object value) {
+        if (value == null) return Optional.of(stableToken("null", ""));
+        final String type = value.getClass().getName();
         final String text;
         try {
-            text = String.valueOf(value);
+            text = value.toString();
         } catch (RuntimeException failure) {
-            return "<unavailable:" + value.getClass().getName() + ">";
+            return Optional.empty();
         }
-        final String bounded = text.length() > 256 ? text.substring(0, 256) : text;
-        return value.getClass().getName() + ':' + bounded;
+        if (text == null || looksLikeDefaultIdentityText(type, text)) {
+            return Optional.empty();
+        }
+        return Optional.of(stableToken(type, text));
+    }
+
+    private static String stableToken(final String type, final String value) {
+        return lengthPrefix(type) + lengthPrefix(value);
+    }
+
+    private static String lengthPrefix(final String value) {
+        return value.length() + ":" + value;
+    }
+
+    private static boolean looksLikeDefaultIdentityText(final String type, final String text) {
+        final String prefix = type + '@';
+        if (!text.startsWith(prefix) || text.length() == prefix.length()) return false;
+        for (int index = prefix.length(); index < text.length(); index++) {
+            final char character = text.charAt(index);
+            final boolean hex = character >= '0' && character <= '9'
+                || character >= 'a' && character <= 'f'
+                || character >= 'A' && character <= 'F';
+            if (!hex) return false;
+        }
+        return true;
     }
 
     private static List<CurrentRow> currentRowsOnEdt() {
@@ -1919,6 +1976,19 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     /** Resolves a capture to one current live row; ambiguous or unkeyed replacement is rejected. */
     private static RowResolution resolveActiveRow(final CapturedRow captured) {
         final List<CurrentRow> all = currentRowsOnEdt();
+        return resolveActiveRow(captured, all);
+    }
+
+    /** Package-private seam for testing the production resolver with a deterministic live-row set. */
+    static RowResolution resolveActiveRowForTest(final CapturedRow captured,
+        final List<CurrentRow> currentRows) {
+        return resolveActiveRow(captured, currentRows);
+    }
+
+    private static RowResolution resolveActiveRow(final CapturedRow captured,
+        final List<CurrentRow> allRows) {
+        if (captured == null) return RowResolution.unavailable("captured row is unavailable");
+        final List<CurrentRow> all = allRows == null ? List.of() : allRows;
         final List<CurrentRow> sameWidgetType = all.stream()
             .filter(row -> row.descriptor().kind() == captured.kind())
             .filter(row -> row.descriptor().widgetClass().equals(captured.widgetClass()))
@@ -1930,7 +2000,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final List<CurrentRow> sameWindow = sameWidgetType.stream()
             .filter(row -> row.descriptor().windowIdentity().equals(captured.windowIdentity()))
             .toList();
-        final List<CurrentRow> candidates = sameWindow.isEmpty() ? sameWidgetType : sameWindow;
+        if (sameWindow.isEmpty()) {
+            return RowResolution.unavailable("no live row in captured window");
+        }
+        final List<CurrentRow> candidates = sameWindow;
         if (!captured.rowKeyAvailable()) {
             return RowResolution.unavailable(
                 "captured row has no stable key; row index reuse is refused");
@@ -2181,11 +2254,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private enum RowKind {
+    enum RowKind {
         TREE, TABLE, LIST
     }
 
-    private record RowKey(String value, boolean available) {
+    record RowKey(String value, boolean available) {
         RowKey {
             value = value == null ? "" : value;
         }
@@ -2199,7 +2272,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private record CapturedRow(RowKind kind, String widgetClass, String widgetIdentity,
+    record CapturedRow(RowKind kind, String widgetClass, String widgetIdentity,
         String windowIdentity, int row, String rowKey, boolean rowKeyAvailable, String bounds) {
         CapturedRow {
             widgetClass = widgetClass == null ? "" : widgetClass;
@@ -2224,11 +2297,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private record CurrentRow(CapturedRow descriptor, Component component, Rectangle bounds) {
+    record CurrentRow(CapturedRow descriptor, Component component, Rectangle bounds) {
         int row() { return descriptor.row(); }
     }
 
-    private record RowResolution(CurrentRow row, String reason) {
+    record RowResolution(CurrentRow row, String reason) {
         static RowResolution available(final CurrentRow row) {
             return new RowResolution(row, "");
         }
