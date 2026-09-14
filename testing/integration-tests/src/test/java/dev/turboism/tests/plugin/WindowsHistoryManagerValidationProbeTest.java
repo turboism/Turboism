@@ -1,14 +1,27 @@
 package dev.turboism.tests.plugin;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEditContext;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WindowsHistoryManagerValidationProbeTest {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     @Test
     void escapesEvidenceAsJsonLines() {
@@ -258,6 +271,133 @@ class WindowsHistoryManagerValidationProbeTest {
 
         assertTrue(json.contains("\"family\":\"OMITTED\""), json);
         assertFalse(json.contains("positions"), json);
+    }
+
+    @Test
+    void sdkDetailJsonSerializesRelationsAndRetainsExistingChangeFields() throws Exception {
+        final HistoryTarget child = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("mesh\"\\id"),
+            Optional.of("A \"quoted\" \\ mesh")
+        );
+        final HistoryTarget oldPart = new HistoryTarget(
+            "PART",
+            Optional.of("part-old"),
+            Optional.of("Old \"Part\" \\ container")
+        );
+        final HistoryTarget oldDeformer = new HistoryTarget(
+            "WARP_DEFORMER",
+            Optional.of("warp-old"),
+            Optional.of("Old Warp")
+        );
+        final HistoryRelationChange partMembership = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            targetEndpoint(oldPart),
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.ROOT, Optional.empty())
+        );
+        final HistoryRelationChange deformerParent = new HistoryRelationChange(
+            HistoryRelationChange.Kind.DEFORMER_PARENT,
+            targetEndpoint(oldDeformer),
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.UNKNOWN, Optional.empty())
+        );
+        final HistoryChange ordinaryChange = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.of("multiplyColor"),
+            Optional.of("#ffffff"),
+            Optional.of("#66\"\\ccff"),
+            new HistoryEditContext(
+                HistoryEditContext.Kind.KEYFORM,
+                Optional.of("form\"\\id"),
+                List.of(new dev.turboism.sdk.cubism.history.HistoryParameterCoordinate(
+                    new HistoryTarget(
+                        "PARAMETER",
+                        Optional.of("Param\"\\X"),
+                        Optional.of("Angle \"X\" \\ axis")
+                    ),
+                    "1\"\\2"
+                ))
+            )
+        );
+        final HistoryChange partChange = relationChange(partMembership);
+        final HistoryChange deformerChange = relationChange(deformerParent);
+        final HistoryEntryDetail nested = new HistoryEntryDetail(
+            "Nested relation",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(child),
+            List.of(partChange),
+            Optional.empty(),
+            Optional.of("history.detail.relation-partial")
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Relation \"summary\" \\ escaped",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(child),
+            List.of(ordinaryChange, partChange, deformerChange),
+            Optional.of(new HistoryGroup(Optional.of("group\"\\id"), 1, List.of(nested), false)),
+            Optional.of("history.detail.relation-partial")
+        );
+
+        final JsonNode root = JSON.readTree(WindowsHistoryManagerValidationProbe.sdkDetailJson(detail, 0));
+        assertEquals("Relation \"summary\" \\ escaped", root.get("summary").asText());
+        assertEquals(3, root.get("changes").size());
+
+        final JsonNode ordinary = root.get("changes").get(0);
+        assertEquals("SET", ordinary.get("operation").asText());
+        assertEquals(0, ordinary.get("targetIndex").asInt());
+        assertEquals("multiplyColor", ordinary.get("property").asText());
+        assertEquals("#ffffff", ordinary.get("before").asText());
+        assertEquals("#66\"\\ccff", ordinary.get("after").asText());
+        assertEquals("KEYFORM", ordinary.get("context").get("kind").asText());
+        assertEquals("form\"\\id", ordinary.get("context").get("formId").asText());
+        assertEquals("PARAMETER", ordinary.get("context").get("coordinates").get(0)
+            .get("parameter").get("type").asText());
+        assertEquals("Param\"\\X", ordinary.get("context").get("coordinates").get(0)
+            .get("parameter").get("id").asText());
+        assertEquals("1\"\\2", ordinary.get("context").get("coordinates").get(0).get("value").asText());
+        assertTrue(ordinary.get("relation").isNull());
+
+        final JsonNode part = root.get("changes").get(1).get("relation");
+        assertEquals("PART_MEMBERSHIP", part.get("kind").asText());
+        assertRelationTarget(part.get("before"), oldPart);
+        assertEquals("ROOT", part.get("after").get("state").asText());
+        assertTrue(part.get("after").get("target").isNull());
+
+        final JsonNode deformer = root.get("changes").get(2).get("relation");
+        assertEquals("DEFORMER_PARENT", deformer.get("kind").asText());
+        assertRelationTarget(deformer.get("before"), oldDeformer);
+        assertEquals("UNKNOWN", deformer.get("after").get("state").asText());
+        assertTrue(deformer.get("after").get("target").isNull());
+
+        final JsonNode nestedChange = root.get("group").get("children").get(0).get("changes").get(0);
+        assertEquals("PART_MEMBERSHIP", nestedChange.get("relation").get("kind").asText());
+        assertEquals("ROOT", nestedChange.get("relation").get("after").get("state").asText());
+        assertTrue(nestedChange.get("relation").get("after").get("target").isNull());
+    }
+
+    private static HistoryRelationChange.Endpoint targetEndpoint(final HistoryTarget target) {
+        return new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.of(target));
+    }
+
+    private static HistoryChange relationChange(final HistoryRelationChange relation) {
+        return new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        );
+    }
+
+    private static void assertRelationTarget(final JsonNode endpoint, final HistoryTarget expected) {
+        assertEquals("TARGET", endpoint.get("state").asText());
+        assertEquals(expected.type(), endpoint.get("target").get("type").asText());
+        assertEquals(expected.id().orElseThrow(), endpoint.get("target").get("id").asText());
+        assertEquals(expected.displayName().orElseThrow(), endpoint.get("target").get("displayName").asText());
     }
 
     private static Object form(final float... positions) {

@@ -3,7 +3,10 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.SwingUtilities;
@@ -199,14 +202,12 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         );
     }
 
-    private static String sdkDetailJson(
-        final dev.turboism.sdk.cubism.history.HistoryEntryDetail detail,
+    static String sdkDetailJson(
+        final HistoryEntryDetail detail,
         final int depth
     ) {
         final String targets = detail.targets().stream().map(target ->
-            "{\"type\":\"" + json(target.type())
-                + "\",\"id\":" + optionalJson(target.id())
-                + ",\"displayName\":" + optionalJson(target.displayName()) + "}"
+            sdkTargetJson(target)
         ).reduce((left, right) -> left + "," + right).orElse("");
         final String changes = detail.changes().stream().map(change ->
             "{\"operation\":\"" + change.operation().name()
@@ -214,7 +215,9 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
                 + ",\"property\":" + optionalJson(change.property())
                 + ",\"before\":" + optionalJson(change.before())
                 + ",\"after\":" + optionalJson(change.after())
-                + ",\"context\":" + sdkContextJson(change) + "}"
+                + ",\"context\":" + sdkContextJson(change)
+                + ",\"relation\":" + change.relation().map(WindowsHistoryManagerValidationProbe::sdkRelationJson).orElse("null")
+                + "}"
         ).reduce((left, right) -> left + "," + right).orElse("");
         String group = "null";
         if (depth < MAX_DETAIL_DEPTH && detail.group().isPresent()) {
@@ -235,6 +238,25 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             + ",\"targets\":[" + targets + "]"
             + ",\"changes\":[" + changes + "]"
             + ",\"group\":" + group + "}";
+    }
+
+    private static String sdkTargetJson(final HistoryTarget target) {
+        return "{\"type\":\"" + json(target.type())
+            + "\",\"id\":" + optionalJson(target.id())
+            + ",\"displayName\":" + optionalJson(target.displayName()) + "}";
+    }
+
+    private static String sdkRelationJson(final HistoryRelationChange relation) {
+        return "{\"kind\":\"" + json(relation.kind().name())
+            + "\",\"before\":" + sdkRelationEndpointJson(relation.before())
+            + ",\"after\":" + sdkRelationEndpointJson(relation.after()) + "}";
+    }
+
+    private static String sdkRelationEndpointJson(final HistoryRelationChange.Endpoint endpoint) {
+        return "{\"state\":\"" + json(endpoint.state().name())
+            + "\",\"target\":"
+            + endpoint.target().map(WindowsHistoryManagerValidationProbe::sdkTargetJson).orElse("null")
+            + "}";
     }
 
     private static String sdkContextJson(final HistoryChange change) {
