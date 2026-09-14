@@ -76,6 +76,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
 /**
@@ -99,6 +100,12 @@ import java.util.stream.Stream;
  * <p>NOT covered (recorded honestly): multi-document isolation, F3/F4 fixture entities.</p>
  */
 public final class ExternalPsdEditHostProbe implements TurboismPlugin {
+    private static final String GUI_READY_TRIGGER_NAME = "gui-ready.flag";
+    private static final String GUI_TRIGGER_ARMED_MARKER =
+        "EXTERNAL_PSD_EDIT_GUI_TRIGGER_ARMED";
+    private static final long GUI_READY_TRIGGER_TIMEOUT_MILLIS = 300_000L;
+    private static final long GUI_READY_TRIGGER_POLL_MILLIS = 250L;
+
     private PluginContext context;
     private volatile boolean stopped;
     private Thread worker;
@@ -135,6 +142,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             "turboism.validation.externalpsd.phase", "pipeline");
         result.setProperty("phase", phase);
         try {
+            if ("gui".equals(phase)) awaitGuiReadyTrigger(result);
             awaitReady();
             switch (phase) {
                 case "reopen" -> runReopen(result);
@@ -521,6 +529,160 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             super(actual);
             this.expected = expected;
         }
+    }
+
+    /**
+     * Waits for the exact-host runner's GUI readiness handshake before any GUI target state is
+     * sampled.  The state directory comes only from the authenticated plugin context; no system
+     * property can redirect this wait to another task or another window.
+     */
+    private void awaitGuiReadyTrigger(final Properties result) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new Blocked("task-local GUI readiness trigger is awaited off the EDT",
+                "GUI readiness trigger wait was requested on the EDT");
+        }
+        final GuiTriggerArm arm = prepareGuiTrigger(context.paths().stateDir());
+        if (!arm.armed()) {
+            throw new Blocked("runner-created task-local GUI readiness trigger",
+                arm.diagnostic());
+        }
+        result.setProperty("gui.readinessTrigger", "armed");
+        result.setProperty("gui.readinessTriggerPath", arm.path().toString());
+        // The wrapper's readiness set includes this marker.  It must be emitted only after the
+        // state directory and trigger have been checked, so a late worker cannot mistake the
+        // runner's newly-created trigger for stale evidence.
+        context.logger().info(GUI_TRIGGER_ARMED_MARKER + " path=" + arm.path());
+        final GuiTriggerWait wait = waitForArmedGuiTrigger(
+            arm, GUI_READY_TRIGGER_TIMEOUT_MILLIS, () -> stopped, Thread::sleep);
+        if (!wait.ready()) {
+            throw new Blocked("runner-created task-local GUI readiness trigger",
+                wait.diagnostic());
+        }
+        result.setProperty("gui.readinessTrigger", "received");
+        result.setProperty("gui.readinessTriggerPath", wait.path().toString());
+        context.logger().info("EXTERNAL_PSD_EDIT_GUI_READY_TRIGGER_RECEIVED path="
+            + wait.path());
+    }
+
+    /**
+     * Test seam for the task-local trigger protocol.  It deliberately contains no Swing access;
+     * production calls it from the daemon worker and tests can inject a short sleeper without
+     * changing the production timeout or polling policy.
+     */
+    static GuiTriggerWait waitForGuiReadyTriggerForTest(final Path stateDir,
+        final long timeoutMillis, final BooleanSupplier stopped,
+        final TriggerSleeper sleeper) {
+        final GuiTriggerArm arm = prepareGuiTrigger(stateDir);
+        return arm.armed()
+            ? waitForArmedGuiTrigger(arm, timeoutMillis, stopped, sleeper)
+            : GuiTriggerWait.rejected(arm.diagnostic());
+    }
+
+    static Path guiReadyTriggerPathForTest(final Path stateDir) {
+        return guiReadyTriggerPath(stateDir);
+    }
+
+    static GuiTriggerArm prepareGuiTriggerForTest(final Path stateDir) {
+        return prepareGuiTrigger(stateDir);
+    }
+
+    static GuiTriggerWait waitForArmedGuiTriggerForTest(final GuiTriggerArm arm,
+        final long timeoutMillis, final BooleanSupplier stopped,
+        final TriggerSleeper sleeper) {
+        return waitForArmedGuiTrigger(arm, timeoutMillis, stopped, sleeper);
+    }
+
+    private static GuiTriggerArm prepareGuiTrigger(final Path stateDir) {
+        final Path flag;
+        try {
+            flag = guiReadyTriggerPath(stateDir);
+        } catch (RuntimeException invalidStateDirectory) {
+            return GuiTriggerArm.rejected(invalidStateDirectory.getMessage());
+        }
+        final String path = flag.toString();
+        if (Files.isSymbolicLink(flag)) {
+            return GuiTriggerArm.rejected("GUI readiness trigger is a symlink: " + path);
+        }
+        if (Files.exists(flag, LinkOption.NOFOLLOW_LINKS)) {
+            return GuiTriggerArm.rejected(
+                "GUI readiness trigger pre-existed this probe: " + path);
+        }
+        return GuiTriggerArm.armed(flag);
+    }
+
+    private static GuiTriggerWait waitForArmedGuiTrigger(final GuiTriggerArm arm,
+        final long timeoutMillis, final BooleanSupplier stopped,
+        final TriggerSleeper sleeper) {
+        Objects.requireNonNull(stopped, "stopped");
+        Objects.requireNonNull(sleeper, "sleeper");
+        if (SwingUtilities.isEventDispatchThread()) {
+            return GuiTriggerWait.rejected(
+                "GUI readiness trigger wait must run off the EDT");
+        }
+        if (timeoutMillis <= 0) {
+            return GuiTriggerWait.rejected("GUI readiness trigger timeout must be positive");
+        }
+        if (arm == null || !arm.armed() || arm.path() == null) {
+            return GuiTriggerWait.rejected(arm == null
+                ? "GUI readiness trigger was not armed"
+                : arm.diagnostic());
+        }
+        final Path flag = arm.path();
+        final String path = flag.toString();
+
+        final long deadline = System.nanoTime()
+            + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (!stopped.getAsBoolean() && System.nanoTime() < deadline) {
+            try {
+                // Revalidate the fixed directory and trigger parent on every poll.  The
+                // absence check belongs to prepareGuiTrigger; after the armed marker the
+                // runner is allowed to create the file before this wait's first poll.
+                final Path current = guiReadyTriggerPath(flag.getParent());
+                if (!current.equals(flag)) {
+                    return GuiTriggerWait.rejected(
+                        "GUI readiness trigger path changed after arming: " + path);
+                }
+            } catch (RuntimeException invalidStateDirectory) {
+                return GuiTriggerWait.rejected(invalidStateDirectory.getMessage());
+            }
+            if (Files.isSymbolicLink(flag)) {
+                return GuiTriggerWait.rejected("GUI readiness trigger is a symlink: " + path);
+            }
+            if (Files.exists(flag, LinkOption.NOFOLLOW_LINKS)) {
+                if (Files.isRegularFile(flag, LinkOption.NOFOLLOW_LINKS)) {
+                    return GuiTriggerWait.ready(flag);
+                }
+                return GuiTriggerWait.rejected(
+                    "GUI readiness trigger is not a regular file: " + path);
+            }
+            try {
+                final long remainingMillis = Math.max(1L,
+                    TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()));
+                sleeper.sleep(Math.min(GUI_READY_TRIGGER_POLL_MILLIS, remainingMillis));
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return GuiTriggerWait.rejected("GUI readiness trigger wait interrupted");
+            }
+        }
+        return stopped.getAsBoolean()
+            ? GuiTriggerWait.rejected("probe stopped while waiting for GUI readiness trigger")
+            : GuiTriggerWait.rejected("GUI readiness trigger timeout after "
+                + timeoutMillis + "ms: " + path);
+    }
+
+    private static Path guiReadyTriggerPath(final Path stateDir) {
+        if (stateDir == null) throw new IllegalArgumentException(
+            "GUI readiness state directory is null");
+        final Path normalized = stateDir.toAbsolutePath().normalize();
+        if (normalized.equals(Path.of("/"))) throw new IllegalArgumentException(
+            "GUI readiness state directory must not be filesystem root");
+        if (Files.isSymbolicLink(normalized)
+            || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalArgumentException(
+                "GUI readiness state directory is not a real directory: " + normalized);
+        }
+        requireNoSymlinkPath(normalized, "GUI readiness state directory");
+        return normalized.resolve(GUI_READY_TRIGGER_NAME);
     }
 
     private void awaitReady() throws Exception {
@@ -1998,12 +2160,24 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Set<String> menuTexts = new LinkedHashSet<>();
         final List<String> rowDiagnostics = new ArrayList<>();
         String diagnostic = "no visible reviewed host tree-table row found";
+        String boundWindowIdentity = "";
         hostAccessByLoader.clear();
         final long deadline = System.currentTimeMillis() + 120_000;
         while (System.currentTimeMillis() < deadline && !stopped) {
             final ReviewedTables reviewed = visibleReviewedTables();
             result.setProperty("gui.exactTarget.window", reviewed.windowIdentity());
             result.setProperty("gui.exactTarget.windowSelection", reviewed.diagnostic());
+            final GuiWindowBindingDecision currentWindow = decideGuiWindowBinding(
+                boundWindowIdentity, reviewed.windowIdentity(), reviewed.proven(), false);
+            if (!boundWindowIdentity.isBlank()
+                && currentWindow.waitForBoundWindow()) {
+                diagnostic = currentWindow.diagnostic();
+                result.setProperty("gui.exactTarget.windowBinding", boundWindowIdentity);
+                result.setProperty("gui.exactTarget.windowBindingStatus", "WAITING");
+                result.setProperty("gui.exactTarget.windowBindingDiagnostic", diagnostic);
+                Thread.sleep(250);
+                continue;
+            }
             if (!reviewed.proven()) {
                 result.setProperty("gui.exactTarget.status", "REJECTED");
                 result.setProperty("gui.exactTarget.diagnostic", reviewed.diagnostic());
@@ -2039,6 +2213,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 diagnostic = capture.diagnostic();
                 Thread.sleep(1000);
                 continue;
+            }
+            final GuiWindowBindingDecision targetWindow = decideGuiWindowBinding(
+                boundWindowIdentity, reviewed.windowIdentity(), reviewed.proven(), true);
+            if (targetWindow.bindNow()) {
+                boundWindowIdentity = reviewed.windowIdentity();
+                result.setProperty("gui.exactTarget.windowBinding", boundWindowIdentity);
+                result.setProperty("gui.exactTarget.windowBindingStatus", "BOUND");
+                result.setProperty("gui.exactTarget.windowBindingDiagnostic",
+                    targetWindow.diagnostic());
             }
             for (final ExactDispatchCapture captured : capture.rows()) {
                 if (attempts >= rowBudget) break;
@@ -2110,6 +2293,47 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("gui.rowDiagnostics", String.join("\n---\n", rowDiagnostics));
         result.setProperty("gui.hierarchy", hierarchyDigest());
         return new GuiClick(false, diagnostic);
+    }
+
+    /**
+     * Keeps a GUI attempt tied to the first window that actually contains the exact target.  A
+     * later active window is never a replacement candidate; the caller must wait for the bound
+     * window to become active again or time out to BLOCKED.
+     */
+    private static GuiWindowBindingDecision decideGuiWindowBinding(
+        final String boundWindowIdentity, final String currentWindowIdentity,
+        final boolean currentWindowProven, final boolean currentTargetMatched) {
+        final String bound = boundWindowIdentity == null ? "" : boundWindowIdentity;
+        final String current = currentWindowIdentity == null ? "" : currentWindowIdentity;
+        if (!currentWindowProven || current.isBlank()) {
+            return bound.isBlank()
+                ? GuiWindowBindingDecision.unbound(
+                    "active target window cannot be proven yet")
+                : GuiWindowBindingDecision.waiting(
+                    "bound target window is not currently active; waiting for " + bound);
+        }
+        if (!bound.isBlank() && !bound.equals(current)) {
+            return GuiWindowBindingDecision.waiting(
+                "active window changed from bound target " + bound + " to " + current
+                    + "; waiting for the original window");
+        }
+        if (!bound.isBlank()) {
+            return GuiWindowBindingDecision.stable(
+                "active window remains bound target " + bound);
+        }
+        if (!currentTargetMatched) {
+            return GuiWindowBindingDecision.unbound(
+                "reviewed window has no exact target; window remains unbound");
+        }
+        return GuiWindowBindingDecision.bind(
+            "bound first reviewed window containing the exact target " + current);
+    }
+
+    static GuiWindowBindingDecision decideGuiWindowBindingForTest(
+        final String boundWindowIdentity, final String currentWindowIdentity,
+        final boolean currentWindowProven, final boolean currentTargetMatched) {
+        return decideGuiWindowBinding(boundWindowIdentity, currentWindowIdentity,
+            currentWindowProven, currentTargetMatched);
     }
 
     private ReviewedTables visibleReviewedTables() throws Exception {
@@ -3851,6 +4075,62 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     static int rowDispatchAttemptLimit() {
         return MAX_ROW_DISPATCH_ATTEMPTS;
+    }
+
+    @FunctionalInterface
+    interface TriggerSleeper {
+        void sleep(long millis) throws InterruptedException;
+    }
+
+    static record GuiTriggerArm(boolean armed, Path path, String diagnostic) {
+        GuiTriggerArm {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static GuiTriggerArm armed(final Path path) {
+            return new GuiTriggerArm(true, path, "");
+        }
+
+        static GuiTriggerArm rejected(final String diagnostic) {
+            return new GuiTriggerArm(false, null, diagnostic);
+        }
+    }
+
+    static record GuiTriggerWait(boolean ready, Path path, String diagnostic) {
+        GuiTriggerWait {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static GuiTriggerWait ready(final Path path) {
+            return new GuiTriggerWait(true, path, "");
+        }
+
+        static GuiTriggerWait rejected(final String diagnostic) {
+            return new GuiTriggerWait(false, null, diagnostic);
+        }
+    }
+
+    static record GuiWindowBindingDecision(boolean bindNow, boolean waitForBoundWindow,
+        String diagnostic) {
+        GuiWindowBindingDecision {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static GuiWindowBindingDecision bind(final String diagnostic) {
+            return new GuiWindowBindingDecision(true, false, diagnostic);
+        }
+
+        static GuiWindowBindingDecision stable(final String diagnostic) {
+            return new GuiWindowBindingDecision(false, false, diagnostic);
+        }
+
+        static GuiWindowBindingDecision waiting(final String diagnostic) {
+            return new GuiWindowBindingDecision(false, true, diagnostic);
+        }
+
+        static GuiWindowBindingDecision unbound(final String diagnostic) {
+            return new GuiWindowBindingDecision(false, false, diagnostic);
+        }
     }
 
     static record RightClickDispatch(String diagnostic) {

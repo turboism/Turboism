@@ -49,6 +49,22 @@ for key in postEditSha256 postEditImageSha256 postEditTargetRgbSha256; do
   fi
 done
 
+# GUI dispatch is admitted only after both reviewed object-table transforms and the
+# bootstrap end marker are present in this task's runtime log.  The trigger is
+# deliberately fixed to the probe's context-owned state directory; it is not a
+# feature result and the probe still performs all target/menu/import gates.
+gui_readiness=()
+if [ "$phase" = "gui" ]; then
+  gui_readiness=(
+    --ready-marker 'Context-menu transform applied to com/live2d/cubism/view/palette/deformer/b appendPoints=11'
+    --ready-marker 'Context-menu transform applied to com/live2d/cubism/view/palette/parts/T appendPoints=22'
+    --ready-marker 'Turboism Developer Preview started'
+    --ready-marker 'EXTERNAL_PSD_EDIT_GUI_TRIGGER_ARMED'
+    --failure-marker 'Turboism object context-menu hook disabled safely'
+    --trigger 'state/dev.turboism.validation.externalpsd/gui-ready.flag'
+  )
+fi
+
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --name external-psd-edit-pipeline --version 5302 --run-label 025-us4 \
   --bundle-root "$root/build/preview/$id" \
@@ -61,4 +77,4 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --failure-marker 'EXTERNAL_PSD_EDIT_RESULT status=BLOCKED' \
   --result-file state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties \
   --result-pass-line status=PASS --result-fail-line status=FAIL \
-  --result-timeout 480 --exit-timeout 90 "$@"
+  --result-timeout 480 --exit-timeout 90 "$@" "${gui_readiness[@]}"

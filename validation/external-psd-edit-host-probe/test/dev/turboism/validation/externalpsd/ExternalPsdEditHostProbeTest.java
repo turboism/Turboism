@@ -38,6 +38,9 @@ import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
+import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 
 /** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
@@ -53,6 +56,10 @@ public final class ExternalPsdEditHostProbeTest {
         testExactTargetFamilySelection();
         testActiveRowResolver();
         testStableRowKeySafety();
+        testGuiReadyTriggerProtocol();
+        testGuiReadyTriggerProductionPath();
+        testGuiEnableAndEdtAreNonBlocking();
+        testGuiWindowBinding();
         testBoundedRowDispatches();
         testPopupMarker();
         testPopupAttemptAssociation();
@@ -1110,6 +1117,261 @@ public final class ExternalPsdEditHostProbeTest {
         });
         assertEquals(2, stopped, "retry loop stops when the operation succeeds");
         assertEquals(2, calls[0], "successful attempt prevents another retry");
+    }
+
+    private static void testGuiReadyTriggerProtocol() throws Exception {
+        final Path state = Files.createTempDirectory("external-psd-gui-ready-");
+        try {
+            final Path expected = state.resolve("gui-ready.flag");
+            assertEquals(expected.toAbsolutePath().normalize(),
+                ExternalPsdEditHostProbe.guiReadyTriggerPathForTest(state),
+                "GUI trigger is fixed below the context-owned state directory");
+
+            final var missing = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+                state, 15L, () -> false, millis -> Thread.sleep(1L));
+            assertTrue(!missing.ready(), "missing GUI trigger times out");
+            assertContains(missing.diagnostic(), "timeout", "missing trigger timeout is explicit");
+
+            Files.writeString(expected, "old");
+            final var oldArm = ExternalPsdEditHostProbe.prepareGuiTriggerForTest(state);
+            assertTrue(!oldArm.armed(), "pre-existing trigger does not arm the production wait");
+            assertTrue(oldArm.path() == null, "rejected old trigger has no armed path");
+            assertContains(oldArm.diagnostic(), "pre-existed",
+                "old trigger rejection is explicit before the armed marker");
+            final var old = ExternalPsdEditHostProbe.waitForArmedGuiTriggerForTest(
+                oldArm, 1000L, () -> false, millis -> {
+                    throw new AssertionError("pre-existing trigger must not be polled");
+                });
+            assertTrue(!old.ready(), "an unarmed old trigger cannot enter the production wait");
+            Files.delete(expected);
+
+            // A late worker can be scheduled after Runner has observed the armed marker and
+            // created the trigger. The first poll must accept that new file without mtime/sleep
+            // heuristics.
+            final var armed = ExternalPsdEditHostProbe.prepareGuiTriggerForTest(state);
+            assertTrue(armed.armed(), "a clean state directory arms the production wait");
+            Files.writeString(expected, "arrived-after-armed");
+            final var immediatelyAvailable = ExternalPsdEditHostProbe
+                .waitForArmedGuiTriggerForTest(armed, 1000L, () -> false, millis -> {
+                    throw new AssertionError("already-created post-arm trigger is immediate");
+                });
+            assertTrue(immediatelyAvailable.ready(),
+                "a trigger created after arming is accepted on the first poll");
+            assertEquals(expected, immediatelyAvailable.path(),
+                "post-arm trigger remains task-local");
+            Files.delete(expected);
+
+            final Path target = state.resolve("target");
+            Files.writeString(target, "target");
+            Files.createSymbolicLink(expected, target);
+            final var symlink = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+                state, 1000L, () -> false, millis -> {
+                    throw new AssertionError("symlink trigger must not be polled");
+                });
+            assertTrue(!symlink.ready(), "symlink GUI trigger is rejected");
+            assertContains(symlink.diagnostic(), "symlink", "symlink rejection is explicit");
+            Files.delete(expected);
+            Files.delete(target);
+
+            final AtomicInteger polls = new AtomicInteger();
+            final var delayed = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+                state, 1000L, () -> false, millis -> {
+                    if (polls.incrementAndGet() == 2) {
+                        try {
+                            Files.writeString(expected, "new");
+                        } catch (IOException failure) {
+                            throw new AssertionError(failure);
+                        }
+                    }
+                    Thread.sleep(1L);
+                });
+            assertTrue(delayed.ready(), "new regular GUI trigger is accepted");
+            assertEquals(expected, delayed.path(), "accepted trigger path is task-local");
+            Files.delete(expected);
+
+            final var nonRegular = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+                state, 1000L, () -> false, millis -> {
+                    try {
+                        Files.createDirectory(expected);
+                    } catch (IOException failure) {
+                        throw new AssertionError(failure);
+                    }
+                });
+            assertTrue(!nonRegular.ready(), "non-regular GUI trigger is rejected");
+            assertContains(nonRegular.diagnostic(), "regular file",
+                "non-regular trigger rejection is explicit");
+            Files.delete(expected);
+
+            final Path stateLink = state.resolveSibling(state.getFileName() + "-link");
+            Files.createSymbolicLink(stateLink, state);
+            try {
+                final var invalidState = ExternalPsdEditHostProbe
+                    .waitForGuiReadyTriggerForTest(stateLink, 1000L, () -> false,
+                        millis -> { throw new AssertionError("symlink state must not poll"); });
+                assertTrue(!invalidState.ready(), "symlink state directory is rejected");
+                assertContains(invalidState.diagnostic(), "state directory",
+                    "state-directory rejection is explicit");
+            } finally {
+                Files.deleteIfExists(stateLink);
+            }
+        } finally {
+            deleteTree(state);
+        }
+    }
+
+    private static void testGuiReadyTriggerProductionPath() throws Exception {
+        final Path state = Files.createTempDirectory("external-psd-gui-stale-production-");
+        final Path trigger = state.resolve("gui-ready.flag");
+        Files.writeString(trigger, "old");
+        final String oldPhase = System.getProperty("turboism.validation.externalpsd.phase");
+        final String oldRunId = System.getProperty("turboism.validation.externalpsd.runId");
+        final AtomicInteger armedMarkers = new AtomicInteger();
+        ExternalPsdEditHostProbe probe = null;
+        try {
+            final PluginPaths paths = new PluginPaths() {
+                @Override public Path dataDir() { return state; }
+                @Override public Path stateDir() { return state; }
+                @Override public Path cacheDir() { return state; }
+            };
+            final PluginLogger logger = new PluginLogger() {
+                @Override public void debug(final String message) { }
+                @Override public void info(final String message) {
+                    if (message.contains("EXTERNAL_PSD_EDIT_GUI_TRIGGER_ARMED")) {
+                        armedMarkers.incrementAndGet();
+                    }
+                }
+                @Override public void warn(final String message) { }
+                @Override public void error(final String message) { }
+                @Override public void error(final String message, final Throwable failure) { }
+            };
+            final PluginContext context = (PluginContext) java.lang.reflect.Proxy
+                .newProxyInstance(PluginContext.class.getClassLoader(),
+                    new Class<?>[]{PluginContext.class}, (proxy, method, args) -> {
+                        if (method.getName().equals("paths")) return paths;
+                        if (method.getName().equals("logger")) return logger;
+                        if (method.getName().equals("toString")) return "stale-trigger-context";
+                        throw new UnsupportedOperationException(method.getName());
+                    });
+            System.setProperty("turboism.validation.externalpsd.phase", "gui");
+            System.setProperty("turboism.validation.externalpsd.runId", "stale-trigger-run");
+            probe = new ExternalPsdEditHostProbe();
+            probe.init(context);
+            probe.enable();
+            final Path result = state.resolve(
+                "external-psd-edit-result.properties");
+            final long deadline = System.nanoTime()
+                + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+            while (!Files.exists(result) && System.nanoTime() < deadline) {
+                Thread.sleep(1L);
+            }
+            assertTrue(Files.exists(result),
+                "the production GUI wait records a stale-trigger BLOCKED result");
+            assertEquals(0, armedMarkers.get(),
+                "a pre-existing trigger cannot publish the armed marker");
+        } finally {
+            if (probe != null) probe.disable();
+            restoreProperty("turboism.validation.externalpsd.phase", oldPhase);
+            restoreProperty("turboism.validation.externalpsd.runId", oldRunId);
+            deleteTree(state);
+        }
+    }
+
+    private static void testGuiEnableAndEdtAreNonBlocking() throws Exception {
+        final Path state = Files.createTempDirectory("external-psd-gui-worker-");
+        final String oldPhase = System.getProperty("turboism.validation.externalpsd.phase");
+        final String oldRunId = System.getProperty("turboism.validation.externalpsd.runId");
+        try {
+            final var edt = onEdt(() -> ExternalPsdEditHostProbe
+                .waitForGuiReadyTriggerForTest(state, 10_000L, () -> false,
+                    millis -> { throw new AssertionError("EDT wait must return immediately"); }));
+            assertTrue(!edt.ready(), "EDT cannot wait for the GUI trigger");
+            assertContains(edt.diagnostic(), "off the EDT",
+                "EDT rejection explains the thread boundary");
+
+            final PluginPaths paths = new PluginPaths() {
+                @Override public Path dataDir() { return state; }
+                @Override public Path stateDir() { return state; }
+                @Override public Path cacheDir() { return state; }
+            };
+            final PluginLogger logger = new PluginLogger() {
+                @Override public void debug(final String message) { }
+                @Override public void info(final String message) { }
+                @Override public void warn(final String message) { }
+                @Override public void error(final String message) { }
+                @Override public void error(final String message, final Throwable failure) { }
+            };
+            final PluginContext context = (PluginContext) java.lang.reflect.Proxy
+                .newProxyInstance(PluginContext.class.getClassLoader(),
+                    new Class<?>[]{PluginContext.class}, (proxy, method, args) -> {
+                        if (method.getName().equals("paths")) return paths;
+                        if (method.getName().equals("logger")) return logger;
+                        if (method.getName().equals("toString")) return "trigger-test-context";
+                        throw new UnsupportedOperationException(method.getName());
+                    });
+            System.setProperty("turboism.validation.externalpsd.phase", "gui");
+            System.setProperty("turboism.validation.externalpsd.runId", "trigger-test-run");
+            final ExternalPsdEditHostProbe probe = new ExternalPsdEditHostProbe();
+            probe.init(context);
+            final long started = System.nanoTime();
+            probe.enable();
+            final long elapsedMillis = java.util.concurrent.TimeUnit.NANOSECONDS
+                .toMillis(System.nanoTime() - started);
+            assertTrue(elapsedMillis < 500L,
+                "enable returns while the task-local trigger wait runs on its worker");
+            probe.disable();
+        } finally {
+            restoreProperty("turboism.validation.externalpsd.phase", oldPhase);
+            restoreProperty("turboism.validation.externalpsd.runId", oldRunId);
+            deleteTree(state);
+        }
+    }
+
+    private static void testGuiWindowBinding() {
+        final var noTarget = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "", "window-a", true, false);
+        assertTrue(!noTarget.bindNow(),
+            "a reviewed window without the exact target is not bound");
+        assertTrue(!noTarget.waitForBoundWindow(),
+            "an unbound window without the target can continue searching");
+
+        final var firstTarget = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "", "window-a", true, true);
+        assertTrue(firstTarget.bindNow(),
+            "the first proven window containing the exact target becomes bound");
+
+        final var sameWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "window-a", "window-a", true, true);
+        assertTrue(!sameWindow.bindNow() && !sameWindow.waitForBoundWindow(),
+            "the bound target window remains usable");
+
+        final var otherWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "window-a", "window-b", true, true);
+        assertTrue(!otherWindow.bindNow() && otherWindow.waitForBoundWindow(),
+            "focus change never rebinds the target to another window");
+        assertContains(otherWindow.diagnostic(), "window-a",
+            "focus-change diagnostic retains the original window identity");
+
+        final var restoredWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "window-a", "window-a", true, true);
+        assertTrue(!restoredWindow.bindNow() && !restoredWindow.waitForBoundWindow(),
+            "the original bound window becomes usable again after focus returns");
+        assertContains(restoredWindow.diagnostic(), "window-a",
+            "restored-window diagnostic retains the original binding");
+
+        final var hiddenBoundWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "window-a", "", false, false);
+        assertTrue(hiddenBoundWindow.waitForBoundWindow(),
+            "an unproven active window waits for the original bound window");
+
+        final var hiddenBeforeBinding = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "", "", false, false);
+        assertTrue(!hiddenBeforeBinding.bindNow() && !hiddenBeforeBinding.waitForBoundWindow(),
+            "without an established target window no window is selected blindly");
+    }
+
+    private static void restoreProperty(final String name, final String value) {
+        if (value == null) System.clearProperty(name);
+        else System.setProperty(name, value);
     }
 
     private static ExternalPsdEditHostProbe.CapturedRow capturedRow(
