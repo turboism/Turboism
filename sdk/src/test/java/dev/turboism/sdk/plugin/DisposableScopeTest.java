@@ -3,6 +3,7 @@ package dev.turboism.sdk.plugin;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,11 +23,12 @@ import org.junit.jupiter.api.Test;
  * Permanent regression matrix for per-registration release ownership in
  * {@link DisposableScope}: every successful registration is released at most
  * once, independently of resource equality, close ordering, concurrency or
- * reentrancy.
+ * reentrancy, and user close code never runs under the scope monitor.
  */
 class DisposableScopeTest {
 
     private static final long WAIT_SECONDS = 10;
+    private static final long WAIT_MILLIS = TimeUnit.SECONDS.toMillis(WAIT_SECONDS);
 
     @Test
     void scopeThenHandleThenHandleCloseReleasesOnce() throws Exception {
@@ -123,71 +125,145 @@ class DisposableScopeTest {
     }
 
     @Test
+    void userCloseRunsOutsideScopeMonitorOnBothPaths() throws Exception {
+        DisposableScope scope = new DisposableScope();
+        AtomicBoolean handleHeldMonitor = new AtomicBoolean(true);
+        AtomicBoolean scopeHeldMonitor = new AtomicBoolean(true);
+        Registration handle = scope.register(() -> handleHeldMonitor.set(Thread.holdsLock(scope)));
+        scope.register(() -> scopeHeldMonitor.set(Thread.holdsLock(scope)));
+
+        handle.close();
+        scope.close();
+
+        assertFalse(handleHeldMonitor.get(),
+                "handle-driven close must not run under the scope monitor");
+        assertFalse(scopeHeldMonitor.get(),
+                "scope-driven close must not run under the scope monitor");
+    }
+
+    @Test
     void concurrentScopeAndHandleCloseReleasesOnce() throws Exception {
         DisposableScope scope = new DisposableScope();
         CountDownLatch entered = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
         AtomicInteger closes = new AtomicInteger();
-        Registration handle = scope.register(gated(closes, entered, release));
+        AtomicBoolean heldMonitor = new AtomicBoolean();
+        Registration handle = scope.register(gated(scope, closes, entered, proceed, heldMonitor));
 
-        AtomicReference<Throwable> scopeFailure = new AtomicReference<>();
+        AtomicReference<Throwable> scopeError = new AtomicReference<>();
         Thread scopeThread = new Thread(() -> {
             try {
                 scope.close();
-            } catch (Exception exception) {
-                scopeFailure.set(exception);
+            } catch (Throwable failure) {
+                scopeError.set(failure);
             }
-        });
-        scopeThread.start();
-        assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS), "scope close must be in flight");
+        }, "scope-close");
+        try {
+            scopeThread.start();
+            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS),
+                    "scope close must reach the user closeable");
 
-        Thread handleThread = new Thread(handle::close);
-        handleThread.start();
-        release.countDown();
-        scopeThread.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS));
-        handleThread.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS));
+            handle.close();
 
-        assertNull(scopeFailure.get(), "scope close must not fail");
-        assertEquals(1, closes.get(), "a racing handle close must not release the claimed entry again");
+            assertEquals(1, closes.get(),
+                    "handle close must not release an entry already claimed by the scope");
+        } finally {
+            proceed.countDown();
+            joinBounded(scopeThread);
+        }
+
+        assertFalse(scopeThread.isAlive(), "scope close worker must terminate");
+        assertNull(scopeError.get(), "scope close must not fail");
+        assertFalse(heldMonitor.get(), "user close must run outside the scope monitor");
+        assertEquals(1, closes.get(), "the registration must be released exactly once");
     }
 
     @Test
     void scopeCloseDuringHandleCloseReleasesOnce() throws Exception {
         DisposableScope scope = new DisposableScope();
         CountDownLatch entered = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
         AtomicInteger closes = new AtomicInteger();
-        Registration handle = scope.register(gated(closes, entered, release));
+        AtomicBoolean heldMonitor = new AtomicBoolean();
+        Registration handle = scope.register(gated(scope, closes, entered, proceed, heldMonitor));
 
-        Thread handleThread = new Thread(handle::close);
-        handleThread.start();
-        assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS), "handle close must be in flight");
+        AtomicReference<Throwable> handleError = new AtomicReference<>();
+        Thread handleThread = new Thread(() -> {
+            try {
+                handle.close();
+            } catch (Throwable failure) {
+                handleError.set(failure);
+            }
+        }, "handle-close");
+        try {
+            handleThread.start();
+            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS),
+                    "handle close must reach the user closeable");
 
-        scope.close();
-        release.countDown();
-        handleThread.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS));
+            scope.close();
 
-        assertEquals(1, closes.get(), "scope close must not release an entry already claimed by a handle");
+            assertEquals(1, closes.get(),
+                    "scope close must not release an entry already claimed by a handle");
+        } finally {
+            proceed.countDown();
+            joinBounded(handleThread);
+        }
+
+        assertFalse(handleThread.isAlive(), "handle close worker must terminate");
+        assertNull(handleError.get(), "handle close must not fail");
+        assertFalse(heldMonitor.get(), "user close must run outside the scope monitor");
+        assertEquals(1, closes.get(), "the registration must be released exactly once");
     }
 
     @Test
     void concurrentHandleClosesReleaseOnce() throws Exception {
         DisposableScope scope = new DisposableScope();
         CountDownLatch entered = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
         AtomicInteger closes = new AtomicInteger();
-        Registration handle = scope.register(gated(closes, entered, release));
+        AtomicBoolean heldMonitor = new AtomicBoolean();
+        Registration handle = scope.register(gated(scope, closes, entered, proceed, heldMonitor));
 
-        Thread first = new Thread(handle::close);
-        Thread second = new Thread(handle::close);
-        first.start();
-        second.start();
-        assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS), "one handle close must be in flight");
-        release.countDown();
-        first.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS));
-        second.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS));
+        AtomicReference<Throwable> firstError = new AtomicReference<>();
+        AtomicReference<Throwable> secondError = new AtomicReference<>();
+        Thread first = new Thread(() -> {
+            try {
+                handle.close();
+            } catch (Throwable failure) {
+                firstError.set(failure);
+            }
+        }, "handle-close-1");
+        Thread second = new Thread(() -> {
+            try {
+                handle.close();
+            } catch (Throwable failure) {
+                secondError.set(failure);
+            }
+        }, "handle-close-2");
+        try {
+            first.start();
+            assertTrue(entered.await(WAIT_SECONDS, TimeUnit.SECONDS),
+                    "the first handle close must reach the user closeable");
 
-        assertEquals(1, closes.get(), "concurrent handle closes must release the registration once");
+            second.start();
+            second.join(WAIT_MILLIS);
+
+            assertFalse(second.isAlive(),
+                    "the second handle close must return while the claimed close is in flight");
+            assertEquals(1, closes.get(),
+                    "the losing handle close must not release the registration again");
+        } finally {
+            proceed.countDown();
+            joinBounded(first);
+            joinBounded(second);
+        }
+
+        assertFalse(first.isAlive(), "first handle close worker must terminate");
+        assertFalse(second.isAlive(), "second handle close worker must terminate");
+        assertNull(firstError.get(), "first handle close must not fail");
+        assertNull(secondError.get(), "second handle close must not fail");
+        assertFalse(heldMonitor.get(), "user close must run outside the scope monitor");
+        assertEquals(1, closes.get(), "the registration must be released exactly once");
     }
 
     @Test
@@ -293,12 +369,27 @@ class DisposableScopeTest {
         return () -> order.add(name);
     }
 
-    private static AutoCloseable gated(AtomicInteger closes, CountDownLatch entered, CountDownLatch release) {
+    private static AutoCloseable gated(
+            DisposableScope scope,
+            AtomicInteger closes,
+            CountDownLatch entered,
+            CountDownLatch proceed,
+            AtomicBoolean heldMonitor) {
         return () -> {
             closes.incrementAndGet();
+            heldMonitor.set(Thread.holdsLock(scope));
             entered.countDown();
-            release.await(WAIT_SECONDS, TimeUnit.SECONDS);
+            assertTrue(proceed.await(WAIT_SECONDS, TimeUnit.SECONDS),
+                    "the in-flight close was not released within the bound");
         };
+    }
+
+    private static void joinBounded(Thread thread) {
+        try {
+            thread.join(WAIT_MILLIS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static class CountingCloseable implements AutoCloseable {
