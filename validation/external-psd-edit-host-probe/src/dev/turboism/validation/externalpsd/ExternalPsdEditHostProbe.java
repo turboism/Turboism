@@ -82,12 +82,14 @@ import java.util.stream.Stream;
  * handle → observed stable saves → explicit-target native replacement → native Undo/Redo
  * → handle stop → same-binding recovery. The probe never inspects pixels and never guesses
  * file paths from plugin input; it locates the runtime allocation only for simulated
- * external writes, exactly as an external editor would see it.</p>
+ * external writes, exactly as an external editor would see it. In the explicit persistence
+ * phase only, the validation-only fixture helper decodes the target RGB fingerprint; the
+ * ordinary GUI phase does not parse PSD pixels.</p>
  *
  * <p>Phases ({@code -Dturboism.validation.externalpsd.phase}): {@code pipeline} (default)
  * runs the full save/replace/undo/stop pipeline and, with {@code .persist=1}, appends a
- * mediated SAVE_AS plus lifecycle-event confirmation; {@code reopen} re-exports the marker
- * layer from a previously saved fixture copy; {@code gui} right-clicks a real object row,
+ * mediated SAVE_AS plus lifecycle-event confirmation; {@code reopen} re-exports the validated
+ * target layer from a previously saved fixture copy; {@code gui} right-clicks a real object row,
  * clicks the contributed menu item, and verifies the plugin's own session auto-imports a
  * written save.</p>
  *
@@ -284,55 +286,98 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     /** Full save→replace→undo→stop→recover pipeline plus optional persist tail. */
     private void runPipeline(final Properties result, final int cycles) throws Exception {
+        if (cycles < 1) throw new IllegalArgumentException("cycles must be at least 1");
         result.setProperty("realEditorApplication",
             "default-application launch recorded; OPENED requires the task .psd association");
         final Target target = resolveTarget(result);
-        final Path before = tempMarker();
-        final PsdExportResult exported = export(result, target.raw());
-        final PsdEditFile file = exported.file().orElseThrow();
-        final Path tempFile = locateTempFile(before, result);
-        final byte[] baselineBytes = Files.readAllBytes(tempFile);
-        result.setProperty("tempFile.discovered", Boolean.toString(tempFile.getFileName()
-            .toString().equals("external-edit.psd")));
-        result.setProperty("baseline.bytes", Integer.toString(baselineBytes.length));
-        result.setProperty("baseline.sha256", sha256(baselineBytes));
-        result.setProperty("baseline.revisionIssued",
-            Boolean.toString(exported.initialRevision().isPresent()));
-
-        final Deque<PsdFileRevision> revisions = new ArrayDeque<>();
-        final Registration subscription = file.observeSaves(revision -> {
-            synchronized (revisions) { revisions.add(revision); revisions.notifyAll(); }
-        });
+        final boolean persistValidation = "1".equals(
+            System.getProperty("turboism.validation.externalpsd.persist"));
+        final TempTracker tracker = new TempTracker();
         try {
-            assertNoRevision(revisions, 1500, "baseline revision must not be replayed to subscribers");
-            result.setProperty("baseline.replayed", "false");
-
-            final PsdFileOperationResult opened = file.openInDefaultApplication()
-                .toCompletableFuture().get(60, TimeUnit.SECONDS);
-            result.setProperty("defaultApplication.status", opened.status().name());
-            result.setProperty("defaultApplication.diagnostic", opened.diagnostic());
-
-            final Mutation marker =
-                runSaveCycles(result, file, target, tempFile, revisions, cycles);
-            runCorruptedSave(result, file, target, tempFile, revisions);
-            runUndoRedo(result, target);
-            assertNoReplayAfterIdle(result, revisions);
-            runStopAndRecovery(result, file, target, tempFile, revisions);
-            recordEnvironment(result);
-            if (marker != null) {
-                result.setProperty("persist.markerLayer", Integer.toString(marker.layer()));
-                result.setProperty("persist.markerOffset", Integer.toString(marker.nameOffset()));
-                result.setProperty("persist.markerChar", Integer.toString(marker.letter()));
+            final TrackedExport primary = exportTracked(result, target.raw(), tracker, "baseline");
+            final Path tempFile = primary.path();
+            final byte[] baselineBytes = Files.readAllBytes(tempFile);
+            final PsdValidationContent.Fingerprint baselineFingerprint = persistValidation
+                ? targetFingerprint(baselineBytes, "pipeline baseline") : null;
+            result.setProperty("tempFile.discovered", Boolean.toString(tempFile.getFileName()
+                .toString().equals("external-edit.psd")));
+            result.setProperty("baseline.bytes", Integer.toString(baselineBytes.length));
+            result.setProperty("baseline.sha256", sha256(baselineBytes));
+            result.setProperty("baseline.revisionIssued", "true");
+            if (persistValidation) {
+                recordTargetFingerprint(result, "persist.baselineTargetRgb", baselineFingerprint);
+                result.setProperty("persist.baselineTargetRgbSha256", baselineFingerprint.sha256());
             }
-            if ("1".equals(System.getProperty("turboism.validation.externalpsd.persist"))) {
-                runPersistTail(result, target);
-            } else {
-                result.setProperty("documentPersistence",
-                    "NOT_TESTED: persist tail not requested");
+
+            if (persistValidation) {
+                // A second independent native export is required before any external edit. It is
+                // not a copy of the first export and is stopped before the save subscription starts.
+                final TrackedExport second = exportTracked(
+                    result, target.raw(), tracker, "baselineSecond");
+                try {
+                    final PsdValidationContent.Fingerprint secondFingerprint = targetFingerprint(
+                        Files.readAllBytes(second.path()), "pipeline second baseline");
+                    recordTargetFingerprint(
+                        result, "persist.baselineSecondTargetRgb", secondFingerprint);
+                    result.setProperty("persist.baselineSecondTargetRgbSha256",
+                        secondFingerprint.sha256());
+                    requireStableBaseline(baselineFingerprint, secondFingerprint);
+                } finally {
+                    tracker.stop(second, result);
+                }
             }
-        } finally {
-            subscription.close();
-            file.stop();
+
+            final PsdEditFile file = primary.file();
+            final Deque<PsdFileRevision> revisions = new ArrayDeque<>();
+            final Registration subscription = file.observeSaves(revision -> {
+                synchronized (revisions) { revisions.add(revision); revisions.notifyAll(); }
+            });
+            try {
+                assertNoRevision(revisions, 1500,
+                    "baseline revision must not be replayed to subscribers");
+                result.setProperty("baseline.replayed", "false");
+
+                final PsdFileOperationResult opened = file.openInDefaultApplication()
+                    .toCompletableFuture().get(60, TimeUnit.SECONDS);
+                result.setProperty("defaultApplication.status", opened.status().name());
+                result.setProperty("defaultApplication.diagnostic", opened.diagnostic());
+
+                final Mutation marker = runSaveCycles(
+                    result, file, target, tempFile, revisions, cycles, persistValidation);
+                final PsdValidationContent.Fingerprint postBeforeUndo = persistValidation
+                    ? exportTargetFingerprint(result, target.raw(), tracker, "postBeforeUndo") : null;
+                if (persistValidation) {
+                    result.setProperty("persist.postBeforeUndoTargetRgbSha256",
+                        postBeforeUndo.sha256());
+                    requireChangedPost(baselineFingerprint, postBeforeUndo);
+                }
+
+                runCorruptedSave(result, file, target, tempFile, revisions);
+                runUndoRedo(result, target, tracker, baselineFingerprint, postBeforeUndo);
+                assertNoReplayAfterIdle(result, revisions);
+                runStopAndRecovery(result, primary, target, tempFile, revisions, tracker);
+                recordEnvironment(result);
+                if (marker != null) {
+                    // Retained as diagnostic coordinates only; the persistence gate uses the
+                    // decoded target RGB fingerprint below, never this legacy marker.
+                    result.setProperty("persist.markerLayer", Integer.toString(marker.layer()));
+                    result.setProperty("persist.markerOffset", Integer.toString(marker.nameOffset()));
+                    result.setProperty("persist.markerChar", Integer.toString(marker.letter()));
+                }
+                if (persistValidation) {
+                    runPersistTail(result, target, tracker, baselineFingerprint, postBeforeUndo);
+                } else {
+                    result.setProperty("documentPersistence",
+                        "NOT_TESTED: persist tail not requested");
+                }
+            } finally {
+                subscription.close();
+            }
+        }
+        finally {
+            // This is also the leak guard for an export whose path discovery or later assertion
+            // failed. A failed stop is recorded and prevents any quarantine PASS claim.
+            tracker.stopAll(result);
         }
         result.setProperty("expected", "full pipeline assertions hold");
         result.setProperty("actual", "full pipeline assertions hold");
@@ -340,44 +385,43 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     /**
      * Reopens a fixture copy saved by a persist run and proves the externally applied edit
-     * survived a real native save → file → reopen roundtrip. Layer names are normalized by the
-     * host's import, so the gate is the exported image-data section hash recorded as
-     * {@code persist.postEditImageSha256}; the full-file hash is recorded for context.
+     * survived a real native save → file → reopen roundtrip. The gate is the fresh native
+     * export's decoded target-layer RGB fingerprint; legacy full-file/composite hashes remain
+     * diagnostics only.
      */
     private void runReopen(final Properties result) throws Exception {
         final Target target = resolveTarget(result);
-        final Path before = tempMarker();
-        final PsdExportResult exported = export(result, target.raw());
-        final PsdEditFile file = exported.file().orElseThrow();
+        final String expectedTarget = System.getProperty(
+            "turboism.validation.externalpsd.postEditTargetRgbSha256", "");
+        if (!isCanonicalSha256(expectedTarget)) {
+            throw new IllegalStateException(
+                "reopen requires a canonical lowercase postEditTargetRgbSha256");
+        }
+        final TempTracker tracker = new TempTracker();
         try {
-            final Path tempFile = locateTempFile(before, result);
-            final byte[] bytes = Files.readAllBytes(tempFile);
+            final TrackedExport exported = exportTracked(result, target.raw(), tracker, "reopen");
+            final byte[] bytes = Files.readAllBytes(exported.path());
+            final PsdValidationContent.Fingerprint actual = targetFingerprint(
+                bytes, "reopen target layer");
             result.setProperty("reopen.layerCount",
                 Integer.toString(layerNameRanges(bytes).size()));
             result.setProperty("reopen.bytes", Integer.toString(bytes.length));
             result.setProperty("reopen.sha256", sha256(bytes));
             result.setProperty("reopen.imageSha256", imageDataSha256(bytes));
-            final String expectedImage = System.getProperty(
-                "turboism.validation.externalpsd.postEditImageSha256", "");
+            result.setProperty("reopen.expectedTargetRgbSha256", expectedTarget);
+            result.setProperty("reopen.targetRgbSha256", actual.sha256());
+            recordTargetFingerprint(result, "reopen.targetRgb", actual);
             final String expectedFile = System.getProperty(
                 "turboism.validation.externalpsd.postEditSha256", "");
-            result.setProperty("reopen.expectedImageSha256", expectedImage);
             result.setProperty("reopen.fileShaMatched",
                 Boolean.toString(!expectedFile.isBlank()
                     && expectedFile.equals(result.getProperty("reopen.sha256"))));
-            if (expectedImage.isBlank()) {
-                throw new IllegalStateException(
-                    "reopen requires -Dturboism.validation.externalpsd.postEditImageSha256");
-            }
-            if (!expectedImage.equals(result.getProperty("reopen.imageSha256"))) {
-                throw new IllegalStateException(
-                    "reopened document image data does not match the persisted post-edit content");
-            }
+            requireReopenTarget(expectedTarget, actual);
         } finally {
-            file.stop();
+            tracker.stopAll(result);
         }
         result.setProperty("expected", "reopened fixture retains the external-edit content");
-        result.setProperty("actual", "image data verified in the reopened document's raw image");
+        result.setProperty("actual", "decoded target RGB verified in a fresh native export");
     }
 
     /**
@@ -551,28 +595,118 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return Optional.empty();
     }
 
-    private Path tempMarker() throws Exception {
-        final Path tmp = Path.of(System.getProperty("java.io.tmpdir")).toRealPath();
-        final Path marker = tmp.resolve(".external-psd-probe-" + ProcessHandle.current().pid());
-        return Files.writeString(marker, Long.toString(System.currentTimeMillis()));
+    private static final String TEMP_DIRECTORY_PREFIX = "turboism-psd-";
+    private static final String TEMP_FILE_NAME = "external-edit.psd";
+
+    private Path tempRoot() throws Exception {
+        final String configured = System.getProperty("java.io.tmpdir", "");
+        if (configured.isBlank()) throw new IllegalStateException("java.io.tmpdir is blank");
+        final Path configuredPath = Path.of(configured);
+        if (!configuredPath.isAbsolute()) {
+            throw new IllegalStateException("java.io.tmpdir must be absolute");
+        }
+        requireNoSymlinkPath(configuredPath, "java.io.tmpdir");
+        if (Files.isSymbolicLink(configuredPath)
+            || !Files.isDirectory(configuredPath, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("java.io.tmpdir is not a real directory");
+        }
+        final Path root = configuredPath.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        if (root.equals(Path.of("/"))) throw new IllegalStateException("java.io.tmpdir is root");
+        return root;
     }
 
-    private Path locateTempFile(final Path marker, final Properties result) throws Exception {
-        final Path tmp = marker.getParent();
+    private Path tempMarker() throws Exception {
+        final Path marker = tempRoot().resolve(
+            ".external-psd-probe-" + ProcessHandle.current().pid());
+        return Files.writeString(marker, Long.toString(System.nanoTime()));
+    }
+
+    /** Captures the direct, task-scoped runtime allocation set before an export. */
+    private TempCandidateSnapshot snapshotTempCandidates() throws Exception {
+        final Path tmp = tempRoot();
+        final Set<Path> directories = new LinkedHashSet<>();
         try (Stream<Path> stream = Files.list(tmp)) {
-            final List<Path> candidates = stream
-                .filter(path -> path.getFileName().toString().startsWith("turboism-psd-"))
-                .filter(path -> isNewerThan(path, marker))
-                .map(path -> path.resolve("external-edit.psd"))
-                .filter(Files::isRegularFile)
-                .sorted(Comparator.comparing(ExternalPsdEditHostProbe::modified)
-                    .reversed())
-                .toList();
-            result.setProperty("tempFile.candidates", Integer.toString(candidates.size()));
-            if (candidates.isEmpty()) {
-                throw new IllegalStateException("Runtime-issued temporary PSD not discoverable");
+            for (final Path candidate : stream.toList()) {
+                final String name = candidate.getFileName().toString();
+                if (!name.startsWith(TEMP_DIRECTORY_PREFIX)) continue;
+                if (Files.isSymbolicLink(candidate)
+                    || !Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)) {
+                    throw new IllegalStateException(
+                        "temporary PSD candidate is not a real directory: " + candidate);
+                }
+                requireNoSymlinkPath(candidate, "temporary PSD candidate");
+                directories.add(candidate.toAbsolutePath().normalize());
             }
-            return candidates.get(0).toRealPath(LinkOption.NOFOLLOW_LINKS);
+        }
+        return new TempCandidateSnapshot(tmp, directories);
+    }
+
+    private Path locateNewTempFile(final TempCandidateSnapshot before, final Path marker,
+        final Properties result, final String label) throws Exception {
+        final TempCandidateSnapshot after = snapshotTempCandidates();
+        result.setProperty("export." + label + ".candidateBefore",
+            Integer.toString(before.directories().size()));
+        result.setProperty("export." + label + ".candidateAfter",
+            Integer.toString(after.directories().size()));
+        final Path directory = uniqueNewTempCandidate(before.directories(), after.directories());
+        if (!directory.getParent().equals(after.root())) {
+            throw new IllegalStateException("temporary PSD candidate escaped its temp root");
+        }
+        final boolean markerAuxiliary = modified(directory) >= modified(marker);
+        result.setProperty("export." + label + ".markerAfterCandidate",
+            Boolean.toString(markerAuxiliary));
+        result.setProperty("export." + label + ".directory", directory.toString());
+        return requireTrackedTempFile(directory, after.root());
+    }
+
+    /** Resolves an export only when exactly one allocation directory was added. */
+    static Path uniqueNewTempCandidate(final Set<Path> before, final Set<Path> after) {
+        if (before == null || after == null) {
+            throw new IllegalArgumentException("temporary candidate sets are required");
+        }
+        final Set<Path> added = new LinkedHashSet<>(after);
+        added.removeAll(before);
+        if (added.size() != 1) {
+            throw new IllegalStateException(
+                "expected exactly one new temporary PSD candidate, found " + added.size());
+        }
+        return added.iterator().next();
+    }
+
+    /** Validates the one runtime PSD file inside a candidate directory without following links. */
+    static Path requireTrackedTempFile(final Path directory, final Path expectedTempRoot)
+        throws Exception {
+        if (directory == null || expectedTempRoot == null) {
+            throw new IllegalArgumentException("temporary candidate paths are required");
+        }
+        final Path root = requireOwnedDirectory(expectedTempRoot, "temporary root");
+        final Path candidate = directory.toAbsolutePath().normalize();
+        if (!candidate.getParent().equals(root)
+            || !candidate.getFileName().toString().startsWith(TEMP_DIRECTORY_PREFIX)) {
+            throw new IllegalStateException("temporary PSD candidate escaped its temp root: "
+                + candidate);
+        }
+        if (Files.isSymbolicLink(candidate)
+            || !Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("temporary PSD candidate is not a real directory: "
+                + candidate);
+        }
+        requireNoSymlinkPath(candidate, "temporary PSD candidate");
+        final Path file = candidate.resolve(TEMP_FILE_NAME);
+        if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("temporary PSD candidate has no regular PSD file: " + file);
+        }
+        requireNoSymlinkPath(file, "temporary PSD file");
+        return file.toRealPath(LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private static void requireNoSymlinkPath(final Path path, final String label) {
+        Path current = path.toAbsolutePath().normalize();
+        while (current != null) {
+            if (Files.isSymbolicLink(current)) {
+                throw new IllegalStateException(label + " contains a symlink: " + current);
+            }
+            current = current.getParent();
         }
     }
 
@@ -581,6 +715,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         catch (Exception error) { return 0; }
     }
 
+    /** GUI-only session discovery; persist exports use candidate-set binding above. */
     private static boolean isNewerThan(final Path path, final Path marker) {
         try {
             return Files.getLastModifiedTime(path)
@@ -609,14 +744,157 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return exported;
     }
 
+    private TrackedExport exportTracked(final Properties result, final RawImageId raw,
+        final TempTracker tracker, final String label) throws Exception {
+        final TempCandidateSnapshot before = snapshotTempCandidates();
+        final Path marker = tempMarker();
+        final PsdExportResult exported = export(result, raw);
+        final TrackedExport tracked = tracker.register(
+            label, exported.file().orElseThrow(), before.root());
+        final Path path = locateNewTempFile(before, marker, result, label);
+        tracked.setPath(path);
+        result.setProperty("export." + label + ".path", path.toString());
+        return tracked;
+    }
+
+    private PsdValidationContent.Fingerprint exportTargetFingerprint(final Properties result,
+        final RawImageId raw, final TempTracker tracker, final String label) throws Exception {
+        final TrackedExport exported = exportTracked(result, raw, tracker, label);
+        try {
+            return targetFingerprint(Files.readAllBytes(exported.path()), label);
+        } finally {
+            tracker.stop(exported, result);
+        }
+    }
+
+    private static PsdValidationContent.Fingerprint targetFingerprint(final byte[] bytes,
+        final String label) {
+        try {
+            return PsdValidationContent.targetLayerRgbFingerprint(bytes);
+        } catch (PsdValidationContent.ValidationException invalid) {
+            throw new IllegalStateException(label + " is not a supported validation PSD: "
+                + invalid.getMessage(), invalid);
+        }
+    }
+
+    private static void recordTargetFingerprint(final Properties result, final String prefix,
+        final PsdValidationContent.Fingerprint fingerprint) {
+        final PsdValidationContent.Bounds bounds = fingerprint.bounds();
+        result.setProperty(prefix + ".sha256", fingerprint.sha256());
+        result.setProperty(prefix + ".bounds",
+            bounds.top() + "," + bounds.left() + "," + bounds.bottom() + "," + bounds.right());
+        result.setProperty(prefix + ".width", Integer.toString(fingerprint.width()));
+        result.setProperty(prefix + ".height", Integer.toString(fingerprint.height()));
+        result.setProperty(prefix + ".channelIds", fingerprint.channelIds().toString());
+    }
+
+    private static boolean isCanonicalSha256(final String value) {
+        return value != null && value.matches("[0-9a-f]{64}");
+    }
+
+    /** Requires the native history move that the following fresh export is meant to observe. */
+    static void requireHistoryMoved(
+        final dev.turboism.sdk.cubism.history.HistoryMoveResult move, final String direction) {
+        final String name = direction == null || direction.isBlank() ? "history" : direction;
+        if (move == null || move.outcome()
+            != dev.turboism.sdk.cubism.history.HistoryMoveResult.Outcome.MOVED) {
+            throw new IllegalStateException(name + " did not move native history: "
+                + (move == null ? "null result" : move.outcome()));
+        }
+    }
+
+    /**
+     * Final persistence evidence gate owned by the probe before it reports a successful phase.
+     * The runner repeats the same contract while binding the result to its Supervisor job.
+     */
+    static void requirePersistEvidence(final Properties result) {
+        if (result == null) throw new IllegalStateException("persistence evidence is missing");
+        final String baseline = result.getProperty("persist.baselineTargetRgbSha256");
+        final String second = result.getProperty("persist.baselineSecondTargetRgbSha256");
+        final String post = result.getProperty("persist.postEditTargetRgbSha256");
+        if (!isCanonicalSha256(baseline) || !isCanonicalSha256(second)
+            || !isCanonicalSha256(post)) {
+            throw new IllegalStateException(
+                "persistence target RGB hashes are missing or not canonical lowercase SHA-256");
+        }
+        if (!baseline.equals(second)) {
+            throw new IllegalStateException(
+                "independent native baseline target RGB fingerprints are unstable");
+        }
+        if (baseline.equals(post)) {
+            throw new IllegalStateException(
+                "fresh native post-edit target RGB fingerprint did not change");
+        }
+        requireExactProperty(result, "persist.targetContentChanged", "true");
+        requireExactProperty(result, "persist.saveSucceeded", "true");
+        requireExactProperty(result, "persist.tempQuarantine.status", "MOVED");
+        requireExactProperty(result, "persist.tempQuarantine.taskOwned", "true");
+        requireExactProperty(result, "persist.tempQuarantine.sourceMissing", "true");
+    }
+
+    private static void requireExactProperty(final Properties result, final String key,
+        final String expected) {
+        if (!expected.equals(result.getProperty(key))) {
+            throw new IllegalStateException(
+                "persistence evidence " + key + " must be " + expected);
+        }
+    }
+
+    static void requireStableBaseline(final PsdValidationContent.Fingerprint first,
+        final PsdValidationContent.Fingerprint second) {
+        if (first == null || second == null || !isCanonicalSha256(first.sha256())
+            || !isCanonicalSha256(second.sha256())) {
+            throw new IllegalStateException("native baseline target RGB evidence is missing or invalid");
+        }
+        if (!first.equals(second)) {
+            throw new IllegalStateException(
+                "independent native baseline target RGB fingerprints are unstable");
+        }
+    }
+
+    static void requireChangedPost(final PsdValidationContent.Fingerprint baseline,
+        final PsdValidationContent.Fingerprint post) {
+        if (baseline == null || post == null || !isCanonicalSha256(baseline.sha256())
+            || !isCanonicalSha256(post.sha256())) {
+            throw new IllegalStateException("native post-edit target RGB evidence is missing or invalid");
+        }
+        if (baseline.sha256().equals(post.sha256())) {
+            throw new IllegalStateException(
+                "fresh native post-edit target RGB fingerprint did not change");
+        }
+    }
+
+    static void requireReopenTarget(final String expected,
+        final PsdValidationContent.Fingerprint actual) {
+        if (!isCanonicalSha256(expected) || actual == null
+            || !isCanonicalSha256(actual.sha256())) {
+            throw new IllegalStateException(
+                "reopen target RGB evidence is missing or not canonical lowercase SHA-256");
+        }
+        if (!expected.equals(actual.sha256())) {
+            throw new IllegalStateException(
+                "reopened document target RGB fingerprint does not match the saved post-edit fingerprint");
+        }
+    }
+
     private Mutation runSaveCycles(final Properties result, final PsdEditFile file, final Target target,
-        final Path tempFile, final Deque<PsdFileRevision> revisions, final int cycles) throws Exception {
+        final Path tempFile, final Deque<PsdFileRevision> revisions, final int cycles,
+        final boolean validateTargetContent) throws Exception {
         Mutation lastMutation = null;
         for (int i = 1; i <= cycles; i++) {
             final byte[] current = Files.readAllBytes(tempFile);
             final Mutation mutation = mutationFor(current, i)
                 .orElseThrow(() -> new IllegalStateException("PSD layer-name mutation failed"));
-            final byte[] mutated = applyMutation(current, mutation);
+            byte[] mutated = applyMutation(current, mutation);
+            final boolean finalCycle = validateTargetContent && isFinalRgbMutationCycle(i, cycles);
+            if (finalCycle) {
+                // The content mutation is deliberately performed once, only for the last valid
+                // cycle. The overlap path below applies another name-only mutation to this same
+                // byte array, so its final write still carries the RGB inversion.
+                mutated = PsdValidationContent.invertTargetLayerRgb(mutated);
+            }
+            result.setProperty("cycle." + i + ".targetRgbMutation",
+                finalCycle ? "INVERTED_ONCE" : "UNCHANGED");
             lastMutation = mutation;
             final long writeStart = System.nanoTime();
             if (i == 2) {
@@ -633,6 +911,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 final byte[] second = applyMutation(mutated, secondMutation);
                 Files.write(tempFile, mutated);
                 Files.write(tempFile, second);
+                result.setProperty("cycle." + i + ".overlapFinalContainsRgbMutation",
+                    Boolean.toString(finalCycle));
             } else {
                 Files.write(tempFile, mutated);
             }
@@ -667,6 +947,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return lastMutation;
     }
 
+    static boolean isFinalRgbMutationCycle(final int cycle, final int cycles) {
+        if (cycles < 1 || cycle < 1 || cycle > cycles) {
+            throw new IllegalArgumentException("cycle must be within a positive cycle count");
+        }
+        return cycle == cycles;
+    }
+
     private void runCorruptedSave(final Properties result, final PsdEditFile file, final Target target,
         final Path tempFile, final Deque<PsdFileRevision> revisions) throws Exception {
         Files.write(tempFile, "not-a-psd-corrupted-save".getBytes(StandardCharsets.UTF_8));
@@ -682,27 +969,46 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("corrupted.check", "PASS");
     }
 
-    private void runUndoRedo(final Properties result, final Target target) throws Exception {
+    private void runUndoRedo(final Properties result, final Target target,
+        final TempTracker tracker, final PsdValidationContent.Fingerprint baselineFingerprint,
+        final PsdValidationContent.Fingerprint postFingerprint) throws Exception {
         final String appliedRaw = result.getProperty("applied.currentRaw", target.raw().value());
         final AtomicReference<dev.turboism.sdk.cubism.history.HistoryMoveResult> undo =
             new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> undo.set(context.cubism().history().undo(1)));
         result.setProperty("undo.outcome", undo.get().outcome().name());
-        if (undo.get().outcome()
-            != dev.turboism.sdk.cubism.history.HistoryMoveResult.Outcome.MOVED) {
-            throw new IllegalStateException("Native replace was not undoable: "
-                + undo.get().outcome());
-        }
+        requireHistoryMoved(undo.get(), "undo");
         final String afterUndo = currentRawOnEdt(target.modelImage().value());
         result.setProperty("undo.currentRaw", afterUndo);
+        if (baselineFingerprint != null) {
+            final PsdValidationContent.Fingerprint undoFingerprint = exportTargetFingerprint(
+                result, target.raw(), tracker, "undo");
+            recordTargetFingerprint(result, "undo.targetRgb", undoFingerprint);
+            result.setProperty("undo.targetRgbSha256", undoFingerprint.sha256());
+            if (!baselineFingerprint.equals(undoFingerprint)) {
+                throw new IllegalStateException(
+                    "Undo did not restore the baseline target RGB fingerprint");
+            }
+        }
         final AtomicReference<dev.turboism.sdk.cubism.history.HistoryMoveResult> redo =
             new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> redo.set(context.cubism().history().redo(1)));
         result.setProperty("redo.outcome", redo.get().outcome().name());
+        requireHistoryMoved(redo.get(), "redo");
         final String afterRedo = currentRawOnEdt(target.modelImage().value());
         result.setProperty("redo.currentRaw", afterRedo);
         if (!appliedRaw.equals(afterRedo)) {
             throw new IllegalStateException("Redo did not restore the applied raw identity");
+        }
+        if (postFingerprint != null) {
+            final PsdValidationContent.Fingerprint redoFingerprint = exportTargetFingerprint(
+                result, target.raw(), tracker, "redo");
+            recordTargetFingerprint(result, "redo.targetRgb", redoFingerprint);
+            result.setProperty("redo.targetRgbSha256", redoFingerprint.sha256());
+            if (!postFingerprint.equals(redoFingerprint)) {
+                throw new IllegalStateException(
+                    "Redo did not restore the post-edit target RGB fingerprint");
+            }
         }
     }
 
@@ -720,11 +1026,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private void runStopAndRecovery(final Properties result, final PsdEditFile file,
-        final Target target, final Path tempFile, final Deque<PsdFileRevision> revisions)
+    private void runStopAndRecovery(final Properties result, final TrackedExport primary,
+        final Target target, final Path tempFile, final Deque<PsdFileRevision> revisions,
+        final TempTracker tracker)
         throws Exception {
-        final PsdFileOperationResult stopResult = file.stop()
-            .toCompletableFuture().get(60, TimeUnit.SECONDS);
+        final PsdFileOperationResult stopResult = tracker.stop(primary, result);
         result.setProperty("stop.status", stopResult.status().name());
         if (stopResult.status() != PsdFileOperationResult.Status.STOPPED) {
             throw new IllegalStateException("Edit handle did not stop cleanly");
@@ -738,14 +1044,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 throw new IllegalStateException("Stopped handle still published revisions");
             }
         }
-        final Path before = tempMarker();
-        final PsdExportResult again = export(new Properties(), target.raw());
-        result.setProperty("recovery.exportStatus", again.status().name());
-        final PsdEditFile second = again.file().orElseThrow();
-        final Path secondFile = locateTempFile(before, new Properties());
+        final TrackedExport again = exportTracked(result, target.raw(), tracker, "recovery");
+        result.setProperty("recovery.exportStatus", PsdExportResult.Status.EXPORTED.name());
+        final Path secondFile = again.path();
         result.setProperty("recovery.newFile", Boolean.toString(!secondFile.equals(tempFile)));
-        final PsdFileOperationResult secondStop = second.stop()
-            .toCompletableFuture().get(60, TimeUnit.SECONDS);
+        final PsdFileOperationResult secondStop = tracker.stop(again, result);
         result.setProperty("recovery.stopStatus", secondStop.status().name());
         if (secondStop.status() != PsdFileOperationResult.Status.STOPPED) {
             throw new IllegalStateException("Recovered handle did not stop cleanly");
@@ -922,7 +1225,28 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * event. The granted target lives outside the task fixture copy, so the runner's
      * fixture-unchanged guarantee still holds.
      */
-    private void runPersistTail(final Properties result, final Target target) throws Exception {
+    private void runPersistTail(final Properties result, final Target target,
+        final TempTracker tracker, final PsdValidationContent.Fingerprint baselineFingerprint,
+        final PsdValidationContent.Fingerprint postBeforeUndo) throws Exception {
+        result.setProperty("persist.saveSucceeded", "false");
+        result.setProperty("persist.targetContentChanged", "false");
+        result.setProperty("persist.tempQuarantine.status", "NOT_ATTEMPTED");
+        result.setProperty("persist.tempQuarantine.taskOwned", "false");
+        result.setProperty("persist.tempQuarantine.sourceMissing", "false");
+
+        // Undo/Redo must leave the same native post state that will be saved. Re-export it once
+        // immediately before SAVE_AS, so the persistence gate does not trust staged PSD bytes or
+        // a history/raw identity alone.
+        final PsdValidationContent.Fingerprint preSavePost = exportTargetFingerprint(
+            result, target.raw(), tracker, "postBeforeSave");
+        recordTargetFingerprint(result, "persist.preSavePostEditTargetRgb", preSavePost);
+        result.setProperty("persist.preSavePostEditTargetRgbSha256", preSavePost.sha256());
+        if (!postBeforeUndo.equals(preSavePost)) {
+            throw new IllegalStateException(
+                "fresh post-edit target RGB fingerprint changed before SAVE_AS");
+        }
+        requireChangedPost(baselineFingerprint, preSavePost);
+
         final List<ProjectFileLifecycleEvent.After> saves = new CopyOnWriteArrayList<>();
         final AtomicInteger beforeEvents = new AtomicInteger();
         final AtomicInteger onEvents = new AtomicInteger();
@@ -990,22 +1314,302 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (!saveResult.succeeded()) {
                 throw new IllegalStateException("SAVE lifecycle completed without success");
             }
+            result.setProperty("persist.saveSucceeded", "true");
             result.setProperty("documentPersistence", "SAVE_AS executed + SAVE event confirmed");
 
-            // Content-level marker for the reopen stage: layer names are normalized by the
-            // host's own import, but the replaced image content must round-trip byte-exact.
-            final Path postMarker = tempMarker();
-            final PsdExportResult postExport = export(result, target.raw());
-            postExport.file().ifPresent(PsdEditFile::stop);
-            final Path postTemp = locateTempFile(postMarker, result);
-            final byte[] postBytes = Files.readAllBytes(postTemp);
-            result.setProperty("persist.postEditBytes", Integer.toString(postBytes.length));
-            result.setProperty("persist.postEditSha256", sha256(postBytes));
-            result.setProperty("persist.postEditImageSha256", imageDataSha256(postBytes));
+            // A second fresh native export after SAVE_AS is the durable post fingerprint. The
+            // legacy full-file/composite values are retained only as optional diagnostics.
+            final TrackedExport postExport = exportTracked(
+                result, target.raw(), tracker, "postAfterSave");
+            try {
+                final byte[] postBytes = Files.readAllBytes(postExport.path());
+                final PsdValidationContent.Fingerprint post = targetFingerprint(
+                    postBytes, "persist post-save target");
+                recordTargetFingerprint(result, "persist.postEditTargetRgb", post);
+                result.setProperty("persist.postEditTargetRgbSha256", post.sha256());
+                result.setProperty("persist.postEditBytes", Integer.toString(postBytes.length));
+                result.setProperty("persist.postEditSha256", sha256(postBytes));
+                result.setProperty("persist.postEditImageSha256", imageDataSha256(postBytes));
+                if (!preSavePost.equals(post)) {
+                    throw new IllegalStateException(
+                        "fresh post-save target RGB fingerprint differs from pre-SAVE_AS state");
+                }
+                requireChangedPost(baselineFingerprint, post);
+                result.setProperty("persist.targetContentChanged", "true");
+            } finally {
+                tracker.stop(postExport, result);
+            }
+            tracker.quarantine(result, context.paths().stateDir());
+            requirePersistEvidence(result);
         } finally {
             subscription.close();
             beforeSub.close();
             onSub.close();
+        }
+    }
+
+    private record TempCandidateSnapshot(Path root, Set<Path> directories) {
+        private TempCandidateSnapshot {
+            root = root.toAbsolutePath().normalize();
+            directories = Set.copyOf(directories);
+        }
+    }
+
+    private static final class TrackedExport {
+        private final String label;
+        private final PsdEditFile file;
+        private Path path;
+        private PsdFileOperationResult stopResult;
+        private Throwable stopFailure;
+        private boolean stopAttempted;
+
+        private TrackedExport(final String label, final PsdEditFile file) {
+            this.label = label;
+            this.file = file;
+        }
+
+        private PsdEditFile file() { return file; }
+        private Path path() { return path; }
+        private void setPath(final Path path) { this.path = path; }
+        private Path directory() { return path == null ? null : path.getParent(); }
+    }
+
+    private static final class TempTracker {
+        private final List<TrackedExport> exports = new ArrayList<>();
+        private Path tempRoot;
+
+        private TrackedExport register(final String label, final PsdEditFile file,
+            final Path root) {
+            if (label == null || label.isBlank() || file == null || root == null) {
+                throw new IllegalArgumentException("tracked export identity is incomplete");
+            }
+            if (exports.stream().anyMatch(export -> export.label.equals(label))) {
+                throw new IllegalArgumentException("duplicate tracked export label " + label);
+            }
+            final Path normalizedRoot = root.toAbsolutePath().normalize();
+            if (tempRoot == null) tempRoot = normalizedRoot;
+            if (!tempRoot.equals(normalizedRoot)) {
+                throw new IllegalStateException("native exports changed task temp root");
+            }
+            final TrackedExport tracked = new TrackedExport(label, file);
+            exports.add(tracked);
+            return tracked;
+        }
+
+        private PsdFileOperationResult stop(final TrackedExport tracked,
+            final Properties result) throws Exception {
+            if (!exports.contains(tracked)) {
+                throw new IllegalArgumentException("unregistered export handle");
+            }
+            if (tracked.stopAttempted) {
+                if (tracked.stopFailure != null) {
+                    throw asException(tracked.stopFailure);
+                }
+                if (tracked.stopResult == null) {
+                    throw new IllegalStateException("tracked stop has no result");
+                }
+                return tracked.stopResult;
+            }
+            tracked.stopAttempted = true;
+            try {
+                final PsdFileOperationResult stopped = tracked.file.stop()
+                    .toCompletableFuture().get(60, TimeUnit.SECONDS);
+                tracked.stopResult = stopped;
+                result.setProperty("export." + tracked.label + ".stopStatus",
+                    stopped.status().name());
+                result.setProperty("export." + tracked.label + ".stopDiagnostic",
+                    stopped.diagnostic());
+                if (stopped.status() != PsdFileOperationResult.Status.STOPPED) {
+                    throw new IllegalStateException("export handle did not stop: "
+                        + tracked.label + " status=" + stopped.status());
+                }
+                return stopped;
+            } catch (Exception failure) {
+                tracked.stopFailure = failure;
+                result.setProperty("export." + tracked.label + ".stopStatus", "FAILED");
+                result.setProperty("export." + tracked.label + ".stopDiagnostic",
+                    failure.toString());
+                throw failure;
+            }
+        }
+
+        private void stopAll(final Properties result) {
+            for (final TrackedExport tracked : exports) {
+                try {
+                    stop(tracked, result);
+                } catch (Throwable failure) {
+                    result.setProperty("export." + tracked.label + ".stopStatus", "FAILED");
+                    result.setProperty("export." + tracked.label + ".stopDiagnostic",
+                        failure.toString());
+                }
+            }
+        }
+
+        private boolean allStopped() {
+            return !exports.isEmpty() && exports.stream().allMatch(export ->
+                export.stopAttempted && export.stopResult != null
+                    && export.stopResult.status() == PsdFileOperationResult.Status.STOPPED);
+        }
+
+        private void quarantine(final Properties result, final Path taskRoot) throws Exception {
+            if (!allStopped()) {
+                result.setProperty("persist.tempQuarantine.status", "FAILED");
+                result.setProperty("persist.tempQuarantine.diagnostic",
+                    "not all native export handles stopped");
+                throw new IllegalStateException("cannot quarantine while an export handle is active");
+            }
+            final String runId = System.getProperty("turboism.validation.externalpsd.runId", "");
+            if (!runId.matches("[A-Za-z0-9._-]+")) {
+                result.setProperty("persist.tempQuarantine.status", "FAILED");
+                result.setProperty("persist.tempQuarantine.diagnostic", "invalid task runId");
+                throw new IllegalStateException("task runId is not safe for quarantine naming");
+            }
+            final Path owner = taskRoot.toAbsolutePath().normalize();
+            final Path destination = owner.resolve("external-psd-quarantine-" + runId);
+            result.setProperty("persist.tempQuarantine.root", destination.toString());
+            for (int index = 0; index < exports.size(); index++) {
+                final TrackedExport tracked = exports.get(index);
+                final String prefix = "persist.tempQuarantine.item." + (index + 1);
+                result.setProperty(prefix + ".source",
+                    tracked.directory() == null ? "" : tracked.directory().toString());
+                result.setProperty(prefix + ".target",
+                    tracked.directory() == null ? ""
+                        : destination.resolve(tracked.directory().getFileName()).toString());
+                result.setProperty(prefix + ".stopStatus", tracked.stopResult.status().name());
+                result.setProperty(prefix + ".moved", "false");
+            }
+            try {
+                final QuarantineReport report = moveTrackedTempDirectories(
+                    exports.stream().map(TrackedExport::directory).toList(),
+                    tempRoot, owner, destination);
+                for (int index = 0; index < report.entries().size(); index++) {
+                    final QuarantineEntry entry = report.entries().get(index);
+                    final String prefix = "persist.tempQuarantine.item." + (index + 1);
+                    result.setProperty(prefix + ".target", entry.target().toString());
+                    result.setProperty(prefix + ".moved", Boolean.toString(entry.moved()));
+                }
+                result.setProperty("persist.tempQuarantine.status", report.status());
+                result.setProperty("persist.tempQuarantine.taskOwned",
+                    Boolean.toString(report.taskOwned()));
+                result.setProperty("persist.tempQuarantine.sourceMissing",
+                    Boolean.toString(report.sourceMissing()));
+            } catch (Exception failure) {
+                result.setProperty("persist.tempQuarantine.status", "FAILED");
+                result.setProperty("persist.tempQuarantine.taskOwned", "false");
+                result.setProperty("persist.tempQuarantine.sourceMissing", "false");
+                result.setProperty("persist.tempQuarantine.diagnostic", failure.toString());
+                throw failure;
+            }
+        }
+
+        private static Exception asException(final Throwable failure) {
+            if (failure instanceof Exception exception) return exception;
+            if (failure instanceof Error error) throw error;
+            return new IllegalStateException(failure);
+        }
+    }
+
+    /** Atomic, no-overwrite move used by the persist tail and its offline path-boundary tests. */
+    static QuarantineReport moveTrackedTempDirectories(final List<Path> sources,
+        final Path expectedTempRoot, final Path taskRoot, final Path destinationRoot)
+        throws Exception {
+        if (sources == null || sources.isEmpty()) {
+            throw new IllegalArgumentException("tracked temporary directories are required");
+        }
+        final Path tempRoot = requireOwnedDirectory(expectedTempRoot, "temporary root");
+        final Path owner = requireOwnedDirectory(taskRoot, "task quarantine root");
+        final Path destination = destinationRoot.toAbsolutePath().normalize();
+        if (!destination.getParent().equals(owner)) {
+            throw new IllegalStateException("quarantine destination escaped task root");
+        }
+        requireNoSymlinkPath(destination.getParent(), "quarantine destination");
+        if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)
+            || Files.isSymbolicLink(destination)) {
+            throw new IllegalStateException("quarantine destination already exists: " + destination);
+        }
+
+        final Set<Path> uniqueSources = new LinkedHashSet<>();
+        final List<QuarantineEntry> entries = new ArrayList<>(sources.size());
+        for (final Path sourceValue : sources) {
+            if (sourceValue == null) throw new IllegalArgumentException("null tracked source");
+            final Path source = sourceValue.toAbsolutePath().normalize();
+            if (!source.getParent().equals(tempRoot)
+                || !source.getFileName().toString().startsWith(TEMP_DIRECTORY_PREFIX)) {
+                throw new IllegalStateException("tracked source escaped task temp root: " + source);
+            }
+            if (!uniqueSources.add(source)) {
+                throw new IllegalStateException("duplicate tracked source: " + source);
+            }
+            if (Files.isSymbolicLink(source)
+                || !Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalStateException("tracked source is not a real directory: " + source);
+            }
+            requireNoSymlinkPath(source, "tracked source");
+            try (Stream<Path> descendants = Files.walk(source)) {
+                descendants.forEach(path -> {
+                    if (Files.isSymbolicLink(path)) {
+                        throw new IllegalStateException("tracked source contains a symlink: " + path);
+                    }
+                    if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)
+                        && !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+                        throw new IllegalStateException("tracked source contains an unsupported item: "
+                            + path);
+                    }
+                });
+            }
+            final Path target = destination.resolve(source.getFileName());
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(target)) {
+                throw new IllegalStateException("quarantine target already exists: " + target);
+            }
+            entries.add(new QuarantineEntry(source, target, false));
+        }
+
+        Files.createDirectory(destination);
+        for (final QuarantineEntry entry : entries) {
+            try {
+                Files.move(entry.source(), entry.target(), StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                throw new IllegalStateException(
+                    "atomic quarantine move is unsupported for " + entry.source(), unsupported);
+            }
+        }
+        boolean sourceMissing = true;
+        final List<QuarantineEntry> moved = new ArrayList<>(entries.size());
+        for (final QuarantineEntry entry : entries) {
+            final boolean missing = !Files.exists(entry.source(), LinkOption.NOFOLLOW_LINKS)
+                && !Files.isSymbolicLink(entry.source());
+            sourceMissing &= missing;
+            if (!Files.isDirectory(entry.target(), LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(entry.target())) {
+                throw new IllegalStateException("quarantine target is not a real directory: "
+                    + entry.target());
+            }
+            moved.add(new QuarantineEntry(entry.source(), entry.target(), true));
+        }
+        if (!sourceMissing) throw new IllegalStateException("not all tracked sources are missing");
+        return new QuarantineReport("MOVED", true, true, List.copyOf(moved));
+    }
+
+    private static Path requireOwnedDirectory(final Path value, final String label) {
+        if (value == null) throw new IllegalArgumentException(label + " is null");
+        final Path path = value.toAbsolutePath().normalize();
+        if (path.equals(Path.of("/")) || Files.isSymbolicLink(path)
+            || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException(label + " is not a real directory: " + path);
+        }
+        requireNoSymlinkPath(path, label);
+        return path;
+    }
+
+    record QuarantineEntry(Path source, Path target, boolean moved) {
+    }
+
+    record QuarantineReport(String status, boolean taskOwned, boolean sourceMissing,
+        List<QuarantineEntry> entries) {
+        QuarantineReport {
+            status = status == null ? "FAILED" : status;
+            entries = List.copyOf(entries);
         }
     }
 
