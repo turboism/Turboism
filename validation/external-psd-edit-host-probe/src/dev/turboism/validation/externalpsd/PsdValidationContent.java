@@ -92,6 +92,8 @@ public final class PsdValidationContent {
 
     /** Explicit fail-closed diagnostic for malformed or unsupported validation input. */
     public static final class ValidationException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+
         public ValidationException(final String message) { super(message); }
     }
 
@@ -194,7 +196,6 @@ public final class PsdValidationContent {
             if (channel.id >= 0 && channel.id <= 2) sampleOffsets.addAll(channel.sampleOffsets);
         }
         if (sampleOffsets.isEmpty()) throw invalid("target RGB channels contain no samples");
-        target.bytes = psd;
         return new ParsedDocument(target, sampleOffsets);
     }
 
@@ -264,9 +265,12 @@ public final class PsdValidationContent {
                 channel.end = end;
                 final boolean collect = parsedLayer.index == TARGET_LAYER_INDEX
                     && channel.id >= 0 && channel.id <= 2;
+                final byte[] decodedSamples = collect
+                    ? new byte[parsedLayer.width() * parsedLayer.height()] : null;
                 parseLayerChannel(layer.bytes, start, end, parsedLayer.width(),
                     parsedLayer.height(), parsedLayer.index, channel.id,
-                    collect ? channel.sampleOffsets : null);
+                    collect ? channel.sampleOffsets : null, decodedSamples);
+                channel.decodedSamples = decodedSamples;
                 layer.pos = end;
             }
         }
@@ -331,7 +335,7 @@ public final class PsdValidationContent {
 
     private static void parseLayerChannel(final byte[] bytes, final int start, final int end,
         final int width, final int height, final int layerIndex, final int channelId,
-        final List<Integer> sampleOffsets) {
+        final List<Integer> sampleOffsets, final byte[] decodedSamples) {
         final Cursor channel = new Cursor(bytes, start, end);
         final int compression = channel.u16("layer " + layerIndex + " channel " + channelId
             + " compression");
@@ -348,6 +352,7 @@ public final class PsdValidationContent {
             final int rowEnd = checkedEnd(rowStart, rowLengths[row], channel.limit,
                 "layer row data");
             decodePackBits(bytes, rowStart, rowEnd, width, sampleOffsets,
+                decodedSamples, row * width,
                 "layer " + layerIndex + " channel " + channelId + " row " + row);
             channel.pos = rowEnd;
         }
@@ -375,7 +380,7 @@ public final class PsdValidationContent {
                 final int rowStart = composite.pos;
                 final int rowEnd = checkedEnd(rowStart,
                     rowLengths[channel * height + row], composite.limit, "composite row data");
-                decodePackBits(file.bytes, rowStart, rowEnd, width, null,
+                decodePackBits(file.bytes, rowStart, rowEnd, width, null, null, 0,
                     "composite channel " + channel + " row " + row);
                 composite.pos = rowEnd;
             }
@@ -387,7 +392,8 @@ public final class PsdValidationContent {
     }
 
     private static void decodePackBits(final byte[] bytes, final int start, final int end,
-        final int expectedSamples, final List<Integer> sampleOffsets, final String label) {
+        final int expectedSamples, final List<Integer> sampleOffsets,
+        final byte[] decodedSamples, final int decodedOffset, final String label) {
         int pos = start;
         int decoded = 0;
         while (pos < end) {
@@ -406,6 +412,9 @@ public final class PsdValidationContent {
                         sampleOffsets.add(pos + offset);
                     }
                 }
+                if (decodedSamples != null) {
+                    System.arraycopy(bytes, pos, decodedSamples, decodedOffset + decoded, count);
+                }
                 pos += count;
                 decoded += count;
             } else {
@@ -415,6 +424,11 @@ public final class PsdValidationContent {
                     throw invalid("%s repeat packet decodes beyond row length", label);
                 }
                 if (sampleOffsets != null) sampleOffsets.add(pos);
+                if (decodedSamples != null) {
+                    for (int offset = 0; offset < count; offset++) {
+                        decodedSamples[decodedOffset + decoded + offset] = bytes[pos];
+                    }
+                }
                 pos++;
                 decoded += count;
             }
@@ -439,17 +453,18 @@ public final class PsdValidationContent {
         updateInt(digest, document.target.right);
         updateInt(digest, document.target.width());
         updateInt(digest, document.target.height());
-        updateInt(digest, document.target.channels.size());
+        updateInt(digest, 3);
         for (final Channel channel : document.target.channels) {
-            updateInt(digest, channel.id);
-            updateInt(digest, channel.declaredLength - 2);
             if (channel.id >= 0 && channel.id <= 2) {
-                digest.update(document.target.bytes, channel.start + 2, channel.declaredLength - 2);
+                updateInt(digest, channel.id);
+                digest.update(channel.decodedSamples);
             }
         }
         return new Fingerprint(hex(digest.digest()), document.target.bounds(),
             document.target.width(), document.target.height(),
-            document.target.channels.stream().map(channel -> channel.id).toList());
+            document.target.channels.stream()
+                .filter(channel -> channel.id >= 0 && channel.id <= 2)
+                .map(channel -> channel.id).toList());
     }
 
     private static void updateInt(final MessageDigest digest, final int value) {
@@ -542,7 +557,6 @@ public final class PsdValidationContent {
         private final int bottom;
         private final int right;
         private final List<Channel> channels;
-        private byte[] bytes;
 
         private Layer(final int index, final int top, final int left, final int bottom,
             final int right, final List<Channel> channels) {
@@ -563,6 +577,7 @@ public final class PsdValidationContent {
         private final int id;
         private final int declaredLength;
         private final List<Integer> sampleOffsets = new ArrayList<>();
+        private byte[] decodedSamples;
         private int start;
         private int end;
 
