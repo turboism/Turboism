@@ -11,9 +11,10 @@ public record EditorCommandResult(Status status, String commandId) {
     }
 
     /**
-     * @return whether the host performed the command; a performed command may still be a
-     *     legitimate no-op that changes nothing (see {@link Status#EXECUTED}), while every
-     *     other status means the command was not carried out
+     * @return whether the invocation completed with {@link Status#EXECUTED}; a legitimate
+     *     no-op still reports {@code EXECUTED}, while a non-executed status — in
+     *     particular {@code FAILED} — does not prove the host applied no effects or that
+     *     a retry is safe
      */
     public boolean executed() {
         return status == Status.EXECUTED;

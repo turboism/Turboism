@@ -28,8 +28,9 @@ public interface MeshEditService {
     MeshEditResult movePoints(List<MeshPointRef> points);
 
     /**
-     * Adds edges between pairs of live point ids. An accepted call is applied as one host
-     * undo step; a refused call — or a {@code null}/empty request — performs no edit.
+     * Adds edges between pairs of live point ids. A granted, non-empty edit is grouped as
+     * one host undo step; a refused call — or a {@code null}/empty request, which still
+     * returns an applied result — performs no edit and no undo entry.
      */
     MeshEditResult addEdges(List<MeshEdgeRef> edges);
 
