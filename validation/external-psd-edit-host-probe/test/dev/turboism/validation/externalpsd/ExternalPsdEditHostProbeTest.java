@@ -18,6 +18,9 @@ import javax.swing.JPopupMenu;
 public final class ExternalPsdEditHostProbeTest {
     public static void main(final String[] args) throws java.io.IOException {
         testPopupTriggerDispatch();
+        testSyntheticTargetDiagnostics();
+        testRightClickDispatchFailure();
+        testPopupMarker();
         testPopupAttemptAssociation();
         testAutoImportEvidence();
 
@@ -80,7 +83,12 @@ public final class ExternalPsdEditHostProbeTest {
     private static void assertSinglePopupTrigger(final boolean triggerOnPress,
         final int expectedTriggerEvent) {
         final RecordingComponent component = new RecordingComponent();
-        ExternalPsdEditHostProbe.dispatchRightClick(component, 10, 12, triggerOnPress);
+        final var dispatch = ExternalPsdEditHostProbe.dispatchRightClick(
+            component, 10, 12, triggerOnPress);
+        assertContains(dispatch.diagnostic(), "synthetic=",
+            "synthetic event coordinates are recorded");
+        assertContains(dispatch.diagnostic(), "pointer=",
+            "real pointer observation is recorded");
         final List<MouseEvent> right = component.events().stream()
             .filter(event -> event.getButton() == MouseEvent.BUTTON3)
             .toList();
@@ -90,6 +98,64 @@ public final class ExternalPsdEditHostProbeTest {
             "exactly one right-click event is the popup trigger");
         assertEquals(1L, right.stream().filter(MouseEvent::isPopupTrigger).count(),
             "one popup trigger per right click");
+    }
+
+    private static void testRightClickDispatchFailure() {
+        final ThrowingComponent component = new ThrowingComponent();
+        try {
+            ExternalPsdEditHostProbe.dispatchRightClick(component, 10, 12, true);
+            throw new AssertionError("right-click handler failures must be exposed");
+        } catch (ExternalPsdEditHostProbe.RightClickDispatchException failure) {
+            assertEquals(2L, component.events().stream()
+                .filter(event -> event.getButton() == MouseEvent.BUTTON3).count(),
+                "release is attempted after press failure");
+            final java.io.StringWriter trace = new java.io.StringWriter();
+            failure.printStackTrace(new java.io.PrintWriter(trace));
+            final String text = trace.toString();
+            assertContains(text, "MOUSE_PRESSED", "press phase is in failure trace");
+            assertContains(text, "pressed-failure", "press cause is in failure trace");
+            assertContains(text, "MOUSE_RELEASED", "release phase is in failure trace");
+            assertContains(text, "released-failure", "release cause is in failure trace");
+            assertTrue(failure.getCause() != null, "first dispatch failure remains the cause");
+            assertEquals("pressed-failure", failure.getCause().getCause().getMessage(),
+                "first original cause is retained");
+            assertEquals(1, failure.getSuppressed().length,
+                "second dispatch failure remains suppressed");
+            assertEquals("released-failure", failure.getSuppressed()[0].getCause().getMessage(),
+                "second original cause is retained");
+        }
+    }
+
+    private static void testSyntheticTargetDiagnostics() {
+        final javax.swing.JTable table = new javax.swing.JTable(
+            new Object[][]{{"value"}}, new Object[]{"column"}) {
+            @Override protected void processMouseEvent(final MouseEvent event) {
+                // Keep this renderer-diagnostic test independent of BasicTableUI's headful
+                // menu-shortcut lookup; the production probe still dispatches normally.
+            }
+        };
+        final var dispatch = ExternalPsdEditHostProbe.dispatchRightClick(table, 2, 2, true);
+        assertContains(dispatch.diagnostic(), "target=",
+            "dispatch target identity is recorded");
+        assertContains(dispatch.diagnostic(), "renderer=",
+            "table renderer candidate is recorded");
+        assertContains(dispatch.diagnostic(), "prepared=",
+            "prepared renderer state is recorded");
+        assertContains(dispatch.diagnostic(), "screen=(",
+            "synthetic screen coordinates are recorded");
+    }
+
+    private static void testPopupMarker() {
+        final JPopupMenu popup = new JPopupMenu();
+        final javax.swing.JMenuItem item = new javax.swing.JMenuItem("Edit PSD Externally");
+        popup.add(item);
+        final String marker = ExternalPsdEditHostProbe.popupMarker(popup);
+        assertContains(marker, "javax.swing.JPopupMenu@", "popup class and identity are recorded");
+        assertContains(marker, "javax.swing.JMenuItem@", "menu child class and identity are recorded");
+        assertContains(marker, "menuItem=true", "menu item subtype is identified");
+        assertContains(marker, "text='Edit PSD Externally'", "menu text is recorded");
+        assertContains(marker, "visible=false", "popup visibility is recorded");
+        assertContains(marker, "showing=false", "popup showing state is recorded");
     }
 
     private static void testPopupAttemptAssociation() {
@@ -195,6 +261,11 @@ public final class ExternalPsdEditHostProbeTest {
         if (!condition) throw new AssertionError(message);
     }
 
+    private static void assertContains(final String text, final String expected,
+        final String message) {
+        assertTrue(text.contains(expected), message + " expected=" + expected + " text=" + text);
+    }
+
     private static void assertSame(final Object expected, final Object actual,
         final String message) {
         if (expected != actual) {
@@ -222,6 +293,24 @@ public final class ExternalPsdEditHostProbeTest {
 
         @Override protected void processMouseEvent(final MouseEvent event) {
             events.add(event);
+        }
+
+        private List<MouseEvent> events() { return events; }
+    }
+
+    private static final class ThrowingComponent extends Component {
+        private final List<MouseEvent> events = new ArrayList<>();
+
+        private ThrowingComponent() {
+            enableEvents(AWTEvent.MOUSE_EVENT_MASK);
+        }
+
+        @Override protected void processMouseEvent(final MouseEvent event) {
+            events.add(event);
+            if (event.getButton() == MouseEvent.BUTTON3) {
+                throw new IllegalStateException(event.getID() == MouseEvent.MOUSE_PRESSED
+                    ? "pressed-failure" : "released-failure");
+            }
         }
 
         private List<MouseEvent> events() { return events; }
