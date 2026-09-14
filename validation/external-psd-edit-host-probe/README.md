@@ -195,6 +195,19 @@ The command must print `SHAPE=PASS` and exit `0` before an actual-host claim is 
 system properties are `turboism.validation.externalpsd.shapeJar`,
 `turboism.validation.externalpsd.shapeClasspath`, and `...shapeRequired=true`.
 
+To validate the retained 958a6 real export without modifying its evidence file, pass its exact
+path through `turboism.validation.externalpsd.sessionSample`:
+
+```bash
+JAVA_TOOL_OPTIONS='-Dturboism.validation.externalpsd.sessionSample=/path/to/958a6/external-edit.psd' \
+  bash validation/external-psd-edit-host-probe/test.sh
+```
+
+The focused test records the source byte count, full SHA-256, and structural parse result, then
+copies the source into a task temporary directory and runs the production candidate/readiness
+and write-confirmation helpers against that copy. It prints `REAL_SESSION_SAMPLE=NOT_RUN` when
+the property is absent; a configured source must parse completely and the helper check must pass.
+
 ## Exact-host run (queued, serialized)
 
 ```bash
