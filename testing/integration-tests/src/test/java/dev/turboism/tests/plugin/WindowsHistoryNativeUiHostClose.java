@@ -759,7 +759,6 @@ final class WindowsHistoryNativeUiHostClose {
             }
             return;
         }
-        values.add(String.valueOf(value));
     }
 
     private static List<JButton> visibleButtons(final Component component) {
@@ -843,8 +842,9 @@ final class WindowsHistoryNativeUiHostClose {
             final int index = haystack.indexOf(needle, from);
             if (index < 0) return false;
             final int end = index + needle.length();
-            final boolean before = index == 0 || isFixtureContinuation(haystack.charAt(index - 1));
-            final boolean after = end == haystack.length() || isFixtureContinuation(haystack.charAt(end));
+            final boolean before = index > 0 && isFixtureContinuation(haystack.charAt(index - 1));
+            final boolean after = end < haystack.length()
+                && isFixtureContinuation(haystack.charAt(end));
             if (!before && !after) return true;
             from = index + 1;
         }

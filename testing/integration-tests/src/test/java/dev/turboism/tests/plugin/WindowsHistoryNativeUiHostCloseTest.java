@@ -199,6 +199,66 @@ class WindowsHistoryNativeUiHostCloseTest {
     }
 
     @Test
+    void fixtureAtPromptStartIsAcceptedAsACompleteToken() {
+        final String fixture = "history-native-ui-5302-r1.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    fixture,
+                    "Save Changes",
+                    JOptionPane.YES_NO_OPTION,
+                    button("Yes"),
+                    button("No")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void fixtureAtPromptEndIsAcceptedWithoutTrailingPunctuation() {
+        final String fixture = "history-native-ui-5302-r1.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "Save Changes",
+                    "Do you want to save changes to " + fixture,
+                    JOptionPane.YES_NO_OPTION,
+                    button("Yes"),
+                    button("No")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
+    void fixtureInsideALongerFilenameIsRejected() {
+        final String fixture = "history-native-ui-5302-r1.cmo3";
+
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+            WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                true,
+                dialog(
+                    "Save Changes",
+                    "Do you want to save changes to " + fixture + "-backup",
+                    JOptionPane.YES_NO_OPTION,
+                    button("Yes"),
+                    button("No")
+                ),
+                fixture
+            )
+        );
+    }
+
+    @Test
     void legalTaskFixtureSavePromptSelectsItsExplicitNoAction() {
         final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot prompt = dialog(
             "Save Changes",
