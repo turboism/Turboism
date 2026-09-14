@@ -8,12 +8,14 @@ import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -68,6 +70,7 @@ public final class ExternalPsdEditHostProbeTest {
         testNativeFingerprintGates();
         testHistoryMovesRequireMoved();
         testTempCandidateBinding();
+        testSessionPsdReadiness();
         testQuarantineMovesAllTrackedDirectories();
         testQuarantineRejectsConflictAndSymlink();
         testQuarantinePartialMoveEvidence();
@@ -223,6 +226,207 @@ public final class ExternalPsdEditHostProbeTest {
                 "valid candidate PSD is bound without mtime guessing");
         } finally {
             deleteTree(root);
+        }
+    }
+
+    private static void testSessionPsdReadiness() throws Exception {
+        final byte[] valid = validationPsd();
+        final byte[] unsupportedDepth = valid.clone();
+        unsupportedDepth[22] = 0;
+        unsupportedDepth[23] = 16;
+        final ExternalPsdEditHostProbe.PsdStructureValidation depthFailure =
+            ExternalPsdEditHostProbe.inspectPsdStructure(unsupportedDepth);
+        assertTrue(!depthFailure.complete(), "unsupported bit depth is rejected");
+        assertContains(depthFailure.reason(), "bit depth",
+            "unsupported depth reports the header section");
+
+        final byte[] unsupportedCompression = valid.clone();
+        final int compositeOffset = compositeOffset(unsupportedCompression);
+        unsupportedCompression[compositeOffset] = 0;
+        unsupportedCompression[compositeOffset + 1] = 2;
+        final ExternalPsdEditHostProbe.PsdStructureValidation compressionFailure =
+            ExternalPsdEditHostProbe.inspectPsdStructure(unsupportedCompression);
+        assertTrue(!compressionFailure.complete(), "unsupported compression is rejected");
+        assertContains(compressionFailure.reason(), "compression",
+            "unsupported compression reports the composite section");
+
+        final Path root = Files.createTempDirectory("external PSD session readiness ");
+        try {
+            final Path old = Files.createDirectory(root.resolve("turboism-psd-old"));
+            Files.write(old.resolve("external-edit.psd"), valid);
+            final Set<Path> before = Set.of(old.toAbsolutePath().normalize());
+            final Path session = root.resolve("turboism-psd-session");
+            final AtomicReference<Throwable> writerFailure = new AtomicReference<>();
+            final Thread writer = new Thread(() -> {
+                try {
+                    Thread.sleep(10L);
+                    Files.createDirectory(session);
+                    final Path file = session.resolve("external-edit.psd");
+                    Files.createFile(file);
+                    Thread.sleep(10L);
+                    try (OutputStream output = Files.newOutputStream(file)) {
+                        output.write(valid, 0, valid.length / 2);
+                        output.flush();
+                        Thread.sleep(25L);
+                        output.write(valid, valid.length / 2, valid.length - valid.length / 2);
+                    }
+                } catch (Throwable failure) {
+                    writerFailure.set(failure);
+                }
+            }, "external-psd-readiness-fixture-writer");
+            writer.start();
+            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
+                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    root, before, 5000L, () -> false,
+                    millis -> Thread.sleep(Math.min(millis, 5L)));
+            writer.join(2000L);
+            if (writerFailure.get() != null) throw new AssertionError(
+                "segmented session writer failed", writerFailure.get());
+            assertTrue(Arrays.equals(valid, snapshot.bytes()),
+                "pre-created segmented file returns the complete immutable read snapshot");
+            assertTrue(snapshot.observation().structure().complete(),
+                "stable session snapshot includes complete PSD structure evidence");
+
+            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot);
+            final byte[] renamed = ExternalPsdEditHostProbe.mutateLayerName(snapshot.bytes(), 1)
+                .orElseThrow();
+            Files.write(snapshot.path(), renamed);
+            expectSessionReadinessFailure(
+                () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot),
+                "write precondition rejects a changed session snapshot");
+        } finally {
+            deleteTree(root);
+        }
+
+        final Path truncatedRoot = Files.createTempDirectory("external PSD truncated readiness ");
+        try {
+            final Path directory = Files.createDirectory(
+                truncatedRoot.resolve("turboism-psd-truncated"));
+            final byte[] truncated = Arrays.copyOf(valid, valid.length - 1);
+            assertTrue(!ExternalPsdEditHostProbe.layerNameRanges(truncated).isEmpty(),
+                "truncated fixture still has a mutable layer name candidate");
+            Files.write(directory.resolve("external-edit.psd"), truncated);
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                        truncatedRoot, Set.of(), 30L, () -> false, millis -> Thread.sleep(1L)),
+                    "truncated PSD cannot pass merely because a layer name is readable");
+            assertContains(failure.getMessage(), "composite",
+                "truncated PSD reports the incomplete composite section");
+        } finally {
+            deleteTree(truncatedRoot);
+        }
+
+        final Path ambiguousRoot = Files.createTempDirectory("external PSD ambiguous readiness ");
+        try {
+            Files.createDirectory(ambiguousRoot.resolve("turboism-psd-first"));
+            Files.createDirectory(ambiguousRoot.resolve("turboism-psd-second"));
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                        ambiguousRoot, Set.of(), 1000L, () -> false, millis -> {
+                            throw new AssertionError("ambiguous candidates must fail immediately");
+                        }), "multiple new candidate directories are rejected");
+            assertContains(failure.getMessage(), "ambiguous",
+                "candidate ambiguity is explicit");
+        } finally {
+            deleteTree(ambiguousRoot);
+        }
+
+        final Path oldRoot = Files.createTempDirectory("external PSD old-only readiness ");
+        try {
+            final Path old = Files.createDirectory(oldRoot.resolve("turboism-psd-old"));
+            Files.write(old.resolve("external-edit.psd"), valid);
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                        oldRoot, Set.of(old.toAbsolutePath().normalize()), 20L,
+                        () -> false, millis -> Thread.sleep(1L)),
+                    "an old session directory is never reused");
+            assertContains(failure.getMessage(), "no new PSD candidate",
+                "old-only candidate failure explains the before/after binding");
+        } finally {
+            deleteTree(oldRoot);
+        }
+
+        final Path symlinkRoot = Files.createTempDirectory("external PSD symlink readiness ");
+        final Path outside = Files.createTempDirectory("external PSD symlink outside ");
+        try {
+            Files.createSymbolicLink(symlinkRoot.resolve("turboism-psd-link"), outside);
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                        symlinkRoot, Set.of(), 1000L, () -> false, millis -> {
+                            throw new AssertionError("symlink candidate must fail immediately");
+                        }), "candidate symlink is rejected before file access");
+            assertContains(failure.getMessage(), "symlink",
+                "candidate symlink rejection is explicit");
+        } finally {
+            deleteTree(symlinkRoot);
+            deleteTree(outside);
+        }
+
+        final Path replacementRoot = Files.createTempDirectory("external PSD replacement readiness ");
+        try {
+            final Path directory = Files.createDirectory(
+                replacementRoot.resolve("turboism-psd-replaced"));
+            final Path file = directory.resolve("external-edit.psd");
+            Files.write(file, valid);
+            final AtomicInteger sleeps = new AtomicInteger();
+            final Path replacement = replacementRoot.resolve("replacement.psd");
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                        replacementRoot, Set.of(), 1000L, () -> false, millis -> {
+                            if (sleeps.incrementAndGet() == 1) {
+                                try {
+                                    Files.write(replacement, valid);
+                                    Files.move(replacement, file,
+                                        StandardCopyOption.REPLACE_EXISTING);
+                                } catch (IOException moveFailure) {
+                                    throw new AssertionError("replacement fixture failed", moveFailure);
+                                }
+                            }
+                            Thread.sleep(1L);
+                        }), "candidate file replacement is rejected after binding");
+            assertContains(failure.getMessage(), "replaced",
+                "file identity replacement is explicit");
+        } finally {
+            deleteTree(replacementRoot);
+        }
+
+        final Path stoppedRoot = Files.createTempDirectory("external PSD stopped readiness ");
+        try {
+            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+                expectSessionReadinessFailure(
+                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                        stoppedRoot, Set.of(), 1000L, () -> true, millis -> {
+                            throw new AssertionError("stopped wait must not sleep");
+                        }), "stopped wait fails closed");
+            assertContains(failure.getMessage(), "stopped",
+                "stopped readiness is diagnosed rather than written");
+        } finally {
+            deleteTree(stoppedRoot);
+        }
+    }
+
+    private static int compositeOffset(final byte[] psd) {
+        final ByteBuffer buffer = ByteBuffer.wrap(psd).order(ByteOrder.BIG_ENDIAN);
+        buffer.position(26);
+        buffer.position(buffer.position() + 4 + buffer.getInt(buffer.position()));
+        buffer.position(buffer.position() + 4 + buffer.getInt(buffer.position()));
+        buffer.position(buffer.position() + 4 + buffer.getInt(buffer.position()));
+        return buffer.position();
+    }
+
+    private static ExternalPsdEditHostProbe.SessionFileReadinessException
+        expectSessionReadinessFailure(final ThrowingAction action, final String message)
+        throws Exception {
+        try {
+            action.run();
+            throw new AssertionError(message);
+        } catch (ExternalPsdEditHostProbe.SessionFileReadinessException expected) {
+            return expected;
         }
     }
 

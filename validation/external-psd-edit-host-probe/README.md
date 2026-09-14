@@ -13,8 +13,10 @@ GUI phase has no pixel-parser dependency.
 3. Bind that handle to one newly-created runtime candidate under `java.io.tmpdir` by the
    before/after candidate-set difference. Zero or multiple new candidates, missing files,
    path escapes, and symlinks are rejected; for these native pipeline exports modification
-   time is only recorded as marker diagnostics, never used to choose a result. (The separate
-   GUI session path retains its existing marker-based discovery.)
+   time is only recorded as marker diagnostics, never used to choose a result. The GUI
+   session path takes its own candidate snapshot immediately before the menu click, then
+   accepts only the one new directory and a complete, repeatedly identical PSD read; it
+   never selects by maximum mtime.
 4. With `EXTERNAL_PSD_PERSIST=1`, perform a second independent native export before any
    external edit. Decode both target-layer RGB payloads and require equal bounds, dimensions,
    RGB channel IDs, and content fingerprint.
@@ -135,6 +137,20 @@ the target must start with `isReplaced=false`, and the same binding, generation,
 must remain unchanged while `isReplaced` changes `false→true`. A binding/generation/raw change,
 or initial `isReplaced=true`, is stale/blocked evidence rather than success. This does not claim
 content-difference or repeated-save persistence coverage.
+
+Before the GUI mutation, the probe records `gui.session.read.attempt.N.*` for every bounded
+candidate/file-read state. Each readable attempt records file size, mtime, full-file SHA-256,
+and the structural section/offset/reason. The gate accepts only the reviewed PSD v1 RGB 8-bit
+raw/PackBits forms. A PSD is not ready merely because it is a regular file or has a mutable
+layer name: header, declared sections, layer records, channel data,
+PackBits/raw boundaries, and composite data must all be complete. Three consecutive reads
+must agree on file identity, size, mtime, full bytes, and structure. Any in-place write resets
+the stability window; a replacement identity, symlink, ambiguous/new-directory change, or
+timeout is rejected. Immediately before the test mutation, the same file is read again and
+the complete byte snapshot must still match; otherwise no write occurs. This is only an
+export-file readiness gate and does not claim that the production session has subscribed to
+save notifications; the later strict `false -> true` target observation remains the GUI pass
+condition.
 
 ## Validation-only decoder
 

@@ -54,9 +54,11 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
@@ -105,6 +107,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         "EXTERNAL_PSD_EDIT_GUI_TRIGGER_ARMED";
     private static final long GUI_READY_TRIGGER_TIMEOUT_MILLIS = 300_000L;
     private static final long GUI_READY_TRIGGER_POLL_MILLIS = 250L;
+    private static final long GUI_SESSION_FILE_POLL_MILLIS = 250L;
+    private static final int GUI_SESSION_FILE_STABLE_READS = 3;
+    private static final int SESSION_DIAGNOSTIC_LIMIT = 512;
 
     private PluginContext context;
     private volatile boolean stopped;
@@ -485,7 +490,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             throw new Blocked("fixture target starts with isReplaced=false",
                 "gui.before.rawReplaced=true; no available new replacement observation");
         }
-        final Path marker = tempMarker();
+        final TempCandidateSnapshot sessionCandidatesBefore = snapshotTempCandidates();
 
         final Set<String> labels = new LinkedHashSet<>(List.of(result.getProperty("gui.menuLabel"),
             "Edit PSD Externally",
@@ -499,11 +504,25 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("gui.menuPresent", "true");
         result.setProperty("gui.itemClicked", "true");
 
-        final Path sessionFile = awaitSessionTempFile(marker, 90);
-        result.setProperty("gui.sessionFile", sessionFile.getParent().getFileName().toString());
-        final byte[] mutated = mutateLayerName(Files.readAllBytes(sessionFile), 900)
+        final StablePsdSnapshot sessionSnapshot;
+        try {
+            sessionSnapshot = awaitSessionTempFile(sessionCandidatesBefore, 90, result);
+        } catch (SessionFileReadinessException failure) {
+            throw new Blocked("a unique, complete and stable new session PSD",
+                failure.getMessage());
+        }
+        result.setProperty("gui.sessionFile",
+            sessionSnapshot.path().getParent().getFileName().toString());
+        final StablePsdSnapshot writeSnapshot;
+        try {
+            writeSnapshot = confirmSessionFileForWrite(sessionSnapshot, result);
+        } catch (SessionFileReadinessException failure) {
+            throw new Blocked("the validated session PSD remains unchanged before mutation",
+                failure.getMessage());
+        }
+        final byte[] mutated = mutateLayerName(writeSnapshot.bytes(), 900)
             .orElseThrow(() -> new IllegalStateException("session PSD has no mutable layer name"));
-        Files.write(sessionFile, mutated);
+        Files.write(writeSnapshot.path(), mutated);
 
         final AutoImportObservation observation = awaitAutoImport(target, before, 90);
         result.setProperty("gui.autoImportApplied", Boolean.toString(observation.applied()));
@@ -811,14 +830,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     /** Captures the direct, task-scoped runtime allocation set before an export. */
     private TempCandidateSnapshot snapshotTempCandidates() throws Exception {
-        final Path tmp = tempRoot();
+        return snapshotTempCandidates(tempRoot());
+    }
+
+    /** Captures direct candidate directories without following any path component. */
+    private static TempCandidateSnapshot snapshotTempCandidates(final Path temporaryRoot)
+        throws Exception {
+        final Path tmp = requireOwnedDirectory(temporaryRoot, "temporary root");
         final Set<Path> directories = new LinkedHashSet<>();
         try (Stream<Path> stream = Files.list(tmp)) {
             for (final Path candidate : stream.toList()) {
                 final String name = candidate.getFileName().toString();
                 if (!name.startsWith(TEMP_DIRECTORY_PREFIX)) continue;
-                if (Files.isSymbolicLink(candidate)
-                    || !Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)) {
+                if (Files.isSymbolicLink(candidate)) {
+                    throw new IllegalStateException(
+                        "temporary PSD candidate is a symlink: " + candidate);
+                }
+                if (!Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)) {
                     throw new IllegalStateException(
                         "temporary PSD candidate is not a real directory: " + candidate);
                 }
@@ -874,8 +902,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             throw new IllegalStateException("temporary PSD candidate escaped its temp root: "
                 + candidate);
         }
-        if (Files.isSymbolicLink(candidate)
-            || !Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(candidate)) {
+            throw new IllegalStateException("temporary PSD candidate is a symlink: " + candidate);
+        }
+        if (!Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalStateException("temporary PSD candidate is not a real directory: "
                 + candidate);
         }
@@ -901,14 +931,6 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static long modified(final Path path) {
         try { return Files.getLastModifiedTime(path).toMillis(); }
         catch (Exception error) { return 0; }
-    }
-
-    /** GUI-only session discovery; persist exports use candidate-set binding above. */
-    private static boolean isNewerThan(final Path path, final Path marker) {
-        try {
-            return Files.getLastModifiedTime(path)
-                .compareTo(Files.getLastModifiedTime(marker)) > 0;
-        } catch (Exception error) { return false; }
     }
 
     private PsdExportResult export(final Properties result, final RawImageId raw) throws Exception {
@@ -1420,6 +1442,326 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return names;
     }
 
+    /**
+     * Checks PSD section and channel boundaries without decoding or comparing any pixel sample.
+     * This is the GUI session-file readiness gate; it deliberately supports only the observed
+     * RGB PSD forms (8-bit raw or PackBits/RLE) and fails closed for other formats.
+     */
+    static PsdStructureValidation inspectPsdStructure(final byte[] psd) {
+        if (psd == null) return PsdStructureValidation.invalid(
+            "file", 0, "PSD input is null");
+        try {
+            final StructureCursor file = new StructureCursor(psd, 0, psd.length);
+            file.require(26, "header");
+            if (!file.ascii(4, "header signature").equals("8BPS")) {
+                throw structureInvalid("header", 0, "unsupported PSD signature");
+            }
+            final int version = file.u16("header version");
+            if (version != 1) {
+                throw structureInvalid("header", 4,
+                    "unsupported PSD version " + version);
+            }
+            file.skip(6, "header reserved bytes");
+            final int channels = file.u16("header channel count");
+            final int height = file.u32("header height");
+            final int width = file.u32("header width");
+            final int depth = file.u16("header depth");
+            final int colorMode = file.u16("header color mode");
+            if (channels <= 0 || channels > 64) {
+                throw structureInvalid("header", 12,
+                    "unsupported channel count " + channels);
+            }
+            if (width <= 0 || height <= 0) {
+                throw structureInvalid("header", 14,
+                    "non-positive canvas " + width + "x" + height);
+            }
+            if (depth != 8) {
+                throw structureInvalid("header", 22,
+                    "unsupported bit depth " + depth + "; expected 8");
+            }
+            if (colorMode != 3) {
+                throw structureInvalid("header", 24,
+                    "unsupported color mode " + colorMode + "; expected RGB");
+            }
+
+            readStructureSection(file, "color mode data");
+            // The section boundary is authoritative; its payload is not used for target choice.
+            final StructureSection resources = readStructureSection(file,
+                "image resources");
+            validateImageResourcesShape(new StructureCursor(psd, resources.start(),
+                resources.end()), "image resources");
+
+            final StructureSection layerMask = readStructureSection(file,
+                "layer and mask");
+            final StructureCursor layerMaskCursor = new StructureCursor(
+                psd, layerMask.start(), layerMask.end());
+            final StructureSection layerInfo = readStructureSection(layerMaskCursor,
+                "layer info");
+            final StructureCursor layerInfoCursor = new StructureCursor(
+                psd, layerInfo.start(), layerInfo.end());
+            final int encodedLayerCount = layerInfoCursor.s16("layer count");
+            final int layerCount = Math.abs(encodedLayerCount);
+            final List<LayerShape> layers = new ArrayList<>(layerCount);
+            for (int layer = 0; layer < layerCount; layer++) {
+                final int top = layerInfoCursor.s32("layer " + layer + " top");
+                final int left = layerInfoCursor.s32("layer " + layer + " left");
+                final int bottom = layerInfoCursor.s32("layer " + layer + " bottom");
+                final int right = layerInfoCursor.s32("layer " + layer + " right");
+                if (top < 0 || left < 0 || bottom <= top || right <= left
+                    || bottom > height || right > width) {
+                    throw structureInvalid("layer info", layerInfoCursor.position(),
+                        "layer " + layer + " has invalid bounds");
+                }
+                final int channelCount = layerInfoCursor.u16(
+                    "layer " + layer + " channel count");
+                if (channelCount > 64) {
+                    throw structureInvalid("layer info", layerInfoCursor.position(),
+                        "layer " + layer + " has unsupported channel count " + channelCount);
+                }
+                final List<Integer> channelLengths = new ArrayList<>(channelCount);
+                for (int channel = 0; channel < channelCount; channel++) {
+                    layerInfoCursor.s16("layer " + layer + " channel " + channel + " id");
+                    final int length = layerInfoCursor.u32(
+                        "layer " + layer + " channel " + channel + " length");
+                    if (length < 2) {
+                        throw structureInvalid("layer info", layerInfoCursor.position(),
+                            "layer " + layer + " channel " + channel
+                                + " is shorter than compression field");
+                    }
+                    channelLengths.add(length);
+                }
+                final String signature = layerInfoCursor.ascii(4,
+                    "layer " + layer + " blend signature");
+                if (!signature.equals("8BIM") && !signature.equals("8B64")) {
+                    throw structureInvalid("layer info", layerInfoCursor.position() - 4,
+                        "layer " + layer + " has unsupported blend signature " + signature);
+                }
+                layerInfoCursor.skip(4, "layer " + layer + " blend key");
+                layerInfoCursor.skip(4, "layer " + layer + " blend attributes");
+                final int extraLength = layerInfoCursor.u32(
+                    "layer " + layer + " extra data length");
+                final int extraStart = layerInfoCursor.position();
+                final int extraEnd = layerInfoCursor.endFor(extraLength,
+                    "layer " + layer + " extra data");
+                validateLayerExtraShape(new StructureCursor(psd, extraStart, extraEnd),
+                    "layer " + layer + " extra data");
+                layerInfoCursor.position(extraEnd);
+                layers.add(new LayerShape(top, left, bottom, right, channelLengths));
+            }
+            for (int layer = 0; layer < layers.size(); layer++) {
+                final LayerShape shape = layers.get(layer);
+                final int layerWidth = shape.right() - shape.left();
+                final int layerHeight = shape.bottom() - shape.top();
+                for (int channel = 0; channel < shape.channelLengths().size(); channel++) {
+                    final int length = shape.channelLengths().get(channel);
+                    final int start = layerInfoCursor.position();
+                    final int end = layerInfoCursor.endFor(length,
+                        "layer " + layer + " channel " + channel + " data");
+                    validateChannelShape(new StructureCursor(psd, start, end), layerWidth,
+                        layerHeight, depth, "layer " + layer + " channel " + channel);
+                    layerInfoCursor.position(end);
+                }
+            }
+            if (layerInfoCursor.remaining() != 0) {
+                throw structureInvalid("layer info", layerInfoCursor.position(),
+                    "unread layer-info bytes " + layerInfoCursor.remaining());
+            }
+            layerMaskCursor.position(layerInfo.end());
+            final int globalMaskLength = layerMaskCursor.u32("global layer mask length");
+            layerMaskCursor.skip(globalMaskLength, "global layer mask data");
+            validateAdditionalInfoShape(layerMaskCursor, "global layer additional info");
+            if (layerMaskCursor.remaining() != 0) {
+                throw structureInvalid("layer and mask", layerMaskCursor.position(),
+                    "unread layer/mask bytes " + layerMaskCursor.remaining());
+            }
+
+            validateCompositeShape(file, width, height, depth, channels);
+            if (file.remaining() != 0) {
+                throw structureInvalid("composite", file.position(),
+                    "trailing bytes after composite image " + file.remaining());
+            }
+            return PsdStructureValidation.valid(psd.length, layerCount, file.position());
+        } catch (StructureFailure failure) {
+            return PsdStructureValidation.invalid(failure.section(), failure.offset(),
+                failure.reason());
+        } catch (RuntimeException failure) {
+            return PsdStructureValidation.invalid("file", -1, failure.toString());
+        }
+    }
+
+    private static StructureSection readStructureSection(final StructureCursor cursor,
+        final String section) {
+        final int length = cursor.u32(section + " length");
+        final int start = cursor.position();
+        final int end = cursor.endFor(length, section);
+        cursor.position(end);
+        return new StructureSection(start, end);
+    }
+
+    private static void validateImageResourcesShape(final StructureCursor resources,
+        final String section) {
+        while (resources.remaining() > 0) {
+            if (resources.remaining() < 12) {
+                throw structureInvalid(section, resources.position(),
+                    "truncated resource header");
+            }
+            final String signature = resources.ascii(4, section + " signature");
+            if (!signature.equals("8BIM") && !signature.equals("MeSa")) {
+                throw structureInvalid(section, resources.position() - 4,
+                    "unsupported resource signature " + signature);
+            }
+            resources.skip(2, section + " resource id");
+            final int nameLength = resources.u8(section + " resource name length");
+            final int paddedNameLength = (nameLength + 1 + 1) & ~1;
+            resources.skip(paddedNameLength - 1, section + " resource name");
+            final int dataLength = resources.u32(section + " resource data length");
+            resources.skip(dataLength, section + " resource data");
+            if ((dataLength & 1) != 0) resources.skip(1, section + " resource padding");
+        }
+    }
+
+    private static void validateLayerExtraShape(final StructureCursor extra,
+        final String section) {
+        final int maskLength = extra.u32(section + " mask length");
+        extra.skip(maskLength, section + " mask");
+        final int blendingRangesLength = extra.u32(section + " blending ranges length");
+        extra.skip(blendingRangesLength, section + " blending ranges");
+        final int nameLength = extra.u8(section + " name length");
+        final int paddedNameLength = (nameLength + 1 + 3) & ~3;
+        extra.skip(paddedNameLength - 1, section + " name");
+        validateAdditionalInfoShape(extra, section + " additional info");
+        if (extra.remaining() != 0) {
+            throw structureInvalid(section, extra.position(),
+                "unread layer-extra bytes " + extra.remaining());
+        }
+    }
+
+    private static void validateAdditionalInfoShape(final StructureCursor section,
+        final String label) {
+        while (section.remaining() > 0) {
+            if (section.remaining() < 12) {
+                throw structureInvalid(label, section.position(),
+                    "truncated additional-info header");
+            }
+            final String signature = section.ascii(4, label + " signature");
+            if (!signature.equals("8BIM") && !signature.equals("8B64")) {
+                throw structureInvalid(label, section.position() - 4,
+                    "unsupported additional-info signature " + signature);
+            }
+            section.skip(4, label + " key");
+            final int length = section.u32(label + " block length");
+            section.skip(length, label + " block");
+        }
+    }
+
+    private static void validateChannelShape(final StructureCursor channel, final int width,
+        final int height, final int depth, final String section) {
+        final int compression = channel.u16(section + " compression");
+        if (compression == 0) {
+            final long samples = (long) width * height * (depth / 8);
+            if (samples > Integer.MAX_VALUE) {
+                throw structureInvalid(section, channel.position(), "raw channel is too large");
+            }
+            channel.require((int) samples, section + " raw samples");
+            if (channel.remaining() != 0) {
+                throw structureInvalid(section, channel.position(),
+                    "raw channel has unread bytes " + channel.remaining());
+            }
+            return;
+        }
+        if (compression != 1) {
+            throw structureInvalid(section, channel.position() - 2,
+                "unsupported compression " + compression + "; expected raw or RLE1");
+        }
+        validateRleShape(channel, width, height, section);
+    }
+
+    private static void validateCompositeShape(final StructureCursor file, final int width,
+        final int height, final int depth, final int channels) {
+        final String section = "composite";
+        final int compression = file.u16(section + " compression");
+        if (compression == 0) {
+            final long samples = (long) width * height * channels * (depth / 8);
+            if (samples > Integer.MAX_VALUE) {
+                throw structureInvalid(section, file.position(), "raw composite is too large");
+            }
+            file.require((int) samples, section + " raw samples");
+            if (file.remaining() != 0) {
+                throw structureInvalid(section, file.position(),
+                    "raw composite has unread bytes " + file.remaining());
+            }
+            return;
+        }
+        if (compression != 1) {
+            throw structureInvalid(section, file.position() - 2,
+                "unsupported compression " + compression + "; expected raw or RLE1");
+        }
+        validateRleShape(file, width, channels * height, section);
+    }
+
+    private static void validateRleShape(final StructureCursor channel, final int width,
+        final int rows, final String section) {
+        if (rows <= 0) throw structureInvalid(section, channel.position(), "no RLE rows");
+        if (rows > Integer.MAX_VALUE / 2) {
+            throw structureInvalid(section, channel.position(), "RLE row table is too large");
+        }
+        channel.require(rows * 2, section + " row-length table");
+        final int[] lengths = new int[rows];
+        for (int row = 0; row < rows; row++) lengths[row] = channel.u16(
+            section + " row " + row + " length");
+        for (int row = 0; row < rows; row++) {
+            final int start = channel.position();
+            final int end = channel.endFor(lengths[row], section + " row " + row + " data");
+            validatePackBitsRow(channel.bytes(), start, end, width,
+                section + " row " + row);
+            channel.position(end);
+        }
+        if (channel.remaining() != 0) {
+            throw structureInvalid(section, channel.position(),
+                "unread RLE bytes " + channel.remaining());
+        }
+    }
+
+    private static void validatePackBitsRow(final byte[] bytes, final int start,
+        final int end, final int expectedSamples, final String section) {
+        int position = start;
+        int decoded = 0;
+        while (position < end) {
+            final int control = bytes[position++] & 0xff;
+            if (control == 0x80) continue;
+            final int count;
+            if (control <= 0x7f) {
+                count = control + 1;
+                if (count > end - position) {
+                    throw structureInvalid(section, position,
+                        "literal packet overruns row");
+                }
+                position += count;
+            } else {
+                count = 257 - control;
+                if (position >= end) {
+                    throw structureInvalid(section, position,
+                        "repeat packet has no sample");
+                }
+                position++;
+            }
+            if (count > expectedSamples - decoded) {
+                throw structureInvalid(section, position,
+                    "packet decodes beyond row width");
+            }
+            decoded += count;
+        }
+        if (decoded != expectedSamples) {
+            throw structureInvalid(section, end,
+                "decoded " + decoded + " samples; expected " + expectedSamples);
+        }
+    }
+
+    private static StructureFailure structureInvalid(final String section, final int offset,
+        final String reason) {
+        return new StructureFailure(section, offset, reason);
+    }
+
     /** SHA-256 over the PSD image-data section (everything after the layer-and-mask record). */
     static String imageDataSha256(final byte[] psd) throws Exception {
         final ByteBuffer buffer = ByteBuffer.wrap(psd).order(ByteOrder.BIG_ENDIAN);
@@ -1627,6 +1969,218 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         private TempCandidateSnapshot {
             root = root.toAbsolutePath().normalize();
             directories = Set.copyOf(directories);
+        }
+    }
+
+    @FunctionalInterface
+    private interface CandidateSnapshotSupplier {
+        TempCandidateSnapshot snapshot() throws Exception;
+    }
+
+    static final class SessionFileReadinessException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        SessionFileReadinessException(final String message) { super(message); }
+        SessionFileReadinessException(final String message, final Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    static record StablePsdSnapshot(Path path, byte[] bytes, FileObservation observation) {
+        StablePsdSnapshot {
+            Objects.requireNonNull(path, "stable PSD path");
+            Objects.requireNonNull(bytes, "stable PSD bytes");
+            Objects.requireNonNull(observation, "stable PSD observation");
+            bytes = bytes.clone();
+        }
+
+        @Override public byte[] bytes() { return bytes.clone(); }
+    }
+
+    static record FileObservation(FileIdentity identity, String sha256,
+        PsdStructureValidation structure) {
+        FileObservation {
+            Objects.requireNonNull(identity, "file identity");
+            sha256 = sha256 == null ? "" : sha256;
+            Objects.requireNonNull(structure, "PSD structure observation");
+        }
+    }
+
+    private record FileIdentity(Path realPath, long size, long modifiedMillis, Object fileKey) {
+        FileIdentity {
+            Objects.requireNonNull(realPath, "real path");
+            Objects.requireNonNull(fileKey, "file key");
+        }
+
+        String diagnostic() {
+            return "path=" + realPath + " size=" + size + " mtime=" + modifiedMillis
+                + " fileKey=" + safeDiagnostic(String.valueOf(fileKey));
+        }
+    }
+
+    private record SessionFileRead(String state, byte[] bytes, FileObservation observation,
+        String diagnostic) {
+        SessionFileRead {
+            state = state == null ? "UNKNOWN" : state;
+            bytes = bytes == null ? null : bytes.clone();
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        @Override public byte[] bytes() { return bytes == null ? null : bytes.clone(); }
+
+        boolean complete() { return "COMPLETE".equals(state); }
+
+        static SessionFileRead failed(final String state, final String diagnostic) {
+            return new SessionFileRead(state, null, null, diagnostic);
+        }
+
+        static SessionFileRead replaced(final FileIdentity identity, final String diagnostic) {
+            final PsdStructureValidation structure = PsdStructureValidation.invalid(
+                "file", -1, "file identity changed");
+            return new SessionFileRead("REPLACED", null,
+                identity == null ? null : new FileObservation(identity, "", structure),
+                diagnostic);
+        }
+
+        static SessionFileRead replaced(final FileObservation observation,
+            final String diagnostic) {
+            return new SessionFileRead("REPLACED", null, observation, diagnostic);
+        }
+    }
+
+    static record PsdStructureValidation(boolean complete, int bytes, int layerCount,
+        int compositeEnd, String section, int offset, String reason) {
+        PsdStructureValidation {
+            section = section == null ? "file" : section;
+            reason = reason == null ? "" : reason;
+        }
+
+        static PsdStructureValidation valid(final int bytes, final int layerCount,
+            final int compositeEnd) {
+            return new PsdStructureValidation(true, bytes, layerCount, compositeEnd,
+                "complete", -1, "complete PSD section/channel/composite boundaries");
+        }
+
+        static PsdStructureValidation invalid(final String section, final int offset,
+            final String reason) {
+            return new PsdStructureValidation(false, -1, -1, -1, section, offset, reason);
+        }
+    }
+
+    private record StructureSection(int start, int end) {
+    }
+
+    private record LayerShape(int top, int left, int bottom, int right,
+        List<Integer> channelLengths) {
+        LayerShape {
+            channelLengths = List.copyOf(channelLengths);
+        }
+    }
+
+    private static final class StructureFailure extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        private final String section;
+        private final int offset;
+        private final String reason;
+
+        StructureFailure(final String section, final int offset, final String reason) {
+            super(section + " at offset " + offset + ": " + reason);
+            this.section = section;
+            this.offset = offset;
+            this.reason = reason;
+        }
+
+        String section() { return section; }
+        int offset() { return offset; }
+        String reason() { return reason; }
+    }
+
+    private static final class StructureCursor {
+        private final byte[] bytes;
+        private final int limit;
+        private int position;
+
+        StructureCursor(final byte[] bytes, final int start, final int limit) {
+            if (bytes == null || start < 0 || limit < start || limit > bytes.length) {
+                throw new IllegalArgumentException("invalid PSD structure cursor");
+            }
+            this.bytes = bytes;
+            this.position = start;
+            this.limit = limit;
+        }
+
+        byte[] bytes() { return bytes; }
+        int position() { return position; }
+        int remaining() { return limit - position; }
+
+        void position(final int next) {
+            if (next < 0 || next > limit) {
+                throw structureInvalid("file", position,
+                    "cursor position escaped section: " + next);
+            }
+            position = next;
+        }
+
+        void require(final int count, final String section) {
+            if (count < 0 || count > remaining()) {
+                throw structureInvalid(section, position,
+                    "truncated; need " + count + " bytes, remaining " + remaining());
+            }
+        }
+
+        int endFor(final int length, final String section) {
+            if (length < 0 || length > remaining()) {
+                throw structureInvalid(section, position,
+                    "declared length " + length + " exceeds remaining " + remaining());
+            }
+            return position + length;
+        }
+
+        void skip(final int count, final String section) {
+            require(count, section);
+            position += count;
+        }
+
+        int u8(final String section) {
+            require(1, section);
+            return bytes[position++] & 0xff;
+        }
+
+        int u16(final String section) {
+            require(2, section);
+            final int value = ((bytes[position] & 0xff) << 8)
+                | (bytes[position + 1] & 0xff);
+            position += 2;
+            return value;
+        }
+
+        int s16(final String section) { return (short) u16(section); }
+
+        int s32(final String section) {
+            require(4, section);
+            final int value = ((bytes[position] & 0xff) << 24)
+                | ((bytes[position + 1] & 0xff) << 16)
+                | ((bytes[position + 2] & 0xff) << 8)
+                | (bytes[position + 3] & 0xff);
+            position += 4;
+            return value;
+        }
+
+        int u32(final String section) {
+            final int value = s32(section);
+            if (value < 0) {
+                throw structureInvalid(section, position - 4,
+                    "unsigned 32-bit length exceeds supported bounds");
+            }
+            return value;
+        }
+
+        String ascii(final int length, final String section) {
+            require(length, section);
+            final String value = new String(bytes, position, length,
+                StandardCharsets.US_ASCII);
+            position += length;
+            return value;
         }
     }
 
@@ -3755,24 +4309,444 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         SwingUtilities.invokeAndWait(item::doClick);
     }
 
-    /** Polls the task temp root for a turboism-psd-* session created after {@code marker}. */
-    private Path awaitSessionTempFile(final Path marker, final int timeoutSeconds)
-        throws Exception {
-        final long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
-        while (System.currentTimeMillis() < deadline && !stopped) {
-            try (Stream<Path> stream = Files.list(marker.getParent())) {
-                final Optional<Path> newest = stream
-                    .filter(path -> path.getFileName().toString().startsWith("turboism-psd-"))
-                    .filter(path -> isNewerThan(path, marker))
-                    .map(path -> path.resolve("external-edit.psd"))
-                    .filter(Files::isRegularFile)
-                    .max(Comparator.comparing(ExternalPsdEditHostProbe::modified));
-                if (newest.isPresent()) return newest.get().toRealPath(LinkOption.NOFOLLOW_LINKS);
-            }
-            Thread.sleep(500);
+    /**
+     * Binds the GUI session to exactly one directory created after the click and waits for a
+     * complete, repeatedly identical PSD snapshot.  The file's mtime is diagnostic only; it is
+     * never used to choose a candidate.
+     */
+    private StablePsdSnapshot awaitSessionTempFile(final TempCandidateSnapshot before,
+        final int timeoutSeconds, final Properties result) throws Exception {
+        if (timeoutSeconds <= 0) {
+            throw new IllegalArgumentException("session PSD timeout must be positive");
         }
-        throw new IllegalStateException(
-            "plugin session temp file did not appear within " + timeoutSeconds + "s");
+        return awaitStableSessionFile(before, timeoutSeconds * 1000L, result,
+            () -> stopped, this::snapshotTempCandidates, Thread::sleep);
+    }
+
+    /** Offline seam exercising the exact production candidate/readiness helper on real files. */
+    static StablePsdSnapshot awaitSessionFileForTest(final Path temporaryRoot,
+        final Set<Path> beforeDirectories, final long timeoutMillis,
+        final BooleanSupplier stopped, final TriggerSleeper sleeper) throws Exception {
+        final Path root = requireOwnedDirectory(temporaryRoot, "temporary root");
+        if (beforeDirectories == null) {
+            throw new IllegalArgumentException("before candidate directories are required");
+        }
+        final Set<Path> before = new LinkedHashSet<>();
+        for (final Path directory : beforeDirectories) {
+            if (directory == null) throw new IllegalArgumentException("null before candidate");
+            before.add(directory.toAbsolutePath().normalize());
+        }
+        return awaitStableSessionFile(new TempCandidateSnapshot(root, before), timeoutMillis,
+            null, stopped, () -> snapshotTempCandidates(root), sleeper);
+    }
+
+    static StablePsdSnapshot confirmSessionFileForWriteForTest(
+        final StablePsdSnapshot snapshot) throws Exception {
+        return confirmSessionFileForWrite(snapshot, null);
+    }
+
+    private static StablePsdSnapshot confirmSessionFileForWrite(final StablePsdSnapshot snapshot,
+        final Properties result) throws Exception {
+        if (snapshot == null || snapshot.path() == null || snapshot.observation() == null) {
+            throw new SessionFileReadinessException("write precondition has no validated session PSD");
+        }
+        final SessionFileRead read = readSessionFile(snapshot.path(),
+            snapshot.observation().identity());
+        recordSessionWriteCheck(result, read);
+        if (!read.complete() || read.bytes() == null
+            || !Arrays.equals(snapshot.bytes(), read.bytes())
+            || !sameStableObservation(snapshot.observation(), read.observation())) {
+            throw new SessionFileReadinessException(
+                "validated session PSD changed before mutation: " + read.diagnostic());
+        }
+        return new StablePsdSnapshot(snapshot.path(), read.bytes(), read.observation());
+    }
+
+    private static StablePsdSnapshot awaitStableSessionFile(
+        final TempCandidateSnapshot before, final long timeoutMillis, final Properties result,
+        final BooleanSupplier stopped, final CandidateSnapshotSupplier snapshots,
+        final TriggerSleeper sleeper) throws Exception {
+        Objects.requireNonNull(before, "before candidate snapshot");
+        Objects.requireNonNull(stopped, "stopped");
+        Objects.requireNonNull(snapshots, "candidate snapshot supplier");
+        Objects.requireNonNull(sleeper, "session PSD sleeper");
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new SessionFileReadinessException(
+                "session PSD readiness must run off the EDT");
+        }
+        if (timeoutMillis <= 0) {
+            throw new SessionFileReadinessException(
+                "session PSD readiness timeout must be positive");
+        }
+
+        final long deadline = System.nanoTime()
+            + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        Path boundDirectory = null;
+        Path boundFile = null;
+        FileIdentity boundIdentity = null;
+        FileObservation stableObservation = null;
+        byte[] stableBytes = null;
+        int stableReads = 0;
+        int attempt = 0;
+        SessionFileRead lastRead = null;
+        String lastState = "NOT_STARTED";
+        String lastDiagnostic = "session PSD candidate wait has not started";
+
+        while (!stopped.getAsBoolean() && System.nanoTime() < deadline) {
+            attempt++;
+            final TempCandidateSnapshot after;
+            try {
+                after = snapshots.snapshot();
+            } catch (Exception failure) {
+                lastState = "REJECTED";
+                lastDiagnostic = "candidate snapshot failed: " + failure;
+                recordSessionAttempt(result, attempt, null, Set.of(), null,
+                    lastState, null, stableReads, lastDiagnostic);
+                throw new SessionFileReadinessException(lastDiagnostic, failure);
+            }
+            if (!before.root().equals(after.root())) {
+                lastState = "REJECTED";
+                lastDiagnostic = "temporary root changed from " + before.root()
+                    + " to " + after.root();
+                recordSessionAttempt(result, attempt, after, Set.of(), boundDirectory,
+                    lastState, null, stableReads, lastDiagnostic);
+                throw new SessionFileReadinessException(lastDiagnostic);
+            }
+
+            final Set<Path> added = new LinkedHashSet<>(after.directories());
+            added.removeAll(before.directories());
+            if (boundDirectory == null) {
+                if (added.isEmpty()) {
+                    lastState = "WAITING_NO_NEW_CANDIDATE";
+                    lastDiagnostic = "no new PSD candidate directory yet";
+                    recordSessionAttempt(result, attempt, after, added, null, lastState,
+                        null, stableReads, lastDiagnostic);
+                    if (!sleepForSessionPoll(deadline, stopped, sleeper)) break;
+                    continue;
+                }
+                if (added.size() > 1) {
+                    lastState = "AMBIGUOUS_CANDIDATES";
+                    lastDiagnostic = "multiple new PSD candidate directories: " + added;
+                    recordSessionAttempt(result, attempt, after, added, null, lastState,
+                        null, stableReads, lastDiagnostic);
+                    throw new SessionFileReadinessException(lastDiagnostic);
+                }
+                boundDirectory = added.iterator().next();
+                stableObservation = null;
+                stableBytes = null;
+                stableReads = 0;
+            } else if (added.size() != 1 || !added.contains(boundDirectory)) {
+                lastState = added.size() > 1 ? "AMBIGUOUS_CANDIDATES"
+                    : "BOUND_CANDIDATE_CHANGED";
+                lastDiagnostic = "bound PSD candidate changed or disappeared: bound="
+                    + boundDirectory + " added=" + added;
+                recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                    null, stableReads, lastDiagnostic);
+                throw new SessionFileReadinessException(lastDiagnostic);
+            }
+            if (result != null) {
+                result.setProperty("gui.session.candidateDirectory", boundDirectory.toString());
+            }
+
+            final Path expectedFile = boundDirectory.resolve(TEMP_FILE_NAME);
+            if (Files.isSymbolicLink(expectedFile)) {
+                lastState = "REJECTED_SYMLINK";
+                lastDiagnostic = "bound PSD file is a symlink: " + expectedFile;
+                recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                    null, stableReads, lastDiagnostic);
+                throw new SessionFileReadinessException(lastDiagnostic);
+            }
+            if (!Files.exists(expectedFile, LinkOption.NOFOLLOW_LINKS)) {
+                if (boundFile != null) {
+                    lastState = "BOUND_FILE_CHANGED";
+                    lastDiagnostic = "bound PSD file disappeared: " + expectedFile;
+                    recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                        null, stableReads, lastDiagnostic);
+                    throw new SessionFileReadinessException(lastDiagnostic);
+                }
+                lastState = "WAITING_FILE";
+                lastDiagnostic = "bound candidate has not created " + TEMP_FILE_NAME;
+                recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                    null, stableReads, lastDiagnostic);
+                if (!sleepForSessionPoll(deadline, stopped, sleeper)) break;
+                continue;
+            }
+            if (!Files.isRegularFile(expectedFile, LinkOption.NOFOLLOW_LINKS)) {
+                lastState = "REJECTED_NON_REGULAR";
+                lastDiagnostic = "bound PSD path is not a regular file: " + expectedFile;
+                recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                    null, stableReads, lastDiagnostic);
+                throw new SessionFileReadinessException(lastDiagnostic);
+            }
+
+            final Path file;
+            try {
+                file = requireTrackedTempFile(boundDirectory, after.root());
+            } catch (Exception failure) {
+                lastState = "REJECTED_PATH";
+                lastDiagnostic = "bound PSD path validation failed: " + failure;
+                recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                    null, stableReads, lastDiagnostic);
+                throw new SessionFileReadinessException(lastDiagnostic, failure);
+            }
+            if (boundFile == null) {
+                boundFile = file;
+            } else if (!boundFile.equals(file)) {
+                lastState = "REPLACED_FILE";
+                lastDiagnostic = "bound PSD real path changed from " + boundFile + " to " + file;
+                recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                    null, stableReads, lastDiagnostic);
+                throw new SessionFileReadinessException(lastDiagnostic);
+            }
+
+            final SessionFileRead read = readSessionFile(file, boundIdentity);
+            lastRead = read;
+            if (read.observation() != null && boundIdentity == null) {
+                boundIdentity = read.observation().identity();
+            }
+            lastState = read.state();
+            lastDiagnostic = read.diagnostic();
+            recordSessionAttempt(result, attempt, after, added, boundDirectory, lastState,
+                read, stableReads, lastDiagnostic);
+            if ("REPLACED".equals(read.state()) || "IDENTITY_UNAVAILABLE".equals(read.state())) {
+                throw new SessionFileReadinessException(lastDiagnostic);
+            }
+            if (!read.complete()) {
+                stableObservation = null;
+                stableBytes = null;
+                stableReads = 0;
+            } else if (stableObservation != null
+                && sameStableObservation(stableObservation, read.observation())
+                && Arrays.equals(stableBytes, read.bytes())) {
+                stableReads++;
+            } else {
+                stableObservation = read.observation();
+                stableBytes = read.bytes();
+                stableReads = 1;
+            }
+            if (stableReads >= GUI_SESSION_FILE_STABLE_READS) {
+                if (result != null) {
+                    result.setProperty("gui.session.read.status", "VERIFIED");
+                    result.setProperty("gui.session.read.stableReads",
+                        Integer.toString(stableReads));
+                    result.setProperty("gui.session.read.bytes",
+                        Integer.toString(stableBytes.length));
+                    result.setProperty("gui.session.read.sha256",
+                        stableObservation.sha256());
+                    result.setProperty("gui.session.read.section",
+                        stableObservation.structure().section());
+                }
+                return new StablePsdSnapshot(boundFile, stableBytes, stableObservation);
+            }
+            if (!sleepForSessionPoll(deadline, stopped, sleeper)) break;
+        }
+
+        final String terminalState = stopped.getAsBoolean() ? "STOPPED" : "TIMEOUT";
+        final String terminalDiagnostic = stopped.getAsBoolean()
+            ? "session PSD readiness stopped after attempt " + attempt
+            : "session PSD readiness timed out after " + timeoutMillis
+                + "ms; last=" + lastState + " " + lastDiagnostic;
+        recordSessionAttempt(result, attempt + 1, null, Set.of(), boundDirectory, terminalState,
+            lastRead, stableReads, terminalDiagnostic);
+        throw new SessionFileReadinessException(terminalDiagnostic);
+    }
+
+    private static boolean sleepForSessionPoll(final long deadline,
+        final BooleanSupplier stopped, final TriggerSleeper sleeper)
+        throws SessionFileReadinessException {
+        if (stopped.getAsBoolean()) return false;
+        final long remainingNanos = deadline - System.nanoTime();
+        if (remainingNanos <= 0) return false;
+        final long remainingMillis = Math.max(1L,
+            TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+        try {
+            sleeper.sleep(Math.min(GUI_SESSION_FILE_POLL_MILLIS, remainingMillis));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new SessionFileReadinessException(
+                "session PSD readiness interrupted", interrupted);
+        }
+        return !stopped.getAsBoolean();
+    }
+
+    private static SessionFileRead readSessionFile(final Path file,
+        final FileIdentity expectedIdentity) {
+        final FileIdentity before;
+        try {
+            before = readFileIdentity(file);
+        } catch (Exception failure) {
+            return SessionFileRead.failed("READ_FAILED",
+                "PSD metadata before read failed: " + failure);
+        }
+        if (expectedIdentity != null && !sameFileIdentity(expectedIdentity, before)) {
+            return SessionFileRead.replaced(before,
+                "PSD file identity changed before read from " + expectedIdentity.diagnostic()
+                    + " to " + before.diagnostic());
+        }
+
+        final byte[] bytes;
+        try {
+            bytes = Files.readAllBytes(file);
+        } catch (Exception failure) {
+            return SessionFileRead.failed("READ_FAILED",
+                "PSD bytes could not be read: " + failure);
+        }
+        final String digest;
+        try {
+            digest = sha256(bytes);
+        } catch (Exception failure) {
+            return SessionFileRead.failed("READ_FAILED",
+                "PSD SHA-256 could not be computed: " + failure);
+        }
+
+        final FileIdentity after;
+        try {
+            after = readFileIdentity(file);
+        } catch (Exception failure) {
+            return new SessionFileRead("READ_FAILED", bytes,
+                new FileObservation(before, digest,
+                    PsdStructureValidation.invalid("file", -1,
+                        "PSD metadata after read failed: " + failure)),
+                "PSD metadata after read failed: " + failure);
+        }
+        final PsdStructureValidation structure = inspectPsdStructure(bytes);
+        final FileObservation observation = new FileObservation(after, digest, structure);
+        if (!sameFileIdentity(before, after)) {
+            return SessionFileRead.replaced(observation,
+                "PSD file identity changed during read from " + before.diagnostic()
+                    + " to " + after.diagnostic());
+        }
+        if (!sameFileMetadata(before, after)) {
+            return new SessionFileRead("CHANGED_DURING_READ", bytes, observation,
+                "PSD file metadata changed during read from " + before.diagnostic()
+                    + " to " + after.diagnostic() + " section=" + structure.section()
+                    + " reason=" + structure.reason());
+        }
+        if (expectedIdentity != null && !sameFileIdentity(expectedIdentity, after)) {
+            return SessionFileRead.replaced(observation,
+                "PSD file identity changed from " + expectedIdentity.diagnostic()
+                    + " to " + after.diagnostic());
+        }
+        if (!structure.complete()) {
+            return new SessionFileRead("INCOMPLETE", bytes, observation,
+                "PSD structure incomplete section=" + structure.section()
+                    + " offset=" + structure.offset() + " reason=" + structure.reason());
+        }
+        return new SessionFileRead("COMPLETE", bytes, observation,
+            "PSD structure complete bytes=" + bytes.length + " sha256=" + digest);
+    }
+
+    private static FileIdentity readFileIdentity(final Path file) throws Exception {
+        final Path real = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        final BasicFileAttributes attributes = Files.readAttributes(real,
+            BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!attributes.isRegularFile()) {
+            throw new IllegalStateException("path is not a regular file: " + real);
+        }
+        if (attributes.fileKey() == null) {
+            throw new IllegalStateException("file identity key is unavailable: " + real);
+        }
+        return new FileIdentity(real, attributes.size(),
+            attributes.lastModifiedTime().toMillis(), attributes.fileKey());
+    }
+
+    private static boolean sameFileIdentity(final FileIdentity first,
+        final FileIdentity second) {
+        return first != null && second != null
+            && first.realPath().equals(second.realPath())
+            && Objects.equals(first.fileKey(), second.fileKey());
+    }
+
+    private static boolean sameFileMetadata(final FileIdentity first,
+        final FileIdentity second) {
+        return sameFileIdentity(first, second)
+            && first.size() == second.size()
+            && first.modifiedMillis() == second.modifiedMillis();
+    }
+
+    private static boolean sameStableObservation(final FileObservation first,
+        final FileObservation second) {
+        return first != null && second != null
+            && sameFileIdentity(first.identity(), second.identity())
+            && first.identity().size() == second.identity().size()
+            && first.identity().modifiedMillis() == second.identity().modifiedMillis()
+            && first.sha256().equals(second.sha256())
+            && first.structure().equals(second.structure());
+    }
+
+    private static void recordSessionAttempt(final Properties result, final int attempt,
+        final TempCandidateSnapshot after, final Set<Path> added, final Path boundDirectory,
+        final String state, final SessionFileRead read, final int stableReads,
+        final String diagnostic) {
+        if (result == null) return;
+        final String prefix = "gui.session.read.attempt." + attempt + ".";
+        result.setProperty(prefix + "state", safeDiagnostic(state));
+        result.setProperty(prefix + "stableReads", Integer.toString(stableReads));
+        result.setProperty(prefix + "candidateAfter", after == null ? "-1"
+            : Integer.toString(after.directories().size()));
+        result.setProperty(prefix + "newCandidates", Integer.toString(added.size()));
+        result.setProperty(prefix + "boundDirectory", boundDirectory == null
+            ? "" : boundDirectory.toString());
+        result.setProperty(prefix + "diagnostic", safeDiagnostic(diagnostic));
+        if (read != null) {
+            final FileObservation observation = read.observation();
+            result.setProperty(prefix + "size", observation == null ? "-1"
+                : Long.toString(observation.identity().size()));
+            result.setProperty(prefix + "mtime", observation == null ? "-1"
+                : Long.toString(observation.identity().modifiedMillis()));
+            result.setProperty(prefix + "sha256", observation == null
+                ? "" : observation.sha256());
+            result.setProperty(prefix + "section", observation == null
+                ? "unavailable" : observation.structure().section());
+            result.setProperty(prefix + "sectionOffset", observation == null
+                ? "-1" : Integer.toString(observation.structure().offset()));
+            result.setProperty(prefix + "sectionReason", observation == null
+                ? "" : safeDiagnostic(observation.structure().reason()));
+        } else {
+            result.setProperty(prefix + "size", "-1");
+            result.setProperty(prefix + "mtime", "-1");
+            result.setProperty(prefix + "sha256", "");
+            result.setProperty(prefix + "section", "unavailable");
+            result.setProperty(prefix + "sectionOffset", "-1");
+            result.setProperty(prefix + "sectionReason", "");
+        }
+        result.setProperty("gui.session.read.attempts", Integer.toString(attempt));
+        result.setProperty("gui.session.read.lastState", safeDiagnostic(state));
+        result.setProperty("gui.session.read.lastDiagnostic", safeDiagnostic(diagnostic));
+        if (read != null && read.observation() != null) {
+            result.setProperty("gui.session.read.lastSize",
+                Long.toString(read.observation().identity().size()));
+            result.setProperty("gui.session.read.lastMtime",
+                Long.toString(read.observation().identity().modifiedMillis()));
+            result.setProperty("gui.session.read.lastSha256", read.observation().sha256());
+            result.setProperty("gui.session.read.lastSection",
+                read.observation().structure().section());
+            result.setProperty("gui.session.read.lastSectionReason",
+                safeDiagnostic(read.observation().structure().reason()));
+        }
+    }
+
+    private static void recordSessionWriteCheck(final Properties result,
+        final SessionFileRead read) {
+        if (result == null) return;
+        result.setProperty("gui.session.writeCheck.state", read.state());
+        result.setProperty("gui.session.writeCheck.diagnostic", safeDiagnostic(read.diagnostic()));
+        if (read.observation() != null) {
+            result.setProperty("gui.session.writeCheck.size",
+                Long.toString(read.observation().identity().size()));
+            result.setProperty("gui.session.writeCheck.mtime",
+                Long.toString(read.observation().identity().modifiedMillis()));
+            result.setProperty("gui.session.writeCheck.sha256", read.observation().sha256());
+            result.setProperty("gui.session.writeCheck.section",
+                read.observation().structure().section());
+        }
+    }
+
+    private static String safeDiagnostic(final String value) {
+        if (value == null) return "";
+        final String singleLine = value.replace('\r', ' ').replace('\n', ' ');
+        return singleLine.length() <= SESSION_DIAGNOSTIC_LIMIT
+            ? singleLine : singleLine.substring(0, SESSION_DIAGNOSTIC_LIMIT) + "…";
     }
 
     /** Waits for a target-specific false-to-true replacement without accepting stale state. */
