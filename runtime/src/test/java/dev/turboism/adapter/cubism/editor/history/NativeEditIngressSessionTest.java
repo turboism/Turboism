@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies the ingress session attaches, drains on the host event thread, and detaches without
  * turning a temporary disconnect into a permanent one.
  */
-class NativeEditIngressSessionTest {
+public class NativeEditIngressSessionTest {
 
     @org.junit.jupiter.api.AfterEach
     void releaseSharedHook() {
@@ -204,6 +204,38 @@ class NativeEditIngressSessionTest {
         fixture.runPosted();
 
         assertTrue(fixture.session.isAttached(), "a late document must re-arm the ingress");
+        assertEquals(1, fixture.session.bindCount());
+        assertEquals(1, fixture.manager.listenerCount());
+        fixture.session.close();
+    }
+
+    @Test
+    void aLatestGenerationRecoverySignalIsNotLostBehindAnOlderQueuedSignal() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(10L, 2));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        awaitRetryStopped(fixture);
+        fixture.makeEditorReady();
+        fixture.session.retryBinding();
+        assertEquals(1, fixture.posted.size(), "generation A recovery is queued");
+
+        fixture.replaceManager();
+        App.current = null;
+        assertFalse(fixture.session.bind(2L, fixture.resolver));
+        awaitRetryStopped(fixture);
+
+        fixture.makeEditorReady();
+        fixture.session.retryBinding();
+        assertEquals(
+            1,
+            fixture.posted.size(),
+            "the latest request coalesces into the existing queue slot"
+        );
+
+        fixture.runPosted();
+
+        assertTrue(fixture.session.isAttached(), "generation B must be recovered");
         assertEquals(1, fixture.session.bindCount());
         assertEquals(1, fixture.manager.listenerCount());
         fixture.session.close();
@@ -416,7 +448,7 @@ class NativeEditIngressSessionTest {
         }
     }
 
-    static VerifiedMemberResolver resolverForTest(final NativeUndoIngressObserverTest.Manager m) {
+    public static VerifiedMemberResolver resolverForTest(final NativeUndoIngressObserverTest.Manager m) {
         return resolver(m);
     }
 
@@ -583,7 +615,7 @@ class NativeEditIngressSessionTest {
     public static final class App {
         private static App current;
 
-        App(final NativeUndoIngressObserverTest.Manager manager) {
+        public App(final NativeUndoIngressObserverTest.Manager manager) {
             current = this;
             this.document = new Document(manager);
         }

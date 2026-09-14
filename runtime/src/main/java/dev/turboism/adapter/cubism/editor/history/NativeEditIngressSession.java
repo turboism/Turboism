@@ -59,6 +59,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
 
     private final Object bindLock = new Object();
     private volatile BindingRequest requested;
+    private BindingRequest queuedRebind;
     private volatile Pending pending;
     private RetryTask retryTask;
     private NativeEditIngress ingress;
@@ -135,22 +136,57 @@ public final class NativeEditIngressSession implements AutoCloseable {
      */
     public void retryBinding() {
         final BindingRequest request;
+        final boolean schedule;
         synchronized (bindLock) {
             if (closed.get() || requested == null) return;
             request = requested;
+            queuedRebind = request;
+            schedule = rebindScheduled.compareAndSet(false, true);
         }
-        if (!rebindScheduled.compareAndSet(false, true)) return;
+        if (!schedule) return;
+        postRebind();
+    }
+
+    private void postRebind() {
         try {
-            eventThread.accept(() -> {
-                rebindScheduled.set(false);
-                if (isCurrent(request)) {
-                    attemptBind(request);
-                }
-            });
+            eventThread.accept(this::runRebind);
         } catch (VirtualMachineError fatal) {
-            rebindScheduled.set(false);
+            cancelQueuedRebind();
             throw fatal;
         } catch (Throwable refused) {
+            cancelQueuedRebind();
+        }
+    }
+
+    private void runRebind() {
+        final BindingRequest request;
+        synchronized (bindLock) {
+            request = queuedRebind;
+            queuedRebind = null;
+            if (request == null || closed.get()) {
+                rebindScheduled.set(false);
+                return;
+            }
+        }
+        if (isCurrent(request)) {
+            attemptBind(request);
+        }
+        final boolean schedule;
+        synchronized (bindLock) {
+            if (closed.get()) {
+                queuedRebind = null;
+                rebindScheduled.set(false);
+                return;
+            }
+            schedule = queuedRebind != null;
+            if (!schedule) rebindScheduled.set(false);
+        }
+        if (schedule) postRebind();
+    }
+
+    private void cancelQueuedRebind() {
+        synchronized (bindLock) {
+            queuedRebind = null;
             rebindScheduled.set(false);
         }
     }
@@ -417,6 +453,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
         final Thread thread;
         synchronized (bindLock) {
             requested = null;
+            queuedRebind = null;
             pending = null;
             final RetryTask task = retryTask;
             retryTask = null;
