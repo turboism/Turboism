@@ -1126,24 +1126,25 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
-     * Scans visible {@link JTree} rows, dispatches a real popup-trigger right-click on each,
-     * and clicks the first menu item whose text equals {@code label}. Returns after the
-     * first successful click or when the row budget is exhausted.
+     * Scans visible row widgets ({@link JTree} rows and {@link javax.swing.JList} cells — the
+     * object list is a CList wrapping a JList in this host), dispatches a real popup-trigger
+     * right-click on each, and clicks the first menu item whose text equals {@code label}.
+     * Returns after the first successful click or when the row budget is exhausted.
      */
     private GuiClick clickContributedItem(final String label, final int rowBudget,
         final Properties result) throws Exception {
         int attempts = 0;
         int popups = 0;
-        String diagnostic = "no visible JTree found";
+        String diagnostic = "no visible row widget found";
         final long deadline = System.currentTimeMillis() + 120_000;
         while (System.currentTimeMillis() < deadline && !stopped) {
-            final List<JTree> trees = visibleTrees();
-            if (!trees.isEmpty()) {
-                for (final JTree tree : trees) {
-                    final int rows = rowCount(tree);
+            final List<RowWidget> widgets = visibleRowWidgets();
+            if (!widgets.isEmpty()) {
+                for (final RowWidget widget : widgets) {
+                    final int rows = widget.rows();
                     for (int row = 0; row < rows && attempts < rowBudget; row++, attempts++) {
                         if (stopped) return new GuiClick(false, "probe stopped");
-                        final JPopupMenu popup = rightClickRow(tree, row);
+                        final JPopupMenu popup = widget.rightClick(row);
                         if (popup == null) continue;
                         popups++;
                         final JMenuItem item = findItem(popup, label);
@@ -1152,76 +1153,150 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                             continue;
                         }
                         result.setProperty("gui.popupRow", Integer.toString(row));
-                        result.setProperty("gui.popupComponent", tree.getClass().getName());
+                        result.setProperty("gui.popupComponent", widget.name());
                         clickItem(item);
                         result.setProperty("gui.attempts", Integer.toString(attempts));
                         result.setProperty("gui.popupsSeen", Integer.toString(popups));
                         return new GuiClick(true, "clicked row " + row);
                     }
-                    diagnostic = "rows exhausted without the item; popups seen " + popups;
+                    diagnostic = "rows exhausted without the item; popups seen " + popups
+                        + " widgets=" + widgets.stream().map(RowWidget::name).toList();
                 }
             }
             Thread.sleep(1000);
         }
         result.setProperty("gui.attempts", Integer.toString(attempts));
         result.setProperty("gui.popupsSeen", Integer.toString(popups));
+        result.setProperty("gui.hierarchy", hierarchyDigest());
         return new GuiClick(false, diagnostic);
     }
 
-    private record GuiClick(boolean clicked, String diagnostic) {
+    /** A selectable row widget the host popup can be raised on: JTree row or JList cell. */
+    private sealed interface RowWidget {
+        String name();
+        int rows() throws Exception;
+        JPopupMenu rightClick(int row) throws Exception;
     }
 
-    private List<JTree> visibleTrees() throws Exception {
-        final AtomicReference<List<JTree>> found = new AtomicReference<>(List.of());
-        SwingUtilities.invokeAndWait(() -> {
-            final List<JTree> trees = new ArrayList<>();
-            for (final Frame frame : Frame.getFrames()) {
-                collectTrees(frame, trees);
-            }
-            found.set(trees);
-        });
-        return found.get();
-    }
-
-    private static void collectTrees(final Container container, final List<JTree> trees) {
-        for (final Component component : container.getComponents()) {
-            if (component instanceof JTree tree && tree.isShowing()) {
-                trees.add(tree);
-            }
-            if (component instanceof Container child) {
-                collectTrees(child, trees);
-            }
+    private record TreeWidget(JTree tree) implements RowWidget {
+        public String name() { return tree.getClass().getName(); }
+        public int rows() throws Exception {
+            final AtomicReference<Integer> rows = new AtomicReference<>(0);
+            SwingUtilities.invokeAndWait(() -> rows.set(tree.getRowCount()));
+            return rows.get();
+        }
+        public JPopupMenu rightClick(final int row) throws Exception {
+            SwingUtilities.invokeAndWait(() -> {
+                tree.expandRow(row);
+                final var bounds = tree.getRowBounds(row);
+                if (bounds == null) return;
+                dispatchRightClick(tree, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+            });
+            return awaitPopup();
         }
     }
 
-    private int rowCount(final JTree tree) throws Exception {
-        final AtomicReference<Integer> rows = new AtomicReference<>(0);
-        SwingUtilities.invokeAndWait(() -> rows.set(tree.getRowCount()));
-        return rows.get();
+    private record ListWidget(javax.swing.JList<?> list) implements RowWidget {
+        public String name() { return list.getClass().getName(); }
+        public int rows() throws Exception {
+            final AtomicReference<Integer> rows = new AtomicReference<>(0);
+            SwingUtilities.invokeAndWait(() -> rows.set(list.getModel().getSize()));
+            return rows.get();
+        }
+        public JPopupMenu rightClick(final int row) throws Exception {
+            SwingUtilities.invokeAndWait(() -> {
+                final var bounds = list.getCellBounds(row, row);
+                if (bounds == null) return;
+                dispatchRightClick(list, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+            });
+            return awaitPopup();
+        }
     }
 
-    /** Dispatches press+release popup-trigger clicks on a row; returns the opened popup. */
-    private JPopupMenu rightClickRow(final JTree tree, final int row) throws Exception {
-        SwingUtilities.invokeAndWait(() -> {
-            tree.expandRow(row);
-            final var bounds = tree.getRowBounds(row);
-            if (bounds == null) return;
-            final int x = bounds.x + bounds.width / 2;
-            final int y = bounds.y + bounds.height / 2;
-            final long now = System.currentTimeMillis();
-            tree.dispatchEvent(new MouseEvent(tree, MouseEvent.MOUSE_PRESSED, now,
-                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
-            tree.dispatchEvent(new MouseEvent(tree, MouseEvent.MOUSE_RELEASED, now,
-                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
-        });
+    private static void dispatchRightClick(final Component target, final int x, final int y) {
+        final long now = System.currentTimeMillis();
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
+            InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
+            InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+    }
+
+    private static JPopupMenu awaitPopup() throws Exception {
         // The host may build and show the popup asynchronously after the event returns.
-        for (int attempt = 0; attempt < 20 && !stopped; attempt++) {
+        for (int attempt = 0; attempt < 20; attempt++) {
             final AtomicReference<JPopupMenu> opened = new AtomicReference<>();
             SwingUtilities.invokeAndWait(() -> opened.set(currentPopup()));
             if (opened.get() != null) return opened.get();
             Thread.sleep(150);
         }
         return null;
+    }
+
+    private record GuiClick(boolean clicked, String diagnostic) {
+    }
+
+    private List<RowWidget> visibleRowWidgets() throws Exception {
+        final AtomicReference<List<RowWidget>> found = new AtomicReference<>(List.of());
+        SwingUtilities.invokeAndWait(() -> {
+            final List<RowWidget> widgets = new ArrayList<>();
+            for (final Frame frame : Frame.getFrames()) {
+                collectRowWidgets(frame, widgets);
+            }
+            found.set(widgets);
+        });
+        return found.get();
+    }
+
+    private static void collectRowWidgets(final Container container,
+        final List<RowWidget> widgets) {
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JTree tree && tree.isShowing()) {
+                widgets.add(new TreeWidget(tree));
+            } else if (component instanceof javax.swing.JList<?> list && list.isShowing()) {
+                widgets.add(new ListWidget(list));
+            }
+            if (component instanceof Container child) {
+                collectRowWidgets(child, widgets);
+            }
+        }
+    }
+
+    /**
+     * Component-hierarchy digest recorded when no row widget could be clicked, so a BLOCKED run
+     * still identifies which widget the object list actually is.
+     */
+    private String hierarchyDigest() {
+        final AtomicReference<String> digest = new AtomicReference<>("");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                final StringBuilder text = new StringBuilder();
+                for (final Frame frame : Frame.getFrames()) {
+                    if (!frame.isVisible()) continue;
+                    text.append("frame('").append(frame.getTitle()).append("')");
+                    collectWidgetNames(frame, text, 0);
+                }
+                digest.set(text.toString());
+            });
+        } catch (Exception ignored) {
+        }
+        return digest.get();
+    }
+
+    private static void collectWidgetNames(final Container container,
+        final StringBuilder text, final int depth) {
+        if (depth > 8 || text.length() > 4000) return;
+        for (final Component component : container.getComponents()) {
+            final String name = component.getClass().getName();
+            if (component.isShowing()
+                && (component instanceof JTree || component instanceof javax.swing.JList<?>
+                    || component instanceof javax.swing.JTable
+                    || name.contains("List") || name.contains("Tree") || name.contains("Palette"))) {
+                text.append(" <").append(name).append('>');
+            }
+            if (component instanceof Container child) {
+                collectWidgetNames(child, text, depth + 1);
+            }
+        }
     }
 
     private static JPopupMenu currentPopup() {
