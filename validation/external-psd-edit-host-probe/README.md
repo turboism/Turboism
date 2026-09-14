@@ -29,15 +29,16 @@ SDK only. Three phases, selected by `-Dturboism.validation.externalpsd.phase=`:
     handle → `EditorFileCommand.SAVE_AS` executes the verified native `saveDocument` → a
     `ProjectFileLifecycleEvent.After` SAVE event must confirm it. The saved copy lives in
     the task home, outside the fixture copy — the runner's fixture-unchanged guarantee
-    still holds. The last mutation's `(layer, offset, char)` is recorded as
-    `persist.marker*` for the reopen stage.
+    still holds. A post-edit re-export then records `persist.postEditSha256` /
+    `persist.postEditImageSha256` for the reopen stage.
 
 ## reopen
 
 Runs against a fixture copy produced by a persist run (`--fixture-local <saved>`), re-exports
-the current raw image, and asserts the recorded marker byte survived the real native
-save → file → reopen roundtrip. Marker coordinates arrive via
-`-Dturboism.validation.externalpsd.marker{Layer,Offset,Char}=`.
+the current raw image, and asserts the exported image-data section hash equals the recorded
+`postEditImageSha256` — layer names are normalized by the host's import, so content bytes are
+the durable marker. Hashes arrive via
+`-Dturboism.validation.externalpsd.postEdit{,Image}Sha256=`.
 
 ## gui
 
@@ -73,3 +74,9 @@ EXTERNAL_PSD_PHASE=gui EXTERNAL_PSD_WITH_PLUGIN=<external-psd-edit.jar> \
 Result file: `state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties`
 under the isolated Turboism home. Terminal status is `status=PASS|FAIL|BLOCKED`; the probe
 never rewrites a FAIL or BLOCKED into PASS.
+
+Shutdown: after writing the result the probe taskkills the task-scoped `notepad.exe` editor
+and drives the document frame's `WINDOW_CLOSING`, so Cubism releases its engine and exits
+natively (`-- successfully exited pid:`). A plain `Runtime.exit`/`halt` is not viable once
+the native save path initialized JOGL/GlueGen: ExitProcess deadlocks inside DLL detach under
+Wine and freezes every thread, which defeats even daemon-thread watchdogs.

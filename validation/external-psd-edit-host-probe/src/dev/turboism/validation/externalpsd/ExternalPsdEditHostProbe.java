@@ -312,7 +312,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 result.setProperty("persist.markerChar", Integer.toString(marker.letter()));
             }
             if ("1".equals(System.getProperty("turboism.validation.externalpsd.persist"))) {
-                runPersistTail(result);
+                runPersistTail(result, target);
             } else {
                 result.setProperty("documentPersistence",
                     "NOT_TESTED: persist tail not requested");
@@ -326,8 +326,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
-     * Reopens a fixture copy saved by a persist run and proves the externally applied layer-name
-     * marker survived a real native save → file → reopen roundtrip.
+     * Reopens a fixture copy saved by a persist run and proves the externally applied edit
+     * survived a real native save → file → reopen roundtrip. Layer names are normalized by the
+     * host's import, so the gate is the exported image-data section hash recorded as
+     * {@code persist.postEditImageSha256}; the full-file hash is recorded for context.
      */
     private void runReopen(final Properties result) throws Exception {
         final Target target = resolveTarget(result);
@@ -337,30 +339,32 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         try {
             final Path tempFile = locateTempFile(before, result);
             final byte[] bytes = Files.readAllBytes(tempFile);
-            final List<int[]> names = layerNameRanges(bytes);
-            result.setProperty("reopen.layerCount", Integer.toString(names.size()));
+            result.setProperty("reopen.layerCount",
+                Integer.toString(layerNameRanges(bytes).size()));
             result.setProperty("reopen.bytes", Integer.toString(bytes.length));
-            final int layer = Integer.getInteger(
-                "turboism.validation.externalpsd.markerLayer", -1);
-            final int offset = Integer.getInteger(
-                "turboism.validation.externalpsd.markerOffset", -1);
-            final int markerChar = Integer.getInteger(
-                "turboism.validation.externalpsd.markerChar", -1);
-            result.setProperty("reopen.expectedMarker", layer + ":" + offset + ":" + markerChar);
-            if (layer < 0 || layer >= names.size() || offset < 0 || offset >= names.get(layer)[1]) {
-                throw new IllegalStateException("marker coordinates out of range for reopened PSD");
-            }
-            final char actual = (char) bytes[names.get(layer)[0] + offset];
-            result.setProperty("reopen.actualMarker", Character.toString(actual));
-            if (actual != (char) markerChar) {
+            result.setProperty("reopen.sha256", sha256(bytes));
+            result.setProperty("reopen.imageSha256", imageDataSha256(bytes));
+            final String expectedImage = System.getProperty(
+                "turboism.validation.externalpsd.postEditImageSha256", "");
+            final String expectedFile = System.getProperty(
+                "turboism.validation.externalpsd.postEditSha256", "");
+            result.setProperty("reopen.expectedImageSha256", expectedImage);
+            result.setProperty("reopen.fileShaMatched",
+                Boolean.toString(!expectedFile.isBlank()
+                    && expectedFile.equals(result.getProperty("reopen.sha256"))));
+            if (expectedImage.isBlank()) {
                 throw new IllegalStateException(
-                    "reopened document does not carry the external-edit marker");
+                    "reopen requires -Dturboism.validation.externalpsd.postEditImageSha256");
+            }
+            if (!expectedImage.equals(result.getProperty("reopen.imageSha256"))) {
+                throw new IllegalStateException(
+                    "reopened document image data does not match the persisted post-edit content");
             }
         } finally {
             file.stop();
         }
-        result.setProperty("expected", "reopened fixture retains the external-edit layer marker");
-        result.setProperty("actual", "marker verified in the reopened document's raw image");
+        result.setProperty("expected", "reopened fixture retains the external-edit content");
+        result.setProperty("actual", "image data verified in the reopened document's raw image");
     }
 
     /**
@@ -847,6 +851,20 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return names;
     }
 
+    /** SHA-256 over the PSD image-data section (everything after the layer-and-mask record). */
+    static String imageDataSha256(final byte[] psd) throws Exception {
+        final ByteBuffer buffer = ByteBuffer.wrap(psd).order(ByteOrder.BIG_ENDIAN);
+        if (psd.length < 30 || psd[0] != '8' || psd[1] != 'B'
+            || psd[2] != 'P' || psd[3] != 'S') {
+            throw new IllegalStateException("not a PSD: cannot locate image data section");
+        }
+        buffer.position(26);
+        buffer.position(buffer.position() + 4 + buffer.getInt(buffer.position()));
+        buffer.position(buffer.position() + 4 + buffer.getInt(buffer.position()));
+        buffer.position(buffer.position() + 4 + buffer.getInt(buffer.position()));
+        return sha256(java.util.Arrays.copyOfRange(psd, buffer.position(), psd.length));
+    }
+
     private void recordEnvironment(final Properties result) throws Exception {
         final Runtime runtime = Runtime.getRuntime();
         result.setProperty("env.processors", Integer.toString(runtime.availableProcessors()));
@@ -865,7 +883,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * event. The granted target lives outside the task fixture copy, so the runner's
      * fixture-unchanged guarantee still holds.
      */
-    private void runPersistTail(final Properties result) throws Exception {
+    private void runPersistTail(final Properties result, final Target target) throws Exception {
         final List<ProjectFileLifecycleEvent.After> saves = new CopyOnWriteArrayList<>();
         final AtomicInteger beforeEvents = new AtomicInteger();
         final AtomicInteger onEvents = new AtomicInteger();
@@ -934,6 +952,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 throw new IllegalStateException("SAVE lifecycle completed without success");
             }
             result.setProperty("documentPersistence", "SAVE_AS executed + SAVE event confirmed");
+
+            // Content-level marker for the reopen stage: layer names are normalized by the
+            // host's own import, but the replaced image content must round-trip byte-exact.
+            final Path postMarker = tempMarker();
+            final PsdExportResult postExport = export(result, target.raw());
+            postExport.file().ifPresent(PsdEditFile::stop);
+            final Path postTemp = locateTempFile(postMarker, result);
+            final byte[] postBytes = Files.readAllBytes(postTemp);
+            result.setProperty("persist.postEditBytes", Integer.toString(postBytes.length));
+            result.setProperty("persist.postEditSha256", sha256(postBytes));
+            result.setProperty("persist.postEditImageSha256", imageDataSha256(postBytes));
         } finally {
             subscription.close();
             beforeSub.close();

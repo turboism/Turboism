@@ -7,7 +7,8 @@
 #   EXTERNAL_PSD_PERSIST=1      append the mediated SAVE_AS persist tail (pipeline only)
 #   EXTERNAL_PSD_WITH_PLUGIN    path to the production external-psd-edit jar (gui phase)
 #   EXTERNAL_PSD_FIXTURE_LOCAL  reopen stage: use this saved copy instead of the source
-#   EXTERNAL_PSD_MARKER_*       reopen stage: layer/offset/char recorded by a persist run
+#   EXTERNAL_PSD_POSTEDITSHA256 / EXTERNAL_PSD_POSTEDITIMAGESHA256
+#                               reopen stage: post-edit export hashes recorded by a persist run
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$root/scripts/preview/host-validation-env.sh"
@@ -40,7 +41,7 @@ if [ "${EXTERNAL_PSD_PERSIST:-0}" = "1" ]; then
     "--jvm-option" '-Dturboism.preview.userFileFixedGrant={HOME}/persisted-document.cmo3'
   )
 fi
-for key in markerLayer markerOffset markerChar; do
+for key in postEditSha256 postEditImageSha256; do
   var="EXTERNAL_PSD_${key^^}"
   if [ -n "${!var:-}" ]; then
     options+=("--jvm-option" "-Dturboism.validation.externalpsd.$key=${!var}")
