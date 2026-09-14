@@ -488,7 +488,7 @@ final class McpOutputSchemas {
     private static Map<String, Object> historyChange() {
         return object(
             properties(
-                entry("operation", enumSchema(List.of("SET", "ADD", "REMOVE", "UNKNOWN"))),
+                entry("operation", enumSchema(List.of("SET", "ADD", "REMOVE", "MOVE", "UNKNOWN"))),
                 entry("targetIndex", nullableNonNegativeInteger()),
                 entry("property", nullableString()),
                 entry("before", nullableString()),
