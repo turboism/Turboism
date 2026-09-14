@@ -161,11 +161,13 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
         final HistoryEditContext projectedContext = uniformContext
             ? context
             : new HistoryEditContext(
-                HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of());
+                HistoryEditContext.Kind.UNKNOWN, Optional.empty(), List.of());
         // When children agree on subject, operation and property but not on values, the hoisted
         // row still names what was done to what — it is PARTIAL because the single projected
         // change cannot carry one honest before/after pair.
-        final boolean complete = full && uniformValues;
+        // A scope-varying form-sensitive group is also PARTIAL: it cannot be recast as an OBJECT
+        // change just because its children share one target.
+        final boolean complete = full && uniformContext && uniformValues;
         return Optional.of(new HistoryEntryDetail(
             label,
             complete ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
@@ -181,7 +183,9 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             )),
             Optional.of(group),
             complete ? Optional.empty() : Optional.of(
-                uniformValues ? "history.detail.group-partial" : "history.detail.group-values-vary"
+                !uniformContext ? "history.detail.group-scope-vary"
+                    : uniformValues ? "history.detail.group-partial"
+                    : "history.detail.group-values-vary"
             )
         ));
     }
