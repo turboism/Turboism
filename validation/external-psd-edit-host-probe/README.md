@@ -43,8 +43,8 @@ the durable marker. Hashes arrive via
 ## gui
 
 Loads alongside the production `external-psd-edit` plugin jar (`EXTERNAL_PSD_WITH_PLUGIN`),
-dispatches a real popup-trigger right-click on visible `JTree` rows until a popup exposes
-the contributed item (`Edit PSD Externally`), clicks it, waits for the plugin's own
+dispatches a real popup-trigger right-click on visible `JTree`, `JTable`, or `JList` rows until
+a popup exposes the contributed item (`Edit PSD Externally`), clicks it, waits for the plugin's own
 `turboism-psd-*` session file, writes a mutated save, and verifies the plugin auto-imports
 it for the resolved target: the target must start with `isReplaced=false`, and success requires
 the same binding, generation, and raw image with `isReplaced` changing `false→true`. Any
@@ -52,6 +52,14 @@ binding, generation, or raw-target change is stale evidence and is not success; 
 `isReplaced=true` target is `BLOCKED` because no new replacement can be observed. `BLOCKED`
 (not `FAIL`) when no popup can be raised — a blocked run terminates fast through the runner
 `--failure-marker`.
+
+Each captured row records its widget identity, row key, and bounds. Immediately before dispatch,
+the probe runs on the EDT and requires a showing, displayable widget with a parent and valid
+bounds. The selection click is followed by a second EDT validation; if the host replaced the
+table, the probe relocates a unique matching row by key and fresh bounds, up to three attempts.
+Ambiguous, unkeyed, or unrelocatable rows are rejected without a right-click. Popup association
+is limited to a new or successfully dismissed popup from that attempt. Renderer preparation is
+diagnostic-only and runs after the right-click, or is skipped for a detached table.
 
 ## Build / offline test
 

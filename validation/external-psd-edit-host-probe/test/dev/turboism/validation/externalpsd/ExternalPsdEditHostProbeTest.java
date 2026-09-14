@@ -2,6 +2,7 @@ package dev.turboism.validation.externalpsd;
 
 import java.awt.AWTEvent;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.event.MouseEvent;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -19,7 +20,10 @@ public final class ExternalPsdEditHostProbeTest {
     public static void main(final String[] args) throws java.io.IOException {
         testPopupTriggerDispatch();
         testSyntheticTargetDiagnostics();
+        testRendererPreparationFollowsDispatch();
         testRightClickDispatchFailure();
+        testReplacedTargetAfterSelection();
+        testUnrelocatableTargetIsRejected();
         testPopupMarker();
         testPopupAttemptAssociation();
         testAutoImportEvidence();
@@ -141,8 +145,55 @@ public final class ExternalPsdEditHostProbeTest {
             "table renderer candidate is recorded");
         assertContains(dispatch.diagnostic(), "prepared=",
             "prepared renderer state is recorded");
+        assertContains(dispatch.diagnostic(), "skipped renderer preparation",
+            "detached diagnostic does not prepare a renderer");
         assertContains(dispatch.diagnostic(), "screen=(",
             "synthetic screen coordinates are recorded");
+    }
+
+    private static void testRendererPreparationFollowsDispatch() {
+        final OrderedTable table = new OrderedTable();
+        ExternalPsdEditHostProbe.dispatchRightClick(table, 2, 2, true);
+        assertTrue(table.rightClickSeen(), "right-click events run before renderer preparation");
+        assertTrue(table.rendererPrepared(), "live renderer diagnostic is still recorded");
+    }
+
+    private static void testReplacedTargetAfterSelection() {
+        final ReplacingComponent captured = new ReplacingComponent();
+        final RecordingComponent replacement = new RecordingComponent();
+        final var dispatch = ExternalPsdEditHostProbe.dispatchRightClickAfterSelection(
+            captured, 10, 12, true,
+            () -> new ExternalPsdEditHostProbe.DispatchTarget(replacement, 20, 22));
+
+        assertTrue(captured.detached(), "selection phase records the captured component as detached");
+        assertEquals(0L, captured.events().stream()
+            .filter(event -> event.getButton() == MouseEvent.BUTTON3).count(),
+            "detached captured component receives no right-click events");
+        final List<MouseEvent> right = replacement.events().stream()
+            .filter(event -> event.getButton() == MouseEvent.BUTTON3)
+            .toList();
+        assertEquals(2, right.size(), "replacement receives the right-click press and release");
+        assertEquals(1L, right.stream().filter(MouseEvent::isPopupTrigger).count(),
+            "replacement receives one popup trigger");
+        assertContains(dispatch.diagnostic(), "source=",
+            "replacement dispatch records its event source");
+    }
+
+    private static void testUnrelocatableTargetIsRejected() {
+        final ReplacingComponent captured = new ReplacingComponent();
+        try {
+            ExternalPsdEditHostProbe.dispatchRightClickAfterSelection(
+                captured, 10, 12, true, () -> null);
+            throw new AssertionError("missing replacement target must be rejected");
+        } catch (RuntimeException failure) {
+            assertContains(failure.getMessage(), "could not be revalidated",
+                "missing replacement target explains the rejection");
+        }
+        assertEquals(0L, captured.events().stream()
+            .filter(event -> event.getButton() == MouseEvent.BUTTON3).count(),
+            "unrelocatable target receives no right-click events");
+        assertEquals(3, ExternalPsdEditHostProbe.rowDispatchAttemptLimit(),
+            "row relocation retries are bounded");
     }
 
     private static void testPopupMarker() {
@@ -314,5 +365,52 @@ public final class ExternalPsdEditHostProbeTest {
         }
 
         private List<MouseEvent> events() { return events; }
+    }
+
+    private static final class ReplacingComponent extends Component {
+        private final List<MouseEvent> events = new ArrayList<>();
+        private boolean detached;
+
+        private ReplacingComponent() {
+            enableEvents(AWTEvent.MOUSE_EVENT_MASK);
+        }
+
+        @Override protected void processMouseEvent(final MouseEvent event) {
+            events.add(event);
+            if (event.getButton() == MouseEvent.BUTTON1
+                && event.getID() == MouseEvent.MOUSE_RELEASED) {
+                detached = true;
+            }
+        }
+
+        private boolean detached() { return detached; }
+        private List<MouseEvent> events() { return events; }
+    }
+
+    private static final class OrderedTable extends javax.swing.JTable {
+        private final Container parent = new Container();
+        private boolean rightClickSeen;
+        private boolean rendererPrepared;
+
+        private OrderedTable() {
+            super(new Object[][]{{"value"}}, new Object[]{"column"});
+        }
+
+        @Override public boolean isShowing() { return true; }
+        @Override public boolean isDisplayable() { return true; }
+        @Override public Container getParent() { return parent; }
+
+        @Override protected void processMouseEvent(final MouseEvent event) {
+            if (event.getButton() == MouseEvent.BUTTON3) rightClickSeen = true;
+        }
+
+        @Override public Component prepareRenderer(final javax.swing.table.TableCellRenderer renderer,
+            final int row, final int column) {
+            rendererPrepared = true;
+            return super.prepareRenderer(renderer, row, column);
+        }
+
+        private boolean rightClickSeen() { return rightClickSeen; }
+        private boolean rendererPrepared() { return rendererPrepared; }
     }
 }
