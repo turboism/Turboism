@@ -711,6 +711,10 @@ public final class PreviewRuntime implements AutoCloseable {
         return hostIngress.editorModelResolver();
     }
 
+    /**
+     * @return the texture-atlas data-model capture of the active verified connection
+     * @throws IllegalStateException when no verified connection is active
+     */
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
         textureAtlasDataModelCapture() {
         return hostIngress.textureAtlasDataModelCapture();

@@ -36,9 +36,18 @@ public record ShellServices(
         );
     }
 
+    /** Runtime-supplied panel docking actions for the framework shell. */
     public interface FloatingPanelActions {
+        /**
+         * Toggles the floating/docked state of the selected panel tab.
+         *
+         * @param selection the panel tab to toggle
+         */
         void togglePanelFloating(dev.turboism.sdk.ui.context.PanelTabSelection selection);
 
+        /**
+         * @return an implementation that refuses every toggle with {@link IllegalStateException}
+         */
         static FloatingPanelActions unavailable() {
             return selection -> {
                 throw new IllegalStateException("panel-tab floating action is unavailable");

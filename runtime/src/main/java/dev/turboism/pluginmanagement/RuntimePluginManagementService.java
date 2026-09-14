@@ -31,8 +31,12 @@ import java.util.function.Supplier;
 
 /** Runtime-owned desired-state manager; package mutation is applied only before next discovery. */
 public final class RuntimePluginManagementService implements CorePluginManagement {
+    /** Supplies the locale used to select localized plugin descriptor metadata. */
     @FunctionalInterface
     public interface MetadataLocaleProvider {
+        /**
+         * @return the locale for the current metadata read
+         */
         Locale get();
     }
     private final Path pluginsDirectory;
