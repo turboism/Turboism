@@ -32,7 +32,7 @@ public record AppearanceRestoreResult(
         });
     }
 
-    /** What happened to a restore request; failures are values, never thrown exceptions. */
+    /** What happened to a restore request; the business outcome of a completed attempt. */
     public enum Outcome {
         RESTORED,
         NO_OWNED_OVERRIDE,

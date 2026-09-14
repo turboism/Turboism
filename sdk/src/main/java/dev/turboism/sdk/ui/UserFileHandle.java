@@ -24,10 +24,13 @@ public interface UserFileHandle extends AutoCloseable {
     /** Returns the lifetime scope the user granted. */
     UserFileLifetime lifetime();
 
-    /** Returns the handle's current state (active, closed, revoked, or expired). */
+    /** Returns the handle's current state; see {@link UserFileHandleState} for the full set. */
     UserFileHandleState state();
 
-    /** Revokes the handle early; equivalent to closing it before its lifetime elapses. */
+    /**
+     * Withdraws the grant early, moving the handle to {@link UserFileHandleState#REVOKED};
+     * the state stays distinguishable from a holder-initiated {@link #close()}.
+     */
     void revoke();
 
     @Override
