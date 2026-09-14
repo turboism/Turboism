@@ -76,9 +76,43 @@ discovers only a visible host `JTable` whose actual model class is the reviewed
 classloader off the EDT. The returned private access context is reused by EDT row resolution;
 an unavailable or unverified host is `BLOCKED`, not a generic Swing fallback.
 
+The GUI wrapper admits dispatch only after the exact 5.3.02 readiness markers below have all
+appeared in the task runtime log:
+
+```text
+Context-menu transform applied to com/live2d/cubism/view/palette/deformer/b appendPoints=11
+Context-menu transform applied to com/live2d/cubism/view/palette/parts/T appendPoints=22
+Turboism Developer Preview started
+EXTERNAL_PSD_EDIT_GUI_TRIGGER_ARMED
+```
+
+The probe emits `EXTERNAL_PSD_EDIT_GUI_TRIGGER_ARMED` only after it has verified that the
+context-owned state directory is real and that this run's trigger is absent. The shared Runner
+then creates the relative trigger
+`state/dev.turboism.validation.externalpsd/gui-ready.flag`. The probe waits for that regular
+file under `context.paths().stateDir()` on its daemon worker before sampling GUI target state,
+choosing a row, or dispatching mouse events. It rejects a pre-existing trigger, symlink,
+non-regular path, invalid state directory, or timeout; the trigger itself is only a readiness
+handshake and is never feature-pass evidence. The arm/trigger protocol uses no fixed sleep or
+mtime heuristic, and the wait has no Swing/EDT or runtime-log access.
+
+The wrapper also registers `Turboism object context-menu hook disabled safely` as a Runner
+failure marker for GUI runs. The current shared Runner scans failure markers only after it has
+created `gui-ready.flag`; therefore a hook-disabled line written before that point can still
+allow the probe to receive the trigger and attempt a GUI dispatch. The later failure-marker scan
+rejects the complete Runner result, but this slice cannot claim that a failed hook is impossible
+to dispatch against. This slice does not change the generic Runner/runtime/bootstrap, and the
+durable queue currently rejects an unreviewed `--client-script`. A future validation-only
+handshake would need an explicitly reviewed, task-local client protocol that verifies the
+readiness/failure markers and creates a separate probe trigger; until that dependency is
+admitted, no pre-trigger hook-success claim is made.
+
 The probe first requires an AWT active, showing, displayable target window and scans reviewed
 tables in that window only; a window that cannot be proven active is rejected, and another
-window is never a fallback. The selected SDK ArtMesh's complete domain ID is matched against
+window is never a fallback. Once the first reviewed window containing the exact target is
+matched, its identity remains bound for the GUI session. If focus moves elsewhere, the probe
+waits for that same window or ends `BLOCKED`; it never rebinds to another project window. The
+selected SDK ArtMesh's complete domain ID is matched against
 the exact host accessor chain (`j.a` backing tree model → `j.b` JTree → node source →
 `getId().getIdString()`). Parts/deformer family and exact ArtMesh source class are retained in
 the target identity. Candidates are grouped by window, row family, source class, and complete
@@ -123,7 +157,10 @@ bash validation/external-psd-edit-host-probe/test.sh
 ```
 
 `test.sh` runs the decoder's standalone main and the probe's offline focused main; neither
-starts Cubism or enqueues a host job. The default helper test is portable and prints
+starts Cubism or enqueues a host job. It also executes this wrapper in a temporary sandbox with
+a stub Runner and asserts the actual GUI argv contains all readiness/failure markers, keeps the
+fixed trigger after a caller-supplied trigger, and adds no GUI gate to pipeline or reopen. The
+default helper test is portable and prints
 `SHAPE=NOT_RUN`; that output is not a real-host shape result. The test-only exact-name fixture is
 compiled only into the temporary test output, and the probe JAR asserts that it contains no
 `com/live2d/` entries.
