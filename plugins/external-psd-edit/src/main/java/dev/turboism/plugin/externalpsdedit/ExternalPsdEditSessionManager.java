@@ -354,10 +354,15 @@ final class ExternalPsdEditSessionManager {
                 "external-psd-edit.error.open-failed", session.rawImageId.value()));
             return;
         }
+        final boolean transitionedToActive;
         synchronized (session) {
-            if (session.state == State.OPENING) {
+            transitionedToActive = session.state == State.OPENING;
+            if (transitionedToActive) {
                 session.state = State.ACTIVE;
             }
+        }
+        if (!transitionedToActive) {
+            return;
         }
         notifyStatus("external-psd-edit.status.editing", "INFO",
             format("external-psd-edit.status.editing", session.rawImageId.value()));
