@@ -45,17 +45,64 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
         final ProtectionDomain protectionDomain,
         final byte[] classfileBuffer
     ) {
-        if (classfileBuffer == null
-            || (expectedClassLoader != null && loader != expectedClassLoader)
-            || bindings.stream().noneMatch(binding -> binding.ownerInternalName().equals(className))) {
+        if (classfileBuffer == null) {
             return null;
         }
+        if (bindings.stream().noneMatch(binding -> binding.ownerInternalName().equals(className))) {
+            return null;
+        }
+        if (expectedClassLoader != null && loader != expectedClassLoader) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "lifecycle",
+                "Lifecycle transform skipped for " + className
+                    + " under loader " + loader + " (expected " + expectedClassLoader + ")");
+            return null;
+        }
+        try {
+            return transformMatched(className, classfileBuffer);
+        } catch (Throwable failure) {
+            // A throwing transformer must fail the weave, not the host class load.
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "lifecycle",
+                "Lifecycle transform failed for " + className
+                    + " (" + failure.getClass().getName() + ": " + failure.getMessage() + ")",
+                null);
+            return null;
+        }
+    }
+
+    private byte[] transformMatched(final String className, final byte[] classfileBuffer) {
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
         final ClassWriter writer = new ClassWriter(
             reader,
             ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS
-        );
+        ) {
+            @Override
+            protected String getCommonSuperClass(final String left, final String right) {
+                try {
+                    final ClassLoader classLoader = expectedClassLoader == null
+                        ? ProjectLifecycleNativeMethodTransformer.class.getClassLoader()
+                        : expectedClassLoader;
+                    final Class<?> leftType =
+                        Class.forName(left.replace('/', '.'), false, classLoader);
+                    final Class<?> rightType =
+                        Class.forName(right.replace('/', '.'), false, classLoader);
+                    if (leftType.isAssignableFrom(rightType)) return left;
+                    if (rightType.isAssignableFrom(leftType)) return right;
+                    if (leftType.isInterface() || rightType.isInterface()) {
+                        return "java/lang/Object";
+                    }
+                    Class<?> current = leftType;
+                    do {
+                        current = current.getSuperclass();
+                    } while (!current.isAssignableFrom(rightType));
+                    return current.getName().replace('.', '/');
+                } catch (Throwable ignored) {
+                    return "java/lang/Object";
+                }
+            }
+        };
         reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(
@@ -87,7 +134,16 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
                 return instrument(delegate, binding);
             }
         }, ClassReader.EXPAND_FRAMES);
-        return transformed[0] ? writer.toByteArray() : null;
+        if (transformed[0]) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                "lifecycle",
+                "Lifecycle transform applied to " + className);
+            return writer.toByteArray();
+        }
+        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+            "lifecycle",
+            "Lifecycle binding produced no method transform for " + className);
+        return null;
     }
 
     private static MethodVisitor instrument(
