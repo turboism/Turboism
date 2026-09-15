@@ -94,6 +94,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedModelUpdateSkipInstaller> MODEL_UPDATE_SKIP =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedIncrementalUpdateInstaller> INCREMENTAL_UPDATE =
+        new AtomicReference<>();
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -388,6 +390,7 @@ public final class TurboismAgent {
             if (fullRuntimeAdmission) installTextureUploadPreparation(options, instrumentation, host);
             if (fullRuntimeAdmission) installWarpPositionProjection(options, instrumentation, host);
             if (fullRuntimeAdmission) installModelUpdateSkip(options, instrumentation, host);
+            if (fullRuntimeAdmission) installIncrementalUpdate(options, instrumentation, host);
             final PreviewRuntime runtime;
             try {
                 runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
@@ -413,6 +416,7 @@ public final class TurboismAgent {
                 closeTextureUploadPreparation();
                 closeWarpPositionProjection();
                 closeModelUpdateSkip();
+                closeIncrementalUpdate();
                 throw failure;
             }
             if (!RUNTIME.compareAndSet(null, runtime)) {
@@ -448,6 +452,9 @@ public final class TurboismAgent {
                 }
                 if (MODEL_UPDATE_SKIP.get() != null) {
                     runtimeInfo("TURBOISM_MODEL_UPDATE_SKIP installation=COMPLETE phase=runtime-ready");
+                }
+                if (INCREMENTAL_UPDATE.get() != null) {
+                    runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=COMPLETE phase=runtime-ready");
                 }
                 installPerformanceProbe(options, instrumentation, host);
                 installDockTabPopupHook(
@@ -640,6 +647,41 @@ public final class TurboismAgent {
         if (installation != null) {
             try { installation.close(); }
             catch (Throwable failure) { runtimeWarn("Turboism model-update skip cleanup failed safely"); }
+        }
+    }
+
+    private static void installIncrementalUpdate(AgentOptions options, Instrumentation instrumentation,
+                                                 HostClassLocator.LocatedHost host) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.modelupdate.incremental
+                .IncrementalUpdateBridge.ENABLE_PROPERTY)) {
+            return;
+        }
+        VerifiedIncrementalUpdateInstaller installer = null;
+        try {
+            if (!VerifiedIncrementalUpdateInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedIncrementalUpdateInstaller(
+                instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!INCREMENTAL_UPDATE.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_INCREMENTAL_UPDATE installation=FAILED "
+                + failure.getClass().getName() + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeIncrementalUpdate() {
+        VerifiedIncrementalUpdateInstaller installation = INCREMENTAL_UPDATE.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism incremental update cleanup failed safely"); }
         }
     }
 
@@ -1632,6 +1674,7 @@ public final class TurboismAgent {
         closeTextureUploadPreparation();
         closeWarpPositionProjection();
         closeModelUpdateSkip();
+        closeIncrementalUpdate();
         final PerformanceFpsHook fpsHook = FPS_HOOK.getAndSet(null);
         if (fpsHook != null) {
             try {
