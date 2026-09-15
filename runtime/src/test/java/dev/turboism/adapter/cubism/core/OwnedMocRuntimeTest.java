@@ -275,11 +275,8 @@ class OwnedMocRuntimeTest {
 
     @Test
     void loadFailsClosedWithoutOwnedMocEvidence() {
-        final VerifiedMemberResolver resolver = TestCoreApiFixture.resolverWithExtras(
-            "5.3.02",
-            List.of(),
-            java.util.Set.of()
-        );
+        final VerifiedMemberResolver resolver =
+            TestCoreApiFixture.resolverWithoutOwnedMoc("5.3.02");
         final CoreRuntimeMetadata metadata = new CoreRuntimeMetadata(
             CorePublicApiProviderFactory.admitForTesting(
                 resolver,
