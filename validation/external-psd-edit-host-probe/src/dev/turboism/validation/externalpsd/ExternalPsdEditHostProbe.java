@@ -27,7 +27,9 @@ import dev.turboism.sdk.ui.UserFileRequestResult;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import javax.swing.JButton;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 import javax.swing.JTree;
@@ -76,8 +78,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -114,6 +118,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static final long GUI_READY_TRIGGER_POLL_MILLIS = 250L;
     private static final long GUI_SESSION_FILE_POLL_MILLIS = 250L;
     private static final int GUI_SESSION_FILE_STABLE_READS = 3;
+    private static final long HOST_CLOSE_TIMEOUT_MILLIS = 30_000L;
+    private static final long HOST_CLOSE_POLL_MILLIS = 100L;
+    private static final long HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS = 500L;
+    private static final int EXIT_DIAGNOSTIC_MAX_THREADS = 256;
+    private static final int EXIT_DIAGNOSTIC_MAX_STACK_FRAMES = 128;
+    static final int EXIT_DIAGNOSTIC_MAX_CHARS = 256 * 1024;
     private static final int SESSION_DIAGNOSTIC_LIMIT = 512;
     private static final long[] GUI_WAIT_DIAGNOSTIC_DELAYS_MILLIS = {120_000L, 180_000L};
     private static final int GUI_WAIT_DIAGNOSTIC_MAX_SAMPLES = 2;
@@ -136,6 +146,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     /** GUI-only cache: an off-EDT verified context is reused by all tables from one loader. */
     private final Map<ClassLoader, ExactHostRowTarget.HostAccessPreparation> hostAccessByLoader =
         new IdentityHashMap<>();
+    /** The first exact host window containing the verified fixture target; never re-bound. */
+    private volatile Window guiBoundWindow;
 
     @Override public void init(final PluginContext context) { this.context = context; }
 
@@ -193,81 +205,67 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("failureTrace", trace.toString());
         }
         if (stopped) return;
+        Path stateDir = null;
         try {
-            final var dir = context.paths().stateDir();
-            Files.createDirectories(dir);
+            stateDir = context.paths().stateDir();
+            Files.createDirectories(stateDir);
             final var output = new StringWriter();
             result.store(output, "025 external PSD edit pipeline probe; not full feature acceptance");
-            Files.writeString(dir.resolve("external-psd-edit-result.pending"), output.toString());
-            Files.move(dir.resolve("external-psd-edit-result.pending"),
-                dir.resolve("external-psd-edit-result.properties"),
+            Files.writeString(stateDir.resolve("external-psd-edit-result.pending"),
+                output.toString());
+            Files.move(stateDir.resolve("external-psd-edit-result.pending"),
+                stateDir.resolve("external-psd-edit-result.properties"),
                 StandardCopyOption.REPLACE_EXISTING);
             context.logger().info("EXTERNAL_PSD_EDIT_RESULT status=" + result.getProperty("status"));
-            armExitWatchdog(dir);
-            closeDefaultApplication();
-            // Native save initializes JOGL/GlueGen; letting the JVM fall into ExitProcess with
-            // live GL resources deadlocks DLL detach under Wine and freezes the whole session.
-            // Drive the host's own close path instead so it releases the engine first.
+        } catch (Throwable error) {
+            context.logger().error("EXTERNAL_PSD_EDIT_RESULT_WRITE_FAILED", error);
+        }
+        if (stopped) return;
+        if (stateDir == null) {
+            context.logger().error(
+                "EXTERNAL_PSD_EDIT_EXIT_FAILED no task state directory was available");
+            return;
+        }
+        try {
+            armExitWatchdog(stateDir);
+            // The exact GUI target is closed asynchronously.  A missing target is left to the
+            // shared Supervisor rather than guessed from an unrelated visible window.
             closeHostGracefully();
-        } catch (Exception error) {
-            context.logger().warn("EXTERNAL_PSD_EDIT_RESULT_WRITE_FAILED " + error);
+        } catch (Throwable error) {
+            context.logger().error("EXTERNAL_PSD_EDIT_EXIT_FAILED", error);
         }
     }
 
     /**
-     * Simulates the user closing their external editor. The task-scoped .psd association opens
-     * notepad.exe as a detached session process; Proton waits for the whole wine session, so a
-     * surviving editor would hold the launcher open after the JVM exits and defeat the runner's
-     * graceful-exit evidence. Bounded and recorded, never gated.
+     * Drives Cubism's own window-close path for the exact window that contained the verified GUI
+     * target.  The close event is posted asynchronously because a dirty document can enter a
+     * modal option dialog on the EDT; the worker then observes that dialog without waiting for
+     * the close event through {@code invokeAndWait}.
      */
-    private static void closeDefaultApplication() {
+    private void closeHostGracefully() {
+        final Window target = guiBoundWindow;
+        if (target == null) {
+            context.logger().warn(
+                "EXTERNAL_PSD_EDIT_EXIT_SKIPPED no exact GUI target window was bound; "
+                    + "Supervisor owns cleanup");
+            return;
+        }
         try {
-            final Process taskkill = new ProcessBuilder(
-                "taskkill.exe", "/F", "/IM", "notepad.exe").start();
-            taskkill.waitFor(15, TimeUnit.SECONDS);
-        } catch (Throwable ignored) {
-            // Editor teardown is best-effort; the exit watchdog still bounds the run.
+            final HostCloseResult result = closeBoundHostWindow(target);
+            if (result.success()) {
+                context.logger().info("EXTERNAL_PSD_EDIT_EXIT " + result.diagnostic());
+            } else {
+                context.logger().error("EXTERNAL_PSD_EDIT_EXIT_FAILED " + result.diagnostic());
+            }
+        } catch (Throwable error) {
+            context.logger().error("EXTERNAL_PSD_EDIT_EXIT_FAILED", error);
         }
     }
 
     /**
-     * Drives Cubism's own window-close path (equivalent to Alt+F4 on the document frame) so the
-     * host releases its engine and GL resources before the JVM reaches ExitProcess.
-     */
-    private static void closeHostGracefully() {
-        try {
-            final Runnable close = () -> {
-                Frame modelFrame = null;
-                Frame cubismFrame = null;
-                Frame fallbackFrame = null;
-                for (final Frame frame : Frame.getFrames()) {
-                    if (!frame.isVisible()) continue;
-                    if (fallbackFrame == null) fallbackFrame = frame;
-                    final String title = frame.getTitle();
-                    if (title != null && title.contains(".cmo3")) {
-                        modelFrame = frame;
-                        break;
-                    }
-                    if (cubismFrame == null && title != null && title.contains("Cubism")) {
-                        cubismFrame = frame;
-                    }
-                }
-                final Frame frame = modelFrame != null
-                    ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
-                if (frame != null) {
-                    frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-                }
-            };
-            if (SwingUtilities.isEventDispatchThread()) close.run();
-            else SwingUtilities.invokeAndWait(close);
-        } catch (Throwable ignored) {
-            // The exit watchdog still bounds the run if the close event is refused.
-        }
-    }
-
-    /**
-     * Daemon watchdog armed just before {@code Runtime.exit}: if shutdown hooks stall, it dumps all
-     * thread stacks as evidence and then halts so the run still terminates inside the exit window.
+     * Daemon watchdog armed after the result is recorded: if native shutdown stalls, it writes one
+     * bounded thread-stack diagnostic.  Cleanup and process termination remain the Supervisor's
+     * responsibility; this probe never terminates its own JVM.
      */
     private static void armExitWatchdog(final Path stateDir) {
         try {
@@ -281,34 +279,54 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 Thread.sleep(15000);
                 // Per-thread stack traces use handshakes, not a global safepoint, so a thread
                 // wedged in native code cannot stall the dump itself.
-                final var text = new StringBuilder("JVM exit watchdog: shutdown stalled\n");
-                for (Thread thread : allThreads()) {
-                    text.append('\n').append('"').append(thread.getName()).append('"')
-                        .append(' ').append(thread.getState());
-                    for (StackTraceElement frame : thread.getStackTrace()) {
-                        text.append("\n    at ").append(frame);
-                    }
-                }
+                final String text = boundedExitThreadDiagnostic();
                 Files.writeString(stateDir.resolve("external-psd-exit-threads.txt"), text);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             } catch (Throwable ignored) {
             }
         }, "external-psd-exit-dump");
-        final Thread killer = new Thread(() -> {
-            try {
-                Thread.sleep(35000);
-            } catch (InterruptedException interrupted) {
-                return;
-            }
-            // Runtime.halt would block on the shutdown lock while a wedged hook still holds it;
-            // destroying our own process bypasses the JVM shutdown machinery entirely.
-            ProcessHandle.current().destroyForcibly();
-        }, "external-psd-exit-watchdog");
         dumper.setDaemon(true);
-        killer.setDaemon(true);
         dumper.start();
-        killer.start();
+    }
+
+    private static String boundedExitThreadDiagnostic() {
+        final StringBuilder text = new StringBuilder("JVM exit watchdog: shutdown stalled\n");
+        int includedThreads = 0;
+        for (final Thread thread : allThreads()) {
+            if (includedThreads >= EXIT_DIAGNOSTIC_MAX_THREADS) {
+                appendBounded(text, "\n[thread list truncated]");
+                break;
+            }
+            if (!appendBounded(text, "\n\"" + thread.getName() + "\" "
+                + thread.getState())) break;
+            includedThreads++;
+            int includedFrames = 0;
+            for (final StackTraceElement frame : thread.getStackTrace()) {
+                if (includedFrames >= EXIT_DIAGNOSTIC_MAX_STACK_FRAMES) {
+                    appendBounded(text, "\n    [... stack truncated]");
+                    break;
+                }
+                if (!appendBounded(text, "\n    at " + frame)) return text.toString();
+                includedFrames++;
+            }
+        }
+        return text.toString();
+    }
+
+    static String exitThreadDiagnosticForTest() {
+        return boundedExitThreadDiagnostic();
+    }
+
+    private static boolean appendBounded(final StringBuilder text, final String value) {
+        if (text.length() >= EXIT_DIAGNOSTIC_MAX_CHARS) return false;
+        final int remaining = EXIT_DIAGNOSTIC_MAX_CHARS - text.length();
+        if (value.length() <= remaining) {
+            text.append(value);
+            return true;
+        }
+        text.append(value, 0, remaining);
+        return false;
     }
 
     private static List<Thread> allThreads() {
@@ -322,6 +340,358 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final List<Thread> alive = new ArrayList<>(count);
         for (int index = 0; index < count; index++) alive.add(threads[index]);
         return alive;
+    }
+
+    /**
+     * Sends the host close event only to the exact target captured by the GUI phase.  Keeping the
+     * value checks in this small helper makes the no-cross-window rule executable offline without
+     * constructing a real AWT window in the headless focused test.
+     */
+    private static CloseDispatchResult dispatchBoundWindowClose(final Window target) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            return CloseDispatchResult.rejected("bound host close must run on EDT");
+        }
+        if (target == null) return CloseDispatchResult.rejected("bound host window is unavailable");
+        final String identity = componentIdentity(target);
+        return dispatchBoundWindowClose(identity, identity, target.isShowing(),
+            target.isDisplayable(),
+            () -> target.dispatchEvent(new WindowEvent(target, WindowEvent.WINDOW_CLOSING)));
+    }
+
+    /** Test seam for the exact-window checks used by {@link #dispatchBoundWindowClose(Window)}. */
+    static CloseDispatchResult dispatchBoundWindowCloseForTest(final String expectedIdentity,
+        final String actualIdentity, final boolean showing, final boolean displayable,
+        final Runnable dispatch) {
+        return dispatchBoundWindowClose(expectedIdentity, actualIdentity, showing, displayable,
+            dispatch);
+    }
+
+    private static CloseDispatchResult dispatchBoundWindowClose(final String expectedIdentity,
+        final String actualIdentity, final boolean showing, final boolean displayable,
+        final Runnable dispatch) {
+        if (expectedIdentity == null || expectedIdentity.isBlank()) {
+            return CloseDispatchResult.rejected("bound host window identity is unavailable");
+        }
+        if (!expectedIdentity.equals(actualIdentity)) {
+            return CloseDispatchResult.rejected("close target identity changed from "
+                + expectedIdentity + " to " + actualIdentity);
+        }
+        if (!showing || !displayable) {
+            return CloseDispatchResult.rejected("bound host window is not showing/displayable: "
+                + actualIdentity);
+        }
+        if (dispatch == null) return CloseDispatchResult.rejected("close dispatch is unavailable");
+        try {
+            dispatch.run();
+            return CloseDispatchResult.dispatched(
+                "event=WINDOW_CLOSING target=" + actualIdentity);
+        } catch (Throwable failure) {
+            return CloseDispatchResult.rejected("event=WINDOW_CLOSING target=" + actualIdentity
+                + " dispatch failed: " + stackTrace(failure));
+        }
+    }
+
+    /**
+     * Posts WINDOW_CLOSING and observes the modal save path without synchronously waiting for the
+     * event handler.  Every Swing read/action in this routine is scheduled on the EDT; the worker
+     * waits only on bounded latches, so a host modal loop or native stall remains diagnosable.
+     */
+    private static HostCloseResult closeBoundHostWindow(final Window target) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return HostCloseResult.rejected("host close coordinator must run off EDT");
+        }
+        final AtomicBoolean coordinatorActive = new AtomicBoolean(true);
+        try {
+            final EdtCall<Set<Window>> beforeCall = invokeEdtBounded(
+                ExternalPsdEditHostProbe::visibleDialogsOnEdt, HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
+            if (!beforeCall.completed()) {
+                return HostCloseResult.timeout("could not snapshot pre-close dialogs on EDT");
+            }
+            if (beforeCall.failure() != null) {
+                return HostCloseResult.rejected("pre-close dialog snapshot failed: "
+                    + stackTrace(beforeCall.failure()));
+            }
+            final Set<Window> beforeDialogs = beforeCall.value();
+            if (beforeDialogs == null) {
+                return HostCloseResult.rejected("pre-close dialog snapshot was unavailable");
+            }
+
+            final AtomicReference<CloseDispatchResult> dispatch = new AtomicReference<>();
+            final AtomicBoolean closeStarted = new AtomicBoolean();
+            try {
+                SwingUtilities.invokeLater(() -> {
+                    if (!coordinatorActive.get()) return;
+                    closeStarted.set(true);
+                    dispatch.set(dispatchBoundWindowClose(target));
+                });
+            } catch (RuntimeException failure) {
+                return HostCloseResult.rejected("WINDOW_CLOSING could not be posted: "
+                    + stackTrace(failure));
+            }
+
+            final long deadline = System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(HOST_CLOSE_TIMEOUT_MILLIS);
+            boolean dismissedNo = false;
+            String lastDiagnostic = "WINDOW_CLOSING has not reached the EDT";
+            while (System.nanoTime() < deadline) {
+                final CloseDispatchResult dispatched = dispatch.get();
+                if (dispatched != null && !dispatched.dispatched()) {
+                    return HostCloseResult.rejected(dispatched.diagnostic());
+                }
+                if (!closeStarted.get()) {
+                    lastDiagnostic = "WINDOW_CLOSING is queued on the EDT";
+                } else {
+                    final boolean mayDismissNo = !dismissedNo;
+                    final EdtCall<CloseDialogInspection> inspection = invokeEdtBounded(
+                        () -> inspectAndMaybeDismissCloseDialog(target, beforeDialogs,
+                            mayDismissNo, coordinatorActive),
+                        HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
+                    if (!inspection.completed()) {
+                        lastDiagnostic = "EDT close observation timed out";
+                    } else if (inspection.failure() != null) {
+                        return HostCloseResult.rejected("close observation failed: "
+                            + stackTrace(inspection.failure()));
+                    } else if (inspection.value() != null) {
+                        final CloseDialogInspection observed = inspection.value();
+                        lastDiagnostic = observed.diagnostic();
+                        if (observed.rejected()) return HostCloseResult.rejected(lastDiagnostic);
+                        if (observed.dismissedNo()) dismissedNo = true;
+                        if (observed.targetGone()) {
+                            if (dispatched == null || !dispatched.dispatched()) {
+                                lastDiagnostic = "bound host window disappeared before "
+                                    + "WINDOW_CLOSING dispatch completed";
+                                continue;
+                            }
+                            return HostCloseResult.success(dismissedNo
+                                ? "native close completed after exact dirty-save NO selection"
+                                : "native close completed with no dirty-save dialog");
+                        }
+                    }
+                }
+                final long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) break;
+                Thread.sleep(Math.min(HOST_CLOSE_POLL_MILLIS,
+                    Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining))));
+            }
+            return HostCloseResult.timeout("native close did not complete before timeout; last="
+                + lastDiagnostic);
+        } finally {
+            // Timed-out invokeLater inspections must not act after Supervisor cleanup has taken
+            // ownership of the host.
+            coordinatorActive.set(false);
+        }
+    }
+
+    private static <T> EdtCall<T> invokeEdtBounded(final Callable<T> operation,
+        final long timeoutMillis) throws InterruptedException {
+        Objects.requireNonNull(operation, "EDT operation");
+        if (timeoutMillis <= 0) return EdtCall.timeout();
+        if (SwingUtilities.isEventDispatchThread()) {
+            try {
+                return EdtCall.completed(operation.call());
+            } catch (Throwable failure) {
+                return EdtCall.failed(failure);
+            }
+        }
+        final AtomicReference<T> value = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final CountDownLatch done = new CountDownLatch(1);
+        try {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    value.set(operation.call());
+                } catch (Throwable error) {
+                    failure.set(error);
+                } finally {
+                    done.countDown();
+                }
+            });
+        } catch (RuntimeException error) {
+            return EdtCall.failed(error);
+        }
+        if (!done.await(timeoutMillis, TimeUnit.MILLISECONDS)) return EdtCall.timeout();
+        return failure.get() == null
+            ? EdtCall.completed(value.get()) : EdtCall.failed(failure.get());
+    }
+
+    private static Set<Window> visibleDialogsOnEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("dialog discovery must run on EDT");
+        }
+        final Set<Window> visible = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (final Window window : Window.getWindows()) {
+            if (window instanceof Dialog dialog && dialog.isShowing() && dialog.isDisplayable()) {
+                visible.add(dialog);
+            }
+        }
+        return visible;
+    }
+
+    private static CloseDialogInspection inspectAndMaybeDismissCloseDialog(final Window target,
+        final Set<Window> beforeDialogs, final boolean mayDismissNo,
+        final AtomicBoolean coordinatorActive) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("dialog inspection must run on EDT");
+        }
+        if (!coordinatorActive.get()) {
+            return CloseDialogInspection.waiting("close observation was cancelled");
+        }
+        if (target == null || !target.isShowing() || !target.isDisplayable()) {
+            return CloseDialogInspection.targetGone("bound host window is no longer showing");
+        }
+        final Set<String> beforeIdentities = new HashSet<>();
+        for (final Window dialog : beforeDialogs) beforeIdentities.add(componentIdentity(dialog));
+        final CloseDialogDecision decision = classifyCloseDialog(
+            componentIdentity(target), beforeIdentities, visibleCloseDialogs(target));
+        if (decision.outcome() == CloseDialogOutcome.DISMISS_NO) {
+            if (!mayDismissNo) {
+                return CloseDialogInspection.rejected(
+                    "more than one close-associated dirty-save dialog appeared");
+            }
+            try {
+                decision.dismissNo().run();
+                return CloseDialogInspection.dismissed(
+                    decision.diagnostic() + " selected=NO(index=1)");
+            } catch (Throwable failure) {
+                return CloseDialogInspection.rejected("NO option dispatch failed: "
+                    + stackTrace(failure));
+            }
+        }
+        if (decision.outcome() == CloseDialogOutcome.REJECTED) {
+            return CloseDialogInspection.rejected(decision.diagnostic());
+        }
+        return CloseDialogInspection.waiting(decision.diagnostic());
+    }
+
+    private static List<CloseDialogSnapshot> visibleCloseDialogs(final Window target) {
+        final List<CloseDialogSnapshot> snapshots = new ArrayList<>();
+        for (final Window window : Window.getWindows()) {
+            if (!(window instanceof Dialog dialog)
+                || !dialog.isShowing() || !dialog.isDisplayable()) continue;
+            final List<JOptionPane> panes = new ArrayList<>();
+            collectOptionPanes(dialog, panes);
+            if (panes.size() != 1) {
+                snapshots.add(new CloseDialogSnapshot(componentIdentity(dialog),
+                    objectIdentity(dialog.getOwner()), dialog.getOwner() == target,
+                    true, true, panes.size(), List.of(), List.of(), -1, () -> { }));
+                continue;
+            }
+            final JOptionPane pane = panes.get(0);
+            final Object[] options = pane.getOptions();
+            final List<String> classes = new ArrayList<>();
+            final List<String> labels = new ArrayList<>();
+            int initialIndex = -1;
+            final Object initial = pane.getInitialValue();
+            if (options != null) {
+                for (int index = 0; index < options.length; index++) {
+                    final Object option = options[index];
+                    classes.add(option == null ? "null" : option.getClass().getName());
+                    labels.add(option instanceof JButton button && button.getText() != null
+                        ? button.getText() : "");
+                    if (option == initial) initialIndex = index;
+                }
+            }
+            final Runnable dismissNo = options != null && options.length > 1
+                && options[1] instanceof JButton button ? button::doClick : () -> { };
+            snapshots.add(new CloseDialogSnapshot(componentIdentity(dialog),
+                objectIdentity(dialog.getOwner()), dialog.getOwner() == target,
+                true, true, 1, List.copyOf(classes), List.copyOf(labels), initialIndex,
+                dismissNo));
+        }
+        return snapshots;
+    }
+
+    private static void collectOptionPanes(final Component component,
+        final List<JOptionPane> panes) {
+        if (component instanceof JOptionPane pane) panes.add(pane);
+        if (component instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                collectOptionPanes(child, panes);
+            }
+        }
+    }
+
+    static CloseDialogDecision classifyCloseDialogForTest(final String targetWindowIdentity,
+        final Set<String> beforeDialogIdentities,
+        final List<CloseDialogSnapshot> visibleDialogs) {
+        return classifyCloseDialog(targetWindowIdentity, beforeDialogIdentities, visibleDialogs);
+    }
+
+    private static CloseDialogDecision classifyCloseDialog(final String targetWindowIdentity,
+        final Set<String> beforeDialogIdentities,
+        final List<CloseDialogSnapshot> visibleDialogs) {
+        if (targetWindowIdentity == null || targetWindowIdentity.isBlank()) {
+            return CloseDialogDecision.rejected("bound host window identity is unavailable");
+        }
+        if (beforeDialogIdentities == null) {
+            return CloseDialogDecision.rejected("pre-close dialog identities are unavailable");
+        }
+        final List<CloseDialogSnapshot> current = visibleDialogs == null ? List.of()
+            : visibleDialogs;
+        for (final CloseDialogSnapshot dialog : current) {
+            if (dialog == null || dialog.dialogIdentity() == null
+                || dialog.dialogIdentity().isBlank()) {
+                return CloseDialogDecision.rejected("close-associated dialog identity is unavailable");
+            }
+            if (dialog.ownerMatchesTarget()
+                && !targetWindowIdentity.equals(dialog.ownerIdentity())) {
+                return CloseDialogDecision.rejected(
+                    "dialog owner identity does not equal bound window: owner="
+                        + dialog.ownerIdentity() + " bound=" + targetWindowIdentity);
+            }
+            if (beforeDialogIdentities.contains(dialog.dialogIdentity())
+                && dialog.ownerMatchesTarget()
+                && targetWindowIdentity.equals(dialog.ownerIdentity())) {
+                return CloseDialogDecision.rejected(
+                    "a dialog owned by the bound window pre-existed WINDOW_CLOSING: "
+                        + dialog.dialogIdentity());
+            }
+        }
+        final List<CloseDialogSnapshot> added = current.stream()
+            .filter(Objects::nonNull)
+            .filter(dialog -> !beforeDialogIdentities.contains(dialog.dialogIdentity()))
+            .toList();
+        if (added.isEmpty()) {
+            return CloseDialogDecision.noDialog(
+                "no new dialog is associated with WINDOW_CLOSING target=" + targetWindowIdentity);
+        }
+        if (added.size() > 1) {
+            return CloseDialogDecision.rejected(
+                "multiple new dialogs are associated with WINDOW_CLOSING: " + added.size());
+        }
+        final CloseDialogSnapshot dialog = added.get(0);
+        if (!dialog.ownerMatchesTarget()
+            || !targetWindowIdentity.equals(dialog.ownerIdentity())) {
+            return CloseDialogDecision.rejected("new dialog owner " + dialog.ownerIdentity()
+                + " does not equal bound window " + targetWindowIdentity);
+        }
+        if (!dialog.showing() || !dialog.displayable()) {
+            return CloseDialogDecision.rejected(
+                "close-associated dialog is not showing/displayable: " + dialog.dialogIdentity());
+        }
+        if (dialog.optionPaneCount() != 1 || dialog.optionClassNames().size() != 3
+            || dialog.optionLabels().size() != 3 || dialog.initialOptionIndex() != 0) {
+            return CloseDialogDecision.rejected(
+                "close-associated JOptionPane options are unknown: " + dialog);
+        }
+        final List<String> expectedClasses = List.of(
+            JButton.class.getName(), JButton.class.getName(), JButton.class.getName());
+        if (!expectedClasses.equals(dialog.optionClassNames())
+            || !hostOptionLabel(dialog.optionLabels().get(0), 'Y')
+            || !hostOptionLabel(dialog.optionLabels().get(1), 'N')
+            || !hostOptionLabel(dialog.optionLabels().get(2), 'C')
+            || dialog.dismissNo() == null) {
+            return CloseDialogDecision.rejected(
+                "close-associated JOptionPane does not have the verified Yes/No/Cancel options");
+        }
+        return CloseDialogDecision.dismissNo(
+            "new dirty-save JOptionPane=" + dialog.dialogIdentity()
+                + " owner=" + dialog.ownerIdentity() + " options=" + dialog.optionLabels(),
+            dialog.dismissNo());
+    }
+
+    private static boolean hostOptionLabel(final String label, final char suffix) {
+        return label != null && label.trim().endsWith("(" + suffix + ")");
     }
 
     /** Full save→replace→undo→stop→recover pipeline plus optional persist tail. */
@@ -3122,7 +3492,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return observed.get();
     }
 
-    private static void recordGuiTargetState(final Properties result, final String phase,
+    static void recordGuiTargetState(final Properties result, final String phase,
         final GuiTargetState state) {
         final String prefix = "gui." + phase + ".";
         result.setProperty(prefix + "observed", Boolean.toString(state.observed()));
@@ -3130,6 +3500,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty(prefix + "generation", Long.toString(state.generation()));
         result.setProperty(prefix + "raw", state.raw());
         result.setProperty(prefix + "rawReplaced", Boolean.toString(state.rawReplaced()));
+        result.remove(prefix + "diagnostic");
         if (!state.diagnostic().isBlank()) {
             result.setProperty(prefix + "diagnostic", state.diagnostic());
         }
@@ -3224,10 +3595,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 boundWindowIdentity, reviewed.windowIdentity(), reviewed.proven(), true);
             if (targetWindow.bindNow()) {
                 boundWindowIdentity = reviewed.windowIdentity();
+                guiBoundWindow = reviewed.window();
                 result.setProperty("gui.exactTarget.windowBinding", boundWindowIdentity);
                 result.setProperty("gui.exactTarget.windowBindingStatus", "BOUND");
                 result.setProperty("gui.exactTarget.windowBindingDiagnostic",
-                    targetWindow.diagnostic());
+                    targetWindow.diagnostic() + " object=" + objectIdentity(guiBoundWindow));
             }
             for (final ExactDispatchCapture captured : capture.rows()) {
                 if (attempts >= rowBudget) break;
@@ -3363,7 +3735,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 final List<ExactTableRef> tables = new ArrayList<>();
                 collectReviewedTables(active, active, tables);
                 final String windowIdentity = componentIdentity(active);
-                found.set(new ReviewedTables(List.copyOf(tables), windowIdentity, true,
+                found.set(new ReviewedTables(List.copyOf(tables), windowIdentity, active, true,
                     "activeTargetWindow=" + windowIdentity + " tables=" + tables.size()));
             } catch (RuntimeException failure) {
                 found.set(ReviewedTables.unavailable(
@@ -4336,6 +4708,110 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private record GuiClick(boolean clicked, String diagnostic) {
+    }
+
+    enum CloseDialogOutcome {
+        NO_DIALOG,
+        DISMISS_NO,
+        REJECTED
+    }
+
+    static record CloseDialogSnapshot(String dialogIdentity, String ownerIdentity,
+        boolean ownerMatchesTarget, boolean showing, boolean displayable, int optionPaneCount,
+        List<String> optionClassNames, List<String> optionLabels, int initialOptionIndex,
+        Runnable dismissNo) {
+        CloseDialogSnapshot {
+            dialogIdentity = dialogIdentity == null ? "" : dialogIdentity;
+            ownerIdentity = ownerIdentity == null ? "" : ownerIdentity;
+            optionClassNames = optionClassNames == null ? List.of()
+                : List.copyOf(optionClassNames);
+            optionLabels = optionLabels == null ? List.of() : List.copyOf(optionLabels);
+        }
+    }
+
+    static record CloseDialogDecision(CloseDialogOutcome outcome, String diagnostic,
+        Runnable dismissNo) {
+        CloseDialogDecision {
+            outcome = Objects.requireNonNull(outcome, "outcome");
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static CloseDialogDecision noDialog(final String diagnostic) {
+            return new CloseDialogDecision(CloseDialogOutcome.NO_DIALOG, diagnostic, null);
+        }
+
+        static CloseDialogDecision dismissNo(final String diagnostic, final Runnable action) {
+            return new CloseDialogDecision(CloseDialogOutcome.DISMISS_NO, diagnostic, action);
+        }
+
+        static CloseDialogDecision rejected(final String diagnostic) {
+            return new CloseDialogDecision(CloseDialogOutcome.REJECTED, diagnostic, null);
+        }
+    }
+
+    private record CloseDialogInspection(boolean targetGone, boolean dismissedNo,
+        boolean rejected, String diagnostic) {
+        static CloseDialogInspection targetGone(final String diagnostic) {
+            return new CloseDialogInspection(true, false, false, diagnostic);
+        }
+
+        static CloseDialogInspection waiting(final String diagnostic) {
+            return new CloseDialogInspection(false, false, false, diagnostic);
+        }
+
+        static CloseDialogInspection dismissed(final String diagnostic) {
+            return new CloseDialogInspection(false, true, false, diagnostic);
+        }
+
+        static CloseDialogInspection rejected(final String diagnostic) {
+            return new CloseDialogInspection(false, false, true, diagnostic);
+        }
+    }
+
+    static record CloseDispatchResult(boolean dispatched, String diagnostic) {
+        CloseDispatchResult {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static CloseDispatchResult dispatched(final String diagnostic) {
+            return new CloseDispatchResult(true, diagnostic);
+        }
+
+        static CloseDispatchResult rejected(final String diagnostic) {
+            return new CloseDispatchResult(false, diagnostic);
+        }
+    }
+
+    private record HostCloseResult(boolean success, String diagnostic) {
+        HostCloseResult {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static HostCloseResult success(final String diagnostic) {
+            return new HostCloseResult(true, diagnostic);
+        }
+
+        static HostCloseResult rejected(final String diagnostic) {
+            return new HostCloseResult(false, diagnostic);
+        }
+
+        static HostCloseResult timeout(final String diagnostic) {
+            return new HostCloseResult(false, diagnostic);
+        }
+    }
+
+    private record EdtCall<T>(boolean completed, T value, Throwable failure) {
+        static <T> EdtCall<T> completed(final T value) {
+            return new EdtCall<>(true, value, null);
+        }
+
+        static <T> EdtCall<T> failed(final Throwable failure) {
+            return new EdtCall<>(true, null, failure);
+        }
+
+        static <T> EdtCall<T> timeout() {
+            return new EdtCall<>(false, null, null);
+        }
     }
 
     private List<RowWidget> visibleRowWidgets() throws Exception {
@@ -5474,7 +5950,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private record ReviewedTables(List<ExactTableRef> tables, String windowIdentity,
-        boolean proven, String diagnostic) {
+        Window window, boolean proven, String diagnostic) {
         ReviewedTables {
             tables = List.copyOf(tables);
             windowIdentity = windowIdentity == null ? "" : windowIdentity;
@@ -5482,7 +5958,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
 
         static ReviewedTables unavailable(final String diagnostic) {
-            return new ReviewedTables(List.of(), "", false, diagnostic);
+            return new ReviewedTables(List.of(), "", null, false, diagnostic);
         }
     }
 
