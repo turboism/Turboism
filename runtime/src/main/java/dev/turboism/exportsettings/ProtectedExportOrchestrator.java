@@ -725,7 +725,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             throw new SessionRejection(RESTORE_FAILED_KEY);
         }
         if (session.copyFile != null) {
-            Files.deleteIfExists(session.copyFile.toPath());
+            ProtectedExportStaging.deleteIfExists(session.copyFile.toPath());
             if (session.copyFile.isFile()) {
                 throw new SessionRejection(RESTORE_FAILED_KEY);
             }
@@ -953,7 +953,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             try {
                 if (copyFile != null && copyFile.isFile()) {
                     host.releaseFileHandleFor(copyFile);
-                    Files.deleteIfExists(copyFile.toPath());
+                    ProtectedExportStaging.deleteIfExists(copyFile.toPath());
                 }
             } catch (Throwable ignored) {
             }
