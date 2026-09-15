@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.LongSupplier;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Exact, generation-bound Editor projection of the model texture library.
@@ -340,6 +341,7 @@ final class EditorTextureAccess {
         private final String identity;
         private final Object source;
         private final Object model;
+        private final AtomicBoolean exportDiagnosticConsumed = new AtomicBoolean();
 
         private EditorTextures(final String identity, final Object source, final Object model) {
             this.identity = identity;
@@ -459,7 +461,85 @@ final class EditorTextureAccess {
                 admission.run();
                 modelGuard.requireCurrent(id, currentModel);
             });
-            final var result = access.exportPsd(identity, source, model, sourceId, destination);
+            if (!EditorTextureReplacementDiagnostic.enabled() || exportDiagnosticConsumed.get()) {
+                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
+            }
+            return EditorHostThread.dispatch(
+                "Cubism PSD raw-image export diagnostic",
+                () -> exportPsdWithDiagnostic(access, sourceId, destination)
+            );
+        }
+
+        private Observation exportPsdWithDiagnostic(
+            final EditorRawImagePsdAccess access,
+            final RawImageId sourceId,
+            final Path destination
+        ) {
+            if (exportDiagnosticConsumed.get()) {
+                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
+            }
+
+            final EditorRawImagePsdSourceBinding.BindingResult binding;
+            try {
+                // The binding check is deliberately on this same EDT as the subsequent export.
+                // The export access repeats admission, guard, binding, save, and integrity checks
+                // immediately below; no host event can interleave these calls on this thread.
+                modelGuard.requireCurrent(identity, model);
+                binding = psdSourceBinding.bindOnHostThread(source, sourceId);
+            } catch (RuntimeException | LinkageError diagnosticBindingFailure) {
+                // Do not let diagnostic setup change the ordinary export result or exception.
+                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
+            }
+            if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED
+                || !exportDiagnosticConsumed.compareAndSet(false, true)) {
+                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
+            }
+
+            final Object document = diagnosticDocument();
+            final Optional<EditorTextureReplacementDiagnostic.ExportSession> diagnostic;
+            try {
+                diagnostic = EditorTextureReplacementDiagnostic.beginExport(
+                    resolver,
+                    identity,
+                    source,
+                    document,
+                    model,
+                    sourceId
+                );
+            } catch (RuntimeException | LinkageError ignored) {
+                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
+            }
+            if (diagnostic.isEmpty()) {
+                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
+            }
+
+            final EditorTextureReplacementDiagnostic.ExportSession session = diagnostic.orElseThrow();
+            try {
+                final EditorRawImagePsdAccess.ExportResult result =
+                    access.exportPsd(identity, source, model, sourceId, destination);
+                try {
+                    modelGuard.requireCurrent(identity, model);
+                    session.finish(true, null);
+                } catch (RuntimeException | LinkageError postGuardFailure) {
+                    session.finish(false, "post-current-guard-failed:" + message(postGuardFailure));
+                }
+                return exportObservation(result);
+            } catch (RuntimeException | LinkageError exportFailure) {
+                session.finish(false, "export-call-threw:" + message(exportFailure));
+                throw exportFailure;
+            }
+        }
+
+        private Object diagnosticDocument() {
+            try {
+                final Object app = resolver.invokeStatic(APP_INSTANCE);
+                return app == null ? null : resolver.invoke(CURRENT_DOCUMENT, app);
+            } catch (RuntimeException | LinkageError ignored) {
+                return null;
+            }
+        }
+
+        private Observation exportObservation(final EditorRawImagePsdAccess.ExportResult result) {
             final var integrity = result.integrityVerification();
             return new Observation(result.status().name(), integrity.status().name(), result.outputReadable(),
                 integrity.rootNameMatches() && integrity.dimensionsMatch() && integrity.layerTreeMatches());
