@@ -1241,6 +1241,115 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
+    void partGestureUsesTheVerifiedTargetCenterAndNeverDropsIntoTheNextRow() {
+        final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
+        final DefaultMutableTreeNode target = new DefaultMutableTreeNode("Target");
+        target.add(new DefaultMutableTreeNode("Target child"));
+        final DefaultMutableTreeNode source = new DefaultMutableTreeNode("Source");
+        root.add(target);
+        root.add(source);
+        final JTree tree = new JTree(root);
+        tree.collapsePath(new TreePath(target.getPath()));
+        final JTable table = new JTable(4, 1);
+        table.setRowHeight(20);
+        table.setSize(240, 80);
+
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout located =
+            WindowsHistoryNativeUiIngressProbe.locatePartPairRows(
+                table, tree, "Source", "Target");
+        assertTrue(located != null);
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout gestureLayout =
+            new WindowsHistoryNativeUiIngressProbe.PartPairLayout(
+                located.source().withScreenPoint(located.source().localPoint()),
+                located.target().withScreenPoint(located.target().localPoint())
+            );
+
+        final java.awt.Point drop =
+            WindowsHistoryNativeUiIngressProbe.partGestureTargetPoint(gestureLayout);
+        assertEquals(located.target().localPoint(), drop);
+        assertEquals(located.target().row(), table.rowAtPoint(drop));
+        assertTrue(located.target().cell().contains(drop));
+
+        final java.awt.Point oldEdge = new java.awt.Point(
+            drop.x, drop.y + located.target().cell().height - 2);
+        assertTrue(
+            table.rowAtPoint(oldEdge) != located.target().row(),
+            "the former edge offset must not be used as a drop point"
+        );
+    }
+
+    @Test
+    void partDragSettlesLateChangeWithoutSendingASecondGesture() throws Exception {
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck noChange =
+            partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE);
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck changed =
+            partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.CHANGED);
+        final List<WindowsHistoryNativeUiIngressProbe.PartDragCheck> readbacks =
+            List.of(noChange, noChange, changed);
+        final List<List<WindowsHistoryNativeUiIngressProbe.PartDragCheck>> gestureReadbacks =
+            List.of(readbacks);
+
+        int gestures = 0;
+        WindowsHistoryNativeUiIngressProbe.PartDragSettlement settlement;
+        do {
+            assertTrue(gestures < gestureReadbacks.size(), "late readback must not trigger retry");
+            final List<WindowsHistoryNativeUiIngressProbe.PartDragCheck> gesture =
+                gestureReadbacks.get(gestures);
+            gestures++;
+            settlement = WindowsHistoryNativeUiIngressProbe.settlePartDrag(
+                12, poll -> gesture.get(poll));
+        } while (settlement.status()
+            == WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.RETRY);
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.CHANGED,
+            settlement.status()
+        );
+        assertEquals(1, gestures, "a late parent change belongs to the first gesture");
+    }
+
+    @Test
+    void partDragStopsOnMismatchOrUnavailableInsteadOfRetryingUnknownResults() throws Exception {
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck noChange =
+            partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE);
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck mismatch =
+            partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH);
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck unavailable =
+            partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.UNAVAILABLE);
+
+        final WindowsHistoryNativeUiIngressProbe.PartDragSettlement mismatchResult =
+            WindowsHistoryNativeUiIngressProbe.settlePartDrag(
+                12, poll -> List.of(noChange, mismatch).get(poll));
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.MISMATCH,
+            mismatchResult.status()
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.PartDragSettlement unavailableResult =
+            WindowsHistoryNativeUiIngressProbe.settlePartDrag(
+                12, poll -> List.of(noChange, unavailable).get(poll));
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.UNAVAILABLE,
+            unavailableResult.status()
+        );
+    }
+
+    @Test
+    void partDragConsidersRetryOnlyAfterTheCompleteNoChangeWindow() throws Exception {
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck noChange =
+            partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE);
+
+        final WindowsHistoryNativeUiIngressProbe.PartDragSettlement settlement =
+            WindowsHistoryNativeUiIngressProbe.settlePartDrag(
+                2, poll -> noChange);
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.RETRY,
+            settlement.status()
+        );
+    }
+
+    @Test
     void navigationSettlesFarShorterThanAnEdit() {
         // A long settle on a navigation step is what let the operator's next keystroke land
         // inside the previous step's window.
@@ -1973,6 +2082,19 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final List<String> childIds
     ) {
         return new WindowsHistoryNativeUiIngressProbe.ActorPart(id, name, parentId, childIds);
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.PartDragCheck partDragCheck(
+        final WindowsHistoryNativeUiIngressProbe.PartDragStatus status
+    ) {
+        return new WindowsHistoryNativeUiIngressProbe.PartDragCheck(
+            status,
+            status.name().toLowerCase(),
+            "source",
+            "target",
+            Optional.of("parent"),
+            Optional.of("parent")
+        );
     }
 
     private static List<WindowsHistoryNativeUiIngressProbe.ActorPart> pairModelParts(

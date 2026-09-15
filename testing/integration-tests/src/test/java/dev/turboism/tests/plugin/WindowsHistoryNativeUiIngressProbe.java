@@ -87,6 +87,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static final String INTERNAL_ROOT_PART_ID = "__RootPart__";
     private static final int MAX_PART_GESTURE_PAIRS = 8;
+    private static final int PART_GESTURE_SETTLE_POLLS = 12;
 
     /**
      * Deepest level the canvas scan may reach.
@@ -920,36 +921,32 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         boolean sawVisiblePair = false;
         for (final PartPair pair : pairs) {
             if (pairCount++ >= MAX_PART_GESTURE_PAIRS) break;
-            for (int drop = 0; drop < 2; drop++) {
-                final PartGesturePreparation preparation = onEdt(
-                    () -> preparePartGesture(pair));
-                if (!preparation.ready()) {
-                    if ("no-safe-visible-pair".equals(preparation.reason())) continue;
-                    return "unresolved:" + preparation.reason() + ":sourceId="
-                        + pair.source().id() + ":targetId=" + pair.target().id();
-                }
-                sawVisiblePair = true;
-                if (!Objects.equals(lastSignificant, preparation.significantSequence())) {
-                    return "mismatch:significant-changed-before-gesture:"
-                        + partEvidence(pair, pair.source().parentId(),
-                            pair.source().parentId());
-                }
+            final PartGesturePreparation preparation = onEdt(
+                () -> preparePartGesture(pair));
+            if (!preparation.ready()) {
+                if ("no-safe-visible-pair".equals(preparation.reason())) continue;
+                return "unresolved:" + preparation.reason() + ":sourceId="
+                    + pair.source().id() + ":targetId=" + pair.target().id();
+            }
+            sawVisiblePair = true;
+            if (!Objects.equals(lastSignificant, preparation.significantSequence())) {
+                return "mismatch:significant-changed-before-gesture:"
+                    + partEvidence(pair, pair.source().parentId(),
+                        pair.source().parentId());
+            }
 
-                final java.awt.Point sourcePoint = preparation.layout().source().screenPoint();
-                final java.awt.Point targetPoint = preparation.layout().target().screenPoint();
-                if (sourcePoint == null || targetPoint == null) {
-                    return "unresolved:part-screen-point-unavailable:"
-                        + partEvidence(pair, pair.source().parentId(),
-                            pair.source().parentId());
-                }
-                final int targetY = targetPoint.y
-                    + (drop == 0
-                        ? 0
-                        : Math.max(1, preparation.layout().target().cell().height - 2));
-                robotDrag(sourcePoint.x, sourcePoint.y, targetPoint.x, targetY);
+            final java.awt.Point sourcePoint = preparation.layout().source().screenPoint();
+            final java.awt.Point targetPoint = partGestureTargetPoint(preparation.layout());
+            if (sourcePoint == null || targetPoint == null) {
+                return "unresolved:part-screen-point-unavailable:"
+                    + partEvidence(pair, pair.source().parentId(),
+                        pair.source().parentId());
+            }
+            robotDrag(sourcePoint.x, sourcePoint.y, targetPoint.x, targetPoint.y);
 
-                PartDragCheck lastCheck = null;
-                for (int settle = 0; settle < 12; settle++) {
+            final PartDragSettlement settlement = settlePartDrag(
+                PART_GESTURE_SETTLE_POLLS,
+                poll -> {
                     Thread.sleep(POLL_MILLIS);
                     final WindowsHistoryManagerValidationProbe.Snapshot history = sample();
                     final String afterSignificant = history == null
@@ -958,34 +955,36 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     try {
                         after = onEdt(this::readPartModel);
                     } catch (Exception unavailable) {
-                        return "unresolved:part-readback-unavailable:"
-                            + partEvidence(pair, pair.source().parentId(), Optional.empty());
+                        return new PartDragCheck(
+                            PartDragStatus.UNAVAILABLE,
+                            "part-readback-unavailable",
+                            pair.source().id(),
+                            pair.target().id(),
+                            pair.source().parentId(),
+                            Optional.empty()
+                        );
                     }
-                    final PartDragCheck check = assessPartDrag(
+                    return assessPartDrag(
                         pair,
                         preparation.model(),
                         after,
                         preparation.significantSequence(),
                         afterSignificant
                     );
-                    lastCheck = check;
-                    if (check.status() == PartDragStatus.CHANGED) {
-                        attempts.add(check.evidence());
-                        return "changed:" + check.evidence() + ":attempts=" + attempts;
-                    }
-                    if (check.status() == PartDragStatus.MISMATCH) {
-                        attempts.add(check.evidence());
-                        return "mismatch:" + check.evidence() + ":attempts=" + attempts;
-                    }
-                    if (check.status() == PartDragStatus.UNAVAILABLE) continue;
-                    lastSignificant = afterSignificant;
-                    break;
                 }
-                if (lastCheck != null) attempts.add(lastCheck.evidence());
-                if (lastCheck != null && lastCheck.status() == PartDragStatus.UNAVAILABLE) {
-                    return "unresolved:" + lastCheck.code() + ":attempts=" + attempts;
-                }
+            );
+            final PartDragCheck lastCheck = settlement.lastCheck();
+            if (lastCheck != null) attempts.add(lastCheck.evidence());
+            if (settlement.status() == PartDragSettlementStatus.CHANGED) {
+                return "changed:" + lastCheck.evidence() + ":attempts=" + attempts;
             }
+            if (settlement.status() == PartDragSettlementStatus.MISMATCH) {
+                return "mismatch:" + lastCheck.evidence() + ":attempts=" + attempts;
+            }
+            if (settlement.status() == PartDragSettlementStatus.UNAVAILABLE) {
+                return "unresolved:" + lastCheck.code() + ":attempts=" + attempts;
+            }
+            lastSignificant = preparation.significantSequence();
         }
         if (!sawVisiblePair) return "unresolved:no-safe-visible-part-pair";
         return "unresolved:no-membership-change:attempts=" + attempts + ":dnd="
@@ -1156,6 +1155,46 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             PartDragStatus.NO_CHANGE, "no-selected-parent-change", sourceId, targetId,
             parentBefore, parentAfter
         );
+    }
+
+    /**
+     * Bounded readback decision used by the Parts actor after one real gesture.
+     *
+     * <p>A no-change sample is intentionally not a retry signal: the host may commit the parent
+     * transition later in the bounded window. Only a complete window of no-change samples permits
+     * the caller to try another safe candidate. Unknown readback and mismatches terminate the
+     * current actor so an unverified gesture is never sent again.</p>
+     */
+    static PartDragSettlement settlePartDrag(
+        final int maxPolls,
+        final PartDragReadback readback
+    ) throws Exception {
+        if (maxPolls <= 0) throw new IllegalArgumentException("maxPolls must be positive");
+        Objects.requireNonNull(readback, "readback");
+        PartDragCheck lastCheck = null;
+        for (int poll = 0; poll < maxPolls; poll++) {
+            lastCheck = readback.read(poll);
+            if (lastCheck == null) {
+                lastCheck = new PartDragCheck(
+                    PartDragStatus.UNAVAILABLE,
+                    "part-readback-unavailable",
+                    "",
+                    "",
+                    Optional.empty(),
+                    Optional.empty()
+                );
+            }
+            if (lastCheck.status() == PartDragStatus.CHANGED) {
+                return new PartDragSettlement(PartDragSettlementStatus.CHANGED, lastCheck);
+            }
+            if (lastCheck.status() == PartDragStatus.MISMATCH) {
+                return new PartDragSettlement(PartDragSettlementStatus.MISMATCH, lastCheck);
+            }
+            if (lastCheck.status() == PartDragStatus.UNAVAILABLE) {
+                return new PartDragSettlement(PartDragSettlementStatus.UNAVAILABLE, lastCheck);
+            }
+        }
+        return new PartDragSettlement(PartDragSettlementStatus.RETRY, lastCheck);
     }
 
     private static String partEvidence(
@@ -1337,6 +1376,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return null;
         }
         return new PartPairLayout(source, target);
+    }
+
+    /** Returns the already-verified target screen point without applying an unverified offset. */
+    static java.awt.Point partGestureTargetPoint(final PartPairLayout layout) {
+        if (layout == null || layout.target() == null || layout.target().screenPoint() == null) {
+            return null;
+        }
+        return new java.awt.Point(layout.target().screenPoint());
     }
 
     private static javax.swing.tree.TreePath uniquePartPath(
@@ -5650,6 +5697,27 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         NO_CHANGE,
         MISMATCH,
         UNAVAILABLE
+    }
+
+    @FunctionalInterface
+    interface PartDragReadback {
+        PartDragCheck read(int poll) throws Exception;
+    }
+
+    enum PartDragSettlementStatus {
+        CHANGED,
+        MISMATCH,
+        UNAVAILABLE,
+        RETRY
+    }
+
+    record PartDragSettlement(
+        PartDragSettlementStatus status,
+        PartDragCheck lastCheck
+    ) {
+        PartDragSettlement {
+            Objects.requireNonNull(status, "status");
+        }
     }
 
     record PartDragCheck(
