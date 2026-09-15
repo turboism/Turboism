@@ -39,7 +39,7 @@ import java.util.function.Supplier;
  */
 public final class ModelUpdateSkipBridge implements AutoCloseable {
 
-    /** Default-off request and live disable switch, re-read every frame. */
+    /** Opt-out disable switch (enabled unless set to {@code false}), re-read every frame. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.modelUpdateSkip";
     /** Slot for the {@code Predicate<Object[]>} skip callback. */
     public static final String CALLBACK_PROPERTY = "turboism.model-update-skip.callback";
@@ -250,8 +250,17 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
     }
 
+    /** The optimization is enabled unless the property is set to {@code false}. */
+    public static boolean flagEnabled() {
+        try {
+            return !"false".equalsIgnoreCase(System.getProperty(ENABLE_PROPERTY));
+        } catch (SecurityException denied) {
+            return false;
+        }
+    }
+
     private boolean shouldSkip(final Object[] args) {
-        if (!active.get() || !Boolean.getBoolean(ENABLE_PROPERTY)) return false;
+        if (!active.get() || !flagEnabled()) return false;
         calls.increment();
         final long started = System.nanoTime();
         try {

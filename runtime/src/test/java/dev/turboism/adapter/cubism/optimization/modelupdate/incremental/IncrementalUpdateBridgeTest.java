@@ -583,6 +583,7 @@ class IncrementalUpdateBridgeTest {
     @Test void disabledEnableMarksEverything() throws Exception {
         Loader loader = host();
         World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "false");
         IncrementalUpdateBridge bridge = installed(loader);
         try {
             begin().accept(world.epoch());

@@ -618,8 +618,8 @@ public final class TurboismAgent {
 
     private static void installModelUpdateSkip(AgentOptions options, Instrumentation instrumentation,
                                                HostClassLocator.LocatedHost host) {
-        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.modelupdate
-                .ModelUpdateSkipBridge.ENABLE_PROPERTY)) {
+        if (!dev.turboism.adapter.cubism.optimization.modelupdate
+                .ModelUpdateSkipBridge.flagEnabled()) {
             return;
         }
         VerifiedModelUpdateSkipInstaller installer = null;
@@ -652,8 +652,8 @@ public final class TurboismAgent {
 
     private static void installIncrementalUpdate(AgentOptions options, Instrumentation instrumentation,
                                                  HostClassLocator.LocatedHost host) {
-        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.modelupdate.incremental
-                .IncrementalUpdateBridge.ENABLE_PROPERTY)) {
+        if (!dev.turboism.adapter.cubism.optimization.modelupdate.incremental
+                .IncrementalUpdateBridge.flagEnabled()) {
             return;
         }
         VerifiedIncrementalUpdateInstaller installer = null;
