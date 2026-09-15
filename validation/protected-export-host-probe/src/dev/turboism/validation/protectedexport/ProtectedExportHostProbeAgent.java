@@ -506,11 +506,12 @@ public final class ProtectedExportHostProbeAgent {
             evidence.put(prefix + "innerHiddenAfterConfirm",
                 Boolean.toString(!inner.isVisible()));
 
-            if (!driveToDestination(inner, pick, pickFile, alreadyVisible,
-                stateDir, evidence, prefix)) {
+            final File approved = driveToDestination(inner, pickFile,
+                alreadyVisible, stateDir, evidence, prefix);
+            if (approved == null) {
                 return; // chooser drive recorded its own failure evidence
             }
-            awaitPublished(exportOut, stateDir, evidence, prefix);
+            awaitPublished(approved, stateDir, evidence, prefix);
 
             final Object restored = readNoArg(controller, "getCurrentDoc");
             evidence.put(prefix + "restoredActive",
@@ -677,9 +678,8 @@ public final class ProtectedExportHostProbeAgent {
      * chooser. Each is a modal the user would confirm through; the chooser is
      * the window carrying a {@code JFileChooser} and is driven to the pick.
      */
-    private static boolean driveToDestination(
+    private static File driveToDestination(
         final JDialog inner,
-        final File pick,
         final File pickFile,
         final Set<Window> alreadyVisible,
         final Path stateDir,
@@ -692,6 +692,7 @@ public final class ProtectedExportHostProbeAgent {
         }
         seen.put(inner, Integer.MAX_VALUE);
         final List<String> sequence = new ArrayList<>();
+        final File[] approved = new File[1];
         // JFileChooser construction under Wine can block the EDT for a long
         // time enumerating shell folders (Z: maps the whole Linux root), so the
         // chooser window may appear minutes after the export was confirmed.
@@ -735,15 +736,21 @@ public final class ProtectedExportHostProbeAgent {
                                 current != null && !current.isDirectory()
                                     ? current.getName()
                                     : pickFile.getName();
-                            target.setSelectedFile(new File(desktop, name));
+                            approved[0] = new File(desktop, name);
+                            target.setSelectedFile(approved[0]);
                         } else if (desktop != null) {
                             final File parent = desktop.getParentFile();
                             if (parent != null) {
                                 target.setCurrentDirectory(parent);
                             }
+                            approved[0] = desktop;
                             target.setSelectedFile(desktop);
                         }
                         target.approveSelection();
+                        final File selected = target.getSelectedFile();
+                        if (selected != null) {
+                            approved[0] = selected;
+                        }
                         return null;
                     });
                     // approveSelection only closes the dialog when the pick is
@@ -760,7 +767,7 @@ public final class ProtectedExportHostProbeAgent {
                     if (!target.isShowing()) {
                         evidence.put(prefix + "chooserDialogSequence",
                             String.join(" -> ", sequence));
-                        return true;
+                        return approved[0];
                     }
                     final java.awt.Window carrier = currentCarrier(target);
                     evidence.put(prefix + "chooserApproveRefused",
@@ -768,7 +775,7 @@ public final class ProtectedExportHostProbeAgent {
                 } catch (Throwable failure) {
                     evidence.put(prefix + "chooserDriveFailure", text(failure));
                     evidence.fail("EXP_CHOOSER_DRIVE_FAILED");
-                    return false;
+                    return null;
                 }
             }
             clickSettledDialogs(seen, sequence, stateDir, evidence, prefix,
@@ -787,7 +794,7 @@ public final class ProtectedExportHostProbeAgent {
         }
         evidence.put(prefix + "chooserTimeoutWindows", String.join(" | ", open));
         evidence.fail("EXP_CHOOSER_NOT_OBSERVED");
-        return false;
+        return null;
     }
 
     /**
@@ -890,16 +897,24 @@ public final class ProtectedExportHostProbeAgent {
 
     /**
      * Publication is all-or-nothing: the picked destination name only appears
-     * once the staged output validated and the original was restored. Polls the
-     * task-owned export directory for the published moc3 and its companions.
+     * once the staged output validated and the original was restored. Polls
+     * the approved pick's real destination for the moc3 and its companions.
      */
     private static void awaitPublished(
-        final Path exportOut,
+        final File approved,
         final Path stateDir,
         final Evidence evidence,
         final String prefix
     ) {
-        final Path moc3 = exportOut.resolve("protected-export.moc3");
+        // The chooser-redirect transformer mirrors the approved pick into
+        // staging, so publication lands at the approved destination itself:
+        // a file pick is the output path; a directory pick gains <name>.moc3
+        // beside it in the parent directory.
+        final Path approvedPath = approved.toPath().toAbsolutePath();
+        final Path moc3 = approved.getName().endsWith(".moc3")
+            ? approvedPath
+            : approvedPath.getParent().resolve(approved.getName() + ".moc3");
+        evidence.put("exp.approvedPick", approvedPath.toString());
         // The export can raise trailing prompts after the chooser (completion
         // notices, overwrite or error dialogs); each parks al.a on the EDT
         // until dismissed, so keep driving them while waiting for the moc3.
@@ -916,11 +931,12 @@ public final class ProtectedExportHostProbeAgent {
                 if (Files.isRegularFile(moc3) && Files.size(moc3) > 0L) {
                     // Companions may still be streaming in; settle then list.
                     settle(3_000L);
+                    final Path parent = moc3.getParent();
                     final List<String> files = new ArrayList<>();
-                    try (var walk = Files.walk(exportOut)) {
+                    try (var walk = Files.walk(parent)) {
                         walk.filter(Files::isRegularFile)
                             .forEach(p -> files.add(
-                                exportOut.relativize(p).toString()));
+                                parent.relativize(p).toString()));
                     }
                     evidence.put(prefix + "publishedMoc3", "true");
                     evidence.put(prefix + "publishedMoc3Bytes",
@@ -928,7 +944,8 @@ public final class ProtectedExportHostProbeAgent {
                     evidence.put(prefix + "publishedFiles", String.join(",", files));
                     evidence.put(prefix + "publishedModelJson",
                         Boolean.toString(files.stream().anyMatch(
-                            name -> name.endsWith(".model3.json"))));
+                            name -> name.endsWith(".model3.json")
+                                || name.endsWith(".cdi3.json"))));
                     evidence.put(prefix + "postChooserDialogs",
                         String.join(" -> ", postChooser));
                     return;
@@ -2867,7 +2884,7 @@ public final class ProtectedExportHostProbeAgent {
                 unmet.add("no published moc3 at the picked destination");
             }
             if (!"true".equals(evidence.values.get("exp.publishedModelJson"))) {
-                unmet.add("no published model3.json at the picked destination");
+                unmet.add("no published model/display-info json at the picked destination");
             }
             if (!"true".equals(evidence.values.get("exp.sameLiveDocument"))) {
                 unmet.add("original was not restored as the same live document");
