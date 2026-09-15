@@ -250,8 +250,11 @@ Result file: `state/dev.turboism.validation.externalpsd/external-psd-edit-result
 under the isolated Turboism home. Terminal status is `status=PASS|FAIL|BLOCKED`; the probe
 never rewrites a FAIL or BLOCKED into PASS.
 
-Shutdown: after writing the result the probe taskkills the task-scoped `notepad.exe` editor
-and drives the document frame's `WINDOW_CLOSING`, so Cubism releases its engine and exits
-natively (`-- successfully exited pid:`). A plain `Runtime.exit`/`halt` is not viable once
-the native save path initialized JOGL/GlueGen: ExitProcess deadlocks inside DLL detach under
-Wine and freezes every thread, which defeats even daemon-thread watchdogs.
+Shutdown: after writing the result the GUI phase posts `WINDOW_CLOSING` only to the first exact
+host window bound to the verified ArtMesh target. The probe recognizes only a newly-created
+`JOptionPane` owned by that same window whose verified host shape is `[Yes (Y), No (N),
+Cancel (C)]`, and clicks `No` (index 1) so the task copy is not saved. Unknown, pre-existing,
+multiple, or cross-window dialogs are rejected. Pipeline/reopen phases without an exact GUI
+window binding leave teardown to the shared Supervisor. The exit watchdog writes a bounded
+thread diagnostic only; it never kills the JVM or substitutes for Supervisor cleanup. Result
+write failures and close failures are logged separately.
