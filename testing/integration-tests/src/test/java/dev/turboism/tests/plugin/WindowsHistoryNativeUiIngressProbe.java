@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -1000,7 +1001,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 pair.source().id(),
                 pair.target().id(),
                 robotPartGestureInput(),
-                () -> currentPartPrePress(preparation.layout())
+                () -> currentPartPrePress(pair, preparation.layout())
             );
             appendPartGestureEvidence(gesture.evidence());
             if (gesture.status() != PartGestureStatus.ACCEPTED) {
@@ -1086,8 +1087,39 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         );
     }
 
-    /** Finds the currently discovered Parts surface and performs the final EDT guard. */
-    private static PartPrePressCheck currentPartPrePress(final PartPairLayout expected) {
+    /** Reads the SDK Part graph and the current Parts surface in the final EDT guard. */
+    private PartPrePressCheck currentPartPrePress(
+        final PartPair pair,
+        final PartPairLayout expected
+    ) {
+        final PartModelSnapshot current;
+        try {
+            current = readPartModel();
+        } catch (Exception unavailable) {
+            try {
+                final PartPrePressCheck surface = currentPartPrePressSurface(expected);
+                return PartPrePressCheck.failure(
+                    "part-model-unavailable", expected,
+                    surface.currentTable(), surface.currentTree()
+                );
+            } catch (Exception surfaceUnavailable) {
+                return PartPrePressCheck.failure(
+                    "part-model-unavailable", expected, null, null
+                );
+            }
+        }
+        final PartPrePressCheck surface = currentPartPrePressSurface(expected);
+        return verifyPartPrePress(
+            expected,
+            surface.currentTable(),
+            surface.currentTree(),
+            pair,
+            current
+        );
+    }
+
+    /** Finds the currently discovered Parts surface without substituting for SDK readback. */
+    private static PartPrePressCheck currentPartPrePressSurface(final PartPairLayout expected) {
         JTable firstTable = null;
         JTree firstTree = null;
         for (final java.awt.Window window : java.awt.Window.getWindows()) {
@@ -1171,6 +1203,27 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             );
         }
         return PartPrePressCheck.success(expected, currentTable, currentTree);
+    }
+
+    /** Testable readback seam used by the real gesture runner's EDT guard. */
+    static PartPrePressCheck verifyPartPrePress(
+        final PartPairLayout expected,
+        final JTable currentTable,
+        final JTree currentTree,
+        final PartPair pair,
+        final PartModelSnapshot currentModel
+    ) {
+        if (currentModel == null) {
+            return PartPrePressCheck.failure(
+                "part-model-unavailable", expected, currentTable, currentTree
+            );
+        }
+        if (pair == null || !partPairMatches(currentModel, pair)) {
+            return PartPrePressCheck.failure(
+                "part-model-changed", expected, currentTable, currentTree
+            );
+        }
+        return verifyPartPrePress(expected, currentTable, currentTree);
     }
 
     private static String verifyPartRowAtPress(
@@ -1281,24 +1334,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final PartGestureCapture capture = new PartGestureCapture(
             layout, intendedSourceId, intendedTargetId
         );
-        try {
-            onEdt(() -> {
-                capture.recordLayout();
-                capture.install();
-                return null;
-            });
-        } catch (Exception failure) {
-            return new PartGestureAttempt(
-                PartGestureStatus.EXCEPTION,
-                "listener-install-failed:" + failure.getClass().getSimpleName(),
-                PartPrePressCheck.failure("listener-install-failed", layout, null, null),
-                capture.evidence()
-            );
-        }
-
+        final AtomicBoolean lifecycleOpen = new AtomicBoolean(true);
+        boolean listenersInstalled = false;
         boolean pressed = false;
         PartPrePressCheck prePress = null;
         try {
+            listenersInstalled = onEdt(
+                () -> capture.installIfOpen(lifecycleOpen)
+            );
+            if (!listenersInstalled) {
+                throw new IllegalStateException("gesture-lifecycle-closed-before-install");
+            }
             final Point source = layout.source().screenPoint();
             final Point target = layout.target().screenPoint();
             if (source == null || target == null) {
@@ -1348,9 +1394,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             input.pause(180L);
             input.mouseRelease();
             pressed = false;
-            // Flush queued Swing callbacks before validating the bounded event set.
-            onEdt(() -> null);
-            final PartGestureCheck checked = capture.checkEvents();
+            // Flush queued Swing callbacks and read the bounded event set on the EDT.
+            final PartGestureCheck checked = onEdt(capture::checkEvents);
             return new PartGestureAttempt(
                 checked.status(),
                 checked.code(),
@@ -1380,13 +1425,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     // The input failure remains the actor outcome; layout evidence is retained.
                 }
             }
+            final String failureCode = (listenersInstalled ? "input-failed:" : "listener-install-failed:")
+                + failure.getClass().getSimpleName();
             return new PartGestureAttempt(
                 PartGestureStatus.EXCEPTION,
-                "input-failed:" + failure.getClass().getSimpleName(),
+                failureCode,
                 prePress,
                 capture.evidence()
             );
         } finally {
+            // Close admission before any cleanup work. If an invokeLater callback timed out and
+            // is still queued, its installIfOpen check must observe the closed gesture.
+            lifecycleOpen.set(false);
             if (pressed) {
                 try {
                     input.mouseRelease();
@@ -6246,20 +6296,35 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             addEvidence(prePressJson(check, intendedSourceId, intendedTargetId));
         }
 
+        boolean installIfOpen(final AtomicBoolean lifecycleOpen) {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                throw new IllegalStateException("Parts gesture listeners must install on the EDT");
+            }
+            if (lifecycleOpen == null || !lifecycleOpen.get()) return false;
+            recordLayout();
+            // The caller can time out while this EDT callback is queued. Recheck after evidence
+            // capture so a late callback cannot install listeners after the gesture has closed.
+            if (!lifecycleOpen.get()) return false;
+            install();
+            return true;
+        }
+
         void install() {
             if (!SwingUtilities.isEventDispatchThread()) {
                 throw new IllegalStateException("Parts gesture listeners must install on the EDT");
             }
             final JTable table = layout.table();
             if (table == null) throw new IllegalStateException("Parts table identity is unavailable");
+            // Mark before each add: a custom/host component may add the listener and then throw.
+            // remove() is idempotent for a listener that was not actually added.
+            tableInstalled = true;
             table.addMouseListener(listener);
             table.addMouseMotionListener(listener);
-            tableInstalled = true;
             final JTree tree = layout.tree();
             if (tree != null) {
+                treeInstalled = true;
                 tree.addMouseListener(listener);
                 tree.addMouseMotionListener(listener);
-                treeInstalled = true;
             }
         }
 
@@ -6285,31 +6350,32 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
 
         PartGestureCheck checkEvents() {
-            final PartGestureEvent press = event("actual-press");
-            if (press == null) {
-                return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "actual-press-missing");
+            synchronized (events) {
+                final PartGestureEvent press = eventLocked("actual-press");
+                if (press == null) {
+                    return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "actual-press-missing");
+                }
+                if (!press.componentMatch() || !press.tableModelMatch() || !press.treeModelMatch()
+                    || !press.sourceNodeMatch() || press.row() != layout.source().row()) {
+                    return new PartGestureCheck(PartGestureStatus.MISMATCH, "actual-press-target-mismatch");
+                }
+                final PartGestureEvent drag = eventLocked("first-drag");
+                if (drag == null) {
+                    return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "first-drag-missing");
+                }
+                if (!drag.componentMatch() || !drag.tableModelMatch() || !drag.treeModelMatch()) {
+                    return new PartGestureCheck(PartGestureStatus.MISMATCH, "first-drag-surface-mismatch");
+                }
+                final PartGestureEvent release = eventLocked("release");
+                if (release == null) {
+                    return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "release-missing");
+                }
+                if (!release.componentMatch() || !release.tableModelMatch() || !release.treeModelMatch()
+                    || !release.targetNodeMatch()) {
+                    return new PartGestureCheck(PartGestureStatus.MISMATCH, "release-target-mismatch");
+                }
+                return new PartGestureCheck(PartGestureStatus.ACCEPTED, "press-drag-release-matched");
             }
-            if (!press.componentMatch() || !press.tableModelMatch() || !press.treeModelMatch()
-                || !press.sourceNodeMatch() || press.row() != layout.source().row()) {
-                return new PartGestureCheck(PartGestureStatus.MISMATCH, "actual-press-target-mismatch");
-            }
-            final PartGestureEvent drag = event("first-drag");
-            if (drag == null) {
-                return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "first-drag-missing");
-            }
-            if (!drag.componentMatch() || !drag.tableModelMatch() || !drag.treeModelMatch()
-                || (!drag.sourceNodeMatch() && !drag.targetNodeMatch())) {
-                return new PartGestureCheck(PartGestureStatus.MISMATCH, "first-drag-target-mismatch");
-            }
-            final PartGestureEvent release = event("release");
-            if (release == null) {
-                return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "release-missing");
-            }
-            if (!release.componentMatch() || !release.tableModelMatch() || !release.treeModelMatch()
-                || !release.targetNodeMatch() || release.row() != layout.target().row()) {
-                return new PartGestureCheck(PartGestureStatus.MISMATCH, "release-target-mismatch");
-            }
-            return new PartGestureCheck(PartGestureStatus.ACCEPTED, "press-drag-release-matched");
         }
 
         List<String> evidence() {
@@ -6320,7 +6386,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         private void recordOnce(final String phase, final MouseEvent event) {
             synchronized (events) {
-                if (this.event(phase) != null) return;
+                if (eventLocked(phase) != null) return;
             }
             record(phase, event);
         }
@@ -6329,13 +6395,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (event == null) return;
             final PartGestureEvent observed = describe(phase, event);
             synchronized (events) {
-                if (this.event(phase) != null || events.size() >= 3) return;
+                if (eventLocked(phase) != null || events.size() >= 3) return;
                 events.add(observed);
                 addEvidence(observed.json(layout, intendedSourceId, intendedTargetId));
             }
         }
 
-        private PartGestureEvent event(final String phase) {
+        private PartGestureEvent eventLocked(final String phase) {
             return events.stream()
                 .filter(value -> phase.equals(value.phase()))
                 .findFirst()
