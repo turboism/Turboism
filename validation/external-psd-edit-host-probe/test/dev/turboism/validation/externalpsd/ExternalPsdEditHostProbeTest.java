@@ -107,8 +107,11 @@ public final class ExternalPsdEditHostProbeTest {
         testFinalCycleSelection();
         testSaveCycleBytes();
         testDiagnosticObservationBoundaries();
+        testDiagnosticTargetBinding();
         testPublicProjectionFormatting();
         testBoundedSettleFailureAndTimeoutEvidence();
+        testFreshDiagnosticFailureEvidence();
+        testBoundedSettleInterrupt();
 
         final byte[] psd = syntheticPsd("LayerA", "B2");
         final List<int[]> names = ExternalPsdEditHostProbe.layerNameRanges(psd);
@@ -1031,6 +1034,82 @@ public final class ExternalPsdEditHostProbeTest {
             "underlying native return is not falsely claimed");
     }
 
+    private static void testDiagnosticTargetBinding() {
+        final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
+            450, 450, 550, 550);
+        final PsdValidationContent.Fingerprint fingerprint =
+            new PsdValidationContent.Fingerprint(
+                "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
+        final ExternalPsdEditHostProbe.TargetIdentity expected =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-1", "model-1", "binding-1", "model-image-1", "raw-1");
+        final ExternalPsdEditHostProbe.TargetIdentity same =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-1", "model-1", "binding-1", "model-image-1", "raw-1");
+        final ExternalPsdEditHostProbe.TargetIdentity switchedModel =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-1", "model-2", "binding-1", "model-image-1", "raw-1");
+        final ExternalPsdEditHostProbe.TargetIdentity switchedDocument =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-2", "model-1", "binding-1", "model-image-1", "raw-1");
+        final ExternalPsdEditHostProbe.TargetIdentity switchedBinding =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-1", "model-1", "binding-2", "model-image-1", "raw-1");
+        final ExternalPsdEditHostProbe.TargetIdentity switchedRaw =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-1", "model-1", "binding-1", "model-image-1", "raw-2");
+
+        assertTrue(ExternalPsdEditHostProbe.targetIdentityMatches(expected, same),
+            "the captured target identity matches itself");
+        assertEquals("AVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+            expected, same, true, true, fingerprint).name(),
+            "a complete observation for the bound target is available");
+        for (final var mismatch : List.of(
+            switchedModel, switchedDocument, switchedBinding, switchedRaw)) {
+            assertTrue(!ExternalPsdEditHostProbe.targetIdentityMatches(expected, mismatch),
+                "target identity mismatch is detected: " + mismatch);
+            assertEquals("UNAVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+                expected, mismatch, true, true, fingerprint).name(),
+                "target identity mismatch cannot be combined with an available observation");
+        }
+
+        final ExternalPsdEditHostProbe.DiagnosticObservation observation =
+            new ExternalPsdEditHostProbe.DiagnosticObservation(
+                ExternalPsdEditHostProbe.DiagnosticStatus.AVAILABLE,
+                "", "[raw-1]", "[model-image-1]", "selector", "live",
+                true, true, fingerprint, same, true, 11L, 22L, 33L, 44L);
+        final Properties result = new Properties();
+        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+            result, "persist.observation.bound", observation);
+        assertEquals("true", result.getProperty(
+            "persist.observation.bound.target.identityVerified"),
+            "target verification is recorded");
+        assertEquals("document-1", result.getProperty(
+            "persist.observation.bound.target.observed.documentId"),
+            "observed document identity is recorded");
+        assertEquals("22", result.getProperty(
+            "persist.observation.bound.observation.freshExportCompletedAtEpochMs"),
+            "fresh export completion time is recorded");
+        assertEquals("33", result.getProperty(
+            "persist.observation.bound.observation.metadataStartedAtEpochMs"),
+            "metadata observation start time is recorded");
+
+        final ExternalPsdEditHostProbe.DiagnosticObservation mismatched =
+            new ExternalPsdEditHostProbe.DiagnosticObservation(
+                ExternalPsdEditHostProbe.DiagnosticStatus.UNAVAILABLE,
+                "target identity changed", "[raw-2]", "[model-image-1]", "selector", "live",
+                true, true, fingerprint, switchedRaw, false, 11L, 22L, 33L, 44L);
+        final Properties unavailable = new Properties();
+        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+            unavailable, "persist.observation.switched", mismatched);
+        assertEquals("UNAVAILABLE", unavailable.getProperty(
+            "persist.observation.switched.status"),
+            "a switched target is explicitly unavailable");
+        assertEquals("unavailable", unavailable.getProperty(
+            "persist.observation.switched.freshNativeRgb.status"),
+            "a fingerprint from a switched target is not usable evidence");
+    }
+
     private static void testPublicProjectionFormatting() {
         final RawImageId raw = new RawImageId("raw-1");
         final ModelImageId model = new ModelImageId("model-1");
@@ -1134,6 +1213,50 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(2, stable.attempts(),
             "settle requires two equal observations after the completion boundary");
 
+        final ExternalPsdEditHostProbe.BoundedSettleResult lateEqual =
+            ExternalPsdEditHostProbe.awaitBoundedSettle(
+                first, () -> {
+                    Thread.sleep(40);
+                    return first;
+                }, 2, 10, ignored -> { });
+        assertEquals("TIMEOUT", lateEqual.status().name(),
+            "an equal observation returned after the deadline cannot be stable");
+        assertTrue(!lateEqual.stable(),
+            "a late equal observation cannot claim stability");
+
+        final AtomicReference<Long> remainingBudget = new AtomicReference<>(0L);
+        final AtomicInteger recordedLate = new AtomicInteger();
+        final ExternalPsdEditHostProbe.BoundedSettleResult lateBounded =
+            ExternalPsdEditHostProbe.awaitBoundedSettle(
+                first,
+                remainingMillis -> {
+                    remainingBudget.set(remainingMillis);
+                    Thread.sleep(40);
+                    return first;
+                },
+                2,
+                10,
+                ignored -> { },
+                ignored -> recordedLate.incrementAndGet());
+        assertEquals("TIMEOUT", lateBounded.status().name(),
+            "bounded observation returning late cannot be stable");
+        assertTrue(remainingBudget.get() > 0L,
+            "the remaining settle budget is passed to the observation");
+        assertEquals(0, recordedLate.get(),
+            "a late observation is not written to settle evidence");
+        assertContains(lateBounded.diagnostic(), "after the settle deadline",
+            "late observation explains the timeout");
+
+        final Properties stableEvidence = new Properties();
+        ExternalPsdEditHostProbe.recordBoundedSettle(
+            stableEvidence, "persist.observation.stable.boundedSettle", stable);
+        assertEquals("UNAVAILABLE", stableEvidence.getProperty(
+            "persist.observation.stable.boundedSettle.nativeCompletion"),
+            "observation stability does not claim native completion");
+        assertEquals("false", stableEvidence.getProperty(
+            "persist.observation.stable.boundedSettle.deadline.hard"),
+            "non-cancellable SDK observation is not advertised as a hard deadline");
+
         final AtomicReference<Throwable> edtFailure = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
             try {
@@ -1167,6 +1290,55 @@ public final class ExternalPsdEditHostProbeTest {
         assertContains(failure.diagnostic(), "injected observation failure",
             "observation failure is retained");
         assertTrue(!failure.stable(), "failed settle cannot claim stability");
+    }
+
+    private static void testFreshDiagnosticFailureEvidence() {
+        final Properties result = new Properties();
+        final IOException failure = new IOException("injected first fresh export failure");
+        ExternalPsdEditHostProbe.recordFreshDiagnosticFailure(
+            result,
+            "cycle.1.importCompletion",
+            "persist.observation.cycle.1.boundedSettle",
+            failure);
+        assertEquals("FAILED", result.getProperty(
+            "cycle.1.importCompletion.diagnosticFailure.status"),
+            "first fresh export failure is recorded");
+        assertContains(result.getProperty(
+            "cycle.1.importCompletion.freshNativeRgb.failure"),
+            "injected first fresh export failure",
+            "the original fresh export failure is retained");
+        assertEquals("NOT_ATTEMPTED", result.getProperty(
+            "persist.observation.cycle.1.boundedSettle.status"),
+            "settle is explicitly not attempted after the first fresh export fails");
+        assertEquals("false", result.getProperty(
+            "persist.observation.cycle.1.boundedSettle.stable"),
+            "failed first fresh export cannot produce stable settle evidence");
+    }
+
+    private static void testBoundedSettleInterrupt() throws Exception {
+        Thread.interrupted();
+        try {
+            final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
+                450, 450, 550, 550);
+            final ExternalPsdEditHostProbe.DiagnosticObservation observation =
+                ExternalPsdEditHostProbe.DiagnosticObservation.available(
+                    "raw-1", "model-1", "selector", "live",
+                    new PsdValidationContent.Fingerprint(
+                        "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
+            final ExternalPsdEditHostProbe.BoundedSettleResult interrupted =
+                ExternalPsdEditHostProbe.awaitBoundedSettle(
+                    observation,
+                    () -> { throw new InterruptedException("injected settle interrupt"); },
+                    2,
+                    1000,
+                    ignored -> { });
+            assertEquals("FAILED", interrupted.status().name(),
+                "an interrupted observation fails the settle");
+            assertTrue(Thread.interrupted(),
+                "settle preserves the interrupt status for its caller");
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     private static String targetFingerprint(final byte[] psd) {
