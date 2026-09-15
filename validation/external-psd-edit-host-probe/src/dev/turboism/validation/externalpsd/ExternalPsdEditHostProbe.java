@@ -1,11 +1,16 @@
 package dev.turboism.validation.externalpsd;
 
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.ModelImageRelation;
+import dev.turboism.sdk.cubism.model.RawLayerBinding;
 import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
@@ -89,6 +94,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.LongConsumer;
 import java.util.stream.Stream;
 
 /**
@@ -153,6 +160,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             @Override public long nanoTime() { return System.nanoTime(); }
             @Override public Instant utcNow() { return Instant.now(); }
         };
+    private static final int BOUNDED_SETTLE_MAX_ATTEMPTS = 3;
+    private static final long BOUNDED_SETTLE_MAX_DURATION_MILLIS = 15_000L;
+    private static final long BOUNDED_SETTLE_INITIAL_BACKOFF_MILLIS = 100L;
+    private static final long BOUNDED_SETTLE_MAX_BACKOFF_MILLIS = 500L;
 
     private PluginContext context;
     private volatile boolean stopped;
@@ -891,6 +902,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (persistValidation) {
                 recordTargetFingerprint(result, "persist.baselineTargetRgb", baselineFingerprint);
                 result.setProperty("persist.baselineTargetRgbSha256", baselineFingerprint.sha256());
+                captureDiagnosticObservation(
+                    result,
+                    "persist.observation.baseline",
+                    target.raw(),
+                    baselineFingerprint,
+                    "native-export-result",
+                    ""
+                );
             }
 
             if (persistValidation) {
@@ -906,6 +925,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         result, "persist.baselineSecondTargetRgb", secondFingerprint);
                     result.setProperty("persist.baselineSecondTargetRgbSha256",
                         secondFingerprint.sha256());
+                    captureDiagnosticObservation(
+                        result,
+                        "persist.observation.baselineSecond",
+                        target.raw(),
+                        secondFingerprint,
+                        "native-export-result",
+                        ""
+                    );
                     requireStableBaseline(baselineFingerprint, secondFingerprint);
                 } catch (Exception failure) {
                     secondaryFailure = failure;
@@ -934,7 +961,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 result.setProperty("defaultApplication.diagnostic", opened.diagnostic());
 
                 final Mutation marker = runSaveCycles(
-                    result, file, target, tempFile, revisions, cycles, persistValidation);
+                    result, file, target, tempFile, revisions, tracker, cycles, persistValidation);
                 final PsdValidationContent.Fingerprint postBeforeUndo = persistValidation
                     ? exportTargetFingerprint(result, target.raw(), tracker, "postBeforeUndo") : null;
                 if (persistValidation) {
@@ -2131,6 +2158,408 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty(prefix + ".channelIds", fingerprint.channelIds().toString());
     }
 
+    /**
+     * Captures public relation and PSD-document projections around a fresh native export. This is
+     * deliberately diagnostic-only: the supplied fingerprint is the only content evidence and is
+     * produced by re-exporting the raw image through the public SDK.
+     */
+    private DiagnosticObservation captureDiagnosticObservation(final Properties result,
+        final String prefix, final RawImageId requestedRaw,
+        final PsdValidationContent.Fingerprint fingerprint, final String boundary,
+        final String diagnostic) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        result.setProperty(normalizedPrefix + ".boundary", valueOrUnavailable(boundary));
+        result.setProperty(normalizedPrefix + ".requestedRawId",
+            requestedRaw == null ? UNAVAILABLE_VALUE : requestedRaw.value());
+        if (diagnostic != null && !diagnostic.isBlank()) {
+            result.setProperty(normalizedPrefix + ".boundaryDiagnostic", diagnostic);
+        }
+        final DiagnosticObservation observation = observeDiagnosticObservation(fingerprint);
+        recordDiagnosticObservation(result, normalizedPrefix, observation);
+        if (normalizedPrefix.endsWith(".importCompletion")) {
+            recordNativeReturnUnavailable(result, normalizedPrefix);
+        }
+        return observation;
+    }
+
+    private DiagnosticObservation captureFreshDiagnosticObservation(final Properties result,
+        final String prefix, final RawImageId requestedRaw, final TempTracker tracker,
+        final String boundary) throws Exception {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        final PsdValidationContent.Fingerprint fingerprint = exportTargetFingerprint(
+            result, requestedRaw, tracker, diagnosticExportLabel(normalizedPrefix));
+        return captureDiagnosticObservation(
+            result, normalizedPrefix, requestedRaw, fingerprint, boundary, "");
+    }
+
+    /** Performs the public read projections on the EDT and returns explicit unavailable fields. */
+    private DiagnosticObservation observeDiagnosticObservation(
+        final PsdValidationContent.Fingerprint fingerprint) {
+        final AtomicReference<DiagnosticObservation> captured = new AtomicReference<>();
+        final Runnable observe = () -> captured.set(observeDiagnosticObservationOnEdt(fingerprint));
+        try {
+            if (SwingUtilities.isEventDispatchThread()) observe.run();
+            else SwingUtilities.invokeAndWait(observe);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return DiagnosticObservation.unavailable(
+                "public observation dispatch interrupted", fingerprint);
+        } catch (InvocationTargetException failure) {
+            final Throwable cause = failure.getCause();
+            if (cause instanceof Error error) throw error;
+            return DiagnosticObservation.unavailable(
+                "public observation dispatch failed: " + cause, fingerprint);
+        }
+        final DiagnosticObservation observation = captured.get();
+        return observation == null
+            ? DiagnosticObservation.unavailable("public observation returned no value", fingerprint)
+            : observation;
+    }
+
+    private DiagnosticObservation observeDiagnosticObservationOnEdt(
+        final PsdValidationContent.Fingerprint fingerprint) {
+        String rawIds = UNAVAILABLE_VALUE;
+        String modelImageIds = UNAVAILABLE_VALUE;
+        String selectorProjection = UNAVAILABLE_VALUE;
+        String livePsd = UNAVAILABLE_VALUE;
+        boolean relationsAvailable = false;
+        boolean livePsdAvailable = false;
+        final List<String> diagnostics = new ArrayList<>();
+        final CubismModel model;
+        try {
+            model = context.cubism().model().active();
+        } catch (RuntimeException failure) {
+            return DiagnosticObservation.unavailable(
+                "active model unavailable: " + failure, fingerprint);
+        }
+
+        try {
+            final TextureRelationsSnapshot relations = model.textures().relations();
+            if (relations == null || !relations.isAvailable()) {
+                diagnostics.add("relations unavailable");
+            } else {
+                relationsAvailable = true;
+                rawIds = rawImageIds(relations);
+                modelImageIds = modelImageIds(relations);
+                selectorProjection = selectorProjection(relations);
+            }
+        } catch (RuntimeException failure) {
+            diagnostics.add("relations unavailable: " + failure);
+        }
+
+        try {
+            final List<PsdClipMaskDocumentSnapshot> documents = model.psdDocuments();
+            if (documents == null) {
+                diagnostics.add("live PSD documents unavailable: null result");
+            } else {
+                livePsdAvailable = true;
+                livePsd = livePsdDocuments(documents);
+            }
+        } catch (RuntimeException failure) {
+            diagnostics.add("live PSD documents unavailable: " + failure);
+        }
+
+        final DiagnosticStatus status = relationsAvailable && livePsdAvailable && fingerprint != null
+            ? DiagnosticStatus.AVAILABLE : DiagnosticStatus.UNAVAILABLE;
+        return new DiagnosticObservation(
+            status,
+            diagnostics.isEmpty() ? "" : String.join("; ", diagnostics),
+            rawIds,
+            modelImageIds,
+            selectorProjection,
+            livePsd,
+            relationsAvailable,
+            livePsdAvailable,
+            fingerprint
+        );
+    }
+
+    /**
+     * Records one observation without upgrading an unavailable public projection to content
+     * evidence. The nested status values are intentionally lower-case for machine-readable field
+     * presence; the top-level status and native-return status remain explicit enums.
+     */
+    static void recordDiagnosticObservation(final Properties result, final String prefix,
+        final DiagnosticObservation observation) {
+        Objects.requireNonNull(result, "result");
+        final String normalizedPrefix = normalizePrefix(prefix);
+        final DiagnosticObservation value = Objects.requireNonNull(observation, "observation");
+        result.setProperty(normalizedPrefix + ".status", value.status().name());
+        result.setProperty(normalizedPrefix + ".diagnostic", value.diagnostic());
+        result.setProperty(normalizedPrefix + ".relations.status",
+            value.relationsAvailable() ? "AVAILABLE" : "UNAVAILABLE");
+        result.setProperty(normalizedPrefix + ".relations.rawIds", value.rawIds());
+        result.setProperty(normalizedPrefix + ".relations.modelImageIds", value.modelImageIds());
+        result.setProperty(normalizedPrefix + ".selectorProjection", value.selectorProjection());
+        result.setProperty(normalizedPrefix + ".livePsd.status",
+            value.livePsdAvailable() ? "AVAILABLE" : "UNAVAILABLE");
+        result.setProperty(normalizedPrefix + ".livePsd", value.livePsd());
+        if (value.freshNativeRgb() == null) {
+            result.setProperty(normalizedPrefix + ".freshNativeRgb.status", "unavailable");
+        } else {
+            result.setProperty(normalizedPrefix + ".freshNativeRgb.status", "available");
+            result.setProperty(normalizedPrefix + ".freshNativeRgb.source",
+                "fresh native export decoded by validation-only fixture helper");
+            recordTargetFingerprint(result, normalizedPrefix + ".freshNativeRgb",
+                value.freshNativeRgb());
+        }
+    }
+
+    /** Records only the public completion result; PsdReplaceResult exposes no native return value. */
+    static void recordImportCompletion(final Properties result, final String prefix,
+        final PsdReplaceResult replaced) {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(replaced, "replaced");
+        final String completionPrefix = joinPrefix(prefix, "importCompletion");
+        result.setProperty(completionPrefix + ".observed", "true");
+        result.setProperty(completionPrefix + ".publicCompletion.observed", "true");
+        result.setProperty(completionPrefix + ".publicCompletion.status",
+            replaced.status().name());
+        result.setProperty(completionPrefix + ".status", replaced.status().name());
+        result.setProperty(completionPrefix + ".diagnostic", replaced.diagnostic());
+        result.setProperty(completionPrefix + ".beforeRawId", replaced.before().value());
+        result.setProperty(completionPrefix + ".afterRawId",
+            replaced.after().map(RawImageId::value).orElse(UNAVAILABLE_VALUE));
+        result.setProperty(completionPrefix + ".consumedRevision",
+            Boolean.toString(replaced.consumedRevision().isPresent()));
+        if (replaced.relations().isPresent()) {
+            recordRelationProjection(result, completionPrefix + ".relations",
+                replaced.relations().orElseThrow());
+        } else {
+            recordUnavailableRelationProjection(result, completionPrefix + ".relations");
+        }
+        result.setProperty(completionPrefix + ".livePsd.status", "UNAVAILABLE");
+        result.setProperty(completionPrefix + ".livePsd", UNAVAILABLE_VALUE);
+        result.setProperty(completionPrefix + ".freshNativeRgb.status", "unavailable");
+        recordNativeReturnUnavailable(result, completionPrefix);
+    }
+
+    private static void recordNativeReturnUnavailable(final Properties result,
+        final String prefix) {
+        result.setProperty(prefix + ".nativeReturn.observation", "UNAVAILABLE");
+        result.setProperty(prefix + ".nativeReturn.diagnostic",
+            "PsdReplaceResult exposes public completion only; native return is not observable");
+    }
+
+    /**
+     * Waits for two consecutive complete public observations to compare equal. The caller is the
+     * probe worker; EDT use is rejected so a fresh export or public read can never block UI work.
+     * The pacing callback only throttles bounded polls and is not a completion signal.
+     */
+    static BoundedSettleResult awaitBoundedSettle(final DiagnosticObservation initial,
+        final ObservationSupplier supplier, final int maxAttempts, final long maxDurationMillis,
+        final LongConsumer pacing) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("bounded settle must run on the probe worker");
+        }
+        if (maxAttempts < 1) throw new IllegalArgumentException("maxAttempts must be positive");
+        if (maxDurationMillis < 1) {
+            throw new IllegalArgumentException("maxDurationMillis must be positive");
+        }
+        Objects.requireNonNull(supplier, "supplier");
+        Objects.requireNonNull(pacing, "pacing");
+        final String criterion = "two consecutive complete observations equal; maxAttempts="
+            + maxAttempts + ", maxDurationMs=" + maxDurationMillis;
+        final long started = System.nanoTime();
+        if (initial == null || !initial.complete()) {
+            return settleResult(SettleStatus.UNAVAILABLE, 0, started, criterion,
+                "initial public observation is unavailable", initial, false);
+        }
+        DiagnosticObservation previous = initial;
+        DiagnosticObservation last = initial;
+        int attempts = 0;
+        long backoffMillis = BOUNDED_SETTLE_INITIAL_BACKOFF_MILLIS;
+        while (attempts < maxAttempts && elapsedMillis(started) < maxDurationMillis) {
+            attempts++;
+            final DiagnosticObservation current;
+            try {
+                current = supplier.get();
+            } catch (Exception failure) {
+                if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
+                return settleResult(SettleStatus.FAILED, attempts, started, criterion,
+                    failure.toString(), last, false);
+            }
+            last = current;
+            if (current == null || !current.complete()) {
+                return settleResult(SettleStatus.UNAVAILABLE, attempts, started, criterion,
+                    "public observation became unavailable", current, false);
+            }
+            if (previous.equals(current)) {
+                return settleResult(SettleStatus.STABLE, attempts, started, criterion,
+                    "consecutive complete observations matched", current, true);
+            }
+            previous = current;
+            if (attempts < maxAttempts && elapsedMillis(started) < maxDurationMillis) {
+                final long remainingMillis = maxDurationMillis - elapsedMillis(started);
+                final long waitMillis = Math.min(backoffMillis, Math.max(0L, remainingMillis));
+                if (waitMillis > 0) {
+                    try {
+                        pacing.accept(TimeUnit.MILLISECONDS.toNanos(waitMillis));
+                    } catch (RuntimeException failure) {
+                        return settleResult(SettleStatus.FAILED, attempts, started, criterion,
+                            "settle pacing failed: " + failure, last, false);
+                    }
+                }
+                backoffMillis = Math.min(BOUNDED_SETTLE_MAX_BACKOFF_MILLIS,
+                    Math.max(BOUNDED_SETTLE_INITIAL_BACKOFF_MILLIS, backoffMillis * 2));
+            }
+        }
+        return settleResult(SettleStatus.TIMEOUT, attempts, started, criterion,
+            "observations did not become stable within the bounded window", last, false);
+    }
+
+    private static BoundedSettleResult settleResult(final SettleStatus status, final int attempts,
+        final long started, final String criterion, final String diagnostic,
+        final DiagnosticObservation last, final boolean stable) {
+        return new BoundedSettleResult(status, attempts, elapsedMillis(started), criterion,
+            diagnostic, stable, last);
+    }
+
+    private static long elapsedMillis(final long started) {
+        return TimeUnit.NANOSECONDS.toMillis(Math.max(0L, System.nanoTime() - started));
+    }
+
+    static void recordBoundedSettle(final Properties result, final String prefix,
+        final BoundedSettleResult settled) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        result.setProperty(normalizedPrefix + ".status", settled.status().name());
+        result.setProperty(normalizedPrefix + ".stable", Boolean.toString(settled.stable()));
+        result.setProperty(normalizedPrefix + ".attempts", Integer.toString(settled.attempts()));
+        result.setProperty(normalizedPrefix + ".durationMs", Long.toString(settled.durationMillis()));
+        result.setProperty(normalizedPrefix + ".criterion", settled.criterion());
+        result.setProperty(normalizedPrefix + ".diagnostic", settled.diagnostic());
+        if (settled.lastObservation() != null) {
+            recordDiagnosticObservation(result, normalizedPrefix + ".last",
+                settled.lastObservation());
+        }
+    }
+
+    private static void recordSettleNotAttempted(final Properties result, final String prefix,
+        final String diagnostic) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        result.setProperty(normalizedPrefix + ".status", "NOT_ATTEMPTED");
+        result.setProperty(normalizedPrefix + ".stable", "false");
+        result.setProperty(normalizedPrefix + ".attempts", "0");
+        result.setProperty(normalizedPrefix + ".durationMs", "0");
+        result.setProperty(normalizedPrefix + ".criterion",
+            "requires public APPLIED completion and a fresh native observation");
+        result.setProperty(normalizedPrefix + ".diagnostic", diagnostic);
+    }
+
+    static void recordRelationProjection(final Properties result, final String prefix,
+        final TextureRelationsSnapshot relations) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        if (relations == null || !relations.isAvailable()) {
+            recordUnavailableRelationProjection(result, normalizedPrefix);
+            return;
+        }
+        result.setProperty(normalizedPrefix + ".status", "AVAILABLE");
+        result.setProperty(normalizedPrefix + ".rawIds", rawImageIds(relations));
+        result.setProperty(normalizedPrefix + ".modelImageIds", modelImageIds(relations));
+        result.setProperty(normalizedPrefix + ".selectorProjection", selectorProjection(relations));
+    }
+
+    private static void recordUnavailableRelationProjection(final Properties result,
+        final String prefix) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        result.setProperty(normalizedPrefix + ".status", "UNAVAILABLE");
+        result.setProperty(normalizedPrefix + ".rawIds", UNAVAILABLE_VALUE);
+        result.setProperty(normalizedPrefix + ".modelImageIds", UNAVAILABLE_VALUE);
+        result.setProperty(normalizedPrefix + ".selectorProjection", UNAVAILABLE_VALUE);
+    }
+
+    private static String rawImageIds(final TextureRelationsSnapshot relations) {
+        return relations.rawImages().stream()
+            .map(raw -> raw.id().value())
+            .toList().toString();
+    }
+
+    private static String modelImageIds(final TextureRelationsSnapshot relations) {
+        return relations.modelImages().stream()
+            .map(ModelImageRelation::id)
+            .map(id -> id.value())
+            .toList().toString();
+    }
+
+    /** Explicitly labels layerInputsByRawImage as a selector projection, not live PSD evidence. */
+    private static String selectorProjection(final TextureRelationsSnapshot relations) {
+        final List<String> projections = new ArrayList<>();
+        for (final ModelImageRelation relation : relations.modelImages()) {
+            final List<String> byRaw = new ArrayList<>();
+            for (final Map.Entry<RawImageId, List<RawLayerBinding>> entry
+                : relation.layerInputsByRawImage().entrySet()) {
+                final List<String> bindings = entry.getValue().stream()
+                    .map(binding -> binding.rawLayerId().value() + "@" + binding.inputOrder()
+                        + ":transform=" + binding.transformAvailability()
+                        + ":clipping=" + binding.clippingAvailability())
+                    .toList();
+                byRaw.add(entry.getKey().value() + "=" + bindings);
+            }
+            projections.add("modelImage=" + relation.id().value()
+                + "/currentRaw=" + relation.currentRawImageId().map(RawImageId::value)
+                    .orElse(UNAVAILABLE_VALUE)
+                + "/linkedRaw=" + relation.linkedRawImageIds().stream()
+                    .map(RawImageId::value).toList()
+                + "/rawLayerBindings=" + byRaw
+                + "/artMeshIds=" + relation.usingArtMeshIds().stream()
+                    .map(id -> id.value()).toList());
+        }
+        return projections.toString();
+    }
+
+    static String livePsdDocuments(final List<PsdClipMaskDocumentSnapshot> documents) {
+        final List<String> layers = new ArrayList<>();
+        for (final PsdClipMaskDocumentSnapshot document : documents) {
+            for (int index = 0; index < document.layers().size(); index++) {
+                appendLiveLayer(layers, document, document.layers().get(index), Integer.toString(index));
+            }
+        }
+        return layers.toString();
+    }
+
+    private static void appendLiveLayer(final List<String> layers,
+        final PsdClipMaskDocumentSnapshot document, final PsdLayerSnapshot layer,
+        final String path) {
+        layers.add("documentId=" + diagnosticToken(document.documentId())
+            + "/relativePath=" + diagnosticToken(document.relativePath())
+            + "/layerPath=" + path
+            + "/layerId=" + diagnosticToken(layer.layerId())
+            + "/name=" + diagnosticToken(layer.name())
+            + "/artMeshIds=" + layer.artMeshIds().stream().map(id -> id.value()).toList());
+        for (int index = 0; index < layer.children().size(); index++) {
+            appendLiveLayer(layers, document, layer.children().get(index), path + "." + index);
+        }
+    }
+
+    private static String diagnosticToken(final String value) {
+        return value.replace("\\", "\\\\")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("|", "\\|");
+    }
+
+    private static String joinPrefix(final String prefix, final String suffix) {
+        return normalizePrefix(prefix) + "." + suffix;
+    }
+
+    private static String diagnosticExportLabel(final String prefix) {
+        return "diagnostic-" + normalizePrefix(prefix).replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private static String normalizePrefix(final String prefix) {
+        if (prefix == null || prefix.isBlank()) throw new IllegalArgumentException("prefix is required");
+        String normalized = prefix;
+        while (normalized.endsWith(".")) normalized = normalized.substring(0, normalized.length() - 1);
+        if (normalized.isBlank()) throw new IllegalArgumentException("prefix is required");
+        return normalized;
+    }
+
+    private static String valueOrUnavailable(final String value) {
+        return value == null || value.isBlank() ? UNAVAILABLE_VALUE : value;
+    }
+
+    private static final String UNAVAILABLE_VALUE = "unavailable";
+
     private static boolean isCanonicalSha256(final String value) {
         return value != null && value.matches("[0-9a-f]{64}");
     }
@@ -2221,8 +2650,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private Mutation runSaveCycles(final Properties result, final PsdEditFile file, final Target target,
-        final Path tempFile, final Deque<PsdFileRevision> revisions, final int cycles,
-        final boolean validateTargetContent) throws Exception {
+        final Path tempFile, final Deque<PsdFileRevision> revisions, final TempTracker tracker,
+        final int cycles, final boolean validateTargetContent) throws Exception {
         Mutation lastMutation = null;
         for (int i = 1; i <= cycles; i++) {
             final byte[] current = Files.readAllBytes(tempFile);
@@ -2262,6 +2691,41 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty(prefix + "diagnostic", replaced.diagnostic());
             result.setProperty(prefix + "after", replaced.after().map(RawImageId::value).orElse(""));
             result.setProperty(prefix + "consumed", Boolean.toString(replaced.consumedRevision().isPresent()));
+            if (validateTargetContent) {
+                recordImportCompletion(result, prefix, replaced);
+                if (replaced.status() == PsdReplaceResult.Status.APPLIED
+                    && replaced.after().isPresent()) {
+                    final String completionPrefix =
+                        joinPrefix("persist.observation." + prefix, "importCompletion");
+                    final DiagnosticObservation completion = captureFreshDiagnosticObservation(
+                        result, completionPrefix, target.raw(), tracker,
+                        "fresh-native-export-after-public-import-completion"
+                    );
+                    final String settlePrefix =
+                        joinPrefix("persist.observation." + prefix, "boundedSettle");
+                    final AtomicInteger settleAttempt = new AtomicInteger();
+                    final BoundedSettleResult settled = awaitBoundedSettle(
+                        completion,
+                        () -> captureFreshDiagnosticObservation(
+                            result,
+                            settlePrefix + ".attempt." + settleAttempt.incrementAndGet(),
+                            target.raw(),
+                            tracker,
+                            "fresh-native-export-after-bounded-settle-poll"
+                        ),
+                        BOUNDED_SETTLE_MAX_ATTEMPTS,
+                        BOUNDED_SETTLE_MAX_DURATION_MILLIS,
+                        nanos -> LockSupport.parkNanos(nanos)
+                    );
+                    recordBoundedSettle(result, settlePrefix, settled);
+                } else {
+                    recordSettleNotAttempted(
+                        result,
+                        joinPrefix("persist.observation." + prefix, "boundedSettle"),
+                        "public import completion did not report APPLIED with an observed target"
+                    );
+                }
+            }
             if (replaced.status() != PsdReplaceResult.Status.APPLIED
                 || replaced.consumedRevision().isEmpty() || replaced.after().isEmpty()) {
                 throw new IllegalStateException("Explicit-target replacement not applied in cycle " + i
@@ -6801,6 +7265,99 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private record AutoImportObservation(boolean applied, boolean stale,
         GuiTargetState after, String diagnostic) {}
+
+    enum DiagnosticStatus {
+        AVAILABLE,
+        UNAVAILABLE
+    }
+
+    /**
+     * Immutable diagnostic snapshot of public relation/PSD metadata and one fresh native RGB
+     * fingerprint. Metadata is evidence about observed bindings only; it is never a substitute
+     * for the decoded fingerprint.
+     */
+    static record DiagnosticObservation(DiagnosticStatus status, String diagnostic,
+        String rawIds, String modelImageIds, String selectorProjection, String livePsd,
+        boolean relationsAvailable, boolean livePsdAvailable,
+        PsdValidationContent.Fingerprint freshNativeRgb) {
+        DiagnosticObservation {
+            status = Objects.requireNonNull(status, "status");
+            diagnostic = diagnostic == null ? "" : diagnostic;
+            rawIds = valueOrUnavailable(rawIds);
+            modelImageIds = valueOrUnavailable(modelImageIds);
+            selectorProjection = valueOrUnavailable(selectorProjection);
+            livePsd = valueOrUnavailable(livePsd);
+        }
+
+        static DiagnosticObservation available(final String rawIds, final String modelImageIds,
+            final String selectorProjection, final String livePsd,
+            final PsdValidationContent.Fingerprint freshNativeRgb) {
+            return new DiagnosticObservation(
+                DiagnosticStatus.AVAILABLE,
+                "",
+                rawIds,
+                modelImageIds,
+                selectorProjection,
+                livePsd,
+                true,
+                true,
+                freshNativeRgb
+            );
+        }
+
+        static DiagnosticObservation unavailable(final String diagnostic) {
+            return unavailable(diagnostic, null);
+        }
+
+        static DiagnosticObservation unavailable(final String diagnostic,
+            final PsdValidationContent.Fingerprint freshNativeRgb) {
+            return new DiagnosticObservation(
+                DiagnosticStatus.UNAVAILABLE,
+                diagnostic,
+                UNAVAILABLE_VALUE,
+                UNAVAILABLE_VALUE,
+                UNAVAILABLE_VALUE,
+                UNAVAILABLE_VALUE,
+                false,
+                false,
+                freshNativeRgb
+            );
+        }
+
+        boolean complete() {
+            return status == DiagnosticStatus.AVAILABLE
+                && relationsAvailable && livePsdAvailable && freshNativeRgb != null;
+        }
+    }
+
+    enum SettleStatus {
+        STABLE,
+        TIMEOUT,
+        FAILED,
+        UNAVAILABLE
+    }
+
+    static record BoundedSettleResult(SettleStatus status, int attempts, long durationMillis,
+        String criterion, String diagnostic, boolean stable,
+        DiagnosticObservation lastObservation) {
+        BoundedSettleResult {
+            status = Objects.requireNonNull(status, "status");
+            if (attempts < 0) throw new IllegalArgumentException("attempts must not be negative");
+            if (durationMillis < 0) {
+                throw new IllegalArgumentException("durationMillis must not be negative");
+            }
+            criterion = Objects.requireNonNull(criterion, "criterion");
+            diagnostic = diagnostic == null ? "" : diagnostic;
+            if (stable && status != SettleStatus.STABLE) {
+                throw new IllegalArgumentException("only STABLE settle results may be stable");
+            }
+        }
+    }
+
+    @FunctionalInterface
+    interface ObservationSupplier {
+        DiagnosticObservation get() throws Exception;
+    }
 
     private record Target(ArtMeshTextureInputs artMesh,
         dev.turboism.sdk.cubism.id.ModelImageId modelImage, RawImageId raw, boolean rawReplaced) {}

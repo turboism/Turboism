@@ -21,7 +21,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -39,14 +41,29 @@ import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.ModelImageId;
+import dev.turboism.sdk.cubism.id.RawImageId;
+import dev.turboism.sdk.cubism.id.RawLayerId;
+import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
+import dev.turboism.sdk.cubism.model.ModelImageEntry;
+import dev.turboism.sdk.cubism.model.ModelImageRelation;
+import dev.turboism.sdk.cubism.model.RawImageDetails;
+import dev.turboism.sdk.cubism.model.RawLayerBinding;
+import dev.turboism.sdk.cubism.model.RawTexture;
+import dev.turboism.sdk.cubism.model.TextureInputBinding;
+import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
+import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 import dev.turboism.sdk.plugin.Registration;
 
 /** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
@@ -89,6 +106,9 @@ public final class ExternalPsdEditHostProbeTest {
         testTrackerStopAggregation();
         testFinalCycleSelection();
         testSaveCycleBytes();
+        testDiagnosticObservationBoundaries();
+        testPublicProjectionFormatting();
+        testBoundedSettleFailureAndTimeoutEvidence();
 
         final byte[] psd = syntheticPsd("LayerA", "B2");
         final List<int[]> names = ExternalPsdEditHostProbe.layerNameRanges(psd);
@@ -954,6 +974,199 @@ public final class ExternalPsdEditHostProbeTest {
             assertTrue(!baseline.equals(targetFingerprint(current)),
                 "saved final bytes for " + cycles + " cycles contain the final content change");
         }
+    }
+
+    private static void testDiagnosticObservationBoundaries() {
+        final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
+            450, 450, 550, 550);
+        final PsdValidationContent.Fingerprint fingerprint =
+            new PsdValidationContent.Fingerprint(
+                "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
+        final ExternalPsdEditHostProbe.DiagnosticObservation observation =
+            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+                "raw-1", "model-1", "selector-raw-1=[layer-6]",
+                "document-1/layer-6/name=layer/artMeshIds=[ArtMesh4]", fingerprint);
+        final Properties result = new Properties();
+        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+            result, "persist.observation.baseline", observation);
+        assertEquals("AVAILABLE", result.getProperty("persist.observation.baseline.status"),
+            "available boundary is recorded");
+        assertEquals("raw-1", result.getProperty(
+            "persist.observation.baseline.relations.rawIds"), "raw IDs are recorded");
+        assertEquals("model-1", result.getProperty(
+            "persist.observation.baseline.relations.modelImageIds"),
+            "model-image IDs are recorded");
+        assertEquals("selector-raw-1=[layer-6]", result.getProperty(
+            "persist.observation.baseline.selectorProjection"),
+            "selector projection is recorded separately");
+        assertContains(result.getProperty("persist.observation.baseline.livePsd"),
+            "layer-6", "live PSD layer evidence is recorded separately");
+        assertEquals("a".repeat(64), result.getProperty(
+            "persist.observation.baseline.freshNativeRgb.sha256"),
+            "fresh native RGB fingerprint is recorded");
+
+        final Properties unavailable = new Properties();
+        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+            unavailable, "persist.observation.importCompletion",
+            ExternalPsdEditHostProbe.DiagnosticObservation.unavailable(
+                "psdDocuments unavailable"));
+        assertEquals("UNAVAILABLE", unavailable.getProperty(
+            "persist.observation.importCompletion.status"),
+            "unavailable public observation is explicit");
+        assertEquals("unavailable", unavailable.getProperty(
+            "persist.observation.importCompletion.freshNativeRgb.status"),
+            "unavailable observation cannot masquerade as pixel evidence");
+
+        final RawImageId raw = new RawImageId("raw-1");
+        final PsdReplaceResult applied = new PsdReplaceResult(
+            PsdReplaceResult.Status.APPLIED, "public completion", raw,
+            java.util.Optional.of(raw), java.util.Optional.of(new PsdFileRevision() { }),
+            java.util.Optional.empty());
+        ExternalPsdEditHostProbe.recordImportCompletion(
+            result, "cycle.1", applied);
+        assertEquals("true", result.getProperty("cycle.1.importCompletion.observed"),
+            "public import completion is recorded");
+        assertEquals("UNAVAILABLE", result.getProperty(
+            "cycle.1.importCompletion.nativeReturn.observation"),
+            "underlying native return is not falsely claimed");
+    }
+
+    private static void testPublicProjectionFormatting() {
+        final RawImageId raw = new RawImageId("raw-1");
+        final ModelImageId model = new ModelImageId("model-1");
+        final ArtMeshId mesh = new ArtMeshId("ArtMesh4");
+        final RawLayerId layerId = new RawLayerId("raw-layer-6");
+        final RawTexture texture = new RawTexture() {
+            @Override public RawImageId id() { return raw; }
+            @Override public String name() { return "raw"; }
+            @Override public int width() { return 1000; }
+            @Override public int height() { return 1000; }
+        };
+        final ModelImageEntry modelImage = new ModelImageEntry() {
+            @Override public ModelImageId id() { return model; }
+            @Override public String name() { return "model"; }
+            @Override public int width() { return 1000; }
+            @Override public int height() { return 1000; }
+        };
+        final RawLayerBinding binding = new RawLayerBinding(
+            raw, layerId, 0,
+            RawLayerBinding.DetailAvailability.AVAILABLE,
+            RawLayerBinding.DetailAvailability.UNKNOWN);
+        final ModelImageRelation relation = new ModelImageRelation(
+            model, modelImage, List.of(raw), Optional.of(raw),
+            Map.of(raw, List.of(binding)), List.of(mesh));
+        final TextureRelationsSnapshot relations = new TextureRelationsSnapshot(
+            TextureRelationsSnapshot.Availability.AVAILABLE,
+            "binding", 1, 1,
+            List.of(new RawImageDetails(
+                texture, RawImageDetails.SourceKind.PSD, List.of(), false,
+                Optional.empty(), Optional.empty(), Optional.empty())),
+            List.of(relation), List.of(),
+            List.of(new ArtMeshTextureInputs(
+                mesh, List.of(TextureInputBinding.modelImage(model)), OptionalInt.of(0))));
+        final Properties result = new Properties();
+        ExternalPsdEditHostProbe.recordRelationProjection(
+            result, "persist.observation.baseline.relations", relations);
+        assertEquals("[raw-1]", result.getProperty(
+            "persist.observation.baseline.relations.rawIds"),
+            "public relation projection records raw IDs");
+        assertEquals("[model-1]", result.getProperty(
+            "persist.observation.baseline.relations.modelImageIds"),
+            "public relation projection records model-image IDs");
+        assertContains(result.getProperty(
+            "persist.observation.baseline.relations.selectorProjection"),
+            "raw-layer-6", "selector projection records raw-layer identity");
+        assertContains(result.getProperty(
+            "persist.observation.baseline.relations.selectorProjection"),
+            "ArtMesh4", "selector projection records model users");
+
+        final PsdLayerSnapshot layer = new PsdLayerSnapshot(
+            "layer-6", "Target", true, List.of(mesh), Optional.empty(), List.of());
+        final String live = ExternalPsdEditHostProbe.livePsdDocuments(List.of(
+            new PsdClipMaskDocumentSnapshot(
+                "document-1", "textures/source.psd", List.of(layer))));
+        assertContains(live, "layerId=layer-6", "live PSD projection records layer ID");
+        assertContains(live, "name=Target", "live PSD projection records layer name");
+        assertContains(live, "artMeshIds=[ArtMesh4]",
+            "live PSD projection records layer ArtMesh IDs");
+    }
+
+    private static void testBoundedSettleFailureAndTimeoutEvidence() throws Exception {
+        final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
+            450, 450, 550, 550);
+        final ExternalPsdEditHostProbe.DiagnosticObservation first =
+            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+                "raw-1", "model-1", "selector", "live-a",
+                new PsdValidationContent.Fingerprint(
+                    "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
+        final ExternalPsdEditHostProbe.DiagnosticObservation second =
+            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+                "raw-1", "model-1", "selector", "live-b",
+                new PsdValidationContent.Fingerprint(
+                    "b".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
+        final AtomicInteger changing = new AtomicInteger();
+        final ExternalPsdEditHostProbe.BoundedSettleResult timeout =
+            ExternalPsdEditHostProbe.awaitBoundedSettle(
+                first, () -> changing.getAndIncrement() % 2 == 0 ? second : first,
+                3, 1000, ignored -> { });
+        assertEquals("TIMEOUT", timeout.status().name(),
+            "changing observations produce bounded timeout");
+        assertEquals(3, timeout.attempts(), "timeout retains bounded attempt count");
+        assertContains(timeout.criterion(), "consecutive", "timeout retains stability criterion");
+        final Properties timeoutEvidence = new Properties();
+        ExternalPsdEditHostProbe.recordBoundedSettle(
+            timeoutEvidence, "persist.observation.cycle.1.boundedSettle", timeout);
+        assertEquals("3", timeoutEvidence.getProperty(
+            "persist.observation.cycle.1.boundedSettle.attempts"),
+            "timeout evidence records attempts");
+        assertEquals("false", timeoutEvidence.getProperty(
+            "persist.observation.cycle.1.boundedSettle.stable"),
+            "timeout evidence cannot claim stable");
+        assertTrue(Integer.parseInt(timeoutEvidence.getProperty(
+            "persist.observation.cycle.1.boundedSettle.durationMs")) >= 0,
+            "timeout evidence records elapsed duration");
+
+        final ExternalPsdEditHostProbe.BoundedSettleResult stable =
+            ExternalPsdEditHostProbe.awaitBoundedSettle(
+                first, () -> second, 3, 1000, ignored -> { });
+        assertEquals("STABLE", stable.status().name(),
+            "a changed observation that remains stable is accepted");
+        assertEquals(2, stable.attempts(),
+            "settle requires two equal observations after the completion boundary");
+
+        final AtomicReference<Throwable> edtFailure = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                ExternalPsdEditHostProbe.awaitBoundedSettle(
+                    first, () -> first, 1, 1000, ignored -> { });
+            } catch (Throwable failure) {
+                edtFailure.set(failure);
+            }
+        });
+        assertTrue(edtFailure.get() instanceof IllegalStateException,
+            "settle refuses to block the EDT");
+
+        final ExternalPsdEditHostProbe.BoundedSettleResult unavailable =
+            ExternalPsdEditHostProbe.awaitBoundedSettle(
+                first,
+                () -> ExternalPsdEditHostProbe.DiagnosticObservation.unavailable(
+                    "relations unavailable"),
+                3, 1000, ignored -> { });
+        assertEquals("UNAVAILABLE", unavailable.status().name(),
+            "unavailable observation is not a stable result");
+        assertEquals(1, unavailable.attempts(),
+            "unavailable boundary records the attempted observation");
+
+        final ExternalPsdEditHostProbe.BoundedSettleResult failure =
+            ExternalPsdEditHostProbe.awaitBoundedSettle(
+                first, () -> { throw new IOException("injected observation failure"); },
+                2, 1000, ignored -> { });
+        assertEquals("FAILED", failure.status().name(),
+            "observation failure is not converted to stable success");
+        assertEquals(1, failure.attempts(), "failed observation counts the attempted poll");
+        assertContains(failure.diagnostic(), "injected observation failure",
+            "observation failure is retained");
+        assertTrue(!failure.stable(), "failed settle cannot claim stability");
     }
 
     private static String targetFingerprint(final byte[] psd) {
