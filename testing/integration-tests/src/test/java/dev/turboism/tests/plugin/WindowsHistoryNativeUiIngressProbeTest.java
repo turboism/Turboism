@@ -10,15 +10,22 @@ import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
 import org.junit.jupiter.api.Test;
 
+import java.awt.Component;
+import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import javax.swing.SwingUtilities;
 import javax.swing.JTable;
 import javax.swing.JTree;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1279,6 +1286,263 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
+    void partPrePressGuardAllowsStableSwingStructure() {
+        final SwingPartSurface surface = swingPartSurface();
+
+        final WindowsHistoryNativeUiIngressProbe.PartPrePressCheck check =
+            WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                surface.layout(), surface.table(), surface.tree());
+
+        assertTrue(check.ok(), check.code());
+    }
+
+    @Test
+    void partPrePressGuardRejectsSourceRowChange() {
+        final SwingPartSurface surface = swingPartSurface();
+        surface.tree().collapsePath(new TreePath(surface.target().getPath()));
+
+        final WindowsHistoryNativeUiIngressProbe.PartPrePressCheck check =
+            WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                surface.layout(), surface.table(), surface.tree());
+
+        assertFalse(check.ok());
+        assertEquals("source-row-changed", check.code());
+    }
+
+    @Test
+    void partPrePressGuardRejectsTableTreeAndModelReplacement() {
+        final SwingPartSurface tableSurface = swingPartSurface();
+        final JTable replacementTable = new JTable(tableSurface.table().getRowCount(), 1);
+        replacementTable.setRowHeight(20);
+        replacementTable.setSize(240, 80);
+        assertEquals(
+            "table-replaced",
+            WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                tableSurface.layout(), replacementTable, tableSurface.tree()).code()
+        );
+
+        final SwingPartSurface treeSurface = swingPartSurface();
+        final JTree replacementTree = new JTree(treeSurface.root());
+        assertEquals(
+            "tree-replaced",
+            WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                treeSurface.layout(), treeSurface.table(), replacementTree).code()
+        );
+
+        final SwingPartSurface tableModelSurface = swingPartSurface();
+        tableModelSurface.table().setModel(new DefaultTableModel(4, 1));
+        assertEquals(
+            "table-model-replaced",
+            WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                tableModelSurface.layout(), tableModelSurface.table(), tableModelSurface.tree()).code()
+        );
+
+        final SwingPartSurface treeModelSurface = swingPartSurface();
+        treeModelSurface.tree().setModel(new DefaultTreeModel(treeModelSurface.root()));
+        assertEquals(
+            "tree-model-replaced",
+            WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                treeModelSurface.layout(), treeModelSurface.table(), treeModelSurface.tree()).code()
+        );
+    }
+
+    @Test
+    void partPrePressGuardRejectsViewportChange() {
+        final SwingPartSurface surface = swingPartSurface();
+        surface.table().setSize(240, 60);
+
+        final WindowsHistoryNativeUiIngressProbe.PartPrePressCheck check =
+            WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                surface.layout(), surface.table(), surface.tree());
+
+        assertFalse(check.ok());
+        assertEquals("source-viewport-changed", check.code());
+    }
+
+    @Test
+    void partGestureCapturesSwingEventsAndRemovesTemporaryListeners() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture capture =
+            new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(
+                surface.layout(), "sdk-source", "sdk-target");
+        final int mouseListeners = surface.table().getMouseListeners().length;
+        final int motionListeners = surface.table().getMouseMotionListeners().length;
+
+        SwingUtilities.invokeAndWait(() -> {
+            capture.recordLayout();
+            capture.install();
+            capture.recordMouseEventForTest(
+                "actual-press",
+                mouse(surface.table(), MouseEvent.MOUSE_PRESSED, surface.layout().source().localPoint())
+            );
+            capture.recordMouseEventForTest(
+                "first-drag",
+                mouse(surface.table(), MouseEvent.MOUSE_DRAGGED, surface.layout().target().localPoint())
+            );
+            capture.recordMouseEventForTest(
+                "release",
+                mouse(surface.table(), MouseEvent.MOUSE_RELEASED, surface.layout().target().localPoint())
+            );
+            capture.remove();
+        });
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureCheck check = capture.checkEvents();
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED, check.status());
+        assertEquals(mouseListeners, surface.table().getMouseListeners().length);
+        assertEquals(motionListeners, surface.table().getMouseMotionListeners().length);
+        assertTrue(capture.evidence().stream().anyMatch(line -> line.contains("\"phase\":\"actual-press\"")));
+        assertTrue(capture.evidence().stream().anyMatch(line -> line.contains("\"phase\":\"first-drag\"")));
+        assertTrue(capture.evidence().stream().anyMatch(line -> line.contains("\"phase\":\"release\"")));
+        assertTrue(capture.evidence().stream().anyMatch(line -> line.contains("sdk-source")));
+        assertTrue(capture.evidence().stream().anyMatch(line -> line.contains("\"sourceNodeObjectMatch\":true")));
+        assertTrue(capture.evidence().stream().anyMatch(line -> line.contains("\"targetNodeObjectMatch\":true")));
+    }
+
+    @Test
+    void partGestureRejectsWrongEventSource() {
+        final SwingPartSurface surface = swingPartSurface();
+        final JTable wrongTable = new JTable(4, 1);
+        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture capture =
+            new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(
+                surface.layout(), "sdk-source", "sdk-target");
+
+        capture.recordMouseEventForTest(
+            "actual-press", mouse(wrongTable, MouseEvent.MOUSE_PRESSED, new Point(5, 5)));
+        capture.recordMouseEventForTest(
+            "first-drag", mouse(wrongTable, MouseEvent.MOUSE_DRAGGED, new Point(5, 25)));
+        capture.recordMouseEventForTest(
+            "release", mouse(wrongTable, MouseEvent.MOUSE_RELEASED, new Point(5, 25)));
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureCheck check = capture.checkEvents();
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.MISMATCH, check.status());
+        assertEquals("actual-press-target-mismatch", check.code());
+    }
+
+    @Test
+    void partGestureDoesNotPressAfterPrePressGuardRejects() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
+            new WindowsHistoryNativeUiIngressProbe.PartPairLayout(
+                surface.layout().table(),
+                surface.layout().tree(),
+                surface.layout().tableModel(),
+                surface.layout().treeModel(),
+                surface.layout().source().withScreenPoint(new Point(10, 10)),
+                surface.layout().target().withScreenPoint(new Point(10, 30)),
+                surface.layout().tableShowing()
+            );
+        final boolean[] pressed = {false};
+        final boolean[] released = {false};
+        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
+            new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+                @Override
+                public void mouseMove(final int x, final int y) {
+                }
+
+                @Override
+                public void pause(final long millis) {
+                }
+
+                @Override
+                public void mousePress() {
+                    pressed[0] = true;
+                }
+
+                @Override
+                public void mouseRelease() {
+                    released[0] = true;
+                }
+            };
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                input,
+                () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.failure(
+                    "source-row-changed", layout, surface.table(), surface.tree())
+            );
+
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertFalse(pressed[0], "a rejected pre-press guard must not press");
+        assertFalse(released[0], "no release is needed when no press was issued");
+    }
+
+    @Test
+    void partGestureReleasesInjectedMouseAfterPressExceptionAndCleansListeners() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
+            new WindowsHistoryNativeUiIngressProbe.PartPairLayout(
+                surface.layout().table(),
+                surface.layout().tree(),
+                surface.layout().tableModel(),
+                surface.layout().treeModel(),
+                surface.layout().source().withScreenPoint(new Point(10, 10)),
+                surface.layout().target().withScreenPoint(new Point(10, 30)),
+                surface.layout().tableShowing()
+            );
+        final int mouseListeners = surface.table().getMouseListeners().length;
+        final int motionListeners = surface.table().getMouseMotionListeners().length;
+        final boolean[] released = {false};
+        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
+            new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+                @Override
+                public void mouseMove(final int x, final int y) {
+                }
+
+                @Override
+                public void pause(final long millis) {
+                }
+
+                @Override
+                public void mousePress() {
+                    throw new IllegalStateException("injected-press-failure");
+                }
+
+                @Override
+                public void mouseRelease() {
+                    released[0] = true;
+                }
+            };
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                input,
+                () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                    layout, surface.table(), surface.tree())
+            );
+
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.EXCEPTION, attempt.status());
+        assertTrue(released[0], "a press exception must still attempt release");
+        assertEquals(mouseListeners, surface.table().getMouseListeners().length);
+        assertEquals(motionListeners, surface.table().getMouseMotionListeners().length);
+    }
+
+    @Test
+    void automatedPartActorMismatchCannotBeRecoveredByALegalSemanticRelation() {
+        final WindowsHistoryNativeUiIngressProbe.PartActorResult mismatch =
+            WindowsHistoryNativeUiIngressProbe.PartActorResult.fromActorResult(
+                "mismatch:sourceId=PartClip:targetId=Part3");
+        final WindowsHistoryNativeUiIngressProbe.Verdict legalRelation =
+            new WindowsHistoryNativeUiIngressProbe.Verdict(
+                true, "proven-membership-change", "root->Part3");
+
+        final WindowsHistoryNativeUiIngressProbe.Verdict admitted =
+            WindowsHistoryNativeUiIngressProbe.admitPartStep(mismatch, legalRelation);
+        final WindowsHistoryNativeUiIngressProbe.Verdict manual =
+            WindowsHistoryNativeUiIngressProbe.admitPartStep(
+                WindowsHistoryNativeUiIngressProbe.PartActorResult.notRun(), legalRelation);
+
+        assertFalse(admitted.ok());
+        assertEquals("actor-mismatch", admitted.code());
+        assertTrue(manual.ok(), manual.detail());
+    }
+
+    @Test
     void partDragSettlesLateChangeWithoutSendingASecondGesture() throws Exception {
         final WindowsHistoryNativeUiIngressProbe.PartDragCheck noChange =
             partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE);
@@ -2026,6 +2290,54 @@ class WindowsHistoryNativeUiIngressProbeTest {
             ).after().values().get(0).value(),
             0.0f
         );
+    }
+
+    private static SwingPartSurface swingPartSurface() {
+        final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
+        final DefaultMutableTreeNode target = new DefaultMutableTreeNode("Target");
+        target.add(new DefaultMutableTreeNode("Target child"));
+        final DefaultMutableTreeNode source = new DefaultMutableTreeNode("Source");
+        root.add(target);
+        root.add(source);
+        final JTree tree = new JTree(root);
+        tree.collapsePath(new TreePath(target.getPath()));
+        final JTable table = new JTable(4, 1);
+        table.setRowHeight(20);
+        table.setSize(240, 80);
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
+            WindowsHistoryNativeUiIngressProbe.locatePartPairRows(table, tree, "Source", "Target");
+        assertTrue(layout != null, "test Parts layout must be locatable");
+        return new SwingPartSurface(root, target, source, table, tree, layout);
+    }
+
+    private static MouseEvent mouse(
+        final Component source,
+        final int type,
+        final Point point
+    ) {
+        return new MouseEvent(
+            source,
+            type,
+            System.currentTimeMillis(),
+            InputEvent.BUTTON1_DOWN_MASK,
+            point.x,
+            point.y,
+            point.x,
+            point.y,
+            1,
+            false,
+            MouseEvent.BUTTON1
+        );
+    }
+
+    private record SwingPartSurface(
+        DefaultMutableTreeNode root,
+        DefaultMutableTreeNode target,
+        DefaultMutableTreeNode source,
+        JTable table,
+        JTree tree,
+        WindowsHistoryNativeUiIngressProbe.PartPairLayout layout
+    ) {
     }
 
     private static WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot parameterSnapshot(

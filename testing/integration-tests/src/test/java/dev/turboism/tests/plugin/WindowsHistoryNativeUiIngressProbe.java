@@ -12,6 +12,16 @@ import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.SwingUtilities;
+import javax.swing.JTable;
+import javax.swing.JTree;
+import javax.swing.table.TableModel;
+import javax.swing.tree.TreeModel;
+import javax.swing.tree.TreePath;
+import java.awt.Component;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -88,6 +98,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final String INTERNAL_ROOT_PART_ID = "__RootPart__";
     private static final int MAX_PART_GESTURE_PAIRS = 8;
     private static final int PART_GESTURE_SETTLE_POLLS = 12;
+    private static final int MAX_PART_GESTURE_EVIDENCE_LINES = 64;
+    private static final int MAX_PART_GESTURE_PATH_COMPONENTS = 32;
+    private static final int MAX_PART_GESTURE_TEXT_LENGTH = 256;
 
     /**
      * Deepest level the canvas scan may reach.
@@ -209,6 +222,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private final List<ParameterLifecycleEvent> parameterLifecycle = new ArrayList<>();
     private long parameterLifecycleSequence;
     private volatile ParameterChangeObservation parameterActorTermination;
+    private volatile PartActorResult partActorResult = PartActorResult.notRun();
+    private final List<String> partGestureEvidence = new ArrayList<>();
     private PluginContext context;
     private Path artifact;
     private Thread worker;
@@ -428,9 +443,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
                             // The discovery detail legitimately exceeds a label's bound; clipping
                             // it hid why the r9 Parts-tree selection never resolved.
-                            + "\",\"result\":\"" + json(actor, 8192) + "\"}\n",
+                        + "\",\"result\":\"" + json(actor, 8192) + "\"}\n",
                         false
                     );
+                    if ("parts-tree-drag".equals(step.id())) {
+                        for (final String evidence : partGestureEvidenceSnapshot()) {
+                            write(artifact, evidence, false);
+                        }
+                        write(artifact, partActorResult.json(step.id()), false);
+                        if (!partActorResult.accepted()) {
+                            failures.add(step.id() + ":actor-" + partActorResult.code());
+                        }
+                    }
                     // The map is captured when an actor actually ran — by then the document UI is
                     // populated, and the dump shows the controls the actor just used or missed.
                     if (!"none".equals(actor)) {
@@ -561,6 +585,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                         if (!semanticVerdict.ok()) {
                             failures.add(step.id() + ":semantic-" + semanticVerdict.code());
                         }
+                        final Verdict partStepVerdict = admitPartStep(partActorResult, semanticVerdict);
+                        write(artifact, partStepVerdict.json("parts-tree-drag-result"), false);
+                        if (!partStepVerdict.ok() && semanticVerdict.ok()) {
+                            failures.add(step.id() + ":" + partStepVerdict.code());
+                        }
                     }
                     continue;
                 }
@@ -589,6 +618,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     );
                     if (!semanticVerdict.ok()) {
                         failures.add(step.id() + ":semantic-" + semanticVerdict.code());
+                    }
+                    final Verdict partStepVerdict = admitPartStep(partActorResult, semanticVerdict);
+                    write(artifact, partStepVerdict.json("parts-tree-drag-result"), false);
+                    if (!partStepVerdict.ok() && semanticVerdict.ok()) {
+                        failures.add(step.id() + ":" + partStepVerdict.code());
                     }
                 }
                 hookFired |= events.stream().anyMatch(event -> event.phase().equals("before"));
@@ -823,10 +857,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if ("native-parameter".equals(step.id())) {
             parameterActorTermination = null;
         }
+        if ("parts-tree-drag".equals(step.id())) {
+            partActorResult = PartActorResult.notRun();
+            synchronized (lock) {
+                partGestureEvidence.clear();
+            }
+        }
         final Thread raiser = hostWindowRaiser();
         try {
             return switch (step.id()) {
-                case "parts-tree-drag" -> dragPartsTree(knownSignificant);
+                case "parts-tree-drag" -> {
+                    final String result = dragPartsTree(knownSignificant);
+                    partActorResult = PartActorResult.fromActorResult(result);
+                    yield result;
+                }
                 case "deformer-assign" -> dragPartRow(knownSignificant);
                 case "canvas-move", "canvas-deform" -> dragCanvas(knownSignificant);
                 case "native-parameter" -> dragParameterSlider(parameterBefore);
@@ -839,9 +883,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             };
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            if ("parts-tree-drag".equals(step.id())) {
+                partActorResult = PartActorResult.exception("interrupted", interrupted.toString());
+            }
             return "interrupted";
         } catch (Exception failure) {
             final String message = failure.getMessage();
+            if ("parts-tree-drag".equals(step.id())) {
+                partActorResult = PartActorResult.exception(
+                    failure.getClass().getSimpleName(),
+                    message == null ? failure.toString() : message
+                );
+            }
             return "failed:" + failure.getClass().getSimpleName()
                 + (message == null ? "" : ":" + message);
         } finally {
@@ -942,7 +995,23 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     + partEvidence(pair, pair.source().parentId(),
                         pair.source().parentId());
             }
-            robotDrag(sourcePoint.x, sourcePoint.y, targetPoint.x, targetPoint.y);
+            final PartGestureAttempt gesture = runPartGesture(
+                preparation.layout(),
+                pair.source().id(),
+                pair.target().id(),
+                robotPartGestureInput(),
+                () -> currentPartPrePress(preparation.layout())
+            );
+            appendPartGestureEvidence(gesture.evidence());
+            if (gesture.status() != PartGestureStatus.ACCEPTED) {
+                final String prefix = gesture.status() == PartGestureStatus.MISMATCH
+                    ? "mismatch:"
+                    : gesture.status() == PartGestureStatus.EXCEPTION
+                        ? "failed:"
+                        : "unresolved:";
+                return prefix + gesture.code() + ":sourceId=" + pair.source().id()
+                    + ":targetId=" + pair.target().id();
+            }
 
             final PartDragSettlement settlement = settlePartDrag(
                 PART_GESTURE_SETTLE_POLLS,
@@ -1015,6 +1084,341 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             significantSequence(history),
             ""
         );
+    }
+
+    /** Finds the currently discovered Parts surface and performs the final EDT guard. */
+    private static PartPrePressCheck currentPartPrePress(final PartPairLayout expected) {
+        JTable firstTable = null;
+        JTree firstTree = null;
+        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+            if (!window.isVisible()) continue;
+            final JTable table = findPartsTable(window);
+            if (table == null) continue;
+            final JTree tree = WindowsMeshEditValidationProbe.extractTree(table);
+            if (firstTable == null) {
+                firstTable = table;
+                firstTree = tree;
+            }
+            if (table == expected.table()) {
+                return verifyPartPrePress(expected, table, tree);
+            }
+        }
+        return verifyPartPrePress(expected, firstTable, firstTree);
+    }
+
+    /**
+     * Rechecks the object graph and both points after the Robot move/settle window.
+     *
+     * <p>The comparisons deliberately use object identity for Swing components, models and tree
+     * nodes. Display names are retained as bounded evidence and lookup hints only; they do not
+     * establish that a press is on the intended SDK Part.</p>
+     */
+    static PartPrePressCheck verifyPartPrePress(
+        final PartPairLayout expected,
+        final JTable currentTable,
+        final JTree currentTree
+    ) {
+        if (expected == null || expected.table() == null || expected.tree() == null
+            || expected.tableModel() == null || expected.treeModel() == null) {
+            return PartPrePressCheck.failure(
+                "layout-identity-unavailable", expected, currentTable, currentTree
+            );
+        }
+        if (currentTable == null || currentTree == null) {
+            return PartPrePressCheck.failure(
+                "current-parts-surface-unavailable", expected, currentTable, currentTree
+            );
+        }
+        if (currentTable != expected.table()) {
+            return PartPrePressCheck.failure(
+                "table-replaced", expected, currentTable, currentTree
+            );
+        }
+        if (currentTree != expected.tree()) {
+            return PartPrePressCheck.failure(
+                "tree-replaced", expected, currentTable, currentTree
+            );
+        }
+        if (currentTable.getModel() != expected.tableModel()) {
+            return PartPrePressCheck.failure(
+                "table-model-replaced", expected, currentTable, currentTree
+            );
+        }
+        if (currentTree.getModel() != expected.treeModel()) {
+            return PartPrePressCheck.failure(
+                "tree-model-replaced", expected, currentTable, currentTree
+            );
+        }
+        if (currentTable.isShowing() != expected.tableShowing()) {
+            return PartPrePressCheck.failure(
+                "table-showing-changed", expected, currentTable, currentTree
+            );
+        }
+        final String sourceFailure = verifyPartRowAtPress(
+            expected.source(), currentTable, currentTree
+        );
+        if (sourceFailure != null) {
+            return PartPrePressCheck.failure(
+                "source-" + sourceFailure, expected, currentTable, currentTree
+            );
+        }
+        final String targetFailure = verifyPartRowAtPress(
+            expected.target(), currentTable, currentTree
+        );
+        if (targetFailure != null) {
+            return PartPrePressCheck.failure(
+                "target-" + targetFailure, expected, currentTable, currentTree
+            );
+        }
+        return PartPrePressCheck.success(expected, currentTable, currentTree);
+    }
+
+    private static String verifyPartRowAtPress(
+        final PartRowLocation expected,
+        final JTable table,
+        final JTree tree
+    ) {
+        if (expected == null || expected.node() == null) return "node-unavailable";
+        final int row = expected.row();
+        if (tree.getRowForPath(expected.path()) != row) return "row-changed";
+        final TreePath currentPath = tree.getPathForRow(row);
+        if (!samePathNodeIdentity(expected.path(), currentPath)) return "path-changed";
+        if (currentPath == null || currentPath.getLastPathComponent() != expected.node()) {
+            return "node-replaced";
+        }
+        if (!Objects.equals(expected.label(), treeLabel(tree, expected.node()))) {
+            return "label-changed";
+        }
+        if (row < 0 || row >= table.getRowCount()) return "table-row-unavailable";
+        final Rectangle cell = table.getCellRect(row, expected.column(), true);
+        final Rectangle viewport = table.getVisibleRect();
+        if (!cell.equals(expected.cell())) return "cell-changed";
+        if (!viewport.equals(expected.viewport())) return "viewport-changed";
+        if (table.rowAtPoint(expected.localPoint()) != row) return "row-at-point-changed";
+        if (table.columnAtPoint(expected.localPoint()) != expected.column()) {
+            return "column-at-point-changed";
+        }
+        if (!viewport.contains(cell.x, cell.y)
+            || !viewport.contains(cell.x + cell.width - 1, cell.y + cell.height - 1)) {
+            return "cell-not-visible";
+        }
+        if (expected.screenPoint() != null) {
+            try {
+                final Point currentScreen = new Point(expected.localPoint());
+                SwingUtilities.convertPointToScreen(currentScreen, table);
+                if (!currentScreen.equals(expected.screenPoint())) return "screen-point-changed";
+                final Point fromScreen = new Point(expected.screenPoint());
+                SwingUtilities.convertPointFromScreen(fromScreen, table);
+                if (!fromScreen.equals(expected.localPoint())) return "screen-hit-changed";
+                final int screenRow = table.rowAtPoint(fromScreen);
+                final int screenColumn = table.columnAtPoint(fromScreen);
+                final TreePath screenPath = tree.getPathForRow(screenRow);
+                if (screenRow != row || screenColumn != expected.column()
+                    || !samePathNodeIdentity(expected.path(), screenPath)) {
+                    return "screen-row-path-changed";
+                }
+            } catch (java.awt.IllegalComponentStateException notShowing) {
+                return "screen-point-unavailable";
+            }
+        }
+        return null;
+    }
+
+    private static boolean samePathNodeIdentity(
+        final TreePath expected,
+        final TreePath actual
+    ) {
+        if (expected == null || actual == null || expected.getPathCount() != actual.getPathCount()) {
+            return false;
+        }
+        for (int index = 0; index < expected.getPathCount(); index++) {
+            if (expected.getPathComponent(index) != actual.getPathComponent(index)) return false;
+        }
+        return true;
+    }
+
+    /** Creates the real-input endpoint used only by the Parts gesture. */
+    private static PartGestureInput robotPartGestureInput() throws Exception {
+        final java.awt.Robot robot = new java.awt.Robot();
+        return new PartGestureInput() {
+            @Override
+            public void mouseMove(final int x, final int y) {
+                robot.mouseMove(x, y);
+            }
+
+            @Override
+            public void pause(final long millis) throws InterruptedException {
+                Thread.sleep(millis);
+            }
+
+            @Override
+            public void mousePress() {
+                robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+            }
+
+            @Override
+            public void mouseRelease() {
+                robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+            }
+        };
+    }
+
+    /**
+     * Runs one bounded Parts gesture. The input is injectable so cleanup and the pre-press guard
+     * can be tested with real Swing components without constructing a headless {@link
+     * java.awt.Robot}.
+     */
+    static PartGestureAttempt runPartGesture(
+        final PartPairLayout layout,
+        final String intendedSourceId,
+        final String intendedTargetId,
+        final PartGestureInput input,
+        final PartPrePressGuard guard
+    ) throws Exception {
+        Objects.requireNonNull(layout, "layout");
+        Objects.requireNonNull(input, "input");
+        Objects.requireNonNull(guard, "guard");
+        final PartGestureCapture capture = new PartGestureCapture(
+            layout, intendedSourceId, intendedTargetId
+        );
+        try {
+            onEdt(() -> {
+                capture.recordLayout();
+                capture.install();
+                return null;
+            });
+        } catch (Exception failure) {
+            return new PartGestureAttempt(
+                PartGestureStatus.EXCEPTION,
+                "listener-install-failed:" + failure.getClass().getSimpleName(),
+                PartPrePressCheck.failure("listener-install-failed", layout, null, null),
+                capture.evidence()
+            );
+        }
+
+        boolean pressed = false;
+        PartPrePressCheck prePress = null;
+        try {
+            final Point source = layout.source().screenPoint();
+            final Point target = layout.target().screenPoint();
+            if (source == null || target == null) {
+                final PartPrePressCheck unavailable = PartPrePressCheck.failure(
+                    "screen-point-unavailable", layout, layout.table(), layout.tree()
+                );
+                onEdt(() -> {
+                    capture.recordPrePress(unavailable);
+                    return null;
+                });
+                return new PartGestureAttempt(
+                    PartGestureStatus.UNRESOLVED,
+                    unavailable.code(),
+                    unavailable,
+                    capture.evidence()
+                );
+            }
+            input.mouseMove(source.x, source.y);
+            input.pause(120L);
+            prePress = onEdt(() -> {
+                final PartPrePressCheck checked = guard.check();
+                capture.recordPrePress(checked);
+                return checked;
+            });
+            if (!prePress.ok()) {
+                return new PartGestureAttempt(
+                    PartGestureStatus.UNRESOLVED,
+                    prePress.code(),
+                    prePress,
+                    capture.evidence()
+                );
+            }
+
+            // Set the flag before calling the injected endpoint: a press that throws may still
+            // have reached the native input device, so finally must attempt the release.
+            pressed = true;
+            input.mousePress();
+            input.pause(180L);
+            final int segments = 12;
+            for (int segment = 1; segment <= segments; segment++) {
+                input.mouseMove(
+                    source.x + (target.x - source.x) * segment / segments,
+                    source.y + (target.y - source.y) * segment / segments
+                );
+                input.pause(35L);
+            }
+            input.pause(180L);
+            input.mouseRelease();
+            pressed = false;
+            // Flush queued Swing callbacks before validating the bounded event set.
+            onEdt(() -> null);
+            final PartGestureCheck checked = capture.checkEvents();
+            return new PartGestureAttempt(
+                checked.status(),
+                checked.code(),
+                prePress,
+                capture.evidence()
+            );
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return new PartGestureAttempt(
+                PartGestureStatus.EXCEPTION,
+                "interrupted",
+                prePress,
+                capture.evidence()
+            );
+        } catch (Exception failure) {
+            if (prePress == null) {
+                final PartPrePressCheck guardFailure = PartPrePressCheck.failure(
+                    "guard-failed:" + failure.getClass().getSimpleName(), layout, null, null
+                );
+                prePress = guardFailure;
+                try {
+                    onEdt(() -> {
+                        capture.recordPrePress(guardFailure);
+                        return null;
+                    });
+                } catch (Exception ignored) {
+                    // The input failure remains the actor outcome; layout evidence is retained.
+                }
+            }
+            return new PartGestureAttempt(
+                PartGestureStatus.EXCEPTION,
+                "input-failed:" + failure.getClass().getSimpleName(),
+                prePress,
+                capture.evidence()
+            );
+        } finally {
+            if (pressed) {
+                try {
+                    input.mouseRelease();
+                } catch (Exception ignored) {
+                    // The original input failure remains the actor outcome; cleanup is best effort.
+                }
+            }
+            try {
+                onEdt(() -> {
+                    capture.remove();
+                    return null;
+                });
+            } catch (Exception ignored) {
+                // The actor outcome already records the gesture failure.
+            }
+        }
+    }
+
+    private void appendPartGestureEvidence(final List<String> evidence) {
+        if (evidence == null || evidence.isEmpty()) return;
+        synchronized (lock) {
+            for (final String line : evidence) {
+                if (partGestureEvidence.size() >= MAX_PART_GESTURE_EVIDENCE_LINES) break;
+                partGestureEvidence.add(line);
+            }
+        }
+    }
+
+    private List<String> partGestureEvidenceSnapshot() {
+        synchronized (lock) {
+            return List.copyOf(partGestureEvidence);
+        }
     }
 
     private PartModelSnapshot readPartModel() {
@@ -1375,7 +1779,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             || !fullyVisible(table, source.cell()) || !fullyVisible(table, target.cell())) {
             return null;
         }
-        return new PartPairLayout(source, target);
+        return new PartPairLayout(
+            table,
+            tree,
+            table.getModel(),
+            tree.getModel(),
+            source,
+            target,
+            table.isShowing()
+        );
     }
 
     /** Returns the already-verified target screen point without applying an unverified offset. */
@@ -1393,6 +1805,29 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final List<javax.swing.tree.TreePath> paths =
             WindowsMeshEditValidationProbe.findTreePaths(tree, name);
         return paths.size() == 1 ? paths.get(0) : null;
+    }
+
+    private static String treeLabel(final JTree tree, final Object node) {
+        if (tree == null || node == null) return "";
+        try {
+            return boundedText(
+                tree.convertValueToText(node, false, false, false, 0, false),
+                MAX_PART_GESTURE_TEXT_LENGTH
+            );
+        } catch (RuntimeException failure) {
+            return boundedText(String.valueOf(node), MAX_PART_GESTURE_TEXT_LENGTH);
+        }
+    }
+
+    private static String treePathLabel(final JTree tree, final TreePath path) {
+        if (tree == null || path == null) return "";
+        final StringBuilder label = new StringBuilder();
+        final int count = Math.min(path.getPathCount(), MAX_PART_GESTURE_PATH_COMPONENTS);
+        for (int index = 0; index < count; index++) {
+            if (index > 0) label.append('/');
+            label.append(treeLabel(tree, path.getPathComponent(index)));
+        }
+        return boundedText(label.toString(), MAX_PART_GESTURE_TEXT_LENGTH);
     }
 
     private static void expandAncestors(
@@ -1432,7 +1867,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             cell.x + Math.max(1, cell.width / 2),
             cell.y + Math.max(1, cell.height / 2));
         if (table.rowAtPoint(local) != row) return null;
-        return new PartRowLocation(path, row, column, cell, viewport, local, null);
+        final Object node = path.getLastPathComponent();
+        return new PartRowLocation(
+            path,
+            node,
+            treeLabel(tree, node),
+            row,
+            column,
+            cell,
+            viewport,
+            local,
+            null
+        );
     }
 
     private static boolean fullyVisible(
@@ -4508,6 +4954,24 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         return new Verdict(true, "proven-membership-change", candidateSeen);
     }
 
+    /**
+     * Keeps an automated actor failure terminal while preserving the raw semantic verdict. Manual
+     * steps have {@link PartActorOutcome#NOT_RUN} and therefore retain the existing semantic gate.
+     */
+    static Verdict admitPartStep(final PartActorResult actor, final Verdict semantic) {
+        if (semantic == null) return new Verdict(false, "semantic-verdict-unavailable", "");
+        if (actor == null || actor.outcome() == PartActorOutcome.NOT_RUN || actor.accepted()) {
+            return semantic;
+        }
+        return new Verdict(
+            false,
+            "actor-" + actor.code(),
+            "actorOutcome=" + actor.outcome().name()
+                + ",actorEvidence=" + actor.evidence()
+                + ",semantic=" + semantic.code()
+        );
+    }
+
     private static String historyGateFailure(
         final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot before,
         final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot after
@@ -5663,6 +6127,440 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
+    @FunctionalInterface
+    interface PartPrePressGuard {
+        PartPrePressCheck check() throws Exception;
+    }
+
+    interface PartGestureInput {
+        void mouseMove(int x, int y) throws Exception;
+
+        void pause(long millis) throws Exception;
+
+        void mousePress() throws Exception;
+
+        void mouseRelease() throws Exception;
+    }
+
+    enum PartGestureStatus {
+        ACCEPTED,
+        MISMATCH,
+        UNRESOLVED,
+        EXCEPTION
+    }
+
+    record PartGestureAttempt(
+        PartGestureStatus status,
+        String code,
+        PartPrePressCheck prePress,
+        List<String> evidence
+    ) {
+        PartGestureAttempt {
+            Objects.requireNonNull(status, "status");
+            code = boundedText(code, MAX_PART_GESTURE_TEXT_LENGTH);
+            evidence = evidence == null ? List.of() : List.copyOf(evidence);
+        }
+    }
+
+    record PartGestureCheck(PartGestureStatus status, String code) {
+        PartGestureCheck {
+            Objects.requireNonNull(status, "status");
+            code = boundedText(code, MAX_PART_GESTURE_TEXT_LENGTH);
+        }
+    }
+
+    record PartPrePressCheck(
+        boolean ok,
+        String code,
+        PartPairLayout expected,
+        JTable currentTable,
+        JTree currentTree
+    ) {
+        PartPrePressCheck {
+            code = boundedText(code, MAX_PART_GESTURE_TEXT_LENGTH);
+        }
+
+        static PartPrePressCheck success(
+            final PartPairLayout expected,
+            final JTable currentTable,
+            final JTree currentTree
+        ) {
+            return new PartPrePressCheck(true, "stable-structure", expected, currentTable, currentTree);
+        }
+
+        static PartPrePressCheck failure(
+            final String code,
+            final PartPairLayout expected,
+            final JTable currentTable,
+            final JTree currentTree
+        ) {
+            return new PartPrePressCheck(false, code, expected, currentTable, currentTree);
+        }
+    }
+
+    /**
+     * Temporary, non-consuming evidence listener for one Parts gesture. It is deliberately not a
+     * global AWT listener: only the discovered JTable and its extracted JTree are observed, and
+     * both listeners are removed in the gesture's finally block.
+     */
+    static final class PartGestureCapture {
+        private final PartPairLayout layout;
+        private final String intendedSourceId;
+        private final String intendedTargetId;
+        private final List<PartGestureEvent> events = new ArrayList<>();
+        private final List<String> evidence = new ArrayList<>();
+        private final MouseAdapter listener = new MouseAdapter() {
+            @Override
+            public void mousePressed(final MouseEvent event) {
+                recordOnce("actual-press", event);
+            }
+
+            @Override
+            public void mouseDragged(final MouseEvent event) {
+                recordOnce("first-drag", event);
+            }
+
+            @Override
+            public void mouseReleased(final MouseEvent event) {
+                recordOnce("release", event);
+            }
+        };
+        private boolean tableInstalled;
+        private boolean treeInstalled;
+
+        PartGestureCapture(
+            final PartPairLayout layout,
+            final String intendedSourceId,
+            final String intendedTargetId
+        ) {
+            this.layout = Objects.requireNonNull(layout, "layout");
+            this.intendedSourceId = boundedText(intendedSourceId, MAX_PART_GESTURE_TEXT_LENGTH);
+            this.intendedTargetId = boundedText(intendedTargetId, MAX_PART_GESTURE_TEXT_LENGTH);
+        }
+
+        void recordLayout() {
+            addEvidence(layoutJson(layout, intendedSourceId, intendedTargetId));
+        }
+
+        void recordPrePress(final PartPrePressCheck check) {
+            addEvidence(prePressJson(check, intendedSourceId, intendedTargetId));
+        }
+
+        void install() {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                throw new IllegalStateException("Parts gesture listeners must install on the EDT");
+            }
+            final JTable table = layout.table();
+            if (table == null) throw new IllegalStateException("Parts table identity is unavailable");
+            table.addMouseListener(listener);
+            table.addMouseMotionListener(listener);
+            tableInstalled = true;
+            final JTree tree = layout.tree();
+            if (tree != null) {
+                tree.addMouseListener(listener);
+                tree.addMouseMotionListener(listener);
+                treeInstalled = true;
+            }
+        }
+
+        void remove() {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                throw new IllegalStateException("Parts gesture listeners must remove on the EDT");
+            }
+            if (tableInstalled && layout.table() != null) {
+                layout.table().removeMouseListener(listener);
+                layout.table().removeMouseMotionListener(listener);
+                tableInstalled = false;
+            }
+            if (treeInstalled && layout.tree() != null) {
+                layout.tree().removeMouseListener(listener);
+                layout.tree().removeMouseMotionListener(listener);
+                treeInstalled = false;
+            }
+        }
+
+        /** Package-private test seam for a real Swing MouseEvent with an arbitrary source. */
+        void recordMouseEventForTest(final String phase, final MouseEvent event) {
+            record(phase, event);
+        }
+
+        PartGestureCheck checkEvents() {
+            final PartGestureEvent press = event("actual-press");
+            if (press == null) {
+                return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "actual-press-missing");
+            }
+            if (!press.componentMatch() || !press.tableModelMatch() || !press.treeModelMatch()
+                || !press.sourceNodeMatch() || press.row() != layout.source().row()) {
+                return new PartGestureCheck(PartGestureStatus.MISMATCH, "actual-press-target-mismatch");
+            }
+            final PartGestureEvent drag = event("first-drag");
+            if (drag == null) {
+                return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "first-drag-missing");
+            }
+            if (!drag.componentMatch() || !drag.tableModelMatch() || !drag.treeModelMatch()
+                || (!drag.sourceNodeMatch() && !drag.targetNodeMatch())) {
+                return new PartGestureCheck(PartGestureStatus.MISMATCH, "first-drag-target-mismatch");
+            }
+            final PartGestureEvent release = event("release");
+            if (release == null) {
+                return new PartGestureCheck(PartGestureStatus.UNRESOLVED, "release-missing");
+            }
+            if (!release.componentMatch() || !release.tableModelMatch() || !release.treeModelMatch()
+                || !release.targetNodeMatch() || release.row() != layout.target().row()) {
+                return new PartGestureCheck(PartGestureStatus.MISMATCH, "release-target-mismatch");
+            }
+            return new PartGestureCheck(PartGestureStatus.ACCEPTED, "press-drag-release-matched");
+        }
+
+        List<String> evidence() {
+            synchronized (events) {
+                return List.copyOf(evidence);
+            }
+        }
+
+        private void recordOnce(final String phase, final MouseEvent event) {
+            synchronized (events) {
+                if (this.event(phase) != null) return;
+            }
+            record(phase, event);
+        }
+
+        private void record(final String phase, final MouseEvent event) {
+            if (event == null) return;
+            final PartGestureEvent observed = describe(phase, event);
+            synchronized (events) {
+                if (this.event(phase) != null || events.size() >= 3) return;
+                events.add(observed);
+                addEvidence(observed.json(layout, intendedSourceId, intendedTargetId));
+            }
+        }
+
+        private PartGestureEvent event(final String phase) {
+            return events.stream()
+                .filter(value -> phase.equals(value.phase()))
+                .findFirst()
+                .orElse(null);
+        }
+
+        private PartGestureEvent describe(final String phase, final MouseEvent event) {
+            final Component source = event.getComponent();
+            final JTable table = layout.table();
+            final JTree tree = layout.tree();
+            Point local = null;
+            TreePath path = null;
+            int row = -1;
+            int column = -1;
+            if (source == table && table != null) {
+                local = event.getPoint();
+                row = table.rowAtPoint(local);
+                column = table.columnAtPoint(local);
+                path = tree == null ? null : tree.getPathForRow(row);
+            } else if (source == tree && tree != null) {
+                row = tree.getRowForLocation(event.getX(), event.getY());
+                path = tree.getPathForRow(row);
+            }
+            final Object node = path == null ? null : path.getLastPathComponent();
+            Rectangle cell = new Rectangle();
+            Rectangle viewport = new Rectangle();
+            if (table != null && row >= 0 && column >= 0
+                && row < table.getRowCount() && column < table.getColumnCount()) {
+                cell = table.getCellRect(row, column, true);
+                viewport = table.getVisibleRect();
+            }
+            final Object sourceModel = source instanceof JTable sourceTable
+                ? sourceTable.getModel()
+                : source instanceof JTree sourceTree ? sourceTree.getModel() : null;
+            final boolean tableModelMatch = source instanceof JTable sourceTable
+                && sourceTable.getModel() == layout.tableModel();
+            final boolean treeModelMatch = layout.treeModel() != null
+                && layout.tree() != null
+                && layout.tree().getModel() == layout.treeModel();
+            return new PartGestureEvent(
+                phase,
+                SwingUtilities.isEventDispatchThread(),
+                Thread.currentThread().getName(),
+                source,
+                sourceModel,
+                row,
+                column,
+                path,
+                node,
+                local,
+                new Point(event.getXOnScreen(), event.getYOnScreen()),
+                cell,
+                viewport,
+                source == table,
+                tableModelMatch,
+                treeModelMatch,
+                node == layout.source().node(),
+                node == layout.target().node()
+            );
+        }
+
+        private void addEvidence(final String line) {
+            synchronized (events) {
+                if (evidence.size() < MAX_PART_GESTURE_EVIDENCE_LINES) evidence.add(line);
+            }
+        }
+    }
+
+    record PartGestureEvent(
+        String phase,
+        boolean edt,
+        String thread,
+        Component source,
+        Object sourceModel,
+        int row,
+        int column,
+        TreePath path,
+        Object node,
+        Point local,
+        Point screen,
+        Rectangle cell,
+        Rectangle viewport,
+        boolean componentMatch,
+        boolean tableModelMatch,
+        boolean treeModelMatch,
+        boolean sourceNodeMatch,
+        boolean targetNodeMatch
+    ) {
+        PartGestureEvent {
+            phase = boundedText(phase, MAX_PART_GESTURE_TEXT_LENGTH);
+            thread = boundedText(thread, MAX_PART_GESTURE_TEXT_LENGTH);
+            local = local == null ? null : new Point(local);
+            screen = screen == null ? null : new Point(screen);
+            cell = cell == null ? new Rectangle() : new Rectangle(cell);
+            viewport = viewport == null ? new Rectangle() : new Rectangle(viewport);
+        }
+
+        String json(
+            final PartPairLayout layout,
+            final String intendedSourceId,
+            final String intendedTargetId
+        ) {
+            final JTree tree = layout.tree();
+            return "{\"type\":\"part-gesture\",\"phase\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(phase)
+                + "\",\"threadEDT\":" + edt
+                + ",\"thread\":\"" + WindowsHistoryNativeUiIngressProbe.json(thread)
+                + "\",\"eventSource\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(source == null ? "" : source.getClass().getName())
+                + "\",\"eventSourceIdentityHash\":" + identityHash(source)
+                + ",\"eventSourceModelIdentityHash\":" + identityHash(sourceModel)
+                + ",\"tableIdentityHash\":" + identityHash(layout.table())
+                + ",\"treeIdentityHash\":" + identityHash(layout.tree())
+                + ",\"tableModelIdentityHash\":" + identityHash(layout.tableModel())
+                + ",\"treeModelIdentityHash\":" + identityHash(layout.treeModel())
+                + ",\"intendedSourceId\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(intendedSourceId)
+                + "\",\"intendedTargetId\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(intendedTargetId)
+                + "\",\"row\":" + row
+                + ",\"column\":" + column
+                + ",\"pathLabel\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(treePathLabel(tree, path))
+                + "\",\"lastNodeLabel\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(treeLabel(tree, node))
+                + "\",\"lastNodeIdentityHash\":" + identityHash(node)
+                + ",\"componentMatch\":" + componentMatch
+                + ",\"tableModelMatch\":" + tableModelMatch
+                + ",\"treeModelMatch\":" + treeModelMatch
+                + ",\"sourceNodeObjectMatch\":" + sourceNodeMatch
+                + ",\"targetNodeObjectMatch\":" + targetNodeMatch
+                + ",\"local\":" + pointJson(local)
+                + ",\"screen\":" + pointJson(screen)
+                + ",\"cell\":" + rectangleJson(cell)
+                + ",\"viewport\":" + rectangleJson(viewport)
+                + "}\n";
+        }
+    }
+
+    private static String layoutJson(
+        final PartPairLayout layout,
+        final String intendedSourceId,
+        final String intendedTargetId
+    ) {
+        return "{\"type\":\"part-gesture\",\"phase\":\"layout\",\"threadEDT\":"
+            + SwingUtilities.isEventDispatchThread()
+            + ",\"thread\":\"" + json(Thread.currentThread().getName())
+            + "\",\"tableIdentityHash\":" + identityHash(layout.table())
+            + ",\"treeIdentityHash\":" + identityHash(layout.tree())
+            + ",\"tableModelIdentityHash\":" + identityHash(layout.tableModel())
+            + ",\"treeModelIdentityHash\":" + identityHash(layout.treeModel())
+            + ",\"tableShowing\":" + layout.tableShowing()
+            + ",\"intendedSourceId\":\"" + json(intendedSourceId)
+            + "\",\"intendedTargetId\":\"" + json(intendedTargetId)
+            + "\",\"source\":" + rowJson(layout.source(), layout.tree())
+            + ",\"target\":" + rowJson(layout.target(), layout.tree())
+            + "}\n";
+    }
+
+    private static String prePressJson(
+        final PartPrePressCheck check,
+        final String intendedSourceId,
+        final String intendedTargetId
+    ) {
+        final PartPairLayout layout = check == null ? null : check.expected();
+        final JTable currentTable = check == null ? null : check.currentTable();
+        final JTree currentTree = check == null ? null : check.currentTree();
+        return "{\"type\":\"part-gesture\",\"phase\":\"pre-press\",\"threadEDT\":"
+            + SwingUtilities.isEventDispatchThread()
+            + ",\"thread\":\"" + json(Thread.currentThread().getName())
+            + "\",\"ok\":" + (check != null && check.ok())
+            + ",\"code\":\"" + json(check == null ? "missing-check" : check.code())
+            + "\",\"intendedSourceId\":\"" + json(intendedSourceId)
+            + "\",\"intendedTargetId\":\"" + json(intendedTargetId)
+            + "\",\"expectedTableIdentityHash\":" + identityHash(layout == null ? null : layout.table())
+            + ",\"expectedTreeIdentityHash\":" + identityHash(layout == null ? null : layout.tree())
+            + ",\"expectedTableModelIdentityHash\":"
+            + identityHash(layout == null ? null : layout.tableModel())
+            + ",\"expectedTreeModelIdentityHash\":"
+            + identityHash(layout == null ? null : layout.treeModel())
+            + ",\"expectedTableShowing\":"
+            + (layout != null && layout.table() != null && layout.tableShowing())
+            + ",\"currentTableIdentityHash\":" + identityHash(currentTable)
+            + ",\"currentTreeIdentityHash\":" + identityHash(currentTree)
+            + ",\"currentTableModelIdentityHash\":"
+            + identityHash(currentTable == null ? null : currentTable.getModel())
+            + ",\"currentTreeModelIdentityHash\":"
+            + identityHash(currentTree == null ? null : currentTree.getModel())
+            + ",\"currentTableShowing\":"
+            + (currentTable != null && currentTable.isShowing())
+            + ",\"source\":" + rowJson(layout == null ? null : layout.source(),
+                layout == null ? null : layout.tree())
+            + ",\"target\":" + rowJson(layout == null ? null : layout.target(),
+                layout == null ? null : layout.tree())
+            + "}\n";
+    }
+
+    private static String rowJson(final PartRowLocation row, final JTree tree) {
+        if (row == null) return "null";
+        return "{\"row\":" + row.row()
+            + ",\"column\":" + row.column()
+            + ",\"pathLabel\":\"" + json(treePathLabel(tree, row.path()))
+            + "\",\"lastNodeLabel\":\"" + json(row.label())
+            + "\",\"lastNodeIdentityHash\":" + identityHash(row.node())
+            + ",\"local\":" + pointJson(row.localPoint())
+            + ",\"screen\":" + pointJson(row.screenPoint())
+            + ",\"cell\":" + rectangleJson(row.cell())
+            + ",\"viewport\":" + rectangleJson(row.viewport())
+            + "}";
+    }
+
+    private static String pointJson(final Point point) {
+        return point == null ? "null" : "{\"x\":" + point.x + ",\"y\":" + point.y + "}";
+    }
+
+    private static String rectangleJson(final Rectangle rectangle) {
+        if (rectangle == null) return "null";
+        return "{\"x\":" + rectangle.x + ",\"y\":" + rectangle.y
+            + ",\"width\":" + rectangle.width + ",\"height\":" + rectangle.height + "}";
+    }
+
+    private static int identityHash(final Object value) {
+        return value == null ? 0 : System.identityHashCode(value);
+    }
+
     /** Immutable read-only Part facts used by the Parts actor. */
     record ActorPart(
         String id,
@@ -5744,6 +6642,61 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
+    enum PartActorOutcome {
+        NOT_RUN,
+        CHANGED,
+        MISMATCH,
+        UNRESOLVED,
+        EXCEPTION
+    }
+
+    record PartActorResult(PartActorOutcome outcome, String code, String evidence) {
+        PartActorResult {
+            Objects.requireNonNull(outcome, "outcome");
+            code = boundedText(code, MAX_PART_GESTURE_TEXT_LENGTH);
+            evidence = boundedText(evidence, MAX_PART_GESTURE_TEXT_LENGTH);
+        }
+
+        static PartActorResult notRun() {
+            return new PartActorResult(PartActorOutcome.NOT_RUN, "not-run", "");
+        }
+
+        static PartActorResult fromActorResult(final String result) {
+            final String safe = result == null ? "" : result;
+            if (safe.startsWith("changed:")) {
+                return new PartActorResult(PartActorOutcome.CHANGED, "changed", safe);
+            }
+            if (safe.startsWith("mismatch:")) {
+                return new PartActorResult(PartActorOutcome.MISMATCH, "mismatch", safe);
+            }
+            if (safe.startsWith("unresolved:")) {
+                return new PartActorResult(PartActorOutcome.UNRESOLVED, "unresolved", safe);
+            }
+            if (safe.startsWith("failed:") || "interrupted".equals(safe)) {
+                return exception("actor-exception", safe);
+            }
+            return exception("actor-result-unclassified", safe);
+        }
+
+        static PartActorResult exception(final String code, final String evidence) {
+            return new PartActorResult(PartActorOutcome.EXCEPTION, code, evidence);
+        }
+
+        boolean accepted() {
+            return outcome == PartActorOutcome.CHANGED;
+        }
+
+        String json(final String step) {
+            return "{\"type\":\"part-actor-outcome\",\"step\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(step)
+                + "\",\"outcome\":\"" + WindowsHistoryNativeUiIngressProbe.json(outcome.name())
+                + "\",\"code\":\"" + WindowsHistoryNativeUiIngressProbe.json(code)
+                + "\",\"accepted\":" + accepted()
+                + ",\"evidence\":\"" + WindowsHistoryNativeUiIngressProbe.json(evidence)
+                + "\"}\n";
+        }
+    }
+
     record PartGesturePreparation(
         PartModelSnapshot model,
         PartPairLayout layout,
@@ -5763,44 +6716,87 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     record PartRowLocation(
-        javax.swing.tree.TreePath path,
+        TreePath path,
+        Object node,
+        String label,
         int row,
         int column,
-        java.awt.Rectangle cell,
-        java.awt.Rectangle viewport,
-        java.awt.Point localPoint,
-        java.awt.Point screenPoint
+        Rectangle cell,
+        Rectangle viewport,
+        Point localPoint,
+        Point screenPoint
     ) {
         PartRowLocation {
             Objects.requireNonNull(path, "path");
-            cell = new java.awt.Rectangle(Objects.requireNonNull(cell, "cell"));
-            viewport = new java.awt.Rectangle(Objects.requireNonNull(viewport, "viewport"));
-            localPoint = new java.awt.Point(Objects.requireNonNull(localPoint, "localPoint"));
-            screenPoint = screenPoint == null ? null : new java.awt.Point(screenPoint);
+            Objects.requireNonNull(node, "node");
+            label = boundedText(label, MAX_PART_GESTURE_TEXT_LENGTH);
+            cell = new Rectangle(Objects.requireNonNull(cell, "cell"));
+            viewport = new Rectangle(Objects.requireNonNull(viewport, "viewport"));
+            localPoint = new Point(Objects.requireNonNull(localPoint, "localPoint"));
+            screenPoint = screenPoint == null ? null : new Point(screenPoint);
         }
 
-        PartRowLocation withScreenPoint(final java.awt.Point point) {
-            return new PartRowLocation(path, row, column, cell, viewport, localPoint, point);
+        PartRowLocation(
+            final TreePath path,
+            final int row,
+            final int column,
+            final Rectangle cell,
+            final Rectangle viewport,
+            final Point localPoint,
+            final Point screenPoint
+        ) {
+            this(
+                path,
+                path == null ? null : path.getLastPathComponent(),
+                path == null ? "" : String.valueOf(path.getLastPathComponent()),
+                row,
+                column,
+                cell,
+                viewport,
+                localPoint,
+                screenPoint
+            );
+        }
+
+        PartRowLocation withScreenPoint(final Point point) {
+            return new PartRowLocation(path, node, label, row, column, cell, viewport, localPoint, point);
         }
     }
 
-    record PartPairLayout(PartRowLocation source, PartRowLocation target) {
+    record PartPairLayout(
+        JTable table,
+        JTree tree,
+        TableModel tableModel,
+        TreeModel treeModel,
+        PartRowLocation source,
+        PartRowLocation target,
+        boolean tableShowing
+    ) {
         PartPairLayout {
             Objects.requireNonNull(source, "source");
             Objects.requireNonNull(target, "target");
         }
 
-        PartPairLayout withScreenPoints(final javax.swing.JTable table) {
+        PartPairLayout(final PartRowLocation source, final PartRowLocation target) {
+            this(null, null, null, null, source, target, false);
+        }
+
+        PartPairLayout withScreenPoints(final JTable table) {
             return new PartPairLayout(
+                this.table,
+                this.tree,
+                this.tableModel,
+                this.treeModel,
                 source.withScreenPoint(toScreenPoint(table, source.localPoint())),
-                target.withScreenPoint(toScreenPoint(table, target.localPoint()))
+                target.withScreenPoint(toScreenPoint(table, target.localPoint())),
+                tableShowing
             );
         }
     }
 
-    private static java.awt.Point toScreenPoint(
-        final javax.swing.JTable table,
-        final java.awt.Point local
+    private static Point toScreenPoint(
+        final JTable table,
+        final Point local
     ) {
         final java.awt.Point screen = new java.awt.Point(local);
         SwingUtilities.convertPointToScreen(screen, table);
