@@ -188,6 +188,48 @@ final class EditorTextureReplacementDiagnostic {
         }
     }
 
+    /** Starts the separate, first-export-only observation used to compare export pre/post state. */
+    static Optional<ExportSession> beginExport(
+        final VerifiedMemberResolver resolver,
+        final String sessionIdentity,
+        final Object source,
+        final Object document,
+        final Object model,
+        final RawImageId oldRaw
+    ) {
+        try {
+            if (!enabled()) return Optional.empty();
+        } catch (RuntimeException | LinkageError failure) {
+            return Optional.empty();
+        }
+        final String correlation = "texture-export-"
+            + CORRELATION_SEQUENCE.incrementAndGet();
+        try {
+            final ExportSession session = new ExportSession(
+                correlation,
+                resolver,
+                sessionIdentity,
+                source,
+                document,
+                model,
+                oldRaw
+            );
+            session.writePre();
+            return Optional.of(session);
+        } catch (RuntimeException | LinkageError failure) {
+            writeExportSetupFailure(
+                correlation,
+                sessionIdentity,
+                source,
+                document,
+                model,
+                oldRaw,
+                failure
+            );
+            return Optional.empty();
+        }
+    }
+
     /** A raw identity plus a bounded reason when the reviewed GUID read is unavailable. */
     record RawIdentity(String value, String cause) {
         RawIdentity {
@@ -405,6 +447,124 @@ final class EditorTextureReplacementDiagnostic {
         }
     }
 
+    /**
+     * One first-export pre/post pair. Export has no native completion callback, so this class only
+     * records direct relation observations and never records a replacement-style native return.
+     */
+    static final class ExportSession {
+        private final String correlation;
+        private final VerifiedMemberResolver resolver;
+        private final String sessionIdentity;
+        private final Object source;
+        private final Object model;
+        private final String sourceIdentity;
+        private final String documentIdentity;
+        private final String modelIdentity;
+        private final String currentGuardBinding;
+        private final RawImageId oldRaw;
+        private final AtomicBoolean finished = new AtomicBoolean();
+
+        private ExportSession(
+            final String correlation,
+            final VerifiedMemberResolver resolver,
+            final String sessionIdentity,
+            final Object source,
+            final Object document,
+            final Object model,
+            final RawImageId oldRaw
+        ) {
+            this.correlation = Objects.requireNonNull(correlation, "correlation");
+            this.resolver = resolver;
+            this.sessionIdentity = sessionIdentity;
+            this.source = source;
+            this.model = model;
+            this.sourceIdentity = identity(source);
+            this.documentIdentity = identity(document);
+            this.modelIdentity = identity(model);
+            this.currentGuardBinding = safe(sessionIdentity) + "/" + modelIdentity;
+            this.oldRaw = Objects.requireNonNull(oldRaw, "oldRaw");
+        }
+
+        private void writePre() {
+            try {
+                writeObservation(
+                    "export-pre",
+                    true,
+                    NativeRelationObservation.capture(
+                        resolver,
+                        source,
+                        model,
+                        oldRaw,
+                        RawIdentity.unavailable("not-applicable-export")
+                    ),
+                    null
+                );
+            } catch (RuntimeException | LinkageError ignored) {
+                // A failed diagnostic sink or capture must not affect the export call. The direct
+                // capture helper already converts reviewed native read failures to UNAVAILABLE.
+            }
+        }
+
+        /** Finishes at most once; a false guard means no post host read is permitted. */
+        void finish(final boolean currentGuardPassed, final String cause) {
+            if (!finished.compareAndSet(false, true)) return;
+            try {
+                final NativeRelationObservation observation = currentGuardPassed
+                    ? NativeRelationObservation.capture(
+                        resolver,
+                        source,
+                        model,
+                        oldRaw,
+                        RawIdentity.unavailable("not-applicable-export")
+                    )
+                    : NativeRelationObservation.unavailable(
+                        cause == null || cause.isBlank()
+                            ? "post-current-guard-unavailable"
+                            : cause
+                    );
+                writeObservation("export-post", currentGuardPassed, observation, cause);
+            } catch (RuntimeException | LinkageError ignored) {
+                // Never change export success/failure or mask its original exception.
+            }
+        }
+
+        private void writeObservation(
+            final String phase,
+            final boolean currentGuardPassed,
+            final NativeRelationObservation observation,
+            final String cause
+        ) {
+            final BoundedLine line = new BoundedLine(MAX_LINE_LENGTH);
+            line.add("correlation", correlation);
+            line.add("phase", phase);
+            line.add("nativeOperation", "PSD_EXPORT");
+            line.add("sessionIdentity", sessionIdentity);
+            line.add("sourceIdentity", sourceIdentity);
+            line.add("documentIdentity", documentIdentity);
+            line.add("modelIdentity", modelIdentity);
+            line.add("currentGuardBinding", currentGuardBinding);
+            line.add("currentGuardPreStatus", "PASSED");
+            line.add("currentGuardPostStatus", "export-pre".equals(phase)
+                ? "NOT_APPLICABLE"
+                : currentGuardPassed ? "PASSED" : "UNAVAILABLE");
+            line.add("rawBindingStatus", "MATCHED_BY_CALLER");
+            line.add("oldRaw", oldRaw.value());
+            line.add("observation", observation.status());
+            line.add("observationCause", cause == null || cause.isBlank()
+                ? observation.cause() : cause);
+            appendNativeEvidence(line, observation);
+            line.add(
+                "nativeCompletionCallback",
+                "UNAVAILABLE:CLayeredImage.save-returns-void"
+            );
+            line.add(
+                "nativeReturnObservation",
+                "NOT_REPORTED_EXPORT_HAS_NO_VERIFIED_RETURN_SIGNAL"
+            );
+            EditorObjectValidationTrace.writeArtifact(ARTIFACT, line.finish(), true);
+        }
+    }
+
     private static void appendNativeResult(
         final BoundedLine line,
         final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult
@@ -542,6 +702,40 @@ final class EditorTextureReplacementDiagnostic {
             EditorObjectValidationTrace.writeArtifact(ARTIFACT, line.finish(), true);
         } catch (RuntimeException | LinkageError ignored) {
             // A failed diagnostic sink must not become a replacement failure.
+        }
+    }
+
+    private static void writeExportSetupFailure(
+        final String correlation,
+        final String sessionIdentity,
+        final Object source,
+        final Object document,
+        final Object model,
+        final RawImageId oldRaw,
+        final Throwable failure
+    ) {
+        try {
+            final BoundedLine line = new BoundedLine(MAX_LINE_LENGTH);
+            line.add("correlation", correlation);
+            line.add("phase", "export-pre");
+            line.add("nativeOperation", "PSD_EXPORT");
+            line.add("sessionIdentity", sessionIdentity);
+            line.add("sourceIdentity", identity(source));
+            line.add("documentIdentity", identity(document));
+            line.add("modelIdentity", identity(model));
+            line.add("currentGuardPostStatus", "UNAVAILABLE");
+            line.add("rawBindingStatus", "UNAVAILABLE");
+            line.add("oldRaw", oldRaw == null ? null : oldRaw.value());
+            line.add("observation", "UNAVAILABLE");
+            line.add("observationCause", "diagnostic-export-setup-failed:" + message(failure));
+            line.add("nativeCompletionCallback", "UNAVAILABLE:CLayeredImage.save-returns-void");
+            line.add(
+                "nativeReturnObservation",
+                "NOT_REPORTED_EXPORT_HAS_NO_VERIFIED_RETURN_SIGNAL"
+            );
+            EditorObjectValidationTrace.writeArtifact(ARTIFACT, line.finish(), true);
+        } catch (RuntimeException | LinkageError ignored) {
+            // A failed diagnostic sink must not become an export failure.
         }
     }
 

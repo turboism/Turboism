@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.core.runtime.psd.PsdExportHost;
 import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
@@ -239,6 +240,119 @@ class EditorTextureReplacementDiagnosticTest {
         assertEquals(1, CallSiteNativeProcess.calls);
         assertEquals(2, CallSiteFilterEnv.hasReads, "only the ordinary before/after projection reads");
         assertFalse(Files.exists(diagnosticArtifact()));
+    }
+
+    @Test
+    void exportCallSiteCapturesOnlyTheFirstExportAndLeavesLaterExportUninstrumented() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        final ModelTextures textures = new EditorTextureAccess(
+            fixture.resolver,
+            (identity, model) -> { }
+        ).textures("session-a", fixture.source, fixture.model);
+        final PsdExportHost host = (PsdExportHost) textures;
+
+        final PsdExportHost.Observation first = host.exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("first-export.psd"), () -> { }
+        );
+        final PsdExportHost.Observation second = host.exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("second-export.psd"), () -> { }
+        );
+
+        assertTrue(first.readable());
+        assertTrue(second.readable());
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).contains("phase=export-pre"));
+        assertTrue(lines.get(1).contains("phase=export-post"));
+        assertEquals(field(lines.get(0), "correlation"), field(lines.get(1), "correlation"));
+        assertTrue(lines.get(0).contains("nativeOperation=PSD_EXPORT"));
+        assertTrue(lines.get(0).contains("oldRaw=old"));
+        assertTrue(lines.get(0).contains("nativeRelationObservation=AVAILABLE"));
+        assertTrue(lines.get(1).contains("nativeRelationObservation=AVAILABLE"));
+        assertTrue(lines.get(0).contains("currentGuardPreStatus=PASSED"));
+        assertTrue(lines.get(1).contains("currentGuardPostStatus=PASSED"));
+        assertTrue(lines.get(0).contains("nativeCompletionCallback=UNAVAILABLE"));
+        assertFalse(lines.get(0).contains("nativeReturned="));
+        assertEquals(2, CallSiteFilterEnv.hasReads,
+            "only the first export pre/post direct native captures are added");
+    }
+
+    @Test
+    void exportDiagnosticIsDefaultOffAndAddsNoNativeCapture() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        final CallSiteFixture fixture = callSiteFixture();
+        final PsdExportHost.Observation result = ((PsdExportHost) new EditorTextureAccess(
+            fixture.resolver,
+            (identity, model) -> { }
+        ).textures("session-a", fixture.source, fixture.model)).exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("default-off.psd"), () -> { }
+        );
+
+        assertTrue(result.readable());
+        assertEquals(0, CallSiteFilterEnv.hasReads);
+        assertFalse(Files.exists(diagnosticArtifact()));
+    }
+
+    @Test
+    void exportDiagnosticCaptureFailureDoesNotChangeExportResult() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        CallSiteFilterEnv.throwOnHasRead = 1;
+
+        final PsdExportHost.Observation result = ((PsdExportHost) new EditorTextureAccess(
+            fixture.resolver,
+            (identity, model) -> { }
+        ).textures("session-a", fixture.source, fixture.model)).exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("capture-failure.psd"), () -> { }
+        );
+
+        assertTrue(result.readable());
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).contains("phase=export-pre"));
+        assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
+        assertTrue(lines.get(1).contains("phase=export-post"));
+        assertTrue(lines.get(1).contains("nativeRelationObservation=AVAILABLE"));
+    }
+
+    @Test
+    void exportDiagnosticDoesNotReadPostStateAfterGuardBecomesUnavailable() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        final java.util.concurrent.atomic.AtomicInteger guardCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+        final PsdExportHost.Observation result = ((PsdExportHost) new EditorTextureAccess(
+            fixture.resolver,
+            (identity, model) -> {
+                // textures() and the ordinary export each perform their own current-model
+                // checks.  The fourth check is still EditorRawImagePsdAccess' post-save guard;
+                // fail only the diagnostic's explicit post-export guard so the export result
+                // remains available while its post native read is correctly suppressed.
+                if (guardCalls.incrementAndGet() == 5) {
+                    throw new IllegalStateException("post export model is stale");
+                }
+            }
+        ).textures("session-a", fixture.source, fixture.model)).exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("post-guard-failure.psd"), () -> { }
+        );
+
+        assertTrue(result.readable());
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        final String post = lines.get(1);
+        assertTrue(post.contains("phase=export-post"));
+        assertTrue(post.contains("currentGuardPostStatus=UNAVAILABLE"));
+        assertTrue(post.contains("nativeRelationObservation=UNAVAILABLE"));
+        assertTrue(post.contains("post-current-guard-failed"));
+        assertFalse(post.contains("nativeModelImage.0.id="));
     }
 
     @Test
@@ -1006,6 +1120,13 @@ class EditorTextureReplacementDiagnosticTest {
             CallSiteLayeredImage.class, "getPsdDoc", desc(CallSitePsdDocument.class));
         putMethod(selectors, "cubism.editor-model.layered-image.children",
             CallSiteLayeredImage.class, "getChildren", "()Ljava/util/List;");
+        putClass(selectors, "cubism.editor-model.psd-progress.class", CallSiteProgress.class);
+        putStaticMethod(selectors, "cubism.editor-model.psd-progress.default",
+            CallSiteProgressFactory.class, "e", desc(CallSiteProgress.class));
+        putMethod(selectors, "cubism.editor-model.layered-image.save-psd",
+            CallSiteLayeredImage.class,
+            "save",
+            "(Ljava/io/File;L" + internal(CallSiteProgress.class) + ";)V");
         putClass(selectors, "cubism.editor-model.model-image.class", CallSiteModelImage.class);
         putMethod(selectors, "cubism.editor-model.model-image.guid",
             CallSiteModelImage.class, "getGuid", desc(CallSiteId.class));
@@ -1104,7 +1225,8 @@ class EditorTextureReplacementDiagnosticTest {
 
         final Set<String> capabilities = Set.of(
             EditorTextureSelectorContract.READ_CAPABILITY_ID,
-            EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID
+            EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID,
+            EditorRawImagePsdSelectorContract.CAPABILITY_ID
         );
         return TestVerifiedResolvers.create(
             "5.3.02",
@@ -1283,6 +1405,27 @@ class EditorTextureReplacementDiagnosticTest {
 
         public List<?> getChildren() {
             return List.of();
+        }
+
+        public void save(final File target, final CallSiteProgress progress) {
+            if (progress == null) throw new IllegalStateException("missing export progress");
+            try {
+                Files.writeString(target.toPath(), "synthetic-export");
+            } catch (Exception failure) {
+                throw new IllegalStateException("synthetic export failed", failure);
+            }
+        }
+    }
+
+    public static final class CallSiteProgress {
+    }
+
+    public static final class CallSiteProgressFactory {
+        private CallSiteProgressFactory() {
+        }
+
+        public static CallSiteProgress e() {
+            return new CallSiteProgress();
         }
     }
 
