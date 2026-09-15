@@ -163,25 +163,33 @@ public final class ProtectedExportStaging {
                         .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!expectedDrawableIds.containsAll(drawableIds)) {
                         return new MocFailure(
-                            "protected-export.moc3-drawable-ids", null);
+                            "protected-export.moc3-drawable-ids",
+                            "unexpected=" + bounded(diff(drawableIds,
+                                expectedDrawableIds)));
                     }
                     final Set<String> parameterIds = model.parameters().stream()
                         .map(p -> p.id())
                         .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!parameterIds.equals(expectedParameterIds)) {
                         return new MocFailure(
-                            "protected-export.moc3-parameter-ids", null);
+                            "protected-export.moc3-parameter-ids",
+                            setDiffDetail(parameterIds, expectedParameterIds));
                     }
                     final Set<String> partIds = model.parts().stream()
                         .map(p -> p.id())
                         .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!partIds.equals(expectedPartIds)) {
                         return new MocFailure(
-                            "protected-export.moc3-part-ids", null);
+                            "protected-export.moc3-part-ids",
+                            setDiffDetail(partIds, expectedPartIds));
                     }
                     if (!model.deformers().isEmpty()) {
+                        final Set<String> deformerIds = model.deformers().stream()
+                            .map(d -> d.id())
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
                         return new MocFailure(
-                            "protected-export.moc3-deformers-remain", null);
+                            "protected-export.moc3-deformers-remain",
+                            "remaining=" + bounded(deformerIds));
                     }
                     return null;
                 }
@@ -199,6 +207,37 @@ public final class ProtectedExportStaging {
 
     /** Bounded moc3 rejection: a stable key plus a one-line cause detail. */
     private record MocFailure(String key, String detail) {
+    }
+
+    /** {@code actual \ expected} preserving iteration order. */
+    private static Set<String> diff(final Set<String> actual, final Set<String> expected) {
+        final Set<String> out = new LinkedHashSet<>(actual);
+        out.removeAll(expected);
+        return out;
+    }
+
+    /** Both directions of a set mismatch, bounded for the evidence line. */
+    private static String setDiffDetail(final Set<String> actual, final Set<String> expected) {
+        return "unexpected=" + bounded(diff(actual, expected))
+            + ",missing=" + bounded(diff(expected, actual));
+    }
+
+    /** Joins ids into a bounded {@code [a,b,...]} rendering. */
+    private static String bounded(final Set<String> ids) {
+        final StringBuilder out = new StringBuilder("[");
+        boolean first = true;
+        for (String id : ids) {
+            if (out.length() > 140) {
+                out.append(",+").append(ids.size()).append("]");
+                return out.toString();
+            }
+            if (!first) {
+                out.append(',');
+            }
+            first = false;
+            out.append(id == null ? "null" : id);
+        }
+        return out.append(']').toString();
     }
 
     /**
