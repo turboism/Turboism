@@ -409,8 +409,10 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
                 session.expectedParameterIds =
                     parameterIdentitySet(host.allParameters(session.copyModelSource));
+                final Object rootPart = host.rootPart(session.copyModelSource);
                 session.expectedPartIds =
-                    identitySet(host.allParts(session.copyModelSource));
+                    identitySet(host.allParts(session.copyModelSource).stream()
+                        .filter(part -> part != rootPart).toList());
                 return ProtectedExportObfuscationPlan.plan(
                     host, session.copyModelSource);
             });
