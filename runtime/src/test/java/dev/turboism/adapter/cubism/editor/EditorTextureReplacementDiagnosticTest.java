@@ -1,5 +1,13 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.core.runtime.psd.PsdReplaceHost;
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorTextureRelationsSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.RawLayerId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
@@ -10,21 +18,24 @@ import dev.turboism.sdk.cubism.model.ModelImageRelation;
 import dev.turboism.sdk.cubism.model.RawImageDetails;
 import dev.turboism.sdk.cubism.model.RawLayerBinding;
 import dev.turboism.sdk.cubism.model.RawTexture;
+import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorTextureReplacementDiagnosticTest {
@@ -37,6 +48,14 @@ class EditorTextureReplacementDiagnosticTest {
         System.clearProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY);
         System.clearProperty("turboism.editorObjectValidation.trace");
         System.clearProperty("turboism.home");
+        CallSiteAppController.currentDocument = null;
+        CallSiteFilterEnv.hasReads = 0;
+        CallSiteFilterEnv.throwOnHasRead = 0;
+        CallSiteFilterEnv.throwOnHasReadLinkageError = 0;
+        CallSiteLayeredImage.failNextIncomingGuidRead = false;
+        CallSiteNativeProcess.calls = 0;
+        CallSiteNativeProcess.fail = false;
+        CallSiteNativeProcess.active = null;
     }
 
     @Test
@@ -95,17 +114,220 @@ class EditorTextureReplacementDiagnosticTest {
         assertTrue(lines.get(1).contains("currentGuardPostPassed=true"));
         assertTrue(lines.get(0).contains("observation=AVAILABLE"));
         assertTrue(lines.get(1).contains("observation=AVAILABLE"));
-        assertTrue(lines.get(0).contains("hasLayerInputData:true"));
-        assertTrue(lines.get(0).contains("currentImageGuid:old"));
-        assertTrue(lines.get(0).contains("selectorKeys:old"));
-        assertTrue(lines.get(0).contains("containsOldRaw:true"));
-        assertTrue(lines.get(0).contains("groups=name:Group_A"));
+        assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
+        assertTrue(lines.get(0).contains("nativeRelationObservationCause=resolver-unavailable"));
         assertTrue(lines.get(0).contains("artPathExclusion=UNAVAILABLE:reviewed-alias-not-admitted"));
         assertTrue(lines.get(0).contains("nativeCompletionCallback=UNAVAILABLE:reviewed-alias-not-admitted"));
-        assertTrue(lines.get(1).contains("currentImageGuid:incoming"));
-        assertTrue(lines.get(1).contains("rawWrappers=id:old_present:true_replaced:true"));
-        assertTrue(lines.get(1).contains("id:incoming_present:true_replaced:true"));
+        assertTrue(lines.get(1).contains("nativeRelationObservation=UNAVAILABLE"));
+        assertTrue(lines.get(1).contains("nativeRelationObservationCause=resolver-unavailable"));
         assertTrue(lines.get(1).contains("nativeReturned=true"));
+        assertTrue(lines.get(1).contains("nativeReturnObservation=SYNCHRONOUS_RETURN_ONLY"));
+    }
+
+    @Test
+    void nativeObservationKeepsHasLayerInputIndependentFromEmptySelectorMap() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+
+        final NativeFixture fixture = nativeFixture();
+        final EditorTextureReplacementDiagnostic.Session session =
+            EditorTextureReplacementDiagnostic.begin(
+                fixture.resolver,
+                "session-a",
+                fixture.source,
+                new Object(),
+                fixture.model,
+                new RawImageId("old"),
+                EditorTextureReplacementDiagnostic.RawIdentity.available("incoming"),
+                snapshot("session-a", "old", true, 7, 1, false)
+            ).orElseThrow();
+        session.finish(
+            snapshot("session-a", "incoming", true, 7, 2, false),
+            nativeReturned(),
+            null
+        );
+
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).contains("nativeRelationObservation=AVAILABLE"));
+        assertTrue(lines.get(0).contains("nativeModelImage.0.id=model-a"));
+        assertTrue(lines.get(0).contains("nativeModelImage.0.target=true"));
+        assertTrue(lines.get(0).contains("nativeModelImage.0.hasLayerInputData=true"));
+        assertTrue(lines.get(0).contains("nativeModelImage.0.selectorKeysStatus=AVAILABLE"));
+        assertTrue(lines.get(0).contains("nativeModelImage.0.selectorKeysCount=0"));
+        assertTrue(lines.get(0).contains("nativeModelImage.0.currentImageGuid=old"));
+        assertTrue(lines.get(0).contains("nativeModelImage.0.linkedRaw.0=old"));
+        assertTrue(lines.get(0).contains("nativeGroup.0.linkedRaw.0=old"));
+        assertTrue(lines.get(0).contains("nativeRawWrapper.0.id=old"));
+        assertTrue(lines.get(0).contains("nativeRawWrapper.1.id=incoming"));
+    }
+
+    @Test
+    void nativeObservationBoundsCompositeRecordsWithoutDroppingTargetOrRequestedRaws()
+        throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+
+        final NativeFixture fixture = largeNativeFixture();
+        final EditorTextureReplacementDiagnostic.Session session =
+            EditorTextureReplacementDiagnostic.begin(
+                fixture.resolver,
+                "session-a",
+                fixture.source,
+                new Object(),
+                fixture.model,
+                new RawImageId("old"),
+                EditorTextureReplacementDiagnostic.RawIdentity.available("incoming"),
+                snapshot("session-a", "old", true, 7, 1, false)
+            ).orElseThrow();
+
+        final String line = Files.readAllLines(diagnosticArtifact()).get(0);
+
+        assertTrue(line.contains("nativeRelationObservation=AVAILABLE"));
+        assertTrue(line.contains("nativeModelImageTotalCount=33"));
+        assertTrue(line.contains("nativeModelImageTruncated=true"));
+        assertTrue(line.contains("nativeModelImage.0.id=target-model"));
+        assertTrue(line.contains("nativeModelImage.0.target=true"));
+        assertTrue(line.contains("nativeModelImage.0.hasLayerInputData=true"));
+        assertTrue(line.contains("nativeModelImage.0.selectorKeysStatus=AVAILABLE"));
+        assertTrue(line.contains("nativeModelImage.0.selectorKeysCount=32"));
+        assertTrue(line.contains("nativeGroupTotalCount=33"));
+        assertTrue(line.contains("nativeGroupTruncated=true"));
+        assertTrue(line.contains("nativeRawWrapper.0.id=old"));
+        assertTrue(line.contains("nativeRawWrapper.1.id=incoming"));
+        assertTrue(line.contains("diagnosticTruncated=true"));
+
+        session.finish(snapshot("session-a", "incoming", true, 7, 2, false), nativeReturned(), null);
+    }
+
+    @Test
+    void missingNativeRelationCapabilityIsUnavailableAndDoesNotUsePublicProjection() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+
+        final NativeFixture fixture = nativeFixture(false);
+        final EditorTextureReplacementDiagnostic.Session session =
+            EditorTextureReplacementDiagnostic.begin(
+                resolver(false),
+                "session-a",
+                fixture.source,
+                new Object(),
+                fixture.model,
+                new RawImageId("old"),
+                EditorTextureReplacementDiagnostic.RawIdentity.available("incoming"),
+                snapshot("old", true)
+            ).orElseThrow();
+        session.finish(snapshot("incoming", true), nativeReturned(), null);
+
+        final String line = Files.readAllLines(diagnosticArtifact()).get(0);
+        assertTrue(line.contains("nativeRelationObservation=UNAVAILABLE"));
+        assertTrue(line.contains("nativeRelationObservationCause=native-relation-aliases-unavailable"));
+        assertFalse(line.contains("hasLayerInputData=true"));
+    }
+
+    @Test
+    void replacementCallSiteLeavesDiagnosticDisabledAndInvokesNativeOnce() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        final CallSiteFixture fixture = callSiteFixture();
+        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
+
+        assertEquals("NATIVE_RETURNED", result.nativeStatus());
+        assertTrue(result.nativeReturned());
+        assertEquals(1, CallSiteNativeProcess.calls);
+        assertEquals(2, CallSiteFilterEnv.hasReads, "only the ordinary before/after projection reads");
+        assertFalse(Files.exists(diagnosticArtifact()));
+    }
+
+    @Test
+    void replacementCallSiteContinuesWhenIncomingDiagnosticIdentityReadFailsBeforeNative()
+        throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        CallSiteLayeredImage.failNextIncomingGuidRead = true;
+
+        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
+
+        assertEquals("NATIVE_RETURNED", result.nativeStatus());
+        assertTrue(result.nativeReturned());
+        assertEquals(1, CallSiteNativeProcess.calls);
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).contains("incomingRawStatus=UNAVAILABLE"));
+        assertTrue(lines.get(0).contains("incoming-guid-unavailable"));
+        assertTrue(lines.get(1).contains("nativeReturned=true"));
+        assertFalse(lines.get(1).contains("committed=true"));
+    }
+
+    @Test
+    void replacementCallSiteKeepsNativeResultWhenEnabledDiagnosticReadFails() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        // The first read belongs to the ordinary before snapshot. The second
+        // is the diagnostic pre-read; the native call must still be reached.
+        CallSiteFilterEnv.throwOnHasRead = 2;
+
+        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
+
+        assertEquals("NATIVE_RETURNED", result.nativeStatus());
+        assertTrue(result.nativeReturned());
+        assertEquals(1, CallSiteNativeProcess.calls);
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
+        assertTrue(lines.get(0).contains("native-relation-observation-failed"));
+        assertTrue(lines.get(1).contains("nativeRelationObservation=AVAILABLE"));
+        assertTrue(lines.get(1).contains("nativeReturnObservation=SYNCHRONOUS_RETURN_ONLY"));
+        assertFalse(lines.get(1).contains("committed=true"));
+    }
+
+    @Test
+    void replacementCallSiteContinuesWhenEnabledDiagnosticLinkageErrorOccurs() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        // The diagnostic pre-read is the second filter read after the ordinary
+        // relation projection. A host LinkageError must remain diagnostic-only.
+        CallSiteFilterEnv.throwOnHasReadLinkageError = 2;
+
+        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
+
+        assertEquals("NATIVE_RETURNED", result.nativeStatus());
+        assertTrue(result.nativeReturned());
+        assertEquals(1, CallSiteNativeProcess.calls);
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
+        assertTrue(lines.get(0).contains("native-relation-observation-failed"));
+        assertTrue(lines.get(1).contains("nativeReturned=true"));
+    }
+
+    @Test
+    void replacementCallSitePreservesNativeFailureFactsAndDoesNotClaimCommit() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        CallSiteNativeProcess.fail = true;
+
+        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
+
+        assertEquals("NATIVE_OUTCOME_UNKNOWN", result.nativeStatus());
+        assertFalse(result.nativeReturned());
+        assertTrue(result.mutationUnknown());
+        assertEquals(1, CallSiteNativeProcess.calls);
+        final String post = Files.readAllLines(diagnosticArtifact()).get(1);
+        assertTrue(post.contains("nativeInvocationAttempted=true"));
+        assertTrue(post.contains("nativeReturned=false"));
+        assertTrue(post.contains("nativeReturnObservation=SYNCHRONOUS_RETURN_ONLY"));
+        assertFalse(post.contains("committed=true"));
     }
 
     @Test
@@ -183,33 +405,6 @@ class EditorTextureReplacementDiagnosticTest {
         assertTrue(lines.get(1).contains("nativeStatus=NATIVE_RETURNED_UNVERIFIED"));
         assertTrue(lines.get(1).contains("nativeInvocationAttempted=true"));
         assertTrue(lines.get(1).contains("nativeReturned=true"));
-    }
-
-    @Test
-    void nativeOperationIsInvokedOnceAndItsExceptionIsNotReplaced() {
-        final java.util.concurrent.atomic.AtomicInteger invocations =
-            new java.util.concurrent.atomic.AtomicInteger();
-        final EditorRawImagePsdReplaceAccess.ReplaceResult result = nativeReturned();
-
-        assertSame(
-            result,
-            EditorTextureReplacementDiagnostic.invokeNativeOnce(() -> {
-                invocations.incrementAndGet();
-                return result;
-            })
-        );
-        assertEquals(1, invocations.get());
-
-        final IllegalStateException failure = new IllegalStateException("native-root-cause");
-        final IllegalStateException propagated = assertThrows(
-            IllegalStateException.class,
-            () -> EditorTextureReplacementDiagnostic.invokeNativeOnce(() -> {
-                invocations.incrementAndGet();
-                throw failure;
-            })
-        );
-        assertSame(failure, propagated);
-        assertEquals(2, invocations.get());
     }
 
     @Test
@@ -359,7 +554,9 @@ class EditorTextureReplacementDiagnosticTest {
         final String currentRaw,
         final boolean replaced
     ) {
-        return snapshot("session-a", currentRaw, replaced, 7, currentRaw.equals("old") ? 1 : 2);
+        return snapshot(
+            "session-a", currentRaw, replaced, 7, currentRaw.equals("old") ? 1 : 2, true
+        );
     }
 
     private static TextureRelationsSnapshot snapshot(
@@ -377,6 +574,17 @@ class EditorTextureReplacementDiagnosticTest {
         final long generation,
         final long revision
     ) {
+        return snapshot(binding, currentRaw, replaced, generation, revision, true);
+    }
+
+    private static TextureRelationsSnapshot snapshot(
+        final String binding,
+        final String currentRaw,
+        final boolean replaced,
+        final long generation,
+        final long revision,
+        final boolean publicLayerInputProjection
+    ) {
         final RawImageId old = new RawImageId("old");
         final RawImageId incoming = new RawImageId("incoming");
         final RawImageId current = new RawImageId(currentRaw);
@@ -392,16 +600,18 @@ class EditorTextureReplacementDiagnosticTest {
             entry,
             List.of(old, incoming),
             Optional.of(current),
-            Map.of(
-                current,
-                List.of(new RawLayerBinding(
+            publicLayerInputProjection
+                ? Map.of(
                     current,
-                    new RawLayerId("layer"),
-                    0,
-                    RawLayerBinding.DetailAvailability.AVAILABLE,
-                    RawLayerBinding.DetailAvailability.AVAILABLE
-                ))
-            ),
+                    List.of(new RawLayerBinding(
+                        current,
+                        new RawLayerId("layer"),
+                        0,
+                        RawLayerBinding.DetailAvailability.AVAILABLE,
+                        RawLayerBinding.DetailAvailability.AVAILABLE
+                    ))
+                )
+                : Map.of(),
             List.of()
         );
         final ModelImageGroup group = new ModelImageGroup() {
@@ -453,7 +663,904 @@ class EditorTextureReplacementDiagnosticTest {
         return "";
     }
 
+    private static NativeFixture nativeFixture() {
+        return nativeFixture(true);
+    }
+
+    private static NativeFixture largeNativeFixture() {
+        final EditorTextureRelationsAccessTest.HostId oldId =
+            new EditorTextureRelationsAccessTest.HostId("old");
+        final EditorTextureRelationsAccessTest.HostId incomingId =
+            new EditorTextureRelationsAccessTest.HostId("incoming");
+        final EditorTextureRelationsAccessTest.LayeredImage old =
+            new EditorTextureRelationsAccessTest.LayeredImage(
+                oldId, "Old", 100, 100, new File("/old.psd"),
+                new EditorTextureRelationsAccessTest.PsdDocument(), List.of()
+            );
+        final EditorTextureRelationsAccessTest.LayeredImage incoming =
+            new EditorTextureRelationsAccessTest.LayeredImage(
+                incomingId, "Incoming", 100, 100, new File("/incoming.psd"),
+                new EditorTextureRelationsAccessTest.PsdDocument(), List.of()
+            );
+        final List<EditorTextureRelationsAccessTest.ModelImage> modelImages = new ArrayList<>();
+        final List<EditorTextureRelationsAccessTest.HostModelImageGroup> groups = new ArrayList<>();
+        for (int imageIndex = 0; imageIndex < 33; imageIndex++) {
+            final boolean target = imageIndex == 0;
+            final List<EditorTextureRelationsAccessTest.HostId> linked = target
+                ? List.of(oldId)
+                : longIds("linked-" + imageIndex + '-', 32);
+            final Map<EditorTextureRelationsAccessTest.HostId, List<
+                EditorTextureRelationsAccessTest.LayerInput>> selectorKeys = new LinkedHashMap<>();
+            for (int keyIndex = 0; keyIndex < 32; keyIndex++) {
+                selectorKeys.put(
+                    new EditorTextureRelationsAccessTest.HostId(
+                        longValue("selector-" + imageIndex + '-', keyIndex)
+                    ),
+                    List.of()
+                );
+            }
+            final EditorTextureRelationsAccessTest.ModelImage image =
+                new EditorTextureRelationsAccessTest.ModelImage(
+                    new EditorTextureRelationsAccessTest.HostId(
+                        target ? "target-model" : "filler-model-" + imageIndex
+                    ),
+                    target ? "Target" : "Filler",
+                    100,
+                    100,
+                    linked,
+                    new EditorTextureRelationsAccessTest.FilterEnv(
+                        true,
+                        new EditorTextureRelationsAccessTest.SelectorMap(selectorKeys),
+                        true,
+                        target ? oldId : linked.get(0)
+                    )
+                );
+            modelImages.add(image);
+            groups.add(
+                new EditorTextureRelationsAccessTest.HostModelImageGroup(
+                    target ? "Target group" : "Filler group " + imageIndex,
+                    "memo",
+                    List.of(image),
+                    target ? List.of(oldId, incomingId) : linked
+                )
+            );
+        }
+        final EditorTextureRelationsAccessTest.TextureManager manager =
+            new EditorTextureRelationsAccessTest.TextureManager(
+                List.of(
+                    new EditorTextureRelationsAccessTest.Wrapper(old, "import", "modified", true),
+                    new EditorTextureRelationsAccessTest.Wrapper(incoming, null, null, true)
+                ),
+                groups,
+                modelImages,
+                List.of(),
+                groups
+            );
+        final EditorTextureRelationsAccessTest.ModelSource source =
+            new EditorTextureRelationsAccessTest.ModelSource(manager, List.of());
+        final EditorTextureRelationsAccessTest.Model model =
+            new EditorTextureRelationsAccessTest.Model(List.of());
+        return new NativeFixture(source, model, resolver(true));
+    }
+
+    private static List<EditorTextureRelationsAccessTest.HostId> longIds(
+        final String prefix,
+        final int count
+    ) {
+        final List<EditorTextureRelationsAccessTest.HostId> values = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            values.add(new EditorTextureRelationsAccessTest.HostId(longValue(prefix, index)));
+        }
+        return values;
+    }
+
+    private static String longValue(final String prefix, final int index) {
+        return prefix + index + '-' + "x".repeat(112);
+    }
+
+    private static NativeFixture nativeFixture(final boolean emptySelectorMap) {
+        final EditorTextureRelationsAccessTest.HostId oldId =
+            new EditorTextureRelationsAccessTest.HostId("old");
+        final EditorTextureRelationsAccessTest.HostId incomingId =
+            new EditorTextureRelationsAccessTest.HostId("incoming");
+        final EditorTextureRelationsAccessTest.LayeredImage old =
+            new EditorTextureRelationsAccessTest.LayeredImage(
+                oldId, "Old", 100, 100, new File("/old.psd"),
+                new EditorTextureRelationsAccessTest.PsdDocument(), List.of()
+            );
+        final EditorTextureRelationsAccessTest.LayeredImage incoming =
+            new EditorTextureRelationsAccessTest.LayeredImage(
+                incomingId, "Incoming", 100, 100, new File("/incoming.psd"),
+                new EditorTextureRelationsAccessTest.PsdDocument(), List.of()
+            );
+        final EditorTextureRelationsAccessTest.ModelImage modelImage =
+            new EditorTextureRelationsAccessTest.ModelImage(
+                new EditorTextureRelationsAccessTest.HostId("model-a"),
+                "Image", 100, 100, List.of(oldId),
+                new EditorTextureRelationsAccessTest.FilterEnv(
+                    true,
+                    new EditorTextureRelationsAccessTest.SelectorMap(
+                        emptySelectorMap ? Map.of() : Map.of(oldId, List.of())
+                    ),
+                    true,
+                    oldId
+                )
+            );
+        final EditorTextureRelationsAccessTest.HostModelImageGroup group =
+            new EditorTextureRelationsAccessTest.HostModelImageGroup(
+                "Group A", "memo", List.of(modelImage), List.of(oldId, incomingId)
+            );
+        final EditorTextureRelationsAccessTest.TextureManager manager =
+            new EditorTextureRelationsAccessTest.TextureManager(
+                List.of(
+                    new EditorTextureRelationsAccessTest.Wrapper(old, "import", "modified", true),
+                    new EditorTextureRelationsAccessTest.Wrapper(incoming, null, null, true)
+                ),
+                List.of(group),
+                List.of(modelImage),
+                List.of(),
+                List.of(group)
+            );
+        final EditorTextureRelationsAccessTest.ModelSource source =
+            new EditorTextureRelationsAccessTest.ModelSource(manager, List.of());
+        final EditorTextureRelationsAccessTest.Model model =
+            new EditorTextureRelationsAccessTest.Model(List.of());
+        return new NativeFixture(source, model, resolver(true));
+    }
+
+    private static VerifiedMemberResolver resolver(final boolean authorized) {
+        final Map<String, StaticSelector> selectors = new LinkedHashMap<>();
+        for (final String alias : EditorTextureRelationsSelectorContract.REQUIRED_ALIASES) {
+            selectors.put(alias, StaticSelector.classSelector(alias, internal(Object.class)));
+        }
+        putMethod(selectors, "cubism.editor-model.model-source.texture-manager",
+            EditorTextureRelationsAccessTest.ModelSource.class, "textureManager",
+            desc(EditorTextureRelationsAccessTest.TextureManager.class));
+        putMethod(selectors, "cubism.editor-model.texture-manager.raw-images",
+            EditorTextureRelationsAccessTest.TextureManager.class, "rawImages", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.texture-manager.all-model-images",
+            EditorTextureRelationsAccessTest.TextureManager.class, "allModelImages", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.texture-manager.model-image-groups",
+            EditorTextureRelationsAccessTest.TextureManager.class, "modelImageGroups", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.layered-image-wrapper.image",
+            EditorTextureRelationsAccessTest.Wrapper.class, "image",
+            desc(EditorTextureRelationsAccessTest.LayeredImage.class));
+        putMethod(selectors, "cubism.editor-model.layered-image-wrapper.replaced",
+            EditorTextureRelationsAccessTest.Wrapper.class, "isReplaced", "()Z");
+        putClass(selectors, "cubism.editor-model.layered-image.class",
+            EditorTextureRelationsAccessTest.LayeredImage.class);
+        putMethod(selectors, "cubism.editor-model.layered-image.guid",
+            EditorTextureRelationsAccessTest.LayeredImage.class, "getGuid",
+            desc(EditorTextureRelationsAccessTest.HostId.class));
+        putClass(selectors, "cubism.editor-model.model-image.class",
+            EditorTextureRelationsAccessTest.ModelImage.class);
+        putMethod(selectors, "cubism.editor-model.model-image.guid",
+            EditorTextureRelationsAccessTest.ModelImage.class, "getGuid",
+            desc(EditorTextureRelationsAccessTest.HostId.class));
+        putMethod(selectors, "cubism.editor-model.model-image.linked-raw-image-guids",
+            EditorTextureRelationsAccessTest.ModelImage.class, "getLinkedRawImageGuids", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.model-image.input-filter-env",
+            EditorTextureRelationsAccessTest.ModelImage.class, "getInputFilterEnv",
+            desc(EditorTextureRelationsAccessTest.FilterEnv.class));
+        putClass(selectors, "cubism.editor-model.model-image-filter-env.class",
+            EditorTextureRelationsAccessTest.FilterEnv.class);
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.has-layer-input-data",
+            EditorTextureRelationsAccessTest.FilterEnv.class, "getHasLayerInputData", "()Z");
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.layer-input-data",
+            EditorTextureRelationsAccessTest.FilterEnv.class, "getLayerInputData",
+            desc(EditorTextureRelationsAccessTest.SelectorMap.class));
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.has-current-image-guid",
+            EditorTextureRelationsAccessTest.FilterEnv.class, "getHasCurrentImageGuid", "()Z");
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.current-image-guid",
+            EditorTextureRelationsAccessTest.FilterEnv.class, "getCurrentImageGuid",
+            desc(EditorTextureRelationsAccessTest.HostId.class));
+        putClass(selectors, "cubism.editor-model.layer-selector-map.class",
+            EditorTextureRelationsAccessTest.SelectorMap.class);
+        putMethod(selectors, "cubism.editor-model.layer-selector-map.image-to-layer-input",
+            EditorTextureRelationsAccessTest.SelectorMap.class, "getImageToLayerInput", "()Ljava/util/Map;");
+        putClass(selectors, "cubism.editor-model.model-image-group.class",
+            EditorTextureRelationsAccessTest.HostModelImageGroup.class);
+        putMethod(selectors, "cubism.editor-model.model-image-group.group-name",
+            EditorTextureRelationsAccessTest.HostModelImageGroup.class, "getGroupName", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.model-image-group.model-images",
+            EditorTextureRelationsAccessTest.HostModelImageGroup.class, "getModelImages", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.model-image-group.linked-raw-image-guids",
+            EditorTextureRelationsAccessTest.HostModelImageGroup.class, "getLinkedRawImageGuids", "()Ljava/util/List;");
+        putClass(selectors, "cubism.editor-model.guid.class", EditorTextureRelationsAccessTest.HostId.class);
+        putMethod(selectors, "cubism.editor-model.guid.value",
+            EditorTextureRelationsAccessTest.HostId.class, "value", "()Ljava/lang/String;");
+        final Set<String> capabilities = authorized
+            ? Set.of(EditorTextureRelationsSelectorContract.CAPABILITY_ID)
+            : Set.of("unrelated-capability");
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            EditorTextureRelationsSelectorContract.ADAPTER_SLICE_ID,
+            capabilities,
+            new ArrayList<>(selectors.values()),
+            EditorTextureRelationsAccessTest.class.getClassLoader()
+        );
+    }
+
+    private static void putClass(
+        final Map<String, StaticSelector> selectors,
+        final String alias,
+        final Class<?> type
+    ) {
+        selectors.put(alias, StaticSelector.classSelector(alias, internal(type)));
+    }
+
+    private static void putMethod(
+        final Map<String, StaticSelector> selectors,
+        final String alias,
+        final Class<?> owner,
+        final String name,
+        final String descriptor
+    ) {
+        selectors.put(alias, StaticSelector.method(
+            alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC
+        ));
+    }
+
+    private static String internal(final Class<?> type) {
+        return type.getName().replace('.', '/');
+    }
+
+    private static String desc(final Class<?> type) {
+        return "()L" + internal(type) + ";";
+    }
+
+    private record NativeFixture(
+        EditorTextureRelationsAccessTest.ModelSource source,
+        EditorTextureRelationsAccessTest.Model model,
+        VerifiedMemberResolver resolver
+    ) { }
+
+    private CallSiteFixture callSiteFixture() throws Exception {
+        final List<CallSiteWrapper> wrappers = new ArrayList<>();
+        final CallSiteLayeredImage old = new CallSiteLayeredImage("old", "Old");
+        final CallSiteLayeredImage incoming = new CallSiteLayeredImage("incoming", "Incoming");
+        final MutableModelImage modelImage = new MutableModelImage(old);
+        final CallSiteGroup group =
+            new CallSiteGroup(
+                "Group A",
+                "memo",
+                List.of(modelImage),
+                List.of(old.getGuid(), incoming.getGuid())
+            );
+        wrappers.add(new CallSiteWrapper(old, "import", "modified", true));
+        final CallSiteTextureManager manager =
+            new CallSiteTextureManager(
+                wrappers,
+                List.of(group),
+                List.of(modelImage),
+                List.of(),
+                List.of(group)
+            );
+        final CallSiteSource source = new CallSiteSource(manager);
+        final CallSiteModel model = new CallSiteModel();
+        final CallSiteFixture fixture = new CallSiteFixture(
+            source,
+            model,
+            new CallSiteDocument(),
+            wrappers,
+            modelImage,
+            callSiteResolver(),
+            tempDir.resolve("staged.psd")
+        );
+        Files.writeString(fixture.stage, "synthetic-stage");
+        CallSiteNativeProcess.active = fixture;
+        CallSiteAppController.currentDocument = fixture.document;
+        return fixture;
+    }
+
+    private PsdReplaceHost.Replacement replaceAtCallSite(final CallSiteFixture fixture) {
+        final ModelTextures textures = new EditorTextureAccess(
+            fixture.resolver,
+            (identity, model) -> { }
+        ).textures("session-a", fixture.source, fixture.model);
+        final PsdReplaceHost.Replacement result = ((PsdReplaceHost) textures).replaceWithStagedPsd(
+            new RawImageId("old"),
+            fixture.stage,
+            () -> { }
+        );
+        return result;
+    }
+
+    private static VerifiedMemberResolver callSiteResolver() {
+        final Map<String, StaticSelector> selectors = new LinkedHashMap<>();
+        addAliases(selectors, EditorTextureRelationsSelectorContract.REQUIRED_ALIASES);
+        addAliases(selectors, EditorTextureSelectorContract.READ_REQUIRED_ALIASES);
+        addAliases(selectors, EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+        addAliases(selectors, EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
+
+        putMethod(selectors, "cubism.editor-model.model-source.texture-manager",
+            CallSiteSource.class, "textureManager", desc(CallSiteTextureManager.class));
+        putMethod(selectors, "cubism.editor-model.texture-manager.raw-images",
+            CallSiteTextureManager.class, "rawImages", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.texture-manager.model-image-groups",
+            CallSiteTextureManager.class, "modelImageGroups", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.texture-manager.all-model-images",
+            CallSiteTextureManager.class, "allModelImages", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.texture-manager.texture-atlases",
+            CallSiteTextureManager.class, "textureAtlases", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.texture-manager.art-mesh-usable-model-image-groups",
+            CallSiteTextureManager.class, "artMeshUsableModelImageGroups", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.layered-image-wrapper.image",
+            CallSiteWrapper.class, "image", desc(CallSiteLayeredImage.class));
+        putMethod(selectors, "cubism.editor-model.layered-image-wrapper.import-time",
+            CallSiteWrapper.class, "getImportTime", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.layered-image-wrapper.modified-time",
+            CallSiteWrapper.class, "getModifiedTime", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.layered-image-wrapper.replaced",
+            CallSiteWrapper.class, "isReplaced", "()Z");
+        putClass(selectors, "cubism.editor-model.layered-image.class", CallSiteLayeredImage.class);
+        putMethod(selectors, "cubism.editor-model.layered-image.guid",
+            CallSiteLayeredImage.class, "getGuid", desc(CallSiteId.class));
+        putMethod(selectors, "cubism.editor-model.layered-image.name",
+            CallSiteLayeredImage.class, "getName", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.layered-image.width",
+            CallSiteLayeredImage.class, "getWidth", "()I");
+        putMethod(selectors, "cubism.editor-model.layered-image.height",
+            CallSiteLayeredImage.class, "getHeight", "()I");
+        putMethod(selectors, "cubism.editor-model.layered-image.psd-doc",
+            CallSiteLayeredImage.class, "getPsdDoc", desc(CallSitePsdDocument.class));
+        putMethod(selectors, "cubism.editor-model.layered-image.children",
+            CallSiteLayeredImage.class, "getChildren", "()Ljava/util/List;");
+        putClass(selectors, "cubism.editor-model.model-image.class", CallSiteModelImage.class);
+        putMethod(selectors, "cubism.editor-model.model-image.guid",
+            CallSiteModelImage.class, "getGuid", desc(CallSiteId.class));
+        putMethod(selectors, "cubism.editor-model.model-image.name",
+            CallSiteModelImage.class, "getName", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.model-image.width",
+            CallSiteModelImage.class, "getWidth", "()I");
+        putMethod(selectors, "cubism.editor-model.model-image.height",
+            CallSiteModelImage.class, "getHeight", "()I");
+        putMethod(selectors, "cubism.editor-model.model-image.linked-raw-image-guids",
+            CallSiteModelImage.class, "getLinkedRawImageGuids", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.model-image.input-filter-env",
+            CallSiteModelImage.class, "getInputFilterEnv", desc(CallSiteFilterEnv.class));
+        putClass(selectors, "cubism.editor-model.model-image-filter-env.class", CallSiteFilterEnv.class);
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.has-layer-input-data",
+            CallSiteFilterEnv.class, "getHasLayerInputData", "()Z");
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.layer-input-data",
+            CallSiteFilterEnv.class, "getLayerInputData", desc(CallSiteSelectorMap.class));
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.has-current-image-guid",
+            CallSiteFilterEnv.class, "getHasCurrentImageGuid", "()Z");
+        putMethod(selectors, "cubism.editor-model.model-image-filter-env.current-image-guid",
+            CallSiteFilterEnv.class, "getCurrentImageGuid", desc(CallSiteId.class));
+        putClass(selectors, "cubism.editor-model.layer-selector-map.class", CallSiteSelectorMap.class);
+        putMethod(selectors, "cubism.editor-model.layer-selector-map.image-to-layer-input",
+            CallSiteSelectorMap.class, "getImageToLayerInput", "()Ljava/util/Map;");
+        putClass(selectors, "cubism.editor-model.model-image-group.class", CallSiteGroup.class);
+        putMethod(selectors, "cubism.editor-model.model-image-group.group-name",
+            CallSiteGroup.class, "getGroupName", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.model-image-group.memo",
+            CallSiteGroup.class, "getMemo", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.model-image-group.model-images",
+            CallSiteGroup.class, "getModelImages", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.model-image-group.linked-raw-image-guids",
+            CallSiteGroup.class, "getLinkedRawImageGuids", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.model-source.all-art-meshes",
+            CallSiteSource.class, "allArtMeshes", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.model.all-art-meshes",
+            CallSiteModel.class, "allArtMeshes", "()Ljava/util/List;");
+        putMethod(selectors, "cubism.editor-model.guid.value",
+            CallSiteId.class, "value", "()Ljava/lang/String;");
+
+        putClass(selectors, "cubism.editor-model.app-controller.class", CallSiteAppController.class);
+        putStaticMethod(selectors, "cubism.editor-model.app-controller.instance",
+            CallSiteAppController.class, "instance", desc(CallSiteAppController.class));
+        putMethod(selectors, "cubism.editor-model.app-controller.current-document",
+            CallSiteAppController.class, "currentDocument", desc(CallSiteDocument.class));
+        putClass(selectors, "cubism.editor-model.modeling-document.class", CallSiteDocument.class);
+        putMethod(selectors, "cubism.editor-command.canvas.edit-mode",
+            CallSiteDocument.class, "editMode", desc(CallSiteEditMode.class));
+        putMethod(selectors, "cubism.editor-command.canvas.is-editing",
+            CallSiteEditMode.class, "isEditing", "()Z");
+        putClass(selectors, "cubism.editor-model.psd-import-process.class", CallSiteNativeProcess.class);
+        selectors.put(
+            "cubism.editor-model.psd-import-process.instance",
+            StaticSelector.field(
+                "cubism.editor-model.psd-import-process.instance",
+                internal(CallSiteNativeProcess.class),
+                "INSTANCE",
+                desc(CallSiteNativeProcess.class).substring(2),
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
+            )
+        );
+        putMethod(selectors, "cubism.editor-model.psd-import-process.replace",
+            CallSiteNativeProcess.class, "replace",
+            "(" + desc(CallSiteAppController.class).substring(2)
+                + desc(CallSiteLayeredImage.class).substring(2)
+                + "Ljava/io/File;"
+                + desc(CallSiteDocument.class).substring(2)
+                + "Ljava/util/List;)V");
+
+        putClass(selectors, "cubism.editor-model.psd-document.class", CallSiteParsed.class);
+        putClass(selectors, "cubism.editor-model.psd-document-companion.class", CallSiteCompanion.class);
+        selectors.put(
+            "cubism.editor-model.psd-document.companion",
+            StaticSelector.field(
+                "cubism.editor-model.psd-document.companion",
+                internal(CallSitePsdDocument.class),
+                "companion",
+                desc(CallSiteCompanion.class).substring(2),
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
+            )
+        );
+        putMethod(selectors, "cubism.editor-model.psd-document.parse-file",
+            CallSiteCompanion.class, "parseFile",
+            "(Ljava/io/File;ZZ)" + desc(CallSiteParsed.class).substring(2));
+        selectors.put(
+            "cubism.editor-model.layered-image.from-psd",
+            StaticSelector.constructor(
+                "cubism.editor-model.layered-image.from-psd",
+                internal(CallSiteLayeredImage.class),
+                "(" + desc(CallSiteParsed.class).substring(2)
+                    + "Ljava/io/File;Ljava/lang/String;)V",
+                0
+            )
+        );
+
+        final Set<String> capabilities = Set.of(
+            EditorTextureSelectorContract.READ_CAPABILITY_ID,
+            EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID
+        );
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+            capabilities,
+            new ArrayList<>(selectors.values()),
+            EditorTextureReplacementDiagnosticTest.class.getClassLoader()
+        );
+    }
+
+    private static void addAliases(
+        final Map<String, StaticSelector> selectors,
+        final Set<String> aliases
+    ) {
+        for (final String alias : aliases) {
+            selectors.putIfAbsent(alias, StaticSelector.classSelector(alias, internal(Object.class)));
+        }
+    }
+
+    private static void putStaticMethod(
+        final Map<String, StaticSelector> selectors,
+        final String alias,
+        final Class<?> owner,
+        final String name,
+        final String descriptor
+    ) {
+        selectors.put(alias, StaticSelector.staticMethod(
+            alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
+        ));
+    }
+
+    private static final class CallSiteFixture {
+        final CallSiteSource source;
+        final CallSiteModel model;
+        final CallSiteDocument document;
+        final List<CallSiteWrapper> wrappers;
+        final MutableModelImage modelImage;
+        final VerifiedMemberResolver resolver;
+        final Path stage;
+        final CallSiteNativeProcess nativeProcess = CallSiteNativeProcess.INSTANCE;
+
+        CallSiteFixture(
+            final CallSiteSource source,
+            final CallSiteModel model,
+            final CallSiteDocument document,
+            final List<CallSiteWrapper> wrappers,
+            final MutableModelImage modelImage,
+            final VerifiedMemberResolver resolver,
+            final Path stage
+        ) {
+            this.source = source;
+            this.model = model;
+            this.document = document;
+            this.wrappers = wrappers;
+            this.modelImage = modelImage;
+            this.resolver = resolver;
+            this.stage = stage;
+        }
+    }
+
+    private static final class CallSiteAppController {
+        private static final CallSiteAppController INSTANCE = new CallSiteAppController();
+        static CallSiteDocument currentDocument;
+
+        public static CallSiteAppController instance() {
+            return INSTANCE;
+        }
+
+        public CallSiteDocument currentDocument() {
+            return currentDocument;
+        }
+    }
+
+    private static final class CallSiteDocument {
+        private final CallSiteEditMode editMode = new CallSiteEditMode();
+
+        public CallSiteEditMode editMode() {
+            return editMode;
+        }
+    }
+
+    private static final class CallSiteEditMode {
+        public boolean isEditing() {
+            return false;
+        }
+    }
+
+    public static final class CallSiteParsed {
+        final File source;
+
+        CallSiteParsed(final File source) {
+            this.source = source;
+        }
+    }
+
+    public static final class CallSiteCompanion {
+        public CallSiteParsed parseFile(
+            final File source,
+            final boolean first,
+            final boolean second
+        ) {
+            if (!source.isFile() || source.length() == 0) return null;
+            return new CallSiteParsed(source);
+        }
+    }
+
+    public static final class CallSitePsdDocument {
+        public static final CallSiteCompanion companion = new CallSiteCompanion();
+    }
+
+    private static final class CallSiteId {
+        private final String value;
+
+        CallSiteId(final String value) {
+            this.value = value;
+        }
+
+        public String value() {
+            return value;
+        }
+    }
+
+    private static final class CallSiteLayeredImage {
+        static boolean failNextIncomingGuidRead;
+        private final CallSiteId guid;
+        private final String name;
+        private final File psdFile;
+        private final CallSitePsdDocument psdDocument = new CallSitePsdDocument();
+
+        CallSiteLayeredImage(final String id, final String name) {
+            this.guid = new CallSiteId(id);
+            this.name = name;
+            this.psdFile = new File("/" + id + ".psd");
+        }
+
+        CallSiteLayeredImage(
+            final CallSiteParsed parsed,
+            final File source,
+            final String name
+        ) {
+            if (parsed == null || !parsed.source.equals(source)) {
+                throw new IllegalStateException("wrong parsed stage");
+            }
+            this.guid = new CallSiteId("incoming");
+            this.name = name;
+            this.psdFile = source;
+        }
+
+        public CallSiteId getGuid() {
+            if (failNextIncomingGuidRead && "incoming".equals(guid.value)) {
+                failNextIncomingGuidRead = false;
+                throw new IllegalStateException("incoming diagnostic identity failure");
+            }
+            return guid;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public int getWidth() {
+            return 100;
+        }
+
+        public int getHeight() {
+            return 100;
+        }
+
+        public File getPsdFile() {
+            return psdFile;
+        }
+
+        public CallSitePsdDocument getPsdDoc() {
+            return psdDocument;
+        }
+
+        public List<?> getChildren() {
+            return List.of();
+        }
+    }
+
+    private static final class CallSiteWrapper {
+        private final CallSiteLayeredImage image;
+        private final String importTime;
+        private final String modifiedTime;
+        private final boolean replaced;
+
+        CallSiteWrapper(
+            final CallSiteLayeredImage image,
+            final String importTime,
+            final String modifiedTime,
+            final boolean replaced
+        ) {
+            this.image = image;
+            this.importTime = importTime;
+            this.modifiedTime = modifiedTime;
+            this.replaced = replaced;
+        }
+
+        public CallSiteLayeredImage image() {
+            return image;
+        }
+
+        public String getImportTime() {
+            return importTime;
+        }
+
+        public String getModifiedTime() {
+            return modifiedTime;
+        }
+
+        public boolean isReplaced() {
+            return replaced;
+        }
+    }
+
+    private static final class CallSiteFilterEnv {
+        static int hasReads;
+        static int throwOnHasRead;
+        static int throwOnHasReadLinkageError;
+
+        private final boolean hasLayerInputData;
+        private final CallSiteSelectorMap layerInputData;
+        private final boolean hasCurrentImageGuid;
+        private final CallSiteId currentImageGuid;
+
+        CallSiteFilterEnv(
+            final boolean hasLayerInputData,
+            final CallSiteSelectorMap layerInputData,
+            final boolean hasCurrentImageGuid,
+            final CallSiteId currentImageGuid
+        ) {
+            this.hasLayerInputData = hasLayerInputData;
+            this.layerInputData = layerInputData;
+            this.hasCurrentImageGuid = hasCurrentImageGuid;
+            this.currentImageGuid = currentImageGuid;
+        }
+
+        public boolean getHasLayerInputData() {
+            hasReads++;
+            if (throwOnHasRead == hasReads) {
+                throw new IllegalStateException("diagnostic filter observation failure");
+            }
+            if (throwOnHasReadLinkageError == hasReads) {
+                throwOnHasReadLinkageError = 0;
+                throw new NoClassDefFoundError("diagnostic filter linkage failure");
+            }
+            return hasLayerInputData;
+        }
+
+        public CallSiteSelectorMap getLayerInputData() {
+            return layerInputData;
+        }
+
+        public boolean getHasCurrentImageGuid() {
+            return hasCurrentImageGuid;
+        }
+
+        public CallSiteId getCurrentImageGuid() {
+            return currentImageGuid;
+        }
+    }
+
+    private static final class CallSiteSelectorMap {
+        private final Map<CallSiteId, List<?>> imageToLayerInput;
+
+        CallSiteSelectorMap(final Map<CallSiteId, List<?>> imageToLayerInput) {
+            this.imageToLayerInput = imageToLayerInput;
+        }
+
+        public Map<CallSiteId, List<?>> getImageToLayerInput() {
+            return imageToLayerInput;
+        }
+    }
+
+    private static class CallSiteModelImage {
+        private final CallSiteId guid;
+        private List<CallSiteId> linkedRawImageGuids;
+        private CallSiteFilterEnv inputFilterEnv;
+
+        CallSiteModelImage(final CallSiteLayeredImage old) {
+            guid = new CallSiteId("model-a");
+            linkedRawImageGuids = List.of(old.getGuid());
+            inputFilterEnv = new CallSiteFilterEnv(
+                true,
+                new CallSiteSelectorMap(Map.of()),
+                true,
+                old.getGuid()
+            );
+        }
+
+        public CallSiteId getGuid() {
+            return guid;
+        }
+
+        public String getName() {
+            return "Image";
+        }
+
+        public int getWidth() {
+            return 100;
+        }
+
+        public int getHeight() {
+            return 100;
+        }
+
+        public List<CallSiteId> getLinkedRawImageGuids() {
+            return linkedRawImageGuids;
+        }
+
+        public CallSiteFilterEnv getInputFilterEnv() {
+            return inputFilterEnv;
+        }
+
+        void replace(final CallSiteId incoming) {
+            linkedRawImageGuids = List.of(incoming);
+            inputFilterEnv = new CallSiteFilterEnv(
+                true,
+                new CallSiteSelectorMap(Map.of()),
+                true,
+                incoming
+            );
+        }
+    }
+
+    private static final class MutableModelImage extends CallSiteModelImage {
+        MutableModelImage(final CallSiteLayeredImage old) {
+            super(old);
+        }
+    }
+
+    private static final class CallSiteGroup {
+        private final String name;
+        private final String memo;
+        private final List<CallSiteModelImage> modelImages;
+        private final List<CallSiteId> linkedRawImageGuids;
+
+        CallSiteGroup(
+            final String name,
+            final String memo,
+            final List<CallSiteModelImage> modelImages,
+            final List<CallSiteId> linkedRawImageGuids
+        ) {
+            this.name = name;
+            this.memo = memo;
+            this.modelImages = modelImages;
+            this.linkedRawImageGuids = linkedRawImageGuids;
+        }
+
+        public String getGroupName() {
+            return name;
+        }
+
+        public String getMemo() {
+            return memo;
+        }
+
+        public List<CallSiteModelImage> getModelImages() {
+            return modelImages;
+        }
+
+        public List<CallSiteId> getLinkedRawImageGuids() {
+            return linkedRawImageGuids;
+        }
+    }
+
+    private static final class CallSiteTextureManager {
+        private final List<CallSiteWrapper> rawImages;
+        private final List<CallSiteGroup> modelImageGroups;
+        private final List<CallSiteModelImage> allModelImages;
+        private final List<?> textureAtlases;
+        private final List<CallSiteGroup> artMeshUsableModelImageGroups;
+
+        CallSiteTextureManager(
+            final List<CallSiteWrapper> rawImages,
+            final List<CallSiteGroup> modelImageGroups,
+            final List<CallSiteModelImage> allModelImages,
+            final List<?> textureAtlases,
+            final List<CallSiteGroup> artMeshUsableModelImageGroups
+        ) {
+            this.rawImages = rawImages;
+            this.modelImageGroups = modelImageGroups;
+            this.allModelImages = allModelImages;
+            this.textureAtlases = textureAtlases;
+            this.artMeshUsableModelImageGroups = artMeshUsableModelImageGroups;
+        }
+
+        public List<CallSiteWrapper> rawImages() {
+            return rawImages;
+        }
+
+        public List<CallSiteGroup> modelImageGroups() {
+            return modelImageGroups;
+        }
+
+        public List<CallSiteModelImage> allModelImages() {
+            return allModelImages;
+        }
+
+        public List<?> textureAtlases() {
+            return textureAtlases;
+        }
+
+        public List<CallSiteGroup> artMeshUsableModelImageGroups() {
+            return artMeshUsableModelImageGroups;
+        }
+    }
+
+    private static final class CallSiteSource {
+        private final CallSiteTextureManager textureManager;
+
+        CallSiteSource(final CallSiteTextureManager textureManager) {
+            this.textureManager = textureManager;
+        }
+
+        public CallSiteTextureManager textureManager() {
+            return textureManager;
+        }
+
+        public List<?> allArtMeshes() {
+            return List.of();
+        }
+    }
+
+    private static final class CallSiteModel {
+        public List<?> allArtMeshes() {
+            return List.of();
+        }
+    }
+
+    public static final class CallSiteNativeProcess {
+        public static final CallSiteNativeProcess INSTANCE = new CallSiteNativeProcess();
+        static CallSiteFixture active;
+        static int calls;
+        static boolean fail;
+
+        public void replace(
+            final CallSiteAppController app,
+            final CallSiteLayeredImage incoming,
+            final File stage,
+            final CallSiteDocument document,
+            final List<?> targets
+        ) {
+            calls++;
+            if (fail) throw new IllegalStateException("native call root cause");
+            if (active == null) throw new IllegalStateException("missing call-site fixture");
+            active.wrappers.add(new CallSiteWrapper(
+                incoming, "import-incoming", "modified-incoming", true
+            ));
+            active.modelImage.replace(incoming.getGuid());
+        }
+    }
+
     private Path diagnosticArtifact() {
         return tempDir.resolve("logs").resolve(EditorTextureReplacementDiagnostic.ARTIFACT);
     }
+
 }
