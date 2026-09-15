@@ -121,6 +121,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static final long HOST_CLOSE_TIMEOUT_MILLIS = 30_000L;
     private static final long HOST_CLOSE_POLL_MILLIS = 100L;
     private static final long HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS = 500L;
+    private static final long TASK_WINDOW_BIND_TIMEOUT_MILLIS = 30_000L;
+    private static final long TASK_WINDOW_BIND_POLL_MILLIS = 250L;
     private static final int EXIT_DIAGNOSTIC_MAX_THREADS = 256;
     private static final int EXIT_DIAGNOSTIC_MAX_STACK_FRAMES = 128;
     static final int EXIT_DIAGNOSTIC_MAX_CHARS = 256 * 1024;
@@ -246,7 +248,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Window target = guiBoundWindow;
         if (target == null) {
             context.logger().warn(
-                "EXTERNAL_PSD_EDIT_EXIT_SKIPPED no exact GUI target window was bound; "
+                "EXTERNAL_PSD_EDIT_EXIT_SKIPPED no exact task target window was bound; "
                     + "Supervisor owns cleanup");
             return;
         }
@@ -343,9 +345,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
-     * Sends the host close event only to the exact target captured by the GUI phase.  Keeping the
-     * value checks in this small helper makes the no-cross-window rule executable offline without
-     * constructing a real AWT window in the headless focused test.
+     * Sends the host close event only to the exact task window retained by target resolution.
+     * Keeping the value checks in this small helper makes the no-cross-window rule executable
+     * offline without constructing a real AWT window in the headless focused test.
      */
     private static CloseDispatchResult dispatchBoundWindowClose(final Window target) {
         if (!SwingUtilities.isEventDispatchThread()) {
@@ -401,6 +403,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             return HostCloseResult.rejected("host close coordinator must run off EDT");
         }
         final AtomicBoolean coordinatorActive = new AtomicBoolean(true);
+        final AtomicBoolean noActionClaimed = new AtomicBoolean();
+        final AtomicBoolean noActionSucceeded = new AtomicBoolean();
+        final AtomicBoolean noActionFailed = new AtomicBoolean();
         try {
             final EdtCall<Set<Window>> beforeCall = invokeEdtBounded(
                 ExternalPsdEditHostProbe::visibleDialogsOnEdt, HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
@@ -431,7 +436,6 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
             final long deadline = System.nanoTime()
                 + TimeUnit.MILLISECONDS.toNanos(HOST_CLOSE_TIMEOUT_MILLIS);
-            boolean dismissedNo = false;
             String lastDiagnostic = "WINDOW_CLOSING has not reached the EDT";
             while (System.nanoTime() < deadline) {
                 final CloseDispatchResult dispatched = dispatch.get();
@@ -441,10 +445,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 if (!closeStarted.get()) {
                     lastDiagnostic = "WINDOW_CLOSING is queued on the EDT";
                 } else {
-                    final boolean mayDismissNo = !dismissedNo;
                     final EdtCall<CloseDialogInspection> inspection = invokeEdtBounded(
                         () -> inspectAndMaybeDismissCloseDialog(target, beforeDialogs,
-                            mayDismissNo, coordinatorActive),
+                            coordinatorActive, noActionClaimed, noActionSucceeded,
+                            noActionFailed),
                         HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
                     if (!inspection.completed()) {
                         lastDiagnostic = "EDT close observation timed out";
@@ -455,14 +459,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         final CloseDialogInspection observed = inspection.value();
                         lastDiagnostic = observed.diagnostic();
                         if (observed.rejected()) return HostCloseResult.rejected(lastDiagnostic);
-                        if (observed.dismissedNo()) dismissedNo = true;
                         if (observed.targetGone()) {
                             if (dispatched == null || !dispatched.dispatched()) {
                                 lastDiagnostic = "bound host window disappeared before "
                                     + "WINDOW_CLOSING dispatch completed";
                                 continue;
                             }
-                            return HostCloseResult.success(dismissedNo
+                            return HostCloseResult.success(noActionSucceeded.get()
                                 ? "native close completed after exact dirty-save NO selection"
                                 : "native close completed with no dirty-save dialog");
                         }
@@ -528,13 +531,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private static CloseDialogInspection inspectAndMaybeDismissCloseDialog(final Window target,
-        final Set<Window> beforeDialogs, final boolean mayDismissNo,
-        final AtomicBoolean coordinatorActive) {
+        final Set<Window> beforeDialogs, final AtomicBoolean coordinatorActive,
+        final AtomicBoolean noActionClaimed, final AtomicBoolean noActionSucceeded,
+        final AtomicBoolean noActionFailed) {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("dialog inspection must run on EDT");
         }
         if (!coordinatorActive.get()) {
             return CloseDialogInspection.waiting("close observation was cancelled");
+        }
+        if (noActionFailed != null && noActionFailed.get()) {
+            return CloseDialogInspection.rejected(
+                "dirty-save NO action failed; close observation is fail-closed");
         }
         if (target == null || !target.isShowing() || !target.isDisplayable()) {
             return CloseDialogInspection.targetGone("bound host window is no longer showing");
@@ -544,23 +552,58 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final CloseDialogDecision decision = classifyCloseDialog(
             componentIdentity(target), beforeIdentities, visibleCloseDialogs(target));
         if (decision.outcome() == CloseDialogOutcome.DISMISS_NO) {
-            if (!mayDismissNo) {
-                return CloseDialogInspection.rejected(
-                    "more than one close-associated dirty-save dialog appeared");
-            }
-            try {
-                decision.dismissNo().run();
-                return CloseDialogInspection.dismissed(
-                    decision.diagnostic() + " selected=NO(index=1)");
-            } catch (Throwable failure) {
-                return CloseDialogInspection.rejected("NO option dispatch failed: "
-                    + stackTrace(failure));
-            }
+            return applyNoDialogDecision(decision, noActionClaimed, noActionSucceeded,
+                noActionFailed);
         }
         if (decision.outcome() == CloseDialogOutcome.REJECTED) {
             return CloseDialogInspection.rejected(decision.diagnostic());
         }
         return CloseDialogInspection.waiting(decision.diagnostic());
+    }
+
+    /**
+     * Applies the one permitted dirty-save answer on the EDT. The CAS is shared by every
+     * inspection queued for this close session, including inspections that outlive an
+     * invokeEdtBounded timeout; a failed action remains claimed and is never retried as another
+     * real button action.
+     */
+    private static CloseDialogInspection applyNoDialogDecision(
+        final CloseDialogDecision decision, final AtomicBoolean noActionClaimed,
+        final AtomicBoolean noActionSucceeded, final AtomicBoolean noActionFailed) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            return CloseDialogInspection.rejected("dirty-save option action must run on EDT");
+        }
+        if (decision == null || decision.outcome() != CloseDialogOutcome.DISMISS_NO
+            || decision.dismissNo() == null) {
+            return CloseDialogInspection.rejected("No dirty-save action is unavailable");
+        }
+        if (noActionClaimed == null || !noActionClaimed.compareAndSet(false, true)) {
+            return CloseDialogInspection.waiting(
+                "dirty-save NO action was already claimed by an earlier inspection");
+        }
+        try {
+            decision.dismissNo().run();
+            if (noActionSucceeded != null) noActionSucceeded.set(true);
+            return CloseDialogInspection.dismissed(
+                decision.diagnostic() + " selected=NO(index=1)");
+        } catch (Throwable failure) {
+            if (noActionFailed != null) noActionFailed.set(true);
+            return CloseDialogInspection.rejected("NO option dispatch failed: "
+                + stackTrace(failure));
+        }
+    }
+
+    /** Test seam for the shared late-inspection No-action gate. Must be invoked on the EDT. */
+    static CloseDialogInspection dismissNoForTest(final CloseDialogDecision decision,
+        final AtomicBoolean coordinatorActive, final AtomicBoolean noActionClaimed) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            return CloseDialogInspection.rejected("dirty-save test action must run on EDT");
+        }
+        if (coordinatorActive == null || !coordinatorActive.get()) {
+            return CloseDialogInspection.waiting("close observation was cancelled");
+        }
+        return applyNoDialogDecision(decision, noActionClaimed, new AtomicBoolean(),
+            new AtomicBoolean());
     }
 
     private static List<CloseDialogSnapshot> visibleCloseDialogs(final Window target) {
@@ -591,14 +634,28 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     if (option == initial) initialIndex = index;
                 }
             }
-            final Runnable dismissNo = options != null && options.length > 1
-                && options[1] instanceof JButton button ? button::doClick : () -> { };
+            final JButton noButton = options != null && options.length > 1
+                && options[1] instanceof JButton button ? button : null;
+            final Runnable dismissNo = noButton == null ? null : () -> {
+                if (!isOperable(noButton)) {
+                    throw new IllegalStateException(
+                        "No option is not enabled/showing/displayable");
+                }
+                noButton.doClick();
+            };
+            final BooleanSupplier dismissNoReady = noButton == null
+                ? () -> false : () -> isOperable(noButton);
             snapshots.add(new CloseDialogSnapshot(componentIdentity(dialog),
                 objectIdentity(dialog.getOwner()), dialog.getOwner() == target,
                 true, true, 1, List.copyOf(classes), List.copyOf(labels), initialIndex,
-                dismissNo));
+                dismissNo, dismissNoReady));
         }
         return snapshots;
+    }
+
+    private static boolean isOperable(final JButton button) {
+        return button != null && button.isEnabled() && button.isShowing()
+            && button.isDisplayable();
     }
 
     private static void collectOptionPanes(final Component component,
@@ -679,10 +736,25 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (!expectedClasses.equals(dialog.optionClassNames())
             || !hostOptionLabel(dialog.optionLabels().get(0), 'Y')
             || !hostOptionLabel(dialog.optionLabels().get(1), 'N')
-            || !hostOptionLabel(dialog.optionLabels().get(2), 'C')
-            || dialog.dismissNo() == null) {
+            || !hostOptionLabel(dialog.optionLabels().get(2), 'C')) {
             return CloseDialogDecision.rejected(
                 "close-associated JOptionPane does not have the verified Yes/No/Cancel options");
+        }
+        if (dialog.dismissNo() == null) {
+            return CloseDialogDecision.rejected(
+                "close-associated JOptionPane has no operable No action");
+        }
+        final boolean noReady;
+        try {
+            noReady = dialog.dismissNoReady() != null && dialog.dismissNoReady().getAsBoolean();
+        } catch (Throwable failure) {
+            return CloseDialogDecision.rejected(
+                "close-associated JOptionPane No-action readiness failed: "
+                    + stackTrace(failure));
+        }
+        if (!noReady) {
+            return CloseDialogDecision.rejected(
+                "close-associated JOptionPane No option is not enabled/showing/displayable");
         }
         return CloseDialogDecision.dismissNo(
             "new dirty-save JOptionPane=" + dialog.dialogIdentity()
@@ -1565,7 +1637,154 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             .filter(raw -> raw.value().equals(target.raw().value()))
             .count()).orElse(0L);
         result.setProperty("relation.sharedRawArtMeshes", Long.toString(shared));
+        bindExactTaskWindow(result, target);
         return target;
+    }
+
+    /**
+     * Binds shutdown to the task document's exact host window for every phase. The SDK document
+     * and fixture checks above establish which document is active; this additional reviewed-table
+     * check proves that the same active window contains the exact ArtMesh domain ID. The Window
+     * object is retained for the whole run, including SAVE_AS, so teardown never re-resolves by a
+     * stale filename, title, or arbitrary visible-window fallback.
+     */
+    private void bindExactTaskWindow(final Properties result, final Target target)
+        throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("task window binding must run off the EDT");
+        }
+        if (target == null || target.artMesh() == null || target.artMesh().id() == null) {
+            throw new Blocked("the task fixture ArtMesh can be bound to one host window",
+                "task target identity is unavailable for window binding");
+        }
+        final String expectedDomainId = target.artMesh().id().value();
+        result.setProperty("exit.targetWindow.bindingStatus", "WAITING");
+        result.setProperty("exit.targetWindow.documentId", result.getProperty("documentId", ""));
+        result.setProperty("exit.targetWindow.modelId", result.getProperty("modelId", ""));
+        result.setProperty("exit.targetWindow.artMesh", expectedDomainId);
+        final long deadline = System.nanoTime()
+            + TimeUnit.MILLISECONDS.toNanos(TASK_WINDOW_BIND_TIMEOUT_MILLIS);
+        int attempts = 0;
+        String lastDiagnostic = "no active reviewed host window has been observed";
+        while (!stopped && System.nanoTime() < deadline) {
+            attempts++;
+            final ReviewedTables reviewed = visibleReviewedTables();
+            result.setProperty("exit.targetWindow.bindingAttempt", Integer.toString(attempts));
+            result.setProperty("exit.targetWindow.candidate", reviewed.windowIdentity());
+            result.setProperty("exit.targetWindow.candidateDiagnostic", reviewed.diagnostic());
+            if (!reviewed.proven() || reviewed.window() == null) {
+                lastDiagnostic = reviewed.diagnostic();
+            } else if (reviewed.tables().isEmpty()) {
+                lastDiagnostic = "active window has no reviewed tree-table yet: "
+                    + reviewed.windowIdentity();
+            } else {
+                final ExactCapture capture = captureExactRows(reviewed.tables(), target,
+                    reviewed.windowIdentity());
+                result.setProperty("exit.targetWindow.targetStatus",
+                    capture.targetStatus().name());
+                result.setProperty("exit.targetWindow.tableDiagnostics",
+                    String.join("\n---\n", capture.tableDiagnostics()));
+                if (!capture.hostAvailable()) {
+                    result.setProperty("exit.targetWindow.bindingStatus", "BLOCKED");
+                    throw new Blocked("the task fixture ArtMesh can be bound to one host window",
+                        "exact host access unavailable for task window binding: "
+                            + capture.diagnostic());
+                }
+                if (capture.targetStatus() == ExactTargetSelectionStatus.AMBIGUOUS
+                    || capture.targetStatus() == ExactTargetSelectionStatus.REJECTED) {
+                    result.setProperty("exit.targetWindow.bindingStatus", "BLOCKED");
+                    throw new Blocked("the task fixture ArtMesh can be bound to one host window",
+                        "exact task window target rejected: " + capture.diagnostic());
+                }
+                if (!capture.rows().isEmpty()) {
+                    final TaskWindowBindingDecision binding = validateTaskWindowBinding(
+                        result.getProperty("fixture.expected", ""),
+                        result.getProperty("fixture.actual", ""),
+                        result.getProperty("documentId", ""), result.getProperty("modelId", ""),
+                        reviewed.windowIdentity(), expectedDomainId,
+                        capture.rows().stream().map(ExactDispatchCapture::captured).toList());
+                    if (!binding.bound()) {
+                        result.setProperty("exit.targetWindow.bindingStatus", "BLOCKED");
+                        throw new Blocked(
+                            "the task fixture ArtMesh can be bound to one host window",
+                            binding.diagnostic());
+                    }
+                    guiBoundWindow = reviewed.window();
+                    result.setProperty("exit.targetWindow.bindingStatus", "BOUND");
+                    result.setProperty("exit.targetWindow.window",
+                        reviewed.windowIdentity());
+                    result.setProperty("exit.targetWindow.windowObject",
+                        objectIdentity(guiBoundWindow));
+                    result.setProperty("exit.targetWindow.entrances",
+                        Integer.toString(capture.rows().size()));
+                    result.setProperty("exit.targetWindow.bindingDiagnostic",
+                        "active task fixture window contains exact ArtMesh entrances: "
+                            + capture.diagnostic());
+                    return;
+                }
+                lastDiagnostic = capture.diagnostic();
+            }
+            final long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) break;
+            Thread.sleep(Math.min(TASK_WINDOW_BIND_POLL_MILLIS,
+                Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining))));
+        }
+        result.setProperty("exit.targetWindow.bindingStatus", stopped ? "STOPPED" : "BLOCKED");
+        final String terminal = stopped ? "task window binding stopped" :
+            "task window binding timed out after " + TASK_WINDOW_BIND_TIMEOUT_MILLIS + "ms";
+        throw new Blocked("the task fixture ArtMesh can be bound to one host window",
+            terminal + "; attempts=" + attempts + " last=" + lastDiagnostic);
+    }
+
+    /**
+     * Validates the evidence that licenses a task-window close. The production caller supplies
+     * rows captured from the exact reviewed table in the active window; this seam also keeps the
+     * fixture/document/domain constraints executable without manufacturing an AWT host window.
+     */
+    private static TaskWindowBindingDecision validateTaskWindowBinding(
+        final String expectedFixture, final String actualFixture, final String documentId,
+        final String modelId, final String windowIdentity, final String expectedDomainId,
+        final List<ExactCapturedRow> rows) {
+        if (expectedFixture == null || expectedFixture.isBlank()
+            || actualFixture == null || actualFixture.isBlank()
+            || !expectedFixture.equals(actualFixture)) {
+            return TaskWindowBindingDecision.rejected(
+                "task fixture identity is not proven for the host window");
+        }
+        if (documentId == null || documentId.isBlank()) {
+            return TaskWindowBindingDecision.rejected(
+                "task document identity is unavailable for the host window");
+        }
+        if (modelId == null || modelId.isBlank()) {
+            return TaskWindowBindingDecision.rejected(
+                "task model identity is unavailable for the host window");
+        }
+        if (windowIdentity == null || windowIdentity.isBlank()) {
+            return TaskWindowBindingDecision.rejected(
+                "host window identity is unavailable for the task document");
+        }
+        if (expectedDomainId == null || expectedDomainId.isBlank()) {
+            return TaskWindowBindingDecision.rejected(
+                "task ArtMesh domain identity is unavailable for the host window");
+        }
+        final ExactTargetSelection selection = selectExactTargetRows(rows, windowIdentity,
+            expectedDomainId);
+        if (!selection.available() || selection.rows().isEmpty()) {
+            return TaskWindowBindingDecision.rejected(
+                "exact task window ArtMesh evidence is unavailable: " + selection.reason());
+        }
+        return TaskWindowBindingDecision.bound(
+            "fixture=" + actualFixture + " document=" + documentId + " model=" + modelId
+                + " window=" + windowIdentity + " domain=" + expectedDomainId
+                + " entrances=" + selection.rows().size());
+    }
+
+    static TaskWindowBindingDecision validateTaskWindowBindingForTest(
+        final String expectedFixture, final String actualFixture, final String documentId,
+        final String modelId, final String windowIdentity, final String expectedDomainId,
+        final List<ExactCapturedRow> rows) {
+        return validateTaskWindowBinding(expectedFixture, actualFixture, documentId, modelId,
+            windowIdentity, expectedDomainId, rows);
     }
 
     private Optional<TextureRelationsSnapshot> relationsOf(final Target target) {
@@ -3537,7 +3756,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Set<String> menuTexts = new LinkedHashSet<>();
         final List<String> rowDiagnostics = new ArrayList<>();
         String diagnostic = "no visible reviewed host tree-table row found";
-        String boundWindowIdentity = "";
+        String boundWindowIdentity = guiBoundWindow == null ? ""
+            : componentIdentity(guiBoundWindow);
         hostAccessByLoader.clear();
         final long deadline = System.currentTimeMillis() + 120_000;
         while (System.currentTimeMillis() < deadline && !stopped) {
@@ -3808,6 +4028,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         SwingUtilities.invokeAndWait(() -> {
             final List<ExactDispatchCapture> rows = new ArrayList<>();
             final List<String> currentDiagnostics = new ArrayList<>(tableDiagnostics);
+            final Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .getActiveWindow();
+            if (active == null || !active.isShowing() || !active.isDisplayable()
+                || !targetWindowIdentity.equals(componentIdentity(active))) {
+                captured.set(new ExactCapture(List.of(), List.copyOf(currentDiagnostics),
+                    "active target window changed before exact row capture; expected="
+                        + targetWindowIdentity + " actual=" + componentIdentity(active), true,
+                    ExactTargetSelectionStatus.NOT_FOUND));
+                return;
+            }
             for (final ExactTableRef table : tables) {
                 final ExactHostRowTarget.HostAccessPreparation preparation =
                     hostAccessByLoader.get(table.modelClass().getClassLoader());
@@ -4719,13 +4949,24 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     static record CloseDialogSnapshot(String dialogIdentity, String ownerIdentity,
         boolean ownerMatchesTarget, boolean showing, boolean displayable, int optionPaneCount,
         List<String> optionClassNames, List<String> optionLabels, int initialOptionIndex,
-        Runnable dismissNo) {
+        Runnable dismissNo, BooleanSupplier dismissNoReady) {
+        CloseDialogSnapshot(final String dialogIdentity, final String ownerIdentity,
+            final boolean ownerMatchesTarget, final boolean showing, final boolean displayable,
+            final int optionPaneCount, final List<String> optionClassNames,
+            final List<String> optionLabels, final int initialOptionIndex,
+            final Runnable dismissNo) {
+            this(dialogIdentity, ownerIdentity, ownerMatchesTarget, showing, displayable,
+                optionPaneCount, optionClassNames, optionLabels, initialOptionIndex, dismissNo,
+                dismissNo == null ? () -> false : () -> true);
+        }
+
         CloseDialogSnapshot {
             dialogIdentity = dialogIdentity == null ? "" : dialogIdentity;
             ownerIdentity = ownerIdentity == null ? "" : ownerIdentity;
             optionClassNames = optionClassNames == null ? List.of()
                 : List.copyOf(optionClassNames);
             optionLabels = optionLabels == null ? List.of() : List.copyOf(optionLabels);
+            dismissNoReady = dismissNoReady == null ? () -> false : dismissNoReady;
         }
     }
 
@@ -4749,7 +4990,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private record CloseDialogInspection(boolean targetGone, boolean dismissedNo,
+    static record CloseDialogInspection(boolean targetGone, boolean dismissedNo,
         boolean rejected, String diagnostic) {
         static CloseDialogInspection targetGone(final String diagnostic) {
             return new CloseDialogInspection(true, false, false, diagnostic);
@@ -6198,6 +6439,20 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
         static GuiWindowBindingDecision unbound(final String diagnostic) {
             return new GuiWindowBindingDecision(false, false, diagnostic);
+        }
+    }
+
+    static record TaskWindowBindingDecision(boolean bound, String diagnostic) {
+        TaskWindowBindingDecision {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static TaskWindowBindingDecision bound(final String diagnostic) {
+            return new TaskWindowBindingDecision(true, diagnostic);
+        }
+
+        static TaskWindowBindingDecision rejected(final String diagnostic) {
+            return new TaskWindowBindingDecision(false, diagnostic);
         }
     }
 
