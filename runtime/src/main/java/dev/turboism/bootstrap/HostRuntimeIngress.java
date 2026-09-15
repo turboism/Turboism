@@ -34,6 +34,14 @@ public final class HostRuntimeIngress implements AutoCloseable {
         this(source -> new HostSession(source, Objects.requireNonNull(effectiveLocale, "effectiveLocale")));
     }
 
+    /**
+     * Production composition with the runtime's shared effective-locale source, so a
+     * host-verified re-resolution after the session's creation is honored downstream.
+     */
+    public HostRuntimeIngress(final java.util.function.Supplier<Locale> effectiveLocale) {
+        this(source -> new HostSession(source, Objects.requireNonNull(effectiveLocale, "effectiveLocale")));
+    }
+
     HostRuntimeIngress(final Function<HostInstanceSource, HostSession> sessionFactory) {
         session = Objects.requireNonNull(sessionFactory, "sessionFactory")
             .apply(() -> closeRequested.get()

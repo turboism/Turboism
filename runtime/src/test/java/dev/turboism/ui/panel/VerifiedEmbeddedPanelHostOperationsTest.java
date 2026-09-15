@@ -70,6 +70,32 @@ class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
+    void renderLocaleIsResolvedLazilyFromTheSuppliedSource() {
+        final java.util.concurrent.atomic.AtomicInteger resolutions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        new VerifiedEmbeddedPanelHostOperations(
+            TestVerifiedResolvers.create(
+                "adapter.editor-ui.embedded-panel",
+                Set.of("cubism.editor-ui.embedded-panel"),
+                List.of(StaticSelector.classSelector(
+                    "cubism.ui-panel.palette-box.class", internal(PaletteBox.class)
+                )),
+                VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
+            ),
+            (pluginId, actionId) -> { },
+            () -> {
+                resolutions.incrementAndGet();
+                return java.util.Locale.ENGLISH;
+            }
+        );
+        assertEquals(
+            0,
+            resolutions.get(),
+            "the render locale must not be resolved at construction"
+        );
+    }
+
+    @Test
     void panelCleanupHidesClosesRemovesWindowEntryAndAlwaysRefreshes() {
         List<String> operations = new ArrayList<>();
 
