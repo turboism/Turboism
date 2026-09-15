@@ -67,6 +67,7 @@ public final class ExternalPsdEditHostProbeTest {
         testGuiReadyTriggerProductionPath();
         testGuiEnableAndEdtAreNonBlocking();
         testGuiWindowBinding();
+        testNativeCloseDialogHandling();
         testBoundedRowDispatches();
         testPopupMarker();
         testPopupAttemptAssociation();
@@ -2091,6 +2092,106 @@ public final class ExternalPsdEditHostProbeTest {
             "", "", false, false);
         assertTrue(!hiddenBeforeBinding.bindNow() && !hiddenBeforeBinding.waitForBoundWindow(),
             "without an established target window no window is selected blindly");
+    }
+
+    private static void testNativeCloseDialogHandling() {
+        final AtomicInteger closeCalls = new AtomicInteger();
+        final var dispatched = ExternalPsdEditHostProbe.dispatchBoundWindowCloseForTest(
+            "bound-window", "bound-window", true, true, closeCalls::incrementAndGet);
+        assertTrue(dispatched.dispatched(), "the exact bound host window receives WINDOW_CLOSING");
+        assertEquals(1, closeCalls.get(), "the native close event is dispatched once");
+        assertContains(dispatched.diagnostic(), "WINDOW_CLOSING",
+            "close diagnostic names the native event");
+
+        final AtomicInteger rejectedCalls = new AtomicInteger();
+        final var wrongWindow = ExternalPsdEditHostProbe.dispatchBoundWindowCloseForTest(
+            "bound-window", "other-window", true, true, rejectedCalls::incrementAndGet);
+        assertTrue(!wrongWindow.dispatched(), "a different window cannot receive the close event");
+        assertEquals(0, rejectedCalls.get(), "cross-window close is not dispatched");
+        final var hiddenWindow = ExternalPsdEditHostProbe.dispatchBoundWindowCloseForTest(
+            "bound-window", "bound-window", false, true, rejectedCalls::incrementAndGet);
+        assertTrue(!hiddenWindow.dispatched(), "a hidden bound window is rejected");
+
+        final AtomicInteger noCalls = new AtomicInteger();
+        final var noDialog = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of(), List.of());
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.NO_DIALOG,
+            noDialog.outcome(), "no dialog permits the host's natural close path");
+
+        final var oldDialog = closeDialog("old-dialog", "bound-window", true, noCalls);
+        final var newDialog = closeDialog("new-dialog", "bound-window", true, noCalls);
+        final var associated = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of("old-dialog"), List.of(newDialog));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.DISMISS_NO,
+            associated.outcome(), "only a new dialog from this close is eligible");
+        associated.dismissNo().run();
+        assertEquals(1, noCalls.get(), "the exact no-save option is selected once");
+
+        final var crossWindow = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of(), List.of(
+                closeDialog("cross-window", "other-window", false, new AtomicInteger())));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            crossWindow.outcome(), "a dialog from another window is rejected");
+        assertContains(crossWindow.diagnostic(), "owner",
+            "cross-window dialog rejection records its owner");
+        final var mismatchedOwnerEvidence = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of(), List.of(
+                closeDialog("mismatched-owner", "other-window", true, new AtomicInteger())));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            mismatchedOwnerEvidence.outcome(), "inconsistent owner evidence is rejected");
+
+        final var multiple = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of(), List.of(
+                closeDialog("dialog-a", "bound-window", true, new AtomicInteger()),
+                closeDialog("dialog-b", "bound-window", true, new AtomicInteger())));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            multiple.outcome(), "multiple close dialogs are rejected");
+        assertContains(multiple.diagnostic(), "multiple",
+            "multiple dialog rejection is explicit");
+
+        final var unknown = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "unknown-dialog", "bound-window", true, true, true, 1,
+                List.of("javax.swing.JButton", "javax.swing.JButton"),
+                List.of("Yes (Y)", "No (N)"), 0, () -> { })));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            unknown.outcome(), "unknown option semantics are rejected");
+        assertContains(unknown.diagnostic(), "options",
+            "unknown option rejection explains the missing exact shape");
+
+        final var missingNoAction = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "missing-no-action", "bound-window", true, true, true, 1,
+                List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
+                List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, null)));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            missingNoAction.outcome(), "a verified shape without a No action is rejected");
+
+        final String watchdog = ExternalPsdEditHostProbe.exitThreadDiagnosticForTest();
+        assertTrue(watchdog.length() <= ExternalPsdEditHostProbe.EXIT_DIAGNOSTIC_MAX_CHARS,
+            "exit watchdog diagnostics have a hard output bound");
+        assertContains(watchdog, "JVM exit watchdog", "exit watchdog records its bounded purpose");
+
+        final var preExisting = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of("old-dialog"), List.of(oldDialog));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            preExisting.outcome(), "a pre-existing owner dialog is not treated as this close");
+
+        final Properties state = new Properties();
+        state.setProperty("gui.after.diagnostic", "auto-import not attempted");
+        ExternalPsdEditHostProbe.recordGuiTargetState(state, "after",
+            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding", 7L, "raw", true, ""));
+        assertTrue(!state.containsKey("gui.after.diagnostic"),
+            "a successful target observation clears the stale diagnostic placeholder");
+    }
+
+    private static ExternalPsdEditHostProbe.CloseDialogSnapshot closeDialog(
+        final String dialog, final String owner, final boolean ownerMatches,
+        final AtomicInteger noCalls) {
+        return new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            dialog, owner, ownerMatches, true, true, 1,
+            List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
+            List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, noCalls::incrementAndGet);
     }
 
     private static void restoreProperty(final String name, final String value) {
