@@ -30,6 +30,19 @@ import socket
 SCHEMA = 1
 TERMINAL = frozenset({"succeeded", "failed", "cancelled", "timed_out", "blocked"})
 ACTIVE = frozenset({"starting", "running", "cleaning", "recovering", "quarantined"})
+READ_ONLY_CONNECT_TIMEOUT_SECONDS = 0.0
+_READ_LOCK_RESULT_CODES = frozenset({
+    getattr(sqlite3, "SQLITE_BUSY", 5),
+    getattr(sqlite3, "SQLITE_LOCKED", 6),
+    getattr(sqlite3, "SQLITE_PROTOCOL", 15),
+})
+_READ_LOCK_MESSAGES = frozenset({
+    "database is busy",
+    "database is locked",
+    "database schema is locked",
+    "database table is locked",
+    "locking protocol",
+})
 
 
 class QueueError(RuntimeError):
@@ -334,6 +347,59 @@ class Store:
             rows = db.execute("""SELECT * FROM events WHERE event_id>? AND (? IS NULL OR job_id=?)
                                ORDER BY event_id LIMIT 1000""", (after, job_id, job_id)).fetchall()
             return [{**dict(row), "payload": json.loads(row["payload"])} for row in rows]
+
+
+def _read_only_database_uri(database: Path) -> str:
+    path = Path(database).absolute()
+    if path.is_symlink():
+        raise QueueError("queue database must not be a symlink")
+    try:
+        info = path.stat()
+    except FileNotFoundError as failure:
+        raise QueueError("queue database does not exist") from failure
+    except OSError as failure:
+        raise QueueError("cannot inspect queue database") from failure
+    if not stat.S_ISREG(info.st_mode):
+        raise QueueError("queue database must be a regular file")
+    return path.as_uri() + "?mode=ro"
+
+
+@contextlib.contextmanager
+def read_only_connection(database: Path, *, connect=sqlite3.connect) -> Iterator[sqlite3.Connection]:
+    """Open an existing queue database without running queue initialization."""
+    uri = _read_only_database_uri(database)
+    db = None
+    try:
+        db = connect(uri, uri=True, timeout=READ_ONLY_CONNECT_TIMEOUT_SECONDS,
+                     isolation_level=None)
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA query_only=ON")
+        yield db
+    finally:
+        if db is not None:
+            db.close()
+
+
+def read_only_job(database: Path, job_id: str, *, connect=sqlite3.connect) -> dict[str, Any]:
+    """Read one job for a client waiter; never create or initialize its database."""
+    with read_only_connection(database, connect=connect) as db:
+        version = db.execute("SELECT version FROM metadata").fetchone()
+        if version is None or version[0] != SCHEMA:
+            raise QueueError("unsupported queue schema; migration required")
+        row = db.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+        if row is None:
+            raise QueueError("unknown job id")
+        return dict(row)
+
+
+def is_retryable_read_error(error: BaseException) -> bool:
+    """Recognize only SQLite's explicit transient lock/protocol outcomes."""
+    if not isinstance(error, sqlite3.Error):
+        return False
+    code = getattr(error, "sqlite_errorcode", None)
+    if isinstance(code, int):
+        return (code & 0xFF) in _READ_LOCK_RESULT_CODES
+    return str(error).strip().casefold() in _READ_LOCK_MESSAGES
 
 
 INPUT_FLAGS = frozenset({"--bundle-root", "--agent", "--home-config", "--fixture-local",
