@@ -1,5 +1,7 @@
 package dev.turboism.shell;
 
+import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
+import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsActionHandle;
 import dev.turboism.sdk.ui.settings.SettingsActionProgress;
@@ -184,7 +186,7 @@ final class CubismJvmSettingsContribution {
         );
     }
 
-    /** Small footer note on the Performance tab; no binding, display only. */
+    /** Small header note on the Performance tab; no binding, display only. */
     static SettingsContribution createPerformanceNote(final PluginLocalization i18n) {
         Objects.requireNonNull(i18n, "i18n");
         return new SettingsContribution(
@@ -194,10 +196,82 @@ final class CubismJvmSettingsContribution {
                 i18n.text("settings.tab.performance"),
                 OptionalInt.of(200)
             ),
-            OptionalInt.of(130),
+            OptionalInt.of(60),
             new SettingsControl.Note(
                 "performance-restart-note",
                 i18n.text("settings.performance.restart-note")
+            )
+        );
+    }
+
+    /**
+     * Launch-time preference toggles for the verified model-update
+     * optimizations. Both are on by default; the writer persists the
+     * launcher preference (next launch emits the {@code -D...=false}
+     * opt-out) and flips the process system property so an installed
+     * hook also stops live.
+     */
+    static SettingsContribution createModelUpdateSkipToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "model-update-skip",
+            "settings.optimization.model-update-skip",
+            ModelUpdateSkipBridge.ENABLE_PROPERTY,
+            settings::modelUpdateSkip,
+            settings::saveModelUpdateSkip,
+            80
+        );
+    }
+
+    static SettingsContribution createIncrementalUpdateToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "incremental-update",
+            "settings.optimization.incremental-update",
+            IncrementalUpdateBridge.ENABLE_PROPERTY,
+            settings::incrementalUpdate,
+            settings::saveIncrementalUpdate,
+            81
+        );
+    }
+
+    private static SettingsContribution createOptimizationToggle(
+        final PluginLocalization i18n,
+        final String id,
+        final String labelKey,
+        final String enableProperty,
+        final java.util.function.BooleanSupplier getter,
+        final java.util.function.Function<Boolean, Boolean> setter,
+        final int index
+    ) {
+        Objects.requireNonNull(i18n, "i18n");
+        return new SettingsContribution(
+            id,
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(index),
+            new SettingsControl.Toggle(
+                id,
+                i18n.text(labelKey),
+                SettingsBinding.of(
+                    getter::getAsBoolean,
+                    value -> {
+                        setter.apply(value);
+                        if (value) System.clearProperty(enableProperty);
+                        else System.setProperty(enableProperty, "false");
+                    }
+                )
             )
         );
     }

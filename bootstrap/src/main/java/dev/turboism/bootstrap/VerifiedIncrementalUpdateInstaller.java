@@ -41,7 +41,7 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
 
     static boolean admitted(final HostArtifactDigest digest, final RuntimeStartupConfig config,
                             final boolean requested, final int jvm) {
-        return requested && jvm == 17 && config.hookEnabled(HOOK_ID)
+        return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
             && IncrementalUpdateTarget.of(digest).isPresent();
     }
 
@@ -51,8 +51,8 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         target = IncrementalUpdateTarget.of(HostArtifactDigest.from(artifact))
             .orElseThrow(() -> new IllegalArgumentException(
                 "incremental update unsupported host artifact"));
-        if (Runtime.version().feature() != 17) {
-            throw new IllegalArgumentException("incremental update requires exact JVM17");
+        if (Runtime.version().feature() < 17) {
+            throw new IllegalArgumentException("incremental update requires JVM17+");
         }
         this.instrumentation = instrumentation;
         if (!instrumentation.isRetransformClassesSupported()) {
