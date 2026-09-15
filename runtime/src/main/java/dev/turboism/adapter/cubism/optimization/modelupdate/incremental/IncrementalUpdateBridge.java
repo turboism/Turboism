@@ -47,7 +47,7 @@ import java.util.function.Supplier;
  */
 public final class IncrementalUpdateBridge implements AutoCloseable {
 
-    /** Default-off request and live disable switch, re-read every frame. */
+    /** Opt-out disable switch (enabled unless set to {@code false}), re-read every frame. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.incrementalUpdate";
     /** Slot for the {@code Consumer<Object>} update-core entry callback ({model, ctx}). */
     public static final String BEGIN_PROPERTY = "turboism.incremental-update.begin";
@@ -263,8 +263,17 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         }
     }
 
+    /** The optimization is enabled unless the property is set to {@code false}. */
+    public static boolean flagEnabled() {
+        try {
+            return !"false".equalsIgnoreCase(System.getProperty(ENABLE_PROPERTY));
+        } catch (SecurityException denied) {
+            return false;
+        }
+    }
+
     private boolean enabled() {
-        return active.get() && Boolean.getBoolean(ENABLE_PROPERTY);
+        return active.get() && flagEnabled();
     }
 
     /**
