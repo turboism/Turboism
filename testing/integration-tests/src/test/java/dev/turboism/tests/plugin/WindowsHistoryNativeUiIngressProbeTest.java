@@ -1549,7 +1549,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final AtomicInteger guardChecks = new AtomicInteger();
         final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
             trackingPartGestureInput(
-                surface, target, sourceMoves, pressCount, releaseCount, Set.of(1, 2)
+                surface, target, sourceMoves, pressCount, releaseCount, Set.of(1, 2), true
             );
 
         final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
@@ -1608,6 +1608,31 @@ class WindowsHistoryNativeUiIngressProbeTest {
         assertEquals(source.y, moved.get(0).get("screen").get("y").asInt());
         assertEquals(source.x, moved.get(1).get("screen").get("x").asInt());
         assertEquals(source.y, moved.get(1).get("screen").get("y").asInt());
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture boundaryCapture =
+            new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(
+                surface.layout(), "sdk-source", "sdk-target");
+        SwingUtilities.invokeAndWait(() -> {
+            boundaryCapture.beginPointerAttempt(1, 1_000L);
+            boundaryCapture.beginPointerAttempt(2, 2_000L);
+            boundaryCapture.recordMouseEventForTest(
+                "mouse-moved",
+                mouse(
+                    surface.table(), MouseEvent.MOUSE_MOVED,
+                    surface.layout().source().localPoint(), 2_000L
+                )
+            );
+        });
+        final JsonNode boundaryMotion =
+            evidenceForPhase(boundaryCapture.evidence(), "mouse-moved").get(0);
+        assertFalse(boundaryMotion.has("attempt"));
+        assertTrue(boundaryMotion.get("observedAttempt").isNull());
+        assertEquals(2, boundaryMotion.get("currentAttempt").asInt());
+        assertEquals("window-boundary-uncertain", boundaryMotion.get("motionAdmission").asText());
+        assertFalse(boundaryMotion.get("firstForAttempt").asBoolean());
+        assertEquals("callback-window-only", boundaryMotion.get("correlation").asText());
+        assertEquals(2_000L, boundaryMotion.get("eventWhenMillis").asLong());
+        assertEquals(2, boundaryMotion.get("boundaryAttemptWindows").size());
     }
 
     @Test
@@ -2989,8 +3014,23 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final int[] releaseCount,
         final Set<Integer> mouseMovedAttempts
     ) {
+        return trackingPartGestureInput(
+            surface, target, sourceMoves, pressCount, releaseCount, mouseMovedAttempts, false
+        );
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.PartGestureInput trackingPartGestureInput(
+        final SwingPartSurface surface,
+        final Point target,
+        final List<Point> sourceMoves,
+        final int[] pressCount,
+        final int[] releaseCount,
+        final Set<Integer> mouseMovedAttempts,
+        final boolean delayFirstMouseMoved
+    ) {
         final boolean[] pressed = {false};
         final Point sourceEvent = new Point(surface.layout().source().localPoint());
+        final MouseEvent[] delayedAttemptOneEvent = {null};
         return new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
             @Override
             public void mouseMove(final int x, final int y) throws Exception {
@@ -2998,7 +3038,22 @@ class WindowsHistoryNativeUiIngressProbeTest {
                     final int attempt = sourceMoves.size() + 1;
                     sourceMoves.add(new Point(x, y));
                     if (mouseMovedAttempts.contains(attempt)) {
-                        dispatchMouseEvent(surface.table(), MouseEvent.MOUSE_MOVED, sourceEvent);
+                        if (delayFirstMouseMoved && attempt == 1) {
+                            delayedAttemptOneEvent[0] = mouse(
+                                surface.table(), MouseEvent.MOUSE_MOVED, sourceEvent,
+                                System.currentTimeMillis() + 1L
+                            );
+                        } else if (delayFirstMouseMoved && attempt == 2) {
+                            dispatchMouseEvent(surface.table(), delayedAttemptOneEvent[0]);
+                            dispatchMouseEvent(
+                                surface.table(), MouseEvent.MOUSE_MOVED, sourceEvent,
+                                System.currentTimeMillis() + 1_000L
+                            );
+                        } else {
+                            dispatchMouseEvent(
+                                surface.table(), MouseEvent.MOUSE_MOVED, sourceEvent
+                            );
+                        }
                     }
                 } else {
                     dispatchMouseEvent(
@@ -3008,7 +3063,10 @@ class WindowsHistoryNativeUiIngressProbeTest {
             }
 
             @Override
-            public void pause(final long millis) {
+            public void pause(final long millis) throws Exception {
+                if (delayFirstMouseMoved && !pressed[0] && sourceMoves.size() == 1) {
+                    Thread.sleep(5L);
+                }
             }
 
             @Override
@@ -3072,8 +3130,15 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt,
         final String phase
     ) throws Exception {
+        return evidenceForPhase(attempt.evidence(), phase);
+    }
+
+    private static List<JsonNode> evidenceForPhase(
+        final List<String> evidence,
+        final String phase
+    ) throws Exception {
         final java.util.ArrayList<JsonNode> result = new java.util.ArrayList<>();
-        for (final String line : attempt.evidence()) {
+        for (final String line : evidence) {
             final JsonNode node = JSON.readTree(line);
             if (node != null && phase.equals(node.path("phase").asText())) result.add(node);
         }
@@ -3096,7 +3161,23 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final int type,
         final Point point
     ) throws Exception {
-        SwingUtilities.invokeAndWait(() -> table.dispatchEvent(mouse(table, type, point)));
+        dispatchMouseEvent(table, mouse(table, type, point));
+    }
+
+    private static void dispatchMouseEvent(
+        final JTable table,
+        final int type,
+        final Point point,
+        final long when
+    ) throws Exception {
+        dispatchMouseEvent(table, mouse(table, type, point, when));
+    }
+
+    private static void dispatchMouseEvent(
+        final JTable table,
+        final MouseEvent event
+    ) throws Exception {
+        SwingUtilities.invokeAndWait(() -> table.dispatchEvent(event));
     }
 
     private static MouseEvent mouse(
@@ -3104,10 +3185,19 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final int type,
         final Point point
     ) {
+        return mouse(source, type, point, System.currentTimeMillis() + 1L);
+    }
+
+    private static MouseEvent mouse(
+        final Component source,
+        final int type,
+        final Point point,
+        final long when
+    ) {
         return new MouseEvent(
             source,
             type,
-            System.currentTimeMillis(),
+            when,
             InputEvent.BUTTON1_DOWN_MASK,
             point.x,
             point.y,

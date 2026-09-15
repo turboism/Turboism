@@ -1336,6 +1336,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static PartPointerEvidence readPointer(
         final int attempt,
         final String phase,
+        final long commandStartMillis,
         final Point commandedPoint,
         final PartPointerReadback pointerReadback
     ) {
@@ -1345,20 +1346,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final Point readbackPoint = pointerReadback.read();
             if (readbackPoint == null) {
                 return new PartPointerEvidence(
-                    phase, attempt, monotonicNanos, thread, commandedPoint, null,
+                    phase, attempt, commandStartMillis, monotonicNanos, thread, commandedPoint, null,
                     "UNAVAILABLE", "null-pointer-info"
                 );
             }
             final Point copy = new Point(readbackPoint);
             final boolean matches = commandedPoint != null && commandedPoint.equals(copy);
             return new PartPointerEvidence(
-                phase, attempt, monotonicNanos, thread, commandedPoint, copy,
+                phase, attempt, commandStartMillis, monotonicNanos, thread, commandedPoint, copy,
                 matches ? "MATCH" : "MISMATCH",
                 matches ? "" : "commanded-point-diff"
             );
         } catch (Exception failure) {
             return new PartPointerEvidence(
-                phase, attempt, monotonicNanos, thread, commandedPoint, null,
+                phase, attempt, commandStartMillis, monotonicNanos, thread, commandedPoint, null,
                 "UNAVAILABLE", "exception:" + failure.getClass().getSimpleName()
             );
         }
@@ -1431,17 +1432,22 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 );
             }
             int matchedAttempt = 0;
+            long matchedAttemptStartMillis = 0L;
             for (int attempt = 1; attempt <= MAX_PART_POINTER_ATTEMPTS; attempt++) {
-                capture.beginPointerAttempt(attempt);
-                capture.recordPointer(PartPointerEvidence.command(attempt, source));
+                final long commandStartMillis = System.currentTimeMillis();
+                capture.beginPointerAttempt(attempt, commandStartMillis);
+                capture.recordPointer(PartPointerEvidence.command(
+                    attempt, commandStartMillis, source
+                ));
                 input.mouseMove(source.x, source.y);
                 input.pause(120L);
                 final PartPointerEvidence afterMove = readPointer(
-                    attempt, "after-move-pointer", source, pointerReadback
+                    attempt, "after-move-pointer", commandStartMillis, source, pointerReadback
                 );
                 capture.recordPointer(afterMove);
                 if ("MATCH".equals(afterMove.outcome())) {
                     matchedAttempt = attempt;
+                    matchedAttemptStartMillis = commandStartMillis;
                     break;
                 }
                 if ("UNAVAILABLE".equals(afterMove.outcome())) {
@@ -1498,7 +1504,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
 
             final PartPointerEvidence beforePress = readPointer(
-                matchedAttempt, "before-press-pointer", source, pointerReadback
+                matchedAttempt, "before-press-pointer", matchedAttemptStartMillis,
+                source, pointerReadback
             );
             capture.recordPointer(beforePress);
             if (beforePress.failureCode() != null) {
@@ -6322,6 +6329,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     record PartPointerEvidence(
         String phase,
         int attempt,
+        long commandStartMillis,
         long monotonicNanos,
         String thread,
         Point commandedPoint,
@@ -6351,15 +6359,40 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final String reason
         ) {
             this(
-                phase, 1, monotonicNanos, thread, commandedPoint, readbackPoint, outcome, reason
+                phase, 1, System.currentTimeMillis(), monotonicNanos, thread,
+                commandedPoint, readbackPoint, outcome, reason
+            );
+        }
+
+        PartPointerEvidence(
+            final String phase,
+            final int attempt,
+            final long monotonicNanos,
+            final String thread,
+            final Point commandedPoint,
+            final Point readbackPoint,
+            final String outcome,
+            final String reason
+        ) {
+            this(
+                phase, attempt, System.currentTimeMillis(), monotonicNanos, thread,
+                commandedPoint, readbackPoint, outcome, reason
+            );
+        }
+
+        static PartPointerEvidence command(
+            final int attempt,
+            final long commandStartMillis,
+            final Point point
+        ) {
+            return new PartPointerEvidence(
+                "source-command", attempt, commandStartMillis, System.nanoTime(),
+                Thread.currentThread().getName(), point, null, "COMMANDED", ""
             );
         }
 
         static PartPointerEvidence command(final int attempt, final Point point) {
-            return new PartPointerEvidence(
-                "source-command", attempt, System.nanoTime(), Thread.currentThread().getName(),
-                point, null, "COMMANDED", ""
-            );
+            return command(attempt, System.currentTimeMillis(), point);
         }
 
         static PartPointerEvidence command(final Point point) {
@@ -6378,6 +6411,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             return "{\"type\":\"part-pointer\",\"phase\":\""
                 + WindowsHistoryNativeUiIngressProbe.json(phase)
                 + "\",\"attempt\":" + attempt
+                + ",\"commandStartMillis\":" + commandStartMillis
                 + ",\"monotonicNanos\":" + monotonicNanos
                 + ",\"thread\":\""
                 + WindowsHistoryNativeUiIngressProbe.json(thread)
@@ -6457,6 +6491,36 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
     }
 
+    private record PointerAttemptWindow(int attempt, long startMillis, Long endMillis) {
+        PointerAttemptWindow {
+            if (attempt < 1 || attempt > MAX_PART_POINTER_ATTEMPTS) {
+                throw new IllegalArgumentException("pointer attempt out of bounds: " + attempt);
+            }
+        }
+
+        PointerAttemptWindow closedAt(final long endMillis) {
+            return new PointerAttemptWindow(attempt, startMillis, endMillis);
+        }
+    }
+
+    private record MouseMovedAttribution(
+        Integer observedAttempt,
+        int currentAttempt,
+        PointerAttemptWindow observedWindow,
+        PointerAttemptWindow currentWindow,
+        List<PointerAttemptWindow> boundaryWindows,
+        String admission,
+        boolean firstForAttempt
+    ) {
+        MouseMovedAttribution {
+            if (currentAttempt < 0 || currentAttempt > MAX_PART_POINTER_ATTEMPTS) {
+                throw new IllegalArgumentException("current pointer attempt out of bounds: " + currentAttempt);
+            }
+            boundaryWindows = boundaryWindows == null ? List.of() : List.copyOf(boundaryWindows);
+            admission = boundedText(admission, MAX_PART_GESTURE_TEXT_LENGTH);
+        }
+    }
+
     /**
      * Temporary, non-consuming evidence listener for one Parts gesture. It is deliberately not a
      * global AWT listener: only the discovered JTable and its extracted JTree are observed, and
@@ -6469,6 +6533,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         private final List<PartGestureEvent> events = new ArrayList<>();
         private final List<String> evidence = new ArrayList<>();
         private final Map<Integer, PartGestureEvent> firstMouseMovedByAttempt = new LinkedHashMap<>();
+        private final Map<Integer, PointerAttemptWindow> pointerAttemptWindows =
+            new LinkedHashMap<>();
         private int pointerAttempt;
         private final MouseAdapter listener = new MouseAdapter() {
             @Override
@@ -6517,11 +6583,22 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         }
 
         void beginPointerAttempt(final int attempt) {
+            beginPointerAttempt(attempt, System.currentTimeMillis());
+        }
+
+        void beginPointerAttempt(final int attempt, final long commandStartMillis) {
             if (attempt < 1 || attempt > MAX_PART_POINTER_ATTEMPTS) {
                 throw new IllegalArgumentException("pointer attempt out of bounds: " + attempt);
             }
             synchronized (events) {
+                final PointerAttemptWindow previous = pointerAttemptWindows.get(pointerAttempt);
+                if (previous != null && previous.endMillis() == null) {
+                    pointerAttemptWindows.put(pointerAttempt, previous.closedAt(commandStartMillis));
+                }
                 pointerAttempt = attempt;
+                pointerAttemptWindows.put(
+                    attempt, new PointerAttemptWindow(attempt, commandStartMillis, null)
+                );
             }
         }
 
@@ -6627,15 +6704,57 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         private void recordMouseMovedOnce(final MouseEvent event) {
             if (event == null) return;
             synchronized (events) {
-                if (pointerAttempt < 1 || firstMouseMovedByAttempt.containsKey(pointerAttempt)) {
+                final MouseMovedAttribution attribution = mouseMovedAttribution(event.getWhen());
+                final PartGestureEvent firstMouseMoved = describe("mouse-moved", event);
+                if (attribution.observedAttempt() == null) {
+                    addEvidence(firstMouseMoved.json(
+                        layout, intendedSourceId, intendedTargetId, attribution
+                    ));
                     return;
                 }
-                final PartGestureEvent firstMouseMoved = describe("mouse-moved", event);
-                firstMouseMovedByAttempt.put(pointerAttempt, firstMouseMoved);
+                if (firstMouseMovedByAttempt.containsKey(attribution.observedAttempt())) return;
+                firstMouseMovedByAttempt.put(attribution.observedAttempt(), firstMouseMoved);
                 addEvidence(firstMouseMoved.json(
-                    layout, intendedSourceId, intendedTargetId, pointerAttempt
+                    layout, intendedSourceId, intendedTargetId, attribution
                 ));
             }
+        }
+
+        private MouseMovedAttribution mouseMovedAttribution(final long eventWhenMillis) {
+            final PointerAttemptWindow currentWindow = pointerAttemptWindows.get(pointerAttempt);
+            final List<PointerAttemptWindow> containing = new ArrayList<>();
+            final List<PointerAttemptWindow> boundary = new ArrayList<>();
+            for (final PointerAttemptWindow window : pointerAttemptWindows.values()) {
+                final boolean atStart = eventWhenMillis == window.startMillis();
+                final boolean atEnd = window.endMillis() != null
+                    && eventWhenMillis == window.endMillis();
+                if (atStart || atEnd) boundary.add(window);
+                if (eventWhenMillis > window.startMillis()
+                    && (window.endMillis() == null || eventWhenMillis < window.endMillis())) {
+                    containing.add(window);
+                }
+            }
+            if (!boundary.isEmpty() || containing.size() != 1) {
+                return new MouseMovedAttribution(
+                    null,
+                    pointerAttempt,
+                    null,
+                    currentWindow,
+                    boundary,
+                    boundary.isEmpty() ? "outside-attempt-window" : "window-boundary-uncertain",
+                    false
+                );
+            }
+            final PointerAttemptWindow observedWindow = containing.get(0);
+            return new MouseMovedAttribution(
+                observedWindow.attempt(),
+                pointerAttempt,
+                observedWindow,
+                currentWindow,
+                List.of(),
+                "within-attempt-window",
+                true
+            );
         }
 
         private void record(final String phase, final MouseEvent event) {
@@ -6694,6 +6813,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 Thread.currentThread().getName(),
                 source,
                 sourceModel,
+                event.getWhen(),
                 row,
                 column,
                 path,
@@ -6723,6 +6843,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         String thread,
         Component source,
         Object sourceModel,
+        long eventWhenMillis,
         int row,
         int column,
         TreePath path,
@@ -6751,7 +6872,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             final String intendedSourceId,
             final String intendedTargetId
         ) {
-            return json(layout, intendedSourceId, intendedTargetId, "");
+            return jsonWithFields(layout, intendedSourceId, intendedTargetId, "", null);
         }
 
         String json(
@@ -6763,16 +6884,33 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (attempt < 1 || attempt > MAX_PART_POINTER_ATTEMPTS) {
                 throw new IllegalArgumentException("pointer attempt out of bounds: " + attempt);
             }
-            return json(
-                layout, intendedSourceId, intendedTargetId, ",\"attempt\":" + attempt
+            return jsonWithFields(
+                layout, intendedSourceId, intendedTargetId, ",\"attempt\":" + attempt, null
             );
         }
 
-        private String json(
+        String json(
             final PartPairLayout layout,
             final String intendedSourceId,
             final String intendedTargetId,
-            final String attemptField
+            final MouseMovedAttribution attribution
+        ) {
+            Objects.requireNonNull(attribution, "attribution");
+            final Integer observedAttempt = attribution.observedAttempt();
+            final String attemptField = observedAttempt == null
+                ? ""
+                : ",\"attempt\":" + observedAttempt;
+            return jsonWithFields(
+                layout, intendedSourceId, intendedTargetId, attemptField, attribution
+            );
+        }
+
+        private String jsonWithFields(
+            final PartPairLayout layout,
+            final String intendedSourceId,
+            final String intendedTargetId,
+            final String attemptField,
+            final MouseMovedAttribution attribution
         ) {
             final JTree tree = layout.tree();
             return "{\"type\":\"part-gesture\",\"phase\":\""
@@ -6808,7 +6946,27 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 + ",\"screen\":" + pointJson(screen)
                 + ",\"cell\":" + rectangleJson(cell)
                 + ",\"viewport\":" + rectangleJson(viewport)
+                + ",\"eventWhenMillis\":" + eventWhenMillis
+                + motionEvidenceJson(attribution)
                 + "}\n";
+        }
+
+        private String motionEvidenceJson(final MouseMovedAttribution attribution) {
+            if (attribution == null) return "";
+            final Integer observedAttempt = attribution.observedAttempt();
+            return ",\"observedAttempt\":"
+                + (observedAttempt == null ? "null" : observedAttempt)
+                + ",\"currentAttempt\":" + attribution.currentAttempt()
+                + ",\"observedAttemptWindow\":"
+                + pointerAttemptWindowJson(attribution.observedWindow())
+                + ",\"currentAttemptWindow\":"
+                + pointerAttemptWindowJson(attribution.currentWindow())
+                + ",\"boundaryAttemptWindows\":"
+                + pointerAttemptWindowsJson(attribution.boundaryWindows())
+                + ",\"motionAdmission\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(attribution.admission())
+                + "\",\"firstForAttempt\":" + attribution.firstForAttempt()
+                + ",\"correlation\":\"callback-window-only\"";
         }
     }
 
@@ -6971,6 +7129,27 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
     private static String pointJson(final Point point) {
         return point == null ? "null" : "{\"x\":" + point.x + ",\"y\":" + point.y + "}";
+    }
+
+    private static String pointerAttemptWindowJson(final PointerAttemptWindow window) {
+        if (window == null) return "null";
+        return "{\"attempt\":" + window.attempt()
+            + ",\"startMillis\":" + window.startMillis()
+            + ",\"endMillis\":"
+            + (window.endMillis() == null ? "null" : window.endMillis())
+            + "}";
+    }
+
+    private static String pointerAttemptWindowsJson(
+        final List<PointerAttemptWindow> windows
+    ) {
+        if (windows == null || windows.isEmpty()) return "[]";
+        final StringBuilder json = new StringBuilder("[");
+        for (int index = 0; index < windows.size(); index++) {
+            if (index > 0) json.append(',');
+            json.append(pointerAttemptWindowJson(windows.get(index)));
+        }
+        return json.append(']').toString();
     }
 
     private static String rectangleJson(final Rectangle rectangle) {
