@@ -23,7 +23,9 @@ GUI phase has no pixel-parser dependency.
 5. `observeSaves`; assert the baseline revision is not replayed.
 6. `openInDefaultApplication` — with the task-scoped `.psd → notepad.exe` association the
    pre-launch hook installs into the cloned prefix's `system.reg`, `OPENED` is expected;
-   the golden prefix and real OS associations are never touched.
+   the golden prefix and real OS associations are never touched. The association proves only
+   task-prefix launch configuration; it does not provide a PID or window handle for one external
+   editor instance.
 7. N save cycles (default 3; `-Dturboism.validation.externalpsd.cycles=`): structural
    layer-name mutation → stable revision → `replaceRawImagePsd` → `APPLIED` with consumed
    revision and post-native `after` observation. In persistence mode only, the final valid
@@ -122,7 +124,16 @@ handshake would need an explicitly reviewed, task-local client protocol that ver
 readiness/failure markers and creates a separate probe trigger; until that dependency is
 admitted, no pre-trigger hook-success claim is made.
 
-The probe first requires an AWT active, showing, displayable target window and scans reviewed
+Before every phase operation, `resolveTarget` binds the task fixture/document to the first AWT
+active, showing, displayable window that contains a reviewed table row for the exact resolved
+ArtMesh domain ID. It uses the same exact `j.a`/`j.b` host accessor chain and window-local family
+selection as the GUI path. This binding is required for `pipeline`, `reopen`, and `gui`; an
+unproven or unavailable binding ends the phase `BLOCKED` after a bounded wait. The bound `Window`
+object is retained through the phase, including a persistence `SAVE_AS`, so shutdown does not
+re-resolve by an old filename, title, or arbitrary visible window. The probe records
+`exit.targetWindow.*` evidence for the fixture/document/model/domain binding.
+
+The GUI path then requires an AWT active, showing, displayable target window and scans reviewed
 tables in that window only; a window that cannot be proven active is rejected, and another
 window is never a fallback. Once the first reviewed window containing the exact target is
 matched, its identity remains bound for the GUI session. If focus moves elsewhere, the probe
@@ -250,11 +261,16 @@ Result file: `state/dev.turboism.validation.externalpsd/external-psd-edit-result
 under the isolated Turboism home. Terminal status is `status=PASS|FAIL|BLOCKED`; the probe
 never rewrites a FAIL or BLOCKED into PASS.
 
-Shutdown: after writing the result the GUI phase posts `WINDOW_CLOSING` only to the first exact
-host window bound to the verified ArtMesh target. The probe recognizes only a newly-created
+Shutdown: after writing the result the probe posts `WINDOW_CLOSING` only to the exact task window
+bound during target resolution (the GUI path retains that same binding). The probe recognizes only a newly-created
 `JOptionPane` owned by that same window whose verified host shape is `[Yes (Y), No (N),
 Cancel (C)]`, and clicks `No` (index 1) so the task copy is not saved. Unknown, pre-existing,
-multiple, or cross-window dialogs are rejected. Pipeline/reopen phases without an exact GUI
-window binding leave teardown to the shared Supervisor. The exit watchdog writes a bounded
-thread diagnostic only; it never kills the JVM or substitutes for Supervisor cleanup. Result
-write failures and close failures are logged separately.
+multiple, or cross-window dialogs are rejected. The No action is claimed once per close session
+by a shared atomic gate; the option must be enabled, showing, and displayable both when observed
+and immediately before `doClick`, and a failed action is not reported as dismissed. If exact
+binding or native close cannot be proven, the phase remains `BLOCKED`/exit failure and cleanup
+belongs to the shared Supervisor. The task-prefix `.psd` association has no PID or native window
+handle ownership relation for the detached default application, so the probe does not close or
+kill that external process; the task-scoped Supervisor owns its cleanup. The exit watchdog writes
+a bounded thread diagnostic only; it never kills the JVM or substitutes for Supervisor cleanup.
+Result write failures and close failures are logged separately.

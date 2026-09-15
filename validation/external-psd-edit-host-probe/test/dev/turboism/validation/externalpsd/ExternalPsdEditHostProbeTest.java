@@ -60,6 +60,7 @@ public final class ExternalPsdEditHostProbeTest {
         testUnrelocatableTargetIsRejected();
         testExactRowResolverAndDispatchGuards();
         testExactTargetFamilySelection();
+        testExactTaskWindowBinding();
         testActiveRowResolver();
         testStableRowKeySafety();
         testGuiReadyTriggerProtocol();
@@ -1580,6 +1581,60 @@ public final class ExternalPsdEditHostProbeTest {
             "a different domain ID produces no click candidate");
     }
 
+    private static void testExactTaskWindowBinding() {
+        final String sourceClass = ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME;
+        final ExactHostRowTarget.Identity partsIdentity = new ExactHostRowTarget.Identity(
+            ExactHostRowTarget.RowFamily.PARTS, sourceClass, "ArtMesh4");
+        final ExactHostRowTarget.Identity deformerIdentity = new ExactHostRowTarget.Identity(
+            ExactHostRowTarget.RowFamily.DEFORMER, sourceClass, "ArtMesh4");
+        final List<ExternalPsdEditHostProbe.ExactCapturedRow> rows = List.of(
+            exactCapturedRow(partsIdentity, "parts-table", "document-window", "parts-model",
+                4, true, false),
+            exactCapturedRow(deformerIdentity, "deformer-table", "document-window",
+                "deformer-model", 2, true, false));
+        final var bound = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+            "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "document-1",
+            "model-1", "document-window", "ArtMesh4", rows);
+        assertTrue(bound.bound(),
+            "the exact fixture/document/model/domain evidence binds the task window");
+        assertContains(bound.diagnostic(), "document=document-1",
+            "task-window evidence records the document identity");
+        assertContains(bound.diagnostic(), "domain=ArtMesh4",
+            "task-window evidence records the complete ArtMesh domain ID");
+
+        final var sameWindowAfterSaveAs =
+            ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+                "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "document-1",
+                "model-1", "document-window", "ArtMesh4", rows);
+        assertTrue(sameWindowAfterSaveAs.bound(),
+            "SAVE_AS does not require re-resolving the retained document window");
+        final var focusChanged = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+            "document-window", "other-window", true, true);
+        assertTrue(focusChanged.waitForBoundWindow() && !focusChanged.bindNow(),
+            "a changed active window cannot replace the retained task document window");
+
+        final var onlyOtherWindow = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+            "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "document-1", "model-1",
+            "document-window", "ArtMesh4", List.of(exactCapturedRow(deformerIdentity,
+                "other-table", "other-window", "other-model", 2, true, false)));
+        assertTrue(!onlyOtherWindow.bound(),
+            "a matching ArtMesh row in another window cannot license a close target");
+        assertContains(onlyOtherWindow.diagnostic(), "another window",
+            "cross-window task binding rejection is explicit");
+
+        final var fixtureMismatch = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+            "external-psd-edit-025.cmo3", "different-document.cmo3", "document-1", "model-1",
+            "document-window", "ArtMesh4", rows);
+        assertTrue(!fixtureMismatch.bound(),
+            "a non-task fixture document cannot license the host close target");
+
+        final var missingDocument = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+            "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "", "model-1",
+            "document-window", "ArtMesh4", rows);
+        assertTrue(!missingDocument.bound(),
+            "missing document identity cannot license a host close target");
+    }
+
     private static void testStableRowKeySafety() {
         final JTable collision = new JTable(new Object[][]{
             {"a", "b|String:c"},
@@ -2094,7 +2149,7 @@ public final class ExternalPsdEditHostProbeTest {
             "without an established target window no window is selected blindly");
     }
 
-    private static void testNativeCloseDialogHandling() {
+    private static void testNativeCloseDialogHandling() throws Exception {
         final AtomicInteger closeCalls = new AtomicInteger();
         final var dispatched = ExternalPsdEditHostProbe.dispatchBoundWindowCloseForTest(
             "bound-window", "bound-window", true, true, closeCalls::incrementAndGet);
@@ -2126,6 +2181,93 @@ public final class ExternalPsdEditHostProbeTest {
             associated.outcome(), "only a new dialog from this close is eligible");
         associated.dismissNo().run();
         assertEquals(1, noCalls.get(), "the exact no-save option is selected once");
+
+        final var disabledNo = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "disabled-no", "bound-window", true, true, true, 1,
+                List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
+                List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, noCalls::incrementAndGet,
+                () -> false)));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            disabledNo.outcome(), "a disabled No option is rejected before action");
+        assertContains(disabledNo.diagnostic(), "not enabled/showing/displayable",
+            "disabled No rejection explains the operability requirement");
+
+        final AtomicInteger gatedCalls = new AtomicInteger();
+        final var gatedDecision = ExternalPsdEditHostProbe.CloseDialogDecision.dismissNo(
+            "late inspection test", gatedCalls::incrementAndGet);
+        final AtomicBoolean coordinatorActive = new AtomicBoolean(true);
+        final AtomicBoolean noActionClaimed = new AtomicBoolean();
+        final AtomicReference<ExternalPsdEditHostProbe.CloseDialogInspection> firstInspection =
+            new AtomicReference<>();
+        final AtomicReference<ExternalPsdEditHostProbe.CloseDialogInspection> lateInspection =
+            new AtomicReference<>();
+        final java.util.concurrent.CountDownLatch edtStarted =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseEdt =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch inspectionsDone =
+            new java.util.concurrent.CountDownLatch(2);
+        SwingUtilities.invokeLater(() -> {
+            edtStarted.countDown();
+            try {
+                releaseEdt.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        try {
+            assertTrue(edtStarted.await(1, java.util.concurrent.TimeUnit.SECONDS),
+                "the EDT blocker starts before late inspections are queued");
+            SwingUtilities.invokeLater(() -> {
+                firstInspection.set(ExternalPsdEditHostProbe.dismissNoForTest(
+                    gatedDecision, coordinatorActive, noActionClaimed));
+                inspectionsDone.countDown();
+            });
+            SwingUtilities.invokeLater(() -> {
+                lateInspection.set(ExternalPsdEditHostProbe.dismissNoForTest(
+                    gatedDecision, coordinatorActive, noActionClaimed));
+                inspectionsDone.countDown();
+            });
+        } finally {
+            // Both queued inspections now represent work that could have outlived a bounded
+            // invokeEdtBounded wait; always release the synthetic EDT stall.
+            releaseEdt.countDown();
+        }
+        assertTrue(inspectionsDone.await(2, java.util.concurrent.TimeUnit.SECONDS),
+            "queued close inspections drain after the EDT stall");
+        assertTrue(firstInspection.get() != null && firstInspection.get().dismissedNo(),
+            "the first close inspection may perform the No action");
+        assertTrue(lateInspection.get() != null && !lateInspection.get().dismissedNo()
+                && !lateInspection.get().rejected(),
+            "a late inspection observes the shared claim without another action");
+        assertEquals(1, gatedCalls.get(),
+            "multiple queued inspections produce at most one No button action");
+        coordinatorActive.set(false);
+        final var cancelledInspection = onEdt(() -> ExternalPsdEditHostProbe.dismissNoForTest(
+            gatedDecision, coordinatorActive, noActionClaimed));
+        assertTrue(!cancelledInspection.dismissedNo(),
+            "an inspection queued after coordinator cancellation cannot act");
+        assertEquals(1, gatedCalls.get(),
+            "cancelled late inspection does not perform a second action");
+
+        final AtomicInteger failedCalls = new AtomicInteger();
+        final var failedDecision = ExternalPsdEditHostProbe.CloseDialogDecision.dismissNo(
+            "failing action test", () -> {
+                failedCalls.incrementAndGet();
+                throw new IllegalStateException("button action failed");
+            });
+        final AtomicBoolean failedClaim = new AtomicBoolean();
+        final var failedInspection = onEdt(() -> ExternalPsdEditHostProbe.dismissNoForTest(
+            failedDecision, new AtomicBoolean(true), failedClaim));
+        final var failedLateInspection = onEdt(() -> ExternalPsdEditHostProbe.dismissNoForTest(
+            failedDecision, new AtomicBoolean(true), failedClaim));
+        assertTrue(failedInspection.rejected() && !failedInspection.dismissedNo(),
+            "a failed No action is not reported as dismissed");
+        assertTrue(!failedLateInspection.dismissedNo(),
+            "a late inspection cannot retry a failed claimed action");
+        assertEquals(1, failedCalls.get(),
+            "a failed action remains bounded to one real button attempt");
 
         final var crossWindow = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
             "bound-window", Set.of(), List.of(
