@@ -700,6 +700,9 @@ class ProtectedExportOrchestratorTest {
         final List<FakeArtMesh> artMeshes = new ArrayList<>();
         final List<FakeParameter> parameters = new ArrayList<>();
         final List<FakePart> parts = new ArrayList<>();
+        // The host enumerates a synthetic root part in getAllParts but never
+        // serializes it into exported output.
+        final FakePart rootPart = new FakePart("__RootPart__");
         FakeDoc document;
     }
 
@@ -1006,6 +1009,7 @@ class ProtectedExportOrchestratorTest {
             all.addAll(model.artMeshes);
             // Parameter sources are not parameter-controllable on the real host:
             // getAllObjects never returns them.
+            all.add(model.rootPart);
             all.addAll(model.parts);
             return all;
         }
@@ -1024,7 +1028,16 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public List<?> allParts(final Object modelSource) {
-            return List.copyOf(((FakeModel) modelSource).parts);
+            final FakeModel model = (FakeModel) modelSource;
+            final List<Object> all = new ArrayList<>(model.parts.size() + 1);
+            all.add(model.rootPart);
+            all.addAll(model.parts);
+            return List.copyOf(all);
+        }
+
+        @Override
+        public Object rootPart(final Object modelSource) {
+            return ((FakeModel) modelSource).rootPart;
         }
 
         @Override

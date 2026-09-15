@@ -77,6 +77,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String MS_OBJECTS = PREFIX + "model-source.all-objects";
     private static final String MS_ART_MESHES = PREFIX + "model-source.all-art-meshes";
     private static final String MS_PARTS = PREFIX + "model-source.all-parts";
+    private static final String MS_ROOT_PART = PREFIX + "model-source.root-part";
     private static final String MS_PARAMETERS = PREFIX + "model-source.all-parameters";
     private static final String MS_GUID = PREFIX + "model-source.guid";
 
@@ -149,7 +150,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SELECTOR_CLEAR, SELECTOR_SELECTED, SELECTOR_SELECTED_COUNT,
         SELECTOR_ADD_SOURCE, SELECTOR_SELECTED_DEFORMERS, EDIT_MODE_APPLY,
         MS_DOCUMENT, MS_INSTANCE, MS_DEFORMERS, MS_OBJECTS, MS_ART_MESHES, MS_PARTS,
-        MS_PARAMETERS, MS_GUID, MODEL_PARAMETER_SET,
+        MS_ROOT_PART, MS_PARAMETERS, MS_GUID, MODEL_PARAMETER_SET,
         SOURCE_GUID, SOURCE_ID, SOURCE_LOCAL_NAME, SOURCE_SET_LOCAL_NAME,
         SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
         DEFORMER_GUID, DEFORMER_TARGET,
@@ -443,6 +444,11 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     @Override
     public List<?> allParts(final Object modelSource) {
         return listOf(resolver.invoke(MS_PARTS, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public Object rootPart(final Object modelSource) {
+        return resolver.invoke(MS_ROOT_PART, requireModelSource(modelSource));
     }
 
     @Override
