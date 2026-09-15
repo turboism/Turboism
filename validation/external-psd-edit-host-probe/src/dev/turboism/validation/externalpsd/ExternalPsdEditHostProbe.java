@@ -3071,18 +3071,29 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     /**
      * Returns the budget available to the next diagnostic SDK stage. A zero input retains the
      * existing unlimited-budget sentinel; a positive input is recomputed from the caller's
-     * operation start so elapsed work is not granted again to the next stage.
+     * operation start so elapsed work is not granted again to the next stage. A positive budget
+     * never returns zero: exhaustion throws before a caller can pass an unlimited sentinel onward.
      */
     static long remainingDiagnosticBudgetMillis(final long started, final long budgetMillis) {
-        return budgetMillis <= 0L ? budgetMillis : remainingMillis(started, budgetMillis);
+        return remainingDiagnosticBudgetMillis(started, budgetMillis, "diagnostic stage");
+    }
+
+    private static long remainingDiagnosticBudgetMillis(final long started,
+        final long budgetMillis, final String operation) {
+        if (budgetMillis <= 0L) return budgetMillis;
+        final long remaining = remainingMillis(started, budgetMillis);
+        if (remaining == 0L) {
+            throw new ObservationBudgetExceededException(
+                operation + " exceeded the remaining settle budget; SDK calls are synchronous "
+                    + "and non-cancellable");
+        }
+        return remaining;
     }
 
     private static void requireBudgetAvailable(final long started, final long budgetMillis,
         final String operation) throws ObservationBudgetExceededException {
-        if (budgetMillis > 0L && remainingDiagnosticBudgetMillis(started, budgetMillis) == 0L) {
-            throw new ObservationBudgetExceededException(
-                operation + " exceeded the remaining settle budget; SDK calls are synchronous "
-                    + "and non-cancellable");
+        if (budgetMillis > 0L) {
+            remainingDiagnosticBudgetMillis(started, budgetMillis, operation);
         }
     }
 
@@ -7997,7 +8008,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         void record(DiagnosticObservation observation);
     }
 
-    private static final class ObservationBudgetExceededException extends Exception {
+    private static final class ObservationBudgetExceededException extends RuntimeException {
         private static final long serialVersionUID = 1L;
 
         ObservationBudgetExceededException(final String message) {
