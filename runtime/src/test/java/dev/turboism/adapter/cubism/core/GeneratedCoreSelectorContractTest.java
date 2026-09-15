@@ -17,7 +17,7 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractBindsTheExactProfileSets() {
         assertEquals(
-            "7aacb00831078e4b56567841ad43c406f1ee0f243c003a4204b8ef8a7a9db1c2",
+            "86b5ac4fb9c3b41a2159eb4747a50213fbcd6446c2ed39299247c03059eb9d6c",
             CorePublicApiSelectorContract.SELECTOR_ROSTER_SHA256
         );
         assertEquals(9, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
@@ -26,13 +26,13 @@ class GeneratedCoreSelectorContractTest {
             CorePublicApiSelectorContract.COMMON_STRUCTURAL_ALIASES.size()
         );
         assertEquals(
-            72,
+            80,
             CorePublicApiSelectorContract.requiredAliasesFor("5.2.03")
                 .orElseThrow()
                 .size()
         );
         assertEquals(
-            74,
+            82,
             CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
                 .orElseThrow()
                 .size()
@@ -63,6 +63,27 @@ class GeneratedCoreSelectorContractTest {
             CorePublicApiSelectorContract.requiredAliasesFor("5.2.03")
                 .orElseThrow()
                 .contains(CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS)
+        );
+        assertEquals(
+            7,
+            CorePublicApiSelectorContract.ownedMocMethodAliasesFor("5.3.02")
+                .orElseThrow()
+                .size()
+        );
+        assertTrue(
+            CorePublicApiSelectorContract.requiredAliasesFor("5.3.02")
+                .orElseThrow()
+                .contains(CorePublicApiSelectorContract.MOC_INSTANTIATE)
+        );
+        assertFalse(
+            CorePublicApiSelectorContract.structuralMethodAliasesFor("5.3.02")
+                .orElseThrow()
+                .contains(CorePublicApiSelectorContract.MOC_INSTANTIATE)
+        );
+        assertFalse(
+            CorePublicApiSelectorContract.structuralMethodAliasesFor("5.3.02")
+                .orElseThrow()
+                .contains(CorePublicApiSelectorContract.MODEL_UPDATE)
         );
     }
 

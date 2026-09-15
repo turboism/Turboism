@@ -34,14 +34,21 @@ public final class ProtectedExportStaging {
     public record Validation(
         boolean valid,
         String failureKey,
+        String failureDetail,
         List<Path> stagedFiles
     ) {
         static Validation ok(final List<Path> files) {
-            return new Validation(true, null, List.copyOf(files));
+            return new Validation(true, null, null, List.copyOf(files));
         }
 
         static Validation rejected(final String failureKey) {
-            return new Validation(false, failureKey, List.of());
+            return rejected(failureKey, null);
+        }
+
+        static Validation rejected(final String failureKey,
+            final String failureDetail
+        ) {
+            return new Validation(false, failureKey, failureDetail, List.of());
         }
     }
 
@@ -109,10 +116,10 @@ public final class ProtectedExportStaging {
             final String name = path.getFileName().toString();
             if (name.endsWith(".moc3")) {
                 sawMoc = true;
-                final String failure = validateMoc(
+                final MocFailure failure = validateMoc(
                     path, expectedDrawableIds, expectedParameterIds, expectedPartIds);
                 if (failure != null) {
-                    return Validation.rejected(failure);
+                    return Validation.rejected(failure.key(), failure.detail());
                 }
             } else if (name.endsWith(".model3.json")) {
                 if (!validateModelJson(path, staged)) {
@@ -131,52 +138,67 @@ public final class ProtectedExportStaging {
      * identity contract materialized: drawable IDs ⊆ planned obfuscation tokens,
      * parameter/part IDs exactly preserved, zero deformers left after flatten.
      */
-    private String validateMoc(
+    private MocFailure validateMoc(
         final Path path,
         final Set<String> expectedDrawableIds,
         final Set<String> expectedParameterIds,
         final Set<String> expectedPartIds
     ) {
         if (mocLoader == null) {
-            return "protected-export.moc3-invalid";
+            return new MocFailure("protected-export.moc3-loader-absent", null);
         }
         try {
             final byte[] bytes = Files.readAllBytes(path);
             try (OwnedMoc moc = mocLoader.load(MocData.copyOf(bytes))) {
                 if (moc == null) {
-                    return "protected-export.moc3-invalid";
+                    return new MocFailure("protected-export.moc3-null", null);
                 }
                 try (var model = moc.instantiateModel()) {
                     if (model == null) {
-                        return "protected-export.moc3-invalid";
+                        return new MocFailure(
+                            "protected-export.moc3-model-null", null);
                     }
                     final Set<String> drawableIds = model.drawables().stream()
                         .map(d -> d.id())
                         .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!expectedDrawableIds.containsAll(drawableIds)) {
-                        return "protected-export.moc3-drawable-ids";
+                        return new MocFailure(
+                            "protected-export.moc3-drawable-ids", null);
                     }
                     final Set<String> parameterIds = model.parameters().stream()
                         .map(p -> p.id())
                         .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!parameterIds.equals(expectedParameterIds)) {
-                        return "protected-export.moc3-parameter-ids";
+                        return new MocFailure(
+                            "protected-export.moc3-parameter-ids", null);
                     }
                     final Set<String> partIds = model.parts().stream()
                         .map(p -> p.id())
                         .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!partIds.equals(expectedPartIds)) {
-                        return "protected-export.moc3-part-ids";
+                        return new MocFailure(
+                            "protected-export.moc3-part-ids", null);
                     }
                     if (!model.deformers().isEmpty()) {
-                        return "protected-export.moc3-deformers-remain";
+                        return new MocFailure(
+                            "protected-export.moc3-deformers-remain", null);
                     }
                     return null;
                 }
             }
         } catch (Throwable failure) {
-            return "protected-export.moc3-invalid";
+            final String message = failure.getMessage();
+            return new MocFailure(
+                "protected-export.moc3-invalid",
+                failure.getClass().getSimpleName() + ": "
+                    + (message == null
+                        ? ""
+                        : message.substring(0, Math.min(160, message.length()))));
         }
+    }
+
+    /** Bounded moc3 rejection: a stable key plus a one-line cause detail. */
+    private record MocFailure(String key, String detail) {
     }
 
     /**

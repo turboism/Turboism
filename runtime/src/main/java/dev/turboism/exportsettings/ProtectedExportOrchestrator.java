@@ -261,7 +261,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             publish(session);
             session.report(Phase.PUBLISHED, true, null);
         } catch (SessionRejection rejection) {
-            session.fail(rejection.failureKey);
+            session.fail(rejection.failureKey, rejection.detail);
         } catch (Throwable failure) {
             session.fail("protected-export.internal-failure",
                 session.phase + " " + describe(failure));
@@ -549,7 +549,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             session.expectedParameterIds, session.expectedPartIds);
         if (!validation.valid()) {
             throw new SessionRejection(
-                VALIDATION_FAILED_KEY + ":" + validation.failureKey());
+                VALIDATION_FAILED_KEY + ":" + validation.failureKey(),
+                validation.failureDetail());
         }
         session.stagedFiles = validation.stagedFiles();
         session.phase = Phase.VALIDATED;
@@ -964,10 +965,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     /** Bounded rejection carrying a stable failure identity. */
     private static final class SessionRejection extends RuntimeException {
         final String failureKey;
+        final String detail;
 
         SessionRejection(final String failureKey) {
+            this(failureKey, null);
+        }
+
+        SessionRejection(final String failureKey, final String detail) {
             super(failureKey);
             this.failureKey = failureKey;
+            this.detail = detail;
         }
     }
 
