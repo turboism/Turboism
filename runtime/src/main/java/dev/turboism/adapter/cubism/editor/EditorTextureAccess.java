@@ -534,18 +534,16 @@ final class EditorTextureAccess {
                 replacementDiagnostic(before, document, target, incoming);
             final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult;
             try {
-                nativeResult = EditorTextureReplacementDiagnostic.invokeNativeOnce(
-                    () -> psdReplaceAccess.replacePsd(
-                        identity,
-                        model,
-                        appController,
-                        document,
-                        List.of(binding.candidate().nativeSource()),
-                        incoming,
-                        stage
-                    )
+                nativeResult = psdReplaceAccess.replacePsd(
+                    identity,
+                    model,
+                    appController,
+                    document,
+                    List.of(binding.candidate().nativeSource()),
+                    incoming,
+                    stage
                 );
-            } catch (RuntimeException nativeCallFailure) {
+            } catch (RuntimeException | LinkageError nativeCallFailure) {
                 finishDiagnostic(
                     diagnostic,
                     null,
@@ -634,17 +632,24 @@ final class EditorTextureAccess {
             final RawImageId target,
             final Object incoming
         ) {
-            if (!EditorTextureReplacementDiagnostic.enabled()) return null;
-            final EditorTextureReplacementDiagnostic.RawIdentity incomingRaw =
-                EditorTextureReplacementDiagnostic.resolveIncomingRaw(resolver, incoming);
-            return EditorTextureReplacementDiagnostic.begin(
-                identity,
-                document,
-                model,
-                target,
-                incomingRaw,
-                before
-            ).orElse(null);
+            try {
+                if (!EditorTextureReplacementDiagnostic.enabled()) return null;
+                final EditorTextureReplacementDiagnostic.RawIdentity incomingRaw =
+                    EditorTextureReplacementDiagnostic.resolveIncomingRaw(resolver, incoming);
+                return EditorTextureReplacementDiagnostic.begin(
+                    resolver,
+                    identity,
+                    source,
+                    document,
+                    model,
+                    target,
+                    incomingRaw,
+                    before
+                ).orElse(null);
+            } catch (RuntimeException | LinkageError diagnosticFailure) {
+                // Diagnostic setup must not move, duplicate, classify, or mask the native call.
+                return null;
+            }
         }
 
         private void finishDiagnosticAfterAttempt(
