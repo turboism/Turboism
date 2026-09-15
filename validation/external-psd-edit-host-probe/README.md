@@ -35,10 +35,19 @@ GUI phase has no pixel-parser dependency.
    `relations.rawImages` on the EDT immediately before and after each import. The full raw ID
    set difference is recorded as `ZERO`, `UNIQUE`, or `MULTIPLE`; the old target raw must remain
    present in both snapshots and binding/generation must remain unchanged. Only `UNIQUE` after
-   an `APPLIED` completion causes one public `exportRawImagePsd(newRawId)` diagnostic export,
-   which decodes validation layer 6 RGB and stops its handle immediately. `MULTIPLE`, unavailable relations, identity changes,
-   export/decode failures, and stop failures fail closed; `ZERO` is recorded and leaves the
-   existing content and replacement gates in force.
+   an `APPLIED` completion enters the new-raw export coordinator. Its EDT starter verifies the
+   original document/model/binding/model-image and exactly one occurrence of the candidate before
+   invoking public `exportRawImagePsd(newRawId)` in that same EDT task. After the completed export,
+   it verifies those identities and candidate uniqueness again; `currentRaw` is recorded for
+   diagnosis but is deliberately not required to become `newRawId`. A coordination-stage
+   switched target, missing or duplicate candidate, or unavailable relation is `UNAVAILABLE`; an
+   already-created handle is stopped before any bytes/RGB are accepted. The handle's `rawId()` is
+   only the requested argument,
+   not host identity evidence. Only a successful coordination then decodes validation layer 6 RGB
+   and stops its handle through the existing inspection path. `MULTIPLE` remains an explicit
+   rejected/unguessable difference; export/decode/stop failures fail closed. `ZERO` is recorded as
+   `NOT_ATTEMPTED` for the new-raw diagnostic and leaves the existing content and replacement
+   gates in force.
 8. In persistence mode, a fresh native export must differ from the stable baseline fingerprint.
    Corrupted save → non-`APPLIED`, revision not consumed; its invalid external bytes are never
    accepted as post evidence.

@@ -108,6 +108,7 @@ public final class ExternalPsdEditHostProbeTest {
         testFinalCycleSelection();
         testSaveCycleBytes();
         testRawImageRelationDeltaAndNewRawInspection();
+        testCoordinatedNewRawExportIdentityGate();
         testDiagnosticObservationBoundaries();
         testDiagnosticTargetBinding();
         testDiagnosticPsdSnapshotUsesRawImageId();
@@ -1152,6 +1153,245 @@ public final class ExternalPsdEditHostProbeTest {
             new Properties(), "cycle.3.raw.new", oldRaw, multiple,
             candidate -> { throw new AssertionError("ambiguous raw must not be exported"); }),
             "ambiguous new raw is not guessed or exported");
+    }
+
+    private static void testCoordinatedNewRawExportIdentityGate() throws Exception {
+        final RawImageId oldRaw = new RawImageId("raw-old");
+        final RawImageId newRaw = new RawImageId("raw-new");
+        final TextureRelationsSnapshot beforeRelations = rawRelationSnapshot(
+            "binding-1", 7, oldRaw);
+        final ExternalPsdEditHostProbe.RawImageRelationDelta unique =
+            ExternalPsdEditHostProbe.rawImageRelationDelta(
+            beforeRelations, rawRelationSnapshot("binding-1", 7, oldRaw, newRaw));
+        final ExternalPsdEditHostProbe.TargetIdentity expected =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-1", "model-1", "binding-1", "model-image-1", oldRaw.value());
+        final byte[] validPsd = validationPsd();
+
+        final RawExportFixture stable = new RawExportFixture(
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1),
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1), validPsd);
+        final Properties stableResult = new Properties();
+        final var inspected = inspectWithCoordinatedExport(
+            stableResult, "cycle.4.raw.new", oldRaw, unique, expected, stable);
+        assertEquals(targetFingerprint(validPsd), inspected.sha256(),
+            "stable coordinated export reaches the real new-raw decoder");
+        assertEquals(1, stable.exportCalls,
+            "stable coordinated export invokes the public export once");
+        assertEquals(1, stable.handleStopCalls,
+            "successful coordinated export is stopped by the existing inspection finally");
+        assertEquals(0, stable.coordinatorStopCalls,
+            "successful coordinated export does not take the failure stop path");
+        assertEquals("AVAILABLE", stableResult.getProperty(
+            "cycle.4.raw.new.coordination.status"),
+            "stable target identity and candidate license the export");
+        assertEquals("1", stableResult.getProperty(
+            "cycle.4.raw.new.coordination.before.candidateCount"),
+            "preflight records one observed candidate");
+        assertEquals("1", stableResult.getProperty(
+            "cycle.4.raw.new.coordination.after.candidateCount"),
+            "postflight records one observed candidate");
+        assertEquals("AVAILABLE", stableResult.getProperty("cycle.4.raw.new.status"),
+            "only a fully coordinated export makes RGB available");
+        assertEquals("raw-old", stable.before.currentRawId(),
+            "the fixture keeps currentRaw on the old raw to prove it is not required to switch");
+
+        final RawExportFixture switchedDuringExport = new RawExportFixture(
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1),
+            rawExportObservation("document-2", "model-2", "binding-2", "model-image-2",
+                newRaw, oldRaw, 8, 1, 1), validPsd);
+        final Properties switchedResult = assertCoordinatedUnavailable(switchedDuringExport,
+            "target document switches during the public export", oldRaw, newRaw, unique, expected,
+            "document switch cannot produce available RGB", 1);
+        assertContains(switchedResult.getProperty("cycle.gated.raw.new.coordination.diagnostic"),
+            "document identity changed", "document switch reason is retained");
+        assertContains(switchedResult.getProperty("cycle.gated.raw.new.coordination.diagnostic"),
+            "model identity changed", "model switch reason is retained");
+        assertContains(switchedResult.getProperty("cycle.gated.raw.new.coordination.diagnostic"),
+            "binding identity changed", "binding switch reason is retained");
+
+        final RawExportFixture switchedBeforeExport = new RawExportFixture(
+            rawExportObservation("document-2", "model-2", "binding-2", "model-image-2",
+                newRaw, oldRaw, 8, 1, 1),
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1), validPsd);
+        assertCoordinatedUnavailable(switchedBeforeExport,
+            "target document/model/binding switches before the public export", oldRaw, newRaw,
+            unique, expected, "preflight target switch cannot invoke export", 0);
+
+        final RawExportFixture candidateDisappears = new RawExportFixture(
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1),
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 0), validPsd);
+        assertCoordinatedUnavailable(candidateDisappears,
+            "candidate disappears after the public export", oldRaw, newRaw, unique, expected,
+            "candidate disappearance cannot produce available RGB", 1);
+
+        final RawExportFixture candidateBecomesAmbiguous = new RawExportFixture(
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1),
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 2), validPsd);
+        assertCoordinatedUnavailable(candidateBecomesAmbiguous,
+            "candidate becomes non-unique after the public export", oldRaw, newRaw, unique,
+            expected, "candidate ambiguity cannot produce available RGB", 1);
+
+        final RawExportFixture preMissing = new RawExportFixture(
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 0),
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1), validPsd);
+        assertCoordinatedUnavailable(preMissing,
+            "candidate is absent before the public export", oldRaw, newRaw, unique, expected,
+            "missing preflight candidate cannot invoke export", 0);
+        assertEquals(0, preMissing.exportCalls,
+            "missing preflight candidate is rejected before export invocation");
+        assertEquals(0, preMissing.coordinatorStopCalls,
+            "no handle exists when preflight rejects the candidate");
+
+        final RawExportFixture preDuplicate = new RawExportFixture(
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 2),
+            rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
+                newRaw, oldRaw, 7, 1, 1), validPsd);
+        assertCoordinatedUnavailable(preDuplicate,
+            "candidate is duplicated before the public export", oldRaw, newRaw, unique, expected,
+            "duplicate preflight candidate cannot invoke export", 0);
+        assertEquals(0, preDuplicate.exportCalls,
+            "duplicate preflight candidate is rejected before export invocation");
+    }
+
+    private static Properties assertCoordinatedUnavailable(final RawExportFixture fixture,
+        final String label, final RawImageId oldRaw, final RawImageId newRaw,
+        final ExternalPsdEditHostProbe.RawImageRelationDelta delta,
+        final ExternalPsdEditHostProbe.TargetIdentity expected, final String assertion,
+        final int expectedCoordinatorStops)
+        throws Exception {
+        final Properties result = new Properties();
+        expectIllegalStateChecked(() -> inspectWithCoordinatedExport(
+            result, "cycle.gated.raw.new", oldRaw, delta, expected, fixture), label);
+        assertEquals("UNAVAILABLE", result.getProperty("cycle.gated.raw.new.status"), assertion);
+        assertEquals("UNAVAILABLE", result.getProperty("cycle.gated.raw.new.rgb.status"),
+            "rejected coordinated export never exposes decoded RGB");
+        assertEquals(expectedCoordinatorStops, fixture.coordinatorStopCalls,
+            expectedCoordinatorStops == 0
+                ? "preflight rejection does not claim a nonexistent handle"
+                : "a handle created before postflight rejection is stopped");
+        assertEquals(0, fixture.handleStopCalls,
+            "the caller cannot stop a handle withheld by failed coordination");
+        assertEquals(expectedCoordinatorStops == 0 ? 0 : 1, fixture.exportCalls,
+            expectedCoordinatorStops == 0
+                ? "preflight rejection prevents the public export"
+                : "postflight rejection occurs after a completed export handle exists");
+        if (expectedCoordinatorStops == 1) {
+            assertEquals("STOPPED", result.getProperty("cycle.gated.raw.new.stopStatus"),
+                "postflight rejection records the coordinated handle stop");
+        }
+        assertEquals(newRaw.value(), result.getProperty("cycle.gated.raw.new.candidateRawId"),
+            "the candidate identity remains explicit in coordination diagnostics");
+        return result;
+    }
+
+    private static PsdValidationContent.Fingerprint inspectWithCoordinatedExport(
+        final Properties result, final String prefix, final RawImageId oldRaw,
+        final ExternalPsdEditHostProbe.RawImageRelationDelta delta,
+        final ExternalPsdEditHostProbe.TargetIdentity expected, final RawExportFixture fixture)
+        throws Exception {
+        return ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+            result, prefix, oldRaw, delta, candidate ->
+                ExternalPsdEditHostProbe.coordinateNewRawExport(
+                    result, prefix, expected, candidate,
+                    fixture::startOnEdt, fixture::observeAfterOnEdt, fixture::stopCoordinated));
+    }
+
+    private static ExternalPsdEditHostProbe.RawExportObservation rawExportObservation(
+        final String documentId, final String modelId, final String binding,
+        final String modelImageId, final RawImageId candidate, final RawImageId currentRaw,
+        final long generation, final int modelImageCount, final int candidateCount) {
+        return new ExternalPsdEditHostProbe.RawExportObservation(
+            documentId, modelId, binding, modelImageId, candidate.value(), currentRaw.value(),
+            generation, modelImageCount, candidateCount, true, "");
+    }
+
+    private static final class RawExportFixture {
+        private final ExternalPsdEditHostProbe.RawExportObservation before;
+        private final ExternalPsdEditHostProbe.RawExportObservation postExport;
+        private ExternalPsdEditHostProbe.RawExportObservation after;
+        private final byte[] bytes;
+        private int exportCalls;
+        private int coordinatorStopCalls;
+        private int handleStopCalls;
+
+        private RawExportFixture(final ExternalPsdEditHostProbe.RawExportObservation before,
+            final ExternalPsdEditHostProbe.RawExportObservation after, final byte[] bytes) {
+            this.before = before;
+            this.postExport = after;
+            this.after = before;
+            this.bytes = bytes;
+        }
+
+        private ExternalPsdEditHostProbe.RawExportStarted startOnEdt(final RawImageId candidate,
+            final ExternalPsdEditHostProbe.RawExportPreflight preflight) throws Exception {
+            final AtomicReference<ExternalPsdEditHostProbe.RawExportStarted> started =
+                new AtomicReference<>();
+            final AtomicReference<Throwable> failure = new AtomicReference<>();
+            final Runnable action = () -> {
+                try {
+                    assertTrue(SwingUtilities.isEventDispatchThread(),
+                        "raw export preflight and invocation run on the EDT");
+                    preflight.verify(before);
+                    exportCalls++;
+                    after = postExport;
+                    final ExternalPsdEditHostProbe.RawImageExportHandle handle =
+                        new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                            @Override public RawImageId rawId() { return candidate; }
+                            @Override public byte[] bytes() { return bytes; }
+                            @Override public PsdFileOperationResult stop() {
+                                handleStopCalls++;
+                                return new PsdFileOperationResult(
+                                    PsdFileOperationResult.Status.STOPPED, "stopped");
+                            }
+                        };
+                    started.set(new ExternalPsdEditHostProbe.RawExportStarted(before, handle));
+                } catch (Throwable error) {
+                    failure.set(error);
+                }
+            };
+            SwingUtilities.invokeAndWait(action);
+            if (failure.get() != null) throw new IllegalStateException(
+                "raw export fixture start failed", failure.get());
+            return started.get();
+        }
+
+        private ExternalPsdEditHostProbe.RawExportObservation observeAfterOnEdt(
+            final RawImageId candidate) throws Exception {
+            final AtomicReference<ExternalPsdEditHostProbe.RawExportObservation> observed =
+                new AtomicReference<>();
+            final AtomicReference<Throwable> failure = new AtomicReference<>();
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    assertTrue(SwingUtilities.isEventDispatchThread(),
+                        "raw export postflight runs on the EDT");
+                    observed.set(after);
+                } catch (Throwable error) {
+                    failure.set(error);
+                }
+            });
+            if (failure.get() != null) throw new IllegalStateException(
+                "raw export fixture postflight failed", failure.get());
+            return observed.get();
+        }
+
+        private PsdFileOperationResult stopCoordinated(
+            final ExternalPsdEditHostProbe.RawImageExportHandle handle) {
+            coordinatorStopCalls++;
+            return new PsdFileOperationResult(
+                PsdFileOperationResult.Status.STOPPED, "coordinated stop");
+        }
     }
 
     private static TextureRelationsSnapshot rawRelationSnapshot(final String binding,
