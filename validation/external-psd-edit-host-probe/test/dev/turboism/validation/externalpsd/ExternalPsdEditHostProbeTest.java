@@ -1158,10 +1158,35 @@ public final class ExternalPsdEditHostProbeTest {
             started, 1000L);
         assertTrue(remaining > 0L && remaining < 1000L,
             "a later diagnostic stage receives only the remaining budget");
-        final long exhausted = ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
-            System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(2000), 1000L);
-        assertEquals(0L, exhausted,
-            "an exhausted diagnostic budget forbids starting another stage");
+
+        final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
+            450, 450, 550, 550);
+        final ExternalPsdEditHostProbe.DiagnosticObservation observation =
+            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+                "raw-1", "model-1", "selector", "live",
+                new PsdValidationContent.Fingerprint(
+                    "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
+        final AtomicInteger sdkStageCalls = new AtomicInteger();
+        final ExternalPsdEditHostProbe.BoundedSettleResult exhaustedStage =
+            ExternalPsdEditHostProbe.awaitBoundedSettle(
+                observation,
+                remainingMillis -> {
+                    // Reproduce a stage that reaches its deadline after the supplier was
+                    // admitted. The next SDK-stage seam must reject before the call counter.
+                    ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
+                        System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(2000),
+                        remainingMillis);
+                    sdkStageCalls.incrementAndGet();
+                    return observation;
+                },
+                1, 1000, ignored -> { });
+        assertEquals("TIMEOUT", exhaustedStage.status().name(),
+            "an exhausted positive budget stops the supplier stage");
+        assertEquals(0, sdkStageCalls.get(),
+            "an exhausted positive budget cannot enter the next SDK stage");
+        assertEquals(0L, ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
+            System.nanoTime(), 0L),
+            "the explicit zero budget remains the unlimited sentinel");
     }
 
     private static void testPublicProjectionFormatting() {
