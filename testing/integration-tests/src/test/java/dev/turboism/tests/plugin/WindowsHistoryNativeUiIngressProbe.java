@@ -18,10 +18,16 @@ import javax.swing.table.TableModel;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 import java.awt.Component;
+import java.awt.GraphicsConfiguration;
+import java.awt.Insets;
+import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.PointerInfo;
 import java.awt.Rectangle;
+import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1001,6 +1007,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 pair.source().id(),
                 pair.target().id(),
                 robotPartGestureInput(),
+                WindowsHistoryNativeUiIngressProbe::readMouseInfoPointer,
                 () -> currentPartPrePress(pair, preparation.layout())
             );
             appendPartGestureEvidence(gesture.evidence());
@@ -1316,6 +1323,62 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         };
     }
 
+    /** Java-level pointer observation; it is evidence, not an independent OS truth source. */
+    private static Point readMouseInfoPointer() {
+        final PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+        if (pointerInfo == null) return null;
+        final Point location = pointerInfo.getLocation();
+        return location == null ? null : new Point(location);
+    }
+
+    private static PartPointerEvidence readPointer(
+        final String phase,
+        final Point commandedPoint,
+        final PartPointerReadback pointerReadback
+    ) {
+        final long monotonicNanos = System.nanoTime();
+        final String thread = Thread.currentThread().getName();
+        try {
+            final Point readbackPoint = pointerReadback.read();
+            if (readbackPoint == null) {
+                return new PartPointerEvidence(
+                    phase, monotonicNanos, thread, commandedPoint, null,
+                    "UNAVAILABLE", "null-pointer-info"
+                );
+            }
+            final Point copy = new Point(readbackPoint);
+            final boolean matches = commandedPoint != null && commandedPoint.equals(copy);
+            return new PartPointerEvidence(
+                phase, monotonicNanos, thread, commandedPoint, copy,
+                matches ? "MATCH" : "MISMATCH",
+                matches ? "" : "commanded-point-diff"
+            );
+        } catch (Exception failure) {
+            return new PartPointerEvidence(
+                phase, monotonicNanos, thread, commandedPoint, null,
+                "UNAVAILABLE", "exception:" + failure.getClass().getSimpleName()
+            );
+        }
+    }
+
+    static PartGestureAttempt runPartGesture(
+        final PartPairLayout layout,
+        final String intendedSourceId,
+        final String intendedTargetId,
+        final PartGestureInput input,
+        final PartPrePressGuard guard
+    ) throws Exception {
+        Objects.requireNonNull(layout, "layout");
+        return runPartGesture(
+            layout,
+            intendedSourceId,
+            intendedTargetId,
+            input,
+            () -> layout.source().screenPoint(),
+            guard
+        );
+    }
+
     /**
      * Runs one bounded Parts gesture. The input is injectable so cleanup and the pre-press guard
      * can be tested with real Swing components without constructing a headless {@link
@@ -1326,10 +1389,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final String intendedSourceId,
         final String intendedTargetId,
         final PartGestureInput input,
+        final PartPointerReadback pointerReadback,
         final PartPrePressGuard guard
     ) throws Exception {
         Objects.requireNonNull(layout, "layout");
         Objects.requireNonNull(input, "input");
+        Objects.requireNonNull(pointerReadback, "pointerReadback");
         Objects.requireNonNull(guard, "guard");
         final PartGestureCapture capture = new PartGestureCapture(
             layout, intendedSourceId, intendedTargetId
@@ -1362,8 +1427,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     capture.evidence()
                 );
             }
+            capture.recordPointer(PartPointerEvidence.command(source));
             input.mouseMove(source.x, source.y);
             input.pause(120L);
+            final PartPointerEvidence afterMove = readPointer(
+                "after-move-pointer", source, pointerReadback
+            );
+            capture.recordPointer(afterMove);
+            if (afterMove.failureCode() != null) {
+                return new PartGestureAttempt(
+                    PartGestureStatus.UNRESOLVED,
+                    afterMove.failureCode(),
+                    prePress,
+                    capture.evidence()
+                );
+            }
             prePress = onEdt(() -> {
                 final PartPrePressCheck checked = guard.check();
                 capture.recordPrePress(checked);
@@ -1373,6 +1451,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 return new PartGestureAttempt(
                     PartGestureStatus.UNRESOLVED,
                     prePress.code(),
+                    prePress,
+                    capture.evidence()
+                );
+            }
+
+            final PartPointerEvidence beforePress = readPointer(
+                "before-press-pointer", source, pointerReadback
+            );
+            capture.recordPointer(beforePress);
+            if (beforePress.failureCode() != null) {
+                return new PartGestureAttempt(
+                    PartGestureStatus.UNRESOLVED,
+                    beforePress.failureCode(),
                     prePress,
                     capture.evidence()
                 );
@@ -6182,6 +6273,60 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         PartPrePressCheck check() throws Exception;
     }
 
+    @FunctionalInterface
+    interface PartPointerReadback {
+        Point read() throws Exception;
+    }
+
+    record PartPointerEvidence(
+        String phase,
+        long monotonicNanos,
+        String thread,
+        Point commandedPoint,
+        Point readbackPoint,
+        String outcome,
+        String reason
+    ) {
+        PartPointerEvidence {
+            phase = boundedText(phase, MAX_PART_GESTURE_TEXT_LENGTH);
+            thread = boundedText(thread, MAX_PART_GESTURE_TEXT_LENGTH);
+            commandedPoint = commandedPoint == null ? null : new Point(commandedPoint);
+            readbackPoint = readbackPoint == null ? null : new Point(readbackPoint);
+            outcome = boundedText(outcome, MAX_PART_GESTURE_TEXT_LENGTH);
+            reason = boundedText(reason, MAX_PART_GESTURE_TEXT_LENGTH);
+        }
+
+        static PartPointerEvidence command(final Point point) {
+            return new PartPointerEvidence(
+                "source-command", System.nanoTime(), Thread.currentThread().getName(),
+                point, null, "COMMANDED", ""
+            );
+        }
+
+        String failureCode() {
+            return switch (outcome) {
+                case "COMMANDED", "MATCH" -> null;
+                case "UNAVAILABLE" -> phase + "-unavailable";
+                default -> phase + "-mismatch";
+            };
+        }
+
+        String json() {
+            return "{\"type\":\"part-pointer\",\"phase\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(phase)
+                + "\",\"monotonicNanos\":" + monotonicNanos
+                + ",\"thread\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(thread)
+                + "\",\"commandedPoint\":" + pointJson(commandedPoint)
+                + ",\"readbackPoint\":" + pointJson(readbackPoint)
+                + ",\"outcome\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(outcome)
+                + "\",\"reason\":\""
+                + WindowsHistoryNativeUiIngressProbe.json(reason)
+                + "\"}\n";
+        }
+    }
+
     interface PartGestureInput {
         void mouseMove(int x, int y) throws Exception;
 
@@ -6259,6 +6404,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         private final String intendedTargetId;
         private final List<PartGestureEvent> events = new ArrayList<>();
         private final List<String> evidence = new ArrayList<>();
+        private PartGestureEvent firstMouseMoved;
         private final MouseAdapter listener = new MouseAdapter() {
             @Override
             public void mousePressed(final MouseEvent event) {
@@ -6268,6 +6414,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             @Override
             public void mouseDragged(final MouseEvent event) {
                 recordOnce("first-drag", event);
+            }
+
+            @Override
+            public void mouseMoved(final MouseEvent event) {
+                recordMouseMovedOnce(event);
             }
 
             @Override
@@ -6294,6 +6445,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
         void recordPrePress(final PartPrePressCheck check) {
             addEvidence(prePressJson(check, intendedSourceId, intendedTargetId));
+        }
+
+        void recordPointer(final PartPointerEvidence pointer) {
+            if (pointer != null) addEvidence(pointer.json());
         }
 
         boolean installIfOpen(final AtomicBoolean lifecycleOpen) {
@@ -6389,6 +6544,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 if (eventLocked(phase) != null) return;
             }
             record(phase, event);
+        }
+
+        private void recordMouseMovedOnce(final MouseEvent event) {
+            if (event == null) return;
+            synchronized (events) {
+                if (firstMouseMoved != null) return;
+                firstMouseMoved = describe("mouse-moved", event);
+                addEvidence(firstMouseMoved.json(layout, intendedSourceId, intendedTargetId));
+            }
         }
 
         private void record(final String phase, final MouseEvent event) {
@@ -6556,7 +6720,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             + ",\"tableShowing\":" + layout.tableShowing()
             + ",\"intendedSourceId\":\"" + json(intendedSourceId)
             + "\",\"intendedTargetId\":\"" + json(intendedTargetId)
-            + "\",\"source\":" + rowJson(layout.source(), layout.tree())
+            + "\",\"surface\":" + partSurfaceJson(layout.table())
+            + ",\"source\":" + rowJson(layout.source(), layout.tree())
             + ",\"target\":" + rowJson(layout.target(), layout.tree())
             + "}\n";
     }
@@ -6597,6 +6762,90 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             + ",\"target\":" + rowJson(layout == null ? null : layout.target(),
                 layout == null ? null : layout.tree())
             + "}\n";
+    }
+
+    private static String partSurfaceJson(final JTable table) {
+        Window window = null;
+        try {
+            window = table == null ? null : SwingUtilities.getWindowAncestor(table);
+        } catch (RuntimeException ignored) {
+            // An unavailable host surface is represented by null fields below.
+        }
+
+        Point tableLocation = null;
+        if (table != null && table.isShowing()) {
+            try {
+                tableLocation = new Point(table.getLocationOnScreen());
+            } catch (RuntimeException ignored) {
+                // Keep an explicit null for a non-showing or transitioning surface.
+            }
+        }
+
+        Rectangle windowBounds = null;
+        Insets windowInsets = null;
+        if (window != null) {
+            try {
+                windowBounds = new Rectangle(window.getBounds());
+            } catch (RuntimeException ignored) {
+                // Keep an explicit null when the window bounds cannot be observed.
+            }
+            try {
+                windowInsets = window.getInsets();
+            } catch (RuntimeException ignored) {
+                // Keep an explicit null when the window insets cannot be observed.
+            }
+        }
+
+        GraphicsConfiguration graphicsConfiguration = null;
+        try {
+            if (table != null) graphicsConfiguration = table.getGraphicsConfiguration();
+            if (graphicsConfiguration == null && window != null) {
+                graphicsConfiguration = window.getGraphicsConfiguration();
+            }
+        } catch (RuntimeException ignored) {
+            // Keep explicit null graphics fields when the surface is transitioning.
+        }
+        Rectangle graphicsBounds = null;
+        AffineTransform defaultTransform = null;
+        if (graphicsConfiguration != null) {
+            try {
+                graphicsBounds = new Rectangle(graphicsConfiguration.getBounds());
+            } catch (RuntimeException ignored) {
+                // Keep an explicit null when graphics bounds are unavailable.
+            }
+            try {
+                defaultTransform = new AffineTransform(
+                    graphicsConfiguration.getDefaultTransform()
+                );
+            } catch (RuntimeException ignored) {
+                // Keep an explicit null when the device transform is unavailable.
+            }
+        }
+        return "{\"tableLocationOnScreen\":" + pointJson(tableLocation)
+            + ",\"windowBounds\":" + rectangleJson(windowBounds)
+            + ",\"windowInsets\":" + insetsJson(windowInsets)
+            + ",\"graphicsConfigurationBounds\":" + rectangleJson(graphicsBounds)
+            + ",\"graphicsConfigurationDefaultTransform\":"
+            + transformJson(defaultTransform)
+            + "}";
+    }
+
+    private static String insetsJson(final Insets insets) {
+        if (insets == null) return "null";
+        return "{\"top\":" + insets.top
+            + ",\"left\":" + insets.left
+            + ",\"bottom\":" + insets.bottom
+            + ",\"right\":" + insets.right + "}";
+    }
+
+    private static String transformJson(final AffineTransform transform) {
+        if (transform == null) return "null";
+        return "{\"scaleX\":" + transform.getScaleX()
+            + ",\"scaleY\":" + transform.getScaleY()
+            + ",\"shearX\":" + transform.getShearX()
+            + ",\"shearY\":" + transform.getShearY()
+            + ",\"translateX\":" + transform.getTranslateX()
+            + ",\"translateY\":" + transform.getTranslateY() + "}";
     }
 
     private static String rowJson(final PartRowLocation row, final JTree tree) {
