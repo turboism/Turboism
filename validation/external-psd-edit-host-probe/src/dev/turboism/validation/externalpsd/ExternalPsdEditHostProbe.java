@@ -2249,14 +2249,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final long started = System.nanoTime();
         requireBudgetAvailable(started, budgetMillis, "fresh diagnostic observation");
         requireTargetBinding(result, target,
-            normalizedPrefix + ".targetBinding.beforeExport", budgetMillis);
+            normalizedPrefix + ".targetBinding.beforeExport",
+            remainingDiagnosticBudgetMillis(started, budgetMillis));
+        requireBudgetAvailable(started, budgetMillis, "fresh diagnostic export");
         final TrackedExport exported = exportTracked(
-            result, target.raw(), tracker, diagnosticExportLabel(normalizedPrefix), budgetMillis);
+            result, target.raw(), tracker, diagnosticExportLabel(normalizedPrefix),
+            remainingDiagnosticBudgetMillis(started, budgetMillis));
         Throwable primary = null;
         try {
             requireBudgetAvailable(started, budgetMillis, "fresh diagnostic export");
             final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
                 Files.readAllBytes(exported.path()), normalizedPrefix);
+            requireBudgetAvailable(started, budgetMillis, "fresh diagnostic metadata");
             final DiagnosticObservation observation = captureDiagnosticObservation(
                 result,
                 normalizedPrefix,
@@ -2266,7 +2270,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "",
                 exported.exportStartedAtEpochMillis(),
                 exported.exportCompletedAtEpochMillis(),
-                budgetMillis,
+                remainingDiagnosticBudgetMillis(started, budgetMillis),
                 false
             );
             requireBudgetAvailable(started, budgetMillis, "fresh diagnostic metadata");
@@ -2368,7 +2372,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         String livePsd = UNAVAILABLE_VALUE;
         boolean relationsAvailable = false;
         boolean livePsdAvailable = false;
-        boolean targetDocumentSnapshotAvailable = false;
+        boolean targetRawSnapshotAvailable = false;
         final List<String> diagnostics = new ArrayList<>();
         final TargetIdentity expected = target == null
             ? TargetIdentity.unavailable() : target.identity();
@@ -2431,10 +2435,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             } else {
                 livePsdAvailable = true;
                 livePsd = livePsdDocuments(documents);
-                targetDocumentSnapshotAvailable = documents.stream()
-                    .anyMatch(document -> document.documentId().equals(expected.documentId()));
-                if (!targetDocumentSnapshotAvailable) {
-                    diagnostics.add("target document is absent from live PSD snapshot");
+                targetRawSnapshotAvailable = hasUniquePsdSnapshotForRawImage(
+                    documents, targetRawId);
+                if (!targetRawSnapshotAvailable) {
+                    diagnostics.add("target raw image snapshot is absent or ambiguous for rawId="
+                        + targetRawId);
                 }
             }
         } catch (RuntimeException failure) {
@@ -2443,7 +2448,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
         final TargetIdentity observed = new TargetIdentity(
             documentId, modelId, binding, targetModelImageId, targetRawId);
-        final boolean identityVerified = targetDocumentSnapshotAvailable
+        final boolean identityVerified = targetRawSnapshotAvailable
             && targetIdentityMatches(expected, observed);
         if (!identityVerified) {
             diagnostics.add("target identity mismatch expected=" + expected
@@ -2451,7 +2456,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         final DiagnosticStatus status = diagnosticStatusForTarget(
             expected, observed, relationsAvailable, livePsdAvailable, fingerprint,
-            targetDocumentSnapshotAvailable);
+            targetRawSnapshotAvailable);
         return new DiagnosticObservation(
             status,
             diagnostics.isEmpty() ? "" : String.join("; ", diagnostics),
@@ -2924,6 +2929,27 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             && expected.equals(actual);
     }
 
+    /**
+     * Matches a PSD snapshot to the raw image it describes. The public snapshot calls this
+     * field {@code documentId}, but the editor adapter fills it from the CLayeredImage GUID;
+     * the raw-image adapter uses that same GUID value as {@code RawImageId}. It is therefore
+     * deliberately compared with {@link TargetIdentity#rawId()}, never with the CMO project
+     * document ID held by {@link TargetIdentity#documentId()}.
+     */
+    static boolean hasUniquePsdSnapshotForRawImage(
+        final List<PsdClipMaskDocumentSnapshot> documents, final String rawId) {
+        if (documents == null || rawId == null || rawId.isBlank()
+            || UNAVAILABLE_VALUE.equals(rawId)) {
+            return false;
+        }
+        int matches = 0;
+        for (final PsdClipMaskDocumentSnapshot document : documents) {
+            if (document == null) return false;
+            if (rawId.equals(document.documentId())) matches++;
+        }
+        return matches == 1;
+    }
+
     static DiagnosticStatus diagnosticStatusForTarget(final TargetIdentity expected,
         final TargetIdentity actual, final boolean relationsAvailable,
         final boolean livePsdAvailable,
@@ -2932,12 +2958,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             expected, actual, relationsAvailable, livePsdAvailable, fingerprint, true);
     }
 
-    private static DiagnosticStatus diagnosticStatusForTarget(final TargetIdentity expected,
+    static DiagnosticStatus diagnosticStatusForTarget(final TargetIdentity expected,
         final TargetIdentity actual, final boolean relationsAvailable,
         final boolean livePsdAvailable,
         final PsdValidationContent.Fingerprint fingerprint,
-        final boolean targetDocumentSnapshotAvailable) {
-        return relationsAvailable && livePsdAvailable && targetDocumentSnapshotAvailable
+        final boolean targetRawSnapshotAvailable) {
+        return relationsAvailable && livePsdAvailable && targetRawSnapshotAvailable
             && fingerprint != null && targetIdentityMatches(expected, actual)
             ? DiagnosticStatus.AVAILABLE : DiagnosticStatus.UNAVAILABLE;
     }
@@ -3042,9 +3068,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return Math.max(1L, (remainingNanos + 999_999L) / 1_000_000L);
     }
 
+    /**
+     * Returns the budget available to the next diagnostic SDK stage. A zero input retains the
+     * existing unlimited-budget sentinel; a positive input is recomputed from the caller's
+     * operation start so elapsed work is not granted again to the next stage.
+     */
+    static long remainingDiagnosticBudgetMillis(final long started, final long budgetMillis) {
+        return budgetMillis <= 0L ? budgetMillis : remainingMillis(started, budgetMillis);
+    }
+
     private static void requireBudgetAvailable(final long started, final long budgetMillis,
         final String operation) throws ObservationBudgetExceededException {
-        if (budgetMillis > 0L && remainingMillis(started, budgetMillis) == 0L) {
+        if (budgetMillis > 0L && remainingDiagnosticBudgetMillis(started, budgetMillis) == 0L) {
             throw new ObservationBudgetExceededException(
                 operation + " exceeded the remaining settle budget; SDK calls are synchronous "
                     + "and non-cancellable");

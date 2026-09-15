@@ -31,6 +31,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,6 +109,8 @@ public final class ExternalPsdEditHostProbeTest {
         testSaveCycleBytes();
         testDiagnosticObservationBoundaries();
         testDiagnosticTargetBinding();
+        testDiagnosticPsdSnapshotUsesRawImageId();
+        testDiagnosticBudgetIsRecomputedPerStage();
         testPublicProjectionFormatting();
         testBoundedSettleFailureAndTimeoutEvidence();
         testFreshDiagnosticFailureEvidence();
@@ -1108,6 +1111,57 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals("unavailable", unavailable.getProperty(
             "persist.observation.switched.freshNativeRgb.status"),
             "a fingerprint from a switched target is not usable evidence");
+    }
+
+    private static void testDiagnosticPsdSnapshotUsesRawImageId() {
+        final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
+            450, 450, 550, 550);
+        final PsdValidationContent.Fingerprint fingerprint =
+            new PsdValidationContent.Fingerprint(
+                "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
+        final ExternalPsdEditHostProbe.TargetIdentity expected =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "cmo-document-id", "model-1", "binding-1", "model-image-1",
+                "raw-guid-target");
+        final ExternalPsdEditHostProbe.TargetIdentity observed =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "cmo-document-id", "model-1", "binding-1", "model-image-1",
+                "raw-guid-target");
+        final PsdLayerSnapshot layer = new PsdLayerSnapshot(
+            "layer-6", "Target", true, List.of(), Optional.empty(), List.of());
+        final PsdClipMaskDocumentSnapshot targetSnapshot =
+            new PsdClipMaskDocumentSnapshot(
+                "raw-guid-target", "textures/target.psd", List.of(layer));
+        final PsdClipMaskDocumentSnapshot otherSnapshot =
+            new PsdClipMaskDocumentSnapshot(
+                "raw-guid-other", "textures/other.psd", List.of(layer));
+
+        assertTrue(!expected.documentId().equals(targetSnapshot.documentId()),
+            "CMO document ID is distinct from the PSD raw GUID");
+        assertTrue(ExternalPsdEditHostProbe.hasUniquePsdSnapshotForRawImage(
+            List.of(targetSnapshot, otherSnapshot), expected.rawId()),
+            "the PSD snapshot matching the target RawImageId is available");
+        assertTrue(!ExternalPsdEditHostProbe.hasUniquePsdSnapshotForRawImage(
+            List.of(otherSnapshot), expected.rawId()),
+            "a snapshot for another raw image is rejected");
+        assertEquals("AVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+            expected, observed, true, true, fingerprint, true).name(),
+            "matching raw snapshot does not require matching the CMO document ID");
+        assertEquals("UNAVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+            expected, observed, true, true, fingerprint, false).name(),
+            "missing target raw snapshot keeps the diagnostic unavailable");
+    }
+
+    private static void testDiagnosticBudgetIsRecomputedPerStage() {
+        final long started = System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(20);
+        final long remaining = ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
+            started, 1000L);
+        assertTrue(remaining > 0L && remaining < 1000L,
+            "a later diagnostic stage receives only the remaining budget");
+        final long exhausted = ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
+            System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(2000), 1000L);
+        assertEquals(0L, exhausted,
+            "an exhausted diagnostic budget forbids starting another stage");
     }
 
     private static void testPublicProjectionFormatting() {
