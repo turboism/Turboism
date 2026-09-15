@@ -72,7 +72,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final AppearanceProviderFactory appearanceProviderFactory;
     private final WorkspaceResolverFactory workspaceResolverFactory;
     private final CoreBackendFactory coreBackendFactory;
-    private final Locale effectiveLocale;
+    private final java.util.function.Supplier<Locale> effectiveLocale;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -328,7 +328,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             embeddedPanelResolverFactory, boundingBoxOverlayResolverFactory, editorUiPluginResources,
             editorUiActionRouter, embeddedPanelActivation, topMenuResolverFactory, dockMaintenance,
             appearanceProviderFactory, workspaceResolverFactory, coreBackendFactory,
-            dev.turboism.i18n.CubismHostLocale.resolve()
+            dev.turboism.i18n.CubismHostLocale::resolve
         );
     }
 
@@ -347,7 +347,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final AppearanceProviderFactory appearanceProviderFactory,
         final WorkspaceResolverFactory workspaceResolverFactory,
         final CoreBackendFactory coreBackendFactory,
-        final Locale effectiveLocale
+        final java.util.function.Supplier<Locale> effectiveLocale
     ) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
@@ -910,7 +910,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         ),
                         new VerifiedTopMenuHostOperations(topMenu.resolver()),
                         editorUiActionRouter,
-                        dev.turboism.ui.menu.TopMenuText.sharedRootLabel(effectiveLocale)
+                        () -> dev.turboism.ui.menu.TopMenuText.sharedRootLabel(effectiveLocale.get())
                     ));
                 }
                 if (overlay != null) {

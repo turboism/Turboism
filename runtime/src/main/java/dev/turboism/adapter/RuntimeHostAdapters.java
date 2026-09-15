@@ -233,7 +233,7 @@ public record RuntimeHostAdapters(
         final VerifiedMemberResolver panelResolver
     ) {
         return withVerifiedRecentPreview(
-            base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale.resolve()
+            base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale::resolve
         );
     }
 
@@ -247,12 +247,38 @@ public record RuntimeHostAdapters(
         return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> { });
     }
 
+    /** Connects the verified recent-preview slice with the caller's effective-locale source. */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver,
+        final java.util.function.Supplier<java.util.Locale> locale
+    ) {
+        return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> { });
+    }
+
     /** Connects the recent-preview slice and routes sanitized host diagnostics to the runtime sink. */
     public static RuntimeHostAdapters withVerifiedRecentPreview(
         final RuntimeHostAdapters base,
         final VerifiedMemberResolver projectResolver,
         final VerifiedMemberResolver panelResolver,
         final java.util.Locale locale,
+        final Consumer<String> diagnostics
+    ) {
+        return withVerifiedRecentPreview(base, projectResolver, panelResolver, fixedLocale(locale), diagnostics);
+    }
+
+    /**
+     * Connects the recent-preview slice and routes sanitized host diagnostics to the runtime sink.
+     *
+     * @param locale resolves the effective locale at render time, so a locale settled after this
+     *     bundle's composition is honored
+     */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver,
+        final java.util.function.Supplier<java.util.Locale> locale,
         final Consumer<String> diagnostics
     ) {
         Objects.requireNonNull(base, "base");
@@ -277,6 +303,13 @@ public record RuntimeHostAdapters(
             RecentPreviewContributionAdapter.connected(popup),
             base.autoBackup()
         );
+    }
+
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
+        final java.util.Locale locale
+    ) {
+        final java.util.Locale required = Objects.requireNonNull(locale, "locale");
+        return () -> required;
     }
 
     /**
