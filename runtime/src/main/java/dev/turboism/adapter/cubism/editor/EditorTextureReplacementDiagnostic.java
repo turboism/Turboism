@@ -1,16 +1,15 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.id.ModelImageId;
+import dev.turboism.mapping.verification.selector.EditorTextureRelationsSelectorContract;
 import dev.turboism.sdk.cubism.id.RawImageId;
-import dev.turboism.sdk.cubism.model.ModelImageGroupRelation;
-import dev.turboism.sdk.cubism.model.ModelImageRelation;
-import dev.turboism.sdk.cubism.model.RawImageDetails;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -18,24 +17,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Opt-in, bounded relation evidence around one PSD raw-image replacement call.
+ * Opt-in, bounded validation evidence around one PSD raw-image replacement.
  *
- * <p>This is validation evidence only. It does not invoke native code, infer a
- * committed edit from the native void return, or change replacement
- * classification. The existing relation snapshots are reused; the only
- * additional host read in the enabled path is the incoming layered-image GUID
- * lookup. The default path returns before inspecting any diagnostic input.</p>
+ * <p>The native relation fields in this class are read directly from the
+ * reviewed resolver aliases, using the same model source and model as the
+ * replacement call. The public {@link TextureRelationsSnapshot} remains only
+ * a structural binding check; its projected selector map is never used as the
+ * native {@code hasLayerInputData} value.</p>
  *
- * <p>Capture requires {@link #ENABLE_PROPERTY}; persistence uses the existing
- * {@link EditorObjectValidationTrace} opt-in sink and its separate trace
- * property. No diagnostic output is emitted unless that sink is enabled too.</p>
- *
- * <p>{@code nativeReturned=true} means only that the verified five-argument
- * native method returned synchronously. It is not an asynchronous completion or
- * commit signal. Relation observations are labelled as unavailable when their
- * binding or required evidence cannot be established. The
- * {@code hasLayerInputData} value is the relation projection's non-empty
- * selector-input map; it is not a new host read or a fabricated mapping.</p>
+ * <p>This is evidence only. A synchronous native return is recorded as a
+ * return observation, never as a commit or asynchronous completion. All
+ * diagnostic failures are converted to unavailable evidence and are isolated
+ * from the native return, exception, and replacement classification. Fatal VM
+ * errors are deliberately not caught.</p>
  */
 final class EditorTextureReplacementDiagnostic {
 
@@ -43,69 +37,98 @@ final class EditorTextureReplacementDiagnostic {
         "turboism.validation.editorTextureReplaceDiagnostic";
     static final String ARTIFACT = "editor-texture-psd-replace-diagnostic.txt";
 
+    private static final String SUPPORTED_VERSION = "5.3.02";
+    private static final String TEXTURE_MANAGER =
+        "cubism.editor-model.model-source.texture-manager";
+    private static final String RAW_IMAGES =
+        "cubism.editor-model.texture-manager.raw-images";
+    private static final String ALL_MODEL_IMAGES =
+        "cubism.editor-model.texture-manager.all-model-images";
+    private static final String MODEL_IMAGE_GROUPS =
+        "cubism.editor-model.texture-manager.model-image-groups";
+    private static final String WRAPPER_IMAGE =
+        "cubism.editor-model.layered-image-wrapper.image";
+    private static final String WRAPPER_REPLACED =
+        "cubism.editor-model.layered-image-wrapper.replaced";
+    private static final String LAYERED_IMAGE_CLASS =
+        "cubism.editor-model.layered-image.class";
+    private static final String LAYERED_IMAGE_GUID =
+        "cubism.editor-model.layered-image.guid";
+    private static final String MODEL_IMAGE_CLASS =
+        "cubism.editor-model.model-image.class";
+    private static final String MODEL_IMAGE_GUID =
+        "cubism.editor-model.model-image.guid";
+    private static final String MODEL_IMAGE_LINKED_RAW =
+        "cubism.editor-model.model-image.linked-raw-image-guids";
+    private static final String MODEL_IMAGE_INPUT_FILTER_ENV =
+        "cubism.editor-model.model-image.input-filter-env";
+    private static final String FILTER_ENV_CLASS =
+        "cubism.editor-model.model-image-filter-env.class";
+    private static final String FILTER_ENV_HAS_LAYER_INPUT =
+        "cubism.editor-model.model-image-filter-env.has-layer-input-data";
+    private static final String FILTER_ENV_LAYER_INPUT =
+        "cubism.editor-model.model-image-filter-env.layer-input-data";
+    private static final String FILTER_ENV_HAS_CURRENT =
+        "cubism.editor-model.model-image-filter-env.has-current-image-guid";
+    private static final String FILTER_ENV_CURRENT =
+        "cubism.editor-model.model-image-filter-env.current-image-guid";
+    private static final String SELECTOR_MAP_CLASS =
+        "cubism.editor-model.layer-selector-map.class";
+    private static final String SELECTOR_MAP_IMAGE_INPUTS =
+        "cubism.editor-model.layer-selector-map.image-to-layer-input";
+    private static final String GROUP_CLASS =
+        "cubism.editor-model.model-image-group.class";
+    private static final String GROUP_NAME =
+        "cubism.editor-model.model-image-group.group-name";
+    private static final String GROUP_IMAGES =
+        "cubism.editor-model.model-image-group.model-images";
+    private static final String GROUP_LINKED_RAW =
+        "cubism.editor-model.model-image-group.linked-raw-image-guids";
+    private static final String GUID_VALUE = "cubism.editor-model.guid.value";
+
     private static final int MAX_ITEMS = 32;
     private static final int MAX_VALUE_LENGTH = 128;
     static final int MAX_LINE_LENGTH = 32_000;
+    private static final int LINE_RESERVE = 160;
     private static final AtomicLong CORRELATION_SEQUENCE = new AtomicLong();
 
     private EditorTextureReplacementDiagnostic() {
     }
 
-    /**
-     * Executes the already-admitted native operation exactly once. The helper
-     * deliberately does not catch or retry an exception from the caller.
-     */
-    static EditorRawImagePsdReplaceAccess.ReplaceResult invokeNativeOnce(
-        final NativeReplace operation
-    ) {
-        return Objects.requireNonNull(operation, "operation").invoke();
-    }
-
-    @FunctionalInterface
-    interface NativeReplace {
-        EditorRawImagePsdReplaceAccess.ReplaceResult invoke();
-    }
-
-    /** Returns whether this replacement-specific diagnostic was explicitly enabled. */
+    /** Returns whether this validation-only observation was explicitly enabled. */
     static boolean enabled() {
         try {
             return Boolean.getBoolean(ENABLE_PROPERTY);
-        } catch (SecurityException ignored) {
+        } catch (RuntimeException | LinkageError ignored) {
             return false;
         }
     }
 
-    /**
-     * Resolves the parsed incoming raw identity through already reviewed aliases.
-     * Callers must invoke this only after {@link #enabled()} is true.
-     */
+    /** Resolves the parsed incoming raw identity through the reviewed GUID aliases. */
     static RawIdentity resolveIncomingRaw(
         final VerifiedMemberResolver resolver,
         final Object incoming
     ) {
-        if (!enabled()) return RawIdentity.unavailable("diagnostic-disabled");
-        Objects.requireNonNull(resolver, "resolver");
-        if (incoming == null) return RawIdentity.unavailable("incoming-layered-image-null");
         try {
-            final Object guid = resolver.invoke(
-                "cubism.editor-model.layered-image.guid", incoming
-            );
+            if (!enabled()) return RawIdentity.unavailable("diagnostic-disabled");
+            if (resolver == null) return RawIdentity.unavailable("resolver-unavailable");
+            if (incoming == null) return RawIdentity.unavailable("incoming-layered-image-null");
+            final Object guid = resolver.invoke(LAYERED_IMAGE_GUID, incoming);
             if (guid == null) return RawIdentity.unavailable("incoming-guid-null");
-            final Object value = resolver.invoke("cubism.editor-model.guid.value", guid);
+            final Object value = resolver.invoke(GUID_VALUE, guid);
             if (!(value instanceof String text) || text.isBlank()) {
                 return RawIdentity.unavailable("incoming-guid-invalid");
             }
             return RawIdentity.available(text);
         } catch (RuntimeException | LinkageError failure) {
-            return RawIdentity.unavailable(
-                "incoming-guid-unavailable:" + message(failure)
-            );
+            return RawIdentity.unavailable("incoming-guid-unavailable:" + message(failure));
         }
     }
 
     /**
-     * Starts one correlated observation. When disabled this returns before
-     * validating or inspecting any supplied host value.
+     * Compatibility overload for structural-only unit fixtures. Production
+     * calls use the resolver/source overload below, so no native field can be
+     * inferred from a public snapshot.
      */
     static Optional<Session> begin(
         final String sessionIdentity,
@@ -115,20 +138,54 @@ final class EditorTextureReplacementDiagnostic {
         final RawIdentity incomingRaw,
         final TextureRelationsSnapshot before
     ) {
-        if (!enabled()) return Optional.empty();
-        final String correlation = "texture-replace-"
-            + CORRELATION_SEQUENCE.incrementAndGet();
-        final Session session = new Session(
-            correlation,
+        return begin(
+            null,
             sessionIdentity,
+            null,
             document,
             model,
             oldRaw,
             incomingRaw,
             before
         );
-        session.writePre();
-        return Optional.of(session);
+    }
+
+    /** Starts one correlated observation, returning empty only when disabled or setup failed. */
+    static Optional<Session> begin(
+        final VerifiedMemberResolver resolver,
+        final String sessionIdentity,
+        final Object source,
+        final Object document,
+        final Object model,
+        final RawImageId oldRaw,
+        final RawIdentity incomingRaw,
+        final TextureRelationsSnapshot before
+    ) {
+        try {
+            if (!enabled()) return Optional.empty();
+        } catch (RuntimeException | LinkageError failure) {
+            return Optional.empty();
+        }
+        final String correlation = "texture-replace-"
+            + CORRELATION_SEQUENCE.incrementAndGet();
+        try {
+            final Session session = new Session(
+                correlation,
+                resolver,
+                sessionIdentity,
+                source,
+                document,
+                model,
+                oldRaw,
+                incomingRaw,
+                before
+            );
+            session.writePre();
+            return Optional.of(session);
+        } catch (RuntimeException | LinkageError failure) {
+            writeSetupFailure(correlation, sessionIdentity, document, model, oldRaw, incomingRaw, failure);
+            return Optional.empty();
+        }
     }
 
     /** A raw identity plus a bounded reason when the reviewed GUID read is unavailable. */
@@ -161,19 +218,24 @@ final class EditorTextureReplacementDiagnostic {
     /** One pre/native/post record; finishing more than once is ignored. */
     static final class Session {
         private final String correlation;
+        private final VerifiedMemberResolver resolver;
         private final String sessionIdentity;
+        private final Object source;
+        private final Object model;
+        private final String sourceIdentity;
         private final String documentIdentity;
         private final String modelIdentity;
         private final String currentGuardBinding;
         private final RawImageId oldRaw;
         private final RawIdentity incomingRaw;
         private final TextureRelationsSnapshot before;
-        private final List<ModelImageId> affectedModelImages;
         private final AtomicBoolean finished = new AtomicBoolean();
 
         private Session(
             final String correlation,
+            final VerifiedMemberResolver resolver,
             final String sessionIdentity,
+            final Object source,
             final Object document,
             final Object model,
             final RawImageId oldRaw,
@@ -181,14 +243,17 @@ final class EditorTextureReplacementDiagnostic {
             final TextureRelationsSnapshot before
         ) {
             this.correlation = Objects.requireNonNull(correlation, "correlation");
+            this.resolver = resolver;
             this.sessionIdentity = sessionIdentity;
+            this.source = source;
+            this.model = model;
+            this.sourceIdentity = identity(source);
             this.documentIdentity = identity(document);
             this.modelIdentity = identity(model);
             this.currentGuardBinding = safe(sessionIdentity) + "/" + modelIdentity;
             this.oldRaw = oldRaw;
             this.incomingRaw = Objects.requireNonNull(incomingRaw, "incomingRaw");
             this.before = before;
-            this.affectedModelImages = affectedModelImages(before, oldRaw);
         }
 
         /** Writes the post side once; diagnostic failures never escape this method. */
@@ -200,16 +265,16 @@ final class EditorTextureReplacementDiagnostic {
             if (!finished.compareAndSet(false, true)) return;
             try {
                 writeObservation("post", after, nativeResult, postCause);
-            } catch (RuntimeException | LinkageError ignored) {
-                // Evidence must not change the native result or host classification.
+            } catch (RuntimeException | LinkageError failure) {
+                writeFailure("post", "diagnostic-finish-failed:" + message(failure), nativeResult);
             }
         }
 
         private void writePre() {
             try {
                 writeObservation("pre", before, null, null);
-            } catch (RuntimeException | LinkageError ignored) {
-                // Evidence must not change the native call path.
+            } catch (RuntimeException | LinkageError failure) {
+                writeFailure("pre", "diagnostic-pre-failed:" + message(failure), null);
             }
         }
 
@@ -227,56 +292,59 @@ final class EditorTextureReplacementDiagnostic {
                     && nativeResult != null
                     && !nativeResult.postCurrentGuardPassed()
                     ? "post-current-guard-failed"
-                : cause;
+                    : cause;
             final ObservationView view = observe(snapshot, phase, effectiveCause);
-            final StringBuilder line = new StringBuilder(1_024);
-            append(line, "correlation", correlation);
-            append(line, "phase", phase);
-            append(line, "sessionIdentity", sessionIdentity);
-            append(line, "documentIdentity", documentIdentity);
-            append(line, "modelIdentity", modelIdentity);
-            append(line, "currentGuardBinding", currentGuardBinding);
+            final NativeRelationObservation nativeEvidence = shouldReadNativeEvidence(
+                phase, nativeResult
+            )
+                ? NativeRelationObservation.capture(
+                    resolver, source, model, oldRaw, incomingRaw
+                )
+                : NativeRelationObservation.unavailable(
+                    effectiveCause == null || effectiveCause.isBlank()
+                        ? "native-observation-not-attempted"
+                        : effectiveCause
+                );
+
+            final BoundedLine line = new BoundedLine(MAX_LINE_LENGTH);
+            line.add("correlation", correlation);
+            line.add("phase", phase);
+            line.add("sessionIdentity", sessionIdentity);
+            line.add("sourceIdentity", sourceIdentity);
+            line.add("documentIdentity", documentIdentity);
+            line.add("modelIdentity", modelIdentity);
+            line.add("currentGuardBinding", currentGuardBinding);
             if (nativeResult == null) {
-                append(line, "currentGuardPrePassed", "PASSED_BY_CALLER");
+                line.add("currentGuardPrePassed", "PASSED_BY_CALLER");
             } else {
-                append(line, "currentGuardPrePassed", nativeResult.preCurrentGuardPassed());
-                append(line, "currentGuardPostPassed", nativeResult.postCurrentGuardPassed());
+                line.add("currentGuardPrePassed", nativeResult.preCurrentGuardPassed());
+                line.add("currentGuardPostPassed", nativeResult.postCurrentGuardPassed());
             }
-            append(line, "oldRaw", oldRaw == null ? null : oldRaw.value());
-            append(line, "incomingRaw", incomingRaw.value());
-            append(line, "incomingRawStatus", incomingRaw.isAvailable() ? "AVAILABLE" : "UNAVAILABLE");
-            if (!incomingRaw.isAvailable()) append(line, "incomingRawCause", incomingRaw.cause());
-            append(line, "observation", view.status());
-            append(line, "observationCause", view.cause());
-            append(line, "relationBinding", view.binding());
-            append(line, "generation", view.generation());
-            append(line, "revision", view.revision());
-            append(line, "affectedModelImageIds", view.affectedModelImageIds());
-            append(line, "modelImages", view.modelImages());
-            append(line, "groups", view.groups());
-            append(line, "rawWrappers", view.rawWrappers());
-            append(line, "artPathExclusion", "UNAVAILABLE:reviewed-alias-not-admitted");
-            append(line, "nativeCompletionCallback", "UNAVAILABLE:reviewed-alias-not-admitted");
-            if (nativeResult == null) {
-                append(line, "nativeStatus", "THREW_OR_UNOBSERVED");
-                append(line, "nativeInvocationAttempted", "UNKNOWN");
-                append(line, "nativeReturned", "UNKNOWN");
-            } else {
-                append(line, "nativeStatus", nativeResult.status().name());
-                append(line, "nativeInvocationAttempted", nativeResult.nativeInvocationAttempted());
-                append(line, "nativeReturned", nativeResult.nativeReturned());
-                append(line, "nativeFailurePhase", nativeResult.failurePhase().name());
-                append(line, "nativeFailureType", nativeResult.failureType());
-                if (nativeResult.failureMessage() != null) {
-                    append(line, "nativeFailureMessage", nativeResult.failureMessage());
-                }
-            }
-            line.append(System.lineSeparator());
-            final String bounded = line.length() <= MAX_LINE_LENGTH
-                ? line.toString()
-                : line.substring(0, MAX_LINE_LENGTH - System.lineSeparator().length())
-                    + System.lineSeparator();
-            EditorObjectValidationTrace.writeArtifact(ARTIFACT, bounded, true);
+            line.add("oldRaw", oldRaw == null ? null : oldRaw.value());
+            line.add("incomingRaw", incomingRaw.value());
+            line.add("incomingRawStatus", incomingRaw.isAvailable() ? "AVAILABLE" : "UNAVAILABLE");
+            if (!incomingRaw.isAvailable()) line.add("incomingRawCause", incomingRaw.cause());
+            line.add("observation", view.status());
+            line.add("observationCause", view.cause());
+            line.add("relationBinding", view.binding());
+            line.add("generation", view.generation());
+            line.add("revision", view.revision());
+            appendNativeEvidence(line, nativeEvidence);
+            line.add("artPathExclusion", "UNAVAILABLE:reviewed-alias-not-admitted");
+            line.add("nativeCompletionCallback", "UNAVAILABLE:reviewed-alias-not-admitted");
+            line.add("nativeReturnObservation", "SYNCHRONOUS_RETURN_ONLY");
+            appendNativeResult(line, nativeResult);
+            EditorObjectValidationTrace.writeArtifact(ARTIFACT, line.finish(), true);
+        }
+
+        private boolean shouldReadNativeEvidence(
+            final String phase,
+            final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult
+        ) {
+            if ("pre".equals(phase)) return true;
+            return nativeResult != null
+                && nativeResult.nativeInvocationAttempted()
+                && nativeResult.postCurrentGuardPassed();
         }
 
         private ObservationView observe(
@@ -288,161 +356,192 @@ final class EditorTextureReplacementDiagnostic {
                 ? null
                 : explicitCause;
             if (unavailableCause != null) {
-                return ObservationView.unavailable(unavailableCause, affectedModelImages);
+                return ObservationView.unavailable(unavailableCause);
             }
             if (snapshot == null) {
-                return ObservationView.unavailable(
-                    phase + "-relation-snapshot-missing",
-                    affectedModelImages
-                );
+                return ObservationView.unavailable(phase + "-relation-snapshot-missing");
             }
             if (!snapshot.isAvailable()) {
-                return ObservationView.unavailable(
-                    phase + "-relation-snapshot-unavailable",
-                    affectedModelImages
-                );
+                return ObservationView.unavailable(phase + "-relation-snapshot-unavailable");
             }
             if (sessionIdentity == null || !sessionIdentity.equals(snapshot.binding())) {
-                return ObservationView.unavailable(
-                    "relation-binding-mismatch", affectedModelImages
-                );
+                return ObservationView.unavailable("relation-binding-mismatch");
             }
             if (phase.equals("post") && before != null && before.isAvailable()
                 && snapshot.generation() != before.generation()) {
-                return ObservationView.unavailable(
-                    "relation-generation-mismatch", affectedModelImages
-                );
+                return ObservationView.unavailable("relation-generation-mismatch");
             }
             if (phase.equals("post") && before != null && before.isAvailable()
                 && snapshot.revision() <= before.revision()) {
-                return ObservationView.unavailable(
-                    "relation-revision-not-newer", affectedModelImages
-                );
+                return ObservationView.unavailable("relation-revision-not-newer");
             }
             if (oldRaw == null) {
-                return ObservationView.unavailable("old-raw-missing", affectedModelImages);
+                return ObservationView.unavailable("old-raw-missing");
             }
             if (!containsRaw(snapshot, oldRaw.value())) {
-                return ObservationView.unavailable(
-                    phase + "-old-raw-not-present", affectedModelImages
-                );
+                return ObservationView.unavailable(phase + "-old-raw-not-present");
             }
             if (!incomingRaw.isAvailable()) {
-                return ObservationView.unavailable(
-                    incomingRaw.cause(), affectedModelImages
-                );
+                return ObservationView.unavailable(incomingRaw.cause());
             }
             if (documentIdentity.equals("null")) {
-                return ObservationView.unavailable("document-missing", affectedModelImages);
+                return ObservationView.unavailable("document-missing");
             }
             if (modelIdentity.equals("null")) {
-                return ObservationView.unavailable("model-missing", affectedModelImages);
+                return ObservationView.unavailable("model-missing");
             }
             if (phase.equals("post") && !containsRaw(snapshot, incomingRaw.value())) {
-                return ObservationView.unavailable(
-                    "post-incoming-raw-not-present", affectedModelImages
-                );
-            }
-            if (phase.equals("post")) {
-                for (final ModelImageId id : affectedModelImages) {
-                    if (snapshot.modelImage(id).isEmpty()) {
-                        return ObservationView.unavailable(
-                            "post-affected-model-image-missing:" + id.value(),
-                            affectedModelImages
-                        );
-                    }
-                }
+                return ObservationView.unavailable("post-incoming-raw-not-present");
             }
             return ObservationView.available(
                 snapshot.binding(),
                 Long.toString(snapshot.generation()),
-                Long.toString(snapshot.revision()),
-                affectedModelImages,
-                modelImageSummary(snapshot),
-                groupSummary(snapshot),
-                rawWrapperSummary(snapshot)
+                Long.toString(snapshot.revision())
             );
         }
 
-        private boolean containsRaw(
-            final TextureRelationsSnapshot snapshot,
-            final String rawId
-        ) {
+        private boolean containsRaw(final TextureRelationsSnapshot snapshot, final String rawId) {
             return snapshot.rawImages().stream().anyMatch(raw -> raw.id().value().equals(rawId));
         }
+    }
 
-        private String modelImageSummary(final TextureRelationsSnapshot snapshot) {
-            final StringBuilder result = new StringBuilder();
-            int count = 0;
-            for (final ModelImageRelation relation : snapshot.modelImages()) {
-                if (!affectedModelImages.contains(relation.id())) continue;
-                if (count++ >= MAX_ITEMS) break;
-                if (result.length() > 0) result.append(';');
-                result.append("id:").append(safe(relation.id().value()));
-                result.append(",hasLayerInputData:")
-                    .append(!relation.inputsByRawImage().isEmpty());
-                result.append(",currentImageGuid:")
-                    .append(relation.currentRawImageId().map(value -> safe(value.value())).orElse("NONE"));
-                result.append(",selectorKeys:")
-                    .append(rawIds(relation.inputsByRawImage().keySet().stream().map(RawImageId::value).toList()));
-                result.append(",containsOldRaw:")
-                    .append(relation.inputsByRawImage().containsKey(oldRaw));
-                result.append(",linkedRaw:")
-                    .append(rawIds(relation.linkedRawImageIds().stream().map(RawImageId::value).toList()));
-            }
-            return result.toString();
+    private static void appendNativeResult(
+        final BoundedLine line,
+        final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult
+    ) {
+        if (nativeResult == null) {
+            line.add("nativeStatus", "THREW_OR_UNOBSERVED");
+            line.add("nativeInvocationAttempted", "UNKNOWN");
+            line.add("nativeReturned", "UNKNOWN");
+            return;
         }
-
-        private String groupSummary(final TextureRelationsSnapshot snapshot) {
-            final Set<String> affectedIds = new HashSet<>();
-            for (final ModelImageId id : affectedModelImages) affectedIds.add(id.value());
-            final String incoming = incomingRaw.value();
-            final StringBuilder result = new StringBuilder();
-            int count = 0;
-            for (final ModelImageGroupRelation relation : snapshot.groups()) {
-                final boolean relevant = relation.modelImageIds().stream()
-                    .map(ModelImageId::value)
-                    .anyMatch(affectedIds::contains)
-                    || relation.linkedRawImageIds().stream()
-                        .map(RawImageId::value)
-                        .anyMatch(value -> value.equals(oldRaw.value())
-                            || (incoming != null && value.equals(incoming)));
-                if (!relevant) continue;
-                if (count++ >= MAX_ITEMS) break;
-                if (result.length() > 0) result.append(';');
-                result.append("name:").append(safe(relation.groupName()));
-                result.append(",modelImageIds:")
-                    .append(rawIds(relation.modelImageIds().stream().map(ModelImageId::value).toList()));
-                result.append(",linkedRaw:")
-                    .append(rawIds(relation.linkedRawImageIds().stream().map(RawImageId::value).toList()));
-            }
-            return result.toString();
+        line.add("nativeStatus", nativeResult.status().name());
+        line.add("nativeInvocationAttempted", nativeResult.nativeInvocationAttempted());
+        line.add("nativeReturned", nativeResult.nativeReturned());
+        line.add("nativeFailurePhase", nativeResult.failurePhase().name());
+        line.add("nativeFailureType", nativeResult.failureType());
+        if (nativeResult.failureMessage() != null) {
+            line.add("nativeFailureMessage", nativeResult.failureMessage());
         }
+    }
 
-        private String rawWrapperSummary(final TextureRelationsSnapshot snapshot) {
-            final StringBuilder result = new StringBuilder();
-            appendRawWrapper(result, snapshot, oldRaw == null ? null : oldRaw.value());
-            if (incomingRaw.value() != null && !incomingRaw.value().equals(oldRaw == null ? null : oldRaw.value())) {
-                if (result.length() > 0) result.append(';');
-                appendRawWrapper(result, snapshot, incomingRaw.value());
-            }
-            return result.toString();
+    private static void appendNativeEvidence(
+        final BoundedLine line,
+        final NativeRelationObservation observation
+    ) {
+        line.add("nativeRelationObservation", observation.status());
+        if (!observation.isAvailable()) {
+            line.add("nativeRelationObservationCause", observation.cause());
+            return;
         }
+        line.add("nativeModelImageTotalCount", observation.modelImageTotalCount());
+        line.add("nativeModelImageTruncated", observation.modelImageTruncated());
+        line.add("nativeGroupTotalCount", observation.groupTotalCount());
+        line.add("nativeGroupTruncated", observation.groupTruncated());
+        // Keep the requested old/incoming wrappers ahead of bulk graph detail. A large
+        // relation graph may be truncated, but it must not hide either binding endpoint.
+        line.add("nativeRawWrapperTotalCount", observation.rawWrapperTotalCount());
+        line.add("nativeRawWrapperTruncated", observation.rawWrapperTruncated());
+        for (int index = 0; index < observation.rawWrappers().size(); index++) {
+            final NativeRawWrapper value = observation.rawWrappers().get(index);
+            final String prefix = "nativeRawWrapper." + index + ".";
+            line.add(prefix + "id", value.id());
+            line.add(prefix + "present", value.present());
+            line.add(prefix + "replaced", value.replaced());
+        }
+        for (int index = 0; index < observation.modelImages().size(); index++) {
+            final NativeModelImage value = observation.modelImages().get(index);
+            final String prefix = "nativeModelImage." + index + ".";
+            line.add(prefix + "id", value.id());
+            line.add(prefix + "target", value.target());
+            appendValue(line, prefix + "hasLayerInputData", value.hasLayerInputData());
+            appendValueList(line, prefix + "selectorKeys", value.selectorKeys());
+            appendValue(line, prefix + "currentImageGuid", value.currentImageGuid());
+            appendValueList(line, prefix + "linkedRaw", value.linkedRaw());
+            line.add(prefix + "linkedRawContainsOld", value.linkedRawContainsOld());
+            line.add(prefix + "linkedRawContainsIncoming", value.linkedRawContainsIncoming());
+            line.add(prefix + "selectorKeysContainOld", value.selectorKeys().containsOld());
+            line.add(prefix + "selectorKeysContainIncoming", value.selectorKeys().containsIncoming());
+        }
+        for (int index = 0; index < observation.groups().size(); index++) {
+            final NativeGroup value = observation.groups().get(index);
+            final String prefix = "nativeGroup." + index + ".";
+            line.add(prefix + "name", value.name());
+            line.add(prefix + "target", value.target());
+            appendValueList(line, prefix + "modelImageIds", value.modelImageIds());
+            appendValueList(line, prefix + "linkedRaw", value.linkedRaw());
+            line.add(prefix + "linkedRawContainsOld", value.linkedRaw().containsOld());
+            line.add(prefix + "linkedRawContainsIncoming", value.linkedRaw().containsIncoming());
+        }
+    }
 
-        private void appendRawWrapper(
-            final StringBuilder result,
-            final TextureRelationsSnapshot snapshot,
-            final String id
-        ) {
-            if (id == null) {
-                result.append("id:null,present:false,replaced:UNAVAILABLE");
-                return;
-            }
-            result.append("id:").append(safe(id));
-            final Optional<RawImageDetails> raw = snapshot.rawImage(new RawImageId(id));
-            result.append(",present:").append(raw.isPresent());
-            result.append(",replaced:")
-                .append(raw.map(value -> Boolean.toString(value.isReplaced())).orElse("UNAVAILABLE"));
+    private static void appendValue(
+        final BoundedLine line,
+        final String key,
+        final Value value
+    ) {
+        line.add(key, value.available() ? value.value() : "UNAVAILABLE");
+        if (!value.available()) line.add(key + "Cause", value.cause());
+    }
+
+    private static void appendValueList(
+        final BoundedLine line,
+        final String key,
+        final ValueList value
+    ) {
+        line.add(key + "Status", value.available() ? "AVAILABLE" : "UNAVAILABLE");
+        line.add(key + "Count", value.total());
+        line.add(key + "Truncated", value.truncated());
+        if (!value.available()) line.add(key + "Cause", value.cause());
+        for (int index = 0; index < value.values().size(); index++) {
+            line.add(key + "." + index, value.values().get(index));
+        }
+    }
+
+    private static void writeFailure(
+        final String phase,
+        final String cause,
+        final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult
+    ) {
+        // Session-specific failures are best-effort only. The normal path has
+        // already recorded the native facts before this fallback is reached.
+        // This method is intentionally not used to retry or classify a replace.
+        try {
+            final BoundedLine line = new BoundedLine(MAX_LINE_LENGTH);
+            line.add("phase", phase);
+            line.add("observation", "UNAVAILABLE");
+            line.add("observationCause", cause);
+            if (nativeResult != null) line.add("nativeStatus", nativeResult.status().name());
+            EditorObjectValidationTrace.writeArtifact(ARTIFACT, line.finish(), true);
+        } catch (RuntimeException | LinkageError ignored) {
+            // A failed diagnostic sink must not become a replacement failure.
+        }
+    }
+
+    private static void writeSetupFailure(
+        final String correlation,
+        final String sessionIdentity,
+        final Object document,
+        final Object model,
+        final RawImageId oldRaw,
+        final RawIdentity incomingRaw,
+        final Throwable failure
+    ) {
+        try {
+            final BoundedLine line = new BoundedLine(MAX_LINE_LENGTH);
+            line.add("correlation", correlation);
+            line.add("phase", "pre");
+            line.add("sessionIdentity", sessionIdentity);
+            line.add("documentIdentity", identity(document));
+            line.add("modelIdentity", identity(model));
+            line.add("oldRaw", oldRaw == null ? null : oldRaw.value());
+            line.add("incomingRaw", incomingRaw == null ? null : incomingRaw.value());
+            line.add("observation", "UNAVAILABLE");
+            line.add("observationCause", "diagnostic-setup-failed:" + message(failure));
+            line.add("nativeStatus", "NOT_STARTED");
+            EditorObjectValidationTrace.writeArtifact(ARTIFACT, line.finish(), true);
+        } catch (RuntimeException | LinkageError ignored) {
+            // A failed diagnostic sink must not become a replacement failure.
         }
     }
 
@@ -451,91 +550,415 @@ final class EditorTextureReplacementDiagnostic {
         String cause,
         String binding,
         String generation,
-        String revision,
-        String affectedModelImageIds,
-        String modelImages,
-        String groups,
-        String rawWrappers
+        String revision
     ) {
         static ObservationView available(
             final String binding,
             final String generation,
-            final String revision,
-            final List<ModelImageId> affected,
-            final String modelImages,
-            final String groups,
-            final String rawWrappers
+            final String revision
         ) {
-            return new ObservationView(
-                "AVAILABLE",
-                "",
-                binding,
-                generation,
-                revision,
-                modelImageIds(affected),
-                modelImages,
-                groups,
-                rawWrappers
-            );
+            return new ObservationView("AVAILABLE", "", binding, generation, revision);
         }
 
-        static ObservationView unavailable(
-            final String cause,
-            final List<ModelImageId> affected
-        ) {
-            return new ObservationView(
-                "UNAVAILABLE",
-                cause,
-                "",
-                "",
-                "",
-                modelImageIds(affected),
-                "",
-                "",
-                ""
-            );
+        static ObservationView unavailable(final String cause) {
+            return new ObservationView("UNAVAILABLE", cause, "", "", "");
         }
     }
 
-    private static List<ModelImageId> affectedModelImages(
-        final TextureRelationsSnapshot snapshot,
-        final RawImageId oldRaw
+    private record Value(boolean available, String value, String cause) {
+        static Value available(final String value) {
+            return new Value(true, value, "");
+        }
+
+        static Value unavailable(final String cause) {
+            return new Value(false, "", cause);
+        }
+    }
+
+    private record ValueList(
+        boolean available,
+        List<String> values,
+        int total,
+        boolean truncated,
+        String cause,
+        boolean containsOld,
+        boolean containsIncoming
     ) {
-        if (snapshot == null || !snapshot.isAvailable() || oldRaw == null) return List.of();
-        final List<ModelImageId> result = new ArrayList<>();
-        for (final ModelImageRelation relation : snapshot.modelImages()) {
-            if (relation.currentRawImageId().filter(oldRaw::equals).isPresent()) {
-                if (result.size() == MAX_ITEMS) break;
-                result.add(relation.id());
+        ValueList {
+            values = List.copyOf(values);
+        }
+
+        static ValueList available(
+            final List<String> values,
+            final int total,
+            final boolean truncated,
+            final boolean containsOld,
+            final boolean containsIncoming
+        ) {
+            return new ValueList(
+                true, values, total, truncated, "", containsOld, containsIncoming
+            );
+        }
+
+        static ValueList unavailable(final String cause) {
+            return new ValueList(false, List.of(), 0, false, cause, false, false);
+        }
+    }
+
+    private record NativeModelImage(
+        String id,
+        boolean target,
+        Value hasLayerInputData,
+        ValueList selectorKeys,
+        Value currentImageGuid,
+        ValueList linkedRaw,
+        boolean linkedRawContainsOld,
+        boolean linkedRawContainsIncoming
+    ) { }
+
+    private record NativeGroup(
+        String name,
+        boolean target,
+        ValueList modelImageIds,
+        ValueList linkedRaw
+    ) { }
+
+    private record NativeRawWrapper(String id, boolean present, String replaced) { }
+
+    private record NativeRelationObservation(
+        String status,
+        String cause,
+        int modelImageTotalCount,
+        boolean modelImageTruncated,
+        List<NativeModelImage> modelImages,
+        int groupTotalCount,
+        boolean groupTruncated,
+        List<NativeGroup> groups,
+        int rawWrapperTotalCount,
+        boolean rawWrapperTruncated,
+        List<NativeRawWrapper> rawWrappers
+    ) {
+        NativeRelationObservation {
+            modelImages = List.copyOf(modelImages);
+            groups = List.copyOf(groups);
+            rawWrappers = List.copyOf(rawWrappers);
+        }
+
+        static NativeRelationObservation unavailable(final String cause) {
+            return new NativeRelationObservation(
+                "UNAVAILABLE", cause, 0, false, List.of(), 0, false, List.of(), 0, false, List.of()
+            );
+        }
+
+        boolean isAvailable() {
+            return "AVAILABLE".equals(status);
+        }
+
+        static NativeRelationObservation capture(
+            final VerifiedMemberResolver resolver,
+            final Object source,
+            final Object model,
+            final RawImageId oldRaw,
+            final RawIdentity incomingRaw
+        ) {
+            try {
+                if (resolver == null) return unavailable("resolver-unavailable");
+                if (source == null) return unavailable("source-unavailable");
+                if (model == null) return unavailable("model-unavailable");
+                if (!resolver.isExactCubismVersion(SUPPORTED_VERSION)) {
+                    return unavailable("unsupported-cubism-version");
+                }
+                if (!resolver.authorizesFeature(
+                    EditorTextureRelationsSelectorContract.ADAPTER_SLICE_ID,
+                    EditorTextureRelationsSelectorContract.CAPABILITY_ID,
+                    EditorTextureRelationsSelectorContract.REQUIRED_ALIASES
+                )) {
+                    return unavailable("native-relation-aliases-unavailable");
+                }
+
+                final Object textureManager = requireObject(
+                    resolver.invoke(TEXTURE_MANAGER, source), "texture-manager"
+                );
+                final List<?> allImages = list(
+                    resolver.invoke(ALL_MODEL_IMAGES, textureManager), "model-images"
+                );
+                final List<NativeModelImage> modelValues = new ArrayList<>();
+                for (final Object image : allImages) {
+                    requireInstance(resolver, MODEL_IMAGE_CLASS, image, "model-image");
+                    final String id = guidValue(
+                        resolver, resolver.invoke(MODEL_IMAGE_GUID, image), "model-image"
+                    );
+                    final ValueList linkedRaw = readGuidList(
+                        resolver,
+                        resolver.invoke(MODEL_IMAGE_LINKED_RAW, image),
+                        oldRaw,
+                        incomingRaw,
+                        "model-image-linked-raw"
+                    );
+                    final NativeFilter filter = readFilter(resolver, image, oldRaw, incomingRaw);
+                    modelValues.add(new NativeModelImage(
+                        id,
+                        referencesTarget(linkedRaw, filter.currentImageGuid(), oldRaw, incomingRaw),
+                        filter.hasLayerInputData(),
+                        filter.selectorKeys(),
+                        filter.currentImageGuid(),
+                        linkedRaw,
+                        linkedRaw.containsOld(),
+                        linkedRaw.containsIncoming()
+                    ));
+                }
+                modelValues.sort((left, right) -> Boolean.compare(right.target(), left.target()));
+                final boolean modelTruncated = modelValues.size() > MAX_ITEMS;
+                final List<NativeModelImage> boundedModelValues = modelValues.size() > MAX_ITEMS
+                    ? List.copyOf(modelValues.subList(0, MAX_ITEMS))
+                    : List.copyOf(modelValues);
+                final Set<String> nativeTargetIds = new HashSet<>();
+                for (final NativeModelImage value : modelValues) {
+                    if (value.target()) nativeTargetIds.add(value.id());
+                }
+
+                final List<?> rawGroups = list(
+                    resolver.invoke(MODEL_IMAGE_GROUPS, textureManager), "model-image-groups"
+                );
+                final List<NativeGroup> groupValues = new ArrayList<>();
+                for (final Object group : rawGroups) {
+                    requireInstance(resolver, GROUP_CLASS, group, "model-image-group");
+                    final String name = stringValue(
+                        resolver.invoke(GROUP_NAME, group), "model-image-group-name"
+                    );
+                    final ValueList ids = readModelImageIds(resolver, resolver.invoke(GROUP_IMAGES, group));
+                    final ValueList linkedRaw = readGuidList(
+                        resolver,
+                        resolver.invoke(GROUP_LINKED_RAW, group),
+                        oldRaw,
+                        incomingRaw,
+                        "model-image-group-linked-raw"
+                    );
+                    final boolean target = intersects(nativeTargetIds, ids.values())
+                        || linkedRaw.containsOld()
+                        || linkedRaw.containsIncoming();
+                    groupValues.add(new NativeGroup(name, target, ids, linkedRaw));
+                }
+                groupValues.sort((left, right) -> Boolean.compare(
+                    right.target(), left.target()
+                ));
+                final boolean groupTruncated = groupValues.size() > MAX_ITEMS;
+                final List<NativeGroup> boundedGroupValues = groupValues.size() > MAX_ITEMS
+                    ? List.copyOf(groupValues.subList(0, MAX_ITEMS))
+                    : List.copyOf(groupValues);
+
+                final List<?> wrappers = list(
+                    resolver.invoke(RAW_IMAGES, textureManager), "raw-image-wrappers"
+                );
+                final List<NativeRawWrapper> rawValues = new ArrayList<>();
+                boolean rawTruncated = false;
+                final Set<String> requested = new LinkedHashSet<>();
+                if (oldRaw != null) requested.add(oldRaw.value());
+                if (incomingRaw.isAvailable()) requested.add(incomingRaw.value());
+                final Set<String> found = new HashSet<>();
+                int rawTotal = 0;
+                for (final Object wrapper : wrappers) {
+                    rawTotal++;
+                    final Object image = requireObject(
+                        resolver.invoke(WRAPPER_IMAGE, wrapper), "raw-layered-image"
+                    );
+                    requireInstance(resolver, LAYERED_IMAGE_CLASS, image, "raw-layered-image");
+                    final String id = guidValue(
+                        resolver, resolver.invoke(LAYERED_IMAGE_GUID, image), "raw-layered-image"
+                    );
+                    if (!requested.contains(id)) continue;
+                    if (!found.add(id)) {
+                        throw EditorTextureReplacementDiagnostic.unavailable("duplicate-raw-image-id");
+                    }
+                    if (rawValues.size() >= MAX_ITEMS) {
+                        rawTruncated = true;
+                        continue;
+                    }
+                    final Object replaced = resolver.invoke(WRAPPER_REPLACED, wrapper);
+                    if (!(replaced instanceof Boolean value)) {
+                        throw EditorTextureReplacementDiagnostic.unavailable(
+                            "raw-image-replaced-is-not-boolean"
+                        );
+                    }
+                    rawValues.add(new NativeRawWrapper(id, true, Boolean.toString(value)));
+                }
+                for (final String requestedId : requested) {
+                    if (found.contains(requestedId)) continue;
+                    if (rawValues.size() >= MAX_ITEMS) {
+                        rawTruncated = true;
+                        continue;
+                    }
+                    rawValues.add(new NativeRawWrapper(requestedId, false, "UNAVAILABLE"));
+                }
+                return new NativeRelationObservation(
+                    "AVAILABLE",
+                    "",
+                    allImages.size(),
+                    modelTruncated,
+                    boundedModelValues,
+                    rawGroups.size(),
+                    groupTruncated,
+                    boundedGroupValues,
+                    rawTotal,
+                    rawTruncated,
+                    rawValues
+                );
+            } catch (RuntimeException | LinkageError failure) {
+                return unavailable("native-relation-observation-failed:" + message(failure));
             }
         }
-        return List.copyOf(result);
-    }
 
-    private static String modelImageIds(final List<ModelImageId> values) {
-        final List<String> ids = new ArrayList<>();
-        for (final ModelImageId value : values) ids.add(value.value());
-        return rawIds(ids);
-    }
-
-    private static String rawIds(final List<String> values) {
-        final StringBuilder result = new StringBuilder();
-        int count = 0;
-        for (final String value : values) {
-            if (count++ >= MAX_ITEMS) break;
-            if (result.length() > 0) result.append(',');
-            result.append(safe(value));
+        private static boolean referencesTarget(
+            final ValueList linkedRaw,
+            final Value currentImageGuid,
+            final RawImageId oldRaw,
+            final RawIdentity incomingRaw
+        ) {
+            if (linkedRaw.containsOld() || linkedRaw.containsIncoming()) return true;
+            if (!currentImageGuid.available()) return false;
+            return oldRaw != null && oldRaw.value().equals(currentImageGuid.value())
+                || incomingRaw.isAvailable()
+                    && incomingRaw.value().equals(currentImageGuid.value());
         }
-        return result.toString();
+
+        private static NativeFilter readFilter(
+            final VerifiedMemberResolver resolver,
+            final Object image,
+            final RawImageId oldRaw,
+            final RawIdentity incomingRaw
+        ) {
+            final Object filterEnv = resolver.invoke(MODEL_IMAGE_INPUT_FILTER_ENV, image);
+            if (filterEnv == null) {
+                return new NativeFilter(
+                    Value.unavailable("filter-env-null"),
+                    ValueList.unavailable("filter-env-null"),
+                    Value.unavailable("filter-env-null")
+                );
+            }
+            requireInstance(resolver, FILTER_ENV_CLASS, filterEnv, "model-image-filter-env");
+            final Object hasValue = resolver.invoke(FILTER_ENV_HAS_LAYER_INPUT, filterEnv);
+            final Value hasLayerInputData = hasValue instanceof Boolean value
+                ? Value.available(Boolean.toString(value))
+                : Value.unavailable("has-layer-input-data-is-not-boolean");
+
+            final ValueList selectorKeys;
+            final Object selectorMap = resolver.invoke(FILTER_ENV_LAYER_INPUT, filterEnv);
+            if (selectorMap == null) {
+                selectorKeys = ValueList.unavailable("selector-map-null");
+            } else if (!resolver.isInstance(SELECTOR_MAP_CLASS, selectorMap)) {
+                selectorKeys = ValueList.unavailable("selector-map-invalid");
+            } else {
+                final Object rawMap = resolver.invoke(SELECTOR_MAP_IMAGE_INPUTS, selectorMap);
+                if (!(rawMap instanceof Map<?, ?> map)) {
+                    selectorKeys = ValueList.unavailable("selector-map-values-not-map");
+                } else {
+                    selectorKeys = readGuidList(resolver, map.keySet(), oldRaw, incomingRaw, "selector-key");
+                }
+            }
+
+            final Object hasCurrentValue = resolver.invoke(FILTER_ENV_HAS_CURRENT, filterEnv);
+            final Value currentImageGuid;
+            if (!(hasCurrentValue instanceof Boolean hasCurrent)) {
+                currentImageGuid = Value.unavailable("has-current-image-guid-is-not-boolean");
+            } else if (!hasCurrent) {
+                currentImageGuid = Value.available("NONE");
+            } else {
+                final Object guid = resolver.invoke(FILTER_ENV_CURRENT, filterEnv);
+                currentImageGuid = guid == null
+                    ? Value.unavailable("current-image-guid-null")
+                    : Value.available(guidValue(resolver, guid, "current-image-guid"));
+            }
+            return new NativeFilter(hasLayerInputData, selectorKeys, currentImageGuid);
+        }
+
+        private static ValueList readModelImageIds(
+            final VerifiedMemberResolver resolver,
+            final Object value
+        ) {
+            final List<?> values = list(value, "group-model-images");
+            final List<String> ids = new ArrayList<>();
+            for (final Object image : values) {
+                requireInstance(resolver, MODEL_IMAGE_CLASS, image, "group-model-image");
+                final String id = guidValue(
+                    resolver, resolver.invoke(MODEL_IMAGE_GUID, image), "group-model-image"
+                );
+                if (ids.size() < MAX_ITEMS) ids.add(id);
+            }
+            return ValueList.available(ids, values.size(), values.size() > MAX_ITEMS, false, false);
+        }
+
+        private static ValueList readGuidList(
+            final VerifiedMemberResolver resolver,
+            final Object value,
+            final RawImageId oldRaw,
+            final RawIdentity incomingRaw,
+            final String label
+        ) {
+            final List<?> values = list(value, label);
+            final List<String> ids = new ArrayList<>();
+            boolean containsOld = false;
+            boolean containsIncoming = false;
+            for (final Object guid : values) {
+                final String id = guidValue(resolver, guid, label);
+                containsOld |= oldRaw != null && id.equals(oldRaw.value());
+                containsIncoming |= incomingRaw.isAvailable() && id.equals(incomingRaw.value());
+                if (ids.size() < MAX_ITEMS) ids.add(id);
+            }
+            return ValueList.available(ids, values.size(), values.size() > MAX_ITEMS, containsOld, containsIncoming);
+        }
+
+        private static boolean intersects(final Set<String> values, final List<String> candidates) {
+            for (final String value : candidates) if (values.contains(value)) return true;
+            return false;
+        }
+
     }
 
-    private static void append(
-        final StringBuilder line,
-        final String key,
-        final Object value
+    private record NativeFilter(Value hasLayerInputData, ValueList selectorKeys, Value currentImageGuid) { }
+
+    private static void requireInstance(
+        final VerifiedMemberResolver resolver,
+        final String alias,
+        final Object value,
+        final String label
     ) {
-        if (line.length() > 0) line.append(' ');
-        line.append(key).append('=').append(safe(value == null ? null : value.toString()));
+        if (!resolver.isInstance(alias, value)) throw unavailable(label + " has invalid type");
+    }
+
+    private static Object requireObject(final Object value, final String label) {
+        if (value == null) throw unavailable(label + " is unavailable");
+        return value;
+    }
+
+    private static String guidValue(
+        final VerifiedMemberResolver resolver,
+        final Object guid,
+        final String label
+    ) {
+        final Object value = requireObject(guid, label + " GUID");
+        final Object text = resolver.invoke(GUID_VALUE, value);
+        if (!(text instanceof String result) || result.isBlank()) {
+            throw unavailable(label + " GUID is invalid");
+        }
+        return result;
+    }
+
+    private static String stringValue(final Object value, final String label) {
+        if (!(value instanceof String text)) throw unavailable(label + " is invalid");
+        return text;
+    }
+
+    private static List<?> list(final Object value, final String label) {
+        if (value == null || !(value instanceof Iterable<?> iterable)) {
+            throw unavailable(label + " collection is unavailable");
+        }
+        final List<Object> result = new ArrayList<>();
+        iterable.forEach(result::add);
+        return result;
+    }
+
+    private static IllegalStateException unavailable(final String message) {
+        return new IllegalStateException(message);
     }
 
     private static String identity(final Object value) {
@@ -560,5 +983,36 @@ final class EditorTextureReplacementDiagnostic {
     private static String message(final Throwable failure) {
         final String value = failure.getMessage();
         return value == null || value.isBlank() ? failure.getClass().getName() : value;
+    }
+
+    private static final class BoundedLine {
+        private final int maxLength;
+        private final StringBuilder line = new StringBuilder(1_024);
+        private int skippedFields;
+
+        BoundedLine(final int maxLength) {
+            this.maxLength = maxLength;
+        }
+
+        void add(final String key, final Object value) {
+            final String field = key + "=" + safe(value == null ? null : value.toString());
+            final int separator = line.length() == 0 ? 0 : 1;
+            if (line.length() + separator + field.length() + LINE_RESERVE > maxLength) {
+                skippedFields++;
+                return;
+            }
+            if (separator != 0) line.append(' ');
+            line.append(field);
+        }
+
+        String finish() {
+            final String marker = " diagnosticTruncated=" + (skippedFields > 0)
+                + " diagnosticSkippedFields=" + skippedFields;
+            if (line.length() + marker.length() + System.lineSeparator().length() <= maxLength) {
+                line.append(marker);
+            }
+            line.append(System.lineSeparator());
+            return line.toString();
+        }
     }
 }
