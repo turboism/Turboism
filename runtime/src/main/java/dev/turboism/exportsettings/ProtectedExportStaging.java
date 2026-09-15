@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.core.OwnedMoc;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -343,8 +344,31 @@ public final class ProtectedExportStaging {
         try (var walk = Files.walk(root)) {
             final List<Path> paths = walk.sorted((a, b) -> b.compareTo(a)).toList();
             for (Path path : paths) {
-                Files.deleteIfExists(path);
+                deleteIfExists(path);
             }
+        }
+    }
+
+    /**
+     * Deletes a single entry, tolerating the read-only attribute the editor puts
+     * on saved copies — a Windows JVM refuses to delete read-only files with
+     * {@link AccessDeniedException}. Clears the attribute up front when the
+     * entry is not writable, and retries once on a denied delete.
+     */
+    public static boolean deleteIfExists(final Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return false;
+        }
+        if (!Files.isWritable(path)) {
+            path.toFile().setWritable(true);
+        }
+        try {
+            return Files.deleteIfExists(path);
+        } catch (AccessDeniedException denied) {
+            if (!path.toFile().setWritable(true)) {
+                throw denied;
+            }
+            return Files.deleteIfExists(path);
         }
     }
 }
