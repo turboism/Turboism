@@ -194,7 +194,8 @@ function Assert-RuntimeConfigV1 {
     Assert-RuntimeAllowedProperties $Document @(
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-        "hooks", "launcher"
+        "hooks", "launcher", "reduceAutoBackup",
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
     ) "config.json"
 
     $format = $Document.PSObject.Properties["format"]
@@ -256,10 +257,18 @@ function Assert-RuntimeConfigV1 {
     $safeMode = $Document.PSObject.Properties["safeMode"]
     if ($null -ne $safeMode -and $safeMode.Value -isnot [bool]) {
         throw "config.json safeMode must be a boolean"
+    }
     $useTextIcon = $Document.PSObject.Properties["useTextIcon"]
     if ($null -ne $useTextIcon -and $useTextIcon.Value -isnot [bool]) {
         throw "config.json useTextIcon must be a boolean"
     }
+    foreach ($name in @(
+        "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
+    )) {
+        $property = $Document.PSObject.Properties[$name]
+        if ($null -ne $property -and $property.Value -isnot [bool]) {
+            throw "config.json $name must be a boolean"
+        }
     }
 
     $hooksProperty = $Document.PSObject.Properties["hooks"]
@@ -292,11 +301,19 @@ function Assert-RuntimeConfigV1 {
     $launcherProperty = $Document.PSObject.Properties["launcher"]
     if ($null -ne $launcherProperty) {
         $launcher = $launcherProperty.Value
-        Assert-RuntimeAllowedProperties $launcher @("cubismJvm", "graalVmPath") "launcher"
+        Assert-RuntimeAllowedProperties $launcher @(
+            "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate"
+        ) "launcher"
         $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
         if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
             -or @("graalvm", "bundled") -cnotcontains $cubismJvm.Value)) {
             throw "launcher.cubismJvm is invalid"
+        }
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate")) {
+            $property = $launcher.PSObject.Properties[$name]
+            if ($null -ne $property -and $property.Value -isnot [bool]) {
+                throw "launcher.$name must be a boolean"
+            }
         }
         $graalVmPath = $launcher.PSObject.Properties["graalVmPath"]
         if ($null -ne $graalVmPath) {
