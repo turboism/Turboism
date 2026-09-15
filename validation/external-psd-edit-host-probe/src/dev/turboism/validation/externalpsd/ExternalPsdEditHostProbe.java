@@ -1958,6 +1958,51 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return Optional.ofNullable(snapshot.get());
     }
 
+    /** Reads the public relation projection on the EDT; no host model is read off-thread. */
+    private TextureRelationsSnapshot relationsSnapshotOnEdt() throws Exception {
+        final AtomicReference<TextureRelationsSnapshot> snapshot = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final Runnable read = () -> {
+            try {
+                snapshot.set(context.cubism().model().active().textures().relations());
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        };
+        try {
+            if (SwingUtilities.isEventDispatchThread()) read.run();
+            else SwingUtilities.invokeAndWait(read);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (InvocationTargetException invocationFailure) {
+            final Throwable cause = invocationFailure.getCause();
+            if (cause instanceof Error error) throw error;
+            throw new IllegalStateException("raw relation observation dispatch failed", cause);
+        }
+        if (failure.get() != null) {
+            final Throwable error = failure.get();
+            if (error instanceof Error fatal) throw fatal;
+            throw new IllegalStateException("raw relation observation failed", error);
+        }
+        return snapshot.get();
+    }
+
+    private TextureRelationsSnapshot captureCycleRelations(final Properties result,
+        final String prefix) throws Exception {
+        try {
+            final TextureRelationsSnapshot relations = relationsSnapshotOnEdt();
+            recordRawImageRelationSnapshot(result, prefix, relations, "");
+            return relations;
+        } catch (Exception failure) {
+            recordRawImageRelationSnapshot(result, prefix, null, failure.toString());
+            throw failure;
+        } catch (Error failure) {
+            recordRawImageRelationSnapshot(result, prefix, null, failure.toString());
+            throw failure;
+        }
+    }
+
     private Optional<Target> pickTarget(final TextureRelationsSnapshot relations) {
         for (final ArtMeshTextureInputs mesh : relations.artMeshInputs()) {
             if (mesh.currentInputIndex().isEmpty()) continue;
@@ -2813,6 +2858,191 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty(normalizedPrefix + ".selectorProjection", selectorProjection(relations));
     }
 
+    /** Records a relation snapshot with the generation used to bind its raw-image set. */
+    static void recordRawImageRelationSnapshot(final Properties result, final String prefix,
+        final TextureRelationsSnapshot relations, final String diagnostic) {
+        Objects.requireNonNull(result, "result");
+        final String normalizedPrefix = normalizePrefix(prefix);
+        recordRelationProjection(result, normalizedPrefix, relations);
+        if (relations == null || !relations.isAvailable()) {
+            result.setProperty(normalizedPrefix + ".binding", UNAVAILABLE_VALUE);
+            result.setProperty(normalizedPrefix + ".generation", UNAVAILABLE_VALUE);
+            result.setProperty(normalizedPrefix + ".revision", UNAVAILABLE_VALUE);
+            if (diagnostic != null && !diagnostic.isBlank()) {
+                result.setProperty(normalizedPrefix + ".diagnostic", diagnostic);
+            }
+            return;
+        }
+        result.setProperty(normalizedPrefix + ".binding", relations.binding());
+        result.setProperty(normalizedPrefix + ".generation",
+            Long.toString(relations.generation()));
+        result.setProperty(normalizedPrefix + ".revision",
+            Long.toString(relations.revision()));
+        if (diagnostic != null && !diagnostic.isBlank()) {
+            result.setProperty(normalizedPrefix + ".diagnostic", diagnostic);
+        }
+    }
+
+    /** Computes a fail-closed raw-image set difference between two live relation snapshots. */
+    static RawImageRelationDelta rawImageRelationDelta(
+        final TextureRelationsSnapshot before, final TextureRelationsSnapshot after) {
+        if (before == null || after == null || !before.isAvailable() || !after.isAvailable()) {
+            return RawImageRelationDelta.unavailable(
+                "raw relation snapshot before or after import is unavailable");
+        }
+        final List<String> beforeIds = rawImageIdValues(before);
+        final List<String> afterIds = rawImageIdValues(after);
+        if (before.binding().isBlank() || after.binding().isBlank()) {
+            return RawImageRelationDelta.unavailable(
+                beforeIds, afterIds, "raw relation snapshot binding is unavailable");
+        }
+        final Set<RawImageId> beforeSet = new LinkedHashSet<>();
+        before.rawImages().forEach(raw -> beforeSet.add(raw.id()));
+        final Set<RawImageId> afterSet = new LinkedHashSet<>();
+        after.rawImages().forEach(raw -> afterSet.add(raw.id()));
+        final List<RawImageId> added = new ArrayList<>();
+        for (final RawImageId raw : afterSet) {
+            if (!beforeSet.contains(raw)) added.add(raw);
+        }
+        if (!before.binding().equals(after.binding())
+            || before.generation() != after.generation()) {
+            return new RawImageRelationDelta(RawImageDeltaStatus.IDENTITY_CHANGED,
+                beforeIds, afterIds, added,
+                "raw relation binding or generation changed across import");
+        }
+        final RawImageDeltaStatus status = switch (added.size()) {
+            case 0 -> RawImageDeltaStatus.ZERO;
+            case 1 -> RawImageDeltaStatus.UNIQUE;
+            default -> RawImageDeltaStatus.MULTIPLE;
+        };
+        return new RawImageRelationDelta(status, beforeIds, afterIds, added,
+            "raw image set difference contains " + added.size() + " new candidate(s)");
+    }
+
+    static void recordRawImageRelationDelta(final Properties result, final String prefix,
+        final RawImageRelationDelta delta) {
+        Objects.requireNonNull(result, "result");
+        final RawImageRelationDelta value = Objects.requireNonNull(delta, "delta");
+        final String normalizedPrefix = normalizePrefix(prefix);
+        result.setProperty(normalizedPrefix + ".status", value.status().name());
+        result.setProperty(normalizedPrefix + ".candidateCount",
+            Integer.toString(value.candidateCount()));
+        result.setProperty(normalizedPrefix + ".beforeRawIds", value.beforeRawIds().toString());
+        result.setProperty(normalizedPrefix + ".afterRawIds", value.afterRawIds().toString());
+        result.setProperty(normalizedPrefix + ".addedRawIds",
+            value.addedRawImages().stream().map(RawImageId::value).toList().toString());
+        result.setProperty(normalizedPrefix + ".diagnostic", value.diagnostic());
+        if (value.status() == RawImageDeltaStatus.UNIQUE && value.candidateCount() == 1) {
+            result.setProperty(normalizedPrefix + ".newRawId",
+                value.addedRawImages().get(0).value());
+        }
+    }
+
+    /**
+     * Decodes exactly one newly-added raw image and always stops the supplied export handle before
+     * returning. This is validation-only; the caller supplies the existing public export path.
+     */
+    static PsdValidationContent.Fingerprint inspectUniqueNewRaw(final Properties result,
+        final String prefix, final RawImageId oldRaw, final RawImageRelationDelta delta,
+        final RawImageExportSupplier exporter) throws Exception {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(oldRaw, "oldRaw");
+        Objects.requireNonNull(delta, "delta");
+        Objects.requireNonNull(exporter, "exporter");
+        final String normalizedPrefix = normalizePrefix(prefix);
+        if (delta.status() != RawImageDeltaStatus.UNIQUE
+            || delta.addedRawImages().size() != 1) {
+            result.setProperty(normalizedPrefix + ".status", "NOT_ATTEMPTED");
+            result.setProperty(normalizedPrefix + ".diagnostic",
+                "new raw export requires exactly one candidate: " + delta.status());
+            throw new IllegalStateException(
+                "new raw export requires exactly one candidate: " + delta.status());
+        }
+        final RawImageId newRaw = delta.addedRawImages().get(0);
+        if (oldRaw.equals(newRaw)) {
+            result.setProperty(normalizedPrefix + ".status", "FAILED");
+            result.setProperty(normalizedPrefix + ".diagnostic",
+                "new raw candidate equals the pre-import raw identity");
+            throw new IllegalStateException("new raw candidate equals the old raw identity");
+        }
+        result.setProperty(normalizedPrefix + ".id", newRaw.value());
+        result.setProperty(normalizedPrefix + ".requestedRawId", newRaw.value());
+        result.setProperty(normalizedPrefix + ".status", "STARTED");
+        RawImageExportHandle handle = null;
+        Throwable primary = null;
+        try {
+            handle = Objects.requireNonNull(exporter.export(newRaw),
+                "new raw exporter returned null handle");
+            if (!newRaw.equals(handle.rawId())) {
+                throw new IllegalStateException("new raw exporter returned unexpected raw identity: "
+                    + handle.rawId());
+            }
+            final byte[] bytes = Objects.requireNonNull(handle.bytes(),
+                "new raw export returned null bytes");
+            result.setProperty(normalizedPrefix + ".bytes", Integer.toString(bytes.length));
+            result.setProperty(normalizedPrefix + ".sha256", sha256(bytes));
+            final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
+                bytes, normalizedPrefix + " new raw");
+            result.setProperty(normalizedPrefix + ".rgb.status", "AVAILABLE");
+            result.setProperty(normalizedPrefix + ".rgb.source",
+                "fresh public export of the unique newly-added raw image");
+            recordTargetFingerprint(result, normalizedPrefix + ".rgb", fingerprint);
+            result.setProperty(normalizedPrefix + ".status", "AVAILABLE");
+            return fingerprint;
+        } catch (Exception failure) {
+            primary = failure;
+            recordRawImageExportFailure(result, normalizedPrefix, failure);
+            throw failure;
+        } catch (Error failure) {
+            primary = failure;
+            recordRawImageExportFailure(result, normalizedPrefix, failure);
+            throw failure;
+        } finally {
+            if (handle != null) {
+                try {
+                    final PsdFileOperationResult stopped = handle.stop();
+                    if (stopped == null) {
+                        throw new IllegalStateException("new raw export stop returned null");
+                    }
+                    result.setProperty(normalizedPrefix + ".stopStatus",
+                        stopped.status().name());
+                    result.setProperty(normalizedPrefix + ".stopDiagnostic",
+                        stopped.diagnostic());
+                    if (stopped.status() != PsdFileOperationResult.Status.STOPPED) {
+                        throw new IllegalStateException("new raw export handle did not stop: "
+                            + stopped.status());
+                    }
+                } catch (Throwable cleanup) {
+                    result.setProperty(normalizedPrefix + ".stopStatus", "FAILED");
+                    result.setProperty(normalizedPrefix + ".stopDiagnostic",
+                        cleanup.toString());
+                    if (primary != null) {
+                        addSuppressed(primary, cleanup);
+                    } else {
+                        result.setProperty(normalizedPrefix + ".status", "FAILED");
+                        result.setProperty(normalizedPrefix + ".diagnostic",
+                            cleanup.toString());
+                        rethrowCleanup(cleanup);
+                    }
+                }
+            } else {
+                result.setProperty(normalizedPrefix + ".stopStatus", "NOT_CREATED");
+            }
+        }
+    }
+
+    private static void recordRawImageExportFailure(final Properties result,
+        final String prefix, final Throwable failure) {
+        result.setProperty(prefix + ".status", "FAILED");
+        result.setProperty(prefix + ".diagnostic", failure.toString());
+        result.setProperty(prefix + ".failure", failure.toString());
+        result.setProperty(prefix + ".rgb.status", "UNAVAILABLE");
+    }
+
+    private static List<String> rawImageIdValues(final TextureRelationsSnapshot relations) {
+        return relations.rawImages().stream().map(raw -> raw.id().value()).distinct().toList();
+    }
+
     private static void recordUnavailableRelationProjection(final Properties result,
         final String prefix) {
         final String normalizedPrefix = normalizePrefix(prefix);
@@ -3182,18 +3412,143 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
+    static void recordCycleWrittenPsd(final Properties result, final String prefix,
+        final byte[] bytes) throws Exception {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(bytes, "bytes");
+        final String normalizedPrefix = normalizePrefix(prefix) + ".write";
+        result.setProperty(normalizedPrefix + ".bytes", Integer.toString(bytes.length));
+        result.setProperty(normalizedPrefix + ".sha256", sha256(bytes));
+        try {
+            final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
+                bytes, normalizedPrefix);
+            result.setProperty(normalizedPrefix + ".targetRgb.status", "AVAILABLE");
+            result.setProperty(normalizedPrefix + ".targetRgb.source",
+                "decoded bytes written by this validation cycle");
+            recordTargetFingerprint(result, normalizedPrefix + ".targetRgb", fingerprint);
+        } catch (RuntimeException failure) {
+            result.setProperty(normalizedPrefix + ".targetRgb.status", "UNAVAILABLE");
+            result.setProperty(normalizedPrefix + ".diagnostic", failure.toString());
+            throw failure;
+        }
+    }
+
+    private static boolean recordExpectedRawPresence(final Properties result, final String prefix,
+        final TextureRelationsSnapshot relations, final RawImageId expectedRaw) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        result.setProperty(normalizedPrefix + ".expectedRawId", expectedRaw.value());
+        final boolean present = relations != null && relations.isAvailable()
+            && relations.rawImage(expectedRaw).isPresent();
+        result.setProperty(normalizedPrefix + ".expectedRawPresent", Boolean.toString(present));
+        if (!present) {
+            result.setProperty(normalizedPrefix + ".expectedRawDiagnostic",
+                "expected raw is absent or relation snapshot is unavailable");
+        }
+        return present;
+    }
+
+    private static void requireExpectedRawForDelta(final Properties result,
+        final String relationPrefix, final String rawNewPrefix, final RawImageId expectedRaw,
+        final TextureRelationsSnapshot before, final TextureRelationsSnapshot after,
+        final RawImageRelationDelta delta) {
+        final boolean beforePresent = before != null && before.isAvailable()
+            && before.rawImage(expectedRaw).isPresent();
+        final boolean afterPresent = after != null && after.isAvailable()
+            && after.rawImage(expectedRaw).isPresent();
+        if (beforePresent && afterPresent) return;
+        final String normalizedPrefix = normalizePrefix(relationPrefix);
+        final String normalizedRawNewPrefix = normalizePrefix(rawNewPrefix);
+        final String diagnostic = "expected old raw must be present before and after import: "
+            + "before=" + beforePresent + " after=" + afterPresent
+            + " delta=" + delta.status();
+        result.setProperty(normalizedPrefix + ".expectedRawPresent", "false");
+        result.setProperty(normalizedPrefix + ".expectedRawDiagnostic", diagnostic);
+        result.setProperty(normalizedRawNewPrefix + ".status", "REJECTED");
+        result.setProperty(normalizedRawNewPrefix + ".diagnostic", diagnostic);
+        throw new IllegalStateException(diagnostic);
+    }
+
+    private static void recordRawRelationImportFailure(final Properties result,
+        final String prefix, final Throwable failure) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        final String relationPrefix = normalizePrefix(prefix) + ".rawRelation";
+        result.setProperty(relationPrefix + ".status", "UNAVAILABLE");
+        result.setProperty(relationPrefix + ".diagnostic",
+            "relation observation around import failed: " + failure);
+        result.setProperty(relationPrefix + ".after.status", "UNAVAILABLE");
+        result.setProperty(relationPrefix + ".after.diagnostic", failure.toString());
+        result.setProperty(normalizedPrefix + ".raw.new.status", "NOT_ATTEMPTED");
+        result.setProperty(normalizedPrefix + ".raw.new.diagnostic",
+            "new raw export not attempted because import relation observation failed");
+        final String completionPrefix = normalizedPrefix + ".importCompletion";
+        if (!result.containsKey(completionPrefix + ".publicCompletion.status")) {
+            result.setProperty(completionPrefix + ".observed", "false");
+            result.setProperty(completionPrefix + ".publicCompletion.observed", "false");
+            result.setProperty(completionPrefix + ".publicCompletion.status", "UNAVAILABLE");
+            result.setProperty(completionPrefix + ".status", "UNAVAILABLE");
+            result.setProperty(completionPrefix + ".diagnostic", failure.toString());
+            result.setProperty(completionPrefix + ".consumedRevision", "false");
+            recordNativeReturnUnavailable(result, completionPrefix);
+        }
+    }
+
+    private static void recordNoNewRawObserved(final Properties result, final String prefix,
+        final String diagnostic) {
+        final String normalizedPrefix = normalizePrefix(prefix) + ".raw.new";
+        result.setProperty(normalizedPrefix + ".status", "NOT_ATTEMPTED");
+        result.setProperty(normalizedPrefix + ".diagnostic", diagnostic);
+    }
+
+    private static void recordCycleOldRawFingerprint(final Properties result, final String prefix,
+        final RawImageId oldRaw, final DiagnosticObservation observation) {
+        final String normalizedPrefix = normalizePrefix(prefix) + ".raw.old";
+        result.setProperty(normalizedPrefix + ".id", oldRaw.value());
+        result.setProperty(normalizedPrefix + ".rgb.observation",
+            "fresh native export after public replacement completion");
+        if (observation != null && observation.complete()
+            && observation.freshNativeRgb() != null) {
+            result.setProperty(normalizedPrefix + ".rgb.status", "AVAILABLE");
+            recordTargetFingerprint(result, normalizedPrefix + ".rgb",
+                observation.freshNativeRgb());
+        } else {
+            result.setProperty(normalizedPrefix + ".rgb.status", "UNAVAILABLE");
+            result.setProperty(normalizedPrefix + ".rgb.diagnostic",
+                observation == null ? "old raw observation is missing" : observation.diagnostic());
+        }
+    }
+
+    private RawImageExportHandle trackedRawExportHandle(final Properties result,
+        final TempTracker tracker, final String label, final RawImageId raw) throws Exception {
+        final TrackedExport tracked = exportTracked(result, raw, tracker, label);
+        return new RawImageExportHandle() {
+            @Override public RawImageId rawId() { return raw; }
+            @Override public byte[] bytes() throws Exception {
+                return Files.readAllBytes(tracked.path());
+            }
+            @Override public PsdFileOperationResult stop() throws Exception {
+                return tracker.stop(tracked, result);
+            }
+        };
+    }
+
     private Mutation runSaveCycles(final Properties result, final PsdEditFile file, final Target target,
         final Path tempFile, final Deque<PsdFileRevision> revisions, final TempTracker tracker,
         final int cycles, final boolean validateTargetContent) throws Exception {
         Mutation lastMutation = null;
         for (int i = 1; i <= cycles; i++) {
+            final String prefix = "cycle." + i + ".";
             final byte[] current = Files.readAllBytes(tempFile);
             final CycleWritePlan plan = prepareSaveCycleBytes(
                 current, i, cycles, validateTargetContent);
             final Mutation mutation = plan.mutation();
             final byte[] mutated = plan.firstWrite();
-            result.setProperty("cycle." + i + ".targetRgbMutation",
+            result.setProperty(prefix + "targetRgbMutation",
                 plan.targetRgbMutated() ? "INVERTED_ONCE" : "UNCHANGED");
+            if (validateTargetContent) {
+                final byte[] finalWrite = i == 3
+                    ? plan.overlapFinalWrite() : plan.firstWrite();
+                recordCycleWrittenPsd(result, prefix, finalWrite);
+            }
             lastMutation = mutation;
             final long writeStart = System.nanoTime();
             if (i == 2) {
@@ -3213,11 +3568,47 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 Files.write(tempFile, mutated);
             }
             final PsdFileRevision revision = awaitRevision(revisions, 20);
+            final TextureRelationsSnapshot relationsBefore;
+            if (validateTargetContent) {
+                try {
+                    requireTargetBinding(result, target,
+                        prefix + "targetBinding.beforeImport", 0L);
+                    relationsBefore = captureCycleRelations(
+                        result, prefix + "rawRelation.before");
+                    if (!recordExpectedRawPresence(result, prefix + "rawRelation.before",
+                        relationsBefore, target.raw())) {
+                        recordNoNewRawObserved(result, prefix,
+                            "new raw export not attempted because the expected old raw is absent before import");
+                        throw new IllegalStateException(
+                            "expected old raw is absent before import: " + target.raw().value());
+                    }
+                } catch (Exception failure) {
+                    recordRawRelationImportFailure(result, prefix, failure);
+                    throw failure;
+                } catch (Error failure) {
+                    recordRawRelationImportFailure(result, prefix, failure);
+                    throw failure;
+                }
+            } else {
+                relationsBefore = null;
+            }
             final long detectedMs = (System.nanoTime() - writeStart) / 1_000_000;
             final long replaceStart = System.nanoTime();
-            final PsdReplaceResult replaced = replace(file, target.raw(), revision);
+            final PsdReplaceResult replaced;
+            try {
+                replaced = replace(file, target.raw(), revision);
+            } catch (Exception failure) {
+                if (validateTargetContent) {
+                    recordRawRelationImportFailure(result, prefix, failure);
+                }
+                throw failure;
+            } catch (Error failure) {
+                if (validateTargetContent) {
+                    recordRawRelationImportFailure(result, prefix, failure);
+                }
+                throw failure;
+            }
             final long replaceMs = (System.nanoTime() - replaceStart) / 1_000_000;
-            final String prefix = "cycle." + i + ".";
             result.setProperty(prefix + "revisionDeliveredMs", Long.toString(detectedMs));
             result.setProperty(prefix + "replaceMs", Long.toString(replaceMs));
             result.setProperty(prefix + "status", replaced.status().name());
@@ -3226,6 +3617,66 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty(prefix + "consumed", Boolean.toString(replaced.consumedRevision().isPresent()));
             if (validateTargetContent) {
                 recordImportCompletion(result, prefix, replaced);
+                result.setProperty(prefix + "raw.old.id", target.raw().value());
+                result.setProperty(prefix + "raw.old.rgb.status", "UNAVAILABLE");
+                if (replaced.status() == PsdReplaceResult.Status.APPLIED) {
+                    final TextureRelationsSnapshot relationsAfter;
+                    try {
+                        requireTargetBinding(result, target,
+                            prefix + "targetBinding.afterImport", 0L);
+                        relationsAfter = captureCycleRelations(
+                            result, prefix + "rawRelation.after");
+                    } catch (Exception failure) {
+                        recordRawRelationImportFailure(result, prefix, failure);
+                        throw failure;
+                    } catch (Error failure) {
+                        recordRawRelationImportFailure(result, prefix, failure);
+                        throw failure;
+                    }
+                    if (!recordExpectedRawPresence(result, prefix + "rawRelation.after",
+                        relationsAfter, target.raw())) {
+                        recordNoNewRawObserved(result, prefix,
+                            "new raw export not attempted because the expected old raw is absent after import");
+                        throw new IllegalStateException(
+                            "expected old raw is absent after import: " + target.raw().value());
+                    }
+                    final RawImageRelationDelta delta = rawImageRelationDelta(
+                        relationsBefore, relationsAfter);
+                    recordRawImageRelationDelta(result, prefix + "rawRelation", delta);
+                    requireExpectedRawForDelta(result, prefix + "rawRelation",
+                        prefix + "raw.new", target.raw(), relationsBefore, relationsAfter, delta);
+                    switch (delta.status()) {
+                        case ZERO -> recordNoNewRawObserved(result, prefix,
+                            "no new raw image was present in the import relation difference");
+                        case UNIQUE -> inspectUniqueNewRaw(
+                            result,
+                            prefix + "raw.new",
+                            target.raw(),
+                            delta,
+                            candidate -> trackedRawExportHandle(
+                                result, tracker, prefix + "raw.new", candidate)
+                        );
+                        case MULTIPLE -> {
+                            result.setProperty(prefix + "raw.new.status", "REJECTED");
+                            result.setProperty(prefix + "raw.new.diagnostic",
+                                "multiple new raw candidates; no raw was guessed");
+                            throw new IllegalStateException(
+                                "multiple new raw candidates after import: "
+                                    + delta.addedRawImages());
+                        }
+                        case IDENTITY_CHANGED, UNAVAILABLE -> {
+                            result.setProperty(prefix + "raw.new.status", "REJECTED");
+                            result.setProperty(prefix + "raw.new.diagnostic", delta.diagnostic());
+                            throw new IllegalStateException(
+                                "raw relation identity is not stable across import: "
+                                    + delta.diagnostic());
+                        }
+                    }
+                } else {
+                    recordNoNewRawObserved(result, prefix,
+                        "new raw export skipped because public replacement was not APPLIED: "
+                            + replaced.status());
+                }
                 if (replaced.status() == PsdReplaceResult.Status.APPLIED
                     && replaced.after().isPresent()) {
                     final String completionPrefix =
@@ -3252,6 +3703,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                             result, completionPrefix, settlePrefix, failure);
                         throw failure;
                     }
+                    recordCycleOldRawFingerprint(result, prefix, target.raw(), completion);
                     final AtomicInteger settleAttempt = new AtomicInteger();
                     final AtomicReference<String> settleAttemptPrefix = new AtomicReference<>();
                     final BoundedSettleResult settled = awaitBoundedSettle(
@@ -7852,6 +8304,51 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     enum DiagnosticStatus {
         AVAILABLE,
         UNAVAILABLE
+    }
+
+    enum RawImageDeltaStatus {
+        ZERO,
+        UNIQUE,
+        MULTIPLE,
+        UNAVAILABLE,
+        IDENTITY_CHANGED
+    }
+
+    static record RawImageRelationDelta(RawImageDeltaStatus status,
+        List<String> beforeRawIds, List<String> afterRawIds,
+        List<RawImageId> addedRawImages, String diagnostic) {
+        RawImageRelationDelta {
+            status = Objects.requireNonNull(status, "status");
+            beforeRawIds = List.copyOf(Objects.requireNonNull(beforeRawIds, "beforeRawIds"));
+            afterRawIds = List.copyOf(Objects.requireNonNull(afterRawIds, "afterRawIds"));
+            addedRawImages = List.copyOf(
+                Objects.requireNonNull(addedRawImages, "addedRawImages"));
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static RawImageRelationDelta unavailable(final String diagnostic) {
+            return new RawImageRelationDelta(
+                RawImageDeltaStatus.UNAVAILABLE, List.of(), List.of(), List.of(), diagnostic);
+        }
+
+        static RawImageRelationDelta unavailable(final List<String> beforeRawIds,
+            final List<String> afterRawIds, final String diagnostic) {
+            return new RawImageRelationDelta(
+                RawImageDeltaStatus.UNAVAILABLE, beforeRawIds, afterRawIds, List.of(), diagnostic);
+        }
+
+        int candidateCount() { return addedRawImages.size(); }
+    }
+
+    interface RawImageExportHandle {
+        RawImageId rawId();
+        byte[] bytes() throws Exception;
+        PsdFileOperationResult stop() throws Exception;
+    }
+
+    @FunctionalInterface
+    interface RawImageExportSupplier {
+        RawImageExportHandle export(RawImageId raw) throws Exception;
     }
 
     /** Identity captured from the original task target and rechecked for each diagnostic read. */

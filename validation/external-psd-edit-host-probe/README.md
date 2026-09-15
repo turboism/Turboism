@@ -31,7 +31,14 @@ GUI phase has no pixel-parser dependency.
    revision and post-native `after` observation. In persistence mode only, the final valid
    cycle applies one decoded target-layer RGB inversion; all earlier cycles remain name-only.
    Cycle 2 saves by atomic rename, and cycle 3 overlaps two writes; the overlap's final bytes
-   retain the one final-cycle RGB inversion.
+   retain the one final-cycle RGB inversion. Persist mode also captures structured
+   `relations.rawImages` on the EDT immediately before and after each import. The full raw ID
+   set difference is recorded as `ZERO`, `UNIQUE`, or `MULTIPLE`; the old target raw must remain
+   present in both snapshots and binding/generation must remain unchanged. Only `UNIQUE` after
+   an `APPLIED` completion causes one public `exportRawImagePsd(newRawId)` diagnostic export,
+   which decodes validation layer 6 RGB and stops its handle immediately. `MULTIPLE`, unavailable relations, identity changes,
+   export/decode failures, and stop failures fail closed; `ZERO` is recorded and leaves the
+   existing content and replacement gates in force.
 8. In persistence mode, a fresh native export must differ from the stable baseline fingerprint.
    Corrupted save → non-`APPLIED`, revision not consumed; its invalid external bytes are never
    accepted as post evidence.
@@ -92,6 +99,18 @@ projection, observation exception, or bounded timeout remains a non-stable diagn
 These observations do not weaken or replace the persistence RGB, history, SAVE_AS, handle-stop,
 quarantine, or reopen gates. Unsupported public fields remain explicitly unavailable rather than
 being inferred from layer names or IDs.
+
+For each persistence cycle, `cycle.N.write.*` records the exact final bytes written by the test
+mutation, its full-file SHA-256, and its decoded layer-6 RGB fingerprint. `cycle.N.raw.old.*`
+records the old target raw ID and the fresh native RGB observation after public completion;
+`cycle.N.raw.new.*` records the one newly-added raw ID, its fresh exported PSD bytes/RGB, and
+immediate stop result. The existing `cycle.N.importCompletion.publicCompletion` and
+`consumed` fields remain the public replacement evidence. A new raw's decoded RGB proves only
+that content is observable through that raw's public export. It cannot distinguish a native
+matcher that did not switch the model-image reference from a stale relation projection, and it
+does not satisfy FR-011 or promote T021 to complete. This is the validation-only diagnostic
+extension recorded under the authoritative `specs/025-external-psd-edit/plan.md` T021 entry;
+the authoritative plan remains read-only for this worktree.
 
 If the first fresh post-completion export fails, the result records
 `importCompletion.diagnosticFailure` and `freshNativeRgb.failure`, records settle as
