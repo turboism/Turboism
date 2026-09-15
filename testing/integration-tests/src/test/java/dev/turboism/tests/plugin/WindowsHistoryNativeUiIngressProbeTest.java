@@ -1476,19 +1476,18 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
-    void partGestureRejectsAfterMovePointerMismatchOrUnavailableWithoutPress() throws Exception {
+    void partGestureRejectsAfterMovePointerUnavailableWithoutPress() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
         final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
         final Point source = layout.source().screenPoint();
         final List<WindowsHistoryNativeUiIngressProbe.PartPointerReadback> readbacks = List.of(
-            () -> new Point(source.x, source.y + 20),
             () -> null,
             () -> {
                 throw new IllegalStateException("pointer-unavailable");
             }
         );
 
-        for (int index = 0; index < readbacks.size(); index++) {
+        for (final WindowsHistoryNativeUiIngressProbe.PartPointerReadback readback : readbacks) {
             final int[] pressCount = {0};
             final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
                 WindowsHistoryNativeUiIngressProbe.runPartGesture(
@@ -1496,7 +1495,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                     "sdk-source",
                     "sdk-target",
                     noOpInput(pressCount, new java.util.ArrayList<>()),
-                    readbacks.get(index),
+                    readback,
                     () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
                         layout, surface.table(), surface.tree())
                 );
@@ -1505,26 +1504,22 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED,
                 attempt.status()
             );
-            assertEquals(
-                index == 0 ? "after-move-pointer-mismatch" : "after-move-pointer-unavailable",
-                attempt.code()
-            );
+            assertEquals("after-move-pointer-unavailable", attempt.code());
             assertEquals(0, pressCount[0], "pointer admission failure must not press");
 
             final List<JsonNode> pointer = pointerEvidence(attempt);
             assertEquals(2, pointer.size(), "command and after-move evidence are retained");
             assertEquals("source-command", pointer.get(0).get("phase").asText());
             assertEquals("after-move-pointer", pointer.get(1).get("phase").asText());
+            assertEquals(1, pointer.get(0).get("attempt").asInt());
+            assertEquals(1, pointer.get(1).get("attempt").asInt());
             assertTrue(pointer.get(1).has("monotonicNanos"));
             assertTrue(pointer.get(1).has("thread"));
             assertTrue(pointer.get(1).has("commandedPoint"));
             assertTrue(pointer.get(1).has("readbackPoint"));
             assertTrue(pointer.get(1).has("outcome"));
             assertTrue(pointer.get(1).has("reason"));
-            assertEquals(
-                index == 0 ? "MISMATCH" : "UNAVAILABLE",
-                pointer.get(1).get("outcome").asText()
-            );
+            assertEquals("UNAVAILABLE", pointer.get(1).get("outcome").asText());
             final JsonNode layoutEvidence = evidenceByPhase(attempt, "layout");
             final JsonNode surfaceEvidence = layoutEvidence.get("surface");
             for (final String field : List.of(
@@ -1537,6 +1532,211 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 assertTrue(surfaceEvidence.has(field), "layout surface field: " + field);
             }
         }
+    }
+
+    @Test
+    void partGestureRetriesTheSameSourcePointAfterTransientPointerMismatch() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        // BasicTableUI asks HeadlessToolkit for the menu shortcut mask on synthetic presses.
+        SwingUtilities.invokeAndWait(() -> surface.table().setUI(null));
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final Point source = new Point(layout.source().screenPoint());
+        final Point target = new Point(layout.target().localPoint());
+        final List<Point> sourceMoves = new java.util.ArrayList<>();
+        final int[] pressCount = {0};
+        final int[] releaseCount = {0};
+        final AtomicInteger reads = new AtomicInteger();
+        final AtomicInteger guardChecks = new AtomicInteger();
+        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
+            trackingPartGestureInput(
+                surface, target, sourceMoves, pressCount, releaseCount, Set.of(1, 2)
+            );
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                input,
+                () -> switch (reads.getAndIncrement()) {
+                    case 0 -> new Point(source.x, source.y + 20);
+                    case 1, 2 -> new Point(source);
+                    default -> throw new IllegalStateException("unexpected-pointer-readback");
+                },
+                () -> {
+                    guardChecks.incrementAndGet();
+                    return WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        layout, surface.table(), surface.tree()
+                    );
+                }
+            );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED,
+            attempt.status(),
+            attempt.code()
+        );
+        assertEquals(2, sourceMoves.size());
+        assertEquals(List.of(source, source), sourceMoves);
+        assertEquals(1, pressCount[0]);
+        assertEquals(1, releaseCount[0]);
+        assertEquals(3, reads.get());
+        assertEquals(2, guardChecks.get(), "retry guard and final pre-press guard");
+
+        final List<JsonNode> pointer = pointerEvidence(attempt);
+        assertEquals(5, pointer.size());
+        assertEquals(
+            List.of(1, 1, 2, 2, 2),
+            pointer.stream().map(node -> node.get("attempt").asInt()).toList()
+        );
+        assertEquals(
+            List.of(
+                "source-command", "after-move-pointer", "source-command",
+                "after-move-pointer", "before-press-pointer"
+            ),
+            pointer.stream().map(node -> node.get("phase").asText()).toList()
+        );
+        assertEquals("MISMATCH", pointer.get(1).get("outcome").asText());
+        assertEquals("MATCH", pointer.get(3).get("outcome").asText());
+        assertEquals("MATCH", pointer.get(4).get("outcome").asText());
+
+        final List<JsonNode> moved = evidenceForPhase(attempt, "mouse-moved");
+        assertEquals(2, moved.size());
+        assertEquals(List.of(1, 2), moved.stream()
+            .map(node -> node.get("attempt").asInt()).toList());
+        assertEquals(source.x, moved.get(0).get("screen").get("x").asInt());
+        assertEquals(source.y, moved.get(0).get("screen").get("y").asInt());
+        assertEquals(source.x, moved.get(1).get("screen").get("x").asInt());
+        assertEquals(source.y, moved.get(1).get("screen").get("y").asInt());
+    }
+
+    @Test
+    void partGestureStopsAfterThreePersistentPointerMismatchesWithoutPress() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final Point source = new Point(layout.source().screenPoint());
+        final Point target = new Point(layout.target().localPoint());
+        final List<Point> sourceMoves = new java.util.ArrayList<>();
+        final int[] pressCount = {0};
+        final int[] releaseCount = {0};
+        final AtomicInteger reads = new AtomicInteger();
+        final AtomicInteger guardChecks = new AtomicInteger();
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                trackingPartGestureInput(
+                    surface, target, sourceMoves, pressCount, releaseCount, Set.of(1)
+                ),
+                () -> {
+                    reads.incrementAndGet();
+                    return new Point(source.x, source.y + 20);
+                },
+                () -> {
+                    guardChecks.incrementAndGet();
+                    return WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        layout, surface.table(), surface.tree()
+                    );
+                }
+            );
+
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals("after-move-pointer-mismatch", attempt.code());
+        assertEquals(3, sourceMoves.size());
+        assertEquals(List.of(source, source, source), sourceMoves);
+        assertEquals(3, reads.get());
+        assertEquals(2, guardChecks.get(), "only retries receive the guard");
+        assertEquals(0, pressCount[0]);
+        assertEquals(0, releaseCount[0]);
+
+        final List<JsonNode> pointer = pointerEvidence(attempt);
+        assertEquals(6, pointer.size());
+        assertEquals(
+            List.of(1, 1, 2, 2, 3, 3),
+            pointer.stream().map(node -> node.get("attempt").asInt()).toList()
+        );
+        assertTrue(evidenceForPhase(attempt, "mouse-moved").stream()
+            .allMatch(node -> node.get("attempt").asInt() == 1),
+            "a missing motion event on later attempts must not reuse attempt 1"
+        );
+    }
+
+    @Test
+    void partGestureDoesNotRetryWhenPointerBecomesUnavailable() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final Point source = new Point(layout.source().screenPoint());
+        final Point target = new Point(layout.target().localPoint());
+        final List<Point> sourceMoves = new java.util.ArrayList<>();
+        final int[] pressCount = {0};
+        final AtomicInteger guardChecks = new AtomicInteger();
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                trackingPartGestureInput(
+                    surface, target, sourceMoves, pressCount, new int[1], Set.of()
+                ),
+                () -> null,
+                () -> {
+                    guardChecks.incrementAndGet();
+                    return WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        layout, surface.table(), surface.tree()
+                    );
+                }
+            );
+
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals("after-move-pointer-unavailable", attempt.code());
+        assertEquals(1, sourceMoves.size());
+        assertEquals(0, guardChecks.get());
+        assertEquals(0, pressCount[0]);
+        assertEquals(List.of(1, 1), pointerEvidence(attempt).stream()
+            .map(node -> node.get("attempt").asInt()).toList());
+    }
+
+    @Test
+    void partGestureStopsBeforeRetryWhenSwingGuardSeesViewportChange() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final Point source = new Point(layout.source().screenPoint());
+        final Point target = new Point(layout.target().localPoint());
+        final List<Point> sourceMoves = new java.util.ArrayList<>();
+        final int[] pressCount = {0};
+        final int[] releaseCount = {0};
+        final AtomicInteger reads = new AtomicInteger();
+
+        // Simulate a viewport mutation between the first mismatch and its possible retry.
+        surface.table().setSize(240, 60);
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                trackingPartGestureInput(
+                    surface, target, sourceMoves, pressCount, releaseCount, Set.of()
+                ),
+                () -> {
+                    reads.incrementAndGet();
+                    return new Point(source.x, source.y + 20);
+                },
+                () -> WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                    layout, surface.table(), surface.tree()
+                )
+            );
+
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals("source-viewport-changed", attempt.code());
+        assertEquals(1, sourceMoves.size());
+        assertEquals(1, reads.get());
+        assertEquals(0, pressCount[0]);
+        assertEquals(0, releaseCount[0]);
+        assertEquals(List.of(1, 1), pointerEvidence(attempt).stream()
+            .map(node -> node.get("attempt").asInt()).toList());
     }
 
     @Test
@@ -1566,6 +1766,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         assertEquals(2, reads.get());
         final List<JsonNode> pointer = pointerEvidence(attempt);
         assertEquals(3, pointer.size(), "both pointer checks must be retained");
+        assertEquals(List.of(1, 1, 1), pointer.stream()
+            .map(node -> node.get("attempt").asInt()).toList());
         assertEquals("MATCH", pointer.get(1).get("outcome").asText());
         assertEquals("MISMATCH", pointer.get(2).get("outcome").asText());
         assertEquals(
@@ -2779,6 +2981,55 @@ class WindowsHistoryNativeUiIngressProbeTest {
         );
     }
 
+    private static WindowsHistoryNativeUiIngressProbe.PartGestureInput trackingPartGestureInput(
+        final SwingPartSurface surface,
+        final Point target,
+        final List<Point> sourceMoves,
+        final int[] pressCount,
+        final int[] releaseCount,
+        final Set<Integer> mouseMovedAttempts
+    ) {
+        final boolean[] pressed = {false};
+        final Point sourceEvent = new Point(surface.layout().source().localPoint());
+        return new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+            @Override
+            public void mouseMove(final int x, final int y) throws Exception {
+                if (!pressed[0]) {
+                    final int attempt = sourceMoves.size() + 1;
+                    sourceMoves.add(new Point(x, y));
+                    if (mouseMovedAttempts.contains(attempt)) {
+                        dispatchMouseEvent(surface.table(), MouseEvent.MOUSE_MOVED, sourceEvent);
+                    }
+                } else {
+                    dispatchMouseEvent(
+                        surface.table(), MouseEvent.MOUSE_DRAGGED, new Point(x, y)
+                    );
+                }
+            }
+
+            @Override
+            public void pause(final long millis) {
+            }
+
+            @Override
+            public void mousePress() throws Exception {
+                pressCount[0]++;
+                pressed[0] = true;
+                dispatchMouseEvent(surface.table(), MouseEvent.MOUSE_PRESSED, sourceEvent);
+            }
+
+            @Override
+            public void mouseRelease() throws Exception {
+                releaseCount[0]++;
+                dispatchMouseEvent(
+                    surface.table(), MouseEvent.MOUSE_RELEASED,
+                    new Point(target)
+                );
+                pressed[0] = false;
+            }
+        };
+    }
+
     private static WindowsHistoryNativeUiIngressProbe.PartGestureInput noOpInput(
         final int[] pressCount,
         final List<Long> pauses
@@ -2813,6 +3064,18 @@ class WindowsHistoryNativeUiIngressProbeTest {
             if (node != null && "part-pointer".equals(node.path("type").asText())) {
                 result.add(node);
             }
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<JsonNode> evidenceForPhase(
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt,
+        final String phase
+    ) throws Exception {
+        final java.util.ArrayList<JsonNode> result = new java.util.ArrayList<>();
+        for (final String line : attempt.evidence()) {
+            final JsonNode node = JSON.readTree(line);
+            if (node != null && phase.equals(node.path("phase").asText())) result.add(node);
         }
         return List.copyOf(result);
     }
