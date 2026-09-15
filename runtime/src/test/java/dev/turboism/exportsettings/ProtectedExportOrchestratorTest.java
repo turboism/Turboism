@@ -88,6 +88,24 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
+    @Test
+    void publishesAndCleansWhenEditorMarksCopyReadOnly() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The editor marks its saved copy read-only; a Windows JVM refuses
+        // DeleteFile on it. Deletion must clear the attribute, not fail.
+        fixture.host.copyFileMarkedReadOnlyOnOpen = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+
+        assertEquals(ProtectedExportOrchestrator.Phase.PUBLISHED, report.reached());
+        assertTrue(report.published());
+        assertTrue(!Files.exists(fixture.stagingRoot)
+            || Files.list(fixture.stagingRoot).findAny().isEmpty());
+        orchestrator.close();
+    }
+
     // ------------------------------------------------------------------
     // Obfuscation (M5)
     // ------------------------------------------------------------------
@@ -740,6 +758,7 @@ class ProtectedExportOrchestratorTest {
         volatile boolean exportLeavesDeformer;
         volatile boolean exportAddsParameter;
         volatile boolean vanishArtMeshAfterCensus;
+        volatile boolean copyFileMarkedReadOnlyOnOpen;
         private int copyCensusCalls;
         private int artMeshCensusCalls;
 
@@ -842,6 +861,10 @@ class ProtectedExportOrchestratorTest {
             copy = fresh;
             project.add(fresh);
             activeDoc = fresh;
+            if (copyFileMarkedReadOnlyOnOpen) {
+                // The editor marks saved documents read-only.
+                file.setWritable(false);
+            }
         }
 
         @Override
