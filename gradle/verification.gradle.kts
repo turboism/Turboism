@@ -601,6 +601,37 @@ registerModelUpdateSkipHostValidation("validateModelUpdateSkipHost5203", "5203")
 registerModelUpdateSkipHostValidation("validateModelUpdateSkipHost5302", "5302")
 registerModelUpdateSkipHostValidation("validateModelUpdateSkipHost5303", "5303")
 
+val buildIncrementalUpdateHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK incremental-update host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/incremental-update-host-probe/build.sh")
+}
+
+fun registerIncrementalUpdateHostValidation(name: String, version: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the exact-host Cubism $version incremental-update leg (-PturboismHostValidationMode=off|probe|on)."
+        dependsOn("previewBundle", ":sdk:jar", buildIncrementalUpdateHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        val mode = providers.gradleProperty("turboismHostValidationMode").orElse("probe")
+        doFirst {
+            commandLine(
+                "bash",
+                "scripts/preview/run-incremental-update-host-validation.sh",
+                mode.get(),
+                version
+            )
+        }
+    }
+}
+
+registerIncrementalUpdateHostValidation("validateIncrementalUpdateHost5203", "5203")
+registerIncrementalUpdateHostValidation("validateIncrementalUpdateHost5302", "5302")
+registerIncrementalUpdateHostValidation("validateIncrementalUpdateHost5303", "5303")
+
 val buildSeparateSavePathHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Builds the test-only SDK separate-save-path host exerciser."

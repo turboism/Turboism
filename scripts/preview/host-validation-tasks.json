@@ -269,6 +269,38 @@
       },
       "defaultVariant": "on"
     },
+    "incremental-update": {
+      "description": "Per-object incremental model update; repaint resize driver exercises off/probe/on legs; machine-exclusive performance evidence.",
+      "command": "scripts/preview/run-incremental-update-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      },
+      "variants": {
+        "off": [
+          "off",
+          "{version}",
+          "{runLabel}"
+        ],
+        "probe": [
+          "probe",
+          "{version}",
+          "{runLabel}"
+        ],
+        "on": [
+          "on",
+          "{version}",
+          "{runLabel}"
+        ]
+      },
+      "defaultVariant": "on"
+    },
     "parameter": {
       "description": "Parameter and Editor-object validation.",
       "command": "scripts/preview/run-parameter-host-validation.sh",
