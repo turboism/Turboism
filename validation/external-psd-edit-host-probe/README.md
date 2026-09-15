@@ -68,10 +68,13 @@ Persist mode records a validation-only observation at each native baseline expor
 public `PsdReplaceResult` completion, and during a bounded worker-side settle poll. Each observation
 keeps raw-image IDs, model-image IDs, the `layerInputsByRawImage` selector projection, live PSD
 `layerId`/name/`artMeshIds`, and the fresh native decoded target-RGB fingerprint in separate fields.
-The observation is bound to the original document ID, model ID, relation binding, model-image ID,
-and raw-image ID. The probe checks that identity before a diagnostic export and again while reading
-the post-export metadata; a switched or incomplete target is `UNAVAILABLE`, never a combination of
-metadata and a fingerprint from different targets. Fresh-export and metadata start/end timestamps
+The observation is bound to the original CMO project document ID, model ID, relation binding,
+model-image ID, and raw-image ID. The adapter's PSD snapshot `documentId` is the corresponding
+`CLayeredImage` GUID (the same value exposed as `RawImageId`), so it is matched to the raw-image
+ID separately and is never compared with the CMO project document ID. The probe checks that
+identity before a diagnostic export and again while reading the post-export metadata; a switched
+or incomplete target is `UNAVAILABLE`, never a combination of metadata and a fingerprint from
+different targets. Fresh-export and metadata start/end timestamps
 are recorded for each complete observation.
 The public replacement result is recorded as import completion; the SDK exposes no native return
 value, so `nativeReturn.observation=UNAVAILABLE` is never relabeled as observed native completion.
@@ -80,7 +83,8 @@ Settle evidence records `attempts`, elapsed `durationMs`, a stability criterion,
 observation. Stability means two consecutive complete observations are equal at the observation
 level only; it does not prove that native replacement has settled or provide a native completion
 signal, and it never replaces the RGB/content gates. Each poll receives its remaining worker
-budget and is checked again after returning. Public `invokeAndWait` and export calls are synchronous
+budget; within the poll, target binding, export, and metadata stages each receive a fresh
+remaining-budget calculation, and the worker checks again after returning. Public `invokeAndWait` and export calls are synchronous
 public SDK calls with no safe cancellation seam, so the 15-second window is advisory for a call
 already in progress (`deadline.hard=false`); the worker waits for that call to return before handle
 cleanup, then rejects a late value and does not record it as settle evidence. An unavailable
