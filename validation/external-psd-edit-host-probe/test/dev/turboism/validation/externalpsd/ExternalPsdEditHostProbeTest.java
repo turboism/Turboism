@@ -2170,22 +2170,26 @@ public final class ExternalPsdEditHostProbeTest {
 
         final AtomicInteger noCalls = new AtomicInteger();
         final var noDialog = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of(), List.of());
+            "bound-window", List.of(), List.of());
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.NO_DIALOG,
             noDialog.outcome(), "no dialog permits the host's natural close path");
 
         final var oldDialog = closeDialog("old-dialog", "bound-window", true, noCalls);
         final var newDialog = closeDialog("new-dialog", "bound-window", true, noCalls);
+        final var oldModelessForAssociation = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "old-modeless", "bound-window", true, true, true, false, "MODELESS", 0,
+            List.of(), List.of(), -1, () -> { }, () -> false);
         final var associated = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of("old-dialog"), List.of(newDialog));
+            "bound-window", List.of(oldModelessForAssociation),
+            List.of(oldModelessForAssociation, newDialog));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.DISMISS_NO,
             associated.outcome(), "only a new dialog from this close is eligible");
         associated.dismissNo().run();
         assertEquals(1, noCalls.get(), "the exact no-save option is selected once");
 
         final var disabledNo = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
-                "disabled-no", "bound-window", true, true, true, 1,
+            "bound-window", List.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "disabled-no", "bound-window", true, true, true, true, "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
                 List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, noCalls::incrementAndGet,
                 () -> false)));
@@ -2271,20 +2275,20 @@ public final class ExternalPsdEditHostProbeTest {
             "a failed action remains bounded to one real button attempt");
 
         final var crossWindow = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of(), List.of(
+            "bound-window", List.of(), List.of(
                 closeDialog("cross-window", "other-window", false, new AtomicInteger())));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
             crossWindow.outcome(), "a dialog from another window is rejected");
         assertContains(crossWindow.diagnostic(), "owner",
             "cross-window dialog rejection records its owner");
         final var mismatchedOwnerEvidence = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of(), List.of(
+            "bound-window", List.of(), List.of(
                 closeDialog("mismatched-owner", "other-window", true, new AtomicInteger())));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
             mismatchedOwnerEvidence.outcome(), "inconsistent owner evidence is rejected");
 
         final var multiple = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of(), List.of(
+            "bound-window", List.of(), List.of(
                 closeDialog("dialog-a", "bound-window", true, new AtomicInteger()),
                 closeDialog("dialog-b", "bound-window", true, new AtomicInteger())));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
@@ -2293,20 +2297,21 @@ public final class ExternalPsdEditHostProbeTest {
             "multiple dialog rejection is explicit");
 
         final var unknown = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
-                "unknown-dialog", "bound-window", true, true, true, 1,
+            "bound-window", List.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "unknown-dialog", "bound-window", true, true, true, true, "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton"),
-                List.of("Yes (Y)", "No (N)"), 0, () -> { })));
+                List.of("Yes (Y)", "No (N)"), 0, () -> { }, () -> true)));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
             unknown.outcome(), "unknown option semantics are rejected");
         assertContains(unknown.diagnostic(), "options",
             "unknown option rejection explains the missing exact shape");
 
         final var missingNoAction = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
-                "missing-no-action", "bound-window", true, true, true, 1,
+            "bound-window", List.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "missing-no-action", "bound-window", true, true, true, true,
+                "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
-                List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, null)));
+                List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, null, () -> false)));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
             missingNoAction.outcome(), "a verified shape without a No action is rejected");
 
@@ -2316,7 +2321,7 @@ public final class ExternalPsdEditHostProbeTest {
         assertContains(watchdog, "JVM exit watchdog", "exit watchdog records its bounded purpose");
 
         final var preExisting = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of("old-dialog"), List.of(oldDialog));
+            "bound-window", List.of(oldDialog), List.of(oldDialog));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
             preExisting.outcome(), "a pre-existing owner dialog is not treated as this close");
         assertContains(preExisting.diagnostic(), "modality=",
@@ -2328,16 +2333,107 @@ public final class ExternalPsdEditHostProbeTest {
             "MODELESS", 0, List.of(), List.of(), -1,
             modelessToolCalls::incrementAndGet, () -> false);
         final var oldModelessDecision = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", Set.of("javax.swing.JDialog@old-tool"), List.of(oldModelessTool));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            "bound-window", List.of(oldModelessTool), List.of(oldModelessTool));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.NO_DIALOG,
             oldModelessDecision.outcome(),
-            "a pre-existing non-modal tool dialog remains fail-closed until identified");
+            "an unchanged exact modeless tool dialog is safely excluded");
+        assertContains(oldModelessDecision.diagnostic(), "excludedPreExisting=",
+            "safe modeless exclusion records its evidence");
         assertContains(oldModelessDecision.diagnostic(), "modality=MODELESS",
             "modeless dialog evidence records its modality");
         assertContains(oldModelessDecision.diagnostic(), "panes=0",
             "modeless dialog evidence records that it has no option pane");
         assertEquals(0, modelessToolCalls.get(),
             "a pre-existing modeless tool dialog is never operated on");
+
+        final AtomicInteger oldModelessActionCalls = new AtomicInteger();
+        final AtomicInteger saveNoCalls = new AtomicInteger();
+        final var oldModeless = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, false,
+            "MODELESS", 0, List.of(), List.of(), -1,
+            oldModelessActionCalls::incrementAndGet, () -> false);
+        final var saveModal = closeDialog("javax.swing.JDialog@save-modal", "bound-window",
+            true, saveNoCalls);
+        final var dualWindow = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(oldModeless), List.of(oldModeless, saveModal));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.DISMISS_NO,
+            dualWindow.outcome(),
+            "a new exact save modal is selected beside an unchanged modeless tool window");
+        assertContains(dualWindow.diagnostic(), "excludedPreExisting=",
+            "dual-window close records the excluded modeless window");
+        dualWindow.dismissNo().run();
+        assertEquals(1, saveNoCalls.get(), "the new save modal receives one No action");
+        assertEquals(0, oldModelessActionCalls.get(),
+            "the pre-existing modeless window receives no action");
+
+        final var changedModality = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, true,
+            "APPLICATION_MODAL", 1,
+            List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
+            List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, () -> { }, () -> true);
+        final var modalityChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(oldModeless), List.of(changedModality));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            modalityChanged.outcome(), "a pre-existing dialog changing modality is rejected");
+        assertContains(modalityChanged.diagnostic(), "modality=APPLICATION_MODAL",
+            "modality changes remain visible in rejection evidence");
+
+        final var changedPanes = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, false,
+            "MODELESS", 1, List.of("javax.swing.JButton"), List.of("unexpected"), 0,
+            () -> { }, () -> false);
+        final var panesChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(oldModeless), List.of(changedPanes));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            panesChanged.outcome(), "a pre-existing dialog gaining an option pane is rejected");
+        assertContains(panesChanged.diagnostic(), "panes=1",
+            "pane changes remain visible in rejection evidence");
+
+        final var changedOwner = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-modeless", "other-window", false, true, true, false,
+            "MODELESS", 0, List.of(), List.of(), -1, () -> { }, () -> false);
+        final var ownerChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(oldModeless), List.of(changedOwner));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            ownerChanged.outcome(), "a pre-existing dialog changing owner is rejected");
+        assertContains(ownerChanged.diagnostic(), "owner=other-window",
+            "owner changes remain visible in rejection evidence");
+
+        final var changedVisibility = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-modeless", "bound-window", true, false, true, false,
+            "MODELESS", 0, List.of(), List.of(), -1, () -> { }, () -> false);
+        final var visibilityChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(oldModeless), List.of(changedVisibility));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            visibilityChanged.outcome(), "a pre-existing dialog becoming hidden is rejected");
+
+        final var unknownModality = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, false,
+            "UNKNOWN", 0, List.of(), List.of(), -1, () -> { }, () -> false);
+        final var unknownPreExisting = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(oldModeless), List.of(unknownModality));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            unknownPreExisting.outcome(), "unknown pre-existing modality is rejected");
+        assertContains(unknownPreExisting.diagnostic(), "modality=UNKNOWN",
+            "unknown modality is explicit in rejection evidence");
+
+        final var changedIdentity = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(oldModeless), List.of(saveModal));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            changedIdentity.outcome(),
+            "a changed pre-existing identity cannot be mistaken for a new save modal");
+        assertContains(changedIdentity.diagnostic(), "pre-existing",
+            "identity changes explain the retained before-window evidence");
+
+        final var preExistingPane = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-pane", "bound-window", true, true, true, false,
+            "MODELESS", 1, List.of("javax.swing.JButton"), List.of("tool"), 0,
+            () -> { }, () -> false);
+        final var preExistingPaneDecision = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", List.of(preExistingPane), List.of(preExistingPane));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            preExistingPaneDecision.outcome(),
+            "a pre-existing JOptionPane is not silently excluded");
 
         final var closeTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("close-test");
         closeTrace.recordBefore(List.of(oldModelessTool));
