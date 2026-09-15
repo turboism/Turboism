@@ -530,18 +530,33 @@ final class EditorTextureAccess {
                 );
             }
 
-            final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult =
-                psdReplaceAccess.replacePsd(
-                    identity,
-                    model,
-                    appController,
-                    document,
-                    List.of(binding.candidate().nativeSource()),
-                    incoming,
-                    stage
+            final EditorTextureReplacementDiagnostic.Session diagnostic =
+                replacementDiagnostic(before, document, target, incoming);
+            final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult;
+            try {
+                nativeResult = EditorTextureReplacementDiagnostic.invokeNativeOnce(
+                    () -> psdReplaceAccess.replacePsd(
+                        identity,
+                        model,
+                        appController,
+                        document,
+                        List.of(binding.candidate().nativeSource()),
+                        incoming,
+                        stage
+                    )
                 );
+            } catch (RuntimeException nativeCallFailure) {
+                finishDiagnostic(
+                    diagnostic,
+                    null,
+                    null,
+                    "replace-call-threw:" + message(nativeCallFailure)
+                );
+                throw nativeCallFailure;
+            }
 
             if (nativeResult.status() == EditorRawImagePsdReplaceAccess.ReplaceStatus.EDITING_REJECTED) {
+                finishDiagnostic(diagnostic, null, nativeResult, "native-not-invoked:editing-rejected");
                 return new Replacement(
                     "HOST_EDIT_IN_PROGRESS", nativeResult.postCurrentGuardPassed(), false, false, true,
                     false, Optional.empty(),
@@ -550,6 +565,7 @@ final class EditorTextureAccess {
             }
             if (nativeResult.status()
                 == EditorRawImagePsdReplaceAccess.ReplaceStatus.UNAVAILABLE) {
+                finishDiagnostic(diagnostic, null, nativeResult, "native-not-invoked:unavailable");
                 return new Replacement(
                     "UNAVAILABLE", nativeResult.postCurrentGuardPassed(), false, false, false, false,
                     Optional.empty(),
@@ -558,6 +574,7 @@ final class EditorTextureAccess {
             }
             if (nativeResult.status()
                 == EditorRawImagePsdReplaceAccess.ReplaceStatus.INVALID_INPUT) {
+                finishDiagnostic(diagnostic, null, nativeResult, "native-not-invoked:invalid-input");
                 return new Replacement(
                     "INVALID_INPUT", nativeResult.postCurrentGuardPassed(), false, false, false, false,
                     Optional.empty(),
@@ -566,6 +583,7 @@ final class EditorTextureAccess {
             }
             if (nativeResult.status()
                 == EditorRawImagePsdReplaceAccess.ReplaceStatus.PARTIAL_FAILURE) {
+                finishDiagnosticAfterAttempt(diagnostic, nativeResult);
                 return new Replacement(
                     "NATIVE_OUTCOME_UNKNOWN", nativeResult.postCurrentGuardPassed(), false, true, false,
                     false, Optional.empty(),
@@ -578,12 +596,19 @@ final class EditorTextureAccess {
             try {
                 after = relationAccess.relations(identity, source, model);
             } catch (RuntimeException rereadFailure) {
+                finishDiagnostic(
+                    diagnostic,
+                    null,
+                    nativeResult,
+                    "post-relation-read-failed:" + message(rereadFailure)
+                );
                 return new Replacement(
                     "NATIVE_RETURNED_UNOBSERVED", nativeResult.postCurrentGuardPassed(), true, false,
                     false, false, Optional.empty(),
                     "The native replacement returned but current state could not be re-read."
                 );
             }
+            finishDiagnostic(diagnostic, after, nativeResult, null);
             if (!after.isAvailable()) {
                 return new Replacement(
                     "NATIVE_RETURNED_UNOBSERVED", nativeResult.postCurrentGuardPassed(), true, false,
@@ -601,6 +626,56 @@ final class EditorTextureAccess {
                 observedRawImage(after, modelImagesUsing(before, target)),
                 "The native replacement returned and current state was re-read."
             );
+        }
+
+        private EditorTextureReplacementDiagnostic.Session replacementDiagnostic(
+            final TextureRelationsSnapshot before,
+            final Object document,
+            final RawImageId target,
+            final Object incoming
+        ) {
+            if (!EditorTextureReplacementDiagnostic.enabled()) return null;
+            final EditorTextureReplacementDiagnostic.RawIdentity incomingRaw =
+                EditorTextureReplacementDiagnostic.resolveIncomingRaw(resolver, incoming);
+            return EditorTextureReplacementDiagnostic.begin(
+                identity,
+                document,
+                model,
+                target,
+                incomingRaw,
+                before
+            ).orElse(null);
+        }
+
+        private void finishDiagnosticAfterAttempt(
+            final EditorTextureReplacementDiagnostic.Session diagnostic,
+            final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult
+        ) {
+            if (diagnostic == null) return;
+            if (!nativeResult.postCurrentGuardPassed()) {
+                finishDiagnostic(diagnostic, null, nativeResult, "post-current-guard-failed");
+                return;
+            }
+            try {
+                final TextureRelationsSnapshot after = relationAccess.relations(identity, source, model);
+                finishDiagnostic(diagnostic, after, nativeResult, null);
+            } catch (RuntimeException | LinkageError rereadFailure) {
+                finishDiagnostic(
+                    diagnostic,
+                    null,
+                    nativeResult,
+                    "post-relation-read-failed:" + message(rereadFailure)
+                );
+            }
+        }
+
+        private void finishDiagnostic(
+            final EditorTextureReplacementDiagnostic.Session diagnostic,
+            final TextureRelationsSnapshot after,
+            final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult,
+            final String cause
+        ) {
+            if (diagnostic != null) diagnostic.finish(after, nativeResult, cause);
         }
 
         @Override
