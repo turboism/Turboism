@@ -124,6 +124,12 @@ public interface ProtectedExportHostOperations {
 
     List<?> allParts(Object modelSource);
 
+    /**
+     * The model source's synthetic root part — present in {@link #allParts} but
+     * never serialized by the native exporter — or {@code null} when absent.
+     */
+    Object rootPart(Object modelSource);
+
     List<?> allParameters(Object modelSource);
 
     /** Stable model GUID string of a model source. */

@@ -770,6 +770,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.model_source_root_part",
+      "alias": "cubism.protected-export.model-source.root-part",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": "getRootPart",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/parts/CPartSource;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.protected_export.class.model_class",
       "alias": "cubism.protected-export.model.class",
       "kind": "class",
