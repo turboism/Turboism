@@ -264,8 +264,12 @@ never rewrites a FAIL or BLOCKED into PASS.
 Shutdown: after writing the result the probe posts `WINDOW_CLOSING` only to the exact task window
 bound during target resolution (the GUI path retains that same binding). The probe recognizes only a newly-created
 `JOptionPane` owned by that same window whose verified host shape is `[Yes (Y), No (N),
-Cancel (C)]`, and clicks `No` (index 1) so the task copy is not saved. Unknown, pre-existing,
-multiple, or cross-window dialogs are rejected. The No action is claimed once per close session
+Cancel (C)]`, and clicks `No` (index 1) so the task copy is not saved. Unknown, pre-existing
+modal/JOptionPane, multiple, or cross-window dialogs are rejected. A pre-existing dialog is
+excluded only when the complete before and after snapshots have the same identity, exact bound
+owner, `showing=true`, `displayable=true`, `modal=false`, `modality=MODELESS`, and `panes=0`;
+the exclusion is recorded as `excludedPreExisting` and that window is never operated on. Any
+identity, owner, liveness, modality, modal flag, or pane-shape change is rejected. The No action is claimed once per close session
 by a shared atomic gate; the option must be enabled, showing, and displayable both when observed
 and immediately before `doClick`, and a failed action is not reported as dismissed. If exact
 binding or native close cannot be proven, the phase remains `BLOCKED`/exit failure and cleanup
@@ -283,7 +287,12 @@ at 7168 bytes; its session, counters, timings, and `before=`, `after=`, `dispatc
 labels remain present even when those inventories are truncated. The result reason receives 1022
 bytes, and the final result-plus-trace diagnostic is capped at 8192 bytes including its separator.
 At most 32 dialog entries are included; larger inventories record `truncated=true` and the total
-count. A pre-existing non-modal dialog with no JOptionPane is recorded but is still rejected in
-this slice; it is never operated on. The 156876 evidence proves only that the EDT was inside
-`saveIfModified`/`JOptionPane.showOptionDialog`, not that the rejected dialog identity was that
-modal, so no exclusion is claimed until a subsequent task-owned run correlates these fields.
+count. The T021 close-race evidence recorded by the authoritative 025 plan for run
+`queue-18a49af72e7a434eb47f1e2e05b3f32a` showed the before `JDialog@43f3428a` as an exact-owner,
+modeless, zero-pane window and the after `JDialog@4b1fd017` as the same-owner
+`APPLICATION_MODAL` three-option save dialog; the minimal classifier change correlates those
+full snapshots instead of rejecting the harmless pre-existing tool window. The same evidence
+still requires the later real-run checks and does not weaken the GUI `false→true` or Supervisor
+gates. The authoritative record is `/opt/dev/projects/turboism/specs/025-external-psd-edit/plan.md`
+under T021; this README records the validation-only interpretation because that specification is
+read-only for this worktree.

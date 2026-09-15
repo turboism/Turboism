@@ -569,11 +569,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (beforeDialogs == null) {
             return CloseDialogInspection.rejected("pre-close dialog snapshots are unavailable");
         }
-        final Set<String> beforeIdentities = dialogIdentities(beforeDialogs);
         final List<CloseDialogSnapshot> currentDialogs = visibleCloseDialogs(target);
         if (trace != null) trace.recordInspection(currentDialogs);
         final CloseDialogDecision decision = classifyCloseDialog(
-            componentIdentity(target), beforeIdentities, currentDialogs);
+            componentIdentity(target), beforeDialogs, currentDialogs);
         if (trace != null) {
             trace.recordReason(decision == null ? "close dialog decision unavailable"
                 : decision.diagnostic());
@@ -688,18 +687,6 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return snapshots;
     }
 
-    private static Set<String> dialogIdentities(final List<CloseDialogSnapshot> dialogs) {
-        if (dialogs == null) return null;
-        final Set<String> identities = new HashSet<>();
-        for (final CloseDialogSnapshot dialog : dialogs) {
-            if (dialog != null && dialog.dialogIdentity() != null
-                && !dialog.dialogIdentity().isBlank()) {
-                identities.add(dialog.dialogIdentity());
-            }
-        }
-        return identities;
-    }
-
     private static boolean isOperable(final JButton button) {
         return button != null && button.isEnabled() && button.isShowing()
             && button.isDisplayable();
@@ -716,72 +703,88 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     static CloseDialogDecision classifyCloseDialogForTest(final String targetWindowIdentity,
-        final Set<String> beforeDialogIdentities,
+        final List<CloseDialogSnapshot> beforeDialogs,
         final List<CloseDialogSnapshot> visibleDialogs) {
-        return classifyCloseDialog(targetWindowIdentity, beforeDialogIdentities, visibleDialogs);
+        return classifyCloseDialog(targetWindowIdentity, beforeDialogs, visibleDialogs);
     }
 
     private static CloseDialogDecision classifyCloseDialog(final String targetWindowIdentity,
-        final Set<String> beforeDialogIdentities,
+        final List<CloseDialogSnapshot> beforeDialogs,
         final List<CloseDialogSnapshot> visibleDialogs) {
         if (targetWindowIdentity == null || targetWindowIdentity.isBlank()) {
             return CloseDialogDecision.rejected("bound host window identity is unavailable");
         }
-        if (beforeDialogIdentities == null) {
-            return CloseDialogDecision.rejected("pre-close dialog identities are unavailable");
+        if (beforeDialogs == null) {
+            return CloseDialogDecision.rejected("pre-close dialog snapshots are unavailable");
         }
         final List<CloseDialogSnapshot> current = visibleDialogs == null ? List.of()
             : visibleDialogs;
-        for (final CloseDialogSnapshot dialog : current) {
-            if (dialog == null || dialog.dialogIdentity() == null
-                || dialog.dialogIdentity().isBlank()) {
+        final Map<String, CloseDialogSnapshot> beforeByIdentity = new LinkedHashMap<>();
+        for (final CloseDialogSnapshot dialog : beforeDialogs) {
+            final String invalid = preExistingDialogFailure(targetWindowIdentity, dialog);
+            if (invalid != null) {
                 return CloseDialogDecision.rejected(
-                    "close-associated dialog identity is unavailable: "
-                        + (dialog == null ? "null" : dialog.diagnostic()));
+                    "pre-close dialog cannot be safely excluded: " + invalid);
             }
-            if (dialog.ownerMatchesTarget()
-                && !targetWindowIdentity.equals(dialog.ownerIdentity())) {
+            if (beforeByIdentity.put(dialog.dialogIdentity(), dialog) != null) {
                 return CloseDialogDecision.rejected(
-                    "dialog owner identity does not equal bound window: owner="
-                        + dialog.ownerIdentity() + " bound=" + targetWindowIdentity
-                        + " evidence=" + dialog.diagnostic());
-            }
-            if (beforeDialogIdentities.contains(dialog.dialogIdentity())
-                && dialog.ownerMatchesTarget()
-                && targetWindowIdentity.equals(dialog.ownerIdentity())) {
-                return CloseDialogDecision.rejected(
-                    "a dialog owned by the bound window pre-existed WINDOW_CLOSING: "
-                        + dialog.diagnostic());
+                    "duplicate pre-close dialog identity: " + dialog.diagnostic());
             }
         }
+
+        final Map<String, CloseDialogSnapshot> currentByIdentity = new LinkedHashMap<>();
+        for (final CloseDialogSnapshot dialog : current) {
+            final String invalid = currentDialogFailure(targetWindowIdentity, dialog);
+            if (invalid != null) {
+                return CloseDialogDecision.rejected(
+                    "close dialog snapshot is unavailable or not exact: " + invalid);
+            }
+            if (currentByIdentity.put(dialog.dialogIdentity(), dialog) != null) {
+                return CloseDialogDecision.rejected(
+                    "duplicate close dialog identity: " + dialog.diagnostic());
+            }
+        }
+
+        final List<CloseDialogSnapshot> excluded = new ArrayList<>();
+        for (final CloseDialogSnapshot before : beforeDialogs) {
+            final CloseDialogSnapshot after = currentByIdentity.get(before.dialogIdentity());
+            if (after == null) {
+                return CloseDialogDecision.rejected(
+                    "pre-existing dialog disappeared or changed identity before close "
+                        + "could be classified: " + before.diagnostic());
+            }
+            final String changed = preExistingDialogFailure(targetWindowIdentity, after);
+            if (changed != null) {
+                return CloseDialogDecision.rejected(
+                    "pre-existing dialog changed before/after and cannot be excluded: "
+                        + changed);
+            }
+            excluded.add(after);
+        }
+
         final List<CloseDialogSnapshot> added = current.stream()
             .filter(Objects::nonNull)
-            .filter(dialog -> !beforeDialogIdentities.contains(dialog.dialogIdentity()))
+            .filter(dialog -> !beforeByIdentity.containsKey(dialog.dialogIdentity()))
             .toList();
+        final String excludedEvidence = excluded.isEmpty() ? ""
+            : " excludedPreExisting=" + dialogInventoryDiagnostic(excluded,
+                CLOSE_TRACE_REASON_MAX_BYTES);
         if (added.isEmpty()) {
             return CloseDialogDecision.noDialog(
-                "no new dialog is associated with WINDOW_CLOSING target=" + targetWindowIdentity);
+                "no new dialog is associated with WINDOW_CLOSING target=" + targetWindowIdentity
+                    + excludedEvidence);
         }
         if (added.size() > 1) {
             return CloseDialogDecision.rejected(
                 "multiple new dialogs are associated with WINDOW_CLOSING: " + added.size()
-                    + " evidence=" + dialogInventoryDiagnostic(added));
+                    + " evidence=" + dialogInventoryDiagnostic(added) + excludedEvidence);
         }
         final CloseDialogSnapshot dialog = added.get(0);
-        if (!dialog.ownerMatchesTarget()
-            || !targetWindowIdentity.equals(dialog.ownerIdentity())) {
-            return CloseDialogDecision.rejected("new dialog owner " + dialog.ownerIdentity()
-                + " does not equal bound window " + targetWindowIdentity
-                + " evidence=" + dialog.diagnostic());
-        }
-        if (!dialog.showing() || !dialog.displayable()) {
-            return CloseDialogDecision.rejected(
-                "close-associated dialog is not showing/displayable: " + dialog.diagnostic());
-        }
         if (dialog.optionPaneCount() != 1 || dialog.optionClassNames().size() != 3
             || dialog.optionLabels().size() != 3 || dialog.initialOptionIndex() != 0) {
             return CloseDialogDecision.rejected(
-                "close-associated JOptionPane options are unknown: " + dialog.diagnostic());
+                "close-associated JOptionPane options are unknown: " + dialog.diagnostic()
+                    + excludedEvidence);
         }
         final List<String> expectedClasses = List.of(
             JButton.class.getName(), JButton.class.getName(), JButton.class.getName());
@@ -790,11 +793,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             || !hostOptionLabel(dialog.optionLabels().get(1), 'N')
             || !hostOptionLabel(dialog.optionLabels().get(2), 'C')) {
             return CloseDialogDecision.rejected(
-                "close-associated JOptionPane does not have the verified Yes/No/Cancel options");
+                "close-associated JOptionPane does not have the verified Yes/No/Cancel options"
+                    + excludedEvidence);
         }
         if (dialog.dismissNo() == null) {
             return CloseDialogDecision.rejected(
-                "close-associated JOptionPane has no operable No action");
+                "close-associated JOptionPane has no operable No action" + excludedEvidence);
         }
         final boolean noReady;
         try {
@@ -802,15 +806,61 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         } catch (Throwable failure) {
             return CloseDialogDecision.rejected(
                 "close-associated JOptionPane No-action readiness failed: "
-                    + stackTrace(failure));
+                    + stackTrace(failure) + excludedEvidence);
         }
         if (!noReady) {
             return CloseDialogDecision.rejected(
-                "close-associated JOptionPane No option is not enabled/showing/displayable");
+                "close-associated JOptionPane No option is not enabled/showing/displayable"
+                    + excludedEvidence);
         }
         return CloseDialogDecision.dismissNo(
-            "new dirty-save JOptionPane=" + dialog.diagnostic(),
+            "new dirty-save JOptionPane=" + dialog.diagnostic() + excludedEvidence,
             dialog.dismissNo());
+    }
+
+    /**
+     * Validates a complete before/after snapshot for a dialog that may be excluded as a
+     * pre-existing modeless host tool window.  A partial or changed snapshot is never ignored.
+     */
+    private static String preExistingDialogFailure(final String targetWindowIdentity,
+        final CloseDialogSnapshot dialog) {
+        final String currentFailure = currentDialogFailure(targetWindowIdentity, dialog);
+        if (currentFailure != null) return currentFailure;
+        if (dialog.modal() || !"MODELESS".equals(dialog.modalityType())
+            || dialog.optionPaneCount() != 0
+            || !dialog.optionClassNames().isEmpty() || !dialog.optionLabels().isEmpty()
+            || dialog.initialOptionIndex() != -1) {
+            return "pre-existing dialog is not the verified modeless panes=0 shape: "
+                + dialog.diagnostic();
+        }
+        return null;
+    }
+
+    /** Validates identity/owner/liveness and rejects unknown modality evidence for every after. */
+    private static String currentDialogFailure(final String targetWindowIdentity,
+        final CloseDialogSnapshot dialog) {
+        if (dialog == null) return "null dialog snapshot";
+        if (dialog.dialogIdentity() == null || dialog.dialogIdentity().isBlank()) {
+            return "dialog identity is unavailable: " + dialog.diagnostic();
+        }
+        if (!dialog.ownerMatchesTarget()
+            || !targetWindowIdentity.equals(dialog.ownerIdentity())) {
+            return "dialog owner identity does not exactly equal bound window: owner="
+                + dialog.ownerIdentity() + " bound=" + targetWindowIdentity
+                + " evidence=" + dialog.diagnostic();
+        }
+        if (!dialog.showing() || !dialog.displayable()) {
+            return "dialog is not showing/displayable: " + dialog.diagnostic();
+        }
+        if (dialog.modalityType() == null || dialog.modalityType().isBlank()
+            || "UNKNOWN".equals(dialog.modalityType())) {
+            return "dialog modality is UNKNOWN: " + dialog.diagnostic();
+        }
+        final boolean modalByType = !"MODELESS".equals(dialog.modalityType());
+        if (modalByType != dialog.modal()) {
+            return "dialog modal/modality evidence is inconsistent: " + dialog.diagnostic();
+        }
+        return null;
     }
 
     private static boolean hostOptionLabel(final String label, final char suffix) {
