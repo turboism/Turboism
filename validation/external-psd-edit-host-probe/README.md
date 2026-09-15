@@ -62,6 +62,22 @@ GUI phase has no pixel-parser dependency.
    `persist.saveSucceeded=true`, and
    `persist.tempQuarantine.status=MOVED`, `.taskOwned=true`, `.sourceMissing=true`.
 
+### Persist diagnostic observations
+
+Persist mode records a validation-only observation at each native baseline export, after each
+public `PsdReplaceResult` completion, and during a bounded worker-side settle poll. Each observation
+keeps raw-image IDs, model-image IDs, the `layerInputsByRawImage` selector projection, live PSD
+`layerId`/name/`artMeshIds`, and the fresh native decoded target-RGB fingerprint in separate fields.
+The public replacement result is recorded as import completion; the SDK exposes no native return
+value, so `nativeReturn.observation=UNAVAILABLE` is never relabeled as observed native completion.
+
+Settle evidence records `attempts`, elapsed `durationMs`, a stability criterion, and the last
+observation. Stability means two consecutive complete observations are equal; an unavailable
+projection, observation exception, or bounded timeout remains a non-stable diagnostic result.
+These observations do not weaken or replace the persistence RGB, history, SAVE_AS, handle-stop,
+quarantine, or reopen gates. Unsupported public fields remain explicitly unavailable rather than
+being inferred from layer names or IDs.
+
 ## reopen
 
 Runs against a fixture copy produced by a persist run (`--fixture-local <saved>`), re-exports
