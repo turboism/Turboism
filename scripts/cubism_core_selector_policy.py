@@ -20,7 +20,7 @@ from cubism_core_api import InventoryError, decode_json  # noqa: E402
 FORMAT = "turboism.cubism-core.selector-policy"
 SCHEMA_VERSION = 1
 STATUS = "DRAFT"
-ROLES = {"VERSION_PROBE", "STRUCTURAL"}
+ROLES = {"VERSION_PROBE", "STRUCTURAL", "OWNED_MOC"}
 CONSTANT_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 
@@ -332,6 +332,16 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
         ]
         for version in profiles
     }
+    owned_moc_methods = {
+        version: [
+            selector["constant"]
+            for selector in by_constant
+            if version in selector["profiles"]
+            and selector["role"] == "OWNED_MOC"
+            and selector["kind"] == "method"
+        ]
+        for version in profiles
+    }
 
     lines = [
         "package dev.turboism.mapping.verification.selector;",
@@ -399,6 +409,10 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
                 + set_expression(structural_methods[version], "        ")
                 + ";",
                 "",
+                f"    public static final Set<String> OWNED_MOC_METHOD_ALIASES_{identifier} = "
+                + set_expression(owned_moc_methods[version], "        ")
+                + ";",
+                "",
             ]
         )
     lines.extend(
@@ -437,6 +451,25 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
         lines.append(
             f"            case ARTIFACT_PROFILE_{identifier} -> "
             f"Optional.of(STRUCTURAL_METHOD_ALIASES_{identifier});"
+        )
+    lines.extend(
+        [
+            "            default -> Optional.empty();",
+            "        };",
+            "    }",
+            "",
+            "    public static Optional<Set<String>> ownedMocMethodAliasesFor(",
+            "        final String artifactProfile",
+            "    ) {",
+            "        Objects.requireNonNull(artifactProfile, \"artifactProfile\");",
+            "        return switch (artifactProfile) {",
+        ]
+    )
+    for version in profiles:
+        identifier = version.replace(".", "_")
+        lines.append(
+            f"            case ARTIFACT_PROFILE_{identifier} -> "
+            f"Optional.of(OWNED_MOC_METHOD_ALIASES_{identifier});"
         )
     lines.extend(
         [

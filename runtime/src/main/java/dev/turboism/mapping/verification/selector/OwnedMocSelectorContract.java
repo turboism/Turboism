@@ -24,9 +24,12 @@ import java.util.Set;
  *       and the 5.2 profile never fails closed on version reads.</li>
  * </ul>
  *
- * <p>This is an additive feature contract checked with
- * {@link VerifiedMemberResolver#authorizesFeature}; it is not part of the generated
- * {@link CorePublicApiSelectorContract} roster until promoted after host validation.</p>
+ * <p>This feature contract is promoted into the generated
+ * {@link CorePublicApiSelectorContract} roster under the {@code OWNED_MOC} role so the
+ * verified Core record carries the lifecycle evidence into provider admission. The role
+ * keeps the aliases out of the structural-read call-site table: they are bound and invoked
+ * through {@link CorePublicApiProvider} owned-Moc operations instead, and feature admission
+ * is still checked with {@link VerifiedMemberResolver#authorizesFeature}.</p>
  */
 public final class OwnedMocSelectorContract {
 

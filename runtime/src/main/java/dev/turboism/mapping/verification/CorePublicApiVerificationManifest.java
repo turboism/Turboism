@@ -12,7 +12,7 @@ final class CorePublicApiVerificationManifest {
         "5.2.03",
         manifest(
             CorePublicApiTrustRoots.verificationId("5.2.03"),
-            "01d59d8b040bcce13c3b4a9b6a9fd731546ccad730692707ad954d1e57f69a87",
+            "f37e46ffed2a7b550bda1181a92914cd893163a06f57db699669e14f204a90c2",
             "5.2.03",
             "5.2.03",
             36_237L,
@@ -21,7 +21,7 @@ final class CorePublicApiVerificationManifest {
         "5.3.02",
         manifest(
             CorePublicApiTrustRoots.verificationId("5.3.02"),
-            "416ec0e9e45e1dfd44216969aa02a5171eb0688145b3738f583beb9bafe5131e",
+            "476f20ed9c6f4760e46314c57b15cf6a5aabf87a7669878f545a1aedff59914a",
             "5.3.02",
             "5.3.02",
             42_471L,

@@ -104,8 +104,8 @@ class StaticVerificationRecordRepositoryTest {
         "compatibility/cubism/verification/cubism-5.2.03-core-model-read.json",
         coreExpectation("5.2.03", "5.2.03", 36_237L,
             "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
-            "01d59d8b040bcce13c3b4a9b6a9fd731546ccad730692707ad954d1e57f69a87",
-            72, "5.2.03"),
+            "f37e46ffed2a7b550bda1181a92914cd893163a06f57db699669e14f204a90c2",
+            80, "5.2.03"),
         "compatibility/cubism/verification/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
             ClipMaskVerificationManifest.RECORD_5_3_02.verificationId(),
@@ -192,7 +192,7 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "bec069bd5e126574b9203bc106beebcd511b5ae1c3a3ad4c158b03611f7f69ee",
+            "b6ed488e17c2452eaa085e21fdab23063e93204e66843882925eae63dda9634c",
             621,
             EditorModelVerificationManifest.cubism52Aliases(),
             EditorModelVerificationManifest.cubism52Aliases(),
@@ -229,8 +229,8 @@ class StaticVerificationRecordRepositoryTest {
         "compatibility/cubism/verification/cubism-5.3.02-core-model-read.json",
         coreExpectation("5.3.02", "5.3.02", 42_471L,
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-            "416ec0e9e45e1dfd44216969aa02a5171eb0688145b3738f583beb9bafe5131e",
-            74, "5.3.02")
+            "476f20ed9c6f4760e46314c57b15cf6a5aabf87a7669878f545a1aedff59914a",
+            82, "5.3.02")
     ))))))))))));
 
     private static Map<String, SliceExpectation> withProtectedExport(
@@ -1198,6 +1198,9 @@ class StaticVerificationRecordRepositoryTest {
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
         final Set<String> allMethods = new HashSet<>(methods);
         allMethods.addAll(versionMethods);
+        allMethods.addAll(CorePublicApiSelectorContract
+            .ownedMocMethodAliasesFor(profile)
+            .orElseThrow());
         return new SliceExpectation(
             CorePublicApiTrustRoots.verificationId(profile),
             CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
