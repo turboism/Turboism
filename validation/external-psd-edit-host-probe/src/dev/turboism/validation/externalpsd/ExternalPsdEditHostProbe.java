@@ -2181,7 +2181,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             } catch (Throwable error) { failure.set(error); }
         });
         if (failure.get() != null) throw new IllegalStateException("Export invocation failed", failure.get());
-        final PsdExportResult exported = stage.get().toCompletableFuture().get(120, TimeUnit.SECONDS);
+        return awaitExportResult(result, raw, stage.get());
+    }
+
+    private PsdExportResult awaitExportResult(final Properties result, final RawImageId raw,
+        final CompletionStage<PsdExportResult> stage) throws Exception {
+        final CompletionStage<PsdExportResult> exportStage = Objects.requireNonNull(stage,
+            "native export returned no completion stage");
+        final PsdExportResult exported = exportStage.toCompletableFuture()
+            .get(120, TimeUnit.SECONDS);
         result.setProperty("export.status", exported.status().name());
         result.setProperty("export.diagnostic", exported.diagnostic());
         if (exported.status() != PsdExportResult.Status.EXPORTED
@@ -2939,6 +2947,221 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
+     * Coordinates the validation-only export of a raw image added by the preceding import.
+     * The starter owns the single-EDT preflight-and-export operation; this method owns the
+     * before/after identity gate and stops a handle that was created before a postflight failure.
+     * A successful return licenses the caller to read the handle bytes. The candidate's current
+     * model-image reference is deliberately not part of this gate.
+     */
+    static RawImageExportHandle coordinateNewRawExport(final Properties result,
+        final String prefix, final TargetIdentity expected, final RawImageId candidate,
+        final RawExportStarter starter, final RawExportObservationSupplier afterSupplier,
+        final RawExportStopper stopper) throws Exception {
+        Objects.requireNonNull(result, "result");
+        final String normalizedPrefix = normalizePrefix(prefix);
+        Objects.requireNonNull(expected, "expected");
+        Objects.requireNonNull(candidate, "candidate");
+        Objects.requireNonNull(starter, "starter");
+        Objects.requireNonNull(afterSupplier, "afterSupplier");
+        Objects.requireNonNull(stopper, "stopper");
+        result.setProperty(normalizedPrefix + ".candidateRawId", candidate.value());
+        result.setProperty(normalizedPrefix + ".coordination.status", "STARTED");
+        final AtomicBoolean preflightInvoked = new AtomicBoolean();
+        final AtomicReference<RawExportObservation> preflightObservation =
+            new AtomicReference<>();
+        RawImageExportHandle handle = null;
+        Throwable primary = null;
+        try {
+            final RawExportStarted started = starter.start(candidate, observation -> {
+                preflightInvoked.set(true);
+                preflightObservation.set(observation);
+                recordRawExportObservation(
+                    result, normalizedPrefix, "before", candidate, observation);
+                requireRawExportObservation(expected, candidate, observation, "before-export");
+            });
+            if (started != null) {
+                handle = Objects.requireNonNull(started.handle(),
+                    "raw export starter returned no handle");
+            }
+            if (!preflightInvoked.get()) {
+                throw rawExportUnavailable(
+                    "raw export starter did not run the preflight before invoking export");
+            }
+            if (started == null) {
+                throw rawExportUnavailable("raw export starter returned no completed export");
+            }
+            if (started.before() == null
+                || !Objects.equals(preflightObservation.get(), started.before())) {
+                throw rawExportUnavailable(
+                    "raw export starter returned a before observation different from its preflight");
+            }
+            final RawExportObservation after = afterSupplier.observe(candidate);
+            if (after == null) {
+                throw rawExportUnavailable("post-export target observation returned no value");
+            }
+            recordRawExportObservation(result, normalizedPrefix, "after", candidate, after);
+            requireRawExportObservation(expected, candidate, after, "after-export");
+            if (!sameRawExportSession(started.before(), after)) {
+                throw rawExportUnavailable(
+                    "document/model/binding/model-image/generation changed during raw export"
+                        + ": before=" + started.before() + " after=" + after);
+            }
+            result.setProperty(normalizedPrefix + ".coordination.status", "AVAILABLE");
+            result.setProperty(normalizedPrefix + ".coordination.diagnostic",
+                "same target and one candidate observed before and after completed export");
+            return handle;
+        } catch (Exception failure) {
+            primary = failure;
+            recordRawExportCoordinationFailure(result, normalizedPrefix, failure);
+            throw failure;
+        } catch (Error failure) {
+            primary = failure;
+            recordRawExportCoordinationFailure(result, normalizedPrefix, failure);
+            throw failure;
+        } finally {
+            if (primary != null && handle != null) {
+                stopFailedRawExport(result, normalizedPrefix, handle, stopper, primary);
+            }
+        }
+    }
+
+    private static void requireRawExportObservation(final TargetIdentity expected,
+        final RawImageId candidate, final RawExportObservation observation, final String phase) {
+        if (observation == null) {
+            throw rawExportUnavailable(phase + " observation is unavailable");
+        }
+        final List<String> reasons = new ArrayList<>();
+        if (!observation.relationsAvailable()) reasons.add("relations unavailable");
+        if (observation.candidateRawId() == null
+            || !candidate.value().equals(observation.candidateRawId())) {
+            reasons.add("observed candidate raw identity does not match requested candidate");
+        }
+        if (observation.candidateCount() != 1) {
+            reasons.add("candidate raw occurrence count=" + observation.candidateCount()
+                + " (expected exactly one)");
+        }
+        if (observation.modelImageCount() != 1) {
+            reasons.add("target model-image occurrence count=" + observation.modelImageCount()
+                + " (expected exactly one)");
+        }
+        if (observation.generation() < 0L) reasons.add("relation generation unavailable");
+        requireIdentityField(expected.documentId(), observation.documentId(), "document", reasons);
+        requireIdentityField(expected.modelId(), observation.modelId(), "model", reasons);
+        requireIdentityField(expected.binding(), observation.binding(), "binding", reasons);
+        requireIdentityField(expected.modelImageId(), observation.modelImageId(),
+            "model-image", reasons);
+        if (!reasons.isEmpty()) {
+            throw rawExportUnavailable(phase + " raw export target is unavailable: "
+                + String.join("; ", reasons) + "; observed=" + observation);
+        }
+    }
+
+    private static void requireIdentityField(final String expected, final String actual,
+        final String label, final List<String> reasons) {
+        if (expected == null || expected.isBlank() || UNAVAILABLE_VALUE.equals(expected)) {
+            reasons.add("expected " + label + " identity unavailable");
+        } else if (actual == null || !expected.equals(actual)) {
+            reasons.add(label + " identity changed");
+        }
+    }
+
+    private static boolean sameRawExportSession(final RawExportObservation before,
+        final RawExportObservation after) {
+        return before.documentId().equals(after.documentId())
+            && before.modelId().equals(after.modelId())
+            && before.binding().equals(after.binding())
+            && before.modelImageId().equals(after.modelImageId())
+            && before.candidateRawId().equals(after.candidateRawId())
+            && before.generation() == after.generation()
+            && before.candidateCount() == after.candidateCount()
+            && before.modelImageCount() == after.modelImageCount();
+    }
+
+    private static RawExportTargetUnavailableException rawExportUnavailable(
+        final String diagnostic) {
+        return new RawExportTargetUnavailableException(diagnostic);
+    }
+
+    private static void recordRawExportObservation(final Properties result, final String prefix,
+        final String phase, final RawImageId candidate, final RawExportObservation observation) {
+        final String observationPrefix = normalizePrefix(prefix) + ".coordination." + phase;
+        if (observation == null) {
+            result.setProperty(observationPrefix + ".status", "UNAVAILABLE");
+            result.setProperty(observationPrefix + ".diagnostic", "null observation");
+            return;
+        }
+        result.setProperty(observationPrefix + ".status",
+            observation.relationsAvailable() ? "OBSERVED" : "UNAVAILABLE");
+        result.setProperty(observationPrefix + ".documentId", observation.documentId());
+        result.setProperty(observationPrefix + ".modelId", observation.modelId());
+        result.setProperty(observationPrefix + ".binding", observation.binding());
+        result.setProperty(observationPrefix + ".modelImageId", observation.modelImageId());
+        result.setProperty(observationPrefix + ".candidateRawId", observation.candidateRawId());
+        result.setProperty(observationPrefix + ".currentRawId", observation.currentRawId());
+        result.setProperty(observationPrefix + ".generation",
+            Long.toString(observation.generation()));
+        result.setProperty(observationPrefix + ".modelImageCount",
+            Integer.toString(observation.modelImageCount()));
+        result.setProperty(observationPrefix + ".candidateCount",
+            Integer.toString(observation.candidateCount()));
+        result.setProperty(observationPrefix + ".requestedCandidateRawId", candidate.value());
+        result.setProperty(observationPrefix + ".diagnostic", observation.diagnostic());
+    }
+
+    private static void recordRawExportCoordinationFailure(final Properties result,
+        final String prefix, final Throwable failure) {
+        final boolean unavailable = hasCause(failure, RawExportTargetUnavailableException.class);
+        result.setProperty(prefix + ".coordination.status",
+            unavailable ? "UNAVAILABLE" : "FAILED");
+        result.setProperty(prefix + ".coordination.diagnostic", throwableSummary(failure));
+        result.setProperty(prefix + ".rgb.status", "UNAVAILABLE");
+    }
+
+    private static boolean hasCause(final Throwable failure,
+        final Class<? extends Throwable> type) {
+        Throwable current = failure;
+        while (current != null) {
+            if (type.isInstance(current)) return true;
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static String throwableSummary(final Throwable failure) {
+        final StringBuilder summary = new StringBuilder();
+        Throwable current = failure;
+        int depth = 0;
+        while (current != null && depth++ < 16) {
+            if (summary.length() > 0) summary.append(" <- ");
+            summary.append(current);
+            current = current.getCause();
+        }
+        if (current != null) summary.append(" <- cause-chain-truncated");
+        return summary.toString();
+    }
+
+    private static void stopFailedRawExport(final Properties result, final String prefix,
+        final RawImageExportHandle handle, final RawExportStopper stopper,
+        final Throwable primary) {
+        try {
+            final PsdFileOperationResult stopped = stopper.stop(handle);
+            if (stopped == null) {
+                throw new IllegalStateException("raw export coordination stop returned null");
+            }
+            result.setProperty(prefix + ".stopStatus", stopped.status().name());
+            result.setProperty(prefix + ".stopDiagnostic", stopped.diagnostic());
+            if (stopped.status() != PsdFileOperationResult.Status.STOPPED) {
+                throw new IllegalStateException("raw export coordination handle did not stop: "
+                    + stopped.status());
+            }
+        } catch (Throwable cleanup) {
+            result.setProperty(prefix + ".stopStatus", "FAILED");
+            result.setProperty(prefix + ".stopDiagnostic", cleanup.toString());
+            addSuppressed(primary, cleanup);
+        }
+    }
+
+    /**
      * Decodes exactly one newly-added raw image and always stops the supplied export handle before
      * returning. This is validation-only; the caller supplies the existing public export path.
      */
@@ -3025,7 +3248,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         rethrowCleanup(cleanup);
                     }
                 }
-            } else {
+            } else if (!result.containsKey(normalizedPrefix + ".stopStatus")) {
                 result.setProperty(normalizedPrefix + ".stopStatus", "NOT_CREATED");
             }
         }
@@ -3033,9 +3256,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private static void recordRawImageExportFailure(final Properties result,
         final String prefix, final Throwable failure) {
-        result.setProperty(prefix + ".status", "FAILED");
-        result.setProperty(prefix + ".diagnostic", failure.toString());
-        result.setProperty(prefix + ".failure", failure.toString());
+        result.setProperty(prefix + ".status",
+            hasCause(failure, RawExportTargetUnavailableException.class)
+                ? "UNAVAILABLE" : "FAILED");
+        result.setProperty(prefix + ".diagnostic", throwableSummary(failure));
+        result.setProperty(prefix + ".failure", throwableSummary(failure));
         result.setProperty(prefix + ".rgb.status", "UNAVAILABLE");
     }
 
@@ -3517,18 +3742,186 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private RawImageExportHandle trackedRawExportHandle(final Properties result,
-        final TempTracker tracker, final String label, final RawImageId raw) throws Exception {
-        final TrackedExport tracked = exportTracked(result, raw, tracker, label);
-        return new RawImageExportHandle() {
-            @Override public RawImageId rawId() { return raw; }
-            @Override public byte[] bytes() throws Exception {
-                return Files.readAllBytes(tracked.path());
+    /** Captures the candidate and target relation on the EDT; currentRaw is diagnostic only. */
+    private RawExportObservation rawExportObservationOnEdt(final Target target,
+        final RawImageId candidate) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("raw export relation observation must run on EDT");
+        }
+        try {
+            final var document = context.cubism().activeDocument().orElse(null);
+            if (document == null) {
+                return RawExportObservation.unavailable(candidate,
+                    "active document unavailable");
             }
-            @Override public PsdFileOperationResult stop() throws Exception {
-                return tracker.stop(tracked, result);
+            final CubismModel model = context.cubism().model().active();
+            final TextureRelationsSnapshot relations = model.textures().relations();
+            if (relations == null || !relations.isAvailable()) {
+                return RawExportObservation.unavailable(candidate, "relations unavailable");
+            }
+            final String expectedModelImageId = target.identity().modelImageId();
+            final int modelImageCount = (int) relations.modelImages().stream()
+                .filter(relation -> relation != null
+                    && expectedModelImageId.equals(relation.id().value()))
+                .count();
+            String currentRawId = UNAVAILABLE_VALUE;
+            if (modelImageCount == 1) {
+                currentRawId = relations.modelImages().stream()
+                    .filter(relation -> relation != null
+                        && expectedModelImageId.equals(relation.id().value()))
+                    .findFirst()
+                    .flatMap(ModelImageRelation::currentRawImageId)
+                    .map(RawImageId::value)
+                    .orElse(UNAVAILABLE_VALUE);
+            }
+            int candidateCount = 0;
+            for (final var raw : relations.rawImages()) {
+                if (raw == null || raw.id() == null) {
+                    return RawExportObservation.unavailable(candidate,
+                        "raw relation contains an unavailable entry");
+                }
+                if (candidate.equals(raw.id())) candidateCount++;
+            }
+            return new RawExportObservation(
+                document.documentId(),
+                model.id().value(),
+                relations.binding(),
+                expectedModelImageId,
+                candidate.value(),
+                currentRawId,
+                relations.generation(),
+                modelImageCount,
+                candidateCount,
+                true,
+                ""
+            );
+        } catch (RuntimeException failure) {
+            return RawExportObservation.unavailable(candidate,
+                "raw export relation observation failed: " + failure);
+        }
+    }
+
+    private RawExportObservation observeRawExportOnEdt(final Target target,
+        final RawImageId candidate) throws Exception {
+        final AtomicReference<RawExportObservation> observed = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final Runnable read = () -> {
+            try {
+                observed.set(rawExportObservationOnEdt(target, candidate));
+            } catch (Throwable error) {
+                failure.set(error);
             }
         };
+        try {
+            if (SwingUtilities.isEventDispatchThread()) read.run();
+            else SwingUtilities.invokeAndWait(read);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return RawExportObservation.unavailable(candidate,
+                "raw export postflight observation interrupted");
+        } catch (InvocationTargetException invocationFailure) {
+            final Throwable cause = invocationFailure.getCause();
+            if (cause instanceof Error error) throw error;
+            return RawExportObservation.unavailable(candidate,
+                "raw export postflight dispatch failed: " + cause);
+        }
+        if (failure.get() != null) {
+            final Throwable error = failure.get();
+            if (error instanceof Error fatal) throw fatal;
+            return RawExportObservation.unavailable(candidate,
+                "raw export postflight observation failed: " + error);
+        }
+        return observed.get() == null
+            ? RawExportObservation.unavailable(candidate,
+                "raw export postflight returned no observation")
+            : observed.get();
+    }
+
+    /**
+     * Runs the newly-added-raw export through the public SDK while keeping the host preflight and
+     * invocation in one EDT task. A failed postflight stops the already-registered handle before
+     * the caller can inspect bytes.
+     */
+    private RawImageExportHandle trackedRawExportHandle(final Properties result,
+        final Target target, final TempTracker tracker, final String label,
+        final RawImageId raw) throws Exception {
+        final TempCandidateSnapshot before = snapshotTempCandidates();
+        final Path marker = tempMarker();
+        final long exportStartedAtEpochMillis = System.currentTimeMillis();
+        final AtomicReference<TrackedExport> trackedReference = new AtomicReference<>();
+        final RawExportStarter starter = (candidate, preflight) -> {
+            final AtomicReference<RawExportObservation> beforeObservation = new AtomicReference<>();
+            final AtomicReference<CompletionStage<PsdExportResult>> stage = new AtomicReference<>();
+            final AtomicReference<Throwable> failure = new AtomicReference<>();
+            final Runnable invoke = () -> {
+                try {
+                    if (stopped) throw new IllegalStateException("Probe stopped");
+                    final RawExportObservation observation = rawExportObservationOnEdt(
+                        target, candidate);
+                    beforeObservation.set(observation);
+                    preflight.verify(observation);
+                    stage.set(context.cubism().model().active().textures()
+                        .exportRawImagePsd(candidate));
+                } catch (Throwable error) {
+                    failure.set(error);
+                }
+            };
+            try {
+                if (SwingUtilities.isEventDispatchThread()) invoke.run();
+                else SwingUtilities.invokeAndWait(invoke);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw interrupted;
+            } catch (InvocationTargetException invocationFailure) {
+                final Throwable cause = invocationFailure.getCause();
+                if (cause instanceof Error error) throw error;
+                throw new IllegalStateException("raw export invocation dispatch failed", cause);
+            }
+            if (failure.get() != null) {
+                final Throwable error = failure.get();
+                if (error instanceof Error fatal) throw fatal;
+                throw new IllegalStateException("raw export invocation failed", error);
+            }
+            final PsdExportResult exported = awaitExportResult(result, candidate, stage.get());
+            final TrackedExport tracked = tracker.register(
+                label, exported.file().orElseThrow(), before.root());
+            tracked.setExportTimes(exportStartedAtEpochMillis, System.currentTimeMillis());
+            trackedReference.set(tracked);
+            final RawImageExportHandle handle = new RawImageExportHandle() {
+                @Override public RawImageId rawId() { return candidate; }
+                @Override public byte[] bytes() throws Exception {
+                    return Files.readAllBytes(tracked.path());
+                }
+                @Override public PsdFileOperationResult stop() throws Exception {
+                    return tracker.stop(tracked, result);
+                }
+            };
+            return new RawExportStarted(beforeObservation.get(), handle);
+        };
+        final RawImageExportHandle handle = coordinateNewRawExport(
+            result,
+            label,
+            target.identity(),
+            raw,
+            starter,
+            candidate -> observeRawExportOnEdt(target, candidate),
+            candidateHandle -> tracker.stop(trackedReference.get(), result)
+        );
+        final TrackedExport tracked = trackedReference.get();
+        try {
+            if (tracked == null) throw new IllegalStateException(
+                "raw export coordination returned no tracked export");
+            final Path path = locateNewTempFile(before, marker, result, label);
+            tracked.setPath(path);
+            result.setProperty("export." + label + ".path", path.toString());
+            return handle;
+        } catch (Exception failure) {
+            if (tracked != null) stopPreservingPrimary(tracker, tracked, result, failure);
+            throw failure;
+        } catch (Error failure) {
+            if (tracked != null) stopPreservingPrimary(tracker, tracked, result, failure);
+            throw failure;
+        }
     }
 
     private Mutation runSaveCycles(final Properties result, final PsdEditFile file, final Target target,
@@ -3654,7 +4047,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                             target.raw(),
                             delta,
                             candidate -> trackedRawExportHandle(
-                                result, tracker, prefix + "raw.new", candidate)
+                                result, target, tracker, prefix + "raw.new", candidate)
                         );
                         case MULTIPLE -> {
                             result.setProperty(prefix + "raw.new.status", "REJECTED");
@@ -8351,6 +8744,72 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         RawImageExportHandle export(RawImageId raw) throws Exception;
     }
 
+    /** Starts a raw export only after invoking the supplied preflight on the same EDT as export. */
+    @FunctionalInterface
+    interface RawExportStarter {
+        RawExportStarted start(RawImageId raw, RawExportPreflight preflight) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface RawExportPreflight {
+        void verify(RawExportObservation observation) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface RawExportObservationSupplier {
+        RawExportObservation observe(RawImageId raw) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface RawExportStopper {
+        PsdFileOperationResult stop(RawImageExportHandle handle) throws Exception;
+    }
+
+    /** Public-relation identity captured before or after one completed raw export. */
+    static record RawExportObservation(String documentId, String modelId, String binding,
+        String modelImageId, String candidateRawId, String currentRawId, long generation,
+        int modelImageCount, int candidateCount, boolean relationsAvailable, String diagnostic) {
+        RawExportObservation {
+            documentId = valueOrUnavailable(documentId);
+            modelId = valueOrUnavailable(modelId);
+            binding = valueOrUnavailable(binding);
+            modelImageId = valueOrUnavailable(modelImageId);
+            candidateRawId = valueOrUnavailable(candidateRawId);
+            currentRawId = valueOrUnavailable(currentRawId);
+            diagnostic = diagnostic == null ? "" : diagnostic;
+            if (generation < -1L) throw new IllegalArgumentException(
+                "raw export observation generation must be -1 or greater");
+            if (modelImageCount < -1 || candidateCount < -1) {
+                throw new IllegalArgumentException(
+                    "raw export observation counts must be -1 or greater");
+            }
+        }
+
+        static RawExportObservation unavailable(final RawImageId candidate,
+            final String diagnostic) {
+            return new RawExportObservation(
+                UNAVAILABLE_VALUE,
+                UNAVAILABLE_VALUE,
+                UNAVAILABLE_VALUE,
+                UNAVAILABLE_VALUE,
+                candidate == null ? UNAVAILABLE_VALUE : candidate.value(),
+                UNAVAILABLE_VALUE,
+                -1L,
+                -1,
+                -1,
+                false,
+                diagnostic
+            );
+        }
+    }
+
+    static record RawExportStarted(RawExportObservation before, RawImageExportHandle handle) {
+        RawExportStarted {
+            before = Objects.requireNonNull(before, "before");
+            handle = Objects.requireNonNull(handle, "handle");
+        }
+    }
+
     /** Identity captured from the original task target and rechecked for each diagnostic read. */
     static record TargetIdentity(String documentId, String modelId, String binding,
         String modelImageId, String rawId) {
@@ -8509,6 +8968,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         private static final long serialVersionUID = 1L;
 
         ObservationBudgetExceededException(final String message) {
+            super(message);
+        }
+    }
+
+    private static final class RawExportTargetUnavailableException
+        extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        RawExportTargetUnavailableException(final String message) {
             super(message);
         }
     }
