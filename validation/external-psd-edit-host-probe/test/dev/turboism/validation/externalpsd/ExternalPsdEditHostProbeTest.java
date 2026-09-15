@@ -69,6 +69,7 @@ public final class ExternalPsdEditHostProbeTest {
         testGuiEnableAndEdtAreNonBlocking();
         testGuiWindowBinding();
         testNativeCloseDialogHandling();
+        testCloseDiagnosticBudgets();
         testBoundedRowDispatches();
         testPopupMarker();
         testPopupAttemptAssociation();
@@ -2318,6 +2319,56 @@ public final class ExternalPsdEditHostProbeTest {
             "bound-window", Set.of("old-dialog"), List.of(oldDialog));
         assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
             preExisting.outcome(), "a pre-existing owner dialog is not treated as this close");
+        assertContains(preExisting.diagnostic(), "modality=",
+            "pre-existing dialog rejection records modality evidence");
+
+        final AtomicInteger modelessToolCalls = new AtomicInteger();
+        final var oldModelessTool = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            "javax.swing.JDialog@old-tool", "bound-window", true, true, true, false,
+            "MODELESS", 0, List.of(), List.of(), -1,
+            modelessToolCalls::incrementAndGet, () -> false);
+        final var oldModelessDecision = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+            "bound-window", Set.of("javax.swing.JDialog@old-tool"), List.of(oldModelessTool));
+        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+            oldModelessDecision.outcome(),
+            "a pre-existing non-modal tool dialog remains fail-closed until identified");
+        assertContains(oldModelessDecision.diagnostic(), "modality=MODELESS",
+            "modeless dialog evidence records its modality");
+        assertContains(oldModelessDecision.diagnostic(), "panes=0",
+            "modeless dialog evidence records that it has no option pane");
+        assertEquals(0, modelessToolCalls.get(),
+            "a pre-existing modeless tool dialog is never operated on");
+
+        final var closeTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("close-test");
+        closeTrace.recordBefore(List.of(oldModelessTool));
+        closeTrace.recordDispatchAttempt();
+        closeTrace.recordDispatch(ExternalPsdEditHostProbe.CloseDispatchResult.dispatched(
+            "event=WINDOW_CLOSING target=bound-window"));
+        closeTrace.recordInspection(List.of(newDialog));
+        closeTrace.recordInspection(List.of(newDialog));
+        final String closeTraceDiagnostic = closeTrace.diagnostic();
+        assertContains(closeTraceDiagnostic, "closeSession=close-test",
+            "close diagnostics identify one coordinator session");
+        assertContains(closeTraceDiagnostic, "dispatchAttempts=1",
+            "close diagnostics count native dispatch attempts");
+        assertContains(closeTraceDiagnostic, "inspectionCount=2",
+            "close diagnostics count repeated inspections");
+        assertContains(closeTraceDiagnostic, "beforeToDispatchMs=",
+            "close diagnostics record snapshot-to-dispatch timing");
+        assertContains(closeTraceDiagnostic, "dispatchToFirstInspectionMs=",
+            "close diagnostics record dispatch-to-inspection timing");
+        assertContains(closeTraceDiagnostic, "modality=",
+            "close diagnostics include modality in before/after inventories");
+        assertContains(closeTraceDiagnostic, "optionLabels=",
+            "close diagnostics include option labels in before/after inventories");
+        assertTrue(utf8Bytes(closeTraceDiagnostic)
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+            "close trace diagnostics have a hard UTF-8 byte bound");
+
+        final var generatedSessionA = new ExternalPsdEditHostProbe.CloseSessionTrace();
+        final var generatedSessionB = new ExternalPsdEditHostProbe.CloseSessionTrace();
+        assertTrue(!generatedSessionA.sessionId().equals(generatedSessionB.sessionId()),
+            "repeated close coordinators receive distinct session identities");
 
         final Properties state = new Properties();
         state.setProperty("gui.after.diagnostic", "auto-import not attempted");
@@ -2327,13 +2378,171 @@ public final class ExternalPsdEditHostProbeTest {
             "a successful target observation clears the stale diagnostic placeholder");
     }
 
+    private static void testCloseDiagnosticBudgets() {
+        final String longLabel = "标签🚀".repeat(512);
+        assertTrue(utf8Bytes(longLabel)
+                > ExternalPsdEditHostProbe.CLOSE_DIALOG_FIELD_MAX_BYTES,
+            "long-label input crosses the per-field byte boundary");
+        final ExternalPsdEditHostProbe.CloseDialogSnapshot longLabelDialog =
+            new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "long-label-dialog", "bound-window", true, true, true, true,
+                "APPLICATION_MODAL", 1,
+                List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
+                List.of(longLabel, "No (N)", "Cancel (C)"), 0, () -> { }, () -> true);
+        final var longLabelTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("long-label");
+        longLabelTrace.recordBefore(List.of(longLabelDialog));
+        longLabelTrace.recordDispatchAttempt();
+        longLabelTrace.recordDispatch(ExternalPsdEditHostProbe.CloseDispatchResult.dispatched(
+            "dispatch-" + "界".repeat(512)));
+        longLabelTrace.recordInspection(List.of(longLabelDialog));
+        longLabelTrace.recordReason("rejected identity=" + "拒绝".repeat(1024));
+        final String longLabelDiagnostic = longLabelTrace.diagnostic();
+        assertTrue(utf8Bytes(longLabelDiagnostic)
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+            "Unicode labels stay inside the trace UTF-8 byte budget");
+        assertNoUnpairedSurrogates(longLabelDiagnostic,
+            "UTF-8 truncation does not split a surrogate pair");
+        assertContains(longLabelDiagnostic, "optionLabels=",
+            "long-label trace retains label evidence");
+        assertContains(longLabelDiagnostic, "…",
+            "long-label trace records truncation");
+
+        final List<ExternalPsdEditHostProbe.CloseDialogSnapshot> manyDialogs = new ArrayList<>();
+        for (int index = 0; index < 40; index++) {
+            manyDialogs.add(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                "dialog-" + index, "bound-window", true, true, true, false,
+                "MODELESS", 0, List.of(), List.of(), -1, () -> { }, () -> false));
+        }
+        final var manyDialogTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("many-dialogs");
+        manyDialogTrace.recordBefore(manyDialogs);
+        manyDialogTrace.recordInspection(manyDialogs);
+        final String manyDialogDiagnostic = manyDialogTrace.diagnostic();
+        assertTrue(utf8Bytes(manyDialogDiagnostic)
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+            "more than 32 dialogs stay inside the trace UTF-8 byte budget");
+        assertContains(manyDialogDiagnostic, "count=40",
+            "dialog inventory records the full dialog count");
+        assertContains(manyDialogDiagnostic, "truncated=true",
+            "dialog inventory records the dialog-count truncation marker");
+
+        final String longIdentity = "identity-" + "界".repeat(256);
+        final String longOwner = "owner-" + "界".repeat(256);
+        final List<ExternalPsdEditHostProbe.CloseDialogSnapshot> oversizedDialogs =
+            new ArrayList<>();
+        for (int index = 0; index < 40; index++) {
+            oversizedDialogs.add(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+                longIdentity + index, longOwner, true, true, true, true,
+                "APPLICATION_MODAL", 1,
+                List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
+                List.of(longLabel, "No (N)", "Cancel (C)"), 0, () -> { }, () -> true));
+        }
+        int rawInventoryBytes = 0;
+        for (final ExternalPsdEditHostProbe.CloseDialogSnapshot dialog : oversizedDialogs) {
+            rawInventoryBytes += utf8Bytes(dialog.diagnostic());
+        }
+        assertTrue(rawInventoryBytes > ExternalPsdEditHostProbe.CLOSE_TRACE_BEFORE_MAX_BYTES
+                && rawInventoryBytes > ExternalPsdEditHostProbe.CLOSE_TRACE_AFTER_MAX_BYTES,
+            "before and after inputs both cross their independent byte boundaries");
+        final var oversizedTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("oversized");
+        oversizedTrace.recordBefore(oversizedDialogs);
+        oversizedTrace.recordDispatchAttempt();
+        oversizedTrace.recordDispatch(ExternalPsdEditHostProbe.CloseDispatchResult.rejected(
+            "dispatch-rejected-" + longIdentity));
+        oversizedTrace.recordInspection(oversizedDialogs);
+        oversizedTrace.recordReason("rejected identity " + longIdentity
+            + " reason=" + "未知".repeat(2048));
+        final String oversizedDiagnostic = oversizedTrace.diagnostic();
+        assertTrue(utf8Bytes(oversizedDiagnostic)
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+            "oversized before and after inventories stay bounded independently");
+        assertContains(oversizedDiagnostic, "closeSession=oversized",
+            "oversized trace retains session identity");
+        assertContains(oversizedDiagnostic, "dispatchAttempts=1",
+            "oversized trace retains dispatch count");
+        assertContains(oversizedDiagnostic, "inspectionCount=1",
+            "oversized trace retains inspection count");
+        assertContains(oversizedDiagnostic, "beforeToDispatchMs=",
+            "oversized trace retains snapshot timing");
+        assertContains(oversizedDiagnostic, "dispatchToFirstInspectionMs=",
+            "oversized trace retains inspection timing");
+        assertContains(oversizedDiagnostic, "before=",
+            "oversized trace retains before label");
+        assertContains(oversizedDiagnostic, "after=",
+            "oversized trace retains after label");
+        assertContains(oversizedDiagnostic, "dispatch=",
+            "oversized trace retains dispatch label");
+        assertContains(oversizedDiagnostic, "reason=",
+            "oversized trace retains reason label");
+        assertContains(oversizedDiagnostic, "truncated=true",
+            "oversized trace retains its truncation marker");
+        assertContains(oversizedDiagnostic, "rejected identity",
+            "oversized trace retains the identity rejection reason prefix");
+        assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "before=", " after="))
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_BEFORE_MAX_BYTES,
+            "before inventory uses its own byte budget");
+        assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "after=", " dispatch="))
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_AFTER_MAX_BYTES,
+            "after inventory uses its own byte budget");
+        assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "dispatch=", " reason="))
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_DISPATCH_MAX_BYTES,
+            "dispatch evidence uses its own byte budget");
+        assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "reason=", null))
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_REASON_MAX_BYTES,
+            "decision reason uses its own byte budget");
+        assertTrue(oversizedDiagnostic.indexOf("before=")
+                < oversizedDiagnostic.indexOf("after="),
+            "before is emitted before after");
+        assertTrue(oversizedDiagnostic.indexOf("after=")
+                < oversizedDiagnostic.indexOf("dispatch="),
+            "after is emitted before dispatch");
+        assertTrue(oversizedDiagnostic.indexOf("dispatch=")
+                < oversizedDiagnostic.indexOf("reason="),
+            "dispatch is emitted before reason");
+
+        final String resultDiagnostic = ExternalPsdEditHostProbe.closeDiagnosticForTest(
+            oversizedTrace, "result-reason=" + "结果".repeat(4096));
+        assertTrue(utf8Bytes(resultDiagnostic)
+                <= ExternalPsdEditHostProbe.CLOSE_DIAGNOSTIC_MAX_BYTES,
+            "result plus trace has a hard UTF-8 byte bound");
+        assertNoUnpairedSurrogates(resultDiagnostic,
+            "final close diagnostic does not split a surrogate pair");
+        assertContains(resultDiagnostic, "result-reason=",
+            "final close diagnostic retains the result reason prefix");
+        assertContains(resultDiagnostic, "closeSession=oversized",
+            "final close diagnostic retains the trace session");
+        assertContains(resultDiagnostic, " after=",
+            "final close diagnostic retains the after field");
+        assertContains(resultDiagnostic, " reason=",
+            "final close diagnostic retains the reason field");
+        final int separator = resultDiagnostic.indexOf("; ");
+        assertTrue(separator > 0, "final close diagnostic retains its result/trace separator");
+        assertTrue(utf8Bytes(resultDiagnostic.substring(0, separator))
+                <= ExternalPsdEditHostProbe.CLOSE_RESULT_REASON_MAX_BYTES,
+            "result reason uses its own byte budget");
+        assertTrue(utf8Bytes(resultDiagnostic.substring(separator + 2))
+                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+            "final trace uses its own byte budget");
+    }
+
+    private static String diagnosticField(final String diagnostic, final String startLabel,
+        final String endLabel) {
+        final int start = diagnostic.indexOf(startLabel);
+        assertTrue(start >= 0, "diagnostic field is present: " + startLabel);
+        final int valueStart = start + startLabel.length();
+        final int end = endLabel == null ? diagnostic.length() : diagnostic.indexOf(endLabel,
+            valueStart);
+        assertTrue(end >= valueStart, "diagnostic field has a bounded end: " + startLabel);
+        return diagnostic.substring(valueStart, end);
+    }
+
     private static ExternalPsdEditHostProbe.CloseDialogSnapshot closeDialog(
         final String dialog, final String owner, final boolean ownerMatches,
         final AtomicInteger noCalls) {
         return new ExternalPsdEditHostProbe.CloseDialogSnapshot(
-            dialog, owner, ownerMatches, true, true, 1,
+            dialog, owner, ownerMatches, true, true, true, "APPLICATION_MODAL", 1,
             List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
-            List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, noCalls::incrementAndGet);
+            List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, noCalls::incrementAndGet,
+            () -> true);
     }
 
     private static void restoreProperty(final String name, final String value) {
@@ -2486,6 +2695,23 @@ public final class ExternalPsdEditHostProbeTest {
             return hex.toString();
         } catch (java.security.NoSuchAlgorithmException failure) {
             throw new AssertionError("SHA-256 is unavailable", failure);
+        }
+    }
+
+    private static int utf8Bytes(final String value) {
+        return value.getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    private static void assertNoUnpairedSurrogates(final String value, final String message) {
+        for (int index = 0; index < value.length(); index++) {
+            final char current = value.charAt(index);
+            if (Character.isHighSurrogate(current)) {
+                assertTrue(index + 1 < value.length()
+                        && Character.isLowSurrogate(value.charAt(index + 1)), message);
+            } else if (Character.isLowSurrogate(current)) {
+                assertTrue(index > 0 && Character.isHighSurrogate(value.charAt(index - 1)),
+                    message);
+            }
         }
     }
 
