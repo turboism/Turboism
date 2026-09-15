@@ -16,8 +16,10 @@ class VerifiedModelUpdateSkipInstallerTest {
         }
         assertFalse(VerifiedModelUpdateSkipInstaller.admitted(
             ReviewedHostArtifacts.CUBISM_5_3_03, normal, false, 17));
-        assertFalse(VerifiedModelUpdateSkipInstaller.admitted(
+        assertTrue(VerifiedModelUpdateSkipInstaller.admitted(
             ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 25));
+        assertFalse(VerifiedModelUpdateSkipInstaller.admitted(
+            ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 16));
         assertFalse(VerifiedModelUpdateSkipInstaller.admitted(
             new HostArtifactDigest(1L, "9".repeat(64)), normal, true, 17));
         assertFalse(VerifiedModelUpdateSkipInstaller.admitted(

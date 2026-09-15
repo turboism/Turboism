@@ -84,6 +84,36 @@ public interface CubismJvmSettingsService {
     }
 
     /**
+     * Launcher preference: when false the next managed Cubism launch adds
+     * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed
+     * JAVA_TOOL_OPTIONS block so the unchanged-frame skip hook is not
+     * installed. On by default; takes effect on the next launch.
+     */
+    default boolean modelUpdateSkip() {
+        return true;
+    }
+
+    /** Persists the unchanged-frame model-update skip preference. */
+    default boolean saveModelUpdateSkip(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: when false the next managed Cubism launch adds
+     * {@code -Dturboism.optimization.incrementalUpdate=false} to the managed
+     * JAVA_TOOL_OPTIONS block so the per-object incremental update hook is
+     * not installed. On by default; takes effect on the next launch.
+     */
+    default boolean incrementalUpdate() {
+        return true;
+    }
+
+    /** Persists the per-object incremental model-update preference. */
+    default boolean saveIncrementalUpdate(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
      * @return whether {@link #graalVmJava()} currently resolves an executable
      */
     default boolean graalVmAvailable() {
