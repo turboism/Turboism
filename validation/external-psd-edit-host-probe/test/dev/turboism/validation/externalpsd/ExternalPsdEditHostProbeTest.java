@@ -107,6 +107,7 @@ public final class ExternalPsdEditHostProbeTest {
         testTrackerStopAggregation();
         testFinalCycleSelection();
         testSaveCycleBytes();
+        testRawImageRelationDeltaAndNewRawInspection();
         testDiagnosticObservationBoundaries();
         testDiagnosticTargetBinding();
         testDiagnosticPsdSnapshotUsesRawImageId();
@@ -980,6 +981,201 @@ public final class ExternalPsdEditHostProbeTest {
             assertTrue(!baseline.equals(targetFingerprint(current)),
                 "saved final bytes for " + cycles + " cycles contain the final content change");
         }
+    }
+
+    private static void testRawImageRelationDeltaAndNewRawInspection() throws Exception {
+        final RawImageId oldRaw = new RawImageId("raw-old");
+        final RawImageId newRaw = new RawImageId("raw-new");
+        final RawImageId otherRaw = new RawImageId("raw-other");
+        final TextureRelationsSnapshot before = rawRelationSnapshot("binding-1", 7,
+            oldRaw);
+        final TextureRelationsSnapshot unchanged = rawRelationSnapshot("binding-1", 7,
+            oldRaw);
+        final TextureRelationsSnapshot oneAdded = rawRelationSnapshot("binding-1", 7,
+            oldRaw, newRaw);
+        final TextureRelationsSnapshot duplicateAdded = rawRelationSnapshot("binding-1", 7,
+            oldRaw, newRaw, newRaw);
+        final TextureRelationsSnapshot twoAdded = rawRelationSnapshot("binding-1", 7,
+            oldRaw, newRaw, otherRaw);
+
+        final var zero = ExternalPsdEditHostProbe.rawImageRelationDelta(before, unchanged);
+        assertEquals("ZERO", zero.status().name(), "zero raw candidates are explicit");
+        assertEquals(0, zero.candidateCount(), "zero candidate count is recorded");
+
+        final var unique = ExternalPsdEditHostProbe.rawImageRelationDelta(
+            before, duplicateAdded);
+        assertEquals("UNIQUE", unique.status().name(),
+            "duplicate raw entries still identify one new raw");
+        assertEquals(List.of(newRaw), unique.addedRawImages(),
+            "unique raw candidate is not duplicated");
+
+        final var multiple = ExternalPsdEditHostProbe.rawImageRelationDelta(before, twoAdded);
+        assertEquals("MULTIPLE", multiple.status().name(),
+            "multiple new raws are ambiguous");
+        assertEquals(2, multiple.candidateCount(), "multiple candidate count is explicit");
+
+        final var switched = ExternalPsdEditHostProbe.rawImageRelationDelta(
+            before, rawRelationSnapshot("binding-2", 7, oldRaw, newRaw));
+        assertEquals("IDENTITY_CHANGED", switched.status().name(),
+            "binding changes reject raw attribution");
+        assertEquals(List.of("raw-old"), switched.beforeRawIds(),
+            "identity change retains the pre-import raw IDs");
+        assertEquals(List.of("raw-old", "raw-new"), switched.afterRawIds(),
+            "identity change retains the post-import raw IDs");
+        assertEquals(1, switched.candidateCount(),
+            "identity change records candidates without licensing an export");
+        final Properties switchedResult = new Properties();
+        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+            switchedResult, "cycle.3.rawRelation", switched);
+        assertNull(switchedResult.getProperty("cycle.3.rawRelation.newRawId"),
+            "identity-changed candidates are not labeled as an export target");
+        final var switchedGeneration = ExternalPsdEditHostProbe.rawImageRelationDelta(
+            before, rawRelationSnapshot("binding-1", 8, oldRaw, newRaw));
+        assertEquals("IDENTITY_CHANGED", switchedGeneration.status().name(),
+            "generation changes reject raw attribution");
+        final var unavailable = ExternalPsdEditHostProbe.rawImageRelationDelta(
+            before, TextureRelationsSnapshot.unavailable());
+        assertEquals("UNAVAILABLE", unavailable.status().name(),
+            "unavailable relations reject raw attribution");
+
+        final Properties result = new Properties();
+        ExternalPsdEditHostProbe.recordRawImageRelationSnapshot(
+            result, "cycle.1.rawRelation.before", before, "");
+        assertEquals("AVAILABLE", result.getProperty("cycle.1.rawRelation.before.status"),
+            "available relation snapshot is recorded");
+        assertEquals("binding-1",
+            result.getProperty("cycle.1.rawRelation.before.binding"),
+            "relation binding is recorded");
+        assertEquals("7",
+            result.getProperty("cycle.1.rawRelation.before.generation"),
+            "relation generation is recorded");
+        assertEquals("[raw-old]",
+            result.getProperty("cycle.1.rawRelation.before.rawIds"),
+            "relation raw IDs are recorded");
+        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+            result, "cycle.1.rawRelation", unique);
+        assertEquals("UNIQUE", result.getProperty("cycle.1.rawRelation.status"),
+            "raw delta status is recorded");
+        assertEquals("1", result.getProperty("cycle.1.rawRelation.candidateCount"),
+            "raw delta count is recorded");
+        assertEquals("[raw-new]", result.getProperty("cycle.1.rawRelation.addedRawIds"),
+            "raw delta ID is recorded without text-key guessing");
+        assertEquals("[raw-old, raw-new]",
+            result.getProperty("cycle.1.rawRelation.afterRawIds"),
+            "raw relation diagnostics record a de-duplicated ID set");
+        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+            result, "cycle.0.rawRelation", zero);
+        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+            result, "cycle.2.rawRelation", multiple);
+        assertEquals("ZERO", result.getProperty("cycle.0.rawRelation.status"),
+            "zero raw status is recorded");
+        assertEquals("MULTIPLE", result.getProperty("cycle.2.rawRelation.status"),
+            "multiple raw status is recorded");
+
+        final AtomicInteger exports = new AtomicInteger();
+        final AtomicInteger stops = new AtomicInteger();
+        final byte[] validPsd = validationPsd();
+        final var inspected = ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+            result, "cycle.1.raw.new", oldRaw, unique, candidate -> {
+                exports.incrementAndGet();
+                assertEquals(newRaw, candidate, "only the unique new raw is exported");
+                return new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                    @Override public RawImageId rawId() { return candidate; }
+                    @Override public byte[] bytes() { return validPsd; }
+                    @Override public PsdFileOperationResult stop() {
+                        stops.incrementAndGet();
+                        return new PsdFileOperationResult(
+                            PsdFileOperationResult.Status.STOPPED, "stopped");
+                    }
+                };
+            });
+        assertEquals(1, exports.get(), "unique new raw is exported once");
+        assertEquals(1, stops.get(), "new raw handle is stopped immediately");
+        assertEquals(targetFingerprint(validPsd), inspected.sha256(),
+            "new raw layer 6 RGB is decoded");
+        assertEquals("raw-new", result.getProperty("cycle.1.raw.new.id"),
+            "new raw identity is recorded");
+        assertEquals(targetFingerprint(validPsd), result.getProperty(
+            "cycle.1.raw.new.rgb.sha256"), "new raw RGB is recorded");
+        assertEquals(sha256(validPsd), result.getProperty("cycle.1.raw.new.sha256"),
+            "new raw full bytes are recorded");
+        assertEquals("STOPPED", result.getProperty("cycle.1.raw.new.stopStatus"),
+            "new raw stop status is recorded");
+
+        final Properties writeResult = new Properties();
+        ExternalPsdEditHostProbe.recordCycleWrittenPsd(
+            writeResult, "cycle.1.", validPsd);
+        assertEquals(Integer.toString(validPsd.length),
+            writeResult.getProperty("cycle.1.write.bytes"),
+            "written PSD byte length is recorded");
+        assertEquals(targetFingerprint(validPsd),
+            writeResult.getProperty("cycle.1.write.targetRgb.sha256"),
+            "written PSD target RGB is recorded");
+        assertEquals(sha256(validPsd), writeResult.getProperty("cycle.1.write.sha256"),
+            "written PSD full bytes are recorded");
+
+        final AtomicInteger failedStops = new AtomicInteger();
+        final Properties invalidResult = new Properties();
+        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+            invalidResult, "cycle.2.raw.new", oldRaw, unique, candidate -> {
+                return new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                    @Override public RawImageId rawId() { return candidate; }
+                    @Override public byte[] bytes() { return "not-a-psd".getBytes(
+                        StandardCharsets.UTF_8); }
+                    @Override public PsdFileOperationResult stop() {
+                        failedStops.incrementAndGet();
+                        return new PsdFileOperationResult(
+                            PsdFileOperationResult.Status.STOPPED, "stopped");
+                    }
+                };
+            }), "invalid new raw export is rejected");
+        assertEquals(1, failedStops.get(),
+            "invalid new raw evidence still stops its handle");
+        assertEquals("FAILED", invalidResult.getProperty("cycle.2.raw.new.status"),
+            "invalid new raw evidence remains an explicit failure");
+
+        final Properties stopFailureResult = new Properties();
+        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+            stopFailureResult, "cycle.2.raw.new", oldRaw, unique, candidate ->
+                new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                    @Override public RawImageId rawId() { return candidate; }
+                    @Override public byte[] bytes() { return validPsd; }
+                    @Override public PsdFileOperationResult stop() {
+                        return new PsdFileOperationResult(
+                            PsdFileOperationResult.Status.FAILED, "stop failed");
+                    }
+                }), "new raw stop failure is not hidden");
+        assertEquals("FAILED", stopFailureResult.getProperty("cycle.2.raw.new.stopStatus"),
+            "new raw stop failure is recorded");
+
+        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+            new Properties(), "cycle.3.raw.new", oldRaw, multiple,
+            candidate -> { throw new AssertionError("ambiguous raw must not be exported"); }),
+            "ambiguous new raw is not guessed or exported");
+    }
+
+    private static TextureRelationsSnapshot rawRelationSnapshot(final String binding,
+        final long generation, final RawImageId... rawIds) {
+        final List<RawImageDetails> details = new ArrayList<>();
+        for (final RawImageId raw : rawIds) {
+            final RawTexture texture = new RawTexture() {
+                @Override public RawImageId id() { return raw; }
+                @Override public String name() { return raw.value(); }
+                @Override public int width() { return 1000; }
+                @Override public int height() { return 1000; }
+            };
+            details.add(new RawImageDetails(texture, RawImageDetails.SourceKind.PSD,
+                List.of(), false, Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        return new TextureRelationsSnapshot(
+            TextureRelationsSnapshot.Availability.AVAILABLE,
+            binding,
+            generation,
+            1,
+            details,
+            List.of(),
+            List.of(),
+            List.of());
     }
 
     private static void testDiagnosticObservationBoundaries() {
