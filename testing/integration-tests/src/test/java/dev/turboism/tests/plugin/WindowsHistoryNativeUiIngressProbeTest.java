@@ -1,5 +1,7 @@
 package dev.turboism.tests.plugin;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.SwingUtilities;
 import javax.swing.JTable;
@@ -44,6 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * instead of silently passing.</p>
  */
 class WindowsHistoryNativeUiIngressProbeTest {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private static final WindowsHistoryNativeUiIngressProbe.Step ACTION =
         new WindowsHistoryNativeUiIngressProbe.Step("parts-tree-drag", "ACTION", "drag");
@@ -1471,6 +1476,219 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
+    void partGestureRejectsAfterMovePointerMismatchOrUnavailableWithoutPress() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final Point source = layout.source().screenPoint();
+        final List<WindowsHistoryNativeUiIngressProbe.PartPointerReadback> readbacks = List.of(
+            () -> new Point(source.x, source.y + 20),
+            () -> null,
+            () -> {
+                throw new IllegalStateException("pointer-unavailable");
+            }
+        );
+
+        for (int index = 0; index < readbacks.size(); index++) {
+            final int[] pressCount = {0};
+            final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                    layout,
+                    "sdk-source",
+                    "sdk-target",
+                    noOpInput(pressCount, new java.util.ArrayList<>()),
+                    readbacks.get(index),
+                    () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        layout, surface.table(), surface.tree())
+                );
+
+            assertEquals(
+                WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED,
+                attempt.status()
+            );
+            assertEquals(
+                index == 0 ? "after-move-pointer-mismatch" : "after-move-pointer-unavailable",
+                attempt.code()
+            );
+            assertEquals(0, pressCount[0], "pointer admission failure must not press");
+
+            final List<JsonNode> pointer = pointerEvidence(attempt);
+            assertEquals(2, pointer.size(), "command and after-move evidence are retained");
+            assertEquals("source-command", pointer.get(0).get("phase").asText());
+            assertEquals("after-move-pointer", pointer.get(1).get("phase").asText());
+            assertTrue(pointer.get(1).has("monotonicNanos"));
+            assertTrue(pointer.get(1).has("thread"));
+            assertTrue(pointer.get(1).has("commandedPoint"));
+            assertTrue(pointer.get(1).has("readbackPoint"));
+            assertTrue(pointer.get(1).has("outcome"));
+            assertTrue(pointer.get(1).has("reason"));
+            assertEquals(
+                index == 0 ? "MISMATCH" : "UNAVAILABLE",
+                pointer.get(1).get("outcome").asText()
+            );
+            final JsonNode layoutEvidence = evidenceByPhase(attempt, "layout");
+            final JsonNode surfaceEvidence = layoutEvidence.get("surface");
+            for (final String field : List.of(
+                "tableLocationOnScreen",
+                "windowBounds",
+                "windowInsets",
+                "graphicsConfigurationBounds",
+                "graphicsConfigurationDefaultTransform"
+            )) {
+                assertTrue(surfaceEvidence.has(field), "layout surface field: " + field);
+            }
+        }
+    }
+
+    @Test
+    void partGestureRejectsBeforePressPointerMismatchWithoutPress() throws Exception {
+        final SwingPartSurface surface = swingPartSurface();
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final Point source = new Point(layout.source().screenPoint());
+        final AtomicInteger reads = new AtomicInteger();
+        final int[] pressCount = {0};
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                noOpInput(pressCount, new java.util.ArrayList<>()),
+                () -> reads.getAndIncrement() == 0
+                    ? new Point(source)
+                    : new Point(source.x, source.y + 20),
+                () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                    layout, surface.table(), surface.tree())
+            );
+
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals("before-press-pointer-mismatch", attempt.code());
+        assertEquals(0, pressCount[0], "before-press pointer mismatch must not press");
+        assertEquals(2, reads.get());
+        final List<JsonNode> pointer = pointerEvidence(attempt);
+        assertEquals(3, pointer.size(), "both pointer checks must be retained");
+        assertEquals("MATCH", pointer.get(1).get("outcome").asText());
+        assertEquals("MISMATCH", pointer.get(2).get("outcome").asText());
+        assertEquals(
+            source.y + 20,
+            pointer.get(2).get("readbackPoint").get("y").asInt()
+        );
+    }
+
+    @Test
+    void partGestureAllowsTwoStableReadbacksAndRetainsMouseMovedAndRequiredEvents() throws Exception {
+        final SwingPartSurface surface = swingThreeRowPartSurface();
+        // BasicTableUI asks HeadlessToolkit for the menu shortcut mask on synthetic presses.
+        SwingUtilities.invokeAndWait(() -> surface.table().setUI(null));
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final Point source = new Point(layout.source().screenPoint());
+        final Point target = new Point(layout.target().localPoint());
+        final Rectangle middleCell = surface.table().getCellRect(2, 0, true);
+        final Point middle = new Point(middleCell.x + 5, middleCell.y + 5);
+        final int[] pressCount = {0};
+        final int[] releaseCount = {0};
+        final boolean[] pressed = {false};
+        final boolean[] moved = {false};
+        final boolean[] firstDrag = {false};
+        final int mouseListeners = surface.table().getMouseListeners().length;
+        final int motionListeners = surface.table().getMouseMotionListeners().length;
+        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
+            new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+                @Override
+                public void mouseMove(final int x, final int y) throws Exception {
+                    if (!pressed[0] && !moved[0]) {
+                        moved[0] = true;
+                        dispatchMouseEvent(surface.table(), MouseEvent.MOUSE_MOVED, source);
+                    } else if (pressed[0] && !firstDrag[0]) {
+                        firstDrag[0] = true;
+                        dispatchMouseEvent(surface.table(), MouseEvent.MOUSE_DRAGGED, middle);
+                    } else if (pressed[0]) {
+                        dispatchMouseEvent(
+                            surface.table(), MouseEvent.MOUSE_DRAGGED, new Point(x, y)
+                        );
+                    }
+                }
+
+                @Override
+                public void pause(final long millis) {
+                }
+
+                @Override
+                public void mousePress() throws Exception {
+                    pressCount[0]++;
+                    pressed[0] = true;
+                    dispatchMouseEvent(surface.table(), MouseEvent.MOUSE_PRESSED, source);
+                }
+
+                @Override
+                public void mouseRelease() throws Exception {
+                    releaseCount[0]++;
+                    dispatchMouseEvent(surface.table(), MouseEvent.MOUSE_RELEASED, target);
+                    pressed[0] = false;
+                }
+            };
+
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
+            WindowsHistoryNativeUiIngressProbe.runPartGesture(
+                layout,
+                "sdk-source",
+                "sdk-target",
+                input,
+                () -> new Point(source),
+                () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                    layout, surface.table(), surface.tree())
+            );
+
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED,
+            attempt.status(),
+            attempt.code()
+        );
+        assertEquals(1, pressCount[0]);
+        assertEquals(1, releaseCount[0]);
+        assertEquals(mouseListeners, surface.table().getMouseListeners().length);
+        assertEquals(motionListeners, surface.table().getMouseMotionListeners().length);
+
+        final List<JsonNode> pointer = pointerEvidence(attempt);
+        assertEquals(3, pointer.size());
+        assertEquals("source-command", pointer.get(0).get("phase").asText());
+        assertEquals("after-move-pointer", pointer.get(1).get("phase").asText());
+        assertEquals("before-press-pointer", pointer.get(2).get("phase").asText());
+        assertEquals("MATCH", pointer.get(1).get("outcome").asText());
+        assertEquals("MATCH", pointer.get(2).get("outcome").asText());
+        assertEquals(source.y, pointer.get(1).get("readbackPoint").get("y").asInt());
+        assertEquals(source.y, pointer.get(2).get("readbackPoint").get("y").asInt());
+
+        final long movedCount = attempt.evidence().stream()
+            .filter(line -> line.contains("\"phase\":\"mouse-moved\""))
+            .count();
+        assertEquals(1L, movedCount, "only the first real mouseMoved is captured");
+        final JsonNode movedEvidence = evidenceByPhase(attempt, "mouse-moved");
+        assertTrue(movedEvidence.has("local"));
+        assertTrue(movedEvidence.has("screen"));
+        assertTrue(movedEvidence.has("eventSourceIdentityHash"));
+        assertEquals(source.x, movedEvidence.get("local").get("x").asInt());
+        assertEquals(source.y, movedEvidence.get("local").get("y").asInt());
+        assertEquals(1, attempt.evidence().stream()
+            .filter(line -> line.contains("\"phase\":\"actual-press\""))
+            .count());
+        assertEquals(1, attempt.evidence().stream()
+            .filter(line -> line.contains("\"phase\":\"first-drag\""))
+            .count());
+        assertEquals(1, attempt.evidence().stream()
+            .filter(line -> line.contains("\"phase\":\"release\""))
+            .count());
+        assertTrue(
+            attempt.evidence().stream().anyMatch(line ->
+                line.contains("\"phase\":\"first-drag\"")
+                    && line.contains("\"row\":2")),
+            "the injected middle row remains the first drag observation"
+        );
+        for (final String line : attempt.evidence()) {
+            assertTrue(JSON.readTree(line) != null, "every evidence line must be valid JSON");
+        }
+    }
+
+    @Test
     void partGestureReadbackRejectsModelAndParentChangesBeforePress() throws Exception {
         final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot before =
             partModel("model-a", "parent", "source", "target", "other");
@@ -2584,6 +2802,38 @@ class WindowsHistoryNativeUiIngressProbeTest {
             public void mouseRelease() {
             }
         };
+    }
+
+    private static List<JsonNode> pointerEvidence(
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt
+    ) throws Exception {
+        final java.util.ArrayList<JsonNode> result = new java.util.ArrayList<>();
+        for (final String line : attempt.evidence()) {
+            final JsonNode node = JSON.readTree(line);
+            if (node != null && "part-pointer".equals(node.path("type").asText())) {
+                result.add(node);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static JsonNode evidenceByPhase(
+        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt,
+        final String phase
+    ) throws Exception {
+        for (final String line : attempt.evidence()) {
+            final JsonNode node = JSON.readTree(line);
+            if (node != null && phase.equals(node.path("phase").asText())) return node;
+        }
+        throw new AssertionError("missing evidence phase: " + phase);
+    }
+
+    private static void dispatchMouseEvent(
+        final JTable table,
+        final int type,
+        final Point point
+    ) throws Exception {
+        SwingUtilities.invokeAndWait(() -> table.dispatchEvent(mouse(table, type, point)));
     }
 
     private static MouseEvent mouse(
