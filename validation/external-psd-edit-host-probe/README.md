@@ -273,4 +273,17 @@ belongs to the shared Supervisor. The task-prefix `.psd` association has no PID 
 handle ownership relation for the detached default application, so the probe does not close or
 kill that external process; the task-scoped Supervisor owns its cleanup. The exit watchdog writes
 a bounded thread diagnostic only; it never kills the JVM or substitutes for Supervisor cleanup.
-Result write failures and close failures are logged separately.
+Result write failures and close failures are logged separately. Each close session also emits a
+bounded before/after dialog inventory with the dialog identity, exact owner identity, modality,
+JOptionPane count, option classes/labels, snapshot-to-dispatch timing, and dispatch/inspection
+counts. All close-diagnostic budgets below count UTF-8 encoded bytes, including the `…` truncation
+marker: each dialog field is capped at 128 bytes, before and after inventories at 1536 bytes each,
+dispatch evidence at 1024 bytes, and the rejection/decision reason at 2048 bytes. A trace is capped
+at 7168 bytes; its session, counters, timings, and `before=`, `after=`, `dispatch=`, and `reason=`
+labels remain present even when those inventories are truncated. The result reason receives 1022
+bytes, and the final result-plus-trace diagnostic is capped at 8192 bytes including its separator.
+At most 32 dialog entries are included; larger inventories record `truncated=true` and the total
+count. A pre-existing non-modal dialog with no JOptionPane is recorded but is still rejected in
+this slice; it is never operated on. The 156876 evidence proves only that the EDT was inside
+`saveIfModified`/`JOptionPane.showOptionDialog`, not that the rejected dialog identity was that
+modal, so no exclusion is claimed until a subsequent task-owned run correlates these fields.

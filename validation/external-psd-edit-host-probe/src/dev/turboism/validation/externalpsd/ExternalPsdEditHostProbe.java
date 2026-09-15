@@ -85,6 +85,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -132,6 +133,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static final int GUI_WAIT_DIAGNOSTIC_MAX_THREADS = 256;
     private static final int GUI_WAIT_DIAGNOSTIC_MAX_STACK_FRAMES = 128;
     static final int GUI_WAIT_DIAGNOSTIC_MAX_BYTES = 256 * 1024;
+    private static final AtomicLong CLOSE_SESSION_SEQUENCE = new AtomicLong();
+    private static final int CLOSE_DIALOG_MAX_COUNT = 32;
+    static final int CLOSE_DIALOG_FIELD_MAX_BYTES = 128;
+    static final int CLOSE_DIAGNOSTIC_MAX_BYTES = 8 * 1024;
+    static final int CLOSE_TRACE_MAX_BYTES = 7168;
+    static final int CLOSE_TRACE_BEFORE_MAX_BYTES = 1536;
+    static final int CLOSE_TRACE_AFTER_MAX_BYTES = 1536;
+    static final int CLOSE_TRACE_DISPATCH_MAX_BYTES = 1024;
+    static final int CLOSE_TRACE_REASON_MAX_BYTES = 2048;
+    private static final String CLOSE_TRACE_SEPARATOR = "; ";
+    static final int CLOSE_RESULT_REASON_MAX_BYTES = CLOSE_DIAGNOSTIC_MAX_BYTES
+        - CLOSE_TRACE_MAX_BYTES - CLOSE_TRACE_SEPARATOR.getBytes(StandardCharsets.UTF_8).length;
     private static final String GUI_WAIT_DIAGNOSTIC_STAGE = "armed-waiting-for-trigger";
     private static final String GUI_WAIT_DIAGNOSTIC_FILE_PREFIX =
         "external-psd-gui-thread-dump-";
@@ -402,24 +415,28 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (SwingUtilities.isEventDispatchThread()) {
             return HostCloseResult.rejected("host close coordinator must run off EDT");
         }
+        final CloseSessionTrace trace = new CloseSessionTrace();
         final AtomicBoolean coordinatorActive = new AtomicBoolean(true);
         final AtomicBoolean noActionClaimed = new AtomicBoolean();
         final AtomicBoolean noActionSucceeded = new AtomicBoolean();
         final AtomicBoolean noActionFailed = new AtomicBoolean();
         try {
-            final EdtCall<Set<Window>> beforeCall = invokeEdtBounded(
-                ExternalPsdEditHostProbe::visibleDialogsOnEdt, HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
+            final EdtCall<List<CloseDialogSnapshot>> beforeCall = invokeEdtBounded(
+                () -> visibleDialogsOnEdt(target), HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
             if (!beforeCall.completed()) {
-                return HostCloseResult.timeout("could not snapshot pre-close dialogs on EDT");
+                return withCloseTrace(trace, HostCloseResult.timeout(
+                    "could not snapshot pre-close dialogs on EDT"));
             }
             if (beforeCall.failure() != null) {
-                return HostCloseResult.rejected("pre-close dialog snapshot failed: "
-                    + stackTrace(beforeCall.failure()));
+                return withCloseTrace(trace, HostCloseResult.rejected(
+                    "pre-close dialog snapshot failed: " + stackTrace(beforeCall.failure())));
             }
-            final Set<Window> beforeDialogs = beforeCall.value();
+            final List<CloseDialogSnapshot> beforeDialogs = beforeCall.value();
             if (beforeDialogs == null) {
-                return HostCloseResult.rejected("pre-close dialog snapshot was unavailable");
+                return withCloseTrace(trace, HostCloseResult.rejected(
+                    "pre-close dialog snapshot was unavailable"));
             }
+            trace.recordBefore(beforeDialogs);
 
             final AtomicReference<CloseDispatchResult> dispatch = new AtomicReference<>();
             final AtomicBoolean closeStarted = new AtomicBoolean();
@@ -427,11 +444,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 SwingUtilities.invokeLater(() -> {
                     if (!coordinatorActive.get()) return;
                     closeStarted.set(true);
-                    dispatch.set(dispatchBoundWindowClose(target));
+                    trace.recordDispatchAttempt();
+                    final CloseDispatchResult dispatched = dispatchBoundWindowClose(target);
+                    trace.recordDispatch(dispatched);
+                    dispatch.set(dispatched);
                 });
             } catch (RuntimeException failure) {
-                return HostCloseResult.rejected("WINDOW_CLOSING could not be posted: "
-                    + stackTrace(failure));
+                return withCloseTrace(trace, HostCloseResult.rejected(
+                    "WINDOW_CLOSING could not be posted: " + stackTrace(failure)));
             }
 
             final long deadline = System.nanoTime()
@@ -440,7 +460,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             while (System.nanoTime() < deadline) {
                 final CloseDispatchResult dispatched = dispatch.get();
                 if (dispatched != null && !dispatched.dispatched()) {
-                    return HostCloseResult.rejected(dispatched.diagnostic());
+                    return withCloseTrace(trace,
+                        HostCloseResult.rejected(dispatched.diagnostic()));
                 }
                 if (!closeStarted.get()) {
                     lastDiagnostic = "WINDOW_CLOSING is queued on the EDT";
@@ -448,26 +469,30 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     final EdtCall<CloseDialogInspection> inspection = invokeEdtBounded(
                         () -> inspectAndMaybeDismissCloseDialog(target, beforeDialogs,
                             coordinatorActive, noActionClaimed, noActionSucceeded,
-                            noActionFailed),
+                            noActionFailed, trace),
                         HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
                     if (!inspection.completed()) {
                         lastDiagnostic = "EDT close observation timed out";
                     } else if (inspection.failure() != null) {
-                        return HostCloseResult.rejected("close observation failed: "
-                            + stackTrace(inspection.failure()));
+                        return withCloseTrace(trace, HostCloseResult.rejected(
+                            "close observation failed: " + stackTrace(inspection.failure())));
                     } else if (inspection.value() != null) {
                         final CloseDialogInspection observed = inspection.value();
                         lastDiagnostic = observed.diagnostic();
-                        if (observed.rejected()) return HostCloseResult.rejected(lastDiagnostic);
+                        if (observed.rejected()) {
+                            return withCloseTrace(trace,
+                                HostCloseResult.rejected(lastDiagnostic));
+                        }
                         if (observed.targetGone()) {
                             if (dispatched == null || !dispatched.dispatched()) {
                                 lastDiagnostic = "bound host window disappeared before "
                                     + "WINDOW_CLOSING dispatch completed";
                                 continue;
                             }
-                            return HostCloseResult.success(noActionSucceeded.get()
-                                ? "native close completed after exact dirty-save NO selection"
-                                : "native close completed with no dirty-save dialog");
+                            return withCloseTrace(trace, HostCloseResult.success(
+                                noActionSucceeded.get()
+                                    ? "native close completed after exact dirty-save NO selection"
+                                    : "native close completed with no dirty-save dialog"));
                         }
                     }
                 }
@@ -476,8 +501,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 Thread.sleep(Math.min(HOST_CLOSE_POLL_MILLIS,
                     Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining))));
             }
-            return HostCloseResult.timeout("native close did not complete before timeout; last="
-                + lastDiagnostic);
+            return withCloseTrace(trace, HostCloseResult.timeout(
+                "native close did not complete before timeout; last=" + lastDiagnostic));
         } finally {
             // Timed-out invokeLater inspections must not act after Supervisor cleanup has taken
             // ownership of the host.
@@ -517,23 +542,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             ? EdtCall.completed(value.get()) : EdtCall.failed(failure.get());
     }
 
-    private static Set<Window> visibleDialogsOnEdt() {
+    private static List<CloseDialogSnapshot> visibleDialogsOnEdt(final Window target) {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("dialog discovery must run on EDT");
         }
-        final Set<Window> visible = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        for (final Window window : Window.getWindows()) {
-            if (window instanceof Dialog dialog && dialog.isShowing() && dialog.isDisplayable()) {
-                visible.add(dialog);
-            }
-        }
-        return visible;
+        return visibleCloseDialogs(target);
     }
 
     private static CloseDialogInspection inspectAndMaybeDismissCloseDialog(final Window target,
-        final Set<Window> beforeDialogs, final AtomicBoolean coordinatorActive,
+        final List<CloseDialogSnapshot> beforeDialogs, final AtomicBoolean coordinatorActive,
         final AtomicBoolean noActionClaimed, final AtomicBoolean noActionSucceeded,
-        final AtomicBoolean noActionFailed) {
+        final AtomicBoolean noActionFailed, final CloseSessionTrace trace) {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("dialog inspection must run on EDT");
         }
@@ -547,10 +566,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (target == null || !target.isShowing() || !target.isDisplayable()) {
             return CloseDialogInspection.targetGone("bound host window is no longer showing");
         }
-        final Set<String> beforeIdentities = new HashSet<>();
-        for (final Window dialog : beforeDialogs) beforeIdentities.add(componentIdentity(dialog));
+        if (beforeDialogs == null) {
+            return CloseDialogInspection.rejected("pre-close dialog snapshots are unavailable");
+        }
+        final Set<String> beforeIdentities = dialogIdentities(beforeDialogs);
+        final List<CloseDialogSnapshot> currentDialogs = visibleCloseDialogs(target);
+        if (trace != null) trace.recordInspection(currentDialogs);
         final CloseDialogDecision decision = classifyCloseDialog(
-            componentIdentity(target), beforeIdentities, visibleCloseDialogs(target));
+            componentIdentity(target), beforeIdentities, currentDialogs);
+        if (trace != null) {
+            trace.recordReason(decision == null ? "close dialog decision unavailable"
+                : decision.diagnostic());
+        }
         if (decision.outcome() == CloseDialogOutcome.DISMISS_NO) {
             return applyNoDialogDecision(decision, noActionClaimed, noActionSucceeded,
                 noActionFailed);
@@ -607,16 +634,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private static List<CloseDialogSnapshot> visibleCloseDialogs(final Window target) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("dialog discovery must run on EDT");
+        }
         final List<CloseDialogSnapshot> snapshots = new ArrayList<>();
         for (final Window window : Window.getWindows()) {
             if (!(window instanceof Dialog dialog)
                 || !dialog.isShowing() || !dialog.isDisplayable()) continue;
+            final Dialog.ModalityType modality = dialog.getModalityType();
+            final boolean modal = modality != null && modality != Dialog.ModalityType.MODELESS;
+            final String modalityType = modality == null ? "UNKNOWN" : modality.name();
             final List<JOptionPane> panes = new ArrayList<>();
             collectOptionPanes(dialog, panes);
             if (panes.size() != 1) {
                 snapshots.add(new CloseDialogSnapshot(componentIdentity(dialog),
                     objectIdentity(dialog.getOwner()), dialog.getOwner() == target,
-                    true, true, panes.size(), List.of(), List.of(), -1, () -> { }));
+                    dialog.isShowing(), dialog.isDisplayable(), modal, modalityType,
+                    panes.size(), List.of(), List.of(), -1, () -> { }, () -> false));
                 continue;
             }
             final JOptionPane pane = panes.get(0);
@@ -647,10 +681,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 ? () -> false : () -> isOperable(noButton);
             snapshots.add(new CloseDialogSnapshot(componentIdentity(dialog),
                 objectIdentity(dialog.getOwner()), dialog.getOwner() == target,
-                true, true, 1, List.copyOf(classes), List.copyOf(labels), initialIndex,
+                dialog.isShowing(), dialog.isDisplayable(), modal, modalityType,
+                1, List.copyOf(classes), List.copyOf(labels), initialIndex,
                 dismissNo, dismissNoReady));
         }
         return snapshots;
+    }
+
+    private static Set<String> dialogIdentities(final List<CloseDialogSnapshot> dialogs) {
+        if (dialogs == null) return null;
+        final Set<String> identities = new HashSet<>();
+        for (final CloseDialogSnapshot dialog : dialogs) {
+            if (dialog != null && dialog.dialogIdentity() != null
+                && !dialog.dialogIdentity().isBlank()) {
+                identities.add(dialog.dialogIdentity());
+            }
+        }
+        return identities;
     }
 
     private static boolean isOperable(final JButton button) {
@@ -688,20 +735,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         for (final CloseDialogSnapshot dialog : current) {
             if (dialog == null || dialog.dialogIdentity() == null
                 || dialog.dialogIdentity().isBlank()) {
-                return CloseDialogDecision.rejected("close-associated dialog identity is unavailable");
+                return CloseDialogDecision.rejected(
+                    "close-associated dialog identity is unavailable: "
+                        + (dialog == null ? "null" : dialog.diagnostic()));
             }
             if (dialog.ownerMatchesTarget()
                 && !targetWindowIdentity.equals(dialog.ownerIdentity())) {
                 return CloseDialogDecision.rejected(
                     "dialog owner identity does not equal bound window: owner="
-                        + dialog.ownerIdentity() + " bound=" + targetWindowIdentity);
+                        + dialog.ownerIdentity() + " bound=" + targetWindowIdentity
+                        + " evidence=" + dialog.diagnostic());
             }
             if (beforeDialogIdentities.contains(dialog.dialogIdentity())
                 && dialog.ownerMatchesTarget()
                 && targetWindowIdentity.equals(dialog.ownerIdentity())) {
                 return CloseDialogDecision.rejected(
                     "a dialog owned by the bound window pre-existed WINDOW_CLOSING: "
-                        + dialog.dialogIdentity());
+                        + dialog.diagnostic());
             }
         }
         final List<CloseDialogSnapshot> added = current.stream()
@@ -714,22 +764,24 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         if (added.size() > 1) {
             return CloseDialogDecision.rejected(
-                "multiple new dialogs are associated with WINDOW_CLOSING: " + added.size());
+                "multiple new dialogs are associated with WINDOW_CLOSING: " + added.size()
+                    + " evidence=" + dialogInventoryDiagnostic(added));
         }
         final CloseDialogSnapshot dialog = added.get(0);
         if (!dialog.ownerMatchesTarget()
             || !targetWindowIdentity.equals(dialog.ownerIdentity())) {
             return CloseDialogDecision.rejected("new dialog owner " + dialog.ownerIdentity()
-                + " does not equal bound window " + targetWindowIdentity);
+                + " does not equal bound window " + targetWindowIdentity
+                + " evidence=" + dialog.diagnostic());
         }
         if (!dialog.showing() || !dialog.displayable()) {
             return CloseDialogDecision.rejected(
-                "close-associated dialog is not showing/displayable: " + dialog.dialogIdentity());
+                "close-associated dialog is not showing/displayable: " + dialog.diagnostic());
         }
         if (dialog.optionPaneCount() != 1 || dialog.optionClassNames().size() != 3
             || dialog.optionLabels().size() != 3 || dialog.initialOptionIndex() != 0) {
             return CloseDialogDecision.rejected(
-                "close-associated JOptionPane options are unknown: " + dialog);
+                "close-associated JOptionPane options are unknown: " + dialog.diagnostic());
         }
         final List<String> expectedClasses = List.of(
             JButton.class.getName(), JButton.class.getName(), JButton.class.getName());
@@ -757,8 +809,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "close-associated JOptionPane No option is not enabled/showing/displayable");
         }
         return CloseDialogDecision.dismissNo(
-            "new dirty-save JOptionPane=" + dialog.dialogIdentity()
-                + " owner=" + dialog.ownerIdentity() + " options=" + dialog.optionLabels(),
+            "new dirty-save JOptionPane=" + dialog.diagnostic(),
             dialog.dismissNo());
     }
 
@@ -4940,6 +4991,173 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private record GuiClick(boolean clicked, String diagnostic) {
     }
 
+    /** Bounded evidence for one native close coordinator invocation. */
+    static final class CloseSessionTrace {
+        private final String sessionId;
+        private final long startedAtNanos;
+        private final AtomicInteger dispatchAttempts = new AtomicInteger();
+        private final AtomicInteger inspectionCount = new AtomicInteger();
+        private final AtomicLong beforeAtNanos = new AtomicLong(-1L);
+        private final AtomicLong dispatchAtNanos = new AtomicLong(-1L);
+        private final AtomicLong firstInspectionAtNanos = new AtomicLong(-1L);
+        private final AtomicReference<String> before = new AtomicReference<>("unavailable");
+        private final AtomicReference<String> dispatch = new AtomicReference<>("not-dispatched");
+        private final AtomicReference<String> lastAfter = new AtomicReference<>("unavailable");
+        private final AtomicReference<String> reason = new AtomicReference<>("unavailable");
+
+        CloseSessionTrace() {
+            this("close-" + CLOSE_SESSION_SEQUENCE.incrementAndGet());
+        }
+
+        CloseSessionTrace(final String sessionId) {
+            this.sessionId = sessionId == null || sessionId.isBlank() ? "unknown" : sessionId;
+            startedAtNanos = System.nanoTime();
+        }
+
+        void recordBefore(final List<CloseDialogSnapshot> dialogs) {
+            beforeAtNanos.compareAndSet(-1L, System.nanoTime());
+            before.set(dialogInventoryDiagnostic(dialogs, CLOSE_TRACE_BEFORE_MAX_BYTES));
+        }
+
+        void recordDispatchAttempt() {
+            dispatchAttempts.incrementAndGet();
+            dispatchAtNanos.compareAndSet(-1L, System.nanoTime());
+            dispatch.set("started");
+        }
+
+        void recordDispatch(final CloseDispatchResult result) {
+            dispatch.set(boundedCloseDiagnostic(
+                result == null ? "unavailable" : result.diagnostic(),
+                CLOSE_TRACE_DISPATCH_MAX_BYTES));
+        }
+
+        void recordInspection(final List<CloseDialogSnapshot> dialogs) {
+            inspectionCount.incrementAndGet();
+            firstInspectionAtNanos.compareAndSet(-1L, System.nanoTime());
+            lastAfter.set(dialogInventoryDiagnostic(dialogs, CLOSE_TRACE_AFTER_MAX_BYTES));
+        }
+
+        void recordReason(final String value) {
+            reason.set(boundedCloseDiagnostic(value, CLOSE_TRACE_REASON_MAX_BYTES));
+        }
+
+        String diagnostic() {
+            final long dispatchNanos = dispatchAtNanos.get();
+            final long firstInspectionNanos = firstInspectionAtNanos.get();
+            return boundedCloseDiagnostic(
+                "closeSession=" + boundedCloseField(sessionId)
+                    + " elapsedMs=" + elapsedMillis(startedAtNanos)
+                    + " dispatchAttempts=" + dispatchAttempts.get()
+                    + " inspectionCount=" + inspectionCount.get()
+                    + " beforeToDispatchMs=" + elapsedBetween(beforeAtNanos.get(), dispatchNanos)
+                    + " dispatchToFirstInspectionMs="
+                    + elapsedBetween(dispatchNanos, firstInspectionNanos)
+                    + " before=" + before.get()
+                    + " after=" + lastAfter.get()
+                    + " dispatch=" + dispatch.get()
+                    + " reason=" + reason.get(), CLOSE_TRACE_MAX_BYTES);
+        }
+
+        String sessionId() { return sessionId; }
+
+        private static long elapsedMillis(final long startNanos) {
+            return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
+        }
+
+        private static long elapsedBetween(final long startNanos, final long endNanos) {
+            if (startNanos < 0L || endNanos < 0L || endNanos < startNanos) return -1L;
+            return TimeUnit.NANOSECONDS.toMillis(endNanos - startNanos);
+        }
+    }
+
+    private static HostCloseResult withCloseTrace(final CloseSessionTrace trace,
+        final HostCloseResult result) {
+        if (trace == null || result == null) return result;
+        final String resultReason = boundedCloseDiagnostic(result.diagnostic(),
+            CLOSE_RESULT_REASON_MAX_BYTES);
+        final String traceDiagnostic = boundedCloseDiagnostic(trace.diagnostic(),
+            CLOSE_TRACE_MAX_BYTES);
+        return new HostCloseResult(result.success(), boundedCloseDiagnostic(
+            resultReason + CLOSE_TRACE_SEPARATOR + traceDiagnostic,
+            CLOSE_DIAGNOSTIC_MAX_BYTES));
+    }
+
+    /** Test seam for asserting the final close-result byte budget without exposing host results. */
+    static String closeDiagnosticForTest(final CloseSessionTrace trace,
+        final String resultDiagnostic) {
+        return withCloseTrace(trace, HostCloseResult.rejected(resultDiagnostic)).diagnostic();
+    }
+
+    private static String dialogInventoryDiagnostic(final List<CloseDialogSnapshot> dialogs) {
+        return dialogInventoryDiagnostic(dialogs, CLOSE_TRACE_REASON_MAX_BYTES);
+    }
+
+    private static String dialogInventoryDiagnostic(final List<CloseDialogSnapshot> dialogs,
+        final int maxBytes) {
+        if (dialogs == null) return "unavailable";
+        final int includedLimit = Math.min(dialogs.size(), CLOSE_DIALOG_MAX_COUNT);
+        final StringBuilder text = new StringBuilder("[count=")
+            .append(dialogs.size());
+        if (dialogs.size() > includedLimit) text.append(" truncated=true");
+        text.append(" entries=");
+        for (int index = 0; index < includedLimit; index++) {
+            if (index > 0) text.append(", ");
+            final CloseDialogSnapshot dialog = dialogs.get(index);
+            text.append(dialog == null ? "null" : dialog.diagnostic());
+        }
+        if (dialogs.size() > includedLimit) text.append(", …more");
+        return boundedCloseDiagnostic(text.append(']').toString(), maxBytes);
+    }
+
+    private static String boundedCloseDiagnostic(final String value) {
+        return boundedCloseDiagnostic(value, CLOSE_DIAGNOSTIC_MAX_BYTES);
+    }
+
+    /** Returns a single-line UTF-8 string whose encoded byte length never exceeds maxBytes. */
+    private static String boundedCloseDiagnostic(final String value, final int maxBytes) {
+        if (value == null || maxBytes <= 0) return "";
+        final String singleLine = value.replace('\r', ' ').replace('\n', ' ');
+        if (utf8ByteLength(singleLine) <= maxBytes) return singleLine;
+        final String marker = "…";
+        final int markerBytes = utf8ByteLength(marker);
+        if (maxBytes <= markerBytes) return utf8Prefix(singleLine, maxBytes);
+        return utf8Prefix(singleLine, maxBytes - markerBytes) + marker;
+    }
+
+    private static String utf8Prefix(final String value, final int maxBytes) {
+        if (value == null || maxBytes <= 0) return "";
+        int offset = 0;
+        int bytes = 0;
+        while (offset < value.length()) {
+            final int next = value.offsetByCodePoints(offset, 1);
+            final int codePointBytes = utf8ByteLength(value.substring(offset, next));
+            if (bytes + codePointBytes > maxBytes) break;
+            bytes += codePointBytes;
+            offset = next;
+        }
+        return value.substring(0, offset);
+    }
+
+    private static int utf8ByteLength(final String value) {
+        return value.getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    private static String boundedCloseField(final String value) {
+        return boundedCloseDiagnostic(value, CLOSE_DIALOG_FIELD_MAX_BYTES);
+    }
+
+    private static String boundedCloseList(final List<String> values) {
+        if (values == null) return "null";
+        final StringBuilder text = new StringBuilder("[");
+        final int limit = Math.min(values.size(), 8);
+        for (int index = 0; index < limit; index++) {
+            if (index > 0) text.append(", ");
+            text.append(boundedCloseField(values.get(index)));
+        }
+        if (values.size() > limit) text.append(", ...");
+        return text.append(']').toString();
+    }
+
     enum CloseDialogOutcome {
         NO_DIALOG,
         DISMISS_NO,
@@ -4947,26 +5165,53 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     static record CloseDialogSnapshot(String dialogIdentity, String ownerIdentity,
-        boolean ownerMatchesTarget, boolean showing, boolean displayable, int optionPaneCount,
-        List<String> optionClassNames, List<String> optionLabels, int initialOptionIndex,
-        Runnable dismissNo, BooleanSupplier dismissNoReady) {
+        boolean ownerMatchesTarget, boolean showing, boolean displayable, boolean modal,
+        String modalityType, int optionPaneCount, List<String> optionClassNames,
+        List<String> optionLabels, int initialOptionIndex, Runnable dismissNo,
+        BooleanSupplier dismissNoReady) {
         CloseDialogSnapshot(final String dialogIdentity, final String ownerIdentity,
             final boolean ownerMatchesTarget, final boolean showing, final boolean displayable,
             final int optionPaneCount, final List<String> optionClassNames,
             final List<String> optionLabels, final int initialOptionIndex,
             final Runnable dismissNo) {
             this(dialogIdentity, ownerIdentity, ownerMatchesTarget, showing, displayable,
-                optionPaneCount, optionClassNames, optionLabels, initialOptionIndex, dismissNo,
-                dismissNo == null ? () -> false : () -> true);
+                false, "UNKNOWN", optionPaneCount, optionClassNames, optionLabels,
+                initialOptionIndex, dismissNo, dismissNo == null ? () -> false : () -> true);
+        }
+
+        CloseDialogSnapshot(final String dialogIdentity, final String ownerIdentity,
+            final boolean ownerMatchesTarget, final boolean showing, final boolean displayable,
+            final int optionPaneCount, final List<String> optionClassNames,
+            final List<String> optionLabels, final int initialOptionIndex,
+            final Runnable dismissNo, final BooleanSupplier dismissNoReady) {
+            this(dialogIdentity, ownerIdentity, ownerMatchesTarget, showing, displayable,
+                false, "UNKNOWN", optionPaneCount, optionClassNames, optionLabels,
+                initialOptionIndex, dismissNo, dismissNoReady);
         }
 
         CloseDialogSnapshot {
             dialogIdentity = dialogIdentity == null ? "" : dialogIdentity;
             ownerIdentity = ownerIdentity == null ? "" : ownerIdentity;
+            modalityType = modalityType == null || modalityType.isBlank()
+                ? "UNKNOWN" : modalityType;
             optionClassNames = optionClassNames == null ? List.of()
                 : List.copyOf(optionClassNames);
             optionLabels = optionLabels == null ? List.of() : List.copyOf(optionLabels);
             dismissNoReady = dismissNoReady == null ? () -> false : dismissNoReady;
+        }
+
+        String diagnostic() {
+            return "dialog=" + boundedCloseField(dialogIdentity)
+                + " owner=" + boundedCloseField(ownerIdentity)
+                + " ownerMatches=" + ownerMatchesTarget
+                + " showing=" + showing
+                + " displayable=" + displayable
+                + " modal=" + modal
+                + " modality=" + boundedCloseField(modalityType)
+                + " panes=" + optionPaneCount
+                + " optionClasses=" + boundedCloseList(optionClassNames)
+                + " optionLabels=" + boundedCloseList(optionLabels)
+                + " initial=" + initialOptionIndex;
         }
     }
 
