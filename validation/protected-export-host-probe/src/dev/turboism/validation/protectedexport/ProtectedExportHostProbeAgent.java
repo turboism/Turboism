@@ -930,7 +930,16 @@ public final class ProtectedExportHostProbeAgent {
             try {
                 if (Files.isRegularFile(moc3) && Files.size(moc3) > 0L) {
                     // Companions may still be streaming in; settle then list.
-                    settle(3_000L);
+                    // Trailing modals (progress/completion prompts) must also
+                    // be driven closed — a leftover dialog parks the EDT and
+                    // blocks the host's exit path after the verdict lands.
+                    final long settleDeadline =
+                        System.currentTimeMillis() + 10_000L;
+                    while (System.currentTimeMillis() < settleDeadline) {
+                        clickSettledDialogs(seen, postChooser, stateDir,
+                            evidence, prefix, "expPostChooser");
+                        sleep(POLL_MILLIS);
+                    }
                     final Path parent = moc3.getParent();
                     final List<String> files = new ArrayList<>();
                     try (var walk = Files.walk(parent)) {
