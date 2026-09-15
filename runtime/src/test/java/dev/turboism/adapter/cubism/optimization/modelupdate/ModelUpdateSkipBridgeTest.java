@@ -584,7 +584,8 @@ public class ModelUpdateSkipBridgeTest {
         World world = new World(loader);
         try (ModelUpdateSkipBridge bridge = new ModelUpdateSkipBridge(T5303, loader)) {
             bridge.install();
-            assertFalse(predicate().test(world.args()), "enable property unset");
+            System.setProperty(ModelUpdateSkipBridge.ENABLE_PROPERTY, "false");
+            assertFalse(predicate().test(world.args()), "enable property false");
             bridge.close();
             assertNull(System.getProperties().get(ModelUpdateSkipBridge.CALLBACK_PROPERTY));
             assertNull(System.getProperties().get(ModelUpdateSkipBridge.AFTER_PROPERTY));
