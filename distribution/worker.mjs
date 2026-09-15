@@ -67,7 +67,10 @@ export class ReleaseRegistry {
    if(!snapshotUsable(this.snapshot))return jsonResponse(request,{status:'unavailable',error:{code:'STATS_UNAVAILABLE'}},503);
    if(!record?.active)return jsonResponse(request,{status:'unavailable',error:{code:'RELEASE_UNKNOWN_OR_WITHDRAWN'}},404);
    let official=null;try{official=this.counts.read(record.release.assets);}catch{console.error('Download analytics read failed');}
-   return jsonResponse(request,countsDocument(stats[1],record,official));
+   const response=await jsonResponse(request,countsDocument(stats[1],record,official));
+   // Counts change on file requests, independently of the cached release snapshot.
+   response.headers.set('Cache-Control','private, no-store');
+   return response;
   }
   const match=/^\/v1\/releases\/(stable|beta|nightly)\.json$/.exec(path);
   if(match){const value=documentFor(this.snapshot,match[1]);return jsonResponse(request,value,value.status==='unavailable'?503:200);}
