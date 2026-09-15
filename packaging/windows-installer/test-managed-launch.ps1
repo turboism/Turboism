@@ -114,6 +114,19 @@ if ($JdkParserOnly) {
         Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $zgcHome) -eq "graalvm") "config without launcher defaults the Cubism JVM preference under strict mode"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":false}}')
         Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $zgcHome) -eq "graalvm") "launcher without cubismJvm defaults the preference under strict mode"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":true}}')
+        $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=false') "managed options emit no optimization opt-outs when the launcher fields are unset"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"modelUpdateSkip":false,"incrementalUpdate":false}}')
+        $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($optTokens -contains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -contains '-Dturboism.optimization.incrementalUpdate=false') "managed options emit optimization opt-outs when the launcher fields disable them"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"modelUpdateSkip":true,"incrementalUpdate":false}}')
+        $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -contains '-Dturboism.optimization.incrementalUpdate=false') "managed options emit only the disabled optimization opt-out"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"modelUpdateSkip":"no"}}')
+        $optInvalid = $false
+        try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $optInvalid = $true }
+        Assert-ManagedLaunch $optInvalid "non-boolean launcher optimization field fails closed"
     }
     finally { Remove-Item -LiteralPath $zgcHome -Recurse -Force -ErrorAction SilentlyContinue }
     Write-Host "MANAGED_LAUNCH_PARSER_ONLY=PASS"

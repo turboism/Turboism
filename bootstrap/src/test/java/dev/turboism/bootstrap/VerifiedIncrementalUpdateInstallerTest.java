@@ -16,8 +16,10 @@ class VerifiedIncrementalUpdateInstallerTest {
         }
         assertFalse(VerifiedIncrementalUpdateInstaller.admitted(
             ReviewedHostArtifacts.CUBISM_5_3_03, normal, false, 17));
-        assertFalse(VerifiedIncrementalUpdateInstaller.admitted(
+        assertTrue(VerifiedIncrementalUpdateInstaller.admitted(
             ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 25));
+        assertFalse(VerifiedIncrementalUpdateInstaller.admitted(
+            ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 16));
         assertFalse(VerifiedIncrementalUpdateInstaller.admitted(
             new HostArtifactDigest(1L, "9".repeat(64)), normal, true, 17));
         assertFalse(VerifiedIncrementalUpdateInstaller.admitted(

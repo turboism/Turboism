@@ -620,6 +620,7 @@ public final class TurboismAgent {
                                                HostClassLocator.LocatedHost host) {
         if (!dev.turboism.adapter.cubism.optimization.modelupdate
                 .ModelUpdateSkipBridge.flagEnabled()) {
+            runtimeInfo("TURBOISM_MODEL_UPDATE_SKIP installation=NOT_ADMITTED");
             return;
         }
         VerifiedModelUpdateSkipInstaller installer = null;
@@ -654,6 +655,7 @@ public final class TurboismAgent {
                                                  HostClassLocator.LocatedHost host) {
         if (!dev.turboism.adapter.cubism.optimization.modelupdate.incremental
                 .IncrementalUpdateBridge.flagEnabled()) {
+            runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=NOT_ADMITTED");
             return;
         }
         VerifiedIncrementalUpdateInstaller installer = null;

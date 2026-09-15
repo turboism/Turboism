@@ -113,6 +113,20 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void rejectsNonBooleanOptimizationLauncherFlags() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("modelUpdateSkip", "no");
+        root.withObject("launcher").put("incrementalUpdate", 1);
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_LAUNCHER_BOOLEAN"));
+
+        final ObjectNode valid = base();
+        valid.withObject("launcher").put("modelUpdateSkip", false);
+        valid.withObject("launcher").put("incrementalUpdate", true);
+        assertTrue(codes(valid).isEmpty());
+    }
+
+    @Test
     void rejectsUnknownStartupField() {
         final ObjectNode root = base();
         root.withObject("hooks").withObject("startup").put("unknownStartupFlag", true);

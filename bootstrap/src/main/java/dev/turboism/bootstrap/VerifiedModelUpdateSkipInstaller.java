@@ -38,7 +38,7 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
 
     static boolean admitted(final HostArtifactDigest digest, final RuntimeStartupConfig config,
                             final boolean requested, final int jvm) {
-        return requested && jvm == 17 && config.hookEnabled(HOOK_ID)
+        return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
             && ModelUpdateSkipTarget.of(digest).isPresent();
     }
 
@@ -47,8 +47,8 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
         target = ModelUpdateSkipTarget.of(HostArtifactDigest.from(artifact))
             .orElseThrow(() -> new IllegalArgumentException(
                 "model-update skip unsupported host artifact"));
-        if (Runtime.version().feature() != 17) {
-            throw new IllegalArgumentException("model-update skip requires exact JVM17");
+        if (Runtime.version().feature() < 17) {
+            throw new IllegalArgumentException("model-update skip requires JVM17+");
         }
         this.instrumentation = instrumentation;
         if (!instrumentation.isRetransformClassesSupported()) {

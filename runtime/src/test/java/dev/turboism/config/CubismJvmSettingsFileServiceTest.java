@@ -111,4 +111,31 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(saved.contains("zgc"));
         }
     }
+
+    @Test
+    void optimizationsDefaultToTrue() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            assertTrue(service.modelUpdateSkip());
+            assertTrue(service.incrementalUpdate());
+        }
+    }
+
+    @Test
+    void optimizationsRoundTripThroughLauncherConfig() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            service.saveModelUpdateSkip(false);
+            service.saveIncrementalUpdate(false);
+            assertFalse(service.modelUpdateSkip());
+            assertFalse(service.incrementalUpdate());
+            final String saved = Files.readString(home.resolve("config.json"));
+            assertTrue(saved.contains("\"modelUpdateSkip\" : false"));
+            assertTrue(saved.contains("\"incrementalUpdate\" : false"));
+            service.saveModelUpdateSkip(true);
+            assertTrue(service.modelUpdateSkip());
+            assertFalse(service.incrementalUpdate());
+            final String restored = Files.readString(home.resolve("config.json"));
+            assertFalse(restored.contains("modelUpdateSkip"));
+            assertTrue(restored.contains("\"incrementalUpdate\" : false"));
+        }
+    }
 }
