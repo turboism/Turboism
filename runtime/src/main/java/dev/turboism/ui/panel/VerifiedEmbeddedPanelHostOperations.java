@@ -110,14 +110,14 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private final Map<Object, Long> lastFloatMillis = new IdentityHashMap<>();
     private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
     private volatile long hostGeneration = Long.MIN_VALUE;
-    private final java.util.Locale locale;
+    private final java.util.function.Supplier<java.util.Locale> locale;
     private volatile boolean hostActive;
 
     public VerifiedEmbeddedPanelHostOperations(
         final VerifiedMemberResolver resolver,
         final dev.turboism.ui.action.EditorUiActionRouter actionRouter
     ) {
-        this(resolver, actionRouter, dev.turboism.i18n.CubismHostLocale.resolve());
+        this(resolver, actionRouter, dev.turboism.i18n.CubismHostLocale::resolve);
     }
 
     public VerifiedEmbeddedPanelHostOperations(
@@ -125,10 +125,29 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final dev.turboism.ui.action.EditorUiActionRouter actionRouter,
         final java.util.Locale locale
     ) {
+        this(resolver, actionRouter, fixedLocale(locale));
+    }
+
+    /**
+     * @param locale resolves the effective locale at render time, so a locale
+     *     settled after this operations object's construction is honored
+     */
+    public VerifiedEmbeddedPanelHostOperations(
+        final VerifiedMemberResolver resolver,
+        final dev.turboism.ui.action.EditorUiActionRouter actionRouter,
+        final java.util.function.Supplier<java.util.Locale> locale
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.traversal = new DockTreeTraversal(resolver);
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
         this.locale = Objects.requireNonNull(locale, "locale");
+    }
+
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
+        final java.util.Locale locale
+    ) {
+        final java.util.Locale required = Objects.requireNonNull(locale, "locale");
+        return () -> required;
     }
 
     @Override
@@ -478,7 +497,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             final Map<String, String> actionOwners =
                 PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
             final JComponent panel = SwingPanelViewRenderer.render(
-                viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale);
+                viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale.get());
             final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
             panel.setName(nativeId);
             holder[0] = panel;

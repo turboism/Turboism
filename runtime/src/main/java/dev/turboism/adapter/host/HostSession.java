@@ -122,12 +122,24 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private boolean closeRequested;
 
     public HostSession(final HostInstanceSource source) {
-        this(source, dev.turboism.i18n.CubismHostLocale.resolve());
+        this(source, dev.turboism.i18n.CubismHostLocale::resolve);
     }
 
     public HostSession(
         final HostInstanceSource source,
         final java.util.Locale effectiveLocale
+    ) {
+        this(source, fixedLocale(effectiveLocale));
+    }
+
+    /**
+     * Production composition: receives the runtime's shared effective-locale source so
+     * host-attached UI text resolves the locale that is effective at render time — the
+     * host-verified re-resolution supersedes the provisional startup value in place.
+     */
+    public HostSession(
+        final HostInstanceSource source,
+        final java.util.function.Supplier<java.util.Locale> effectiveLocale
     ) {
         this.source = Objects.requireNonNull(source, "source");
         this.connector = new VerifiedHostAdapterConnector(
@@ -168,6 +180,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
         registerProjectContentCleanup();
+    }
+
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
+        final java.util.Locale effectiveLocale
+    ) {
+        final java.util.Locale required = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        return () -> required;
     }
 
     HostSession(

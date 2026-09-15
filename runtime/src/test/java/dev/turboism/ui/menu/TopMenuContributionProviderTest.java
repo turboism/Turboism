@@ -155,6 +155,41 @@ class TopMenuContributionProviderTest {
     }
 
     @Test
+    void sharedRootLabelResolvesAtApplyTimeSoHostVerifiedLocaleSupersedesStartup() {
+        final RecordingHost host = new RecordingHost();
+        final java.util.concurrent.atomic.AtomicReference<String> label =
+            new java.util.concurrent.atomic.AtomicReference<>("Plugins");
+        final TopMenuContributionProvider provider = new TopMenuContributionProvider(
+            admission(7),
+            host,
+            (pluginId, actionId) -> { },
+            label::get
+        );
+
+        // The host-verified locale is settled after provider construction, before
+        // menu contributions are applied — mirroring the startup re-resolution window.
+        label.set("プラグイン");
+        provider.apply(7, List.of(
+            contribution("plugin-a", "settings", "Turboism/Settings", 10)
+        ));
+        assertEquals(
+            List.of("プラグイン"),
+            host.installed.stream().map(TopMenuDescriptor::label).toList(),
+            "the shared root must resolve its label at apply time, not at construction"
+        );
+
+        label.set("插件");
+        provider.apply(7, List.of(
+            contribution("plugin-a", "settings", "Turboism/Settings", 10)
+        ));
+        assertEquals(
+            "插件",
+            host.installed.get(host.installed.size() - 1).label(),
+            "each apply re-resolves the label from the current effective locale"
+        );
+    }
+
+    @Test
     void sameLabelRootsFromUnrelatedPluginsRemainPluginOwned() {
         final RecordingHost host = new RecordingHost();
         final TopMenuContributionProvider provider = new TopMenuContributionProvider(
