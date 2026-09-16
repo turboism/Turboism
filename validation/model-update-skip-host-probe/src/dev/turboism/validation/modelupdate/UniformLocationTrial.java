@@ -10,17 +10,20 @@ import java.util.Map;
 
 /**
  * Opt-in, validation-only experiment: memoize confirmed uniform locations within
- * one display, never across frames. Does not skip any draw, buffer write, uniform
- * write or error query. No timings are added on the GL call path. Not a supported
- * production GL decorator: shared-context relinks require separate admission.
+ * one display, never across frames. The separate opt-in value experiment may also
+ * omit confirmed exact scalar/single-matrix duplicates. Draws, buffer writes and
+ * error queries are never omitted. No per-call timers are added. This is not a
+ * production GL decorator: shared-context writers require separate admission.
  */
 final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
     private final Object downstream, pipeline;
     private final Class<?> api;
     private final Method contextGetter;
     private final UniformLocationCache cache = new UniformLocationCache(4096);
+    private final UniformValueCache values = new UniformValueCache(4096);
     private final boolean shadow;
-    private volatile boolean enabled;
+    private volatile boolean enabled, valuesEnabled;
+    private long uniformWrites, nativeUniformWrites, skippedUniformWrites;
     private Component drawable;
     private Method getGl, setGl, removeListener;
     private Object beforeListener, afterListener;
@@ -75,12 +78,17 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
         });
     }
 
-    void setEnabled(boolean value) { cache.end(); enabled = value; }
+    void setEnabled(boolean value) { cache.end(); values.end(); enabled = value; }
+    void setValuesEnabled(boolean value) { values.end(); valuesEnabled = value; }
     void beginFrame() throws Exception {
         frames++;
-        if (enabled) cache.begin(contextGetter.invoke(downstream)); else cache.end();
+        if (enabled) {
+            Object context = contextGetter.invoke(downstream);
+            cache.begin(context);
+            if (valuesEnabled) values.begin(context); else values.end();
+        } else { cache.end(); values.end(); }
     }
-    void endFrame() { cache.end(); }
+    void endFrame() { cache.end(); values.end(); }
     Object wrapped() { return pipeline; }
     void requestReadback() { captured = null; captureFailure = null; capturePending = true; }
     FrameReadback takeReadback() {
@@ -130,6 +138,18 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
             if (args != null && args.length > 0 && args[0] instanceof Integer id) cache.invalidate(id);
             else cache.fault();
         }
+        boolean uniformWrite = name.startsWith("glUniform");
+        if (uniformWrite) uniformWrites++;
+        if (enabled && valuesEnabled && observesUniformState(name)) {
+            try {
+                if (values.before(contextGetter.invoke(downstream), name, args) && uniformWrite) {
+                    skippedUniformWrites++; return null;
+                }
+            } catch (Throwable observationFailure) {
+                values.fault(); failures++; // Native invocation still executes.
+            }
+        }
+        if (uniformWrite) nativeUniformWrites++;
         try {
             Object result = method.invoke(downstream, args);
             if (capturePending && name.equals("glReadPixels")) capture(args);
@@ -141,14 +161,23 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
             } else if (name.equals("glGetError") && result instanceof Integer error) {
                 if (error != 0) glErrors++;
                 cache.checkedError(error);
+                values.checkedError(error);
             }
             if (name.equals("glDrawElements") || name.equals("glDrawArrays")) draws++;
             if (result == downstream && name.startsWith("getGL") && method.getReturnType().isInstance(proxy)) return proxy;
             return result;
         } catch (InvocationTargetException failure) {
-            cache.fault(); failures++;
+            cache.fault(); values.fault(); failures++;
             throw failure.getCause();
         }
+    }
+
+    private static boolean observesUniformState(String name) {
+        return name.startsWith("glUniform") || name.startsWith("glProgramUniform")
+            || name.equals("glUseProgram") || name.equals("glLinkProgram")
+            || name.equals("glProgramBinary") || name.equals("glDeleteProgram")
+            || name.equals("glBindProgramPipeline") || name.equals("glActiveShaderProgram")
+            || name.equals("glUseProgramStages");
     }
 
     private static Object objectMethod(Object proxy, Method method, Object[] args) {
@@ -166,6 +195,9 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
         result.put("skippedQueries", skippedQueries); result.put("shadowQueries", shadowQueries);
         result.put("shadowMismatches", shadowMismatches); result.put("glErrors", glErrors);
         result.put("failures", failures); result.put("draws", draws); result.put("displayFrames", frames);
+        result.put("uniformWrites", uniformWrites); result.put("nativeUniformWrites", nativeUniformWrites);
+        result.put("skippedUniformWrites", skippedUniformWrites);
+        values.snapshot().forEach((key, value) -> result.put("valueCache." + key, value));
         return result;
     }
     void requireValid() {
@@ -175,7 +207,7 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
         }
     }
     @Override public void close() throws Exception {
-        enabled = false; cache.end();
+        enabled = false; valuesEnabled = false; cache.end(); values.end();
         if (drawable == null) return;
         removeListener.invoke(drawable, beforeListener);
         removeListener.invoke(drawable, afterListener);
