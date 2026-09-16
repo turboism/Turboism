@@ -127,6 +127,19 @@ if ($JdkParserOnly) {
         $optInvalid = $false
         try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $optInvalid = $true }
         Assert-ManagedLaunch $optInvalid "non-boolean launcher optimization field fails closed"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"uniformLocationCache":false}}')
+        $uniformTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($uniformTokens -contains '-Dturboism.optimization.uniformLocationCache=false') "uniform opt-out persists to managed launch"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"uniformLocationCache":true}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -notcontains '-Dturboism.optimization.uniformLocationCache=false') "explicit uniform enable uses default-on runtime"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -notcontains '-Dturboism.optimization.uniformLocationCache=false') "absent uniform preference defaults on"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"uniformLocationCache":"false"}}')
+        $uniformInvalid = $false
+        try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $uniformInvalid = $true }
+        Assert-ManagedLaunch $uniformInvalid "non-boolean uniform preference fails closed"
+        $reconciled = Remove-TurboismJdkOptions '-Xmx2g -Dturboism.optimization.uniformLocationCache=true -Dapp.test=kept -Dturboism.optimization.uniformLocationCache=false'
+        Assert-ManagedLaunch ($reconciled -eq '-Xmx2g -Dapp.test=kept') "stale uniform options removed without losing unrelated JVM options"
     }
     finally { Remove-Item -LiteralPath $zgcHome -Recurse -Force -ErrorAction SilentlyContinue }
     Write-Host "MANAGED_LAUNCH_PARSER_ONLY=PASS"

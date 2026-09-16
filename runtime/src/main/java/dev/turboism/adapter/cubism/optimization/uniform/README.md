@@ -1,10 +1,13 @@
 # Narrow uniform-location cache
 
-Opt-in runtime implementation replacing the validation-only all-GL proxy. It is
-NOT enabled by default and does not include uniform-value suppression.
+Default-on runtime implementation replacing the validation-only all-GL proxy.
+Only exact verified hosts are admitted. It does not include uniform-value suppression.
+The Performance settings checkbox persists `launcher.uniformLocationCache`;
+explicit false is retained by managed launchers and stops reuse in an installed
+hook. Enabling after startup denial requires restarting the Editor.
 
 ```text
--Dturboism.optimization.uniformLocationCache=true
+-Dturboism.optimization.uniformLocationCache=false
 ```
 
 Initial scope: exact reviewed Cubism 5.3.03, its separately pinned bundled JOGL,

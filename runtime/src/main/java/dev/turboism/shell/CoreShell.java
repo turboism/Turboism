@@ -114,6 +114,11 @@ public final class CoreShell implements AutoCloseable {
             )
         ));
         context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createUniformLocationCacheToggle(
+                localization(context), services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.createPerformanceNote(localization(context))
         ));
         context.disposableScope().register(context.uiHost().contributeSettings(

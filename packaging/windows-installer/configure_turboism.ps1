@@ -302,14 +302,14 @@ function Assert-RuntimeConfigV1 {
     if ($null -ne $launcherProperty) {
         $launcher = $launcherProperty.Value
         Assert-RuntimeAllowedProperties $launcher @(
-            "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate"
+            "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
         ) "launcher"
         $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
         if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
             -or @("graalvm", "bundled") -cnotcontains $cubismJvm.Value)) {
             throw "launcher.cubismJvm is invalid"
         }
-        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate")) {
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache")) {
             $property = $launcher.PSObject.Properties[$name]
             if ($null -ne $property -and $property.Value -isnot [bool]) {
                 throw "launcher.$name must be a boolean"

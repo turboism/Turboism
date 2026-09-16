@@ -199,6 +199,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         return saveOptimization("incrementalUpdate", value);
     }
 
+    @Override
+    public boolean uniformLocationCache() {
+        return optimization("uniformLocationCache");
+    }
+
+    @Override
+    public boolean saveUniformLocationCache(final boolean value) {
+        return saveOptimization("uniformLocationCache", value);
+    }
+
     private boolean optimization(final String name) {
         return config.read().path("launcher").path(name).asBoolean(true);
     }

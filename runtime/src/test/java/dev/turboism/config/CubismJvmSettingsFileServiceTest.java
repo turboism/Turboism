@@ -113,6 +113,25 @@ class CubismJvmSettingsFileServiceTest {
     }
 
     @Test
+    void uniformLocationPreferenceDefaultsOnAndSurvivesReopen() throws Exception {
+        try (CubismJvmSettingsFileService settings = service(Map.of())) {
+            assertTrue(settings.uniformLocationCache());
+            settings.saveModelUpdateSkip(false);
+            assertFalse(settings.saveUniformLocationCache(false));
+            assertFalse(settings.uniformLocationCache());
+        }
+        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
+                new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
+            assertFalse(reopened.uniformLocationCache(), "explicit opt-out survives restart");
+            assertFalse(reopened.modelUpdateSkip(), "unrelated preference is preserved");
+            assertTrue(reopened.saveUniformLocationCache(true));
+            assertTrue(reopened.uniformLocationCache());
+            assertFalse(Files.readString(home.resolve("config.json")).contains("uniformLocationCache"));
+            assertFalse(reopened.modelUpdateSkip());
+        }
+    }
+
+    @Test
     void optimizationsDefaultToTrue() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             assertTrue(service.modelUpdateSkip());

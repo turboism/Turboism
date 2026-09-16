@@ -622,7 +622,7 @@ public final class TurboismAgent {
 
     private static void installUniformLocationCache(AgentOptions options, Instrumentation instrumentation,
                                                     HostClassLocator.LocatedHost host) {
-        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.ENABLE_PROPERTY)) {
+        if (!dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.enabledByPreference()) {
             runtimeInfo("TURBOISM_UNIFORM_LOCATION installation=NOT_ADMITTED");
             return;
         }
