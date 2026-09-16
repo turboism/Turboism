@@ -93,7 +93,9 @@ final class CanvasWheelWorkload {
             .append("width=").append(width).append("\nheight=").append(height)
             .append("\nzoomBefore=").append(originalZoom).append('\n');
         try {
-            final boolean profile = Boolean.getBoolean("turboism.validation.modelUpdateJfr");
+            final boolean allocations = Boolean.getBoolean("turboism.validation.allocationProfile");
+            final boolean profile = Boolean.getBoolean("turboism.validation.modelUpdateJfr") || allocations;
+            report.append("allocationProfiling=").append(allocations).append('\n');
             final boolean gpuWait = Boolean.getBoolean("turboism.validation.modelUpdateGpuWait");
             final boolean glCalls = Boolean.getBoolean("turboism.validation.modelUpdateGlCalls");
             final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues") || factor.equals("uniformSuite");
@@ -196,6 +198,7 @@ final class CanvasWheelWorkload {
                         recording.enable("jdk.NativeMethodSample").withPeriod(java.time.Duration.ofMillis(5));
                         recording.enable("jdk.JavaMonitorEnter").withThreshold(java.time.Duration.ofMillis(1));
                         recording.enable("jdk.ThreadPark").withThreshold(java.time.Duration.ofMillis(1));
+                        if (allocations) AllocationProfile.configure(recording);
                         recording.start();
                     }
                     if (gpuProbe != null) onEdt(() -> { gpuProbe.start(); return null; });
@@ -217,7 +220,10 @@ final class CanvasWheelWorkload {
                     }
                     if (recording != null) {
                         recording.stop();
-                        recording.dump(state.resolve("wheel-leg-" + leg + ".jfr"));
+                        Path recorded = state.resolve("wheel-leg-" + leg + ".jfr");
+                        recording.dump(recorded);
+                        if (allocations) Files.writeString(state.resolve("allocation-leg-" + leg + ".txt"),
+                            AllocationProfile.summarize(recorded));
                     }
                 }
                 final Map<String, Long> after = snapshot();

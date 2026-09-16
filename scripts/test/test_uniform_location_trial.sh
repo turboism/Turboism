@@ -8,12 +8,13 @@ tests=validation/model-update-skip-host-probe/test/dev/turboism/validation/model
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 javac --release 17 -d "$out" \
+  "$src/AllocationProfile.java" "$tests/AllocationProfileTest.java" \
   "$src/GlSubmissionProbe.java" "$src/UploadPayloadObserver.java" \
   "$src/ProcessMemorySample.java" "$src/BenchmarkResources.java" "$src/NarrowUniformTrial.java" \
   "$src/UniformLocationCache.java" "$src/UniformValueCache.java" "$src/UniformLocationTrial.java" "$src/FrameReadback.java" \
   "$tests/GlSubmissionProbeTest.java" "$tests/UploadPayloadObserverTest.java" \
   "$tests/UniformLocationCacheTest.java" "$tests/UniformLocationTrialTest.java" "$tests/FrameReadbackTest.java" \
   "$tests/UniformValueCacheTest.java" "$tests/UniformValueAllocationTest.java" "$tests/BenchmarkResourcesTest.java" "$tests/NarrowUniformTrialTest.java"
-for name in GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest; do
+for name in AllocationProfileTest GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest; do
   java -cp "$out" "dev.turboism.validation.modelupdate.$name"
 done
