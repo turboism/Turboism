@@ -128,9 +128,9 @@ STARTUP_FIELDS = {
     "skipUpdateCheck", "skipSplash", "skipInformation",
     "separateExportSaveDirectory",
 }
-LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate"}
+LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
 V0_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
-BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate"}
+BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
 }
@@ -407,7 +407,7 @@ def check_config_migration_contract():
               "reduceAutoBackup": True, "meshTriangulationHashFix": False,
               "atlasTileBbox": True, "atlasCacheReuse": False,
               "launcher": {"cubismJvm": "bundled", "zgc": False,
-                           "modelUpdateSkip": False, "incrementalUpdate": True},
+                           "modelUpdateSkip": False, "incrementalUpdate": True, "uniformLocationCache": False},
           }) is not None)
     check("CM7 migration/selection publish atomically and fail closed",
           "[System.IO.File]::Replace($temporary, $configPath, $backup, $true)" in configure

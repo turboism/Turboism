@@ -2,6 +2,7 @@ package dev.turboism.shell;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
+import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsActionHandle;
 import dev.turboism.sdk.ui.settings.SettingsActionProgress;
@@ -240,6 +241,28 @@ final class CubismJvmSettingsContribution {
             settings::incrementalUpdate,
             settings::saveIncrementalUpdate,
             81
+        );
+    }
+
+    /** Saved default-on preference; unsupported hosts still use their native renderer. */
+    static SettingsContribution createUniformLocationCacheToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "uniform-location-cache",
+            "settings.optimization.uniform-location-cache",
+            UniformLocationHookBridge.ENABLE_PROPERTY,
+            settings::uniformLocationCache,
+            value -> {
+                if (settings.saveUniformLocationCache(value) != value) {
+                    throw new IllegalStateException("Uniform-location preference was not saved");
+                }
+                return value;
+            },
+            82
         );
     }
 
