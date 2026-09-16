@@ -1,5 +1,61 @@
 # Model-update and uniform-location experiments
 
+## Native pan and single-ArtMesh interaction validation
+
+Run only in the task-scoped shared host queue. The production hook is default-on
+for an exactly admitted host; no explicit enable flag is needed to prove startup.
+The auto-exit exerciser must never be deployed to an ordinary user's plugin home.
+
+```bash
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 pan-full \
+  --jvm-option '-Dturboism.validation.nativeInteraction=pan' \
+  --jvm-option '-Dturboism.validation.resources=true' \
+  --ready-marker 'TURBOISM_UNIFORM_LOCATION installation=COMPLETE' \
+  --failure-marker 'TURBOISM_UNIFORM_LOCATION installation=FAILED' \
+  --result-timeout 1200
+```
+
+Use `nativeInteraction=artmesh` for the single-ArtMesh gesture. Add
+`-Dturboism.validation.modelUpdateCalibration=true` for a 16-event-per-leg
+calibration; the full workload has four 200-event OFF/ON/ON/OFF legs.
+Results are in `interaction-benchmark.txt`, not the older wheel report.
+
+Input uses the native AWT listeners on the single verified fixture canvas, never
+SDK geometry replacement or a direct camera mutation during measurement. Pan
+sends canvas-scoped Space and mouse drag events with active canvas focus; there
+is no system-wide Robot input. A single continuous press spans each measured leg.
+Each drag event must complete a native display before its EDT barrier. This is
+serial input-to-repaint throughput, not monitor presentation FPS or a claim about
+unbounded input-queue behavior. Press/release and target acquisition are separately
+accounted and excluded from the measured drag window.
+
+ArtMesh acquisition performs bounded native clicks and requires exactly one
+editable ArtMesh with a current keyform. A projected triangle centroid can be
+transparent; geometry coverage alone is not proof of a native picking hit. The
+chosen target and acquisition attempts are recorded. Calibration initially
+exposed a rectangle-selection action masquerading as dragging, which is rejected.
+
+Geometry snapshots cover source positions, all source keyforms, interpolated
+positions and calculated canvas positions. Moving an ArtMesh requires all its
+vertices to move and exactly that mesh to change; other meshes and the camera
+must remain unchanged. Native Undo/Redo/Undo must exactly replay the complete
+geometry, preserving prior meaningful authoring edits. Native selection-only
+history compaction is allowed; raw Undo cursor +1 is not assumed. The native
+modified-after-saving flag is never cleared by the probe: an ON leg must match
+the OFF-observed flag behavior after Undo. The original file is never written.
+
+Pan must move the camera with every mesh, document-modified flag and Undo state
+unchanged; its original camera values are restored outside measurement. Pixel
+parity at both moved and restored states compares native/native-repeat/cache-on/
+native at a fixed state, rejecting blank images. In-flight mouse/key state is
+released in finally even on failure. Profiled runs are excluded from this driver.
+
+5.3.03 calibration jobs: native pan `9983bb26-b2fc-4488-9e20-df309cccd58a` and
+native ArtMesh `b0a02b66-8c77-4651-97ed-c4b7dbf9f702` completed with geometry,
+pixel, identity/source, normal-exit and supervisor cleanup PASS. These short
+calibrations do not substitute for the full measurements or other-host validation.
+
+
 This is **validation tooling, not a normal production plugin**. The exerciser
 writes a terminal result and exits its test Editor process. Never install it in
 a working user's ordinary Turboism home.
