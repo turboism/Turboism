@@ -9,7 +9,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HexFormat;
 
-/** Immutable raw pixels from the actual native GL readback, without row padding. */
+/** Immutable pixels from native GL readback or explicitly tagged canvas ARGB capture. */
 final class FrameReadback {
     private final int width, height, format, type;
     private final int[] words;
@@ -43,6 +43,14 @@ final class FrameReadback {
             }
         }
         return new FrameReadback(width, height, format, type, words);
+    }
+    /** Canvas-composited ARGB, not claimed to be an uninterpreted GL readback. */
+    static FrameReadback fromArgb(int width, int height, int[] pixels) {
+        if (width <= 0 || height <= 0 || (long) width * height > 16_777_216L
+            || pixels == null || pixels.length != (long) width * height) {
+            throw new IllegalArgumentException("invalid canvas pixel layout");
+        }
+        return new FrameReadback(width, height, 0, 0, pixels.clone());
     }
     int pixels() { return words.length; }
     int distinctPixels() {
