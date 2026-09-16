@@ -31,7 +31,8 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
     private FrameReadback captured;
     private Throwable captureFailure;
     private long queries, nativeQueries, skippedQueries, shadowQueries, shadowMismatches,
-        glErrors, failures, draws, frames;
+        glErrors, failures, draws, frames, completedFrames;
+    private boolean inDisplay;
 
     UniformLocationTrial(Class<?> api, Object downstream, boolean shadow) throws Exception {
         if (!api.isInterface() || !api.isInstance(downstream)) throw new IllegalArgumentException("invalid GL interface");
@@ -81,6 +82,8 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
     void setEnabled(boolean value) { cache.end(); values.end(); enabled = value; }
     void setValuesEnabled(boolean value) { values.end(); valuesEnabled = value; }
     void beginFrame() throws Exception {
+        if (inDisplay) { cache.fault(); values.fault(); failures++; }
+        inDisplay = true;
         frames++;
         if (enabled) {
             Object context = contextGetter.invoke(downstream);
@@ -88,7 +91,10 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
             if (valuesEnabled) values.begin(context); else values.end();
         } else { cache.end(); values.end(); }
     }
-    void endFrame() { cache.end(); values.end(); }
+    void endFrame() {
+        if (inDisplay) { completedFrames++; inDisplay = false; }
+        cache.end(); values.end();
+    }
     Object wrapped() { return pipeline; }
     void requestReadback() { captured = null; captureFailure = null; capturePending = true; }
     FrameReadback takeReadback() {
@@ -195,6 +201,7 @@ final class UniformLocationTrial implements InvocationHandler, AutoCloseable {
         result.put("skippedQueries", skippedQueries); result.put("shadowQueries", shadowQueries);
         result.put("shadowMismatches", shadowMismatches); result.put("glErrors", glErrors);
         result.put("failures", failures); result.put("draws", draws); result.put("displayFrames", frames);
+        result.put("completedDisplayFrames", completedFrames);
         result.put("uniformWrites", uniformWrites); result.put("nativeUniformWrites", nativeUniformWrites);
         result.put("skippedUniformWrites", skippedUniformWrites);
         values.snapshot().forEach((key, value) -> result.put("valueCache." + key, value));
