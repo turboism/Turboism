@@ -43,7 +43,8 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
     private static final Duration SAMPLE_INTERVAL = Duration.ofSeconds(1);
     /** Repaint activity needed before the counter assertions are evaluated. */
     private static final long MIN_CALLS = 30L;
-    private static final long SAMPLE_WINDOW_MILLIS = 180_000L;
+    private static final long WARMUP_MILLIS = 5_000L;
+    private static final long SAMPLE_WINDOW_MILLIS = 20_000L;
     /** Extra observation time after the live-disable toggle. */
     private static final long DISABLE_OBSERVE_MILLIS = 6_000L;
 
@@ -53,6 +54,10 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
     private PluginLogger logger;
     private PluginContext context;
     private Path stateDir;
+    private Map<String, Long> windowStartStats, windowEndStats;
+    private long windowElapsedNanos;
+    private long windowRenderedFrames;
+    private long sampleCount;
 
     @Override
     public void init(final PluginContext context) {
@@ -96,7 +101,29 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
             + " hostVersion=" + hostVersion
             + " modelId=" + modelId.orElseThrow()
             + " mode=" + mode);
-        runSampling(hostVersion, modelId.orElseThrow(), mode);
+        if ("wheel".equals(System.getProperty("turboism.validation.modelUpdateWorkload"))) {
+            runWheelBenchmark(hostVersion, modelId.orElseThrow(), mode);
+        } else {
+            runSampling(hostVersion, modelId.orElseThrow(), mode);
+        }
+    }
+
+    private void runWheelBenchmark(final String hostVersion, final String modelId, final String mode) {
+        try {
+            Thread.sleep(WARMUP_MILLIS);
+            new CanvasWheelWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir)
+                .run("probe".equals(mode));
+            final Map<String, Long> counters = statsSnapshot();
+            final boolean pass = counters != null && number(counters, "failures") == 0L
+                && number(counters, "probeMismatch") == 0L;
+            finish(pass, pass ? "camera workload completed; inspect wheel-benchmark.txt"
+                : "camera workload counter failure", mode, hostVersion, modelId, counters,
+                null, 0L, List.of(), "none");
+        } catch (Throwable failure) {
+            logger.warn("MODEL_UPDATE_SKIP_WHEEL_FAILURE " + failure);
+            finish(false, "camera workload failed: " + failure, mode, hostVersion, modelId,
+                statsSnapshot(), null, 0L, List.of(), failure.toString());
+        }
     }
 
     private String mode() {
@@ -170,7 +197,8 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
 
     private void runSampling(final String hostVersion, final String modelId, final String mode) {
         final AtomicLong maxRenderedFrames = new AtomicLong();
-        final AtomicLong maxFpsMillis = new AtomicLong();
+        final AtomicLong firstRenderedFrames = new AtomicLong(-1L);
+        final AtomicLong samples = new AtomicLong();
         final java.util.List<Double> fpsSeries =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
         final java.util.concurrent.atomic.AtomicReference<String> failure =
@@ -178,18 +206,35 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
         Map<String, Long> last = null;
         Long disableProbeResult = null;
         try {
+            // Identical warm-up and observation lengths for OFF, PROBE and ON.
+            // Work-count-dependent termination would compare different workloads.
+            Thread.sleep(WARMUP_MILLIS);
+            if (Boolean.getBoolean("turboism.validation.modelUpdateUiInventory")) {
+                inventoryFixtureWindow();
+            }
             final PerformanceProbeService stats = context.performanceStats();
+            windowStartStats = statsSnapshot();
+            final long started = System.nanoTime();
             final Registration sampling = stats.sample(SAMPLE_INTERVAL, snapshot -> {
+                firstRenderedFrames.compareAndSet(-1L, snapshot.renderedFrames());
                 maxRenderedFrames.accumulateAndGet(snapshot.renderedFrames(), Math::max);
-                maxFpsMillis.accumulateAndGet(Math.round(snapshot.fps() * 1000.0), Math::max);
+                samples.incrementAndGet();
                 fpsSeries.add(snapshot.fps());
             });
-            final long deadline = System.currentTimeMillis() + SAMPLE_WINDOW_MILLIS;
-            while (System.currentTimeMillis() < deadline) {
+            try {
+                final long windowNanos = Duration.ofMillis(SAMPLE_WINDOW_MILLIS).toNanos();
+                while (System.nanoTime() - started < windowNanos) {
+                    Thread.sleep(Math.min(250L, SAMPLE_WINDOW_MILLIS));
+                }
                 last = statsSnapshot();
-                if (last != null && number(last, "calls") >= MIN_CALLS) break;
-                Thread.sleep(SETTLE_STEP_MILLIS);
+                windowEndStats = last;
+                windowElapsedNanos = System.nanoTime() - started;
+            } finally {
+                sampling.close();
             }
+            sampleCount = samples.get();
+            windowRenderedFrames = firstRenderedFrames.get() < 0L ? 0L
+                : Math.max(0L, maxRenderedFrames.get() - firstRenderedFrames.get());
             // Live-disable check for the enabled modes: while the switch is
             // off the skip callback returns before counting, so `skipped`
             // and `calls` freeze while `full` keeps counting the native
@@ -210,7 +255,6 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
                 }
                 last = after;
             }
-            sampling.close();
             evaluate(hostVersion, modelId, mode, last,
                 maxRenderedFrames.get(), disableProbeResult, fpsSeries, failure);
         } catch (Throwable failure1) {
@@ -220,6 +264,53 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
                 + " mode=" + mode + " reason=" + failure.get());
             finish(false, failure.get(), mode, hostVersion, modelId, last,
                 disableProbeResult, maxRenderedFrames.get(), fpsSeries, failure.get());
+        }
+    }
+
+    /** Read-only, bounded Swing inventory of this task's fixture window on the EDT. */
+    private void inventoryFixtureWindow() throws Exception {
+        final String fixture = System.getProperty("turboism.validation.fixtureName", "");
+        if (fixture.isBlank()) throw new IllegalStateException("task fixture name absent");
+        final StringBuilder inventory = new StringBuilder();
+        final java.util.concurrent.FutureTask<Void> scan = new java.util.concurrent.FutureTask<>(() -> {
+            int matched = 0;
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                if (window instanceof java.awt.Frame frame && frame.isShowing()
+                    && frame.getTitle().contains(fixture)) {
+                    matched++;
+                    inventoryComponent(frame, "window", 0, new int[]{0}, inventory);
+                }
+            }
+            if (matched != 1) throw new IllegalStateException("fixture window matches=" + matched);
+            return null;
+        });
+        java.awt.EventQueue.invokeLater(scan);
+        scan.get(10L, java.util.concurrent.TimeUnit.SECONDS);
+        Files.writeString(stateDir.resolve("ui-inventory.txt"), inventory);
+    }
+
+    private static void inventoryComponent(final java.awt.Component component, final String path,
+                                           final int depth, final int[] count,
+                                           final StringBuilder out) {
+        if (depth > 32 || ++count[0] > 4096) throw new IllegalStateException("UI scan bound exceeded");
+        if (!component.isShowing()) return;
+        out.append(path).append(' ').append(component.getClass().getName())
+            .append(" size=").append(component.getWidth()).append('x').append(component.getHeight())
+            .append(" wheelListeners=").append(component.getMouseWheelListeners().length);
+        for (java.awt.event.MouseWheelListener listener : component.getMouseWheelListeners()) {
+            out.append(" listener=").append(listener.getClass().getName());
+        }
+        if (component instanceof javax.swing.JLabel label) {
+            out.append(" text=").append(label.getText());
+        } else if (component instanceof javax.swing.JComboBox<?> combo) {
+            out.append(" selected=").append(combo.getSelectedItem());
+        }
+        out.append('\n');
+        if (component instanceof java.awt.Container container) {
+            final java.awt.Component[] children = container.getComponents();
+            for (int i = 0; i < children.length; i++) {
+                inventoryComponent(children[i], path + "/" + i, depth + 1, count, out);
+            }
         }
     }
 
@@ -239,14 +330,17 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
             final Properties properties = System.getProperties();
             pass = stats == null
                 && properties.get(CALLBACK_SLOT) == null
-                && properties.get(AFTER_SLOT) == null;
-            outcome = pass ? "no hook slots installed while disabled" : "disabled run installed hook slots";
+                && properties.get(AFTER_SLOT) == null
+                && windowRenderedFrames > 0L;
+            outcome = pass ? "disabled hook absent with repaint activity"
+                : "disabled hook present or no repaint activity";
         } else if (stats == null) {
             pass = false;
             outcome = "stats slot absent; hook not installed";
-        } else if (number(stats, "calls") <= 0L) {
+        } else if (number(windowEndStats, "calls")
+            - Math.max(0L, number(windowStartStats, "calls")) < MIN_CALLS) {
             pass = false;
-            outcome = "no model-update entries observed within sampling window";
+            outcome = "insufficient model-update entries in fixed sampling window";
         } else {
             pass = number(stats, "failures") == 0L
                 && number(stats, "probeMismatch") == 0L
@@ -339,8 +433,7 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
     private static String statsLine(final Map<String, Long> stats) {
         if (stats == null) return " stats=absent";
         final StringBuilder line = new StringBuilder(128);
-        for (String key : List.of("calls", "skipped", "full", "probeMismatch", "failures",
-            "predicateNanos", "predicateMaxNanos", "digestNanos")) {
+        for (String key : new java.util.TreeSet<>(stats.keySet())) {
             line.append(' ').append(key).append('=').append(number(stats, key));
         }
         return line.toString();
@@ -369,6 +462,29 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
             "predicateNanos", "predicateMaxNanos", "digestNanos")) {
             result.append("modelUpdate.").append(key).append('=')
                 .append(number(stats, key)).append('\n');
+        }
+        if (stats != null) {
+            for (String key : new java.util.TreeSet<>(stats.keySet())) {
+                if (List.of("calls", "skipped", "full", "probeMismatch", "failures",
+                    "predicateNanos", "predicateMaxNanos", "digestNanos").contains(key)) continue;
+                result.append("modelUpdate.").append(key).append('=')
+                    .append(number(stats, key)).append('\n');
+            }
+        }
+        result.append("workload=").append("wheel".equals(
+            System.getProperty("turboism.validation.modelUpdateWorkload"))
+                ? "awt-wheel-native-repaint-barrier" : "window-resize-smoke").append('\n')
+            .append("performanceAccepted=false\n")
+            .append("window.elapsedNanos=").append(windowElapsedNanos).append('\n')
+            .append("window.requestedMillis=").append(SAMPLE_WINDOW_MILLIS).append('\n')
+            .append("window.renderedFramesBetweenSamples=").append(windowRenderedFrames).append('\n')
+            .append("window.sampleCount=").append(sampleCount).append('\n');
+        if (windowStartStats != null && windowEndStats != null) {
+            for (String key : new java.util.TreeSet<>(windowEndStats.keySet())) {
+                if (key.equals("active") || key.equals("parameterCount") || key.endsWith("MaxNanos")) continue;
+                result.append("window.modelUpdate.").append(key).append('=')
+                    .append(number(windowEndStats, key) - number(windowStartStats, key)).append('\n');
+            }
         }
         if (disableProbeResult != null) {
             result.append("modelUpdate.liveDisableObserved=").append(disableProbeResult == 1L).append('\n');

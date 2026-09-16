@@ -17,6 +17,10 @@ if [ "$#" -lt 2 ]; then
   exit 2
 fi
 mode="$1"
+workload=resize
+case "$mode" in
+  on-wheel|probe-wheel) workload=wheel; mode="${mode%-wheel}" ;;
+esac
 version="$2"
 shift 2
 case "$mode" in
@@ -59,7 +63,12 @@ driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 # The probe mismatch report lives inside the isolated Turboism home so it is
 # collected with the run evidence; it is written only when a decided-skip
 # digest differs from the post-update digest.
-probe_options=()
+probe_options=(--jvm-option "-Dturboism.validation.modelUpdateWorkload=$workload")
+driver_options=()
+if [[ "$workload" == resize ]]; then
+  driver_options=(--remote-pre-launch "$driver" --remote-pre-launch-background
+    --remote-pre-launch-args-only --remote-pre-launch-arg '{FIXTURE_NAME}')
+fi
 ready_markers=(--ready-marker 'MODEL_UPDATE_SKIP_EXERCISER_READY')
 if [[ "$enabled" == true ]]; then
   ready_markers+=(--ready-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=COMPLETE')
@@ -81,10 +90,7 @@ exec bash "$runner" \
   --fixture-name "$fixture_suffix" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
-  --remote-pre-launch "$driver" \
-  --remote-pre-launch-background \
-  --remote-pre-launch-args-only \
-  --remote-pre-launch-arg '{FIXTURE_NAME}' \
+  "${driver_options[@]}" \
   "${ready_markers[@]}" \
   --failure-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=FAILED' \
   --failure-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=NOT_ADMITTED' \
@@ -92,6 +98,7 @@ exec bash "$runner" \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
   --jvm-option "-Dturboism.optimization.modelUpdateSkip=$enabled" \
+  --jvm-option '-Dturboism.optimization.incrementalUpdate=false' \
   --jvm-option '-Dturboism.optimization.warpPositionProjection=false' \
   --jvm-option '-Dturboism.optimization.imageArchiveReuse=false' \
   --jvm-option '-Dturboism.optimization.floatArrayParseCache=false' \

@@ -21,7 +21,14 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
 javac --release 17 -cp "$sdk_jar" -d "$out" \
-  "$src/dev/turboism/validation/modelupdate/ModelUpdateSkipHostProbePlugin.java"
+  "$src/dev/turboism/validation/modelupdate/ModelUpdateSkipHostProbePlugin.java" \
+  "$src/dev/turboism/validation/modelupdate/CanvasWheelWorkload.java" \
+  "$src/dev/turboism/validation/modelupdate/GpuCompletionProbe.java" \
+  "$src/dev/turboism/validation/modelupdate/GlSubmissionProbe.java" \
+  "$src/dev/turboism/validation/modelupdate/UploadPayloadObserver.java" \
+  "$src/dev/turboism/validation/modelupdate/UniformLocationCache.java" \
+  "$src/dev/turboism/validation/modelupdate/UniformLocationTrial.java" \
+  "$src/dev/turboism/validation/modelupdate/FrameReadback.java"
 cp -r "$src/META-INF" "$out/"
 
 output="$repo_root/build/model-update-skip-host-validation-exerciser.jar"
