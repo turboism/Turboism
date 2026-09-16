@@ -1,0 +1,53 @@
+# Narrow uniform-location cache
+
+Opt-in runtime implementation replacing the validation-only all-GL proxy. It is
+NOT enabled by default and does not include uniform-value suppression.
+
+```text
+-Dturboism.optimization.uniformLocationCache=true
+```
+
+Initial scope: exact reviewed Cubism 5.3.03, its separately pinned bundled JOGL,
+JVM 17+, a current created unshared GL4bcImpl context and enabled hook policy.
+Safe mode / disabled `cubism.render.uniform-location-cache` denies installation.
+Other versions, JOGL binaries, context implementations, shared contexts and failed
+lifecycle coverage remain native. This is not blanket compatibility admission.
+
+## Boundaries
+
+- Only GShader.preDraw_exe's material glGetUniformLocation site is conditional.
+  No Object[] is generated at that site. Other GL calls are not proxied.
+- SGFramework.g.render3d opens and finally closes the frame cache. It deliberately
+  avoids the CEViewContext class used by the existing FPS instrumentation.
+- Native shader error results confirm pending locations only in the same context
+  and thread; no additional GL error queries are made or consumed.
+- Concrete JOGL core/ARB link, program-binary and delete entries retire the active
+  frame. Reentrant render scopes, context transitions and errors cannot revive it.
+- Every frame releases its keys, pending values and host references. Retention is
+  bounded to 4096 locations. Lifecycle failures retire reuse; absent or malformed
+  typed callbacks retain the original query and native exception behavior.
+- All original draw, buffer-upload, uniform-write and error instructions remain.
+  A cache hit includes a valid -1 location, but not an unsupported negative value.
+- Installation publishes callbacks only after all four class transforms succeed.
+  Closing removes callbacks first, then all transforms, and checks original class
+  hashes. A failed restoration is logged, not silently called successful.
+
+`-Dturboism.uniform-location.shadow=true` retains native queries and compares each
+eligible cached result. It is diagnostic only, not a performance measurement.
+Counters are available through the loader-neutral supplier in system-property slot
+`turboism.uniform-location.stats`; they contain scalars, not host objects.
+
+## Verification
+
+```bash
+./gradlew --no-watch-fs :runtime:test --tests 'dev.turboism.adapter.cubism.optimization.uniform.*'
+./gradlew --no-watch-fs :bootstrap:test --tests '*VerifiedUniformLocationInstallerTest'
+./gradlew --no-watch-fs devCheck
+```
+
+Set `TURBOISM_UNIFORM_HOST_JAR` to the reviewed application JAR to execute artifact
+checks. Missing explicit reference input is an artifact-test skip, not a host PASS.
+Synthetic transformed-code tests and instrumentation-protocol tests do not launch
+or execute the Editor. Actual JVM retransformation, frame/pixel parity and measured
+net benefit of the narrow path require the separate exact-host validation run.
+Do not reuse the old proxy's speedup, FPS or memory numbers for this implementation.

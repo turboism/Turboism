@@ -36,7 +36,7 @@ class UniformLocationCallSiteArtifactTest {
         assertEquals(ReviewedHostArtifacts.CUBISM_5_3_03, HostArtifactDigest.from(artifact),
             "unreviewed official artifact");
         List<URL> dependencies = new ArrayList<>();
-        try (var files = Files.list(artifact.getParent())) {
+        try (var files = Files.walk(artifact.getParent(), 3)) {
             for (Path path : files.filter(path -> path.toString().endsWith(".jar")).toList()) {
                 dependencies.add(path.toUri().toURL());
             }
@@ -66,6 +66,37 @@ class UniformLocationCallSiteArtifactTest {
             assertEquals(calls(original), calls(changed), "all native GL query/draw/upload/state calls must remain in bytecode");
         }
     }
+    @Test void transformsAllExactLifecycleBodiesAndResolvesBridgeAccessors() throws Exception {
+        String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
+        assumeTrue(supplied != null && !supplied.isBlank(), "explicit exact-host artifact not supplied");
+        Path artifact = Path.of(supplied).toAbsolutePath();
+        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_03, HostArtifactDigest.from(artifact));
+        Path jogl = artifact.getParent().resolve("jogl/jogl-all.jar");
+        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_03_JOGL, HostArtifactDigest.from(jogl));
+        List<URL> urls = new ArrayList<>();
+        try (var files = Files.walk(artifact.getParent(), 3)) {
+            for (Path path : files.filter(path -> path.toString().endsWith(".jar")).toList()) urls.add(path.toUri().toURL());
+        }
+        try (URLClassLoader loader = new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader());
+             UniformLocationHookBridge bridge = new UniformLocationHookBridge(loader)) {
+            assertEquals(0L, bridge.statistics().get("active"));
+            for (var role : UniformLocationLifecycleTransformer.Role.values()) {
+                Path source = role == UniformLocationLifecycleTransformer.Role.MUTATIONS ? jogl : artifact;
+                try (JarFile jar = new JarFile(source.toFile())) {
+                    byte[] reference;
+                    try (var input = jar.getInputStream(jar.getJarEntry(role.owner() + ".class"))) { reference = input.readAllBytes(); }
+                    UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(loader, source, reference, role);
+                    ProtectionDomain domain = new ProtectionDomain(new CodeSource(source.toUri().toURL(), (Certificate[]) null), null);
+                    byte[] changed = transformer.transform(null, loader, role.owner(), null, domain, reference);
+                    assertNotNull(changed, transformer.failure());
+                    assertEquals(methods(reference), methods(changed));
+                    assertEquals(calls(reference), calls(changed), "native GL operations changed for " + role);
+                    assertEquals(1, transformer.matches());
+                }
+            }
+        }
+    }
+
     private static Map<String, String> methods(byte[] bytes) {
         Map<String, String> result = new LinkedHashMap<>();
         new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
