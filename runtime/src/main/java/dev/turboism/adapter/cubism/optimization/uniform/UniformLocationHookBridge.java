@@ -20,7 +20,7 @@ import java.util.function.Supplier;
  * corresponding transforms before exposing the enabled render path.</p>
  */
 public final class UniformLocationHookBridge implements AutoCloseable {
-    /** Explicit opt-in switch, sampled at each frame entry. */
+    /** Default-on preference sampled per frame; exact host and safety admission still apply. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.uniformLocationCache";
     /** Diagnostic mode retaining native queries and comparing cached results. */
     public static final String SHADOW_PROPERTY = "turboism.uniform-location.shadow";
@@ -112,6 +112,11 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             MUTATION_BEGIN_PROPERTY, MUTATION_END_PROPERTY, STATS_PROPERTY);
     }
 
+    /** Returns the default-on preference; explicit false or malformed overrides disable reuse. */
+    public static boolean enabledByPreference() {
+        return Boolean.parseBoolean(System.getProperty(ENABLE_PROPERTY, "true"));
+    }
+
     /** Confirms complete, installer-attested shared program mutation coverage. */
     public synchronized void confirmMutationCoverage() {
         if (installed || closed || retired) throw new IllegalStateException("mutation coverage must precede publication");
@@ -157,7 +162,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             Object gl = (Object) frameToGl.invokeExact(frame);
             Object context = (Object) glToContext.invokeExact(gl);
             boolean shared = context != null && (boolean) contextShared.invokeExact(context);
-            boolean supported = Boolean.getBoolean(ENABLE_PROPERTY) && context != null
+            boolean supported = enabledByPreference() && context != null
                 && (!shared || mutationCoverage) && mutations.isEmpty()
                 && (supportedGlType == null || gl.getClass() == supportedGlType)
                 && (boolean) contextCreated.invokeExact(context)

@@ -93,6 +93,16 @@ public interface CubismJvmSettingsService {
         return true;
     }
 
+    /** Returns the default-on uniform-location cache preference for verified hosts. */
+    default boolean uniformLocationCache() {
+        return true;
+    }
+
+    /** Persists the uniform-location cache preference; installation changes require restart. */
+    default boolean saveUniformLocationCache(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /** Persists the unchanged-frame model-update skip preference. */
     default boolean saveModelUpdateSkip(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");

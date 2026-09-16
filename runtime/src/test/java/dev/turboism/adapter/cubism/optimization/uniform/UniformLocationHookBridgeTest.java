@@ -67,7 +67,8 @@ class UniformLocationHookBridgeTest {
             assertSame(occupied, System.getProperties().get(UniformLocationHookBridge.ERROR_PROPERTY));
         }
     }
-    @Test void cachesOnlyExplicitEnabledOwnedUnsharedFrame() throws Throwable {
+    @Test void cachesOnlyEnabledOwnedUnsharedFrame() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "false");
         Context context = new Context(); GL gl = new GL(context); Frame frame = new Frame(gl); current = context;
         try (UniformLocationHookBridge bridge = bridge()) {
             bridge.install();
@@ -86,6 +87,22 @@ class UniformLocationHookBridgeTest {
             assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "color"));
         }
     }
+    @Test void absentPreferenceDefaultsOnAndExplicitFalseRemainsNative() throws Exception {
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = bridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            bridge.record(gl, 7, "x", 8); bridge.error(gl, 0);
+            assertEquals(8, bridge.lookup(gl, 7, "x"));
+            bridge.end(scope);
+            System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "false");
+            scope = bridge.begin(new Frame(gl));
+            bridge.record(gl, 7, "x", 9); bridge.error(gl, 0);
+            assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x"));
+            bridge.end(scope);
+        }
+    }
+
     @Test void completeMutationCoverageAvoidsRepeatedAllocatingShareLookups() throws Exception {
         System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
         Context context = new Context(); context.shared = true;
