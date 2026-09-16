@@ -8,10 +8,10 @@ NOT enabled by default and does not include uniform-value suppression.
 ```
 
 Initial scope: exact reviewed Cubism 5.3.03, its separately pinned bundled JOGL,
-JVM 17+, a current created unshared GL4bcImpl context and enabled hook policy.
+JVM 17+, a current created GL4bcImpl context and enabled hook policy.
 Safe mode / disabled `cubism.render.uniform-location-cache` denies installation.
-Other versions, JOGL binaries, context implementations, shared contexts and failed
-lifecycle coverage remain native. This is not blanket compatibility admission.
+Other versions, JOGL binaries, context implementations and failed lifecycle coverage
+remain native. Shared contexts require complete bundled program-mutation coverage. This is not blanket compatibility admission.
 
 ## Boundaries
 
@@ -21,14 +21,18 @@ lifecycle coverage remain native. This is not blanket compatibility admission.
   avoids the CEViewContext class used by the existing FPS instrumentation.
 - Native shader error results confirm pending locations only in the same context
   and thread; no additional GL error queries are made or consumed.
-- Concrete JOGL core/ARB link, program-binary and delete entries retire the active
-  frame. Reentrant render scopes, context transitions and errors cannot revive it.
+- Concrete GL4bcImpl core/ARB and GLES3Impl link, program-binary and delete entries
+  retire the active frame. The pinned JOGL writer inventory must match both complete
+  method families. Begin/finally-end tokens prevent new baselines while any native
+  mutation is in flight, including another shared context/thread. Native mutation
+  calls execute outside the bridge monitor. Nested/reentrant rendering, context
+  transitions and errors cannot revive a retired frame.
 - Every frame releases its keys, pending values and host references. Retention is
   bounded to 4096 locations. Lifecycle failures retire reuse; absent or malformed
   typed callbacks retain the original query and native exception behavior.
 - All original draw, buffer-upload, uniform-write and error instructions remain.
   A cache hit includes a valid -1 location, but not an unsupported negative value.
-- Installation publishes callbacks only after all four class transforms succeed.
+- Installation publishes callbacks only after all five class transforms succeed.
   Closing removes callbacks first, then all transforms, and checks original class
   hashes. A failed restoration is logged, not silently called successful.
 
@@ -51,3 +55,9 @@ Synthetic transformed-code tests and instrumentation-protocol tests do not launc
 or execute the Editor. Actual JVM retransformation, frame/pixel parity and measured
 net benefit of the narrow path require the separate exact-host validation run.
 Do not reuse the old proxy's speedup, FPS or memory numbers for this implementation.
+
+Initial exact-host calibration found that the modeling canvas uses a shared context;
+its former blanket shared-context rejection produced zero hits despite successful
+installation. The shared mutation coverage above replaces that restriction, not
+its correctness requirements. New real-host evidence must exercise nonzero hits
+and preserve pixel parity; successful installation alone is never sufficient.

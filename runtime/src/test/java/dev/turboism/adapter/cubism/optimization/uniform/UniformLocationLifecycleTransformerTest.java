@@ -21,7 +21,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 class UniformLocationLifecycleTransformerTest {
-    private static int begins, ends, errors, mutations;
+    private static int begins, ends, errors, mutations, mutationsEnded;
     private static long ended;
     private static boolean failCallbacks;
     private static final Path ARTIFACT = Path.of("reviewed.jar").toAbsolutePath();
@@ -29,9 +29,11 @@ class UniformLocationLifecycleTransformerTest {
     public static void end(long token) { ends++; ended = token; if (failCallbacks) throw new IllegalStateException(); }
     public static void error(Object gl, int value) { errors = value; if (failCallbacks) throw new IllegalStateException(); }
     public static void invalidate() { mutations++; if (failCallbacks) throw new IllegalStateException(); }
+    public static long mutationBegin() { mutations++; if (failCallbacks) throw new IllegalStateException(); return 71; }
+    public static void mutationEnd(long scope) { mutationsEnded++; ended = scope; if (failCallbacks) throw new IllegalStateException(); }
     @AfterEach void cleanup() {
         for (String key : UniformLocationHookBridge.slots()) System.getProperties().remove(key);
-        begins = ends = errors = mutations = 0; ended = 0; failCallbacks = false;
+        begins = ends = errors = mutations = mutationsEnded = 0; ended = 0; failCallbacks = false;
     }
     private void callbacks() throws Exception {
         var lookup = MethodHandles.lookup();
@@ -43,6 +45,10 @@ class UniformLocationLifecycleTransformerTest {
             lookup.findStatic(getClass(), "error", MethodType.methodType(void.class, Object.class, int.class)));
         System.getProperties().put(UniformLocationHookBridge.INVALIDATE_PROPERTY,
             lookup.findStatic(getClass(), "invalidate", MethodType.methodType(void.class)));
+        System.getProperties().put(UniformLocationHookBridge.MUTATION_BEGIN_PROPERTY,
+            lookup.findStatic(getClass(), "mutationBegin", MethodType.methodType(long.class)));
+        System.getProperties().put(UniformLocationHookBridge.MUTATION_END_PROPERTY,
+            lookup.findStatic(getClass(), "mutationEnd", MethodType.methodType(void.class, long.class)));
     }
     @Test void frameEntryAndAllExitsPreserveNativeFailure() throws Exception {
         callbacks();
@@ -90,9 +96,24 @@ class UniformLocationLifecycleTransformerTest {
         fixture.type.getMethod("glLinkProgramARB", long.class).invoke(fixture.instance, 5L);
         fixture.type.getMethod("glDeleteObjectARB", long.class).invoke(fixture.instance, 5L);
         assertEquals(5, mutations); assertEquals(5, fixture.bodyCalls());
+        assertEquals(5, mutationsEnded); assertEquals(71, ended);
         failCallbacks = true;
         fixture.type.getMethod("glLinkProgram", int.class).invoke(fixture.instance, 5);
         assertEquals(6, fixture.bodyCalls());
+    }
+    @Test void sharedEsProgramOperationsAlwaysCompleteTheirScopes() throws Exception {
+        callbacks();
+        Fixture fixture = new Fixture(UniformLocationLifecycleTransformer.Role.MUTATIONS_ES);
+        fixture.type.getMethod("glLinkProgram", int.class).invoke(fixture.instance, 5);
+        fixture.type.getMethod("glDeleteProgram", int.class).invoke(fixture.instance, 5);
+        fixture.type.getMethod("glProgramBinary", int.class, int.class, java.nio.Buffer.class, int.class)
+            .invoke(fixture.instance, 5, 0, null, 0);
+        assertEquals(3, mutations); assertEquals(3, mutationsEnded); assertEquals(3, fixture.bodyCalls());
+        RuntimeException nativeError = new IllegalArgumentException("native ES link");
+        fixture.type.getField("failure").set(null, nativeError);
+        InvocationTargetException thrown = assertThrows(InvocationTargetException.class,
+            () -> fixture.type.getMethod("glLinkProgram", int.class).invoke(fixture.instance, 5));
+        assertSame(nativeError, thrown.getCause()); assertEquals(4, mutationsEnded);
     }
     @Test void nativeProgramOperationFailureRemainsOriginal() throws Exception {
         callbacks();
@@ -102,6 +123,7 @@ class UniformLocationLifecycleTransformerTest {
         InvocationTargetException thrown = assertThrows(InvocationTargetException.class,
             () -> fixture.type.getMethod("glLinkProgram", int.class).invoke(fixture.instance, 5));
         assertSame(nativeError, thrown.getCause()); assertEquals(1, mutations); assertEquals(1, fixture.bodyCalls());
+        assertEquals(1, mutationsEnded); assertEquals(71, ended);
     }
     private static final class Loader extends ClassLoader {
         Class<?> define(String name, byte[] bytes) { return defineClass(name.replace('/', '.'), bytes, 0, bytes.length); }
