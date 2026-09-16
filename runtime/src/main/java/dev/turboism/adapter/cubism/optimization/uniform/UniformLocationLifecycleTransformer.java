@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -39,6 +41,12 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         Role(String owner, Map<String, String> methods) { this.owner = owner; this.methods = methods; }
         /** Returns the reviewed class internal name. */
         public String owner() { return owner; }
+        /** Returns this role's independently verified exact-version class name. */
+        public String owner(HostArtifactDigest editor) {
+            if (!supportedEditor(editor)) throw new IllegalArgumentException("unreviewed uniform lifecycle Editor");
+            return this == ERROR && ReviewedHostArtifacts.CUBISM_5_2_03.equals(editor)
+                ? "com/live2d/graphics3d/shader/y" : owner;
+        }
         /** Returns the fixed target method descriptors. */
         public Map<String, String> methods() { return methods; }
         /** Whether this role needs begin/finally-end program mutation accounting. */
@@ -47,6 +55,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     private final ClassLoader loader;
     private final Path artifact;
     private final Role role;
+    private final String owner;
     private final Map<String, List<String>> shapes = new HashMap<>();
     private final Map<String, Integer> locals = new HashMap<>();
     private volatile String failure, beforeSha256;
@@ -62,11 +71,37 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
      * @throws IllegalArgumentException if a required body or error-query site is absent
      */
     public UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference, Role role) {
+        this(loader, artifact, reference, role, role.owner());
+    }
+
+    /**
+     * Selects the lifecycle owner from an independently verified Editor identity.
+     * @param loader the exact defining loader
+     * @param artifact the attested source archive
+     * @param reference the matching original class bytes
+     * @param role the lifecycle operation family
+     * @param editor the reviewed Editor identity
+     */
+    public UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference,
+                                               Role role, HostArtifactDigest editor) {
+        this(loader, artifact, reference, role, role.owner(editor));
+    }
+
+    /** Returns whether an Editor artifact has a reviewed lifecycle mapping. */
+    public static boolean supportedEditor(HostArtifactDigest editor) {
+        return ReviewedHostArtifacts.CUBISM_5_2_03.equals(editor)
+            || ReviewedHostArtifacts.CUBISM_5_3_02.equals(editor)
+            || ReviewedHostArtifacts.CUBISM_5_3_03.equals(editor);
+    }
+
+    private UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference,
+                                                Role role, String owner) {
+        this.owner = owner;
         this.loader = Objects.requireNonNull(loader, "loader");
         this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         this.role = Objects.requireNonNull(role, "role");
         for (var target : role.methods.entrySet()) {
-            List<String> shape = ReviewedMethodShape.read(reference, role.owner, target.getKey(), target.getValue());
+            List<String> shape = ReviewedMethodShape.read(reference, owner, target.getKey(), target.getValue());
             if (shape == null) throw new IllegalArgumentException("lifecycle method absent: " + target.getKey());
             shapes.put(target.getKey(), shape);
         }
@@ -131,14 +166,14 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
 
     @Override public byte[] transform(Module module, ClassLoader actualLoader, String name, Class<?> type,
                                       ProtectionDomain domain, byte[] bytes) {
-        if (actualLoader != loader || !role.owner.equals(name) || bytes == null) return null;
+        if (actualLoader != loader || !owner.equals(name) || bytes == null) return null;
         try {
             if (domain == null || domain.getCodeSource() == null || !artifact.equals(
                 Path.of(domain.getCodeSource().getLocation().toURI()).toAbsolutePath().normalize())) {
                 throw new IllegalArgumentException("lifecycle artifact mismatch");
             }
             for (var target : role.methods.entrySet()) if (!shapes.get(target.getKey()).equals(
-                ReviewedMethodShape.read(bytes, role.owner, target.getKey(), target.getValue()))) {
+                ReviewedMethodShape.read(bytes, owner, target.getKey(), target.getValue()))) {
                 throw new IllegalArgumentException("lifecycle method shape mismatch: " + target.getKey());
             }
             ClassReader reader = new ClassReader(bytes);

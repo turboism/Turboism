@@ -10,8 +10,12 @@ hook. Enabling after startup denial requires restarting the Editor.
 -Dturboism.optimization.uniformLocationCache=false
 ```
 
-Initial scope: exact reviewed Cubism 5.3.03, its separately pinned bundled JOGL,
-JVM 17+, a current created GL4bcImpl context and enabled hook policy.
+Scope: exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03, the separately pinned
+bundled JOGL, JVM 17+, a current created GL4bcImpl context and enabled hook policy.
+The error-observer class is `shader.y` on 5.2.03 and `shader.A` on 5.3.x; each
+method body is verified against that Editor's own original archive. An unknown
+version or changed bundled JOGL remains native. Passing offline artifact checks
+is not a replacement for exact-host interaction and pixel validation.
 Safe mode / disabled `cubism.render.uniform-location-cache` denies installation.
 Other versions, JOGL binaries, context implementations and failed lifecycle coverage
 remain native. Shared contexts require complete bundled program-mutation coverage. This is not blanket compatibility admission.
