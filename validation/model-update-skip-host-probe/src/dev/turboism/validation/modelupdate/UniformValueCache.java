@@ -1,7 +1,6 @@
 package dev.turboism.validation.modelupdate;
 
 import java.nio.FloatBuffer;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,9 +13,35 @@ import java.util.Map;
 final class UniformValueCache {
     private record Key(int program, int location) { }
     private record Value(String method, boolean transpose, int[] words) {
-        boolean same(Value other) {
-            return method.equals(other.method) && transpose == other.transpose
-                && Arrays.equals(words, other.words);
+        boolean matches(String operation, Object[] args) {
+            if (!method.equals(operation)) return false;
+            if (!method.equals("glUniformMatrix4fv")) {
+                if (args.length != words.length + 1) return false;
+                for (int i = 0; i < words.length; i++) {
+                    Object item = args[i + 1];
+                    if (method.equals("glUniform1i")) {
+                        if (!(item instanceof Integer n) || words[i] != n) return false;
+                    } else if (!(item instanceof Float n)
+                        || words[i] != Float.floatToRawIntBits(n)) return false;
+                }
+                return true;
+            }
+            if (args.length < 4 || !(args[1] instanceof Integer count) || count != 1
+                || !(args[2] instanceof Boolean transposed) || transpose != transposed) return false;
+            if (args.length == 4 && args[3] instanceof FloatBuffer buffer && buffer.remaining() >= 16) {
+                for (int i = 0; i < 16; i++) {
+                    if (words[i] != Float.floatToRawIntBits(buffer.get(buffer.position() + i))) return false;
+                }
+                return true;
+            }
+            if (args.length == 5 && args[3] instanceof float[] data && args[4] instanceof Integer offset
+                && offset >= 0 && offset <= data.length - 16) {
+                for (int i = 0; i < 16; i++) {
+                    if (words[i] != Float.floatToRawIntBits(data[offset + i])) return false;
+                }
+                return true;
+            }
+            return false;
         }
     }
     private final int bound;
@@ -74,11 +99,13 @@ final class UniformValueCache {
             invalidate(program); unsupported++; return false;
         }
         if (location < 0) return false;
-        Value value = value(method, args);
-        if (value == null) { invalidate(program); unsupported++; return false; }
         Key key = new Key(program, location);
         Value previous = trustedProgram ? ready.get(key) : null;
-        if (previous != null && previous.same(value)) { hits++; return true; }
+        // Compare against the input view before allocating a replacement snapshot.
+        // This remains a complete raw-bit comparison, never sampling or hashing.
+        if (previous != null && previous.matches(method, args)) { hits++; return true; }
+        Value value = value(method, args);
+        if (value == null) { invalidate(program); unsupported++; return false; }
         misses++;
         // Invalidate BEFORE an attempted write: a later error must never leave an
         // older confirmed value eligible after an unconfirmed replacement.
