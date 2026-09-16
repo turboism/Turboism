@@ -376,7 +376,8 @@ public class ModelUpdateSkipBridgeTest {
         private static final Map<String, Object> saved = new HashMap<>();
         static void restore() {
             for (String key : List.of(ModelUpdateSkipBridge.ENABLE_PROPERTY,
-                    ModelUpdateSkipBridge.PROBE_PROPERTY, ModelUpdateSkipBridge.RESULT_PROPERTY)) {
+                    ModelUpdateSkipBridge.PROBE_PROPERTY, ModelUpdateSkipBridge.RESULT_PROPERTY,
+                    ModelUpdateSkipBridge.TIMING_PROPERTY)) {
                 if (!saved.containsKey(key)) {
                     saved.put(key, System.getProperties().get(key));
                 }
@@ -624,6 +625,44 @@ public class ModelUpdateSkipBridgeTest {
                 assertEquals(1L, (long) stats.get("full"));
                 assertTrue(stats.get("predicateNanos") > 0);
                 assertTrue(stats.containsKey("predicateMaxNanos"));
+                assertEquals(2L, (long) stats.get("decidedSkip"));
+                assertEquals(0L, (long) stats.get("readFrameSamples"));
+                assertEquals(0L, (long) stats.get("decisionSamples"));
+            } finally {
+                PropertiesBackup.revert();
+            }
+        }
+    }
+
+    @Test void diagnosticsExposeBlockerAndSeparateHotPathCosts() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        try (ModelUpdateSkipBridge bridge = new ModelUpdateSkipBridge(T5303, loader)) {
+            bridge.install();
+            withProperties(ModelUpdateSkipBridge.ENABLE_PROPERTY, "true",
+                ModelUpdateSkipBridge.TIMING_PROPERTY, "true");
+            try {
+                predicate().test(world.args());
+                after().accept(world.model);
+                set(world.currentParams.get(0), "value", 9f);
+                assertFalse(predicate().test(world.args()));
+                Map<String, Long> stats = bridge.snapshot();
+                assertEquals(1L, (long) stats.get("reject.PARAMETERS_CHANGED"));
+                assertTrue(stats.get("readFrameNanos") > 0L);
+                assertTrue(stats.get("decisionNanos") > 0L);
+                assertTrue(stats.containsKey("readFrameMaxNanos"));
+                assertTrue(stats.containsKey("decisionMaxNanos"));
+                assertEquals(3L, (long) stats.get("parameterCount"));
+                assertEquals(2L, (long) stats.get("readFrameSamples"));
+                assertEquals(2L, (long) stats.get("decisionSamples"));
+                assertEquals(1L, (long) stats.get("reject.NO_BASELINE"));
+                assertEquals(0L, (long) stats.get("decidedSkip"));
+                System.setProperty(ModelUpdateSkipBridge.TIMING_PROPERTY, "false");
+                assertFalse(predicate().test(world.args()));
+                Map<String, Long> untimed = bridge.snapshot();
+                assertEquals(2L, (long) untimed.get("reject.PARAMETERS_CHANGED"));
+                assertEquals(stats.get("readFrameSamples"), untimed.get("readFrameSamples"));
+                assertEquals(stats.get("decisionSamples"), untimed.get("decisionSamples"));
             } finally {
                 PropertiesBackup.revert();
             }
