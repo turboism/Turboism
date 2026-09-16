@@ -132,6 +132,69 @@ class UniformLocationHookBridgeTest {
             assertEquals(0L, bridge.begin(new Frame(gl)));
         }
     }
+    @Test void sharedReuseRequiresCoverageAndWaitsForEveryMutation() throws Exception {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context(); context.shared = true;
+        GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = bridge()) {
+            bridge.confirmMutationCoverage(); bridge.install();
+            long frame = bridge.begin(new Frame(gl));
+            bridge.record(gl, 7, "x", 8); bridge.error(gl, 0);
+            assertEquals(8, bridge.lookup(gl, 7, "x"));
+            long first = bridge.beginMutation(), second = bridge.beginMutation();
+            assertTrue(first != 0L && second != 0L && first != second);
+            assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x")); bridge.end(frame);
+            bridge.endMutation(first);
+            frame = bridge.begin(new Frame(gl));
+            bridge.record(gl, 7, "x", 99); bridge.error(gl, 0);
+            assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x"));
+            bridge.endMutation(second);
+            bridge.record(gl, 7, "x", 99); bridge.error(gl, 0);
+            assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x"), "retired frame cannot revive after writers finish");
+            bridge.end(frame);
+            frame = bridge.begin(new Frame(gl));
+            bridge.record(gl, 7, "x", 99); bridge.error(gl, 0);
+            assertEquals(99, bridge.lookup(gl, 7, "x")); bridge.end(frame);
+            assertEquals(0L, bridge.statistics().get("mutationsInFlight"));
+        }
+    }
+    @Test void concurrentWriterBlocksNewFrameAndCannotPublishLateNativeResult() throws Exception {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context(); context.shared = true;
+        GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = bridge()) {
+            bridge.confirmMutationCoverage(); bridge.install();
+            long frame = bridge.begin(new Frame(gl));
+            java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.CountDownLatch finish = new java.util.concurrent.CountDownLatch(1);
+            Thread writer = new Thread(() -> {
+                long mutation = bridge.beginMutation(); started.countDown();
+                try { finish.await(); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+                finally { bridge.endMutation(mutation); }
+            });
+            writer.start();
+            try {
+                assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                bridge.record(gl, 7, "x", 8); bridge.error(gl, 0);
+                assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x")); bridge.end(frame);
+                frame = bridge.begin(new Frame(gl));
+                bridge.record(gl, 7, "x", 8); bridge.error(gl, 0);
+                assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x")); bridge.end(frame);
+            } finally { finish.countDown(); writer.join(5000); }
+            assertFalse(writer.isAlive());
+            assertEquals(0L, bridge.statistics().get("mutationsInFlight"));
+            frame = bridge.begin(new Frame(gl)); bridge.record(gl, 7, "x", 11); bridge.error(gl, 0);
+            assertEquals(11, bridge.lookup(gl, 7, "x")); bridge.end(frame);
+        }
+    }
+    @Test void duplicateMutationExitRetiresReuseRatherThanUnderflowing() throws Exception {
+        try (UniformLocationHookBridge bridge = bridge()) {
+            bridge.confirmMutationCoverage(); bridge.install();
+            long mutation = bridge.beginMutation(); bridge.endMutation(mutation); bridge.endMutation(mutation);
+            assertEquals(0L, bridge.statistics().get("active"));
+            assertEquals(0L, bridge.statistics().get("mutationsInFlight"));
+        }
+    }
     @Test void contextAccessorFailureDisablesReuseAndReturnsMiss() throws Exception {
         System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
         try (UniformLocationHookBridge bridge = bridge()) {

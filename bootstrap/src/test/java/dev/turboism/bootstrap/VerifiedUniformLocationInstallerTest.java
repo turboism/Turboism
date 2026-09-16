@@ -47,7 +47,7 @@ class VerifiedUniformLocationInstallerTest {
             VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             installer.install();
             assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
-            assertEquals(4, fixture.active.size());
+            assertEquals(5, fixture.active.size());
             installer.close();
             assertTrue(installer.restored());
             assertEquals(0, fixture.active.size());
@@ -62,6 +62,15 @@ class VerifiedUniformLocationInstallerTest {
             assertEquals(0, fixture.active.size());
             assertFalse(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
             installer.close();
+        }
+    }
+    @Test void incompleteMutationInventoryIsNotAdmitted(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path path = directory.resolve("missing-writers.jar");
+        try (var output = new java.util.jar.JarOutputStream(Files.newOutputStream(path))) {
+            output.putNextEntry(new java.util.jar.JarEntry("empty.txt")); output.closeEntry();
+        }
+        try (var jar = new java.util.jar.JarFile(path.toFile())) {
+            assertThrows(IllegalArgumentException.class, () -> VerifiedUniformLocationInstaller.verifyMutationInventory(jar));
         }
     }
     private static Fixture fixture() throws Exception {

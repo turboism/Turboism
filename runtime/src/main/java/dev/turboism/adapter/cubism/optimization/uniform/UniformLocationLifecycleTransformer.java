@@ -31,7 +31,9 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         /** Existing native shader error observation, not an additional query. */
         ERROR("com/live2d/graphics3d/shader/A", Map.of("a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I")),
         /** Concrete core and ARB program lifecycle operations used by this host. */
-        MUTATIONS("jogamp/opengl/gl4/GL4bcImpl", Map.of("glLinkProgram", "(I)V", "glDeleteProgram", "(I)V", "glProgramBinary", "(IILjava/nio/Buffer;I)V", "glLinkProgramARB", "(J)V", "glDeleteObjectARB", "(J)V"));
+        MUTATIONS("jogamp/opengl/gl4/GL4bcImpl", Map.of("glLinkProgram", "(I)V", "glDeleteProgram", "(I)V", "glProgramBinary", "(IILjava/nio/Buffer;I)V", "glLinkProgramARB", "(J)V", "glDeleteObjectARB", "(J)V")),
+        /** Other bundled implementation capable of mutating a shared GLSL program. */
+        MUTATIONS_ES("jogamp/opengl/es3/GLES3Impl", Map.of("glLinkProgram", "(I)V", "glDeleteProgram", "(I)V", "glProgramBinary", "(IILjava/nio/Buffer;I)V"));
         private final String owner;
         private final Map<String, String> methods;
         Role(String owner, Map<String, String> methods) { this.owner = owner; this.methods = methods; }
@@ -39,6 +41,8 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         public String owner() { return owner; }
         /** Returns the fixed target method descriptors. */
         public Map<String, String> methods() { return methods; }
+        /** Whether this role needs begin/finally-end program mutation accounting. */
+        public boolean programMutations() { return this == MUTATIONS || this == MUTATIONS_ES; }
     }
     private final ClassLoader loader;
     private final Path artifact;
@@ -85,6 +89,37 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             throw new IllegalArgumentException("incomplete lifecycle method bodies");
         }
     }
+    /**
+     * Verifies that every bundled public GLSL program-mutating implementation is covered.
+     * @param jar the separately digest-attested bundled JOGL reference archive
+     * @throws java.io.IOException when a reference class cannot be read
+     * @throws IllegalArgumentException when the concrete writer inventory differs
+     */
+    public static void verifyMutationInventory(java.util.jar.JarFile jar) throws java.io.IOException {
+        java.util.Set<String> expected = new java.util.HashSet<>(), observed = new java.util.HashSet<>();
+        for (var role : Role.values()) if (role.programMutations()) {
+            role.methods().forEach((name, descriptor) -> expected.add(role.owner() + ":" + name + descriptor));
+        }
+        java.util.Set<String> names = java.util.Set.of("glLinkProgram", "glDeleteProgram", "glProgramBinary",
+            "glLinkProgramARB", "glDeleteObjectARB", "glProgramBinaryOES");
+        for (var entry : java.util.Collections.list(jar.entries())) {
+            if (!entry.getName().startsWith("jogamp/opengl/") || !entry.getName().endsWith("Impl.class")) continue;
+            byte[] bytes;
+            try (var input = jar.getInputStream(entry)) { bytes = input.readAllBytes(); }
+            String owner = entry.getName().substring(0, entry.getName().length() - 6);
+            new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override public MethodVisitor visitMethod(int access, String name, String descriptor,
+                                                            String signature, String[] exceptions) {
+                    if (names.contains(name) && (access & Opcodes.ACC_ABSTRACT) == 0) {
+                        observed.add(owner + ":" + name + descriptor);
+                    }
+                    return null;
+                }
+            }, ClassReader.SKIP_CODE);
+        }
+        if (!expected.equals(observed)) throw new IllegalArgumentException("incomplete JOGL shared program mutation coverage");
+    }
+
     /** Registers a fail-closed action before installing this transformer. */
     public void onRejection(Runnable action) { onRejection = Objects.requireNonNull(action, "action"); }
     /** Returns the latest rejection, or null. */
@@ -142,17 +177,20 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         }
         @Override public void visitCode() {
             super.visitCode();
-            if (role == Role.FRAME) {
+            if (role == Role.FRAME || role.programMutations()) {
                 super.visitInsn(Opcodes.LCONST_0); super.visitVarInsn(Opcodes.LSTORE, base);
-                guarded(UniformLocationHookBridge.BEGIN_PROPERTY, "(Ljava/lang/Object;)J",
-                    () -> super.visitVarInsn(Opcodes.ALOAD, 1), () -> super.visitVarInsn(Opcodes.LSTORE, base));
+                if (role == Role.FRAME) {
+                    guarded(UniformLocationHookBridge.BEGIN_PROPERTY, "(Ljava/lang/Object;)J",
+                        () -> super.visitVarInsn(Opcodes.ALOAD, 1), () -> super.visitVarInsn(Opcodes.LSTORE, base));
+                } else {
+                    guarded(UniformLocationHookBridge.MUTATION_BEGIN_PROPERTY, "()J",
+                        () -> { }, () -> super.visitVarInsn(Opcodes.LSTORE, base));
+                }
                 super.visitLabel(bodyStart);
-            } else if (role == Role.MUTATIONS) {
-                guarded(UniformLocationHookBridge.INVALIDATE_PROPERTY, "()V", () -> { }, () -> { });
             }
         }
         @Override public void visitInsn(int opcode) {
-            if (role == Role.FRAME && opcode == Opcodes.RETURN) endFrame();
+            if ((role == Role.FRAME || role.programMutations()) && opcode == Opcodes.RETURN) endFrame();
             super.visitInsn(opcode);
         }
         @Override public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean itf) {
@@ -169,17 +207,19 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             super.visitVarInsn(Opcodes.ILOAD, base + 1);
         }
         private void endFrame() {
-            guarded(UniformLocationHookBridge.END_PROPERTY, "(J)V", () -> super.visitVarInsn(Opcodes.LLOAD, base), () -> { });
+            guarded(role == Role.FRAME ? UniformLocationHookBridge.END_PROPERTY
+                : UniformLocationHookBridge.MUTATION_END_PROPERTY,
+                "(J)V", () -> super.visitVarInsn(Opcodes.LLOAD, base), () -> { });
         }
         @Override public void visitMaxs(int stack, int localCount) {
-            if (role == Role.FRAME) {
+            if (role == Role.FRAME || role.programMutations()) {
                 super.visitLabel(bodyEnd); super.visitLabel(exceptionalExit);
                 super.visitVarInsn(Opcodes.ASTORE, base + 2);
                 endFrame();
                 super.visitVarInsn(Opcodes.ALOAD, base + 2); super.visitInsn(Opcodes.ATHROW);
             }
             for (Handler handler : originalHandlers) super.visitTryCatchBlock(handler.start, handler.end, handler.target, handler.type);
-            if (role == Role.FRAME) super.visitTryCatchBlock(bodyStart, bodyEnd, exceptionalExit, null);
+            if (role == Role.FRAME || role.programMutations()) super.visitTryCatchBlock(bodyStart, bodyEnd, exceptionalExit, null);
             super.visitMaxs(stack, Math.max(localCount, base + 3));
         }
         private void guarded(String property, String signature, Runnable arguments, Runnable consumeResult) {

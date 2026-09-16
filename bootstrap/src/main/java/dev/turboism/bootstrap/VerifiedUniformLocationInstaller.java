@@ -24,7 +24,7 @@ import java.util.jar.JarFile;
 
 /**
  * Exact opt-in installation for one reviewed Editor and its bundled JOGL artifact.
- * Callbacks are published only after all four transforms succeed. Closing disables
+ * Callbacks are published only after all required transforms succeed. Closing disables
  * reuse first, removes every owned transformer and verifies all original class
  * digests. An installation or restoration failure never becomes a silent success.
  */
@@ -58,6 +58,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         bridge = new UniformLocationHookBridge(loader);
         Map<Class<?>, byte[]> observed = new HashMap<>();
         try (JarFile cubism = new JarFile(artifact.toFile()); JarFile jogl = new JarFile(joglArtifact.toFile())) {
+            verifyMutationInventory(jogl);
             Class<?> shader = Class.forName(UniformLocationCallSiteTransformer.OWNER.replace('/', '.'), false, loader);
             attest(shader, loader, artifact);
             byte[] before = capture(shader); observed.put(shader, before);
@@ -66,11 +67,11 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             targets.add(new Target(shader, query, sha256(before), query::matches, query::failure));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
                 Class<?> type = Class.forName(role.owner().replace('/', '.'), false, loader);
-                Path source = role == UniformLocationLifecycleTransformer.Role.MUTATIONS ? joglArtifact : artifact;
-                ClassLoader ownerLoader = role == UniformLocationLifecycleTransformer.Role.MUTATIONS ? type.getClassLoader() : loader;
+                Path source = role.programMutations() ? joglArtifact : artifact;
+                ClassLoader ownerLoader = role.programMutations() ? type.getClassLoader() : loader;
                 attest(type, ownerLoader, source);
                 byte[] actual = capture(type); observed.put(type, actual);
-                JarFile jar = role == UniformLocationLifecycleTransformer.Role.MUTATIONS ? jogl : cubism;
+                JarFile jar = role.programMutations() ? jogl : cubism;
                 for (var method : role.methods().entrySet()) verify(jar, type, actual, method.getKey(), method.getValue());
                 UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(ownerLoader, source, reference(jar, type), role);
                 transformer.onRejection(bridge::retire);
@@ -82,6 +83,9 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isShared", "()Z", observed);
             verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isCreated", "()Z", observed);
         }
+    }
+    static void verifyMutationInventory(JarFile jar) throws Exception {
+        UniformLocationLifecycleTransformer.verifyMutationInventory(jar);
     }
     private void verifyDependency(JarFile jar, Path source, ClassLoader lookupLoader, String name,
                                   String method, String descriptor, Map<Class<?>, byte[]> observed) throws Exception {
@@ -141,6 +145,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             for (Target target : targets) if (target.matches().getAsInt() != 1 || target.failure().get() != null) {
                 throw new IllegalStateException("uniform transform rejected: " + target.type().getName() + ": " + target.failure().get());
             }
+            bridge.confirmMutationCoverage();
             bridge.install();
             installed = true;
         } catch (Exception | Error problem) {
