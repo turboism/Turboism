@@ -203,3 +203,42 @@ zero in this compatibility environment and is not used as valid memory evidence.
 Native Windows, real presentation FPS, GPU VRAM, pan and authoring drag remain
 outside this acceptance. The standalone allocation regression passed with bounded
 per-hit allocation; that micro-check is not a whole-frame speedup.
+
+## Production narrow-hook validation (no GL proxy)
+
+Build the production preview and this exerciser, then run through the shared queue:
+
+```bash
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 narrow-full \
+  --jvm-option '-Dturboism.optimization.uniformLocationCache=true' \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uniformHook' \
+  --jvm-option '-Dturboism.validation.resources=true' \
+  --ready-marker 'TURBOISM_UNIFORM_LOCATION installation=COMPLETE' \
+  --failure-marker 'TURBOISM_UNIFORM_LOCATION installation=FAILED' \
+  --failure-marker 'TURBOISM_UNIFORM_LOCATION restoration=FAILED' \
+  --result-timeout 1200
+```
+
+`uniformHook` never installs the old all-GL decorator, including its OFF control.
+The runtime is installed before the test; its opt-in switch alone changes between
+OFF/ON/ON/OFF legs. A remains ON, B OFF, value suppression absent. Query counters
+come from the real hook, completed displays from an appended lightweight listener.
+Both controls include the same installed-but-disabled instrumentation; this is not
+an entirely uninstrumented Editor baseline.
+
+Parity uses full canvas-composited ARGB from an explicit native paint outside the
+measured window, not Robot screen capture or an assumed GL buffer format. Every
+capture must advance the installed render-scope counters, execute queries and
+produce nonuniform pixels; ON must additionally hit the cache. Native/native/ON/
+native are compared at each fixed camera state, and two states must be distinct.
+An unsupported context falling back to native is a failed exercise assertion, not
+a passing optimization. The calibration first exposed shared GL contexts; the
+runtime now admits them only after both bundled program-writer families and their
+complete mutation scopes are attested.
+
+`-Dturboism.uniform-location.shadow=true` checks eligible cache results against
+native queries in a diagnostic-only ON leg. `modelUpdateCalibration=true` selects
+short runs without pretending they satisfy full performance acceptance. Do not
+reuse old proxy measurements for the narrow implementation. The installed runtime
+is separate from this auto-exit test plugin; never deploy the exerciser into a
+normal working Editor home.
