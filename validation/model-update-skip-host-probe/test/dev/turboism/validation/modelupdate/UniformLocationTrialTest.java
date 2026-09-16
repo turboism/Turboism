@@ -6,6 +6,8 @@ public final class UniformLocationTrialTest {
         TestGL getGL3();
         int glGetUniformLocation(int program, String name);
         int glGetError();
+        void glUseProgram(int program);
+        void glUniform1f(int location, float value);
         void glLinkProgram(int program);
         void glProgramBinary(int program, int format, Object bytes, int length);
         void glDeleteProgram(int program);
@@ -13,7 +15,8 @@ public final class UniformLocationTrialTest {
     }
     public static final class NativeGL implements TestGL {
         Object context = new Object();
-        int queryCalls, errorCalls, drawCalls, result = 3, error;
+        int queryCalls, errorCalls, drawCalls, uniformWrites, result = 3, error;
+        float uniformValue;
         boolean throwQuery;
         final IllegalArgumentException problem = new IllegalArgumentException("native query failed");
         public Object getContext() { return context; }
@@ -22,6 +25,8 @@ public final class UniformLocationTrialTest {
             queryCalls++; if (throwQuery) throw problem; return result;
         }
         public int glGetError() { errorCalls++; int value = error; error = 0; return value; }
+        public void glUseProgram(int program) { }
+        public void glUniform1f(int location, float value) { uniformWrites++; uniformValue = value; }
         public void glLinkProgram(int program) { result++; }
         public void glProgramBinary(int program, int format, Object bytes, int length) { result++; }
         public void glDeleteProgram(int program) { result = -1; }
@@ -71,7 +76,28 @@ public final class UniformLocationTrialTest {
         check(checked.glGetUniformLocation(7, "x") == 77, "shadow returns native on mismatch");
         check(shadow.snapshot().get("shadowMismatches") == 1L, "hidden mutation detected");
         shadow.close();
-        System.out.println("UniformLocationTrialTest PASS (omission, native writes/errors, invalidation, shadow)");
+        NativeGL valuesNative = new NativeGL();
+        UniformLocationTrial values = new UniformLocationTrial(TestGL.class, valuesNative, false);
+        TestGL valueGl = (TestGL) values.wrapped();
+        values.setEnabled(true); values.setValuesEnabled(true); values.beginFrame();
+        valueGl.glUseProgram(7); valueGl.glGetError();
+        valueGl.glUniform1f(3, 0.5f); valueGl.glGetError();
+        valueGl.glUniform1f(3, 0.5f);
+        check(valuesNative.uniformWrites == 1, "duplicate value write omitted after error confirmation");
+        valueGl.glUniform1f(3, 0.6f); valueGl.glGetError();
+        check(valuesNative.uniformWrites == 2 && valuesNative.uniformValue == 0.6f, "changed uniform writes through");
+        valueGl.glLinkProgram(7);
+        valueGl.glUniform1f(3, 0.6f); valueGl.glGetError();
+        check(valuesNative.uniformWrites == 3, "relinked program requires fresh value");
+        values.endFrame(); values.beginFrame();
+        valueGl.glUseProgram(7); valueGl.glGetError();
+        valueGl.glUniform1f(3, 0.6f); valueGl.glGetError();
+        check(valuesNative.uniformWrites == 4, "new frame never reuses values");
+        values.setValuesEnabled(false);
+        valueGl.glUniform1f(3, 0.6f);
+        check(valuesNative.uniformWrites == 5, "disabled value experiment forwards original write");
+        values.close();
+        System.out.println("UniformLocationTrialTest PASS (location/value omission, native errors, invalidation, shadow)");
     }
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
 }

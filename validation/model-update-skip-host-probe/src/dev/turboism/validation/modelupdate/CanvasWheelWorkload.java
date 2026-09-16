@@ -75,7 +75,7 @@ final class CanvasWheelWorkload {
         final int measuredPairs = calibration ? 8 : MEASURED_PAIRS;
         Files.writeString(state.resolve("wheel-progress.txt"), "stage=canvas-ready\n");
         final String previous = System.getProperty(ENABLE);
-        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache").contains(factor)) {
+        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues").contains(factor)) {
             throw new IllegalArgumentException("unknown benchmark factor");
         }
         final StringBuilder report = new StringBuilder("schemaVersion=1\n")
@@ -95,10 +95,16 @@ final class CanvasWheelWorkload {
             final boolean profile = Boolean.getBoolean("turboism.validation.modelUpdateJfr");
             final boolean gpuWait = Boolean.getBoolean("turboism.validation.modelUpdateGpuWait");
             final boolean glCalls = Boolean.getBoolean("turboism.validation.modelUpdateGlCalls");
-            final boolean uniform = factor.equals("uniformCache");
+            final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues");
             final boolean uniformShadow = Boolean.getBoolean("turboism.validation.uniformCacheShadow");
-            if (uniform && (glCalls || gpuWait || profile || probe)) {
-                throw new IllegalArgumentException("uniform trial requires other instrumentation OFF");
+            if (factor.equals("uniformValues") && uniformShadow) {
+                throw new IllegalArgumentException("location-shadow mode is not a value-write shadow experiment");
+            }
+            // A JFR-only ON leg diagnoses the residual path after caching. It is
+            // deliberately not an OFF/ON performance comparison. Keep intrusive
+            // GL decorators and forced GPU waits separate from this experiment.
+            if (uniform && (glCalls || gpuWait || probe)) {
+                throw new IllegalArgumentException("uniform trial requires GL-call timing, GPU waits and model digest probes OFF");
             }
             if (uniform) {
                 uniformTrial = onEdt(() -> UniformLocationTrial.attach(canvas, uniformShadow));
@@ -113,6 +119,7 @@ final class CanvasWheelWorkload {
             if (glCalls) glProbe = onEdt(() -> GlSubmissionProbe.attach(canvas));
             if (gpuWait) gpuProbe = onEdt(() -> new GpuCompletionProbe(canvas));
             report.append("profiling=").append(profile).append('\n')
+                .append("diagnosticOnly=").append(profile || glCalls || gpuWait || probe || uniformShadow).append('\n')
                 .append("gpuCompletion.enabled=").append(gpuWait).append('\n');
             final boolean[] variants = probe || profile || gpuWait || glCalls || uniformShadow ? new boolean[]{true} : new boolean[]{false, true, true, false};
             for (int leg = 0; leg < variants.length; leg++) {
@@ -121,9 +128,9 @@ final class CanvasWheelWorkload {
                 onEdt(() -> {
                     if (factor.equals("modelSkip")) {
                         System.setProperty(ENABLE, Boolean.toString(enabled));
-                    } else if (factor.equals("uniformCache")) {
+                    } else if (factor.equals("uniformCache") || factor.equals("uniformValues")) {
                         System.setProperty(ENABLE, "true");
-                        uniformTrial.setEnabled(enabled);
+                        setTrialFactor(enabled);
                         canvas.repaint();
                     } else if (factor.equals("canvasBuffering")) {
                         System.setProperty(ENABLE, "true");
@@ -223,6 +230,9 @@ final class CanvasWheelWorkload {
                 Files.writeString(state.resolve("wheel-benchmark.txt"), report);
             }
             if (uniformTrial != null) uniformTrial.requireValid();
+            if (factor.equals("uniformValues") && uniformTrial.snapshot().get("skippedUniformWrites") == 0L) {
+                throw new IllegalStateException("uniform value experiment did not exercise any eligible write");
+            }
             final String restored = onEdt(() -> zoom.getText());
             if (!originalZoom.equals(restored)) throw new IllegalStateException("zoom was not restored");
             report.append("zoomRestored=").append(restored).append("\nstatus=PASS\n");
@@ -245,6 +255,17 @@ final class CanvasWheelWorkload {
         }
     }
 
+    /** The values experiment keeps the proven location cache ON in both controls. */
+    private void setTrialFactor(boolean enabled) {
+        if (factor.equals("uniformValues")) {
+            uniformTrial.setEnabled(true);
+            uniformTrial.setValuesEnabled(enabled);
+        } else {
+            uniformTrial.setValuesEnabled(false);
+            uniformTrial.setEnabled(enabled);
+        }
+    }
+
     /** Toggle at one fixed camera state: inverse wheel may restore only rounded zoom. */
     private void verifyUniformPixels(StringBuilder report) throws Exception {
         String original = verifyUniformPixelsAtState("original", report);
@@ -258,12 +279,12 @@ final class CanvasWheelWorkload {
     }
 
     private String verifyUniformPixelsAtState(String stateName, StringBuilder report) throws Exception {
-        onEdt(() -> { uniformTrial.setEnabled(false); return null; });
+        onEdt(() -> { setTrialFactor(false); return null; });
         FrameReadback nativeBefore = captureNativeFrame();
         FrameReadback nativeRepeat = captureNativeFrame();
-        onEdt(() -> { uniformTrial.setEnabled(true); return null; });
+        onEdt(() -> { setTrialFactor(true); return null; });
         FrameReadback cached = captureNativeFrame();
-        onEdt(() -> { uniformTrial.setEnabled(false); return null; });
+        onEdt(() -> { setTrialFactor(false); return null; });
         FrameReadback nativeAfter = captureNativeFrame();
         String key = "uniformCache.parity." + stateName + ".";
         report.append(key).append("nativeBefore=").append(nativeBefore.digest()).append('\n')
