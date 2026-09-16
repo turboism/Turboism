@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate;
 
+import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Decision;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Frame;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.ParamSet;
 import java.util.List;
@@ -60,6 +61,25 @@ public class UnchangedFramePredicateTest {
         final Frame frame = clean();
         assertTrue(UnchangedFramePredicate.test(frame, cleanCopy(frame),
             params(1f, 2f, 3f), params(1f, 2f, 3f)));
+        assertEquals(Decision.SKIP, UnchangedFramePredicate.check(frame, cleanCopy(frame),
+            params(1f, 2f, 3f), params(1f, 2f, 3f)));
+    }
+
+    @Test void checkReportsFirstConcreteBlocker() {
+        final Frame frame = clean();
+        final Frame previous = cleanCopy(frame);
+        assertEquals(Decision.NO_BASELINE,
+            UnchangedFramePredicate.check(frame, null, params(1f), params(1f)));
+        assertEquals(Decision.PARAMETERS_CHANGED,
+            UnchangedFramePredicate.check(frame, previous, params(2f), params(1f)));
+        assertEquals(Decision.DOCUMENT_MODIFIED,
+            UnchangedFramePredicate.check(withDoc(frame, 43L), previous, params(1f), params(1f)));
+        assertEquals(Decision.TEMPORAL_MODE_ACTIVE,
+            UnchangedFramePredicate.check(withFlag(frame, "recording"), previous,
+                params(1f), params(1f)));
+        assertEquals(Decision.SELECTION_MODE_ACTIVE,
+            UnchangedFramePredicate.check(withFlag(frame, "updateContextA"), previous,
+                params(1f), params(1f)));
     }
 
     @Test void anyDifferenceForcesFull() {

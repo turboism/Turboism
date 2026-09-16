@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTarget.Dep;
+import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Decision;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Frame;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.ParamSet;
 import java.lang.invoke.MethodHandle;
@@ -51,6 +52,9 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     public static final String PROBE_PROPERTY = "turboism.model-update-skip.probe";
     /** Probe mismatch report path (JSON lines, appended). */
     public static final String RESULT_PROPERTY = "turboism.model-update-skip.probe.result";
+    /** Opt-in detailed timing; keep disabled in interaction acceptance runs. */
+    public static final String TIMING_PROPERTY = "turboism.model-update-skip.timing";
+    private static final Decision[] DECISIONS = Decision.values();
 
     private static final String MV = "com.live2d.cubism.view.context.CEViewContext_ModelingView";
     private static final String DOC = "com.live2d.cubism.doc.modeling.CModelingDocument";
@@ -82,6 +86,19 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         predicateNanos = new LongAdder(), digestNanos = new LongAdder();
     private final java.util.concurrent.atomic.AtomicLong predicateMaxNanos =
         new java.util.concurrent.atomic.AtomicLong();
+    private final LongAdder[] decisions = newDecisionCounters();
+    private final LongAdder readFrameNanos = new LongAdder(), decisionNanos = new LongAdder(),
+        readFrameSamples = new LongAdder(), decisionSamples = new LongAdder();
+    private final java.util.concurrent.atomic.AtomicLong readFrameMaxNanos =
+        new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong decisionMaxNanos =
+        new java.util.concurrent.atomic.AtomicLong();
+    private volatile long parameterCount = -1L;
+    private static LongAdder[] newDecisionCounters() {
+        final LongAdder[] counters = new LongAdder[DECISIONS.length];
+        Arrays.setAll(counters, index -> new LongAdder());
+        return counters;
+    }
     private final Predicate<Object[]> callback = this::shouldSkip;
     private final Consumer<Object> afterUpdate = this::updateCompleted;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
@@ -264,11 +281,29 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         calls.increment();
         final long started = System.nanoTime();
         try {
+            final boolean timed = Boolean.getBoolean(TIMING_PROPERTY);
+            final long readStarted = timed ? System.nanoTime() : 0L;
             final Frame current = readFrame(args);
+            if (timed) {
+                final long nanos = System.nanoTime() - readStarted;
+                readFrameNanos.add(nanos);
+                readFrameSamples.increment();
+                readFrameMaxNanos.accumulateAndGet(nanos, Math::max);
+            }
+            parameterCount = current == null ? -1L : currentParams.size();
             pendingFrame = current;
             pendingProbe = false;
-            final boolean skip = current != null
-                && UnchangedFramePredicate.test(current, lastFrame, currentParams, lastUpdatedParams);
+            final long decisionStarted = timed ? System.nanoTime() : 0L;
+            final Decision decision = UnchangedFramePredicate.check(
+                current, lastFrame, currentParams, lastUpdatedParams);
+            if (timed) {
+                final long nanos = System.nanoTime() - decisionStarted;
+                decisionNanos.add(nanos);
+                decisionSamples.increment();
+                decisionMaxNanos.accumulateAndGet(nanos, Math::max);
+            }
+            decisions[decision.ordinal()].increment();
+            final boolean skip = decision == Decision.SKIP;
             if (skip && Boolean.getBoolean(PROBE_PROPERTY)) {
                 try {
                     pendingDigest = digest(current.model());
@@ -565,11 +600,30 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
 
     /** Work counts only; no interaction benefit is inferred from them. */
     public Map<String, Long> snapshot() {
-        return Map.of("active", active.get() ? 1L : 0L, "calls", calls.sum(),
-            "skipped", skipped.sum(), "full", full.sum(),
-            "probeMismatch", probeMismatch.sum(), "failures", failures.sum(),
-            "predicateNanos", predicateNanos.sum(), "predicateMaxNanos", predicateMaxNanos.get(),
-            "digestNanos", digestNanos.sum());
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        result.put("active", active.get() ? 1L : 0L);
+        result.put("calls", calls.sum());
+        result.put("skipped", skipped.sum());
+        result.put("full", full.sum());
+        result.put("probeMismatch", probeMismatch.sum());
+        result.put("failures", failures.sum());
+        result.put("predicateNanos", predicateNanos.sum());
+        result.put("predicateMaxNanos", predicateMaxNanos.get());
+        result.put("digestNanos", digestNanos.sum());
+        result.put("readFrameNanos", readFrameNanos.sum());
+        result.put("readFrameMaxNanos", readFrameMaxNanos.get());
+        result.put("readFrameSamples", readFrameSamples.sum());
+        result.put("decisionNanos", decisionNanos.sum());
+        result.put("decisionMaxNanos", decisionMaxNanos.get());
+        result.put("decisionSamples", decisionSamples.sum());
+        result.put("parameterCount", parameterCount);
+        result.put("decidedSkip", decisions[Decision.SKIP.ordinal()].sum());
+        for (final Decision decision : DECISIONS) {
+            if (decision != Decision.SKIP) {
+                result.put("reject." + decision.name(), decisions[decision.ordinal()].sum());
+            }
+        }
+        return Map.copyOf(result);
     }
 
     /** Clears owned slots; outstanding callbacks fall back to the native path. */
