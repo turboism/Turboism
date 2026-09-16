@@ -16,7 +16,8 @@ class UniformLocationHookBridgeTest {
     public static final class Context {
         boolean shared;
         boolean created = true;
-        public boolean isShared() { return shared; }
+        int sharedReads;
+        public boolean isShared() { sharedReads++; return shared; }
         public boolean isCreated() { return created; }
     }
     public static final class GL {
@@ -83,6 +84,24 @@ class UniformLocationHookBridgeTest {
             assertEquals(21, (int) lookup.invokeExact((Object) gl, 7, "color"));
             bridge.end(scope);
             assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "color"));
+        }
+    }
+    @Test void completeMutationCoverageAvoidsRepeatedAllocatingShareLookups() throws Exception {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context(); context.shared = true;
+        GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = bridge()) {
+            bridge.confirmMutationCoverage(); bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            bridge.record(gl, 7, "x", 8); bridge.error(gl, 0);
+            for (int i = 0; i < 100; i++) {
+                assertEquals(8, bridge.lookup(gl, 7, "x"));
+                bridge.error(gl, 0);
+            }
+            assertEquals(1, context.sharedReads, "share state is diagnostic at entry; complete mutation coverage already admits either state");
+            context.created = false;
+            assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x"), "live context validity must still be checked");
+            bridge.end(scope);
         }
     }
     @Test void rejectsSharedUncreatedAndNoncurrentContexts() throws Exception {

@@ -186,7 +186,10 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         if (!installed || closed || retired || !frameSupported || frameOwner != Thread.currentThread()) return null;
         Object context = (Object) glToContext.invokeExact(gl);
         if (gl != frameGl || context == null || context != (Object) currentContext.invokeExact()
-            || ((boolean) contextShared.invokeExact(context) && !mutationCoverage)
+            // With complete mutation coverage both shared and unshared contexts
+            // are admitted. JOGL isShared() allocates a temporary weak key; do not
+            // repeat that irrelevant query for every shader error check.
+            || (!mutationCoverage && (boolean) contextShared.invokeExact(context))
             || !mutations.isEmpty() || !(boolean) contextCreated.invokeExact(context)) {
             invalidate();
             return null;

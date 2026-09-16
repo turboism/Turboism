@@ -242,3 +242,22 @@ short runs without pretending they satisfy full performance acceptance. Do not
 reuse old proxy measurements for the narrow implementation. The installed runtime
 is separate from this auto-exit test plugin; never deploy the exerciser into a
 normal working Editor home.
+
+## Allocation attribution with the narrow hook
+
+Add `-Dturboism.validation.allocationProfile=true` and
+`-Dturboism.validation.resources=true` to `uniformHook`. This is one diagnostic ON
+leg, not an OFF/ON comparison. The recording contains allocation samples with
+stacks; `allocation-leg-0.txt` is produced after timing stops. Categories distinguish
+native matrices, scene/shader work, Turboism runtime and the validation harness.
+Weights are statistical, not exact allocation bytes. The first EDT weight is
+reported explicitly because some host JVMs attribute pre-recording allocation to
+that event; never present such an inflated first sample as measured site bytes.
+Use the separate thread-allocation counter for total allocation per measured frame.
+
+Initial 200-event attribution located `GLContext.isShared` temporary weak keys in
+our per-error callback and repeated native matrix construction in sorting/rendering.
+With complete shared-program mutation coverage, the hot-path shared-state query is
+logically unnecessary: either shared state is admitted. The bridge now short-circuits
+that query while retaining current/context/created/ownership/mutation checks.
+This does not cache context validity or weaken mutation admission.
