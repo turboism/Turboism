@@ -20,7 +20,9 @@ import java.util.function.Supplier;
  * Task-local exerciser for the model-update unchanged-frame skip on an exact
  * Cubism host. It uses only the public SDK (active-model gate, performance
  * stats sampling) plus plain JDK property/file reads; it never imports or
- * reflects {@code com.live2d.*} types and makes no host mutation. The bridge
+ * reflects {@code com.live2d.*} types itself. The separate opt-in native interaction
+ * workload uses exact-host public state access and mouse input on the task copy,
+ * including authoring drag and native Undo/Redo validation. The bridge
  * counters are read through the {@code turboism.model-update-skip.stats}
  * system-property slot the installer occupies; the probe-mode mismatch report
  * is read from the JSON-lines path named by
@@ -111,8 +113,14 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
     private void runWheelBenchmark(final String hostVersion, final String modelId, final String mode) {
         try {
             Thread.sleep(WARMUP_MILLIS);
-            new CanvasWheelWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir)
-                .run("probe".equals(mode));
+            final String interaction = System.getProperty("turboism.validation.nativeInteraction", "");
+            if (interaction.isEmpty()) {
+                new CanvasWheelWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir)
+                    .run("probe".equals(mode));
+            } else {
+                if ("probe".equals(mode)) throw new IllegalArgumentException("native interaction does not run model digest probes");
+                new NativeInteractionWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir, interaction).run();
+            }
             final Map<String, Long> counters = statsSnapshot();
             final boolean pass = counters != null && number(counters, "failures") == 0L
                 && number(counters, "probeMismatch") == 0L;
