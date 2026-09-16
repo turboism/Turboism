@@ -75,7 +75,7 @@ final class CanvasWheelWorkload {
         final int measuredPairs = calibration ? 8 : MEASURED_PAIRS;
         Files.writeString(state.resolve("wheel-progress.txt"), "stage=canvas-ready\n");
         final String previous = System.getProperty(ENABLE);
-        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues").contains(factor)) {
+        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite").contains(factor)) {
             throw new IllegalArgumentException("unknown benchmark factor");
         }
         final StringBuilder report = new StringBuilder("schemaVersion=1\n")
@@ -95,9 +95,11 @@ final class CanvasWheelWorkload {
             final boolean profile = Boolean.getBoolean("turboism.validation.modelUpdateJfr");
             final boolean gpuWait = Boolean.getBoolean("turboism.validation.modelUpdateGpuWait");
             final boolean glCalls = Boolean.getBoolean("turboism.validation.modelUpdateGlCalls");
-            final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues");
+            final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues") || factor.equals("uniformSuite");
+            final boolean resourceTelemetry = Boolean.getBoolean("turboism.validation.resources");
+            report.append("resourceTelemetry=").append(resourceTelemetry).append('\n');
             final boolean uniformShadow = Boolean.getBoolean("turboism.validation.uniformCacheShadow");
-            if (factor.equals("uniformValues") && uniformShadow) {
+            if ((factor.equals("uniformValues") || factor.equals("uniformSuite")) && uniformShadow) {
                 throw new IllegalArgumentException("location-shadow mode is not a value-write shadow experiment");
             }
             // A JFR-only ON leg diagnoses the residual path after caching. It is
@@ -121,16 +123,26 @@ final class CanvasWheelWorkload {
             report.append("profiling=").append(profile).append('\n')
                 .append("diagnosticOnly=").append(profile || glCalls || gpuWait || probe || uniformShadow).append('\n')
                 .append("gpuCompletion.enabled=").append(gpuWait).append('\n');
-            final boolean[] variants = probe || profile || gpuWait || glCalls || uniformShadow ? new boolean[]{true} : new boolean[]{false, true, true, false};
+            final boolean diagnostic = probe || profile || gpuWait || glCalls || uniformShadow;
+            if (factor.equals("uniformSuite") && diagnostic) throw new IllegalArgumentException("suite requires diagnostic profilers OFF");
+            final int[] variants = factor.equals("uniformSuite") ? new int[]{0, 1, 2, 2, 1, 0}
+                : diagnostic ? new int[]{1} : new int[]{0, 1, 1, 0};
             for (int leg = 0; leg < variants.length; leg++) {
-                final boolean enabled = variants[leg];
+                final int variant = variants[leg];
+                final boolean enabled = variant != 0;
+                final String variantName = factor.equals("uniformSuite")
+                    ? (variant == 0 ? "native" : variant == 1 ? "locations" : "locations-and-values")
+                    : enabled ? "on" : "off";
                 final String beforePixels = "modelSkip".equals(factor) ? "not-requested" : capturePixels();
                 onEdt(() -> {
                     if (factor.equals("modelSkip")) {
                         System.setProperty(ENABLE, Boolean.toString(enabled));
-                    } else if (factor.equals("uniformCache") || factor.equals("uniformValues")) {
+                    } else if (factor.equals("uniformCache") || factor.equals("uniformValues") || factor.equals("uniformSuite")) {
                         System.setProperty(ENABLE, "true");
-                        setTrialFactor(enabled);
+                        if (factor.equals("uniformSuite")) {
+                            uniformTrial.setEnabled(variant >= 1);
+                            uniformTrial.setValuesEnabled(variant >= 2);
+                        } else setTrialFactor(enabled);
                         canvas.repaint();
                     } else if (factor.equals("canvasBuffering")) {
                         System.setProperty(ENABLE, "true");
@@ -158,7 +170,9 @@ final class CanvasWheelWorkload {
                 final long[] nanos = new long[measuredPairs * 2];
                 measuredQueueNanos = measuredHandlerNanos = measuredRepaintBarrierNanos = measuredResumeNanos = 0L;
                 final long elapsed;
-                try (jdk.jfr.Recording recording = profile
+                final BenchmarkResources resources = resourceTelemetry
+                    ? new BenchmarkResources(canvas.getClass().getClassLoader(), onEdt(() -> Thread.currentThread().getId())) : null;
+                try (resources; jdk.jfr.Recording recording = profile
                         ? new jdk.jfr.Recording(jdk.jfr.Configuration.getConfiguration("profile")) : null) {
                     if (recording != null) {
                         recording.enable("jdk.ExecutionSample").withPeriod(java.time.Duration.ofMillis(5));
@@ -169,9 +183,11 @@ final class CanvasWheelWorkload {
                     }
                     if (gpuProbe != null) onEdt(() -> { gpuProbe.start(); return null; });
                     if (glProbe != null) onEdt(() -> { glProbe.start(); return null; });
+                    if (resources != null) resources.start();
                     final long start = System.nanoTime();
                     for (int pair = 0; pair < measuredPairs; pair++) runPair(nanos, pair * 2);
                     elapsed = System.nanoTime() - start;
+                    if (resources != null) resources.stop();
                     if (glProbe != null) {
                         onEdt(() -> { glProbe.stop(); return null; });
                         report.append(glProbe.report());
@@ -199,6 +215,7 @@ final class CanvasWheelWorkload {
                 }
                 final String p = "leg." + leg + ".";
                 report.append(p).append("enabled=").append(enabled).append('\n')
+                    .append(p).append("variant=").append(variantName).append('\n')
                     .append(p).append("canvasPixelParity=").append("modelSkip".equals(factor)
                         ? "not-requested" : Boolean.toString(beforePixels.equals(afterPixels))).append('\n')
                     .append(p).append("canvasPixelDigest=").append(afterPixels).append('\n')
@@ -221,7 +238,17 @@ final class CanvasWheelWorkload {
                     report.append(p).append("modelUpdate.").append(key).append('=')
                         .append(after.get(key) - before.getOrDefault(key, 0L)).append('\n');
                 }
+                if (resources != null) {
+                    for (var entry : resources.snapshot().entrySet()) {
+                        report.append(p).append("resources.").append(entry.getKey()).append('=')
+                            .append(entry.getValue()).append('\n');
+                    }
+                }
                 if (uniformTrial != null) {
+                    long completed = uniformTrial.snapshot().get("completedDisplayFrames")
+                        - uniformBefore.getOrDefault("completedDisplayFrames", 0L);
+                    report.append(p).append("completedDisplayFrames=").append(completed).append('\n')
+                        .append(p).append("renderFramesPerSecond=").append(completed * 1_000_000_000.0 / elapsed).append('\n');
                     for (var entry : uniformTrial.snapshot().entrySet()) {
                         report.append(p).append("uniformCache.").append(entry.getKey()).append('=')
                             .append(entry.getValue() - uniformBefore.getOrDefault(entry.getKey(), 0L)).append('\n');
@@ -230,7 +257,7 @@ final class CanvasWheelWorkload {
                 Files.writeString(state.resolve("wheel-benchmark.txt"), report);
             }
             if (uniformTrial != null) uniformTrial.requireValid();
-            if (factor.equals("uniformValues") && uniformTrial.snapshot().get("skippedUniformWrites") == 0L) {
+            if ((factor.equals("uniformValues") || factor.equals("uniformSuite")) && uniformTrial.snapshot().get("skippedUniformWrites") == 0L) {
                 throw new IllegalStateException("uniform value experiment did not exercise any eligible write");
             }
             final String restored = onEdt(() -> zoom.getText());
@@ -257,7 +284,10 @@ final class CanvasWheelWorkload {
 
     /** The values experiment keeps the proven location cache ON in both controls. */
     private void setTrialFactor(boolean enabled) {
-        if (factor.equals("uniformValues")) {
+        if (factor.equals("uniformSuite")) {
+            uniformTrial.setEnabled(enabled);
+            uniformTrial.setValuesEnabled(enabled);
+        } else if (factor.equals("uniformValues")) {
             uniformTrial.setEnabled(true);
             uniformTrial.setValuesEnabled(enabled);
         } else {
