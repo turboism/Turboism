@@ -9,9 +9,10 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 javac --release 17 -d "$out" \
   "$src/GlSubmissionProbe.java" "$src/UploadPayloadObserver.java" \
-  "$src/UniformLocationCache.java" "$src/UniformLocationTrial.java" "$src/FrameReadback.java" \
+  "$src/UniformLocationCache.java" "$src/UniformValueCache.java" "$src/UniformLocationTrial.java" "$src/FrameReadback.java" \
   "$tests/GlSubmissionProbeTest.java" "$tests/UploadPayloadObserverTest.java" \
-  "$tests/UniformLocationCacheTest.java" "$tests/UniformLocationTrialTest.java" "$tests/FrameReadbackTest.java"
-for name in GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest; do
+  "$tests/UniformLocationCacheTest.java" "$tests/UniformLocationTrialTest.java" "$tests/FrameReadbackTest.java" \
+  "$tests/UniformValueCacheTest.java"
+for name in GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest; do
   java -cp "$out" "dev.turboism.validation.modelupdate.$name"
 done
