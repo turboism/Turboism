@@ -14,8 +14,8 @@ import java.util.function.Supplier;
  * Typed, loader-neutral callback owner for an explicitly admitted render lifecycle.
  *
  * <p>The bridge performs no GL query, draw or write itself. It observes native
- * results and uses cached public context accessors. Shared, noncurrent, uncreated
- * or failed contexts remain native. Installation of these callbacks alone does
+ * results and uses cached public context accessors. Shared contexts require explicit
+ * complete mutation coverage; noncurrent, uncreated or failed contexts remain native. Installation of these callbacks alone does
  * not establish lifecycle coverage; the verified installer must install all
  * corresponding transforms before exposing the enabled render path.</p>
  */
@@ -32,11 +32,18 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     public static final String ERROR_PROPERTY = "turboism.uniform-location.error";
     /** Typed {@code ()void} conservative program mutation callback. */
     public static final String INVALIDATE_PROPERTY = "turboism.uniform-location.invalidate";
+    /** Typed {@code ()long} entry around covered native program mutations. */
+    public static final String MUTATION_BEGIN_PROPERTY = "turboism.uniform-location.mutation.begin";
+    /** Typed {@code (long)void} completion on normal and exceptional mutation exits. */
+    public static final String MUTATION_END_PROPERTY = "turboism.uniform-location.mutation.end";
     /** Loader-neutral supplier of scalar diagnostics. */
     public static final String STATS_PROPERTY = "turboism.uniform-location.stats";
     private final FrameUniformLocationCache cache = new FrameUniformLocationCache(4096);
     private final MethodHandle frameToGl, glToContext, currentContext, contextShared, contextCreated;
     private final Map<String, Object> callbacks = new LinkedHashMap<>();
+    private final Map<Long, Thread> mutations = new LinkedHashMap<>();
+    private long nextMutation;
+    private boolean mutationCoverage;
     private Class<?> supportedGlType;
     private boolean installed, closed, retired, frameSupported, shadow;
     private Thread frameOwner;
@@ -78,6 +85,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             callbacks.put(END_PROPERTY, lookup.findVirtual(getClass(), "end", MethodType.methodType(void.class, long.class)).bindTo(this));
             callbacks.put(ERROR_PROPERTY, lookup.findVirtual(getClass(), "error", MethodType.methodType(void.class, Object.class, int.class)).bindTo(this));
             callbacks.put(INVALIDATE_PROPERTY, lookup.findVirtual(getClass(), "invalidate", MethodType.methodType(void.class)).bindTo(this));
+            callbacks.put(MUTATION_BEGIN_PROPERTY, lookup.findVirtual(getClass(), "beginMutation", MethodType.methodType(long.class)).bindTo(this));
+            callbacks.put(MUTATION_END_PROPERTY, lookup.findVirtual(getClass(), "endMutation", MethodType.methodType(void.class, long.class)).bindTo(this));
             callbacks.put(STATS_PROPERTY, (Supplier<Map<String, Long>>) this::statistics);
         } catch (ReflectiveOperationException impossible) {
             throw new IllegalStateException("uniform callback signatures unavailable", impossible);
@@ -99,7 +108,33 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     static List<String> slots() {
         return List.of(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY, UniformLocationCallSiteTransformer.RECORD_PROPERTY,
-            BEGIN_PROPERTY, END_PROPERTY, ERROR_PROPERTY, INVALIDATE_PROPERTY, STATS_PROPERTY);
+            BEGIN_PROPERTY, END_PROPERTY, ERROR_PROPERTY, INVALIDATE_PROPERTY,
+            MUTATION_BEGIN_PROPERTY, MUTATION_END_PROPERTY, STATS_PROPERTY);
+    }
+
+    /** Confirms complete, installer-attested shared program mutation coverage. */
+    public synchronized void confirmMutationCoverage() {
+        if (installed || closed || retired) throw new IllegalStateException("mutation coverage must precede publication");
+        mutationCoverage = true;
+    }
+    /** Opens a program-mutation scope; zero means caching is not installed. */
+    public synchronized long beginMutation() {
+        if (!installed || closed || retired) return 0L;
+        invalidate();
+        try {
+            if (mutations.size() >= 4096 || nextMutation == Long.MAX_VALUE) { retire(); return 0L; }
+            long opened = ++nextMutation;
+            mutations.put(opened, Thread.currentThread());
+            return opened;
+        } catch (Throwable failure) { retire(); return 0L; }
+    }
+    /** Completes a matching native mutation on its owner thread. */
+    public synchronized void endMutation(long scope) {
+        if (scope == 0L || closed) return;
+        if (mutations.get(scope) != Thread.currentThread()) { retire(); return; }
+        mutations.remove(scope);
+        // Do not revive a retired frame. A new frame must establish new native results.
+        invalidate();
     }
 
     /** Publishes all owned slots atomically, rejecting collisions without overwriting. */
@@ -122,7 +157,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             Object gl = (Object) frameToGl.invokeExact(frame);
             Object context = (Object) glToContext.invokeExact(gl);
             boolean shared = context != null && (boolean) contextShared.invokeExact(context);
-            boolean supported = Boolean.getBoolean(ENABLE_PROPERTY) && context != null && !shared
+            boolean supported = Boolean.getBoolean(ENABLE_PROPERTY) && context != null
+                && (!shared || mutationCoverage) && mutations.isEmpty()
                 && (supportedGlType == null || gl.getClass() == supportedGlType)
                 && (boolean) contextCreated.invokeExact(context)
                 && context == (Object) currentContext.invokeExact();
@@ -150,7 +186,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         if (!installed || closed || retired || !frameSupported || frameOwner != Thread.currentThread()) return null;
         Object context = (Object) glToContext.invokeExact(gl);
         if (gl != frameGl || context == null || context != (Object) currentContext.invokeExact()
-            || (boolean) contextShared.invokeExact(context) || !(boolean) contextCreated.invokeExact(context)) {
+            || ((boolean) contextShared.invokeExact(context) && !mutationCoverage)
+            || !mutations.isEmpty() || !(boolean) contextCreated.invokeExact(context)) {
             invalidate();
             return null;
         }
@@ -214,10 +251,12 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         result.put("glErrors", glErrors); result.put("failures", failures); result.put("invalidations", invalidations);
         result.put("shadowQueries", shadowQueries); result.put("shadowMismatches", shadowMismatches);
         result.put("retained", (long) cache.retained());
+        result.put("mutationCoverage", mutationCoverage ? 1L : 0L);
+        result.put("mutationsInFlight", (long) mutations.size());
         return Map.copyOf(result);
     }
     @Override public synchronized void close() {
-        closed = true; installed = false; frameSupported = false; cache.close();
+        closed = true; installed = false; frameSupported = false; cache.close(); mutations.clear();
         frameOwner = null; frameGl = null; token = 0L; expected = false; expectedName = null;
         Properties properties = System.getProperties();
         synchronized (properties) {

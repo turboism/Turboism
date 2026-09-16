@@ -81,7 +81,7 @@ class UniformLocationCallSiteArtifactTest {
              UniformLocationHookBridge bridge = new UniformLocationHookBridge(loader)) {
             assertEquals(0L, bridge.statistics().get("active"));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
-                Path source = role == UniformLocationLifecycleTransformer.Role.MUTATIONS ? jogl : artifact;
+                Path source = role.programMutations() ? jogl : artifact;
                 try (JarFile jar = new JarFile(source.toFile())) {
                     byte[] reference;
                     try (var input = jar.getInputStream(jar.getJarEntry(role.owner() + ".class"))) { reference = input.readAllBytes(); }
