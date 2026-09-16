@@ -30,9 +30,12 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
     public static final String LOOKUP_PROPERTY = "turboism.uniform-location.lookup";
     /** Typed {@code (Object,int,String,int)void} native-result observation. */
     public static final String RECORD_PROPERTY = "turboism.uniform-location.record";
-    static final String OWNER = "com/live2d/graphics3d/shader/GShader";
-    static final String METHOD = "preDraw_exe";
-    static final String DESCRIPTOR = "(Lcom/live2d/graphics3d/a;"
+    /** Exact internal name of the shader containing the reviewed query. */
+    public static final String OWNER = "com/live2d/graphics3d/shader/GShader";
+    /** Reviewed method name, not a global GL interception point. */
+    public static final String METHOD = "preDraw_exe";
+    /** Reviewed method descriptor used by the verified installer. */
+    public static final String DESCRIPTOR = "(Lcom/live2d/graphics3d/a;"
         + "Lcom/live2d/graphics3d/material/GMaterial;Lcom/live2d/graphics3d/type/GMatrix44;)V";
     private static final String GL = "com/jogamp/opengl/GL3";
     private static final String QUERY = "glGetUniformLocation";

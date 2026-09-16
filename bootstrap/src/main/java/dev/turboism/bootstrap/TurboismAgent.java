@@ -96,6 +96,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedIncrementalUpdateInstaller> INCREMENTAL_UPDATE =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedUniformLocationInstaller> UNIFORM_LOCATION_CACHE =
+        new AtomicReference<>();
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -391,6 +393,7 @@ public final class TurboismAgent {
             if (fullRuntimeAdmission) installWarpPositionProjection(options, instrumentation, host);
             if (fullRuntimeAdmission) installModelUpdateSkip(options, instrumentation, host);
             if (fullRuntimeAdmission) installIncrementalUpdate(options, instrumentation, host);
+            if (fullRuntimeAdmission) installUniformLocationCache(options, instrumentation, host);
             final PreviewRuntime runtime;
             try {
                 runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
@@ -410,6 +413,7 @@ public final class TurboismAgent {
                     host.classLoader()
                 ));
             } catch (Throwable failure) {
+                closeUniformLocationCache();
                 closeMeshMirrorHookIfCurrent(meshMirrorHook);
                 closeImageArchiveReuse();
                 closeFloatArrayParseCache();
@@ -613,6 +617,43 @@ public final class TurboismAgent {
         if (installation != null) {
             try { installation.close(); }
             catch (Throwable failure) { runtimeWarn("Turboism warp position projection cleanup failed safely"); }
+        }
+    }
+
+    private static void installUniformLocationCache(AgentOptions options, Instrumentation instrumentation,
+                                                    HostClassLocator.LocatedHost host) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.ENABLE_PROPERTY)) {
+            runtimeInfo("TURBOISM_UNIFORM_LOCATION installation=NOT_ADMITTED");
+            return;
+        }
+        VerifiedUniformLocationInstaller installer = null;
+        try {
+            if (!VerifiedUniformLocationInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_UNIFORM_LOCATION installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedUniformLocationInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!UNIFORM_LOCATION_CACHE.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_UNIFORM_LOCATION installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_UNIFORM_LOCATION installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeUniformLocationCache() {
+        VerifiedUniformLocationInstaller installer = UNIFORM_LOCATION_CACHE.getAndSet(null);
+        if (installer == null) return;
+        try {
+            installer.close();
+            runtimeInfo("TURBOISM_UNIFORM_LOCATION restoration=" + (installer.restored() ? "COMPLETE" : "UNVERIFIED"));
+        } catch (Throwable failure) {
+            runtimeWarn("TURBOISM_UNIFORM_LOCATION restoration=FAILED " + failure);
         }
     }
 
@@ -1662,6 +1703,7 @@ public final class TurboismAgent {
                 runtimeWarn("Turboism mesh mirror hook cleanup failed safely");
             }
         }
+        closeUniformLocationCache();
         final VerifiedPerformanceProbeInstaller performanceProbe = PERFORMANCE_PROBE.getAndSet(null);
         if (performanceProbe != null) {
             try {
