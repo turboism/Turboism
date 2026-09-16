@@ -25,10 +25,11 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class VerifiedUniformLocationInstallerTest {
-    @Test void exactArtifactsAndExplicitOptInAreRequired() {
+    @Test void exactArtifactsAndEnabledPreferenceAreRequired() {
         RuntimeStartupConfig normal = new RuntimeStartupConfig(false, false, false, false);
         assertTrue(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 17));
-        assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_02, normal, true, 17));
+        assertTrue(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_02, normal, true, 17));
+        assertTrue(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_2_03, normal, true, 17));
         assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03_JOGL, normal, true, 17));
         assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03, normal, false, 17));
         assertFalse(VerifiedUniformLocationInstaller.admitted(ReviewedHostArtifacts.CUBISM_5_3_03, normal, true, 16));

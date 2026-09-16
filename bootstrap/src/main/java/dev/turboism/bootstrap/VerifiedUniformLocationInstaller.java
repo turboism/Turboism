@@ -23,7 +23,7 @@ import java.util.function.Supplier;
 import java.util.jar.JarFile;
 
 /**
- * Exact opt-in installation for one reviewed Editor and its bundled JOGL artifact.
+ * Exact installation for reviewed Editors and their separately verified JOGL artifact.
  * Callbacks are published only after all required transforms succeed. Closing disables
  * reuse first, removes every owned transformer and verifies all original class
  * digests. An installation or restoration failure never becomes a silent success.
@@ -41,11 +41,12 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
 
     static boolean admitted(HostArtifactDigest digest, RuntimeStartupConfig config, boolean requested, int jvm) {
         return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && ReviewedHostArtifacts.CUBISM_5_3_03.equals(digest);
+            && UniformLocationLifecycleTransformer.supportedEditor(digest);
     }
     VerifiedUniformLocationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
-        if (!ReviewedHostArtifacts.CUBISM_5_3_03.equals(HostArtifactDigest.from(artifact))) {
-            throw new IllegalArgumentException("uniform cache requires the reviewed 5.3.03 Editor");
+        HostArtifactDigest editor = HostArtifactDigest.from(artifact);
+        if (!UniformLocationLifecycleTransformer.supportedEditor(editor)) {
+            throw new IllegalArgumentException("uniform cache requires a reviewed Editor artifact");
         }
         if (Runtime.version().feature() < 17 || !instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("uniform cache requires JVM17+ retransformation");
@@ -66,14 +67,14 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             UniformLocationCallSiteTransformer query = new UniformLocationCallSiteTransformer(loader, artifact, reference(cubism, shader));
             targets.add(new Target(shader, query, sha256(before), query::matches, query::failure));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
-                Class<?> type = Class.forName(role.owner().replace('/', '.'), false, loader);
+                Class<?> type = Class.forName(role.owner(editor).replace('/', '.'), false, loader);
                 Path source = role.programMutations() ? joglArtifact : artifact;
                 ClassLoader ownerLoader = role.programMutations() ? type.getClassLoader() : loader;
                 attest(type, ownerLoader, source);
                 byte[] actual = capture(type); observed.put(type, actual);
                 JarFile jar = role.programMutations() ? jogl : cubism;
                 for (var method : role.methods().entrySet()) verify(jar, type, actual, method.getKey(), method.getValue());
-                UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(ownerLoader, source, reference(jar, type), role);
+                UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(ownerLoader, source, reference(jar, type), role, editor);
                 transformer.onRejection(bridge::retire);
                 targets.add(new Target(type, transformer, sha256(actual), transformer::matches, transformer::failure));
             }

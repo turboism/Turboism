@@ -28,12 +28,12 @@ import org.objectweb.asm.Opcodes;
 
 /** Read-only artifact verification. Does not initialize or launch the Editor. */
 class UniformLocationCallSiteArtifactTest {
-    @Test void transformsExact5303WithoutChangingOtherMethods() throws Exception {
+    @Test void transformsExactReviewedEditorWithoutChangingOtherMethods() throws Exception {
         String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
         assumeTrue(supplied != null && !supplied.isBlank(), "explicit exact-host artifact not supplied");
         Path artifact = Path.of(supplied).toAbsolutePath();
         assertTrue(Files.isRegularFile(artifact), "explicit artifact must exist, not silently skip");
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_03, HostArtifactDigest.from(artifact),
+        assertTrue(UniformLocationLifecycleTransformer.supportedEditor(HostArtifactDigest.from(artifact)),
             "unreviewed official artifact");
         List<URL> dependencies = new ArrayList<>();
         try (var files = Files.walk(artifact.getParent(), 3)) {
@@ -70,7 +70,8 @@ class UniformLocationCallSiteArtifactTest {
         String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
         assumeTrue(supplied != null && !supplied.isBlank(), "explicit exact-host artifact not supplied");
         Path artifact = Path.of(supplied).toAbsolutePath();
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_03, HostArtifactDigest.from(artifact));
+        HostArtifactDigest editor = HostArtifactDigest.from(artifact);
+        assertTrue(UniformLocationLifecycleTransformer.supportedEditor(editor));
         Path jogl = artifact.getParent().resolve("jogl/jogl-all.jar");
         assertEquals(ReviewedHostArtifacts.CUBISM_5_3_03_JOGL, HostArtifactDigest.from(jogl));
         List<URL> urls = new ArrayList<>();
@@ -81,13 +82,14 @@ class UniformLocationCallSiteArtifactTest {
              UniformLocationHookBridge bridge = new UniformLocationHookBridge(loader)) {
             assertEquals(0L, bridge.statistics().get("active"));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
+                String owner = role.owner(editor);
                 Path source = role.programMutations() ? jogl : artifact;
                 try (JarFile jar = new JarFile(source.toFile())) {
                     byte[] reference;
-                    try (var input = jar.getInputStream(jar.getJarEntry(role.owner() + ".class"))) { reference = input.readAllBytes(); }
-                    UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(loader, source, reference, role);
+                    try (var input = jar.getInputStream(jar.getJarEntry(owner + ".class"))) { reference = input.readAllBytes(); }
+                    UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(loader, source, reference, role, editor);
                     ProtectionDomain domain = new ProtectionDomain(new CodeSource(source.toUri().toURL(), (Certificate[]) null), null);
-                    byte[] changed = transformer.transform(null, loader, role.owner(), null, domain, reference);
+                    byte[] changed = transformer.transform(null, loader, owner, null, domain, reference);
                     assertNotNull(changed, transformer.failure());
                     assertEquals(methods(reference), methods(changed));
                     assertEquals(calls(reference), calls(changed), "native GL operations changed for " + role);
