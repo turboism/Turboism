@@ -103,6 +103,8 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         }
     }
 
+    // Unbind is identity-scoped: only the live binding instance may be cleared.
+    @SuppressWarnings("ReferenceEquality")
     private void unbind(final Binding requested) {
         synchronized (monitor) {
             if (binding == requested) {
