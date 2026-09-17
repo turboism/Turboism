@@ -195,3 +195,141 @@ only on their own freshly bound test scopes.
 
 These are isolated process/contract tests, not proof of real Cubism readiness.
 Real-host acceptance additionally requires reviewed exact-host evidence.
+
+## Artifact retention and collection
+
+`host_validation.py gc` is the only collection entry point. It never launches or
+signals Cubism. The fixed current-UID state root and existing admission lock are
+unchanged. **Default operation is reporting, not deletion.** Existing jobs and
+old directory layouts are protected until individually reviewed/adopted. Removing
+a Git worktree is not part of this collector.
+
+```bash
+python3 -B scripts/preview/host_validation.py gc plan > /tmp/validation-gc-plan.json
+python3 -B scripts/preview/host_validation.py gc inventory --legacy-root /absolute/legacy-validation-root
+```
+
+`plan` reads a stable temporary copy of the queue database/WAL; it does not
+instantiate/migrate the live Store, create live SQLite sidecars, register jobs or
+change retention metadata. A concurrent write/checkpoint may require retry.
+Plans contain candidate paths, task identity, expiration, evidence/context and
+inode manifests, plus protected items/reasons and `planDigest`. `apparentBytes`
+is **not physical reclaimable space**: Btrfs reflinks/snapshots may share blocks.
+Inventory reports legacy prefixes only; directory names/mtime never authorize
+collection. Use a private location for reports: they contain local paths and
+artifact inventories. Full manual plans are not suitable for periodic journal
+output; scheduled reports omit the large manifests.
+
+Retention policy defaults (relative to durable terminal time, not directory mtime):
+
+| Artifact | Default |
+| --- | --- |
+| Successful prefix | Existing finalizer still removes it immediately unless kept |
+| Successful temporary task payload | 3 days, only after evidence preservation |
+| Safely failed/timed-out/cancelled environment | 14 days |
+| Prepared input referenced by jobs | Latest referencing job's diagnostic expiry; every reference must be safe and managed |
+| Never-submitted prepared input | 7 days since verified preparation |
+| Registered abandoned staging | 24 hours and a proven-dead creator identity |
+| Ordinary logs | 30 days, after the environment has been archived/removed |
+| Core assertions, identity/hash/cleanup proofs, preserved models | Indefinite |
+| Pinned, `--keep-prefix`, active, quarantined, unverified or legacy-unadopted | Protected |
+
+Task payload archival separates raw runtime logs into `logs.tar.gz`; saved models,
+assertions and non-log state go to `core.tar.gz` under the job's private
+`retention-archive`. An unchanged canonical fixture copy is omitted only after
+matching its final recorded hash; changed fixture copies and saved model outputs
+are preserved. Temporary Agent/plugin deployment, launch files, home config and
+private MCP connection records are not repacked as indefinite evidence. These
+omissions are recorded in the archive manifest; prepared descriptors and hashes
+remain traceable. This avoids converting shared CoW inputs into new permanent
+compressed copies. Publication requires durable writes, archive readability and
+hash verification. A manifest binds preserved files to the original task; new or
+changed files after archival block later deletion. Existing mixed state/evidence
+archives and files not positively classified as ordinary logs remain core
+records, even when they contain some log text. Marker-only results retain runtime
+logs as core proof; an explicit result file is core even if named `.log` or stored
+under `logs/`. This preserves old proof formats.
+Raw `runner.log` and the collector's pure `logs.tar.gz` expire at the log deadline;
+core lifecycle records never expire. Missing/corrupt archives block collection.
+
+Pins and explicit adoption are audited metadata changes, not deletion:
+
+```bash
+python3 scripts/preview/host_validation.py gc pin ACTUAL_JOB_ID --reason 'Acceptance baseline'
+python3 scripts/preview/host_validation.py gc unpin ACTUAL_JOB_ID --reason 'Baseline superseded; release keep-prefix hold'
+python3 scripts/preview/host_validation.py gc adopt ACTUAL_JOB_ID --reason 'Reviewed exact task ownership and final cleanup evidence'
+```
+
+Unpinning a historical hold does not adopt the job. `adopt` validates the existing
+final verdict, binds the actual task directory and registers its verified shared
+prepared input if needed; other unadopted/active references still protect that
+input. It does not support arbitrary legacy paths or manufacture old cgroup proof.
+Unknown legacy runs need separate operator investigation and a separately approved
+cleanup list. `unpin` explicitly releases the `--keep-prefix` hold as well.
+
+### Apply and recovery
+
+Only after reviewing the exact plan and migrating all old queue writers:
+
+```bash
+python3 -B scripts/preview/host_validation.py gc apply \
+  --plan /tmp/validation-gc-plan.json --approve ACTUAL_PLAN_DIGEST
+```
+
+The digest must be copied from the approved full plan. A modified/rehashed plan
+cannot grant access to arbitrary paths: the collector independently reconstructs
+managed candidates and compares their fingerprints. Policy, roots, identity,
+contents, pins and references are rechecked. Changed/already-collected entries
+are skipped, never silently expanded. The default batch is at most 10 artifacts.
+
+Collection takes the storage lock exclusively and the existing admission lock,
+checks queued-work priority, global activity/quarantine and external sessions, then rechecks inside a
+queue transaction before deletion. Preparation holds a shared storage lock;
+submission uses the same lock. The worker waits for a collector holding admission
+instead of exiting. Busy collectors never stop the worker or any host process.
+Files are removed relative to no-follow directory FDs; Wine links are unlinked
+without traversing their target. Mount crossings (including same-filesystem bind
+mounts), changed paths and special files are rejected. Same-UID malicious actors
+and manual official-BAT launches remain outside managed mutual-exclusion claims.
+
+Durable collection receipts are separate from original verification results.
+An error stops the rest of the batch. If a process crashes mid-delete, preserve
+receipts/archives, generate a fresh plan and approve the remaining files; do not
+reuse an invalidated fingerprint or manually remove lock files. Prepared-input
+retirement has an independent durable marker, so even a database rollback cannot
+make a partially removed input available for new submission. Remaining input
+files must be an unchanged subset of the approved inventory before retry.
+Completed job IDs, request keys and final evidence remain queryable. Repeating an
+old submit request still returns its original job; a new request using a retired
+input is rejected. Re-prepare explicitly to recreate verified inputs. An
+interrupted retirement must finish before the same partial input can be rebuilt.
+
+### Opt-in schedule and rollout
+
+`host-validation-retention-policy.example.json` documents all policy fields. Its
+private deployed location is `retention-policy.json` directly under the fixed
+state root. Unknown keys, invalid types, nonpositive/nonfinite limits or log
+retention shorter than environment retention are rejected. The 20 GiB default
+free-space reserve checks preparation and production launch storage; low space
+pauses new work, never kills jobs or relaxes protected-artifact rules.
+
+1. Review the branch and isolated regression results, then perform/review an
+   authorized new exact-host lifecycle/collection acceptance. Isolated tests are
+   not real-host readiness evidence.
+2. Upgrade/retire every old prepare/submit/worker checkout at a safe boundary.
+   Old tools do not implement storage locking or retired-input checks. Do not
+   enable collection while an old writer can still use the queue.
+3. Copy the policy example only after approval. Set `writersMigrated: true` only
+   when that migration is actually complete. Manual `apply` requires this flag.
+4. Review the opt-in `turboism-host-validation-gc.service.example` and `.timer.example`.
+   Configure the same private EnvironmentFile/checkout pattern as the queue
+   service. No build, CLI or test installs/enables them. `Persistent=true` catches
+   missed daily runs; idle priority limits interference. `gc run` defaults to a
+   compact report while `enabled` is false.
+5. Observe reports and obtain explicit approval before setting `enabled: true`.
+   Each scheduled run then plans and rechecks its own bounded batch. An active or
+   quarantined host makes it skip. Stop/disable the timer or set `enabled: false`
+   to prevent subsequent automatic collections; this cannot undo prior deletion.
+
+Focused regressions: `python3 scripts/test/test_host_validation_retention.py`.
+All its queues/artifacts are private temporary fixtures; it never launches Cubism.
