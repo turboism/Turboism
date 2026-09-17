@@ -108,6 +108,46 @@ def case_version_suffixed_type(root: Path) -> None:
     assert "encodes a Cubism version" in result.stdout
 
 
+def case_version_token_inside_type(root: Path) -> None:
+    """A version token embedded anywhere in the name must fail, not only at the suffix."""
+    stems = (
+        "Cubism52WorkspaceHostProvider",
+        "VerifiedCubism5303TextureAtlasLayoutProvider",
+        "EditorPartInspector52SelectorContract",
+        "ThingManifest520",
+        "ThingManifest5203",
+        "ThingManifest5302",
+        "Manifest5303Thing",
+    )
+    for stem in stems:
+        write(
+            root,
+            f"runtime/src/main/java/dev/turboism/sample/{stem}.java",
+            f"package dev.turboism.sample;\n\n/** Doc. */\npublic final class {stem} {{ }}\n",
+        )
+    result = run(root, "naming")
+    assert result.returncode == 1, "embedded version tokens must fail"
+    assert result.stdout.count("encodes a Cubism version") == len(stems)
+
+
+def case_non_version_digits_pass(root: Path) -> None:
+    """Digit runs that are not Cubism-version-shaped must not be flagged."""
+    for stem in (
+        "Point2",
+        "M12ReadSnapshotSource",
+        "Utf8PluginCatalog",
+        "Sha256Thing",
+        "Manifest52030Overflow",
+    ):
+        write(
+            root,
+            f"runtime/src/main/java/dev/turboism/sample/{stem}.java",
+            f"package dev.turboism.sample;\n\n/** Doc. */\npublic final class {stem} {{ }}\n",
+        )
+    result = run(root, "naming")
+    assert result.returncode == 0, f"non-version digit names must pass, got:\n{result.stdout}"
+
+
 def case_retired_asset_token(root: Path) -> None:
     write(root, "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m14-thing.json", "{}\n")
     result = run(root, "assets")
@@ -177,6 +217,8 @@ CASES = (
     case_undocumented_method,
     case_duplicated_digest,
     case_version_suffixed_type,
+    case_version_token_inside_type,
+    case_non_version_digits_pass,
     case_retired_asset_token,
     case_unknown_rule,
     case_ratchet_blocks_new_undocumented_api,
