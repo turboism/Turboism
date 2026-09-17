@@ -5,6 +5,7 @@ cd "$root"
 python3 scripts/test/test_host_validation_scheduler.py
 python3 scripts/test/test_host_validation_queue.py
 python3 scripts/test/test_host_validation_evidence.py
+python3 scripts/test/test_host_validation_retention.py
 bash scripts/test/test_host_validation_env.sh
 bash scripts/test/test_cubism_host_validation_project_copy.sh
 bash scripts/test/test_fps_resize_driver.sh
