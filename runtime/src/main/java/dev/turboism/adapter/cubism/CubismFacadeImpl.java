@@ -1797,14 +1797,14 @@ public final class CubismFacadeImpl implements CubismFacade {
                     requireModelRead("model.glues.all");
                     return values.all().stream()
                         .map(value -> (dev.turboism.sdk.cubism.model.Glue)
-                            new PermissionCheckedGlue(value))
+                            new PermissionCheckedGlue(CubismFacadeImpl.this, value))
                         .toList();
                 }
                 @Override public dev.turboism.sdk.cubism.model.Glue find(
                     final dev.turboism.sdk.cubism.model.GlueId id
                 ) {
                     requireModelRead("model.glues.find");
-                    return new PermissionCheckedGlue(
+                    return new PermissionCheckedGlue(CubismFacadeImpl.this, 
                         values.find(Objects.requireNonNull(id, "id"))
                     );
                 }
@@ -2395,66 +2395,6 @@ public final class CubismFacadeImpl implements CubismFacade {
             Optional.of(subjectId),
             invocation
         );
-    }
-
-    private final class PermissionCheckedGlue implements dev.turboism.sdk.cubism.model.Glue {
-        private final dev.turboism.sdk.cubism.model.Glue delegate;
-
-        private PermissionCheckedGlue(final dev.turboism.sdk.cubism.model.Glue delegate) {
-            this.delegate = Objects.requireNonNull(delegate, "delegate");
-        }
-
-        @Override public dev.turboism.sdk.cubism.model.GlueId id() { requireModelRead("glue.id"); return delegate.id(); }
-        @Override public int index() {
-            requireModelRead("glue.index");
-            return delegate.index();
-        }
-        @Override public int drawableA() { requireModelRead("glue.drawableA"); return delegate.drawableA(); }
-        @Override public int drawableB() { requireModelRead("glue.drawableB"); return delegate.drawableB(); }
-        @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
-            requireModelRead("glue.parameters");
-            return delegate.parameters();
-        }
-        @Override public dev.turboism.sdk.cubism.id.ArtMeshId drawableAId() {
-            requireModelRead("glue.drawableAId");
-            return delegate.drawableAId();
-        }
-        @Override public dev.turboism.sdk.cubism.id.ArtMeshId drawableBId() {
-            requireModelRead("glue.drawableBId");
-            return delegate.drawableBId();
-        }
-        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
-            requireModelRead("glue.parameterIds");
-            return delegate.parameterIds();
-        }
-        @Override public String name() {
-            requireModelRead("glue.name");
-            return delegate.name();
-        }
-        @Override public float intensity() {
-            requireModelRead("glue.intensity");
-            return delegate.intensity();
-        }
-        @Override public void setName(final String name) {
-            requireModelWrite("glue.setName");
-            delegate.setName(name);
-        }
-        @Override public void setId(final dev.turboism.sdk.cubism.model.GlueId id) {
-            requireModelWrite("glue.setId");
-            delegate.setId(id);
-        }
-        @Override public void setIntensity(final float intensity) {
-            requireModelWrite("glue.setIntensity");
-            delegate.setIntensity(intensity);
-        }
-        @Override public void setDrawableA(final dev.turboism.sdk.cubism.id.ArtMeshId id) {
-            requireModelWrite("glue.setDrawableA");
-            delegate.setDrawableA(id);
-        }
-        @Override public void setDrawableB(final dev.turboism.sdk.cubism.id.ArtMeshId id) {
-            requireModelWrite("glue.setDrawableB");
-            delegate.setDrawableB(id);
-        }
     }
 
     void requireModelRead(final String operation) {
