@@ -183,6 +183,26 @@ class RetentionTest(unittest.TestCase):
         kept_job, _, _ = self.finish(prepared=kept)
         self.assertNotIn(kept_job["job_id"], {i["id"] for i in self.plan()["candidates"]})
 
+    def test_missing_terminal_prepared_is_reported_not_blocking(self):
+        # Approved spec 041 change (2026-09-17): recycled prepared inputs from
+        # terminal-only jobs are reported explicitly and never block collection;
+        # non-terminal references still fail closed.
+        job, task, directory = self.finish(state="failed", age=20)
+        shutil.rmtree(self.root / "prepared" / self.prepared)
+        report = self.plan()
+        self.assertEqual([], report["blocked"])
+        reported = {item["preparedId"] for item in report["missingPreparedInputs"]}
+        self.assertIn(self.prepared, reported)
+        retained = {item["id"]: item.get("reason", "") for item in report["retained"] if item["kind"] == "job"}
+        self.assertIn(job["job_id"], retained)
+        self.assertEqual([], [c for c in report["candidates"] if c["id"] == job["job_id"]])
+        # Non-terminal references keep failing closed.
+        kept = self.make_prepared(marker=True)
+        submitted = self.store.submit(kept, kept, "queued-missing-prepared")
+        shutil.rmtree(self.root / "prepared" / kept)
+        report = self.plan()
+        self.assertTrue(any("cannot establish all protected input paths" in reason for reason in report["blocked"]))
+
     def test_legacy_requires_individual_adoption(self):
         job, task, _ = self.finish()
         with self.store.transaction() as db:
