@@ -138,10 +138,35 @@ for module in modules:
     })
 plugins.sort(key=lambda p: p["id"])
 
+# Offline ZIP/Java payloads keep the full closure. The ordinary EXE excludes
+# only these two large, independently pinned, explicitly installable artifacts.
+engine_manifest = json.loads((stage / "script-engine.json").read_text(encoding="utf-8"))
+engine_version = engine_manifest.get("version", "")
+if (engine_manifest.get("format") != "turboism.optional-script-engine"
+        or type(engine_manifest.get("schemaVersion")) is not int
+        or engine_manifest["schemaVersion"] != 1
+        or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?", engine_version)):
+    sys.exit("error: invalid optional script engine manifest")
+expected_engine_names = {
+    f"js-isolate-windows-amd64-community-{engine_version}.jar",
+    f"truffle-api-{engine_version}.jar",
+}
+engine_entries = engine_manifest.get("artifacts", [])
+if len(engine_entries) != 2 or {entry.get("name") for entry in engine_entries} != expected_engine_names:
+    sys.exit("error: optional script engine inventory must contain exactly the two pinned artifacts")
+for entry in engine_entries:
+    path = stage / "graal" / "lib" / entry["name"]
+    if (type(entry.get("bytes")) is not int or not 0 < entry["bytes"] <= 134217728
+            or not re.fullmatch(r"[0-9a-f]{64}", entry.get("sha256", ""))
+            or not path.is_file() or path.is_symlink()
+            or path.stat().st_size != entry["bytes"]
+            or hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]):
+        sys.exit(f"error: staged optional script engine differs from the download pin: {path.name}")
 core_payload = [("turboism-agent.jar", stage / "turboism-agent.jar")]
 core_payload.extend(
     (path.relative_to(stage).as_posix(), path)
     for path in sorted((stage / "graal" / "lib").glob("*.jar"))
+    if path.name not in expected_engine_names
 )
 core_payload.extend([
     ("install-jar-payload.ps1", stage / "install-jar-payload.ps1"),
@@ -150,6 +175,8 @@ core_payload.extend([
     ("configure_turboism.ps1", stage / "configure_turboism.ps1"),
     ("cubism-launch-common.ps1", stage / "cubism-launch-common.ps1"),
     ("install-managed-graal.ps1", stage / "install-managed-graal.ps1"),
+    ("install-script-engine.ps1", stage / "install-script-engine.ps1"),
+    ("script-engine.json", stage / "script-engine.json"),
     ("turboism.ico", stage / "turboism.ico"),
     ("turboism.png", stage / "turboism.png"),
     ("README.txt", stage / "README.txt"),
