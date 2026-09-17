@@ -10,6 +10,9 @@ dependencies {
 }
 
 tasks.processResources {
+    // The record list below is hand-maintained; the root-project gate derives it
+    // from compatibility/cubism/verification/ and fails this build on drift.
+    dependsOn(":checkVerificationRecordIndex")
     listOf(
         "cubism-5.2.03-project-workspace.json",
         "cubism-5.3.02-project-workspace.json",
@@ -39,6 +42,7 @@ tasks.processResources {
         "cubism-5.3.03-clipmask.json",
         "cubism-5.2.03-performance-render-scene.json",
         "cubism-5.3.02-performance-render-scene.json",
+        "cubism-5.3.03-performance-render-scene.json",
         "cubism-5.2.03-ui-control-appearance.json",
         "cubism-5.3.02-ui-control-appearance.json",
         "cubism-5.3.03-ui-control-appearance.json",

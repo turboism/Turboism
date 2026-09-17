@@ -332,6 +332,42 @@ val checkVersionSetCompleteness by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/check_version_set_completeness.py", rootDir.absolutePath)
 }
 
+/*
+ * The bootstrap fat JAR packages verification records from an explicit filename
+ * list; a record missing from it fails closed only when the agent extracts it at
+ * host start. The index check derives the list from the verification directory
+ * and cross-checks manifest verificationId pins, so it also runs as a build-time
+ * dependency of :bootstrap:processResources.
+ */
+val checkVerificationRecordIndexSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for the packaged verification-record index."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/verification_record_index.py",
+        "scripts/test/test_verification_record_index.py"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_verification_record_index",
+        "-v"
+    )
+}
+
+val checkVerificationRecordIndex by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when the packaged verification-record list drifts from the directory or manifest pins."
+    dependsOn(checkVerificationRecordIndexSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/verification_record_index.py",
+        "bootstrap/build.gradle.kts",
+        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") }
+    )
+    commandLine("python3", "scripts/verification_record_index.py", rootDir.absolutePath, "--check")
+}
+
 val checkPackageLayout by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
@@ -847,6 +883,7 @@ val checkCompletedCommit by tasks.registering {
         checkOfficialPluginReadmes,
         checkDraftPackMetadata,
         checkVersionSetCompleteness,
+        checkVerificationRecordIndex,
         "checkSdkApiBaselineTool",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
