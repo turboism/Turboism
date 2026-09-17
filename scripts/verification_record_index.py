@@ -31,9 +31,13 @@ ROOT = Path(__file__).resolve().parents[1]
 VERIFICATION_DIR = Path("compatibility/cubism/verification")
 BOOTSTRAP_BUILD = Path("bootstrap/build.gradle.kts")
 MANIFEST_ROOT = Path("runtime/src/main/java/dev/turboism/mapping/verification")
+TEMPLATE_ROOT = Path("scripts/verification-sources/templates")
 
 RECORD_LITERAL = re.compile(r'"(cubism-\d+\.\d+\.\d+-[^"]+\.json)"')
 VERIFICATION_ID_LITERAL = re.compile(r'"([a-z0-9][a-z0-9._-]*\.static)"')
+TEMPLATE_RECORD_PIN = re.compile(
+    r"\$\{record:(cubism-\d+\.\d+\.\d+-[^}:]+\.json):verificationId\}"
+)
 RECORD_FILENAME = re.compile(r"^cubism-(\d+\.\d+\.\d+)-.+\.json$")
 
 
@@ -90,13 +94,41 @@ def record_ids(root: Path) -> dict[str, str]:
 
 
 def manifest_verification_ids(root: Path) -> dict[str, str]:
-    """Maps each ``*.static`` literal pinned in manifest sources to its file."""
+    """Maps each ``*.static`` id pinned in manifest sources or generated
+    templates to its declaring file.
+
+    Checked-in sources pin ``verificationId`` string literals directly; the
+    generated targets' templates pin them through ``${record:<file>:
+    verificationId}`` placeholders, which resolve through the record filename.
+    """
     ids: dict[str, str] = {}
     base = root / MANIFEST_ROOT
-    for source in sorted(base.rglob("*.java")):
-        for literal in VERIFICATION_ID_LITERAL.findall(_read(source)):
-            ids.setdefault(literal, source.name)
+    if base.is_dir():
+        for source in sorted(base.rglob("*.java")):
+            for literal in VERIFICATION_ID_LITERAL.findall(_read(source)):
+                ids.setdefault(literal, source.name)
+    template_base = root / TEMPLATE_ROOT
+    if template_base.is_dir():
+        name_to_id = {name: vid for vid, name in record_ids(root).items()}
+        for source in sorted(template_base.rglob("*.java")):
+            for record_name in TEMPLATE_RECORD_PIN.findall(_read(source)):
+                if record_name in name_to_id:
+                    ids.setdefault(
+                        name_to_id[record_name],
+                        f"{source.name} (via ${{record:{record_name}}})",
+                    )
     return ids
+
+
+def template_record_pins(root: Path) -> dict[str, str]:
+    """Maps record filenames referenced by template placeholders to the file."""
+    pins: dict[str, str] = {}
+    template_base = root / TEMPLATE_ROOT
+    if template_base.is_dir():
+        for source in sorted(template_base.rglob("*.java")):
+            for record_name in TEMPLATE_RECORD_PIN.findall(_read(source)):
+                pins.setdefault(record_name, source.name)
+    return pins
 
 
 def check(root: Path) -> list[str]:
@@ -132,6 +164,11 @@ def check(root: Path) -> list[str]:
             violations.append(
                 f"{source}: pins verificationId {verification_id!r} with no "
                 "matching record under compatibility/cubism/verification/"
+            )
+    for record_name, source in sorted(template_record_pins(root).items()):
+        if record_name not in ids.values():
+            violations.append(
+                f"{source}: placeholder pins missing record {record_name}"
             )
     return violations
 

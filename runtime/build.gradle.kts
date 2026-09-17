@@ -60,6 +60,42 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
     }
 }
 
+val generatedVerificationRoot = layout.buildDirectory.dir(
+    "generated/sources/verification/java/main"
+)
+
+val generateVerificationSources by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Renders verification manifests and selector contracts from byte-hashed records plus family authoring files."
+    inputs.files(
+        rootProject.file("scripts/generate_verification_sources.py"),
+        fileTree(rootProject.file("scripts/verification-sources")),
+        fileTree(rootProject.file("compatibility/cubism/verification")) {
+            include("*.json")
+        },
+        fileTree(rootProject.file("compatibility/cubism/mapping-packs/draft")) {
+            include("*.json")
+        },
+        fileTree(
+            rootProject.file("runtime/src/main/java/dev/turboism/adapter/cubism")
+        ) { include("**/*.java") },
+        fileTree(rootProject.file("runtime/src/main/java/dev/turboism/ui")) {
+            include("**/*.java")
+        }
+    )
+    outputs.dir(generatedVerificationRoot)
+    doFirst {
+        commandLine(
+            "python3",
+            rootProject.file("scripts/generate_verification_sources.py"),
+            rootProject.rootDir.absolutePath,
+            "render",
+            "--out",
+            generatedVerificationRoot.get().asFile
+        )
+    }
+}
+
 val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
     group = "build"
     description = "Generates the exact Cubism Core selector/profile contract."
@@ -116,6 +152,7 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
 
 sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
+    java.srcDir(generatedVerificationRoot)
 }
 
 val frameworkVersionResource = layout.buildDirectory.file(
@@ -147,7 +184,8 @@ tasks.named<ProcessResources>("processResources") {
 tasks.named("compileJava") {
     dependsOn(
         generateCorePublicApiCatalog,
-        generateCorePublicApiSelectorContract
+        generateCorePublicApiSelectorContract,
+        generateVerificationSources
     )
 }
 
