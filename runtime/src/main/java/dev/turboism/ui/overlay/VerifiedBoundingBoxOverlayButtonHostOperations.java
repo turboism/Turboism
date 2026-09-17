@@ -256,6 +256,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         return resolver.invoke(BUTTON_CREATE, overlay, iconSet(descriptor), callback);
     }
 
+    // Button currency is identity: descriptors bind the exact native widget instance.
+    @SuppressWarnings("ReferenceEquality")
     private boolean isCurrent(final BoundingBoxOverlayButton button) {
         for (BoundingBoxOverlayButtonDescriptor descriptor : descriptors) {
             if (descriptor.button() == button) {
