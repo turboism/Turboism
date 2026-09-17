@@ -73,7 +73,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     );
 
     private final HostSnapshotSource source;
-    private final CubismPermissionGate permissionGate;
+    final CubismPermissionGate permissionGate;
     private final ImmutableSnapshotFactory snapshotFactory;
     private final TransactionManager transactionManager;
     private final CubismModelAccess modelAccess;
@@ -81,10 +81,10 @@ public final class CubismFacadeImpl implements CubismFacade {
     private AuthoringTransactionService authoringTransactions =
         AuthoringTransactionService.unavailable();
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime;
-    private final ParameterLifecycleCoordinator parameterLifecycle;
-    private final PartLifecycleCoordinator partLifecycle;
+    final ParameterLifecycleCoordinator parameterLifecycle;
+    final PartLifecycleCoordinator partLifecycle;
     private final TextureAtlasLayoutService textureAtlasLayouts;
-    private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
+    final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final BooleanSupplier activeScope;
     private final RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
@@ -1286,12 +1286,12 @@ public final class CubismFacadeImpl implements CubismFacade {
                 @Override public List<Parameter> all() {
                     requireModelRead("model.parameters.all");
                     return parameters.all().stream()
-                        .map(value -> (Parameter) new PermissionCheckedParameter(value))
+                        .map(value -> (Parameter) new PermissionCheckedParameter(CubismFacadeImpl.this, value))
                         .toList();
                 }
                 @Override public Parameter find(final dev.turboism.sdk.cubism.id.ParameterId id) {
                     requireModelRead("model.parameters.find");
-                    return new PermissionCheckedParameter(
+                    return new PermissionCheckedParameter(CubismFacadeImpl.this, 
                         parameters.find(Objects.requireNonNull(id, "id"))
                     );
                 }
@@ -1300,7 +1300,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final dev.turboism.sdk.cubism.model.ParameterDefinition definition
                 ) {
                     requireModelWrite("model.parameters.create");
-                    return new PermissionCheckedParameter(parameters.create(definition));
+                    return new PermissionCheckedParameter(CubismFacadeImpl.this, parameters.create(definition));
                 }
 
                 @Override public Parameter create(
@@ -1308,12 +1308,12 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
                 ) {
                     requireModelWrite("model.parameters.create");
-                    return new PermissionCheckedParameter(parameters.create(definition, folderId));
+                    return new PermissionCheckedParameter(CubismFacadeImpl.this, parameters.create(definition, folderId));
                 }
 
                 @Override public Parameter copy(final dev.turboism.sdk.cubism.id.ParameterId id) {
                     requireModelWrite("model.parameters.copy");
-                    return new PermissionCheckedParameter(parameters.copy(id));
+                    return new PermissionCheckedParameter(CubismFacadeImpl.this, parameters.copy(id));
                 }
 
                 @Override public void remove(final dev.turboism.sdk.cubism.id.ParameterId id) {
@@ -1326,7 +1326,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                 ) {
                     requireModelRead("model.parameters.findById");
                     return parameters.findById(Objects.requireNonNull(id, "id"))
-                        .map(value -> (Parameter) new PermissionCheckedParameter(value));
+                        .map(value -> (Parameter) new PermissionCheckedParameter(CubismFacadeImpl.this, value));
                 }
 
                 @Override public java.util.Optional<Parameter> findById(final String id) {
@@ -1371,7 +1371,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                 ) {
                     requireModelWrite("model.parameters.createMany");
                     return parameters.createMany(definitions, folderId).stream()
-                        .map(value -> (Parameter) new PermissionCheckedParameter(value))
+                        .map(value -> (Parameter) new PermissionCheckedParameter(CubismFacadeImpl.this, value))
                         .toList();
                 }
 
@@ -1390,25 +1390,25 @@ public final class CubismFacadeImpl implements CubismFacade {
                 @Override public List<ParameterGroup> all() {
                     requireModelRead("model.parameterGroups.all");
                     return groups.all().stream()
-                        .map(value -> (ParameterGroup) new PermissionCheckedParameterGroup(value))
+                        .map(value -> (ParameterGroup) new PermissionCheckedParameterGroup(CubismFacadeImpl.this, value))
                         .toList();
                 }
                 @Override public ParameterGroup root() {
                     requireModelRead("model.parameterGroups.root");
-                    return new PermissionCheckedParameterGroup(groups.root());
+                    return new PermissionCheckedParameterGroup(CubismFacadeImpl.this, groups.root());
                 }
                 @Override public ParameterGroup find(
                     final dev.turboism.sdk.cubism.id.ParameterGroupId id
                 ) {
                     requireModelRead("model.parameterGroups.find");
-                    return new PermissionCheckedParameterGroup(
+                    return new PermissionCheckedParameterGroup(CubismFacadeImpl.this, 
                         groups.find(Objects.requireNonNull(id, "id"))
                     );
                 }
 
                 @Override public ParameterGroup addGroup(final String name) {
                     requireModelWrite("model.parameterGroups.addGroup");
-                    return new PermissionCheckedParameterGroup(groups.addGroup(name));
+                    return new PermissionCheckedParameterGroup(CubismFacadeImpl.this, groups.addGroup(name));
                 }
 
                 @Override public void removeGroup(
@@ -1840,7 +1840,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
     }
 
-    private dev.turboism.sdk.cubism.model.Part unwrapPart(
+    dev.turboism.sdk.cubism.model.Part unwrapPart(
         final Object expectedOwner,
         final dev.turboism.sdk.cubism.model.Part value
     ) {
@@ -1854,7 +1854,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         return checked.delegate;
     }
 
-    private dev.turboism.sdk.cubism.model.Drawable unwrapDrawable(
+    dev.turboism.sdk.cubism.model.Drawable unwrapDrawable(
         final dev.turboism.sdk.cubism.model.Drawable value
     ) {
         if (!(value instanceof PermissionCheckedDrawable checked)) {
@@ -1865,7 +1865,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         return checked.delegate;
     }
 
-    private dev.turboism.sdk.cubism.model.Deformer unwrapDeformer(
+    dev.turboism.sdk.cubism.model.Deformer unwrapDeformer(
         final dev.turboism.sdk.cubism.model.Deformer value
     ) {
         if (value instanceof PermissionCheckedWarpDeformer checked) {
@@ -2352,7 +2352,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
     }
 
-    private <T> void runSemantic(
+    <T> void runSemantic(
         final CubismOperation operation,
         final String subjectId,
         final Supplier<T> state,
@@ -2367,7 +2367,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         );
     }
 
-    private <T> void runSemanticComparingTo(
+    <T> void runSemanticComparingTo(
         final CubismOperation operation,
         final String subjectId,
         final Supplier<T> state,
@@ -2384,7 +2384,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         );
     }
 
-    private void runSemanticConfirmed(
+    void runSemanticConfirmed(
         final CubismOperation operation,
         final String subjectId,
         final Runnable invocation
@@ -2457,182 +2457,19 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
     }
 
-    private void requireModelRead(final String operation) {
+    void requireModelRead(final String operation) {
         requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, operation);
     }
 
-    private void requireModelWrite(final String operation) {
+    void requireModelWrite(final String operation) {
         requireActiveScope();
         permissionGate.require(MODEL_WRITE_PERMISSION, operation);
     }
 
-    private void requireActiveScope() {
+    void requireActiveScope() {
         if (!activeScope.getAsBoolean()) {
             throw new IllegalStateException("Cubism service reference is stale because the owning plugin is disabled.");
-        }
-    }
-
-    private final class PermissionCheckedParameterGroup implements ParameterGroup {
-        private final ParameterGroup delegate;
-
-        private PermissionCheckedParameterGroup(final ParameterGroup delegate) {
-            this.delegate = Objects.requireNonNull(delegate, "delegate");
-        }
-        @Override public dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance ui() {
-            requireModelRead("parameterGroup.ui");
-            return delegate.ui();
-        }
-
-        @Override public dev.turboism.sdk.cubism.id.ParameterGroupId id() {
-            requireModelRead("parameterGroup.id");
-            return delegate.id();
-        }
-        @Override public java.util.Optional<String> name() {
-            requireModelRead("parameterGroup.name");
-            return delegate.name();
-        }
-        @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parentId() {
-            requireModelRead("parameterGroup.parentId");
-            return delegate.parentId();
-        }
-        @Override public List<dev.turboism.sdk.cubism.id.ParameterGroupId> childGroupIds() {
-            requireModelRead("parameterGroup.childGroupIds");
-            return delegate.childGroupIds();
-        }
-        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
-            requireModelRead("parameterGroup.parameterIds");
-            return delegate.parameterIds();
-        }
-
-
-        @Override public void rename(final String name) {
-            requireModelWrite("parameterGroup.rename");
-            delegate.rename(name);
-        }
-    }
-
-    private final class PermissionCheckedParameter implements Parameter {
-        private final Parameter delegate;
-
-        private PermissionCheckedParameter(final Parameter delegate) {
-            this.delegate = Objects.requireNonNull(delegate, "delegate");
-        }
-        @Override public dev.turboism.sdk.ui.appearance.model.ParameterAppearance ui() {
-            requireModelRead("parameter.ui");
-            return delegate.ui();
-        }
-
-        @Override public dev.turboism.sdk.cubism.id.ParameterId id() { requireModelRead("parameter.id"); return delegate.id(); }
-        @Override public int index() {
-            requireModelRead("parameter.index");
-            return delegate.index();
-        }
-        @Override public dev.turboism.sdk.cubism.model.FloatSequence keyValues() {
-            requireModelRead("parameter.keyValues");
-            return delegate.keyValues();
-        }
-        @Override public java.util.Optional<String> name() { requireModelRead("parameter.name"); return delegate.name(); }
-        @Override public dev.turboism.sdk.cubism.model.ParameterType type() { requireModelRead("parameter.type"); return delegate.type(); }
-        @Override public java.util.Optional<Boolean> repeat() { requireModelRead("parameter.repeat"); return delegate.repeat(); }
-        @Override public boolean isBlendShape() {
-            requireModelRead("parameter.isBlendShape");
-            return delegate.isBlendShape();
-        }
-        @Override public java.util.Optional<Boolean> combined() { requireModelRead("parameter.combined"); return delegate.combined(); }
-        @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterId> combinedWith() {
-            requireModelRead("parameter.combinedWith");
-            return delegate.combinedWith();
-        }
-        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
-            requireModelRead("parameter.getParameterBindings");
-            return delegate.getParameterBindings();
-        }
-        @Override public void combineWith(
-            final dev.turboism.sdk.cubism.id.ParameterId partnerId
-        ) {
-            requireModelWrite("parameter.combineWith");
-            runSemantic(
-                CubismOperation.COMBINE_PARAMETER,
-                id().value(),
-                delegate::combinedWith,
-                () -> delegate.combineWith(partnerId)
-            );
-        }
-        @Override public void uncombine() {
-            requireModelWrite("parameter.uncombine");
-            runSemantic(
-                CubismOperation.UNCOMBINE_PARAMETER,
-                id().value(),
-                delegate::combinedWith,
-                delegate::uncombine
-            );
-        }
-        @Override public float getValue() { requireModelRead("parameter.getValue"); return delegate.getValue(); }
-        @Override public float getMinimumValue() { requireModelRead("parameter.getMinimumValue"); return delegate.getMinimumValue(); }
-        @Override public float getMaximumValue() { requireModelRead("parameter.getMaximumValue"); return delegate.getMaximumValue(); }
-        @Override public float getDefaultValue() { requireModelRead("parameter.getDefaultValue"); return delegate.getDefaultValue(); }
-        @Override public void resetToDefault() {
-            requireModelWrite("parameter.resetToDefault");
-            runSemantic(
-                CubismOperation.RESET_PARAMETER_TO_DEFAULT,
-                id().value(),
-                delegate::getValue,
-                () -> parameterLifecycle.setValue(
-                    this,
-                    delegate.getDefaultValue(),
-                    delegate::setValue
-                )
-            );
-        }
-        @Override public void setValue(final float value) {
-            requireModelWrite("parameter.setValue");
-            runSemantic(
-                CubismOperation.SET_PARAMETER_VALUE,
-                id().value(),
-                delegate::getValue,
-                () -> parameterLifecycle.setValue(this, value, delegate::setValue)
-            );
-        }
-        @Override public void updateDefinition(
-            final dev.turboism.sdk.cubism.model.ParameterDefinition definition
-        ) {
-            requireModelWrite("parameter.updateDefinition");
-            final dev.turboism.sdk.cubism.model.ParameterDefinition requested =
-                Objects.requireNonNull(definition, "definition");
-            runSemanticComparingTo(
-                CubismOperation.UPDATE_PARAMETER_DEFINITION,
-                id().value(),
-                this::definitionState,
-                definitionState(requested),
-                () -> delegate.updateDefinition(requested)
-            );
-        }
-
-        private List<?> definitionState() {
-            return List.of(
-                delegate.id(),
-                delegate.name(),
-                delegate.type(),
-                delegate.repeat(),
-                delegate.getMinimumValue(),
-                delegate.getDefaultValue(),
-                delegate.getMaximumValue()
-            );
-        }
-
-        private List<?> definitionState(
-            final dev.turboism.sdk.cubism.model.ParameterDefinition definition
-        ) {
-            return List.of(
-                definition.id(),
-                Optional.of(definition.name()),
-                definition.type(),
-                Optional.of(definition.repeat()),
-                definition.minimumValue(),
-                definition.defaultValue(),
-                definition.maximumValue()
-            );
         }
     }
 
@@ -2677,7 +2514,6 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("part.childIds");
             return delegate.childIds();
         }
-
 
         @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
             requireModelRead("part.morphTargets");
