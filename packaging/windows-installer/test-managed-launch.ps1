@@ -325,6 +325,7 @@ try {
     $discoveryHome = Join-Path $temp "installer discovery home"
     New-Item -ItemType Directory -Path $discoveryHome -Force | Out-Null
     $discoveryReport = Join-Path $discoveryHome "cubism-scan.result"
+    Copy-Item -LiteralPath (Join-Path $turboismHome "turboism-agent.jar") -Destination (Join-Path $discoveryHome "turboism-agent.jar")
     Write-CubismInstallerDiscoveryReport `
         -TurboismHome $discoveryHome `
         -OutputPath $discoveryReport `
@@ -338,7 +339,11 @@ try {
     Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*unsupported*" -or $_ -like "DISPLAY|*Unsupported*" -or $_ -like "DISPLAY|*不支持*" -or $_ -like "DISPLAY|*未対応*" }).Count -eq 2) "installer discovery report keeps unreviewed artifacts visible and unsupported"
     Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|* — *" }).Count -eq 0) "installer discovery display records omit per-path explanations"
     $discoveryFiles = @(Get-ChildItem -LiteralPath $discoveryHome -File -Force)
-    Assert-ManagedLaunch ($discoveryFiles.Count -eq 1 -and $discoveryFiles[0].FullName -eq $discoveryReport) "installer discovery publishes only the final atomic report"
+    Assert-ManagedLaunch ($discoveryFiles.Count -eq 3 -and
+        (Test-Path -LiteralPath ($discoveryReport + '.json')) -and
+        @($discoveryFiles | Where-Object { $_.Name -like '*.tmp' }).Count -eq 0) "installer discovery publishes its atomic report and snapshot beside the verifier"
+    $snapshotRecords = @($discoveryLines | Where-Object { $_ -match '^SNAPSHOT\|[0-9a-fA-F]{64}$' })
+    Assert-ManagedLaunch ($snapshotRecords.Count -eq 1 -and $snapshotRecords[0].Substring(9) -ieq (Get-CubismSha256 ($discoveryReport + '.json'))) "discovery report binds the structured snapshot bytes"
     Assert-ManagedLaunch (-not (Test-Path -LiteralPath (Join-Path $discoveryHome "cubism-installations.json"))) "installer discovery creates no managed installation state"
 
     $initial = Merge-CubismSelection -Candidates $candidates -SavedInstallations @()
