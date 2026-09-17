@@ -103,10 +103,8 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     private static final int TEXT_LEFT_INSET = 6;
     private static final int TEXT_RIGHT_INSET = 28;
 
-    private static final String PALETTE_PROPERTY = "dev.turboism.paletteFilter";
     private static final String FILTERED_TEXT_PANE_KEY = LogPaletteHostStructure.FILTERED_TEXT_PANE_KEY;
     private static final String WRAPPER_MARKER_KEY = LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY;
-    private static final String SCENE_PALETTE_PROPERTY = "dev.turboism.scenePalette";
     private static final String TOOLBAR_ROW_MARKER_KEY = "turboism.paletteFilter.toolbarRow";
     private static final String TOOLBAR_BUTTON_NAME = "turboismPaletteToolbarButton";
     private static final String TOOLBAR_BUTTON_MARKER_KEY = "turboism.paletteToolbar.button";
@@ -127,7 +125,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         SCENE("palette.scene"),
         LOG("palette.log");
 
-        private final String classHint;
+        final String classHint;
 
         PaletteKind(final String classHint) {
             this.classHint = classHint;
@@ -455,24 +453,24 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             if (!root.isDisplayable()) {
                 return false;
             }
-            if (!isInVisibleCubismWindow(root)) {
+            if (!PaletteComponentFinder.isInVisibleCubismWindow(root)) {
                 return false;
             }
         }
         final JTable table = state.table;
-        if (table != null && (!table.isDisplayable() || !isInVisibleCubismWindow(table))) {
+        if (table != null && (!table.isDisplayable() || !PaletteComponentFinder.isInVisibleCubismWindow(table))) {
             return false;
         }
         final JTextPane textPane = state.sourceTextPane;
         if (textPane != null && state.kind != PaletteKind.LOG
-            && (!textPane.isDisplayable() || !isInVisibleCubismWindow(textPane))) {
+            && (!textPane.isDisplayable() || !PaletteComponentFinder.isInVisibleCubismWindow(textPane))) {
             return false;
         }
         if (state.kind == PaletteKind.LOG && state.filteredDoc != null) {
             if (state.sourceTextPane == null || state.sourceTextPane.getDocument() != state.filteredDoc) {
                 return false;
             }
-            if (!state.sourceTextPane.isDisplayable() || !isInVisibleCubismWindow(state.sourceTextPane)) {
+            if (!state.sourceTextPane.isDisplayable() || !PaletteComponentFinder.isInVisibleCubismWindow(state.sourceTextPane)) {
                 return false;
             }
         }
@@ -486,13 +484,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             }
         }
         return true;
-    }
-
-    private static boolean isInVisibleCubismWindow(final Component component) {
-        final Window window = SwingUtilities.getWindowAncestor(component);
-        return window != null
-            && window.isVisible()
-            && window.getClass().getName().startsWith("com.live2d.ui.window.CFrame");
     }
 
     /**
@@ -522,7 +513,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             if (state.tree != null && state.treeModel != null
                 && state.tree.getModel() == state.filteredTreeModel) {
                 state.tree.setModel(state.treeModel);
-                refreshTableModel(state.table);
+                PaletteComponentFinder.refreshTableModel(state.table);
             }
             state.filteredTreeModel.dispose();
             state.filteredTreeModel = null;
@@ -578,13 +569,13 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     private Object resolvePaletteController(final PaletteKind kind) {
         switch (kind) {
             case SCENE -> {
-                final JTable remembered = findRememberedSceneTable();
+                final JTable remembered = PaletteComponentFinder.findRememberedSceneTable();
                 if (remembered != null) {
                     return remembered;
                 }
             }
             case DEFORMER -> {
-                final JTable table = findTreeTable("com.live2d.cubism.view.palette.deformer.CDeformerTreeTable");
+                final JTable table = PaletteComponentFinder.findTreeTable("com.live2d.cubism.view.palette.deformer.CDeformerTreeTable");
                 if (table != null) {
                     return table;
                 }
@@ -604,111 +595,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
         // Fallback: class-path hint scan (kept for unknown shapes; fails closed otherwise).
         for (Window window : Window.getWindows()) {
-            final Object root = findPaletteRoot(window, kind, null);
+            final Object root = PaletteComponentFinder.findPaletteRoot(window, kind, null);
             if (root != null) {
                 return root;
-            }
-        }
-        return null;
-    }
-
-    private static Object findPaletteRoot(
-        final Component component,
-        final PaletteKind kind,
-        final ClassLoader hostClassLoader
-    ) {
-        final String cacheKey = PALETTE_PROPERTY + "." + kind.name();
-        final Object remembered = component instanceof JComponent
-            ? ((JComponent) component).getClientProperty(cacheKey)
-            : null;
-        if (remembered instanceof java.lang.ref.WeakReference<?> reference && reference.get() != null) {
-            return reference.get();
-        }
-        if (matchesPaletteRoot(component, kind)) {
-            if (component instanceof JComponent jComponent) {
-                jComponent.putClientProperty(cacheKey, new java.lang.ref.WeakReference<>(component));
-            }
-            return component;
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final Object root = findPaletteRoot(child, kind, hostClassLoader);
-                if (root != null) {
-                    return root;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static boolean matchesPaletteRoot(final Component component, final PaletteKind kind) {
-        final String name = component.getClass().getName();
-        if (kind == PaletteKind.DEFORMER) {
-            return name.startsWith("com.live2d.cubism.view.palette.deformer.CDeformerTreeTable");
-        }
-        return name.contains(kind.classHint);
-    }
-
-    /** Finds the JTable remembered by the scene-table host (validated 5.3.02 property). */
-    private static JTable findRememberedSceneTable() {
-        for (Window window : Window.getWindows()) {
-            final JTable table = findRememberedSceneTable(window);
-            if (table != null) {
-                return table;
-            }
-        }
-        return null;
-    }
-
-    private static JTable findRememberedSceneTable(final Component component) {
-        if (component instanceof JTable table) {
-            final Object remembered = table.getClientProperty(SCENE_PALETTE_PROPERTY);
-            if (remembered instanceof java.lang.ref.WeakReference<?> reference && reference.get() != null) {
-                return table;
-            }
-            // Native scene row listener (exact 5.3.02 class) carrying the palette in field "a".
-            for (java.awt.event.MouseListener listener : table.getMouseListeners()) {
-                if (listener != null && listener.getClass().getName().equals(
-                    "com.live2d.cubism.view.palette.scene.m")) {
-                    return table;
-                }
-            }
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JTable found = findRememberedSceneTable(child);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
-    }
-
-    /** Finds a tree-table whose class name starts with the given 5.3.02 prefix. */
-    private static JTable findTreeTable(final String classNamePrefix) {
-        for (Window window : Window.getWindows()) {
-            final JTable table = findTreeTable(window, classNamePrefix);
-            if (table != null) {
-                return table;
-            }
-        }
-        return null;
-    }
-
-    private static JTable findTreeTable(final Component component, final String classNamePrefix) {
-        if (component instanceof JTable table
-            && table.getClass().getName().startsWith(classNamePrefix)
-            && table.isDisplayable()
-            && isInVisibleCubismWindow(table)) {
-            return table;
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JTable found = findTreeTable(child, classNamePrefix);
-                if (found != null) {
-                    return found;
-                }
             }
         }
         return null;
@@ -720,7 +609,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (source == null) {
             return null;
         }
-        JComponent root = parameterRowsRoot(source);
+        JComponent root = PaletteComponentFinder.parameterRowsRoot(source);
         if (root != null) {
             return root;
         }
@@ -728,27 +617,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (now - lastParameterReplayMillis >= 1_000) {
             lastParameterReplayMillis = now;
             replayExistingParameterRows();
-            root = parameterRowsRoot(source);
+            root = PaletteComponentFinder.parameterRowsRoot(source);
         }
         return root;
-    }
-
-    private static JComponent parameterRowsRoot(
-        final dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator source
-    ) {
-        for (dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator.ParameterControlBinding binding
-            : source.parameterControlBindings()) {
-            final Component label = binding.label();
-            if (!label.isDisplayable() || !isInVisibleCubismWindow(label)) {
-                continue;
-            }
-            final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(label);
-            if (viewport != null && viewport.getView() instanceof JComponent root
-                && findParameterToolbar(root) != null) {
-                return root;
-            }
-        }
-        return null;
     }
 
     private void replayExistingParameterRows() {
@@ -772,63 +643,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
     }
 
-    private static final String PARAM_ADD_COMMAND = "CMD_PARAMETER_PALETTE_ADD_NEW_PARAMETER";
-    private static final String PARAM_FOLDER_COMMAND = "CMD_PARAMETER_PALETTE_NEW_FOLDER";
-    private static final String PARAM_DELETE_COMMAND = "CMD_PARAMETER_PALETTE_DELETE_OBJECT";
-
-    private static boolean isParameterToolbar(final Component component) {
-        if (!(component instanceof Container container)) {
-            return false;
-        }
-        final List<AbstractButton> buttons = collectButtons(container, 2);
-        if (buttons.size() != 3) {
-            return false;
-        }
-        boolean hasAdd = false;
-        boolean hasFolder = false;
-        boolean hasDelete = false;
-        for (AbstractButton button : buttons) {
-            final String action = normalize(button.getActionCommand());
-            final String tooltip = normalize(button.getToolTipText());
-            final String text = normalize(button.getText());
-            // Exact legacy command first; fall back to multi-language labels.
-            hasAdd |= action.equals(normalize(PARAM_ADD_COMMAND))
-                || action.contains("add_new_parameter") || action.contains("newparameter") || action.contains("createparameter")
-                || tooltip.contains("创建新参数") || tooltip.contains("create parameter") || tooltip.contains("パラメータ作成")
-                || text.contains("创建新参数");
-            hasFolder |= action.equals(normalize(PARAM_FOLDER_COMMAND))
-                || action.contains("new_folder") || action.contains("newfolder") || action.contains("createfolder")
-                || tooltip.contains("创建新文件夹") || tooltip.contains("create folder") || tooltip.contains("フォルダ作成")
-                || text.contains("创建新文件夹");
-            hasDelete |= action.equals(normalize(PARAM_DELETE_COMMAND))
-                || action.contains("delete") || action.contains("remove")
-                || tooltip.contains("删除选定的元素") || tooltip.contains("delete selected") || tooltip.contains("削除")
-                || text.contains("删除");
-        }
-        return hasAdd && hasFolder && hasDelete;
-    }
-
-    private static List<AbstractButton> collectButtons(final Container root, final int depth) {
-        final List<AbstractButton> buttons = new ArrayList<>();
-        collectButtons(root, depth, buttons);
-        return buttons;
-    }
-
-    private static void collectButtons(final Component component, final int depth, final List<AbstractButton> buttons) {
-        if (component == null || depth < 0) {
-            return;
-        }
-        if (component instanceof AbstractButton button) {
-            buttons.add(button);
-            return;
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                collectButtons(child, depth - 1, buttons);
-            }
-        }
-    }
-
     // ------------------------------------------------------------ attach kinds
 
     private boolean attachScene(
@@ -837,12 +651,12 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     ) {
         final JComponent component = state.root;
         if (component == null) return false;
-        final JTable table = component instanceof JTable tableValue ? tableValue : findTable(component);
+        final JTable table = component instanceof JTable tableValue ? tableValue : PaletteComponentFinder.findTable(component);
         if (table == null) {
             lastAttachStatus.put(state.kind, "scene-table-not-found root=" + component.getClass().getName());
             return false;
         }
-        final Container toolbar = findToolbarContainer(table);
+        final Container toolbar = PaletteComponentFinder.findToolbarContainer(table);
         if (toolbar == null) {
             lastAttachStatus.put(state.kind, "scene-toolbar-not-found table=" + table.getClass().getName());
             return false;
@@ -877,12 +691,12 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     ) {
         final JComponent component = state.root;
         if (component == null) return false;
-        final JTable table = component instanceof JTable tableValue ? tableValue : findTable(component);
+        final JTable table = component instanceof JTable tableValue ? tableValue : PaletteComponentFinder.findTable(component);
         if (table == null) {
             lastAttachStatus.put(state.kind, "deformer-table-not-found root=" + component.getClass().getName());
             return false;
         }
-        final Container toolbar = findToolbarContainer(table);
+        final Container toolbar = PaletteComponentFinder.findToolbarContainer(table);
         if (toolbar == null) {
             lastAttachStatus.put(state.kind, "deformer-toolbar-not-found table=" + table.getClass().getName());
             return false;
@@ -890,7 +704,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         state.table = table;
         state.toolbar = toolbar;
         if (contribution != null) {
-            final JTree tree = extractTree(table);
+            final JTree tree = PaletteComponentFinder.extractTree(table);
             if (tree == null) {
                 lastAttachStatus.put(state.kind, "deformer-tree-not-found table=" + table.getClass().getName());
                 return false;
@@ -940,7 +754,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     ) {
         final JComponent component = state.root;
         if (component == null) return false;
-        final Container toolbar = findParameterToolbar(component);
+        final Container toolbar = PaletteComponentFinder.findParameterToolbar(component);
         if (toolbar == null) {
             lastAttachStatus.put(state.kind, "parameter-toolbar-not-found root=" + component.getClass().getName());
             return false;
@@ -1122,7 +936,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
         final JComponent component = state.root;
         if (component == null) return false;
-        final JTextPane textPane = component instanceof JTextPane pane ? pane : findTextPane(component);
+        final JTextPane textPane = component instanceof JTextPane pane ? pane : PaletteComponentFinder.findTextPane(component);
         if (textPane == null) {
             lastAttachStatus.put(state.kind, "log-textpane-not-found root=" + component.getClass().getName());
             return false;
@@ -1439,7 +1253,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (rows != null) {
             rewriteTableRows(rows, visibleDocs);
         }
-        fireTableChanged(table);
+        PaletteComponentFinder.fireTableChanged(table);
         final int cells = rows == null ? -1 : rows.size();
         lastAttachStatus.put(state.kind, "scene-filter keyword=" + keyword
             + " totalDocs=" + totalDocs + " visibleDocs=" + visibleDocs.size()
@@ -1484,17 +1298,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
     }
 
-    private static void fireTableChanged(final JTable table) {
-        if (table.getModel() instanceof AbstractTableModel model) {
-            model.fireTableDataChanged();
-        }
-        table.revalidate();
-        table.repaint();
-    }
-
     /** Reverses a Scene palette controller from its table (scene-table host property or native listener field "a"). */
     private static Object reverseResolvePalette(final JTable table) {
-        final Object remembered = table.getClientProperty(SCENE_PALETTE_PROPERTY);
+        final Object remembered = table.getClientProperty(PaletteComponentFinder.SCENE_PALETTE_PROPERTY);
         if (remembered instanceof java.lang.ref.WeakReference<?> reference && reference.get() != null) {
             return reference.get();
         }
@@ -1833,7 +1639,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                         applied.dispose();
                     }
                     expandFilteredTree(tree);
-                    refreshTableModel(state.table);
+                    PaletteComponentFinder.refreshTableModel(state.table);
                     lastAttachStatus.put(state.kind, "tree-filter keyword=" + keyword
                         + " original=" + original.getClass().getSimpleName()
                         + " treeRows=" + tree.getRowCount()
@@ -1850,72 +1656,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         for (int row = 0; row < tree.getRowCount() && row < 2_000; row++) {
             tree.expandRow(row);
         }
-    }
-
-    private static void refreshTableModel(final JTable table) {
-        if (table == null) {
-            return;
-        }
-        if (table.getModel() instanceof AbstractTableModel model) {
-            model.fireTableDataChanged();
-        }
-        table.revalidate();
-        table.repaint();
-        final Container parent = table.getParent();
-        if (parent != null) {
-            parent.repaint();
-        }
-    }
-
-    /** Extracts the embedded JTree from a tree-table via reflective field scan (bounded, fail-closed). */
-    private static JTree extractTree(final JTable table) {
-        for (Component child : table.getComponents()) {
-            if (child instanceof JTree tree) {
-                return tree;
-            }
-        }
-        Class<?> type = table.getClass();
-        int depth = 0;
-        while (type != null && depth < 4) {
-            for (Field field : type.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-                    continue;
-                }
-                try {
-                    field.setAccessible(true);
-                    final Object value = field.get(table);
-                    if (value instanceof JTree tree) {
-                        return tree;
-                    }
-                    if (value instanceof JComponent component) {
-                        final JTree nested = findTreeInComponent(component);
-                        if (nested != null) {
-                            return nested;
-                        }
-                    }
-                } catch (ReflectiveOperationException | LinkageError ignored) {
-                    // Try the next field.
-                }
-            }
-            type = type.getSuperclass();
-            depth++;
-        }
-        return null;
-    }
-
-    private static JTree findTreeInComponent(final Component component) {
-        if (component instanceof JTree tree) {
-            return tree;
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JTree found = findTreeInComponent(child);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
     }
 
     /** Exact 5.3.02 deformer fields: verified node {@code i()} source ID and local name. */
@@ -2037,7 +1777,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         final TreeModel original = state.treeModel;
         if (original != null && tree.getModel() != original) {
             tree.setModel(original);
-            refreshTableModel(state.table);
+            PaletteComponentFinder.refreshTableModel(state.table);
         }
         if (state.filteredTreeModel != null) {
             state.filteredTreeModel.dispose();
@@ -2060,105 +1800,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     }
 
     // ------------------------------------------------------------ resolution
-
-    private static Container findToolbarContainer(final JTable table) {
-        final Component scrollPane = SwingUtilities.getAncestorOfClass(JScrollPane.class, table);
-        Component current = scrollPane == null ? table : scrollPane;
-        while (current != null && current.getParent() != null) {
-            final Container parent = current.getParent();
-            for (Component child : parent.getComponents()) {
-                if (child == current) {
-                    continue;
-                }
-                if (child instanceof Container && containsToolbarButton((Container) child)) {
-                    return (Container) child;
-                }
-            }
-            current = parent;
-        }
-        return null;
-    }
-
-    private static boolean containsToolbarButton(final Container container) {
-        for (Component child : container.getComponents()) {
-            if (child instanceof AbstractButton) {
-                return true;
-            }
-            if (child instanceof Container && containsToolbarButton((Container) child)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static Container findParameterToolbar(final Component component) {
-        // Walk up from the parameter viewport and inspect bounded sibling subtrees
-        // for the exact three-button toolbar.
-        Component current = component;
-        int hops = 0;
-        while (current != null && current.getParent() != null && hops < 8) {
-            final Container parent = current.getParent();
-            for (Component sibling : parent.getComponents()) {
-                if (sibling != current) {
-                    final Container toolbar = findParameterToolbarInSubtree(sibling, 3);
-                    if (toolbar != null) {
-                        return toolbar;
-                    }
-                }
-            }
-            current = parent;
-            hops++;
-        }
-        return null;
-    }
-
-    private static Container findParameterToolbarInSubtree(final Component component, final int depth) {
-        if (component == null || depth < 0) {
-            return null;
-        }
-        if (isParameterToolbar(component)) {
-            return (Container) component;
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final Container found = findParameterToolbarInSubtree(child, depth - 1);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static JTable findTable(final Component root) {
-        if (root instanceof JTable table) {
-            return table;
-        }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JTable table = findTable(child);
-                if (table != null) {
-                    return table;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static JTextPane findTextPane(final Component root) {
-        if (root instanceof JTextPane pane && !pane.isEditable()) {
-            return pane;
-        }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JTextPane pane = findTextPane(child);
-                if (pane != null) {
-                    return pane;
-                }
-            }
-        }
-        return null;
-    }
 
     private void detach(final PaletteFilterState state) {
         if (state == null) {
