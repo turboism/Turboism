@@ -317,3 +317,16 @@ With complete shared-program mutation coverage, the hot-path shared-state query 
 logically unnecessary: either shared state is admitted. The bridge now short-circuits
 that query while retaining current/context/created/ownership/mutation checks.
 This does not cache context validity or weaken mutation admission.
+
+## Reading native-interaction progress
+
+`preparation-progress.txt` tracks discovery, focus, counter attachment and scene
+inventory. A preparation-only watchdog writes a bounded thread/lock diagnostic
+if these stages exceed 30 seconds, and must stop and join before any measured
+window. `preparationWatcherStopped=true` records that boundary. The benchmark
+summary changes to `status=RUNNING` after preparation and flushes completed legs;
+`interaction-progress.txt` is the authority for the currently active leg and its
+warmup/measuring phase. A partial summary is not proof of a stalled Editor. Do not
+cancel a running full-size slow-control leg merely because it has not flushed its
+summary yet. Failures are written before attempting UI cleanup, and no terminal
+success is accepted without supervisor cleanup evidence.

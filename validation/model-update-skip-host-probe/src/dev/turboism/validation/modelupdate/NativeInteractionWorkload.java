@@ -59,11 +59,21 @@ final class NativeInteractionWorkload {
             .append("authoringDriver=native-mouse-not-SDK-replaceGeometry\n");
         Files.writeString(state.resolve("interaction-benchmark.txt"), report + "status=PREPARING\n");
         try {
-            edt(() -> { discover(); return null; }, 180);
-            edt(() -> { window.toFront(); window.requestFocus(); canvas.requestFocusInWindow(); return null; });
-            Thread.sleep(150L);
-            edt(() -> { requireFocus(); hook = NarrowUniformTrial.attach(canvas); return null; });
-            report.append("width=").append(width).append("\nheight=").append(height).append('\n');
+            try (PreparationWatchdog preparation = new PreparationWatchdog(state, 30_000L)) {
+                preparation.stage("discover");
+                edt(() -> { discover(); return null; }, 180);
+                preparation.stage("focus");
+                edt(() -> { window.toFront(); window.requestFocus(); canvas.requestFocusInWindow(); return null; });
+                Thread.sleep(150L);
+                preparation.stage("attach-counter");
+                edt(() -> { requireFocus(); hook = NarrowUniformTrial.attach(canvas); return null; });
+                preparation.stage("scene-inventory");
+                report.append("width=").append(width).append("\nheight=").append(height).append('\n')
+                    .append(edt(host::sceneInventory));
+                preparation.stage("ready");
+            }
+            report.append("preparationWatcherStopped=true\n");
+            Files.writeString(state.resolve("interaction-benchmark.txt"), report + "status=RUNNING\n");
             boolean[] variants = {false, true, true, false};
             for (int leg = 0; leg < variants.length; leg++) {
                 final boolean enabled = variants[leg];
@@ -77,6 +87,7 @@ final class NativeInteractionWorkload {
             report.append("status=PASS\n");
         } catch (Throwable failure) {
             report.append("status=FAIL\nerror=").append(failure).append('\n');
+            Files.writeString(state.resolve("interaction-benchmark.txt"), report);
             throw failure;
         } finally {
             try {
