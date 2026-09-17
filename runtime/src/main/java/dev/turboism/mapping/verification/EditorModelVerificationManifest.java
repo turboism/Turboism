@@ -10,7 +10,7 @@ import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorCon
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
@@ -31,10 +31,10 @@ import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelec
 import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacityReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
@@ -1435,11 +1435,11 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism52Capabilities() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
-        values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        values.add(EditorPartOpacityReadSelectorContract.CAPABILITY_ID);
         values.remove(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
-        values.add(EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID);
+        values.add(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID);
         values.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
-        values.add(EditorPartInspector52SelectorContract.CAPABILITY_ID);
+        values.add(EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -1472,9 +1472,9 @@ public final class EditorModelVerificationManifest {
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
-        values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorPartOpacityReadSelectorContract.REQUIRED_ALIASES);
         values.removeAll(PART_INSPECTOR_5302_ONLY_ALIASES);
-        values.addAll(EditorPartInspector52SelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorPartInspectorIdWriteSelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.model-source.update-instances",
@@ -1487,7 +1487,7 @@ public final class EditorModelVerificationManifest {
         values.addAll(EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
         values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
-        values.addAll(EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         return Set.copyOf(values);
     }
