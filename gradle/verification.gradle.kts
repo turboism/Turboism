@@ -368,6 +368,50 @@ val checkVerificationRecordIndex by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/verification_record_index.py", rootDir.absolutePath, "--check")
 }
 
+/*
+ * The VerificationManifest classes and selector contracts are generated from the
+ * byte-hashed verification records plus per-family authoring files under
+ * scripts/verification-sources/. During the migration the check proves the
+ * rendered output is byte-identical to every checked-in source; after the
+ * checked-in sources are retired the same check fails if a generated target
+ * reappears under src/main/java, and render-time validation keeps
+ * alias/capability literals bound to the record universe in both states.
+ */
+val checkVerificationSourcesSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for verification source generation and equivalence."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/generate_verification_sources.py",
+        "scripts/test/test_generate_verification_sources.py"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_generate_verification_sources",
+        "-v"
+    )
+}
+
+val checkVerificationSources by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves generated verification sources are byte-identical to checked-in sources and record-derived."
+    dependsOn(checkVerificationSourcesSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/generate_verification_sources.py",
+        fileTree("scripts/verification-sources") { include("**/*") },
+        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") },
+        fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
+        fileTree("runtime/src/main/java/dev/turboism/ui") { include("**/*.java") }
+    )
+    commandLine(
+        "python3", "scripts/generate_verification_sources.py",
+        rootDir.absolutePath, "check"
+    )
+}
+
 val checkPackageLayout by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
@@ -884,6 +928,7 @@ val checkCompletedCommit by tasks.registering {
         checkDraftPackMetadata,
         checkVersionSetCompleteness,
         checkVerificationRecordIndex,
+        checkVerificationSources,
         "checkSdkApiBaselineTool",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
