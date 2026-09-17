@@ -1,5 +1,43 @@
 # Model-update and uniform-location experiments
 
+## Independent matrix-scratch comparison
+
+The `matrixScratch` factor keeps the verified uniform-location cache ON in every
+control and changes only the opt-in invocation-local matrix candidate. It reuses
+the native wheel/pan/ArtMesh workloads; it does not install an all-GL proxy. The
+original installer-owned matrix admission gate must be present, armed and unchanged
+at capture and leg validation. No matrix execution counter is injected in timed
+windows; `matrixScratch.executionCounter=false` records that limit explicitly.
+Functional installation or pixel agreement alone is not a new speedup claim.
+
+After building `previewBundle` and `buildModelUpdateSkipHostProbe`, use the existing
+shared queue wrapper (never a direct Editor launch):
+
+```bash
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 matrix-cal \
+  --jvm-option '-Dturboism.optimization.uniformLocationCache=true' \
+  --jvm-option '-Dturboism.optimization.matrixScratch=true' \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=matrixScratch' \
+  --jvm-option '-Dturboism.validation.modelUpdateCalibration=true' \
+  --jvm-option '-Dturboism.validation.resources=true' \
+  --ready-marker 'TURBOISM_MATRIX_SCRATCH installation=COMPLETE' \
+  --failure-marker 'TURBOISM_MATRIX_SCRATCH installation=FAILED' \
+  --failure-marker 'TURBOISM_MATRIX_SCRATCH restoration=FAILED' \
+  --result-timeout 1200
+```
+
+Use the already configured, hash-pinned task fixture. Add
+`-Dturboism.validation.nativeInteraction=pan` or `=artmesh` via `--jvm-option` for
+the two continuous native drag cases. Omit the calibration option for 200 events
+per leg only after calibration and all lifecycle/geometry/pixel checks succeed.
+All controls keep Slice B and uniform-value suppression OFF. Report variants as
+`locations-only` and `locations-and-matrix-scratch`, not raw native versus optimized.
+The OFF/ON/ON/OFF result is additional to, not multiplied into, earlier uniform
+cache speedup. CPU/memory and native Undo/Redo boundaries remain unchanged.
+The factor's offline regressions check fixed uniform state, matrix request changes,
+admission ownership/retirement and exact restoration of both prior preferences.
+
+
 ## Native pan and single-ArtMesh interaction validation
 
 Run only in the task-scoped shared host queue. The production hook is default-on

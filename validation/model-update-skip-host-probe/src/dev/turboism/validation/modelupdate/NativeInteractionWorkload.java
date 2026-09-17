@@ -27,6 +27,8 @@ final class NativeInteractionWorkload {
     private final String fixture, kind;
     private final Path state;
     private final boolean calibration = Boolean.getBoolean("turboism.validation.modelUpdateCalibration");
+    private final String factor = System.getProperty("turboism.validation.modelUpdateFactor", "uniformHook");
+    private final boolean matrixComparison = factor.equals("matrixScratch");
     private Frame window;
     private JComponent canvas;
     private NativeInteractionHost host;
@@ -41,6 +43,9 @@ final class NativeInteractionWorkload {
         if (fixture == null || fixture.isBlank() || !List.of("pan", "artmesh").contains(kind)) {
             throw new IllegalArgumentException("native interaction requires a fixture and pan/artmesh mode");
         }
+        if (!List.of("uniformHook", "matrixScratch").contains(factor)) {
+            throw new IllegalArgumentException("native interaction factor must be uniformHook or matrixScratch");
+        }
         if (Boolean.getBoolean("turboism.uniform-location.shadow")
             || Boolean.getBoolean("turboism.validation.modelUpdateGlCalls")
             || Boolean.getBoolean("turboism.validation.modelUpdateJfr")
@@ -53,6 +58,10 @@ final class NativeInteractionWorkload {
     void run() throws Exception {
         StringBuilder report = new StringBuilder("schemaVersion=1\nworkload=native-continuous-mouse-drag\n")
             .append("interaction=").append(kind).append('\n')
+            .append("factor=").append(factor).append('\n')
+            .append("matrixScratch.comparison=").append(matrixComparison).append('\n')
+            .append("matrixScratch.uniformCacheFixedOn=").append(matrixComparison).append('\n')
+            .append("matrixScratch.executionCounter=false\n")
             .append("calibration=").append(calibration).append('\n')
             .append("performanceAccepted=false\nlatencyDefinition=drag-event-to-native-paint-barrier-not-presentation\n")
             .append("geometryChecks=source-all-keyforms-interpolated-calculated-raw-bits\n")
@@ -66,7 +75,7 @@ final class NativeInteractionWorkload {
                 edt(() -> { window.toFront(); window.requestFocus(); canvas.requestFocusInWindow(); return null; });
                 Thread.sleep(150L);
                 preparation.stage("attach-counter");
-                edt(() -> { requireFocus(); hook = NarrowUniformTrial.attach(canvas); return null; });
+                edt(() -> { requireFocus(); hook = NarrowUniformTrial.attach(canvas, matrixComparison); return null; });
                 preparation.stage("scene-inventory");
                 report.append("width=").append(width).append("\nheight=").append(height).append('\n')
                     .append(edt(host::sceneInventory));
@@ -250,7 +259,9 @@ final class NativeInteractionWorkload {
                 long total = Arrays.stream(samples).sum();
                 long frames = NarrowUniformTrial.delta(snapshots.get(0), snapshots.get(1), "completedDisplayFrames");
                 report.append(prefix).append("enabled=").append(enabled).append('\n')
-                    .append(prefix).append("variant=").append(enabled ? "narrow-locations" : "native").append('\n')
+                    .append(prefix).append("variant=").append(matrixComparison
+                        ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
+                        : (enabled ? "narrow-locations" : "native")).append('\n')
                     .append(prefix).append("samples=").append(steps).append('\n')
                     .append(prefix).append("elapsedNanos=").append(elapsed[0]).append('\n')
                     .append(prefix).append("meanNanos=").append(total / steps).append('\n')

@@ -17,7 +17,7 @@ javac --release 17 -d "$out" \
   "$src/UniformLocationCache.java" "$src/UniformValueCache.java" "$src/UniformLocationTrial.java" "$src/FrameReadback.java" \
   "$tests/GlSubmissionProbeTest.java" "$tests/UploadPayloadObserverTest.java" \
   "$tests/UniformLocationCacheTest.java" "$tests/UniformLocationTrialTest.java" "$tests/FrameReadbackTest.java" \
-  "$tests/UniformValueCacheTest.java" "$tests/UniformValueAllocationTest.java" "$tests/BenchmarkResourcesTest.java" "$tests/NarrowUniformTrialTest.java"
-for name in PreparationWatchdogTest AllocationProfileTest GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest NativeDragSequenceTest NativeInteractionHostTest; do
+  "$tests/UniformValueCacheTest.java" "$tests/UniformValueAllocationTest.java" "$tests/BenchmarkResourcesTest.java" "$tests/NarrowUniformTrialTest.java" "$tests/MatrixScratchTrialTest.java"
+for name in PreparationWatchdogTest AllocationProfileTest GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest MatrixScratchTrialTest NativeDragSequenceTest NativeInteractionHostTest; do
   java -cp "$out" "dev.turboism.validation.modelupdate.$name"
 done

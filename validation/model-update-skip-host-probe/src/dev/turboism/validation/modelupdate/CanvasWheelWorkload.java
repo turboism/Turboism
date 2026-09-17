@@ -76,7 +76,7 @@ final class CanvasWheelWorkload {
         final int measuredPairs = calibration ? 8 : MEASURED_PAIRS;
         Files.writeString(state.resolve("wheel-progress.txt"), "stage=canvas-ready\n");
         final String previous = System.getProperty(ENABLE);
-        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook").contains(factor)) {
+        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook", "matrixScratch").contains(factor)) {
             throw new IllegalArgumentException("unknown benchmark factor");
         }
         final StringBuilder report = new StringBuilder("schemaVersion=1\n")
@@ -101,7 +101,10 @@ final class CanvasWheelWorkload {
             final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues") || factor.equals("uniformSuite");
             final boolean resourceTelemetry = Boolean.getBoolean("turboism.validation.resources");
             report.append("resourceTelemetry=").append(resourceTelemetry).append('\n');
-            final boolean narrow = factor.equals("uniformHook");
+            final boolean matrix = factor.equals("matrixScratch");
+            final boolean narrow = factor.equals("uniformHook") || matrix;
+            report.append("matrixScratch.comparison=").append(matrix).append('\n');
+            if (matrix) report.append("matrixScratch.uniformCacheFixedOn=true\nmatrixScratch.executionCounter=false\n");
             final boolean uniformShadow = Boolean.getBoolean(narrow
                 ? "turboism.uniform-location.shadow" : "turboism.validation.uniformCacheShadow");
             if ((factor.equals("uniformValues") || factor.equals("uniformSuite")) && uniformShadow) {
@@ -124,7 +127,7 @@ final class CanvasWheelWorkload {
                     .append("uniformCache.distinctCameraStates=true\n");
             }
             if (narrow) {
-                narrowTrial = onEdt(() -> NarrowUniformTrial.attach(canvas));
+                narrowTrial = onEdt(() -> NarrowUniformTrial.attach(canvas, matrix));
                 report.append("uniformHook.glProxy=false\n")
                     .append("uniformHook.shadow=").append(uniformShadow).append('\n');
                 verifyUniformPixels(report);
@@ -146,6 +149,7 @@ final class CanvasWheelWorkload {
                 final boolean enabled = variant != 0;
                 final String variantName = factor.equals("uniformSuite")
                     ? (variant == 0 ? "native" : variant == 1 ? "locations" : "locations-and-values")
+                    : matrix ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
                     : narrow ? (enabled ? "narrow-locations" : "native") : enabled ? "on" : "off";
                 final String beforePixels = "modelSkip".equals(factor) ? "not-requested" : capturePixels();
                 onEdt(() -> {
