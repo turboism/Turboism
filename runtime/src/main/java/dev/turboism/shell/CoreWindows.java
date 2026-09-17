@@ -320,7 +320,8 @@ final class CoreWindows implements AutoCloseable {
         tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         for (RenderedTab tab : renderedTabs) {
             finishForm(tab.panel());
-            tabs.addTab(tab.title(), tab.panel());
+            tab.panel().getAccessibleContext().setAccessibleName(tab.title());
+            tabs.addTab(tab.title(), new SettingsPageScrollPane(tab.panel()));
         }
         return new RenderedSettings(tabs, () -> {
             for (java.util.function.BooleanSupplier save : saves) {
@@ -388,6 +389,7 @@ final class CoreWindows implements AutoCloseable {
         if (control instanceof SettingsControl.Toggle toggle) {
             final boolean initial = Boolean.TRUE.equals(toggle.binding().read());
             final JCheckBox checkbox = new JCheckBox(toggle.label(), initial);
+            checkbox.setName(toggle.id());
             final boolean[] accepted = {initial};
             final boolean[] changing = {false};
             checkbox.addActionListener(ignored -> {
