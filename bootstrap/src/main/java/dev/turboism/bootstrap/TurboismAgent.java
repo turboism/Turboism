@@ -98,6 +98,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedUniformLocationInstaller> UNIFORM_LOCATION_CACHE =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedMatrixScratchInstaller> MATRIX_SCRATCH =
+        new AtomicReference<>();
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -394,6 +396,7 @@ public final class TurboismAgent {
             if (fullRuntimeAdmission) installModelUpdateSkip(options, instrumentation, host);
             if (fullRuntimeAdmission) installIncrementalUpdate(options, instrumentation, host);
             if (fullRuntimeAdmission) installUniformLocationCache(options, instrumentation, host);
+            if (fullRuntimeAdmission) installMatrixScratch(options, instrumentation, host);
             final PreviewRuntime runtime;
             try {
                 runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
@@ -413,6 +416,7 @@ public final class TurboismAgent {
                     host.classLoader()
                 ));
             } catch (Throwable failure) {
+                closeMatrixScratch();
                 closeUniformLocationCache();
                 closeMeshMirrorHookIfCurrent(meshMirrorHook);
                 closeImageArchiveReuse();
@@ -459,6 +463,9 @@ public final class TurboismAgent {
                 }
                 if (INCREMENTAL_UPDATE.get() != null) {
                     runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=COMPLETE phase=runtime-ready");
+                }
+                if (MATRIX_SCRATCH.get() != null) {
+                    runtimeInfo("TURBOISM_MATRIX_SCRATCH installation=COMPLETE phase=runtime-ready");
                 }
                 installPerformanceProbe(options, instrumentation, host);
                 installDockTabPopupHook(
@@ -617,6 +624,41 @@ public final class TurboismAgent {
         if (installation != null) {
             try { installation.close(); }
             catch (Throwable failure) { runtimeWarn("Turboism warp position projection cleanup failed safely"); }
+        }
+    }
+
+    private static void installMatrixScratch(AgentOptions options, Instrumentation instrumentation,
+                                              HostClassLocator.LocatedHost host) {
+        VerifiedMatrixScratchInstaller installer = null;
+        try {
+            if (!VerifiedMatrixScratchInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()),
+                Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer.ENABLE_PROPERTY),
+                Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_MATRIX_SCRATCH installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedMatrixScratchInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!MATRIX_SCRATCH.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_MATRIX_SCRATCH installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_MATRIX_SCRATCH installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeMatrixScratch() {
+        VerifiedMatrixScratchInstaller installer = MATRIX_SCRATCH.getAndSet(null);
+        if (installer == null) return;
+        try {
+            installer.close();
+            runtimeInfo("TURBOISM_MATRIX_SCRATCH restoration=" + (installer.restored() ? "COMPLETE" : "UNVERIFIED"));
+        } catch (Throwable failure) {
+            runtimeWarn("TURBOISM_MATRIX_SCRATCH restoration=FAILED " + failure);
         }
     }
 
@@ -1703,6 +1745,7 @@ public final class TurboismAgent {
                 runtimeWarn("Turboism mesh mirror hook cleanup failed safely");
             }
         }
+        closeMatrixScratch();
         closeUniformLocationCache();
         final VerifiedPerformanceProbeInstaller performanceProbe = PERFORMANCE_PROBE.getAndSet(null);
         if (performanceProbe != null) {

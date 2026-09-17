@@ -15,10 +15,35 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MatrixScratchTransformerTest {
     @TempDir Path root;
+    private static final String ADMISSION = "turboism.matrix-scratch.admission";
     private final String previous = System.getProperty(MatrixScratchTransformer.ENABLE_PROPERTY);
+    private final Object previousAdmission = System.getProperties().get(ADMISSION);
     @AfterEach void restore() {
         if (previous == null) System.clearProperty(MatrixScratchTransformer.ENABLE_PROPERTY);
         else System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, previous);
+        if (previousAdmission == null) System.getProperties().remove(ADMISSION);
+        else System.getProperties().put(ADMISSION, previousAdmission);
+    }
+    @Test void missingMalformedAndRetiredAdmissionAlwaysUseNativeEvenWhenRequested() throws Exception {
+        try (Fixture f = fixture()) {
+            Object leaf = f.chain(8);
+            System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, "true");
+            for (Object gate : new Object[] {"true", new java.util.concurrent.atomic.AtomicBoolean(false)}) {
+                System.getProperties().put(ADMISSION, gate);
+                f.reset(); f.result(leaf);
+                assertEquals(8, f.allocations(), "request alone must not bypass exact installation admission");
+            }
+            System.getProperties().remove(ADMISSION);
+            f.reset(); f.result(leaf);
+            assertEquals(8, f.allocations(), "missing admission must retain native multiplication");
+            var gate = new java.util.concurrent.atomic.AtomicBoolean(true);
+            System.getProperties().put(ADMISSION, gate);
+            f.reset(); f.result(leaf);
+            assertEquals(2, f.allocations());
+            gate.set(false);
+            f.reset(); f.result(leaf);
+            assertEquals(8, f.allocations(), "retirement is visible without changing the user's preference");
+        }
     }
     @Test void deepChainKeepsOperandOrderAndUsesAtMostTwoProductObjects() throws Exception {
         try (Fixture f = fixture()) {
@@ -75,6 +100,7 @@ class MatrixScratchTransformerTest {
         }
     }
     private Fixture fixture() throws Exception {
+        System.getProperties().put(ADMISSION, new java.util.concurrent.atomic.AtomicBoolean(true));
         Path src = root.resolve("src"), classes = root.resolve("classes");
         Files.createDirectories(src); Files.createDirectories(classes);
         String matrix = """
