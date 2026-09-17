@@ -1702,7 +1702,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final int columns
                 ) {
                     requireModelWrite("model.deformers.createWarp");
-                    return new PermissionCheckedWarpDeformer(wrapperOwner, values.createWarp(
+                    return new PermissionCheckedWarpDeformer(CubismFacadeImpl.this, wrapperOwner, values.createWarp(
                         name,
                         unwrapPart(wrapperOwner, parent),
                         index,
@@ -1716,7 +1716,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final int index
                 ) {
                     requireModelWrite("model.deformers.createRotation");
-                    return new PermissionCheckedRotationDeformer(
+                    return new PermissionCheckedRotationDeformer(CubismFacadeImpl.this, 
                         wrapperOwner,
                         values.createRotation(
                             name,
@@ -1737,12 +1737,12 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.model.Deformer value
         ) {
             if (value instanceof dev.turboism.sdk.cubism.model.WarpDeformer warp) {
-                return new PermissionCheckedWarpDeformer(wrapperOwner, warp);
+                return new PermissionCheckedWarpDeformer(CubismFacadeImpl.this, wrapperOwner, warp);
             }
             if (value instanceof dev.turboism.sdk.cubism.model.RotationDeformer rotation) {
-                return new PermissionCheckedRotationDeformer(wrapperOwner, rotation);
+                return new PermissionCheckedRotationDeformer(CubismFacadeImpl.this, wrapperOwner, rotation);
             }
-            return new PermissionCheckedDeformer(wrapperOwner, value);
+            return new PermissionCheckedDeformer(CubismFacadeImpl.this, wrapperOwner, value);
         }
         @Override public dev.turboism.sdk.cubism.model.WarpDeformers warpDeformers() {
             requireModelRead("model.warpDeformers");
@@ -1752,14 +1752,14 @@ public final class CubismFacadeImpl implements CubismFacade {
                     requireModelRead("model.warpDeformers.all");
                     return values.all().stream()
                         .map(value -> (dev.turboism.sdk.cubism.model.WarpDeformer)
-                            new PermissionCheckedWarpDeformer(wrapperOwner, value))
+                            new PermissionCheckedWarpDeformer(CubismFacadeImpl.this, wrapperOwner, value))
                         .toList();
                 }
                 @Override public dev.turboism.sdk.cubism.model.WarpDeformer find(
                     final dev.turboism.sdk.cubism.id.DeformerId id
                 ) {
                     requireModelRead("model.warpDeformers.find");
-                    return new PermissionCheckedWarpDeformer(
+                    return new PermissionCheckedWarpDeformer(CubismFacadeImpl.this, 
                         wrapperOwner,
                         values.find(Objects.requireNonNull(id, "id"))
                     );
@@ -1775,14 +1775,14 @@ public final class CubismFacadeImpl implements CubismFacade {
                     requireModelRead("model.rotationDeformers.all");
                     return values.all().stream()
                         .map(value -> (dev.turboism.sdk.cubism.model.RotationDeformer)
-                            new PermissionCheckedRotationDeformer(wrapperOwner, value))
+                            new PermissionCheckedRotationDeformer(CubismFacadeImpl.this, wrapperOwner, value))
                         .toList();
                 }
                 @Override public dev.turboism.sdk.cubism.model.RotationDeformer find(
                     final dev.turboism.sdk.cubism.id.DeformerId id
                 ) {
                     requireModelRead("model.rotationDeformers.find");
-                    return new PermissionCheckedRotationDeformer(
+                    return new PermissionCheckedRotationDeformer(CubismFacadeImpl.this, 
                         wrapperOwner,
                         values.find(Objects.requireNonNull(id, "id"))
                     );
@@ -2162,193 +2162,6 @@ public final class CubismFacadeImpl implements CubismFacade {
         @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
             requireModelRead("artMesh.getCombinedParameterBindings");
             return delegate.getCombinedParameterBindings();
-        }
-    }
-
-    private class PermissionCheckedDeformer implements dev.turboism.sdk.cubism.model.Deformer {
-        private final Object wrapperOwner;
-        protected final dev.turboism.sdk.cubism.model.Deformer delegate;
-        private PermissionCheckedDeformer(
-            final Object wrapperOwner,
-            final dev.turboism.sdk.cubism.model.Deformer delegate
-        ) {
-            this.wrapperOwner = Objects.requireNonNull(wrapperOwner, "wrapperOwner");
-            this.delegate = Objects.requireNonNull(delegate, "delegate");
-        }
-        @Override public dev.turboism.sdk.ui.appearance.model.DeformerAppearance ui() {
-            requireModelRead("deformer.ui");
-            return delegate.ui();
-        }
-        @Override public dev.turboism.sdk.cubism.id.DeformerId id() { requireModelRead("deformer.id"); return delegate.id(); }
-        @Override public int index() {
-            requireModelRead("deformer.index");
-            return delegate.index();
-        }
-        @Override public Optional<dev.turboism.sdk.cubism.model.PartId> parentPartId() {
-            requireModelRead("deformer.parentPartId");
-            return delegate.parentPartId();
-        }
-        @Override public Optional<dev.turboism.sdk.cubism.id.DeformerId> parentDeformerId() {
-            requireModelRead("deformer.parentDeformerId");
-            return delegate.parentDeformerId();
-        }
-        @Override public List<dev.turboism.sdk.cubism.id.ParameterId> parameterIds() {
-            requireModelRead("deformer.parameterIds");
-            return delegate.parameterIds();
-        }
-        @Override public String name() { requireModelRead("deformer.name"); return delegate.name(); }
-        @Override public void setName(final String name) {
-            requireModelWrite("deformer.setName");
-            delegate.setName(name);
-        }
-        @Override public void setParent(
-            final dev.turboism.sdk.cubism.model.Part parent,
-            final int index
-        ) {
-            requireModelWrite("deformer.setParentPart");
-            delegate.setParent(unwrapPart(wrapperOwner, parent), index);
-        }
-        @Override public void setParent(
-            final dev.turboism.sdk.cubism.model.Deformer parent,
-            final int index
-        ) {
-            requireModelWrite("deformer.setParentDeformer");
-            delegate.setParent(unwrapDeformer(parent), index);
-        }
-        @Override public boolean visible() { requireModelRead("deformer.visible"); return delegate.visible(); }
-        @Override public void setVisible(final boolean visible) {
-            requireModelWrite("deformer.setVisible");
-            runSemantic(
-                CubismOperation.SET_DEFORMER_VISIBLE,
-                id().value(),
-                delegate::visible,
-                () -> editorObjectLifecycle.deformer().setVisible(this, visible, delegate::setVisible)
-            );
-        }
-        @Override public boolean locked() { requireModelRead("deformer.locked"); return delegate.locked(); }
-        @Override public void setLocked(final boolean locked) {
-            requireModelWrite("deformer.setLocked");
-            runSemantic(
-                CubismOperation.SET_DEFORMER_LOCKED,
-                id().value(),
-                delegate::locked,
-                () -> editorObjectLifecycle.deformer().setLocked(this, locked, delegate::setLocked)
-            );
-        }
-        @Override public boolean visibleInHierarchy() { requireModelRead("deformer.visibleInHierarchy"); return delegate.visibleInHierarchy(); }
-        @Override public boolean lockedInHierarchy() { requireModelRead("deformer.lockedInHierarchy"); return delegate.lockedInHierarchy(); }
-        @Override public float getOpacity() { requireModelRead("deformer.getOpacity"); return delegate.getOpacity(); }
-        @Override public void setOpacity(final float opacity) {
-            requireModelWrite("deformer.setOpacity");
-            runSemantic(
-                CubismOperation.SET_DEFORMER_OPACITY,
-                id().value(),
-                delegate::getOpacity,
-                () -> editorObjectLifecycle.deformer().setOpacity(this, opacity, delegate::setOpacity)
-            );
-        }
-        @Override public dev.turboism.sdk.cubism.model.Color multiplyColor() {
-            requireModelRead("deformer.multiplyColor");
-            return delegate.multiplyColor();
-        }
-        @Override public dev.turboism.sdk.cubism.model.Color screenColor() {
-            requireModelRead("deformer.screenColor");
-            return delegate.screenColor();
-        }
-        @Override public int parentPartIndex() { requireModelRead("deformer.parentPartIndex"); return delegate.parentPartIndex(); }
-        @Override public int parentDeformerIndex() { requireModelRead("deformer.parentDeformerIndex"); return delegate.parentDeformerIndex(); }
-        @Override public dev.turboism.sdk.cubism.model.IntSequence parameters() {
-            requireModelRead("deformer.parameters");
-            return delegate.parameters();
-        }
-        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
-            requireModelRead("deformer.getParameterBindings");
-            return delegate.getParameterBindings();
-        }
-        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getNormalParameterBindings() {
-            requireModelRead("deformer.getNormalParameterBindings");
-            return delegate.getNormalParameterBindings();
-        }
-        @Override public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
-            requireModelRead("deformer.getCombinedParameterBindings");
-            return delegate.getCombinedParameterBindings();
-        }
-        @Override public void setId(final dev.turboism.sdk.cubism.id.DeformerId id) {
-            requireModelWrite("deformer.setId");
-            delegate.setId(id);
-        }
-        @Override public void setMultiplyColor(final dev.turboism.sdk.cubism.model.Color color) {
-            requireModelWrite("deformer.setMultiplyColor");
-            delegate.setMultiplyColor(color);
-        }
-        @Override public void setScreenColor(final dev.turboism.sdk.cubism.model.Color color) {
-            requireModelWrite("deformer.setScreenColor");
-            delegate.setScreenColor(color);
-        }
-        @Override public void setTargetDeformer(
-            final Optional<dev.turboism.sdk.cubism.id.DeformerId> targetDeformer
-        ) {
-            requireModelWrite("deformer.setTargetDeformer");
-            delegate.setTargetDeformer(targetDeformer);
-        }
-    }
-
-    private final class PermissionCheckedWarpDeformer extends PermissionCheckedDeformer
-        implements dev.turboism.sdk.cubism.model.WarpDeformer {
-        private final dev.turboism.sdk.cubism.model.WarpDeformer warp;
-        private PermissionCheckedWarpDeformer(
-            final Object wrapperOwner,
-            final dev.turboism.sdk.cubism.model.WarpDeformer delegate
-        ) {
-            super(wrapperOwner, delegate);
-            this.warp = delegate;
-        }
-        @Override public dev.turboism.sdk.cubism.model.WarpGrid grid() { requireModelRead("warpDeformer.grid"); return warp.grid(); }
-        @Override public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
-            requireModelWrite("warpDeformer.replaceGrid");
-            runSemantic(
-                CubismOperation.REPLACE_WARP_DEFORMER_GRID,
-                id().value(),
-                warp::grid,
-                () -> editorObjectLifecycle.deformer().replaceGrid(this, grid, warp::replaceGrid)
-            );
-        }
-    }
-
-    private final class PermissionCheckedRotationDeformer extends PermissionCheckedDeformer
-        implements dev.turboism.sdk.cubism.model.RotationDeformer {
-        private final dev.turboism.sdk.cubism.model.RotationDeformer rotation;
-        private PermissionCheckedRotationDeformer(
-            final Object wrapperOwner,
-            final dev.turboism.sdk.cubism.model.RotationDeformer delegate
-        ) {
-            super(wrapperOwner, delegate);
-            this.rotation = delegate;
-        }
-        @Override public float baseAngle() { requireModelRead("rotationDeformer.baseAngle"); return rotation.baseAngle(); }
-        @Override public void setBaseAngle(final float angle) {
-            requireModelWrite("rotationDeformer.setBaseAngle");
-            runSemantic(
-                CubismOperation.SET_ROTATION_DEFORMER_BASE_ANGLE,
-                id().value(),
-                rotation::baseAngle,
-                () -> editorObjectLifecycle.deformer().setBaseAngle(this, angle, rotation::setBaseAngle)
-            );
-        }
-        @Override public dev.turboism.sdk.cubism.model.RotationDeformerForm form() {
-            requireModelRead("rotationDeformer.form");
-            return rotation.form();
-        }
-        @Override public void replaceForm(
-            final dev.turboism.sdk.cubism.model.RotationDeformerForm form
-        ) {
-            requireModelWrite("rotationDeformer.replaceForm");
-            runSemantic(
-                CubismOperation.REPLACE_ROTATION_DEFORMER_FORM,
-                id().value(),
-                rotation::form,
-                () -> editorObjectLifecycle.deformer().replaceForm(this, form, rotation::replaceForm)
-            );
         }
     }
 
