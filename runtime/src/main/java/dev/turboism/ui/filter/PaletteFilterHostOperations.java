@@ -95,15 +95,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
 
     private static final String FILTERED_TEXT_PANE_KEY = LogPaletteHostStructure.FILTERED_TEXT_PANE_KEY;
     private static final String WRAPPER_MARKER_KEY = LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY;
-    private static final String APP_INSTANCE = "cubism.editor-model.app-controller.instance";
-    private static final String APP_MAIN_FRAME = "cubism.editor-model.app-controller.main-frame";
-    private static final String MAIN_FRAME_PARAMETER_PALETTE =
-        "cubism.editor-model.main-frame.parameter-palette";
-    private static final String PARAMETER_PALETTE_VIEW = "cubism.editor-model.parameter-palette.view";
-    private static final String PARAMETER_VIEW_OPERATION =
-        "cubism.editor-model.parameter-palette-view.operation";
-    private static final String PARAMETER_OPERATION_ROWS =
-        "cubism.editor-model.parameter-operation.rows";
 
     /** Palette kind names understood by this host. */
     public enum PaletteKind {
@@ -471,7 +462,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
      * re-location; plugin removal/close passes false.
      */
     private static void resetBinding(final PaletteFilterState state, final boolean preserveFilterText) {
-        restoreParameterRows(state);
+        PaletteParameterRows.restoreParameterRows(state);
         PaletteToolbarSupport.detachToolbarButtons(state);
         final String filterText = preserveFilterText ? state.filterText : "";
         PaletteToolbarSupport.detachFilterBox(state);
@@ -560,7 +551,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                 }
             }
             case PARAMETER -> {
-                final JComponent root = findParameterRowsRoot();
+                final JComponent root = PaletteParameterRows.findParameterRowsRoot(PaletteFilterHostOperations.this);
                 if (root != null) {
                     return root;
                 }
@@ -580,46 +571,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             }
         }
         return null;
-    }
-
-    /** Resolves the parameter viewport from exact row bindings, never from an unrelated JTree. */
-    private JComponent findParameterRowsRoot() {
-        final dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator source = parameterRows;
-        if (source == null) {
-            return null;
-        }
-        JComponent root = PaletteComponentFinder.parameterRowsRoot(source);
-        if (root != null) {
-            return root;
-        }
-        final long now = System.currentTimeMillis();
-        if (now - lastParameterReplayMillis >= 1_000) {
-            lastParameterReplayMillis = now;
-            replayExistingParameterRows();
-            root = PaletteComponentFinder.parameterRowsRoot(source);
-        }
-        return root;
-    }
-
-    private void replayExistingParameterRows() {
-        final VerifiedMemberResolver resolver = parameterRowsResolver;
-        if (resolver == null) {
-            return;
-        }
-        try {
-            final Object app = resolver.invokeStatic(APP_INSTANCE);
-            final Object mainFrame = app == null ? null : resolver.invoke(APP_MAIN_FRAME, app);
-            final Object palette = mainFrame == null
-                ? null : resolver.invoke(MAIN_FRAME_PARAMETER_PALETTE, mainFrame);
-            final Object view = palette == null ? null : resolver.invoke(PARAMETER_PALETTE_VIEW, palette);
-            final Object operation = view == null ? null : resolver.invoke(PARAMETER_VIEW_OPERATION, view);
-            final Object rows = operation == null ? null : resolver.invoke(PARAMETER_OPERATION_ROWS, operation);
-            if (rows instanceof Iterable<?> iterable) {
-                dev.turboism.ui.appearance.control.NativeParameterAppearanceBridge.replayExistingRows(iterable);
-            }
-        } catch (RuntimeException ignored) {
-            // Palette/document may not be ready yet; the bounded connector retries.
-        }
     }
 
     // ------------------------------------------------------------ attach kinds
@@ -740,7 +691,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
         state.toolbar = toolbar;
         if (contribution != null) {
-            final List<ParameterFilterRow> rows = parameterFilterRows(component);
+            final List<ParameterFilterRow> rows = PaletteParameterRows.parameterFilterRows(PaletteFilterHostOperations.this, component);
             if (rows.isEmpty()) {
                 lastAttachStatus.put(state.kind, "parameter-rows-not-found root=" + component.getClass().getName());
                 return false;
@@ -751,151 +702,17 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                 live.add(row.component());
                 state.originalRowVisibility.putIfAbsent(row.component(), row.component().isVisible());
             }
-            restoreDiscardedParameterRows(state.originalRowVisibility, live);
-            PaletteToolbarSupport.ensureFilterBox(state, toolbar, contribution, text -> applyParameterFilter(state, text));
-            applyParameterFilter(state, state.filterText);
+            PaletteParameterRows.restoreDiscardedParameterRows(state.originalRowVisibility, live);
+            PaletteToolbarSupport.ensureFilterBox(state, toolbar, contribution, text -> PaletteParameterRows.applyParameterFilter(state, text));
+            PaletteParameterRows.applyParameterFilter(state, state.filterText);
         } else {
-            restoreParameterRows(state);
+            PaletteParameterRows.restoreParameterRows(state);
             PaletteToolbarSupport.detachFilterBox(state);
         }
         PaletteToolbarSupport.syncToolbarButtons(PaletteFilterHostOperations.this, state, toolbar);
         lastAttachStatus.put(state.kind, "attached root=" + component.getClass().getName()
             + " toolbar=" + toolbar.getClass().getName());
         return true;
-    }
-
-    private List<ParameterFilterRow> parameterFilterRows(final JComponent root) {
-        final dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator source = parameterRows;
-        if (source == null) {
-            return List.of();
-        }
-        final Map<JComponent, StringBuilder> textByRow = new java.util.IdentityHashMap<>();
-        final Map<JComponent, Boolean> folderByRow = new java.util.IdentityHashMap<>();
-        final List<JComponent> order = new ArrayList<>();
-        for (dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator.ParameterControlBinding binding
-            : source.parameterControlBindings()) {
-            final Component label = binding.label();
-            if (!SwingUtilities.isDescendingFrom(label, root)) {
-                continue;
-            }
-            final JComponent row = parameterRowComponent(label, binding.folder());
-            if (row == null) {
-                continue;
-            }
-            final StringBuilder searchText = textByRow.computeIfAbsent(row, ignored -> {
-                order.add(row);
-                return new StringBuilder();
-            });
-            appendToken(searchText, binding.id());
-            if (label instanceof JLabel swingLabel) {
-                appendToken(searchText, swingLabel.getText());
-            }
-            folderByRow.merge(row, binding.folder(), Boolean::logicalOr);
-        }
-        final List<ParameterFilterRow> rows = new ArrayList<>(order.size());
-        for (JComponent row : order) {
-            rows.add(new ParameterFilterRow(
-                row,
-                textByRow.get(row).toString(),
-                Boolean.TRUE.equals(folderByRow.get(row))
-            ));
-        }
-        return List.copyOf(rows);
-    }
-
-    private static JComponent parameterRowComponent(final Component label, final boolean folder) {
-        final String expected = folder
-            ? "com.live2d.ui.swingImpl.n"
-            : "com.live2d.ui.swingImpl.p";
-        Component current = label;
-        while (current != null && !(current instanceof JViewport)) {
-            if (current instanceof JComponent component && current.getClass().getName().equals(expected)) {
-                return component;
-            }
-            current = current.getParent();
-        }
-        return null;
-    }
-
-    static void applyParameterFilter(final PaletteFilterState state, final String text) {
-        state.filterText = normalize(text);
-        final ParameterFilterStamp input = ParameterFilterStamp.capture(state.rows, state.filterText);
-        if (input.equals(state.parameterFilterStamp)) return;
-        applyParameterRows(state.rows, state.originalRowVisibility, state.filterText);
-        state.parameterFilterStamp = ParameterFilterStamp.capture(state.rows, state.filterText);
-    }
-
-    static void applyParameterRows(
-        final List<ParameterFilterRow> rows,
-        final Map<JComponent, Boolean> originalVisibility,
-        final String text
-    ) {
-        final String keyword = normalize(text);
-        final Set<JComponent> visible = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        if (!keyword.isEmpty()) {
-            final Set<JComponent> folders = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-            for (ParameterFilterRow row : rows) {
-                if (row.folder()) folders.add(row.component());
-            }
-            final Set<Component> visitedAncestors = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-            for (ParameterFilterRow row : rows) {
-                if (row.searchText().contains(keyword)) {
-                    visible.add(row.component());
-                    Component ancestor = row.component().getParent();
-                    while (ancestor != null && visitedAncestors.add(ancestor)) {
-                        if (folders.contains(ancestor)) visible.add((JComponent) ancestor);
-                        ancestor = ancestor.getParent();
-                    }
-                }
-            }
-        }
-        final Set<Container> dirty = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        for (ParameterFilterRow row : rows) {
-            final boolean next = keyword.isEmpty()
-                ? originalVisibility.getOrDefault(row.component(), true)
-                : visible.contains(row.component());
-            if (row.component().isVisible() != next) {
-                row.component().setVisible(next);
-                if (row.component().getParent() != null) {
-                    dirty.add(row.component().getParent());
-                }
-            }
-        }
-        for (Container container : dirty) {
-            container.revalidate();
-            container.repaint();
-        }
-    }
-
-    private static void restoreParameterRows(final PaletteFilterState state) {
-        state.parameterFilterStamp = null;
-        for (Map.Entry<JComponent, Boolean> entry : state.originalRowVisibility.entrySet()) {
-            entry.getKey().setVisible(entry.getValue());
-            if (entry.getKey().getParent() != null) {
-                entry.getKey().getParent().revalidate();
-                entry.getKey().getParent().repaint();
-            }
-        }
-    }
-
-    private static void restoreDiscardedParameterRows(
-        final Map<JComponent, Boolean> originalVisibility,
-        final Set<JComponent> live
-    ) {
-        final java.util.Iterator<Map.Entry<JComponent, Boolean>> iterator =
-            originalVisibility.entrySet().iterator();
-        while (iterator.hasNext()) {
-            final Map.Entry<JComponent, Boolean> entry = iterator.next();
-            if (live.contains(entry.getKey())) {
-                continue;
-            }
-            entry.getKey().setVisible(entry.getValue());
-            if (entry.getKey().getParent() != null) {
-                entry.getKey().getParent().revalidate();
-                entry.getKey().getParent().repaint();
-            }
-            iterator.remove();
-        }
     }
 
     private boolean attachLog(
