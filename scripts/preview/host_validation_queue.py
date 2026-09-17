@@ -37,6 +37,10 @@ class QueueError(RuntimeError):
     """A rejected operation; never permission to bypass admission."""
 
 
+class QueueBusy(QueueError):
+    """Temporary ownership contention; callers may report skipped or wait."""
+
+
 class NoHostSideEffects(QueueError):
     """A verified read-only preflight failed before any contained process start."""
 
@@ -118,7 +122,7 @@ class FileLock:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as failure:
             os.close(fd)
-            raise QueueError(f"already owned: {self.path.name}") from failure
+            raise QueueBusy(f"already owned: {self.path.name}") from failure
         self.fd = fd
         return self
 
@@ -135,8 +139,26 @@ class FileLock:
         self.close()
 
 
+@contextlib.contextmanager
+def storage_lock(root: Path, *, exclusive: bool = False) -> Iterator[None]:
+    """Readers prepare/submit concurrently; collection needs an idle storage domain."""
+    fd = os.open(root / "storage.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise QueueError("unsafe storage lock")
+        try:
+            fcntl.flock(fd, (fcntl.LOCK_EX | fcntl.LOCK_NB) if exclusive else fcntl.LOCK_SH)
+        except BlockingIOError as failure:
+            raise QueueBusy("storage is busy preparing/submitting/collecting") from failure
+        yield
+    finally:
+        os.close(fd)
+
+
 class Store:
     def __init__(self, root: Path | None = None):
+        self.production = root is None or root.absolute() == account_root()
         self.root = private_directory(account_root() if root is None else root)
         for child in ("prepared", "jobs", "staging"):
             private_directory(self.root / child)
@@ -148,6 +170,10 @@ class Store:
         with self.connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
+                CREATE TABLE IF NOT EXISTS retention_objects(
+                    kind TEXT NOT NULL, object_id TEXT NOT NULL, created_at REAL NOT NULL,
+                    pin TEXT NOT NULL DEFAULT '', retired INTEGER NOT NULL DEFAULT 0,
+                    metadata TEXT NOT NULL DEFAULT '{}', PRIMARY KEY(kind,object_id));
                 CREATE TABLE IF NOT EXISTS metadata(version INTEGER NOT NULL);
                 INSERT INTO metadata SELECT 1 WHERE NOT EXISTS(SELECT 1 FROM metadata);
                 CREATE TABLE IF NOT EXISTS jobs(
@@ -203,20 +229,32 @@ class Store:
             raise QueueError("request id must contain 1..128 non-NUL characters")
         if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 86400:
             raise QueueError("timeout must be an integer in 1..86400 seconds")
-        now = time.time()
-        with self.transaction() as db:
-            existing = db.execute("SELECT * FROM jobs WHERE request_key=?", (request_key,)).fetchone()
-            if existing:
-                if (existing["prepared_id"], existing["digest"], existing["timeout_seconds"]) != (
-                        prepared_id, digest, timeout_seconds):
-                    raise QueueError("idempotency key conflicts with different inputs")
-                return dict(existing)
-            job = str(uuid.uuid4())
-            db.execute("""INSERT INTO jobs(job_id,request_key,prepared_id,digest,timeout_seconds,
-                       state,created_at,updated_at) VALUES(?,?,?,?,?,'queued',?,?)""",
-                       (job, request_key, prepared_id, digest, timeout_seconds, now, now))
-            self.event(db, job, "queued", preparedId=prepared_id)
-            return dict(db.execute("SELECT * FROM jobs WHERE job_id=?", (job,)).fetchone())
+        with storage_lock(self.root):
+            with self.connection() as db:
+                prior = db.execute("SELECT 1 FROM jobs WHERE request_key=?", (request_key,)).fetchone()
+                retained = db.execute("SELECT retired FROM retention_objects WHERE kind='prepared' AND object_id=?",
+                                      (prepared_id,)).fetchone()
+            if retained is not None and prior is None:
+                if retained["retired"] or (self.root / "retention-prepared" / (prepared_id + ".json")).exists():
+                    raise QueueError("prepared input retired; prepare it again before a new submission")
+                # Storage ownership prevents GC here. Do not hold a SQLite write
+                # transaction while hashing large inputs and delay host completion.
+                PreparedStore(self).load(prepared_id)
+            now = time.time()
+            with self.transaction() as db:
+                existing = db.execute("SELECT * FROM jobs WHERE request_key=?", (request_key,)).fetchone()
+                if existing:
+                    if (existing["prepared_id"], existing["digest"], existing["timeout_seconds"]) != (
+                            prepared_id, digest, timeout_seconds):
+                        raise QueueError("idempotency key conflicts with different inputs")
+                    return dict(existing)
+                job = str(uuid.uuid4())
+                db.execute("INSERT INTO retention_objects(kind,object_id,created_at) VALUES('job',?,?)", (job, now))
+                db.execute("""INSERT INTO jobs(job_id,request_key,prepared_id,digest,timeout_seconds,
+                           state,created_at,updated_at) VALUES(?,?,?,?,?,'queued',?,?)""",
+                           (job, request_key, prepared_id, digest, timeout_seconds, now, now))
+                self.event(db, job, "queued", preparedId=prepared_id)
+                return dict(db.execute("SELECT * FROM jobs WHERE job_id=?", (job,)).fetchone())
 
     def jobs(self, job_id: str | None = None) -> list[dict[str, Any]]:
         with self.connection() as db:
@@ -328,6 +366,18 @@ class Store:
             db.execute("UPDATE jobs SET state=?,evidence_json=?,updated_at=? WHERE job_id=?",
                        (state, canonical_json(evidence), time.time(), job_id))
             db.execute("UPDATE host SET state='idle',job_id=NULL,reason='' WHERE singleton=1 AND job_id=?", (job_id,))
+            details = evidence.get("details")
+            task_dir = details.get("taskDir") if isinstance(details, dict) else None
+            if task_dir:
+                task = Path(task_dir)
+                if task.is_dir() and not task.is_symlink():
+                    info = task.stat()
+                    retained = db.execute("SELECT metadata FROM retention_objects WHERE kind='job' AND object_id=?", (job_id,)).fetchone()
+                    if retained is not None:
+                        metadata = json.loads(retained["metadata"])
+                        metadata.update(taskDir=str(task), taskIdentity=[info.st_dev, info.st_ino])
+                        db.execute("UPDATE retention_objects SET metadata=? WHERE kind='job' AND object_id=?",
+                                   (canonical_json(metadata), job_id))
             self.event(db, job_id, state, evidence=evidence)
 
     def events(self, after: int = 0, job_id: str | None = None) -> list[dict[str, Any]]:
@@ -515,6 +565,14 @@ class PreparedStore:
 
     def capture(self, request: dict[str, Any], source_root: Path,
                 task_spec: str) -> dict[str, Any]:
+        from host_validation_retention import check_space
+        if self.store.production:
+            check_space(self.store.root)
+        with storage_lock(self.store.root):
+            return self._capture(request, source_root, task_spec)
+
+    def _capture(self, request: dict[str, Any], source_root: Path,
+                 task_spec: str) -> dict[str, Any]:
         argv = request.get("argv")
         if request.get("schemaVersion") != SCHEMA or not isinstance(argv, list) or not argv:
             raise QueueError("invalid normalized runner request")
@@ -525,8 +583,15 @@ class PreparedStore:
             raise QueueError("normalized runner must express all configuration as argv")
         source_root = source_root.resolve(strict=True)
         memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
+        if self.store.production and "--host-root" in argv:
+            from host_validation_retention import check_space
+            check_space(self.store.root, (Path(argv[argv.index("--host-root") + 1]),))
         with tempfile.TemporaryDirectory(dir=self.store.root / "staging") as temporary:
             stage = Path(temporary)
+            with self.store.transaction() as db:
+                db.execute("INSERT INTO retention_objects(kind,object_id,created_at,metadata) VALUES('staging',?,?,?)",
+                           (stage.name, time.time(), canonical_json({"owner": process_identity(os.getpid()),
+                            "device": stage.stat().st_dev, "inode": stage.stat().st_ino})))
             tool_dir = stage / "tool/scripts/preview"
             tool_dir.mkdir(mode=0o700, parents=True)
             for path in sorted((source_root / "scripts/preview").iterdir()):
@@ -628,6 +693,16 @@ class PreparedStore:
             for path in destination.rglob("*"):
                 if path.is_file():
                     path.chmod(path.stat().st_mode & 0o500)
+            with self.store.transaction() as db:
+                db.execute("""INSERT INTO retention_objects(kind,object_id,created_at,metadata)
+                           VALUES('prepared',?,?,?) ON CONFLICT(kind,object_id) DO UPDATE SET
+                           retired=0,created_at=excluded.created_at,metadata=excluded.metadata""",
+                           (digest, time.time(), canonical_json({"device": destination.stat().st_dev,
+                            "inode": destination.stat().st_ino})))
+                db.execute("DELETE FROM retention_objects WHERE kind='staging' AND object_id=?", (stage.name,))
+            retirement = self.store.root / "retention-prepared" / (digest + ".json")
+            if retirement.exists():
+                retirement.unlink()  # Explicit verified re-prepare revives this input.
             # TemporaryDirectory cleanup tolerates a moved directory.
             return self.load(digest)
 
@@ -734,6 +809,13 @@ class RunnerBackend:
             "TURBOISM_QUEUE_SUPERVISOR_PID": str(os.getpid()), "PYTHONDONTWRITEBYTECODE": "1"})
         prepared = PreparedStore(store)
         descriptor = prepared.load(job["prepared_id"])
+        from host_validation_retention import check_space
+        argv = descriptor["argv"]
+        host_root = Path(argv[argv.index("--host-root") + 1])
+        try:
+            check_space(store.root, (host_root,))
+        except QueueError as failure:
+            raise NoHostSideEffects(str(failure)) from failure
         if descriptor["digest"] != job["digest"]:
             raise QueueError("job and prepared digest mismatch")
         prepared_root = store.root / "prepared" / job["prepared_id"]
@@ -891,7 +973,21 @@ class Worker:
                         if self.store.host()["state"] in {"idle", "external-busy"}:
                             self.store.external_busy(self.backend.busy())
                         if self.store.host()["state"] == "idle":
-                            with FileLock(self.store.root / "admission.lock") as admission:
+                            admission = FileLock(self.store.root / "admission.lock")
+                            try:
+                                admission.acquire()
+                            except QueueBusy:
+                                # An idle-window collector owns admission. Do not stop the worker.
+                                time.sleep(0.2)
+                                continue
+                            with contextlib.closing(admission):
+                                if self.store.production:
+                                    from host_validation_retention import check_space
+                                    try:
+                                        check_space(self.store.root)
+                                    except QueueError:
+                                        time.sleep(1)
+                                        continue
                                 job = self.store.claim()
                                 if job is not None:
                                     self.execute(job, admission.fd, worker_lock.fd, listener)
