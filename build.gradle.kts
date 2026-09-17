@@ -41,7 +41,14 @@ tasks.register<Exec>("checkInstallerLocalization") {
 tasks.register<Exec>("checkWindowsInstaller") {
     group = "verification"
     description = "Checks the Windows NSIS installer script, payload simulation and uninstall contract."
+    dependsOn("checkWindowsInstallerPackaging")
     commandLine("python3", "packaging/windows-installer/test-config-merge.py")
+}
+
+tasks.register<Exec>("checkWindowsInstallerPackaging") {
+    group = "verification"
+    description = "Exercises the actual thin installer/offline ZIP generators and engine pins."
+    commandLine("python3", "packaging/windows-installer/test-installer-packaging.py")
 }
 
 tasks.register("checkPluginInspectionRuntime") {

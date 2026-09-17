@@ -568,12 +568,15 @@ def check_configurator_flow_contract():
     discovery_start = text.index("Function CubismDiscoveryCreate")
     discovery_end = text.index("FunctionEnd", discovery_start)
     discovery_create = text[discovery_start:discovery_end]
+    prepare_start = text.index("Function CubismDiscoveryPrepareFiles")
+    discovery_prepare = text[prepare_start:text.index("FunctionEnd", prepare_start)]
     check("CF1c pre-install discovery stages the current exact verifier payload",
-          all(path in discovery_create for path in (
+          "Call CubismDiscoveryPrepareFiles" in discovery_create
+          and all(path in discovery_prepare for path in (
               '${STAGING_DIR}/turboism-agent.jar',
               '${STAGING_DIR}/configure_turboism.ps1',
               '${STAGING_DIR}/cubism-launch-common.ps1'))
-          and "$PLUGINSDIR\\Turboism-discovery-$CubismDiscoveryGeneration" in discovery_create)
+          and "$PLUGINSDIR\\Turboism-discovery-$CubismDiscoveryGeneration" in discovery_prepare)
     scanner_exec = next(line for line in discovery_create.splitlines()
                         if "InstallerDiscoveryOutput" in line)
     check("CF1d pre-install discovery launches asynchronously without taking focus",
@@ -587,6 +590,8 @@ def check_configurator_flow_contract():
     poll_start = text.index("Function CubismDiscoveryPoll")
     poll_end = text.index("FunctionEnd", poll_start)
     poll = text[poll_start:poll_end]
+    reader_start = text.index("Function CubismDiscoveryReadResult")
+    reader = text[reader_start:text.index("FunctionEnd", reader_start)]
     fail_start = text.index("Function CubismDiscoveryFail")
     fail_end = text.index("FunctionEnd", fail_start)
     fail = text[fail_start:fail_end]
@@ -620,11 +625,12 @@ def check_configurator_flow_contract():
           and "[System.IO.File]::Move($temporary, $output)" in common)
     check("CF1i2 discovery report preserves localized labels and non-ASCII paths",
           "[System.Text.UnicodeEncoding]::new($false, $true, $true)" in common
-          and "FileReadUTF16LE $CubismDiscoveryHandle $line" in poll)
+          and "FileReadUTF16LE $CubismDiscoveryHandle $line" in reader
+          and "Call CubismDiscoveryReadResult" in poll)
     check("CF1i3 result parsing cannot overwrite the open report handle",
-          'FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r' in poll
-          and "FileClose $CubismDiscoveryHandle" in poll
-          and "FileReadUTF16LE $0 $line" not in poll)
+          'FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r' in reader
+          and "FileClose $CubismDiscoveryHandle" in reader
+          and "FileReadUTF16LE $0 $line" not in reader)
     discovery_keys = (
         "CubismDiscoveryTitle", "CubismDiscoveryScanning", "CubismDiscoveryComplete",
         "CubismDiscoveryNone", "CubismDiscoveryFailed", "CubismDiscoveryTimeout",
@@ -642,7 +648,7 @@ def check_configurator_flow_contract():
           and 'LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描已安装的 Cubism 编辑器……"' in text)
     check("CF1j2 scaled discovery list exposes complete paths horizontally",
           "${NSD_AddStyle} $CubismDiscoveryList ${WS_HSCROLL}" in discovery_create
-          and "${LB_SETHORIZONTALEXTENT} 8192" in poll)
+          and "${LB_SETHORIZONTALEXTENT} 8192" in reader)
     check("CF1k exact artifact probes and the entire pre-install worker are time-bounded",
           "$script:CubismArtifactProbeTimeoutMilliseconds = 20000" in common
           and "WaitForExit($script:CubismArtifactProbeTimeoutMilliseconds)" in common
@@ -678,7 +684,42 @@ def check_configurator_flow_contract():
           "ExecWait" not in text
           and "ExecShell \"\" \"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\"" in scanner_exec
           and "SW_HIDE" in scanner_exec
-          and text.count("nsExec::ExecToLog") == 11)
+          and all(
+              line.strip().startswith("nsExec::ExecToLog")
+              or (line.strip().startswith('ExecShell ""') and "SW_HIDE" in line)
+              for line in text.splitlines()
+              if "powershell.exe" in line and line.strip().startswith(("Exec", "nsExec::"))))
+    check("CF2-cache all final operations reuse the digest-bound middle scan",
+          success.count("${CUBISM_DISCOVERY_HANDOFF}") == 5
+          and "InstallerDiscoveryOutput" not in success
+          and 'Goto InstallerConfigurationDone' in success
+          and success.index('-IntegrateBat') < success.index('RMDir /r "$CubismDiscoveryWorkDir"')
+          and '-InstallerDiscoverySnapshot "$CubismDiscoveryResult.json"' in text
+          and '-InstallerDiscoverySnapshotSha256 "$CubismDiscoverySnapshotHash"' in text)
+    check("CF2-cache reader validates the snapshot envelope before accepting it",
+          '"SNAPSHOT|"' in reader
+          and 'StrLen $0 $CubismDiscoverySnapshotHash' in reader
+          and '${If} $0 != 64' in reader
+          and '${For} $pos 0 63' in reader
+          and '$CubismDiscoverySnapshotHash == ""' in reader
+          and '${FileExists} "$CubismDiscoveryResult.json"' in reader)
+    silent_start = text.index('Section "-静默发现 Cubism"')
+    silent = text[silent_start:text.index("SectionEnd", silent_start)]
+    check("CF2-cache silent installation scans once before permanent configuration",
+          'IfSilent 0 SilentDiscoveryDone' in silent
+          and 'Call CubismDiscoveryPrepareFiles' in silent
+          and 'Call CubismDiscoveryReadResult' in silent
+          and silent.count('InstallerDiscoveryOutput') == 1
+          and silent_start < text.index('Section "-写入配置"'))
+    cached_start = common.index('function Read-CubismInstallerSnapshot')
+    cached_reader = common[cached_start:common.index('function Write-CubismInstallerDiscoveryReport', cached_start)]
+    check("CF2-cache snapshot import never enumerates drives or launches a version probe",
+          all(name not in cached_reader for name in (
+              'Get-CubismDiscoveryRoots', 'Get-CubismInstallations', 'Get-CubismVersionFromArtifact'))
+          and 'Get-CubismSha256 $application' in cached_reader
+          and 'Get-CubismSha256 $java' in cached_reader
+          and 'Get-CubismSha256 $agent' in cached_reader
+          and 'Get-ConfiguratorCandidates -State $state' in configure)
     check("CF2b BAT integration elevates only the selected helper operation",
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
@@ -935,11 +976,13 @@ def check_launcher_and_shortcut_contract():
           and 'explorer.exe' in text)
     install_success = text[text.index("Function .onInstSuccess"):
                            text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
-    check("L7b discovery payload is removed before the Finish page",
+    check("L7b discovery payload is removed after configuration and before the Finish page",
           'RMDir /r "$CubismDiscoveryWorkDir"' in install_success
           and 'StrCpy $CubismDiscoveryWorkDir ""' in install_success
-          and install_success.index('RMDir /r "$CubismDiscoveryWorkDir"')
-              < install_success.index("-InitializeSelection"))
+          and install_success.index('-InitializeSelection')
+              < install_success.index('-IntegrateBat')
+              < install_success.index('InstallerConfigurationDone:')
+              < install_success.index('RMDir /r "$CubismDiscoveryWorkDir"'))
     check("L8 managed launcher prints the Turboism banner before Cubism selection",
           "function Write-TurboismLauncherBanner" in launcher
           and "For you, a bouquet." in launcher
