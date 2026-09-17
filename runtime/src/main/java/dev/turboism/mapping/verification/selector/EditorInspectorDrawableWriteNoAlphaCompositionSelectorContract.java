@@ -5,12 +5,13 @@ import java.util.Set;
 
 /**
  * Exact additive selector contract for Editor Inspector Drawable/ArtMesh family
- * authoring writes on the Cubism 5.2 host. Identical to the 5.3.02 contract
- * except alpha-composition aliases (the {@code AlphaComposition} enum does not
- * exist in the 5.2 artifact) and color-composition writes restricted to the
- * 5.2 enum's NORMAL/ADD/MULTIPLY values (enforced by host {@code valueOf}).
+ * authoring writes on the host whose {@link #CUBISM_VERSION} declares the bound version.
+ * Identical to {@link EditorInspectorDrawableWriteSelectorContract} except alpha-composition
+ * aliases (the {@code AlphaComposition} enum does not exist in that artifact) and
+ * color-composition writes restricted to that enum's NORMAL/ADD/MULTIPLY values (enforced by
+ * host {@code valueOf}).
  */
-public final class EditorInspectorDrawableWrite52SelectorContract {
+public final class EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract {
 
     public static final String CUBISM_VERSION = "5.2.03";
     public static final String ADAPTER_SLICE_ID = EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID;
@@ -26,6 +27,6 @@ public final class EditorInspectorDrawableWrite52SelectorContract {
         return Set.copyOf(values);
     }
 
-    private EditorInspectorDrawableWrite52SelectorContract() {
+    private EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract() {
     }
 }

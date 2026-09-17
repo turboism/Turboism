@@ -4,7 +4,7 @@ import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelecto
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
@@ -565,7 +565,7 @@ class EditorInspectorWriteAccessTest {
         ));
         if (cubism52) {
             capabilities.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
-            capabilities.add(EditorPartInspector52SelectorContract.CAPABILITY_ID);
+            capabilities.add(EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID);
             // The 5.2 host record has no Part mask/alpha evidence; drop those
             // aliases so the fixture record mirrors the reviewed 5.2 record.
             final java.util.Set<String> excluded = java.util.Set.of(
