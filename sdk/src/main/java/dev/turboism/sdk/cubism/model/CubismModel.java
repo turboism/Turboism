@@ -100,6 +100,8 @@ public interface CubismModel {
         );
     }
 
+
+
     /** Returns the model's structural and render-resource statistics. */
     default ModelStatistics statistics() {
         return ModelStatisticsCalculator.calculate(this);
