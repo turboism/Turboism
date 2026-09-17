@@ -10,20 +10,25 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-class VerifiedCubism5303TextureAtlasLayoutProviderProfileTest {
+class VerifiedTextureAtlasLayoutProvider5303ProfileTest {
+
+    private static final VerifiedTextureAtlasSelectorContract.Profile PROFILE_5_3_03 =
+        VerifiedTextureAtlasSelectorContract.profileFor("5.3.03").orElseThrow();
 
     @Test
     void exactProfileStillRequiresDedicatedAuthoringAuthorization() {
         final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
-        assertFalse(new VerifiedCubism5303TextureAtlasLayoutProvider(
+        assertFalse(new VerifiedTextureAtlasLayoutProvider(
             resolver("5.3.03", Set.of("cubism.editor-model.read")),
             "session-5303",
-            capture
+            capture,
+            PROFILE_5_3_03
         ).current().isPresent());
-        assertFalse(new VerifiedCubism5303TextureAtlasLayoutProvider(
-            resolver("5.3.02", Set.of(VerifiedCubism5303TextureAtlasSelectorContract.CAPABILITY_ID)),
+        assertFalse(new VerifiedTextureAtlasLayoutProvider(
+            resolver("5.3.02", Set.of(VerifiedTextureAtlasSelectorContract.CAPABILITY_ID)),
             "session-5302",
-            capture
+            capture,
+            PROFILE_5_3_03
         ).current().isPresent());
     }
 
@@ -33,12 +38,12 @@ class VerifiedCubism5303TextureAtlasLayoutProviderProfileTest {
     ) {
         final String owner = getClass().getName().replace('.', '/');
         final List<StaticSelector> selectors =
-            VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES.stream()
+            VerifiedTextureAtlasSelectorContract.REQUIRED_ALIASES.stream()
                 .map(alias -> StaticSelector.classSelector(alias, owner))
                 .toList();
         return TestVerifiedResolvers.create(
             version,
-            VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
             capabilities,
             selectors,
             getClass().getClassLoader()
