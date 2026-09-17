@@ -118,7 +118,8 @@ V0_FIELDS = {
 V1_FIELDS = {
     "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-    "hooks", "launcher",
+    "hooks", "launcher", "reduceAutoBackup",
+    "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 LOCALES = {"system", "en", "ja", "ko", "zh-Hans", "zh-Hant"}
@@ -127,7 +128,12 @@ STARTUP_FIELDS = {
     "skipUpdateCheck", "skipSplash", "skipInformation",
     "separateExportSaveDirectory",
 }
-LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
+LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+V0_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
+BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+BOOLEAN_V1_FIELDS = {
+    "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+}
 CUBISM_JVMS = {"graalvm", "bundled"}
 
 
@@ -170,6 +176,9 @@ def validate_v1(doc):
         raise ValueError("safeMode must be boolean")
     if "useTextIcon" in doc and type(doc["useTextIcon"]) is not bool:
         raise ValueError("useTextIcon must be boolean")
+    for field in BOOLEAN_V1_FIELDS:
+        if field in doc and type(doc[field]) is not bool:
+            raise ValueError(field + " must be boolean")
     if "hooks" in doc:
         hooks = doc["hooks"]
         if not isinstance(hooks, dict) or set(hooks) - HOOK_FIELDS:
@@ -190,6 +199,9 @@ def validate_v1(doc):
         if "cubismJvm" in launcher:
             if not isinstance(launcher["cubismJvm"], str) or launcher["cubismJvm"] not in CUBISM_JVMS:
                 raise ValueError("launcher.cubismJvm is invalid")
+        for field in BOOLEAN_LAUNCHER_FIELDS:
+            if field in launcher and type(launcher[field]) is not bool:
+                raise ValueError("launcher." + field + " must be boolean")
         if "graalVmPath" in launcher:
             path = launcher["graalVmPath"]
             if (not isinstance(path, str) or not path.strip() or len(path) > 4096
@@ -217,7 +229,7 @@ def migrate_v0(doc):
         if field in doc:
             migrated[field] = doc[field]
     launcher = dict(doc.get("launcher", {"cubismJvm": "graalvm"}))
-    if set(launcher) - LAUNCHER_FIELDS:
+    if set(launcher) - V0_LAUNCHER_FIELDS:
         raise ValueError("unsupported legacy launcher field")
     for field in ("cubismJvm", "graalVmPath"):
         if field in doc:
@@ -382,6 +394,21 @@ def check_config_migration_contract():
           and "hooks.startup" in configure
           and 'Assert-RuntimeStringArray $pluginDirs.Value "pluginDirs"' in configure
           and "must be an array of strings" in configure)
+    check("CM6b v1 validator admits every runtime schema field",
+          all(name in configure for name in (
+              "reduceAutoBackup", "meshTriangulationHashFix",
+              "atlasTileBbox", "atlasCacheReuse",
+          ))
+          and '"zgc", "modelUpdateSkip", "incrementalUpdate"' in configure)
+    check("CM6c merged documents with runtime boolean fields pass v1",
+          validate_v1({
+              "format": "turboism.runtime.config", "schemaVersion": 1,
+              "worktreeId": "turboism-runtime", "pluginDirs": ["plugins"],
+              "reduceAutoBackup": True, "meshTriangulationHashFix": False,
+              "atlasTileBbox": True, "atlasCacheReuse": False,
+              "launcher": {"cubismJvm": "bundled", "zgc": False,
+                           "modelUpdateSkip": False, "incrementalUpdate": True, "uniformLocationCache": False},
+          }) is not None)
     check("CM7 migration/selection publish atomically and fail closed",
           "[System.IO.File]::Replace($temporary, $configPath, $backup, $true)" in configure
           and "if ($published -and (Test-Path -LiteralPath $backup -PathType Leaf))" in configure

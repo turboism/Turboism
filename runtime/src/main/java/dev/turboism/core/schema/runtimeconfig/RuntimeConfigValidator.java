@@ -33,8 +33,13 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
         "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
-    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath", "zgc");
+    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of(
+        "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
+    );
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
+    private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
+        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
+    );
 
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);
@@ -188,6 +193,16 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                 "launcher.zgc",
                 source
             ));
+        }
+        for (final String field : BOOLEAN_LAUNCHER_FIELDS) {
+            if (launcher.has(field) && !launcher.get(field).isBoolean()) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_LAUNCHER_BOOLEAN",
+                    "launcher." + field + " must be a boolean",
+                    "launcher." + field,
+                    source
+                ));
+            }
         }
         if (launcher.has("graalVmPath")) {
             final JsonNode value = launcher.get("graalVmPath");

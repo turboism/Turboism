@@ -180,6 +180,53 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean modelUpdateSkip() {
+        return optimization("modelUpdateSkip");
+    }
+
+    @Override
+    public boolean saveModelUpdateSkip(final boolean value) {
+        return saveOptimization("modelUpdateSkip", value);
+    }
+
+    @Override
+    public boolean incrementalUpdate() {
+        return optimization("incrementalUpdate");
+    }
+
+    @Override
+    public boolean saveIncrementalUpdate(final boolean value) {
+        return saveOptimization("incrementalUpdate", value);
+    }
+
+    @Override
+    public boolean uniformLocationCache() {
+        return optimization("uniformLocationCache");
+    }
+
+    @Override
+    public boolean saveUniformLocationCache(final boolean value) {
+        return saveOptimization("uniformLocationCache", value);
+    }
+
+    private boolean optimization(final String name) {
+        return config.read().path("launcher").path(name).asBoolean(!"incrementalUpdate".equals(name));
+    }
+
+    private boolean saveOptimization(final String name, final boolean value) {
+        config.update(root -> {
+            final boolean defaultValue = !"incrementalUpdate".equals(name);
+            if (value == defaultValue) {
+                root.withObject("launcher").remove(name);
+            } else {
+                root.withObject("launcher").put(name, value);
+            }
+            return root;
+        });
+        return value;
+    }
+
+    @Override
     public Optional<Path> graalVmJava() {
         if (turboismHome == null) return Optional.empty();
         final Optional<Path> explicit = compatibleGraalVmPath(
