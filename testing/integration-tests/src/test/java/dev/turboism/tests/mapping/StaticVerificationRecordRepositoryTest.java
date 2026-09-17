@@ -4,7 +4,7 @@ import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorCont
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacityReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
 import com.fasterxml.jackson.databind.JsonNode;
