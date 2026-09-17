@@ -1,8 +1,5 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Pure cache owned by one explicit render scope, GL context and thread. It never
  * calls OpenGL. The installer/bridge must establish lifecycle coverage before
@@ -15,10 +12,16 @@ import java.util.Map;
  */
 final class FrameUniformLocationCache implements AutoCloseable {
     static final int MISS = Integer.MIN_VALUE;
-    private record Key(int program, String name) { }
     private final int bound;
-    private final Map<Key, Integer> ready = new HashMap<>();
-    private final Map<Key, Integer> pending = new HashMap<>();
+    // Reuse storage, never results, between frames. At most half the slots are
+    // occupied, so lookup always reaches an empty slot even under hash collisions.
+    private String[] names = new String[0];
+    private int[] programs = new int[0];
+    private int[] locations = new int[0];
+    private boolean[] confirmed = new boolean[0];
+    private int[] occupiedSlots = new int[0];
+    private int[] pendingSlots = new int[0];
+    private int size, pendingCount;
     private Object context;
     private Thread owner;
     private long sequence, scope;
@@ -54,24 +57,40 @@ final class FrameUniformLocationCache implements AutoCloseable {
         return program > 0 && name != null && name.length() <= 512;
     }
     synchronized int lookup(Object current, int program, String name) {
-        if (!owns(current) || !valid(program, name)) return MISS;
-        Integer value = ready.get(new Key(program, name));
-        return value == null ? MISS : value;
+        if (!owns(current) || !valid(program, name) || size == 0) return MISS;
+        int slot = find(program, name);
+        return names[slot] != null && confirmed[slot] ? locations[slot] : MISS;
     }
     synchronized void record(Object current, int program, String name, int result) {
         if (!owns(current) || !valid(program, name)) return;
         if (result < -1) { invalidate(); return; }
-        Key key = new Key(program, name);
-        ready.remove(key);
-        if (ready.size() + pending.size() < bound || pending.containsKey(key)) {
-            pending.put(key, result);
+        if (names.length == 0) grow();
+        int slot = find(program, name);
+        if (names[slot] != null) {
+            locations[slot] = result;
+            if (confirmed[slot]) {
+                confirmed[slot] = false;
+                pendingSlots[pendingCount++] = slot;
+            }
+            return;
         }
+        if (size == bound) return;
+        if (size == names.length / 2) {
+            grow();
+            slot = find(program, name);
+        }
+        names[slot] = name;
+        programs[slot] = program;
+        locations[slot] = result;
+        confirmed[slot] = false;
+        occupiedSlots[size++] = slot;
+        pendingSlots[pendingCount++] = slot;
     }
     synchronized void checkedError(Object current, int error) {
         if (!owns(current)) return;
         if (error != 0) { invalidate(); return; }
-        ready.putAll(pending);
-        pending.clear();
+        for (int index = 0; index < pendingCount; index++) confirmed[pendingSlots[index]] = true;
+        pendingCount = 0;
     }
     synchronized void invalidate() {
         clear();
@@ -86,8 +105,57 @@ final class FrameUniformLocationCache implements AutoCloseable {
         owner = null;
         scope = 0;
     }
-    private void clear() { ready.clear(); pending.clear(); }
-    synchronized int retained() { return ready.size() + pending.size(); }
+    private int find(int program, String name) {
+        int slot = hash(program, name) & (names.length - 1);
+        while (names[slot] != null) {
+            if (programs[slot] == program && names[slot].equals(name)) return slot;
+            slot = (slot + 1) & (names.length - 1);
+        }
+        return slot;
+    }
+    private static int hash(int program, String name) {
+        int hash = 31 * program + name.hashCode();
+        return hash ^ (hash >>> 16);
+    }
+    private void grow() {
+        int capacity = names.length == 0 ? 16 : Math.multiplyExact(names.length, 2);
+        String[] nextNames = new String[capacity];
+        int[] nextPrograms = new int[capacity];
+        int[] nextLocations = new int[capacity];
+        boolean[] nextConfirmed = new boolean[capacity];
+        int[] nextOccupied = new int[capacity];
+        int[] nextPending = new int[capacity];
+        int nextPendingCount = 0;
+        for (int index = 0; index < size; index++) {
+            int old = occupiedSlots[index];
+            int slot = hash(programs[old], names[old]) & (capacity - 1);
+            while (nextNames[slot] != null) slot = (slot + 1) & (capacity - 1);
+            nextNames[slot] = names[old];
+            nextPrograms[slot] = programs[old];
+            nextLocations[slot] = locations[old];
+            nextConfirmed[slot] = confirmed[old];
+            nextOccupied[index] = slot;
+            if (!confirmed[old]) nextPending[nextPendingCount++] = slot;
+        }
+        // Publish only after every allocation and relocation succeeds.
+        names = nextNames;
+        programs = nextPrograms;
+        locations = nextLocations;
+        confirmed = nextConfirmed;
+        occupiedSlots = nextOccupied;
+        pendingSlots = nextPending;
+        pendingCount = nextPendingCount;
+    }
+    private void clear() {
+        for (int index = 0; index < size; index++) {
+            int slot = occupiedSlots[index];
+            names[slot] = null;
+            confirmed[slot] = false;
+        }
+        size = 0;
+        pendingCount = 0;
+    }
+    synchronized int retained() { return size; }
     @Override public synchronized void close() {
         closed = true;
         clear();
