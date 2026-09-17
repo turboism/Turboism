@@ -72,6 +72,29 @@ class UniformLocationSettingsContributionTest {
         assertEquals("false", System.getProperty(FLAG));
     }
 
+    @Test void experimentalIncrementalToggleRequiresExplicitTrueWithoutAffectingUniform() {
+        String key = dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge.ENABLE_PROPERTY;
+        String previousIncremental = System.getProperty(key);
+        AtomicBoolean requested = new AtomicBoolean(false);
+        Settings settings = new Settings() {
+            @Override public boolean incrementalUpdate() { return requested.get(); }
+            @Override public boolean saveIncrementalUpdate(boolean value) { requested.set(value); return value; }
+        };
+        try {
+            System.clearProperty(key); System.clearProperty(FLAG);
+            var toggle = (SettingsControl.Toggle) CubismJvmSettingsContribution.createIncrementalUpdateToggle(i18n(), settings).control();
+            assertEquals(Boolean.FALSE, toggle.binding().read());
+            toggle.binding().write(true);
+            assertEquals("true", System.getProperty(key));
+            assertNull(System.getProperty(FLAG));
+            toggle.binding().write(false);
+            assertNull(System.getProperty(key));
+            assertFalse(requested.get());
+        } finally {
+            if (previousIncremental == null) System.clearProperty(key); else System.setProperty(key, previousIncremental);
+        }
+    }
+
     @Test void everySupportedLocaleHasExactlyOneLabel() throws Exception {
         for (String bundle : new String[] {"messages.properties", "messages_en.properties",
                 "messages_ja.properties", "messages_ko.properties", "messages_zh_Hans.properties",

@@ -41,13 +41,14 @@ import java.util.function.Supplier;
  * {@code setDirtyDeformedForm(true)} and whether each ArtMesh still needs its deformed
  * transform; unchanged objects keep last frame's {@code interpolatedForm/deformedForm}.</p>
  *
- * <p>Every gate is fail-open: a disabled flag, an unknown object or any thrown error
- * performs the native mark/transform so stale output is impossible. Per-frame state lives
+ * <p>Every gate falls back to native: a disabled flag, an unknown object or any thrown error
+ * performs the native mark/transform. Complete authoring-write coverage is not proven,
+ * so this experiment is opt-in and must not be enabled by a different optimization's default. Per-frame state lives
  * in identity-keyed sets cleared by {@code beginUpdate} at the update-core entry.</p>
  */
 public final class IncrementalUpdateBridge implements AutoCloseable {
 
-    /** Opt-out disable switch (enabled unless set to {@code false}), re-read every frame. */
+    /** Experimental opt-in switch; only explicit true enables reuse, re-read every frame. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.incrementalUpdate";
     /** Slot for the {@code Consumer<Object>} update-core entry callback ({model, ctx}). */
     public static final String BEGIN_PROPERTY = "turboism.incremental-update.begin";
@@ -263,10 +264,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         }
     }
 
-    /** The optimization is enabled unless the property is set to {@code false}. */
+    /** Returns true only for an explicit experimental opt-in; missing or malformed values stay native. */
     public static boolean flagEnabled() {
         try {
-            return !"false".equalsIgnoreCase(System.getProperty(ENABLE_PROPERTY));
+            return Boolean.getBoolean(ENABLE_PROPERTY);
         } catch (SecurityException denied) {
             return false;
         }

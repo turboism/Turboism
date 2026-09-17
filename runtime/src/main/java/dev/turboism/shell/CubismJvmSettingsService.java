@@ -109,13 +109,13 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Launcher preference: when false the next managed Cubism launch adds
-     * {@code -Dturboism.optimization.incrementalUpdate=false} to the managed
-     * JAVA_TOOL_OPTIONS block so the per-object incremental update hook is
-     * not installed. On by default; takes effect on the next launch.
+     * Experimental launcher preference: explicit true adds
+     * {@code -Dturboism.optimization.incrementalUpdate=true} on the next managed
+     * launch. Off by default because complete authoring-write coverage has not
+     * been established; enabling requires an explicit user choice.
      */
     default boolean incrementalUpdate() {
-        return true;
+        return false;
     }
 
     /** Persists the per-object incremental model-update preference. */

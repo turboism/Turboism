@@ -210,16 +210,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     private boolean optimization(final String name) {
-        return config.read().path("launcher").path(name).asBoolean(true);
+        return config.read().path("launcher").path(name).asBoolean(!"incrementalUpdate".equals(name));
     }
 
     private boolean saveOptimization(final String name, final boolean value) {
         config.update(root -> {
-            if (value) {
-                // Absent means enabled; only an explicit false is stored.
+            final boolean defaultValue = !"incrementalUpdate".equals(name);
+            if (value == defaultValue) {
                 root.withObject("launcher").remove(name);
             } else {
-                root.withObject("launcher").put(name, false);
+                root.withObject("launcher").put(name, value);
             }
             return root;
         });
