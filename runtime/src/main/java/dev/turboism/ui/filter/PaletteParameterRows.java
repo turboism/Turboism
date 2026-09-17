@@ -69,18 +69,6 @@ record ParameterFilterRow(JComponent component, String searchText, boolean folde
     }
 }
 
-final class FilterBox {
-    final JPanel panel;
-    final JTextField field;
-    final JButton clearButton;
-
-    FilterBox(final JPanel panel, final JTextField field, final JButton clearButton) {
-        this.panel = panel;
-        this.field = field;
-        this.clearButton = clearButton;
-    }
-}
-
 final class PaletteParameterRows {
 
     private PaletteParameterRows() {

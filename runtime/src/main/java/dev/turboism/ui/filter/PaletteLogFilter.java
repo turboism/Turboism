@@ -110,6 +110,10 @@ final class PaletteFilterState {
     }
 }
 
+enum LogLevel {
+    INFO, WARN, ERROR
+}
+
 final class PaletteLogFilter {
 
     private PaletteLogFilter() {
