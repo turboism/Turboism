@@ -239,18 +239,33 @@ def entry(kind: str, object_id: str, paths: list[Path], expires: float, context:
     return result
 
 
-def protected_source_paths(snapshot: Snapshot) -> list[Path]:
+def protected_source_paths(snapshot: Snapshot) -> tuple[list[Path], list[dict[str, str]]]:
     paths = [snapshot.root]
-    for prepared in sorted({j["prepared_id"] for j in snapshot.job_rows} |
-                           {key[1] for key in snapshot.objects if key[0] == "prepared"}):
-        descriptor = describe(snapshot, prepared)
+    # Approved spec 041 change (operator, 2026-09-17): recycled prepared inputs
+    # referenced only by terminal jobs are reported, not protection failures.
+    # Non-terminal (queued/active/held) references still fail closed.
+    missing: list[dict[str, str]] = []
+    prepared_states: dict[str, list[str]] = {}
+    for job in snapshot.job_rows:
+        prepared_states.setdefault(job["prepared_id"], []).append(job["state"])
+    for prepared in sorted(set(prepared_states)
+                           | {key[1] for key in snapshot.objects if key[0] == "prepared"}):
+        states = prepared_states.get(prepared, ["object"])
+        try:
+            descriptor = describe(snapshot, prepared)
+        except queue.QueueError:
+            if any(state in queue.ACTIVE or state == "queued" for state in states):
+                raise
+            for state in states:
+                missing.append({"preparedId": prepared, "jobState": state})
+            continue
         paths.extend(Path(i["source"]) for i in descriptor["sourceInputs"])
         paths.extend(Path(i["path"]) for i in descriptor["hostDependencies"])
         paths.append(Path(descriptor["source"]["worktree"]))
         argv = descriptor["argv"]
         if "--golden-prefix" in argv:
             paths.append(Path(argv[argv.index("--golden-prefix") + 1]))
-    return paths
+    return paths, missing
 
 
 def overlap(left: Path, right: Path) -> bool:
@@ -286,8 +301,9 @@ def plan(root: Path | None = None, *, now: float | None = None) -> dict[str, Any
         global_reasons.append("host is active, quarantined or not proven idle")
     if any(j["state"] == "queued" for j in snapshot.job_rows):
         global_reasons.append("queued host work takes priority over collection")
+    missing_protected: list[dict[str, str]] = []
     try:
-        protected_paths = protected_source_paths(snapshot)
+        protected_paths, missing_protected = protected_source_paths(snapshot)
     except (OSError, ValueError, KeyError, TypeError, queue.QueueError) as failure:
         protected_paths = []
         global_reasons.append(f"cannot establish all protected input paths: {failure}")
@@ -416,6 +432,7 @@ def plan(root: Path | None = None, *, now: float | None = None) -> dict[str, Any
     result = {"schemaVersion": 1, "root": str(root), "rootIdentity": snapshot.identity,
               "generatedAt": now, "policy": rules, "blocked": global_reasons,
               "candidates": candidates, "retained": retained,
+              "missingPreparedInputs": missing_protected,
               "sizeNote": "apparentBytes includes shared CoW data; reclaimable physical bytes are unknown"}
     result["planDigest"] = queue.digest_json(result)
     return result
@@ -612,7 +629,7 @@ def mutate_hold(root: Path, action: str, job_id: str, reason: str) -> dict[str, 
                 task = layout(descriptor, root / "prepared" / job["prepared_id"], job)["task"]
                 if outcome.get("details", {}).get("taskDir") != str(task):
                     raise queue.QueueError("task path mismatch")
-                if any(overlap(task, p) for p in protected_source_paths(snapshot)):
+                if any(overlap(task, p) for p in protected_source_paths(snapshot)[0]):
                     raise queue.QueueError("task overlaps a protected path")
                 info = task.stat()
                 metadata.update(taskDir=str(task), taskIdentity=[info.st_dev, info.st_ino])
