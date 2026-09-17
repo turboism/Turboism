@@ -68,3 +68,29 @@ its former blanket shared-context rejection produced zero hits despite successfu
 installation. The shared mutation coverage above replaces that restriction, not
 its correctness requirements. New real-host evidence must exercise nonzero hits
 and preserve pixel parity; successful installation alone is never sufficient.
+
+## Reusable bookkeeping storage
+
+The frame cache uses a lazily grown, bounded open-addressed table rather than
+allocating a key for every query and moving boxed entries between two maps.
+Pending and error-confirmed results remain distinct. At most half the table is
+occupied; both program and full name equality resolve collisions. Frame end,
+invalidation and close clear every occupied name/reference. Only empty backing
+storage is reused across frames, never a previous frame's query results.
+
+`FrameUniformLocationCacheAllocationTest` measures the production cache with
+prebuilt synthetic names: 1000 warm-up lifecycles followed by 1000 measured
+lifecycles, each confirming 39 locations and performing 3350 hit lookups.
+The thread-allocation counter on the test JVM reported 86,016,000 bytes before
+this change and zero bytes after warm-up with reusable storage. The regression
+allows bounded measurement overhead rather than asserting a universally exact
+zero. It checks returned values and verifies the cache is empty after each batch.
+Storage regressions also exercise colliding names, growth, full-capacity rewrites,
+reference release and 80,000 deterministic operations against the previous map
+confirmation/capacity semantics.
+
+This is a cache microbenchmark, not a Cubism FPS, process-RAM or end-to-end latency
+result. It does not include native GL, canvas presentation or the entire bridge.
+Elapsed time is diagnostic, not a performance pass threshold. This storage revision
+still requires the separate matched real-host interaction and pixel acceptance;
+offline artifact/installer checks on reviewed versions do not replace that gate.
