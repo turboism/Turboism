@@ -16,7 +16,9 @@ param(
     [string]$DisabledPluginIds = "",
     [switch]$Elevated,
     [string]$InstallerDiscoveryOutput = "",
-    [switch]$InstallerDiscoveryWorker
+    [switch]$InstallerDiscoveryWorker,
+    [string]$InstallerDiscoverySnapshot = "",
+    [string]$InstallerDiscoverySnapshotSha256 = ""
 )
 
 # Turboism WinForms configurator: plugin selection, bounded Cubism selection,
@@ -581,8 +583,37 @@ function Invoke-ElevatedConfiguratorMode {
     $quotedScript = '"' + $scriptPath.Replace('"', '\"') + '"'
     $quotedHome = '"' + $turboismHome.Replace('"', '\"') + '"'
     $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File {0} -Home {1} -{2} -Elevated' -f $quotedScript, $quotedHome, $Mode
+    if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
+        if ($InstallerDiscoverySnapshot -match '["\r\n]' -or $InstallerDiscoverySnapshotSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw "invalid installer discovery handoff"
+        }
+        $arguments += ' -InstallerDiscoverySnapshot "{0}" -InstallerDiscoverySnapshotSha256 {1}' -f $InstallerDiscoverySnapshot, $InstallerDiscoverySnapshotSha256
+    }
     $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -Wait -PassThru
     return [int]$process.ExitCode
+}
+
+function Get-ConfiguratorCandidates {
+    param([object]$State, [switch]$DiscoverIfMissing)
+    if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
+        $candidates = @(Read-CubismInstallerSnapshot -TurboismHome $turboismHome -SnapshotPath $InstallerDiscoverySnapshot -ExpectedSha256 $InstallerDiscoverySnapshotSha256)
+        Write-InstallerLog "DISCOVERY_SNAPSHOT_REUSED" "candidates=$($candidates.Count)"
+    }
+    else {
+        $roots = @($State.Installations | ForEach-Object { $_.Root })
+        if ($DiscoverIfMissing) { $roots = @(Get-CubismDiscoveryRoots -SavedRoots $roots) }
+        # Standalone headless operations validate only already saved roots.
+        # Broad discovery belongs to explicit initialization or the GUI rescan.
+        $candidates = @(Get-CubismInstallations -Roots $roots -TurboismHome $turboismHome)
+    }
+    return @(Merge-CubismSelection -Candidates $candidates -SavedInstallations $State.Installations)
+}
+
+$hasInstallerSnapshot = -not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)
+$hasInstallerSnapshotHash = -not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)
+if ($hasInstallerSnapshot -ne $hasInstallerSnapshotHash -or
+    ($hasInstallerSnapshot -and -not ($InitializeSelection -or $IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts))) {
+    throw "installer discovery snapshot and digest require an initialization or launch-configuration operation"
 }
 
 if (@(@(
@@ -657,8 +688,7 @@ if ($InitializeSelection) {
     try {
         $state = Read-CubismInstallationState -StatePath $statePath
         if (-not $state.Valid) { throw "Managed installation state is invalid: $($state.Error)" }
-        $roots = Get-CubismDiscoveryRoots -SavedRoots @($state.Installations | ForEach-Object { $_.Root })
-        $candidates = @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots $roots -TurboismHome $turboismHome) -SavedInstallations $state.Installations)
+        $candidates = @(Get-ConfiguratorCandidates -State $state -DiscoverIfMissing)
         Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $state.BatIntegrations -LaunchMode $state.LaunchMode
         Write-Host "TURBOISM_CUBISM_SELECTION selected=$(@($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count)"
         exit 0
@@ -685,7 +715,7 @@ if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
     try {
         $state = Read-CubismInstallationState -StatePath $statePath
         if (-not $state.Valid) { throw "Managed installation state is invalid: $($state.Error)" }
-        $candidates = @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots (Get-CubismDiscoveryRoots -SavedRoots @($state.Installations | ForEach-Object { $_.Root })) -TurboismHome $turboismHome) -SavedInstallations $state.Installations)
+        $candidates = @(Get-ConfiguratorCandidates -State $state)
         if ($IntegrateBat) {
             $selectedBatKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($candidate in @($candidates | Where-Object { $_.Selected -and $_.Selectable })) {
