@@ -11,12 +11,13 @@ javac --release 17 -d "$out" \
   "$src/AllocationProfile.java" "$tests/AllocationProfileTest.java" \
   "$src/NativeDragSequence.java" "$tests/NativeDragSequenceTest.java" \
   "$src/NativeInteractionHost.java" "$tests/NativeInteractionHostTest.java" \
+  "$src/PreparationWatchdog.java" "$tests/PreparationWatchdogTest.java" \
   "$src/GlSubmissionProbe.java" "$src/UploadPayloadObserver.java" \
   "$src/ProcessMemorySample.java" "$src/BenchmarkResources.java" "$src/NarrowUniformTrial.java" \
   "$src/UniformLocationCache.java" "$src/UniformValueCache.java" "$src/UniformLocationTrial.java" "$src/FrameReadback.java" \
   "$tests/GlSubmissionProbeTest.java" "$tests/UploadPayloadObserverTest.java" \
   "$tests/UniformLocationCacheTest.java" "$tests/UniformLocationTrialTest.java" "$tests/FrameReadbackTest.java" \
   "$tests/UniformValueCacheTest.java" "$tests/UniformValueAllocationTest.java" "$tests/BenchmarkResourcesTest.java" "$tests/NarrowUniformTrialTest.java"
-for name in AllocationProfileTest GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest NativeDragSequenceTest NativeInteractionHostTest; do
+for name in PreparationWatchdogTest AllocationProfileTest GlSubmissionProbeTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest NativeDragSequenceTest NativeInteractionHostTest; do
   java -cp "$out" "dev.turboism.validation.modelupdate.$name"
 done

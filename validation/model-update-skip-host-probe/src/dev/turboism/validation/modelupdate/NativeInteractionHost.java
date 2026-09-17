@@ -144,6 +144,26 @@ final class NativeInteractionHost {
     boolean modified() throws Exception { check(); return Boolean.TRUE.equals(call(doc, "isModifiedAfterSaving")); }
     void undo() throws Exception { check(); call(app, "command_undo", new Class<?>[] {documentType}, doc); }
     void redo() throws Exception { check(); call(app, "command_redo", new Class<?>[] {documentType}, doc); }
+    String sceneInventory() throws Exception {
+        check();
+        java.util.Map<Integer, Integer> depths = new java.util.TreeMap<>();
+        long total = 0L;
+        int maximum = 0;
+        for (Object mesh : meshes) {
+            java.util.Set<Object> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            Object parent = call(mesh, "getParentEntity");
+            int depth = 0;
+            while (parent != null) {
+                if (!seen.add(parent) || depth >= 1024) throw new IllegalStateException("invalid scene parent chain");
+                depth++;
+                parent = call(parent, "getParentEntity");
+            }
+            depths.merge(depth, 1, Integer::sum);
+            maximum = Math.max(maximum, depth); total += depth;
+        }
+        return "scene.artMeshes=" + meshes.size() + "\nscene.parentDepthHistogram=" + depths
+            + "\nscene.parentDepthMaximum=" + maximum + "\nscene.parentDepthMean=" + (double) total / meshes.size() + "\n";
+    }
     String actionState() throws Exception {
         check();
         Object action = call(call(view, "getActionManager"), "getCurAction");
