@@ -207,7 +207,8 @@ final class CubismJvmSettingsContribution {
 
     /**
      * Launch-time preference toggles for the verified model-update
-     * optimizations. Both are on by default; the writer persists the
+     * optimizations. Verified unchanged-frame reuse defaults on; experimental
+     * incremental updates require opt-in. The writer persists the
      * launcher preference (next launch emits the {@code -D...=false}
      * opt-out) and flips the process system property so an installed
      * hook also stops live.
@@ -224,6 +225,7 @@ final class CubismJvmSettingsContribution {
             ModelUpdateSkipBridge.ENABLE_PROPERTY,
             settings::modelUpdateSkip,
             settings::saveModelUpdateSkip,
+            true,
             80
         );
     }
@@ -240,6 +242,7 @@ final class CubismJvmSettingsContribution {
             IncrementalUpdateBridge.ENABLE_PROPERTY,
             settings::incrementalUpdate,
             settings::saveIncrementalUpdate,
+            false,
             81
         );
     }
@@ -262,6 +265,7 @@ final class CubismJvmSettingsContribution {
                 }
                 return value;
             },
+            true,
             82
         );
     }
@@ -273,6 +277,7 @@ final class CubismJvmSettingsContribution {
         final String enableProperty,
         final java.util.function.BooleanSupplier getter,
         final java.util.function.Function<Boolean, Boolean> setter,
+        final boolean defaultValue,
         final int index
     ) {
         Objects.requireNonNull(i18n, "i18n");
@@ -291,8 +296,8 @@ final class CubismJvmSettingsContribution {
                     getter::getAsBoolean,
                     value -> {
                         setter.apply(value);
-                        if (value) System.clearProperty(enableProperty);
-                        else System.setProperty(enableProperty, "false");
+                        if (value == defaultValue) System.clearProperty(enableProperty);
+                        else System.setProperty(enableProperty, Boolean.toString(value));
                     }
                 )
             )
