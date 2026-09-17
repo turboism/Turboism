@@ -403,8 +403,15 @@ def checked_in_targets(root: Path) -> set[str]:
     return found
 
 
-def check(root: Path) -> tuple[list[str], int]:
-    """Returns (violations, equivalent_checked_in_count)."""
+def check(root: Path, expect: str = "either") -> tuple[list[str], int]:
+    """Returns (violations, equivalent_checked_in_count).
+
+    ``expect`` pins the migration state: ``checked-in`` requires every declared
+    target to exist under src/main/java and render byte-identical;
+    ``generated`` requires none of them to remain checked in; ``either``
+    accepts a complete checked-in set or a complete generated set but never a
+    mix.
+    """
     violations: list[str] = []
     try:
         rendered = render_all(root)
@@ -417,7 +424,17 @@ def check(root: Path) -> tuple[list[str], int]:
     present = declared & on_disk
     absent = declared - on_disk
     extra = on_disk - declared
-    if present and absent:
+    if expect == "checked-in" and absent:
+        violations.append(
+            f"{len(absent)} generated target(s) are not checked in under "
+            f"src/main/java, e.g. {sorted(absent)[:3]}"
+        )
+    if expect == "generated" and present:
+        violations.append(
+            f"{len(present)} generated target(s) reappeared under "
+            f"src/main/java, e.g. {sorted(present)[:3]}"
+        )
+    if expect == "either" and present and absent:
         violations.append(
             "mixed migration state: only "
             f"{len(present)}/{len(declared)} generated targets remain checked in"
@@ -438,8 +455,6 @@ def check(root: Path) -> tuple[list[str], int]:
             f"{relpath}: checked-in source has no authoring family; either "
             "bind it to a family or remove it"
         )
-    if not violations and present and equivalent != len(present):
-        violations.append("equivalence accounting mismatch")
     return violations, equivalent
 
 
@@ -490,7 +505,15 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command")
     render_parser = sub.add_parser("render", help="write generated sources")
     render_parser.add_argument("--out", required=True, help="output root")
-    sub.add_parser("check", help="verify equivalence with checked-in sources")
+    check_parser = sub.add_parser(
+        "check", help="verify equivalence with checked-in sources"
+    )
+    check_parser.add_argument(
+        "--expect",
+        choices=("either", "checked-in", "generated"),
+        default="either",
+        help="required migration state for declared targets",
+    )
     sub.add_parser("extract", help="rewrite templates from checked-in sources")
     args = parser.parse_args()
     root = Path(args.root).resolve()
@@ -520,7 +543,9 @@ def main() -> int:
             print(f"FAIL: {exc}", file=sys.stderr)
             return 2
 
-    violations, equivalent = check(root)
+    violations, equivalent = check(
+        root, expect=getattr(args, "expect", "either")
+    )
     for violation in violations:
         print(f"FAIL: {violation}")
     if violations:
