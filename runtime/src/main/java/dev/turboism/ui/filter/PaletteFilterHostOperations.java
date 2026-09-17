@@ -137,15 +137,15 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     private final Map<PaletteKind, PaletteFilterState> states = new ConcurrentHashMap<>();
     private final Map<String, List<PaletteFilterRegistry.PaletteFilterContribution>> contributionsByPlugin =
         new ConcurrentHashMap<>();
-    private final Map<PaletteKind, List<PaletteToolbarHostOperations.ButtonContribution>> toolbarContributions =
+    final Map<PaletteKind, List<PaletteToolbarHostOperations.ButtonContribution>> toolbarContributions =
         new ConcurrentHashMap<>();
-    private final EditorUiPluginResourceRegistry resources;
+    final EditorUiPluginResourceRegistry resources;
     private final PaletteControllerResolver controllerResolver;
-    private final Map<PaletteKind, String> lastAttachStatus = new ConcurrentHashMap<>();
-    private volatile SceneFilterSink sceneFilterSink;
+    final Map<PaletteKind, String> lastAttachStatus = new ConcurrentHashMap<>();
+    volatile SceneFilterSink sceneFilterSink;
     private volatile dev.turboism.sdk.runtime.CubismLogService cubismLogService;
-    private volatile dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator parameterRows;
-    private volatile VerifiedMemberResolver parameterRowsResolver;
+    volatile dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator parameterRows;
+    volatile VerifiedMemberResolver parameterRowsResolver;
     private volatile ClassLoader hostClassLoader;
     private volatile long connectionToken;
     private volatile boolean connected;
@@ -160,7 +160,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             thread.setDaemon(true);
             return thread;
         });
-    private long lastParameterReplayMillis;
+    long lastParameterReplayMillis;
 
     /** Test seam: resolves the palette root object for a palette kind. */
     interface PaletteControllerResolver {
@@ -569,7 +569,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         state.filterText = filterText;
     }
 
-
     // ------------------------------------------------------- palette resolution
 
     /**
@@ -830,7 +829,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
     }
 
-
     // ------------------------------------------------------------ attach kinds
 
     private boolean attachScene(
@@ -1034,28 +1032,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         state.parameterFilterStamp = ParameterFilterStamp.capture(state.rows, state.filterText);
     }
 
-    private record ParameterFilterStamp(
-        List<ParameterFilterRow> rows,
-        String keyword,
-        Map<JComponent, Boolean> visibility,
-        Map<Component, Container> parents
-    ) {
-        static ParameterFilterStamp capture(final List<ParameterFilterRow> rows, final String keyword) {
-            final Map<JComponent, Boolean> visibility = new java.util.IdentityHashMap<>();
-            final Map<Component, Container> parents = new java.util.IdentityHashMap<>();
-            for (ParameterFilterRow row : rows) {
-                visibility.put(row.component(), row.component().isVisible());
-                Component component = row.component();
-                while (component != null && !parents.containsKey(component)) {
-                    final Container parent = component.getParent();
-                    parents.put(component, parent);
-                    component = parent;
-                }
-            }
-            return new ParameterFilterStamp(List.copyOf(rows), keyword, visibility, parents);
-        }
-    }
-
     static void applyParameterRows(
         final List<ParameterFilterRow> rows,
         final Map<JComponent, Boolean> originalVisibility,
@@ -1128,14 +1104,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             iterator.remove();
         }
     }
-
-    static record ParameterFilterRow(JComponent component, String searchText, boolean folder) {
-        ParameterFilterRow {
-            component = Objects.requireNonNull(component, "component");
-            searchText = normalize(searchText);
-        }
-    }
-
 
     private boolean attachLog(
         final PaletteFilterState state,
@@ -1277,18 +1245,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         return new FilterBox(filterPanel, filterField, clearButton);
     }
 
-    static final class FilterBox {
-        final JPanel panel;
-        final JTextField field;
-        final JButton clearButton;
-
-        FilterBox(final JPanel panel, final JTextField field, final JButton clearButton) {
-            this.panel = panel;
-            this.field = field;
-            this.clearButton = clearButton;
-        }
-    }
-
     /** Framework-owned placement: contribution left, untouched host toolbar right. */
     static ToolbarPlacement attachToolbarContribution(
         final Container toolbar,
@@ -1324,66 +1280,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         parent.revalidate();
         parent.repaint();
         return new ToolbarPlacement(toolbar, contribution, wrapper, parent, index, constraint);
-    }
-
-    static final class ToolbarPlacement {
-        private final Container toolbar;
-        private final JComponent contribution;
-        private final JPanel wrapper;
-        private final Container originalParent;
-        private final int originalIndex;
-        private final Object originalConstraint;
-        private boolean attached = true;
-
-        private ToolbarPlacement(
-            final Container toolbar,
-            final JComponent contribution,
-            final JPanel wrapper,
-            final Container originalParent,
-            final int originalIndex,
-            final Object originalConstraint
-        ) {
-            this.toolbar = toolbar;
-            this.contribution = contribution;
-            this.wrapper = wrapper;
-            this.originalParent = originalParent;
-            this.originalIndex = originalIndex;
-            this.originalConstraint = originalConstraint;
-        }
-
-        boolean isCurrent() {
-            return attached && (wrapper == null
-                ? contribution.getParent() == toolbar
-                : wrapper.getParent() == originalParent
-                    && contribution.getParent() == wrapper
-                    && toolbar.getParent() == wrapper);
-        }
-
-        void detach() {
-            if (!attached) return;
-            attached = false;
-            if (wrapper == null) {
-                toolbar.remove(contribution);
-                toolbar.revalidate();
-                toolbar.repaint();
-                return;
-            }
-            wrapper.remove(contribution);
-            wrapper.remove(toolbar);
-            if (wrapper.getParent() == originalParent) {
-                originalParent.remove(wrapper);
-                if (originalConstraint != null) {
-                    originalParent.add(toolbar, originalConstraint);
-                } else {
-                    originalParent.add(
-                        toolbar,
-                        Math.max(0, Math.min(originalIndex, originalParent.getComponentCount()))
-                    );
-                }
-                originalParent.revalidate();
-                originalParent.repaint();
-            }
-        }
     }
 
     private void ensureFilterBox(
@@ -1838,10 +1734,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         return builder.toString();
     }
 
-    private enum LogLevel {
-        INFO, WARN, ERROR
-    }
-
     private static LogLevel detectExplicitLogLevel(final String line) {
         if (line == null || line.isEmpty()) {
             return null;
@@ -1957,181 +1849,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     static void expandFilteredTree(final JTree tree) {
         for (int row = 0; row < tree.getRowCount() && row < 2_000; row++) {
             tree.expandRow(row);
-        }
-    }
-
-    static final class FilteredTreeModel implements TreeModel {
-        private final TreeModel delegate;
-        private final Function<Object, String> searchText;
-        private final List<TreeModelListener> listeners = new ArrayList<>();
-        // Host nodes may have colliding equals/hashCode, so cache by identity. The caches are
-        // written by the background pre-warm thread and read by the EDT, hence synchronized maps.
-        private final Map<Object, List<Object>> childrenCache =
-            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
-        private final Map<Object, Boolean> matchCache =
-            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
-        private final TreeModelListener delegateListener;
-        private volatile String keyword = "";
-        private volatile boolean disposed;
-        private volatile long generation;
-
-
-        FilteredTreeModel(
-            final TreeModel delegate,
-            final String keyword,
-            final Function<Object, String> searchText
-        ) {
-            this.delegate = Objects.requireNonNull(delegate, "delegate");
-            this.searchText = Objects.requireNonNull(searchText, "searchText");
-            this.keyword = normalize(keyword);
-            this.delegateListener = new TreeModelListener() {
-                @Override public void treeNodesChanged(final TreeModelEvent event) { onDelegateEvent(); }
-                @Override public void treeNodesInserted(final TreeModelEvent event) { onDelegateEvent(); }
-                @Override public void treeNodesRemoved(final TreeModelEvent event) { onDelegateEvent(); }
-                @Override public void treeStructureChanged(final TreeModelEvent event) { onDelegateEvent(); }
-                private void onDelegateEvent() {
-                    invalidate();
-                    fireStructureChanged();
-                }
-            };
-            delegate.addTreeModelListener(delegateListener);
-        }
-
-
-        void setKeyword(final String keyword) {
-            final String next = normalize(keyword);
-            if (this.keyword.equals(next)) {
-                return;
-            }
-            this.keyword = next;
-            invalidate();
-            fireStructureChanged();
-        }
-
-        /** Normalized keyword used to build this model (for apply-time supersession checks). */
-        String keyword() {
-            return keyword;
-        }
-
-        /**
-         * Eagerly walks the whole delegate tree to fill {@link #childrenCache} and
-         * {@link #matchCache}, so the EDT only performs cached lookups once the model is installed.
-         * Runs on the background filter executor; best-effort (any failure leaves the caches
-         * partially warm and the model falls back to lazy traversal on the EDT).
-         */
-        void prewarm() {
-            final long atGeneration = generation;
-            final Object root = delegate.getRoot();
-            if (root != null) {
-                prewarmNode(root);
-            }
-            if (generation != atGeneration) {
-                // The delegate changed mid-walk; drop the stale entries so the EDT re-computes.
-                childrenCache.clear();
-                matchCache.clear();
-            }
-        }
-
-        private void prewarmNode(final Object node) {
-            for (Object child : visibleChildren(node)) {
-                prewarmNode(child);
-            }
-        }
-
-        void dispose() {
-            if (disposed) {
-                return;
-            }
-            disposed = true;
-            delegate.removeTreeModelListener(delegateListener);
-        }
-
-        private void invalidate() {
-            generation++;
-            childrenCache.clear();
-            matchCache.clear();
-        }
-
-        private void fireStructureChanged() {
-            final Object root = getRoot();
-            if (root == null) {
-                return;
-            }
-            final TreeModelEvent event = new TreeModelEvent(this, new Object[] {root});
-            for (TreeModelListener listener : listeners) {
-                listener.treeStructureChanged(event);
-            }
-        }
-
-        @Override public Object getRoot() {
-            return delegate.getRoot();
-        }
-
-        @Override public Object getChild(final Object parent, final int index) {
-            return visibleChildren(parent).get(index);
-        }
-
-        @Override public int getChildCount(final Object parent) {
-            return visibleChildren(parent).size();
-        }
-
-        @Override public boolean isLeaf(final Object node) {
-            return delegate.isLeaf(node);
-        }
-
-        @Override public int getIndexOfChild(final Object parent, final Object child) {
-            return visibleChildren(parent).indexOf(child);
-        }
-
-        @Override
-        public void valueForPathChanged(final TreePath path, final Object newValue) {
-            delegate.valueForPathChanged(path, newValue);
-        }
-
-        @Override
-        public void addTreeModelListener(final TreeModelListener listener) {
-            listeners.add(listener);
-        }
-
-        @Override
-        public void removeTreeModelListener(final TreeModelListener listener) {
-            listeners.remove(listener);
-        }
-
-        private List<Object> visibleChildren(final Object parent) {
-            final List<Object> cached = childrenCache.get(parent);
-            if (cached != null) {
-                return cached;
-            }
-            final List<Object> visible = new ArrayList<>();
-            final int count = delegate.getChildCount(parent);
-            for (int index = 0; index < count; index++) {
-                final Object child = delegate.getChild(parent, index);
-                if (matchesNodeOrDescendant(child)) {
-                    visible.add(child);
-                }
-            }
-            childrenCache.put(parent, visible);
-            return visible;
-        }
-
-        private boolean matchesNodeOrDescendant(final Object node) {
-            final Boolean cached = matchCache.get(node);
-            if (cached != null) {
-                return cached;
-            }
-            boolean matches = keyword.isEmpty() || normalize(searchText.apply(node)).contains(keyword);
-            if (!matches) {
-                final int count = delegate.getChildCount(node);
-                for (int index = 0; index < count; index++) {
-                    if (matchesNodeOrDescendant(delegate.getChild(node, index))) {
-                        matches = true;
-                        break;
-                    }
-                }
-            }
-            matchCache.put(node, matches);
-            return matches;
         }
     }
 
@@ -2260,7 +1977,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
      * plan. Callers restore the original tree model and never install a FilteredTreeModel whose
      * matches would all be empty (the 5.2.03 silent-collapse regression).</p>
      */
-    private String nodeSourceUnavailableDiagnostic() {
+    String nodeSourceUnavailableDiagnostic() {
         final VerifiedMemberResolver resolver = parameterRowsResolver;
         if (resolver == null) {
             return "tree-filter:node-source-unavailable resolver=unbound";
@@ -2331,7 +2048,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             state.pendingFilteredTreeModel = null;
         }
     }
-    private static void appendToken(final StringBuilder builder, final String value) {
+    static void appendToken(final StringBuilder builder, final String value) {
         if (value == null || value.isBlank()) {
             return;
         }
@@ -2443,7 +2160,6 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         return null;
     }
 
-
     private void detach(final PaletteFilterState state) {
         if (state == null) {
             return;
@@ -2456,7 +2172,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
 
     // ------------------------------------------------------------------ util
 
-    private static Object invoke(final Object target, final String methodName) {
+    static Object invoke(final Object target, final String methodName) {
         if (target == null) {
             return null;
         }
@@ -2468,7 +2184,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
     }
 
-    private static Object field(final Object target, final String name) {
+    static Object field(final Object target, final String name) {
         if (target == null) {
             return null;
         }
@@ -2485,15 +2201,15 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         return null;
     }
 
-    private static String text(final Object value) {
+    static String text(final Object value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    private static String normalize(final String text) {
+    static String normalize(final String text) {
         return text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
     }
 
-    private static void onEdt(final Runnable runnable) {
+    static void onEdt(final Runnable runnable) {
         if (SwingUtilities.isEventDispatchThread()) {
             runnable.run();
         } else {
@@ -2501,51 +2217,4 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
     }
 
-    /** Package-visible for the filter regression tests (debounce seam). */
-    static final class PaletteFilterState {
-        final PaletteKind kind;
-        volatile Object controller;
-        volatile Object scenePalette;
-        volatile JComponent root;
-        volatile JTable table;
-        volatile JTextPane sourceTextPane;
-        volatile javax.swing.text.Document sourceDoc;
-        volatile javax.swing.text.Document filteredDoc;
-        volatile JViewport viewport;
-        volatile Container scrollShell;
-        volatile JPanel wrapper;
-        volatile JPanel toolbarPanel;
-        volatile Container toolbar;
-        volatile FilterBox filterBox;
-        volatile ToolbarPlacement toolbarPlacement;
-        volatile JPanel toolbarButtonPanel;
-        volatile List<PaletteToolbarHostOperations.ButtonContribution> toolbarSnapshot = List.of();
-        final Map<String, JButton> toolbarButtons = new LinkedHashMap<>();
-        volatile JPanel levelPanel;
-        volatile JButton infoButton;
-        volatile JButton warnButton;
-        volatile JButton errorButton;
-        volatile boolean showInfo = true;
-        volatile boolean showWarn = true;
-        volatile boolean showError = true;
-        volatile JTree tree;
-        volatile TreeModel treeModel;
-        volatile FilteredTreeModel filteredTreeModel;
-        volatile FilteredTreeModel pendingFilteredTreeModel;
-        volatile Timer treeFilterTimer;
-        volatile Object tableModel;
-        volatile List<ParameterFilterRow> rows = List.of();
-        private ParameterFilterStamp parameterFilterStamp;
-        final Map<JComponent, Boolean> originalRowVisibility = new java.util.IdentityHashMap<>();
-        volatile String filterText = "";
-        volatile boolean refreshScheduled;
-        volatile String lastRawText = "";
-        volatile String lastKeyword = "";
-        volatile String lastFiltered = "";
-        volatile DocumentListener sourceDocumentListener;
-
-        PaletteFilterState(final PaletteKind kind) {
-            this.kind = Objects.requireNonNull(kind, "kind");
-        }
-    }
 }
