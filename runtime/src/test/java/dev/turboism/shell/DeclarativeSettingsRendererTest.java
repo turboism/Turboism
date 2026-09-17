@@ -12,6 +12,15 @@ import dev.turboism.sdk.ui.settings.SettingsTab;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JComboBox;
+import javax.swing.JCheckBox;
+import javax.swing.JScrollPane;
+import javax.swing.Scrollable;
+import javax.swing.SwingUtilities;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Rectangle;
+import java.awt.event.FocusEvent;
+import java.awt.event.MouseWheelEvent;
 import javax.swing.JDialog;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
@@ -26,6 +35,8 @@ import java.util.Map;
 import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -78,7 +89,7 @@ class DeclarativeSettingsRendererTest {
         for (int index = 0; index < rendered.tabs().getTabCount(); index++) {
             assertNull(rendered.tabs().getTabComponentAt(index));
         }
-        final JPanel custom = (JPanel) rendered.tabs().getComponentAt(1);
+        final JPanel custom = formInTab(rendered.tabs(), 1);
         assertEquals(3, custom.getComponentCount());
         final GridBagLayout layout = (GridBagLayout) custom.getLayout();
         final GridBagConstraints filler = layout.getConstraints(
@@ -136,7 +147,7 @@ class DeclarativeSettingsRendererTest {
         render.setAccessible(true);
         final CoreWindows.RenderedSettings rendered =
             (CoreWindows.RenderedSettings) render.invoke(windows, null, builtins);
-        final JPanel performance = (JPanel) rendered.tabs().getComponentAt(0);
+        final JPanel performance = formInTab(rendered.tabs(), 0);
         final JTextField field = java.util.Arrays.stream(performance.getComponents())
             .filter(JTextField.class::isInstance)
             .map(JTextField.class::cast)
@@ -224,6 +235,222 @@ class DeclarativeSettingsRendererTest {
         assertTrue(!caption.isEnabled());
         assertTrue(caption.getFont().getSize2D() < new javax.swing.JLabel().getFont().getSize2D());
         assertTrue(saver.getAsBoolean());
+    }
+
+    @Test
+    void tallSettingsRemainReachableByWheelAndScrollBarAtLargeFonts() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            for (float size : new float[]{12f, 18f, 24f}) {
+                try (CoreWindows windows = new CoreWindows(localization(), settings(),
+                        () -> List.of(manySettings()), plugins(), RuntimeLogReader.unavailable())) {
+                    CoreWindows.RenderedSettings rendered = render(windows);
+                    JTabbedPane tabs = rendered.tabs();
+                    tabs.setSize(620, 280);
+                    JScrollPane scroll = assertInstanceOf(JScrollPane.class, tabs.getComponentAt(0));
+                    setFontSize(scroll.getViewport().getView(), size);
+                    layoutTree(tabs);
+                    assertTrue(scroll.getVerticalScrollBar().isVisible(), "overflow must scroll at font " + size);
+                    assertTrue(scroll.isWheelScrollingEnabled());
+                    for (JCheckBox box : checkboxes(scroll)) {
+                        assertTrue(box.getHeight() >= box.getMinimumSize().height, "rows must not collapse");
+                    }
+                    int before = scroll.getVerticalScrollBar().getValue();
+                    scroll.dispatchEvent(new MouseWheelEvent(scroll, MouseWheelEvent.MOUSE_WHEEL,
+                        System.currentTimeMillis(), 0, 20, 20, 0, false,
+                        MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, 1));
+                    assertTrue(scroll.getVerticalScrollBar().getValue() > before, "wheel must move content");
+                    scroll.getVerticalScrollBar().setValue(scroll.getVerticalScrollBar().getMaximum());
+                    JCheckBox last = checkboxes(scroll).get(29);
+                    Rectangle bounds = SwingUtilities.convertRectangle(last.getParent(), last.getBounds(),
+                        scroll.getViewport().getView());
+                    assertTrue(scroll.getViewport().getViewRect().intersects(bounds), "last row must be reachable");
+                    tabs.setSize(1000, 1800);
+                    layoutTree(tabs);
+                    assertFalse(scroll.getVerticalScrollBar().isVisible(), "scrollbar disappears when content fits");
+                }
+            }
+        });
+    }
+
+    @Test
+    void focusedSettingIsRevealedAndNarrowWindowDoesNotLoseLongLabels() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            try (CoreWindows windows = new CoreWindows(localization(), settings(),
+                    () -> List.of(manySettings()), plugins(), RuntimeLogReader.unavailable())) {
+                CoreWindows.RenderedSettings rendered = render(windows);
+                rendered.tabs().setSize(280, 240);
+                JScrollPane scroll = assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
+                layoutTree(rendered.tabs());
+                assertTrue(scroll.getHorizontalScrollBar().isVisible(), "long labels must not be silently clipped");
+                JCheckBox last = checkboxes(scroll).get(29);
+                for (var listener : last.getFocusListeners()) {
+                    listener.focusGained(new FocusEvent(last, FocusEvent.FOCUS_GAINED));
+                }
+                Rectangle bounds = SwingUtilities.convertRectangle(last.getParent(), last.getBounds(),
+                    scroll.getViewport().getView());
+                assertTrue(scroll.getViewport().getViewRect().intersects(bounds), "keyboard focus must reveal row");
+                Scrollable view = assertInstanceOf(Scrollable.class, scroll.getViewport().getView());
+                assertTrue(view.getScrollableUnitIncrement(new Rectangle(0, 0, 100, 100), 1, 1) > 0);
+                assertTrue(view.getScrollableBlockIncrement(new Rectangle(0, 0, 1, 1), 1, 1) > 0);
+            }
+        });
+    }
+
+    @Test
+    void renderedOptimizationDefaultsAndExplicitOptOutSurviveScrollingAndSave() throws Exception {
+        final java.util.concurrent.atomic.AtomicBoolean uniform = new java.util.concurrent.atomic.AtomicBoolean(true);
+        CubismJvmSettingsService service = new CubismJvmSettingsService() {
+            @Override public CubismJvm read() { return CubismJvm.BUNDLED; }
+            @Override public CubismJvm save(CubismJvm value) { return value; }
+            @Override public boolean uniformLocationCache() { return uniform.get(); }
+            @Override public boolean saveUniformLocationCache(boolean value) { uniform.set(value); return value; }
+            @Override public boolean saveIncrementalUpdate(boolean value) { assertFalse(value); return false; }
+        };
+        String key = "turboism.optimization.uniformLocationCache";
+        String previous = System.getProperty(key);
+        String incrementalKey = "turboism.optimization.incrementalUpdate";
+        String previousIncremental = System.getProperty(incrementalKey);
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                List<SettingsSnapshot.Entry> entries = List.of(
+                    new SettingsSnapshot.Entry("turboism.core", CubismJvmSettingsContribution.createUniformLocationCacheToggle(localization(), service)),
+                    new SettingsSnapshot.Entry("turboism.core", CubismJvmSettingsContribution.createIncrementalUpdateToggle(localization(), service)));
+                try (CoreWindows windows = new CoreWindows(localization(), settings(),
+                        () -> List.of(new SettingsSnapshot.Tab("performance", "Performance", OptionalInt.of(200), entries)),
+                        plugins(), RuntimeLogReader.unavailable())) {
+                    CoreWindows.RenderedSettings rendered = render(windows);
+                    JScrollPane scroll = assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
+                    List<JCheckBox> boxes = checkboxes(scroll);
+                    assertTrue(boxes.get(0).isSelected(), "proven uniform cache is on by default");
+                    assertFalse(boxes.get(1).isSelected(), "Slice B stays explicitly opt-in");
+                    boxes.get(0).doClick();
+                    assertTrue(uniform.get(), "click alone must not persist before Apply");
+                    assertTrue(rendered.save().getAsBoolean());
+                    assertFalse(uniform.get());
+                    assertEquals("false", System.getProperty(key));
+                    assertFalse(checkboxes(render(windows).tabs()).get(0).isSelected(), "reopen preserves opt-out");
+                }
+            });
+        } finally {
+            if (previous == null) System.clearProperty(key); else System.setProperty(key, previous);
+            if (previousIncremental == null) System.clearProperty(incrementalKey); else System.setProperty(incrementalKey, previousIncremental);
+        }
+    }
+
+    @Test
+    void displaySessionKeepsActionsVisibleAndRevealsRealKeyboardFocus() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue("true".equals(System.getenv("TURBOISM_TEST_SETTINGS_DISPLAY")),
+            "opt-in virtual-display test; not Cubism host evidence");
+        assertFalse(java.awt.GraphicsEnvironment.isHeadless());
+        final CoreWindows windows = new CoreWindows(localization(), settings(),
+            () -> List.of(manySettings()), plugins(), RuntimeLogReader.unavailable());
+        final JDialog[] dialog = {null};
+        final JScrollPane[] page = {null};
+        final JCheckBox[] last = {null};
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    Method create = CoreWindows.class.getDeclaredMethod("createSettingsDialog");
+                    create.setAccessible(true);
+                    dialog[0] = (JDialog) create.invoke(windows);
+                    dialog[0].setSize(620, 340);
+                    JTabbedPane tabs = (JTabbedPane) ((java.awt.BorderLayout) dialog[0].getContentPane().getLayout())
+                        .getLayoutComponent(java.awt.BorderLayout.CENTER);
+                    for (int index = 0; index < tabs.getTabCount(); index++) {
+                        if (tabs.getTitleAt(index).equals("settings.tab.performance")) {
+                            tabs.setSelectedIndex(index);
+                            page[0] = (JScrollPane) tabs.getComponentAt(index);
+                        }
+                    }
+                    assertTrue(page[0] != null);
+                    setFontSize(page[0].getViewport().getView(), 24f);
+                    dialog[0].setVisible(true);
+                    dialog[0].validate();
+                    assertTrue(page[0].getVerticalScrollBar().isVisible());
+                    JPanel actions = (JPanel) ((java.awt.BorderLayout) dialog[0].getContentPane().getLayout())
+                        .getLayoutComponent(java.awt.BorderLayout.SOUTH);
+                    assertEquals(3, actions.getComponentCount());
+                    assertFalse(SwingUtilities.isDescendingFrom(actions, page[0]));
+                    assertTrue(new Rectangle(dialog[0].getContentPane().getSize()).contains(actions.getBounds()));
+                    last[0] = checkboxes(page[0]).get(29);
+                    dialog[0].toFront();
+                    dialog[0].requestFocus();
+                } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+            });
+            final long windowDeadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+            final boolean[] windowFocused = {false};
+            while (!windowFocused[0] && System.nanoTime() < windowDeadline) {
+                SwingUtilities.invokeAndWait(() -> windowFocused[0] = dialog[0].isFocused());
+                if (!windowFocused[0]) Thread.sleep(20L);
+            }
+            SwingUtilities.invokeAndWait(() -> {
+                assertTrue(dialog[0].isFocused(), "window activation must finish before testing control focus");
+                assertTrue(last[0].requestFocusInWindow());
+            });
+            final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+            final boolean[] focused = {false};
+            while (!focused[0] && System.nanoTime() < deadline) {
+                SwingUtilities.invokeAndWait(() -> focused[0] = last[0].isFocusOwner());
+                if (!focused[0]) Thread.sleep(20L);
+            }
+            SwingUtilities.invokeAndWait(() -> {
+                assertTrue(last[0].isFocusOwner(), "offscreen setting receives real focus");
+                Rectangle bounds = SwingUtilities.convertRectangle(last[0].getParent(), last[0].getBounds(), page[0].getViewport().getView());
+                assertTrue(page[0].getViewport().getViewRect().intersects(bounds));
+            });
+        } finally {
+            SwingUtilities.invokeAndWait(() -> { if (dialog[0] != null) dialog[0].dispose(); windows.close(); });
+        }
+    }
+
+    private static JPanel formInTab(JTabbedPane tabs, int index) {
+        JScrollPane scroll = assertInstanceOf(JScrollPane.class, tabs.getComponentAt(index));
+        Container view = (Container) scroll.getViewport().getView();
+        return assertInstanceOf(JPanel.class, view.getComponent(0));
+    }
+
+    private static CoreWindows.RenderedSettings render(CoreWindows windows) {
+        try {
+            Method method = CoreWindows.class.getDeclaredMethod("renderSettings", JDialog.class, Map.class);
+            method.setAccessible(true);
+            return (CoreWindows.RenderedSettings) method.invoke(windows, null, Map.of());
+        } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+    }
+
+    private static SettingsSnapshot.Tab manySettings() {
+        return new SettingsSnapshot.Tab("performance", "Performance", OptionalInt.of(200),
+            java.util.stream.IntStream.range(0, 30).mapToObj(index ->
+                new SettingsSnapshot.Entry("plugin.test", new SettingsContribution("setting-" + index,
+                    new SettingsTab("performance", "Performance", OptionalInt.of(200)), OptionalInt.of(index),
+                    new SettingsControl.Toggle("setting-" + index,
+                        "Setting " + index + " with a long localized performance option label",
+                        SettingsBinding.of(() -> true, ignored -> { })))))
+                .toList());
+    }
+
+    private static List<JCheckBox> checkboxes(Container container) {
+        List<JCheckBox> found = new java.util.ArrayList<>();
+        for (Component child : container.getComponents()) {
+            if (child instanceof JCheckBox box) found.add(box);
+            else if (child instanceof Container nested) found.addAll(checkboxes(nested));
+        }
+        return found;
+    }
+
+    private static void setFontSize(Component component, float size) {
+        if (component.getFont() != null) component.setFont(component.getFont().deriveFont(size));
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) setFontSize(child, size);
+        }
+    }
+
+    private static void layoutTree(Container container) {
+        for (int pass = 0; pass < 3; pass++) {
+            container.doLayout();
+            for (Component child : container.getComponents()) {
+                if (child instanceof Container nested) layoutTree(nested);
+            }
+        }
     }
 
     private static SettingsSnapshot.Tab tab(
