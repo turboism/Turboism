@@ -292,6 +292,46 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath, "--check")
 }
 
+/*
+ * The admitted Cubism version set is restated across trust roots, the release
+ * detector, the availability policy, packaging, host-validation catalogs and
+ * docs. Every site must carry the identical set so adding or retiring a version
+ * is one deliberate change rather than silent partial admission.
+ */
+val checkVersionSetCompletenessSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for admitted-version-set completeness."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_set_completeness.py",
+        "scripts/test/test_check_version_set_completeness.py"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_check_version_set_completeness",
+        "-v"
+    )
+}
+
+val checkVersionSetCompleteness by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when any surface restates a different admitted Cubism version set."
+    dependsOn(checkVersionSetCompletenessSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_set_completeness.py",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+        "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java",
+        "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java",
+        "bootstrap/build.gradle.kts",
+        "scripts/preview/host-validation-tasks.json",
+        "scripts/preview/host_validation.py",
+        "compatibility/cubism/index.md",
+        fileTree("compatibility/cubism/profiles/draft") { include("*.json") }
+    )
+    commandLine("python3", "scripts/check_version_set_completeness.py", rootDir.absolutePath)
+}
+
 val checkPackageLayout by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
@@ -806,6 +846,7 @@ val checkCompletedCommit by tasks.registering {
         "checkOfficialPluginI18nCompleteness",
         checkOfficialPluginReadmes,
         checkDraftPackMetadata,
+        checkVersionSetCompleteness,
         "checkSdkApiBaselineTool",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
