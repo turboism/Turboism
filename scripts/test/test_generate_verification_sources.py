@@ -116,8 +116,12 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
         if equivalent is not None:
             self.assertEqual(equivalent, count)
 
-    def test_live_tree_equivalence(self):
-        self.assert_clean(ROOT, equivalent=65)
+    def test_live_tree_is_fully_generated(self):
+        violations, equivalent = GEN.check(ROOT, expect="generated")
+        self.assertEqual([], violations)
+        self.assertEqual(0, equivalent)
+        rendered = GEN.render_all(ROOT)
+        self.assertEqual(65, len(rendered))
 
     def test_consistent_fixture_passes(self):
         document = record()
@@ -271,6 +275,29 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
             )
             found, _ = GEN.check(root)
             self.assertTrue(any("mixed migration state" in v for v in found), found)
+
+    def test_expect_generated_rejects_reappearance(self):
+        document = record()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(
+                root, document, manifest_template(document),
+                manifest_source(document),
+            )
+            found, _ = GEN.check(root, expect="generated")
+            self.assertTrue(any("reappeared" in v for v in found), found)
+            found, _ = GEN.check(root, expect="checked-in")
+            self.assertEqual([], found)
+
+    def test_expect_checked_in_rejects_missing_source(self):
+        document = record()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root, document, manifest_template(document), None)
+            found, _ = GEN.check(root, expect="checked-in")
+            self.assertTrue(any("not checked in" in v for v in found), found)
+            found, _ = GEN.check(root, expect="generated")
+            self.assertEqual([], found)
 
     def test_render_writes_and_sweeps(self):
         document = record()
