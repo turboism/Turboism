@@ -1652,8 +1652,8 @@ function Get-CubismManagedJdkOptionTokens {
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "modelUpdateSkip")) {
         $tokens += "-Dturboism.optimization.modelUpdateSkip=false"
     }
-    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "incrementalUpdate")) {
-        $tokens += "-Dturboism.optimization.incrementalUpdate=false"
+    if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "incrementalUpdate") {
+        $tokens += "-Dturboism.optimization.incrementalUpdate=true"
     }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uniformLocationCache")) {
         $tokens += "-Dturboism.optimization.uniformLocationCache=false"
@@ -1663,19 +1663,19 @@ function Get-CubismManagedJdkOptionTokens {
 
 function Read-CubismOptimizationPreference {
     param([string]$TurboismHome, [string]$Name)
-    # Model-update optimizations are on by default; only an explicit
-    # `"<name>": false` under launcher disables them. An absent
-    # home/config/field therefore resolves enabled rather than off.
-    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $true }
+    # Only the experimental incremental geometry path requires explicit opt-in.
+    # Verified frame/query reuse remains default-on for admitted hosts.
+    $defaultValue = $Name -ne "incrementalUpdate"
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
     $path = Join-Path $TurboismHome "config.json"
-    if (-not (Test-Path -LiteralPath $path)) { return $true }
+    if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
     $launcherProperty = $document.PSObject.Properties["launcher"]
-    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $true }
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $defaultValue }
     $setting = $launcherProperty.Value.PSObject.Properties[$Name]
-    if ($null -eq $setting -or $null -eq $setting.Value) { return $true }
+    if ($null -eq $setting) { return $defaultValue }
     if ($setting.Value -isnot [bool]) { throw "Turboism launcher.$Name setting is invalid" }
     return [bool]$setting.Value
 }

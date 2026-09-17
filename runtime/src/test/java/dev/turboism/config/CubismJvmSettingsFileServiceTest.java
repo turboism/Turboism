@@ -132,10 +132,20 @@ class CubismJvmSettingsFileServiceTest {
     }
 
     @Test
-    void optimizationsDefaultToTrue() throws Exception {
+    void onlyReviewedOptimizationsDefaultToTrue() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             assertTrue(service.modelUpdateSkip());
-            assertTrue(service.incrementalUpdate());
+            assertTrue(service.uniformLocationCache());
+            assertFalse(service.incrementalUpdate());
+            assertTrue(service.saveIncrementalUpdate(true));
+        }
+        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
+                new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
+            assertTrue(reopened.incrementalUpdate(), "explicit experimental opt-in survives restart");
+            assertTrue(reopened.uniformLocationCache());
+            reopened.saveIncrementalUpdate(false);
+            assertFalse(reopened.incrementalUpdate());
+            assertFalse(Files.readString(home.resolve("config.json")).contains("incrementalUpdate"));
         }
     }
 
@@ -148,13 +158,13 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(service.incrementalUpdate());
             final String saved = Files.readString(home.resolve("config.json"));
             assertTrue(saved.contains("\"modelUpdateSkip\" : false"));
-            assertTrue(saved.contains("\"incrementalUpdate\" : false"));
+            assertFalse(saved.contains("incrementalUpdate"));
             service.saveModelUpdateSkip(true);
             assertTrue(service.modelUpdateSkip());
             assertFalse(service.incrementalUpdate());
             final String restored = Files.readString(home.resolve("config.json"));
             assertFalse(restored.contains("modelUpdateSkip"));
-            assertTrue(restored.contains("\"incrementalUpdate\" : false"));
+            assertFalse(restored.contains("incrementalUpdate"));
         }
     }
 }

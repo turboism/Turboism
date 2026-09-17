@@ -89,7 +89,7 @@ if ($JdkParserOnly) {
     if ($null -eq $jdk17) { throw "JDK 17 parser regression cannot run: no runnable Java 17 (JAVA_HOME, PATH)" }
     Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
     $regression = Invoke-CubismJdkOptionRegression -Java $jdk17
-    Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI') "managed options use the CLDR and SPI locale providers"
+    Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI -XX:+UseZGC') "managed defaults use CLDR/SPI and ZGC without enabling experimental geometry reuse"
     Assert-ManagedLaunch ($regression.Options -notmatch 'add-exports=') "managed options omit obsolete internal ASM exports"
     Assert-ManagedLaunch ($regression.ExitCode -eq 0) "real Java 17 accepts the managed JVM options (exit $($regression.ExitCode))"
     Assert-ManagedLaunch ($regression.Output -match 'version "17\.') "managed option run proves a real Java 17 JVM executed"
@@ -116,13 +116,28 @@ if ($JdkParserOnly) {
         Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $zgcHome) -eq "graalvm") "launcher without cubismJvm defaults the preference under strict mode"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":true}}')
         $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
-        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=false') "managed options emit no optimization opt-outs when the launcher fields are unset"
+        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=true' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=false') "absent preferences enable reviewed frame reuse but leave incremental geometry off"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"modelUpdateSkip":false,"incrementalUpdate":false}}')
         $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
-        Assert-ManagedLaunch ($optTokens -contains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -contains '-Dturboism.optimization.incrementalUpdate=false') "managed options emit optimization opt-outs when the launcher fields disable them"
+        Assert-ManagedLaunch ($optTokens -contains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=true') "explicit false disables frame reuse and leaves experimental geometry off"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"modelUpdateSkip":true,"incrementalUpdate":false}}')
         $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
-        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -contains '-Dturboism.optimization.incrementalUpdate=false') "managed options emit only the disabled optimization opt-out"
+        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.modelUpdateSkip=false' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=true') "reviewed frame enable does not opt into incremental geometry"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"incrementalUpdate":true}}')
+        $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($optTokens -contains '-Dturboism.optimization.incrementalUpdate=true' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=false') "explicit incremental opt-in is emitted on restart"
+        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.uniformLocationCache=false') "experimental opt-in leaves the independent uniform preference unchanged"
+        foreach ($invalidIncremental in @('"yes"', 'null', '1')) {
+            [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), ('{"launcher":{"incrementalUpdate":' + $invalidIncremental + '}}'))
+            $incrementalInvalid = $false
+            try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $incrementalInvalid = $true }
+            Assert-ManagedLaunch $incrementalInvalid "non-boolean incremental opt-in fails closed"
+        }
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
+        Assert-ManagedLaunch (-not (Read-CubismOptimizationPreference -TurboismHome $zgcHome -Name "incrementalUpdate")) "missing launcher keeps incremental geometry off"
+        Assert-ManagedLaunch (-not (Read-CubismOptimizationPreference -Name "incrementalUpdate")) "missing home keeps incremental geometry off"
+        $incrementalCleanup = Remove-TurboismJdkOptions '-Dturboism.optimization.incrementalUpdate=true -Xmx2g -Dturboism.optimization.incrementalUpdate=false -Dapp.test=kept'
+        Assert-ManagedLaunch ($incrementalCleanup -eq '-Xmx2g -Dapp.test=kept') "stale incremental choices cannot override current preferences"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"modelUpdateSkip":"no"}}')
         $optInvalid = $false
         try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $optInvalid = $true }
@@ -701,7 +716,7 @@ try {
     else {
         Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
         $regression = Invoke-CubismJdkOptionRegression -Java $jdk17
-        Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI') "managed options use the CLDR and SPI locale providers"
+        Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI -XX:+UseZGC') "managed defaults use CLDR/SPI and ZGC without enabling experimental geometry reuse"
         Assert-ManagedLaunch ($regression.Options -notmatch 'add-exports=') "managed options omit obsolete internal ASM exports"
         Assert-ManagedLaunch ($regression.ExitCode -eq 0) "real Java 17 accepts the managed JVM options (exit $($regression.ExitCode))"
         Assert-ManagedLaunch ($regression.Output -match 'version "17\.') "managed option run proves a real Java 17 JVM executed"
