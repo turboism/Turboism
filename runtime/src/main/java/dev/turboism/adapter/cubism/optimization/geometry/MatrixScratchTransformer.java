@@ -23,6 +23,8 @@ import org.objectweb.asm.Opcodes;
 public final class MatrixScratchTransformer implements ClassFileTransformer {
     /** Candidate opt-in property; absent means the original allocation path. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.matrixScratch";
+    /** Installer-owned AtomicBoolean; a user request alone never admits reuse. */
+    public static final String ADMISSION_PROPERTY = "turboism.matrix-scratch.admission";
     /** Exact transform class containing the attested parent traversal. */
     public static final String OWNER = "com/live2d/graphics3d/component/GTransform";
     /** Exact native method under investigation. */
@@ -112,14 +114,26 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             super.visitInsn(Opcodes.ACONST_NULL); super.visitVarInsn(Opcodes.ASTORE, first);
             super.visitInsn(Opcodes.ACONST_NULL); super.visitVarInsn(Opcodes.ASTORE, second);
             super.visitInsn(Opcodes.ICONST_0); super.visitVarInsn(Opcodes.ISTORE, enabled);
-            Label start = new Label(), end = new Label(), failed = new Label(), done = new Label();
+            Label start = new Label(), end = new Label(), failed = new Label(), done = new Label(), discard = new Label();
             super.visitTryCatchBlock(start, end, failed, "java/lang/Throwable");
             super.visitLabel(start);
             super.visitLdcInsn(ENABLE_PROPERTY);
             super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Boolean", "getBoolean", "(Ljava/lang/String;)Z", false);
+            super.visitJumpInsn(Opcodes.IFEQ, end);
+            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitLdcInsn(ADMISSION_PROPERTY);
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitInsn(Opcodes.DUP);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/concurrent/atomic/AtomicBoolean");
+            super.visitJumpInsn(Opcodes.IFEQ, discard);
+            super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/concurrent/atomic/AtomicBoolean");
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/concurrent/atomic/AtomicBoolean", "get", "()Z", false);
             super.visitVarInsn(Opcodes.ISTORE, enabled);
+            super.visitJumpInsn(Opcodes.GOTO, end);
+            super.visitLabel(discard); super.visitInsn(Opcodes.POP);
             super.visitLabel(end); super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(failed); super.visitInsn(Opcodes.POP);
+            super.visitInsn(Opcodes.ICONST_0); super.visitVarInsn(Opcodes.ISTORE, enabled);
             super.visitLabel(done);
         }
         @Override public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
