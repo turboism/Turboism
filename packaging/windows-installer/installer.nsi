@@ -115,6 +115,7 @@ Page custom ModeCreate ModeLeave
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom GraalCreate GraalLeave
 Page custom GraalInstallCreate GraalInstallLeave
+Page custom ScriptEngineCreate ScriptEngineLeave
 Page custom CubismDiscoveryCreate CubismDiscoveryLeave
 Page custom LaunchOptionsCreate LaunchOptionsLeave
 !insertmacro MUI_PAGE_INSTFILES
@@ -344,10 +345,10 @@ LangString CubismDiscoveryScanning ${LANG_ENGLISH} "Scanning for installed Cubis
 LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描已安装的 Cubism 编辑器……"
 LangString CubismDiscoveryScanning ${LANG_JAPANESE} "インストール済みの Cubism Editor をスキャンしています…"
 LangString CubismDiscoveryScanning ${LANG_KOREAN} "설치된 Cubism Editor를 스캔하는 중…"
-LangString CubismDiscoveryComplete ${LANG_ENGLISH} "Scan complete: $CubismDiscoverySupported supported; $CubismDiscoveryOther unsupported or invalid. Supported installations will be revalidated and configured after installation."
-LangString CubismDiscoveryComplete ${LANG_SIMPCHINESE} "扫描完成：支持 $CubismDiscoverySupported 个；不支持或无效 $CubismDiscoveryOther 个。安装后会重新校验并配置受支持的安装。"
-LangString CubismDiscoveryComplete ${LANG_JAPANESE} "スキャン完了：対応 $CubismDiscoverySupported 件、未対応または不正 $CubismDiscoveryOther 件。インストール後に再検証して設定します。"
-LangString CubismDiscoveryComplete ${LANG_KOREAN} "스캔 완료: 지원 $CubismDiscoverySupported개, 미지원 또는 잘못됨 $CubismDiscoveryOther개. 지원되는 설치는 설치 후 다시 검증하여 구성합니다."
+LangString CubismDiscoveryComplete ${LANG_ENGLISH} "Scan complete: $CubismDiscoverySupported supported; $CubismDiscoveryOther unsupported or invalid."
+LangString CubismDiscoveryComplete ${LANG_SIMPCHINESE} "扫描完成：支持 $CubismDiscoverySupported 个；不支持或无效 $CubismDiscoveryOther 个。"
+LangString CubismDiscoveryComplete ${LANG_JAPANESE} "スキャン完了：対応 $CubismDiscoverySupported 件、未対応または不正 $CubismDiscoveryOther 件。"
+LangString CubismDiscoveryComplete ${LANG_KOREAN} "스캔 완료: 지원 $CubismDiscoverySupported개, 미지원 또는 잘못됨 $CubismDiscoveryOther개."
 LangString CubismDiscoveryNone ${LANG_ENGLISH} "No supported Cubism installation was found. Turboism can still be installed and configured later."
 LangString CubismDiscoveryNone ${LANG_SIMPCHINESE} "未找到受支持的 Cubism 安装。仍可安装 Turboism，并在之后进行配置。"
 LangString CubismDiscoveryNone ${LANG_JAPANESE} "対応する Cubism インストールが見つかりません。Turboism はそのままインストールし、後で設定できます。"
@@ -381,10 +382,10 @@ LangString NoLaunchWarning ${LANG_ENGLISH} "All normal launch paths are disabled
 LangString NoLaunchWarning ${LANG_SIMPCHINESE} "所有常规启动路径均已关闭。Turboism 不会通过开始菜单、桌面或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
 LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路がすべて無効です。Turboism はスタートメニュー、デスクトップ、または既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
 LangString NoLaunchWarning ${LANG_KOREAN} "모든 일반 시작 경로가 해제되었습니다. Turboism은 시작 메뉴, 바탕 화면 또는 기존 Cubism 바로 가기를 통해 활성화되지 않습니다. [아니요]를 선택하여 돌아가거나 [예]를 선택하여 의도적으로 계속하세요."
-LangString InitialConfigurationError ${LANG_ENGLISH} "Initial Cubism discovery or shortcut configuration failed. Turboism is installed; run Turboism_Configurator from the Start menu to retry."
-LangString InitialConfigurationError ${LANG_SIMPCHINESE} "Cubism 初始扫描或快捷方式配置失败。Turboism 已完成安装；请从开始菜单运行 Turboism_Configurator 重试。"
-LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の初期検出またはショートカット設定に失敗しました。Turboism のインストールは完了しています。スタートメニューから Turboism_Configurator を実行して再試行してください。"
-LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 초기 검색 또는 바로 가기 구성에 실패했습니다. Turboism은 설치되었습니다. 시작 메뉴에서 Turboism_Configurator를 실행하여 다시 시도하세요."
+LangString InitialConfigurationError ${LANG_ENGLISH} "Cubism launch configuration could not be applied. Turboism is installed; run configure_turboism.ps1 in the installation folder to check the selected installations."
+LangString InitialConfigurationError ${LANG_SIMPCHINESE} "无法应用 Cubism 启动配置。Turboism 已安装；请运行安装目录中的 configure_turboism.ps1 检查所选安装。"
+LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の起動設定を適用できませんでした。Turboism はインストール済みです。インストール先の configure_turboism.ps1 で選択したインストールを確認してください。"
+LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 시작 구성을 적용하지 못했습니다. Turboism은 설치되었습니다. 설치 폴더의 configure_turboism.ps1에서 선택한 설치를 확인하세요."
 LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not complete or elevation was canceled. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit."
 LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。"
 LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。"
@@ -504,6 +505,9 @@ Var CubismDiscoveryOther
 Var CubismDiscoveryResultSeen
 Var CubismDiscoveryEndSeen
 Var CubismDiscoveryMalformed
+Var CubismDiscoverySnapshotHash
+Var installScriptEngine
+Var ScriptEngineCheckbox
 Var LaunchOptionsDialog
 Var createStartMenu
 Var createDesktopShortcut
@@ -534,7 +538,25 @@ Var unCfgStyle          ; 复选框控件样式
 !endif
 
 ; ---------- 初始化 ----------
+LangString ScriptEngineTitle ${LANG_ENGLISH} "JavaScript engine"
+LangString ScriptEngineTitle ${LANG_SIMPCHINESE} "JavaScript 脚本引擎"
+LangString ScriptEngineTitle ${LANG_JAPANESE} "JavaScript エンジン"
+LangString ScriptEngineTitle ${LANG_KOREAN} "JavaScript 엔진"
+LangString ScriptEngineOption ${LANG_ENGLISH} "Download and install the optional JavaScript engine (about 77 MiB)"
+LangString ScriptEngineOption ${LANG_SIMPCHINESE} "下载并安装可选的 JavaScript 脚本引擎（约 77 MiB）"
+LangString ScriptEngineOption ${LANG_JAPANESE} "オプションの JavaScript エンジンをダウンロードしてインストール（約 77 MiB）"
+LangString ScriptEngineOption ${LANG_KOREAN} "선택적 JavaScript 엔진 다운로드 및 설치 (약 77 MiB)"
+LangString ScriptEngineHelp ${LANG_ENGLISH} "The framework and Java plugins work without this download. Script execution also needs a compatible GraalVM. The portable ZIP includes these engine files for offline use."
+LangString ScriptEngineHelp ${LANG_SIMPCHINESE} "不下载也可使用框架与 Java 插件。运行脚本还需要兼容的 GraalVM。完整便携 ZIP 已包含这些引擎文件，可供离线使用。"
+LangString ScriptEngineHelp ${LANG_JAPANESE} "ダウンロードしなくてもフレームワークと Java プラグインは利用できます。スクリプト実行には対応する GraalVM も必要です。ポータブル ZIP にはオフライン用エンジンが含まれます。"
+LangString ScriptEngineHelp ${LANG_KOREAN} "다운로드 없이 프레임워크와 Java 플러그인을 사용할 수 있습니다. 스크립트 실행에는 호환되는 GraalVM도 필요합니다. 휴대용 ZIP에는 오프라인용 엔진 파일이 포함되어 있습니다."
+LangString ScriptEngineError ${LANG_ENGLISH} "The optional script engine could not be installed. The framework is installed. Retry with install-script-engine.ps1 in the installation folder."
+LangString ScriptEngineError ${LANG_SIMPCHINESE} "可选脚本引擎安装失败，框架已安装。可在安装目录运行 install-script-engine.ps1 重试。"
+LangString ScriptEngineError ${LANG_JAPANESE} "オプションのスクリプトエンジンをインストールできませんでした。フレームワークはインストール済みです。インストール先の install-script-engine.ps1 で再試行できます。"
+LangString ScriptEngineError ${LANG_KOREAN} "선택적 스크립트 엔진을 설치하지 못했습니다. 프레임워크는 설치되었습니다. 설치 폴더의 install-script-engine.ps1로 다시 시도하세요."
+
 Function .onInit
+  StrCpy $installScriptEngine 0
   ; 语言选择：MUI 语言对话框在欢迎页之前显示。$LANGUAGE 在 .onInit 之前已由
   ; NSIS 按系统区域匹配（无匹配时为首个语言 English），因此对话框默认预选系统
   ; 语言，用户可显式切换；MUI_LANGDLL_ALLLANGUAGES 保证 CJK/韩语在任何系统
@@ -974,12 +996,38 @@ Function SplitPipeFirst
   ${Loop}
 FunctionEnd
 
+Function ScriptEngineCreate
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(ScriptEngineTitle)" ""
+  ${NSD_CreateCheckbox} 0 8u 100% 34u "$(ScriptEngineOption)"
+  Pop $ScriptEngineCheckbox
+  ${NSD_SetState} $ScriptEngineCheckbox $installScriptEngine
+  ${NSD_CreateLabel} 0 54u 100% 80u "$(ScriptEngineHelp)"
+  Pop $0
+  ${NSD_OnBack} ScriptEngineBack
+  nsDialogs::Show
+FunctionEnd
+
+Function ScriptEngineBack
+  Pop $0
+  ${NSD_GetState} $ScriptEngineCheckbox $installScriptEngine
+FunctionEnd
+
+Function ScriptEngineLeave
+  ${NSD_GetState} $ScriptEngineCheckbox $installScriptEngine
+FunctionEnd
+
 Function CubismDiscoveryEnableNext
   StrCpy $CubismDiscoveryComplete 1
   EnableWindow $CubismDiscoveryNext 1
 FunctionEnd
 
 Function CubismDiscoveryFail
+  StrCpy $CubismDiscoverySnapshotHash ""
   ${NSD_KillTimer} CubismDiscoveryPoll
   ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryFailed)"
   Call CubismDiscoveryEnableNext
@@ -990,6 +1038,7 @@ Function CubismDiscoveryPoll
   IfFileExists "$CubismDiscoveryResult" ReadCubismDiscoveryResult
   ${If} $CubismDiscoveryPollCount >= 480
     ${NSD_KillTimer} CubismDiscoveryPoll
+    StrCpy $CubismDiscoverySnapshotHash ""
     ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryTimeout)"
     Call CubismDiscoveryEnableNext
   ${EndIf}
@@ -997,6 +1046,23 @@ Function CubismDiscoveryPoll
 
 ReadCubismDiscoveryResult:
   ${NSD_KillTimer} CubismDiscoveryPoll
+  Call CubismDiscoveryReadResult
+  ${If} $CubismDiscoveryMalformed != 0
+    Call CubismDiscoveryFail
+    Return
+  ${EndIf}
+  ${If} $CubismDiscoverySupported == 0
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryNone)"
+  ${Else}
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryComplete)"
+  ${EndIf}
+  Call CubismDiscoveryEnableNext
+FunctionEnd
+
+; The parser has no dialog dependency, so silent installs can use the same
+; pre-install discovery and digest handoff without creating a second scan.
+Function CubismDiscoveryReadResult
+  StrCpy $CubismDiscoverySnapshotHash ""
   StrCpy $CubismDiscoveryResultSeen 0
   StrCpy $CubismDiscoveryEndSeen 0
   StrCpy $CubismDiscoveryMalformed 0
@@ -1005,7 +1071,7 @@ ReadCubismDiscoveryResult:
   StrCpy $2 0
   FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r
   ${If} $CubismDiscoveryHandle == ""
-    Call CubismDiscoveryFail
+    StrCpy $CubismDiscoveryMalformed 1
     Return
   ${EndIf}
 
@@ -1064,6 +1130,42 @@ CubismDiscoveryReadLoop:
     StrCpy $CubismDiscoveryResultSeen 1
     Goto CubismDiscoveryReadLoop
   ${EndIf}
+  StrCpy $3 "$line" 9
+  ${If} $3 == "SNAPSHOT|"
+    ${If} $CubismDiscoveryResultSeen != 1
+    ${OrIf} $CubismDiscoverySnapshotHash != ""
+      StrCpy $CubismDiscoveryMalformed 1
+      Goto CubismDiscoveryReadLoop
+    ${EndIf}
+    StrCpy $CubismDiscoverySnapshotHash "$line" "" 9
+    StrLen $0 $CubismDiscoverySnapshotHash
+    ${If} $0 != 64
+      StrCpy $CubismDiscoveryMalformed 1
+    ${Else}
+      ${For} $pos 0 63
+        StrCpy $ch "$CubismDiscoverySnapshotHash" 1 $pos
+        StrCmp $ch "0" CubismDigestDigitValid
+        StrCmp $ch "1" CubismDigestDigitValid
+        StrCmp $ch "2" CubismDigestDigitValid
+        StrCmp $ch "3" CubismDigestDigitValid
+        StrCmp $ch "4" CubismDigestDigitValid
+        StrCmp $ch "5" CubismDigestDigitValid
+        StrCmp $ch "6" CubismDigestDigitValid
+        StrCmp $ch "7" CubismDigestDigitValid
+        StrCmp $ch "8" CubismDigestDigitValid
+        StrCmp $ch "9" CubismDigestDigitValid
+        StrCmp $ch "a" CubismDigestDigitValid
+        StrCmp $ch "b" CubismDigestDigitValid
+        StrCmp $ch "c" CubismDigestDigitValid
+        StrCmp $ch "d" CubismDigestDigitValid
+        StrCmp $ch "e" CubismDigestDigitValid
+        StrCmp $ch "f" CubismDigestDigitValid
+        StrCpy $CubismDiscoveryMalformed 1
+      CubismDigestDigitValid:
+      ${Next}
+    ${EndIf}
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
   StrCpy $3 "$line" 8
   ${If} $3 == "DISPLAY|"
     ${If} $CubismDiscoveryResultSeen != 1
@@ -1071,8 +1173,10 @@ CubismDiscoveryReadLoop:
       Goto CubismDiscoveryReadLoop
     ${EndIf}
     StrCpy $3 "$line" "" 8
-    SendMessage $CubismDiscoveryList ${LB_ADDSTRING} 0 "STR:$3"
-    SendMessage $CubismDiscoveryList ${LB_SETHORIZONTALEXTENT} 8192 0
+    ${If} $CubismDiscoveryList != ""
+      SendMessage $CubismDiscoveryList ${LB_ADDSTRING} 0 "STR:$3"
+      SendMessage $CubismDiscoveryList ${LB_SETHORIZONTALEXTENT} 8192 0
+    ${EndIf}
     Goto CubismDiscoveryReadLoop
   ${EndIf}
   StrCpy $CubismDiscoveryMalformed 1
@@ -1083,15 +1187,26 @@ CubismDiscoveryReadDone:
   ${If} $CubismDiscoveryEndSeen != 1
   ${OrIf} $CubismDiscoveryResultSeen != 1
   ${OrIf} $CubismDiscoveryMalformed != 0
-    Call CubismDiscoveryFail
-    Return
+  ${OrIf} $CubismDiscoverySnapshotHash == ""
+    StrCpy $CubismDiscoveryMalformed 1
+    StrCpy $CubismDiscoverySnapshotHash ""
   ${EndIf}
-  ${If} $CubismDiscoverySupported == 0
-    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryNone)"
-  ${Else}
-    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryComplete)"
+  ${IfNot} ${FileExists} "$CubismDiscoveryResult.json"
+    StrCpy $CubismDiscoveryMalformed 1
+    StrCpy $CubismDiscoverySnapshotHash ""
   ${EndIf}
-  Call CubismDiscoveryEnableNext
+FunctionEnd
+
+Function CubismDiscoveryPrepareFiles
+  IntOp $CubismDiscoveryGeneration $CubismDiscoveryGeneration + 1
+  InitPluginsDir
+  StrCpy $CubismDiscoverySnapshotHash ""
+  StrCpy $CubismDiscoveryWorkDir "$PLUGINSDIR\Turboism-discovery-$CubismDiscoveryGeneration"
+  StrCpy $CubismDiscoveryResult "$CubismDiscoveryWorkDir\cubism-scan.result"
+  SetOutPath "$CubismDiscoveryWorkDir"
+  File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
+  File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
+  File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
 FunctionEnd
 
 Function CubismDiscoveryBack
@@ -1125,14 +1240,7 @@ Function CubismDiscoveryCreate
       ${NSD_CreateTimer} CubismDiscoveryPoll 250
     ${EndIf}
   ${Else}
-    IntOp $CubismDiscoveryGeneration $CubismDiscoveryGeneration + 1
-    InitPluginsDir
-    StrCpy $CubismDiscoveryWorkDir "$PLUGINSDIR\Turboism-discovery-$CubismDiscoveryGeneration"
-    StrCpy $CubismDiscoveryResult "$CubismDiscoveryWorkDir\cubism-scan.result"
-    SetOutPath "$CubismDiscoveryWorkDir"
-    File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
-    File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
-    File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
+    Call CubismDiscoveryPrepareFiles
     ClearErrors
     ; ShellExecute keeps discovery asynchronous; SW_HIDE prevents its console
     ; process from taking focus away from the installer wizard.
@@ -1193,13 +1301,56 @@ Function LaunchOptionsLeave
   ${EndIf}
 FunctionEnd
 
+!define CUBISM_DISCOVERY_HANDOFF '-InstallerDiscoverySnapshot "$CubismDiscoveryResult.json" -InstallerDiscoverySnapshotSha256 "$CubismDiscoverySnapshotHash"'
+
 Function .onInstSuccess
-  ; 预安装扫描目录包含 agent JAR。若留到 Finish 按钮关闭安装器时由 NSIS
-  ; 自动清理，会表现为点击“完成”后的短暂卡顿；在进入 Finish 页前主动释放。
+  ; A failed/skipped middle scan is explicitly framework-only. Never start a
+  ; hidden recovery scan here. Successful scans are consumed before cleanup.
+  ${If} $CubismDiscoverySnapshotHash == ""
+    DetailPrint "$(CubismDiscoveryFailed)"
+    Goto InstallerConfigurationDone
+  ${EndIf}
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection ${CUBISM_DISCOVERY_HANDOFF}'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)" /SD IDOK
+    SetErrorLevel 2
+    Goto InstallerConfigurationDone
+  ${EndIf}
+  ${If} $createStartMenu == 1
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${Else}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${EndIf}
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)" /SD IDOK
+    SetErrorLevel 2
+    Goto InstallerConfigurationDone
+  ${EndIf}
+  ${If} $integrateCubismBat == 1
+    ${If} $CubismDiscoverySupported == 0
+      Goto InstallerConfigurationDone
+    ${EndIf}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${Else}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${EndIf}
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)" /SD IDOK
+    SetErrorLevel 2
+  ${EndIf}
+InstallerConfigurationDone:
+  ; Release temporary verifier/snapshot only after the synchronous elevated
+  ; helper returns, and before the Finish page performs automatic temp cleanup.
   ${If} $CubismDiscoveryWorkDir != ""
     RMDir /r "$CubismDiscoveryWorkDir"
     StrCpy $CubismDiscoveryWorkDir ""
     StrCpy $CubismDiscoveryResult ""
+    StrCpy $CubismDiscoverySnapshotHash ""
   ${EndIf}
   ${If} $GraalInstallWorkDir != ""
     RMDir /r "$GraalInstallWorkDir"
@@ -1207,36 +1358,27 @@ Function .onInstSuccess
     StrCpy $GraalInstallStatusFile ""
     StrCpy $GraalInstallCancelFile ""
   ${EndIf}
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection'
-  Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
-    Return
-  ${EndIf}
-  ${If} $createStartMenu == 1
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts'
-    Pop $0
-  ${Else}
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts'
-    Pop $0
-  ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
-    Return
-  ${EndIf}
-  ${If} $integrateCubismBat == 1
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat'
-    Pop $0
-  ${Else}
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat'
-    Pop $0
-  ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)"
-  ${EndIf}
 FunctionEnd
 
 ; ---------- Section 声明 ----------
+; Silent installs have no middle page: make the same single, bounded scan
+; before permanent configuration/payload mutation, then reuse its snapshot.
+Section "-静默发现 Cubism" SecSilentDiscovery
+  IfSilent 0 SilentDiscoveryDone
+  Call CubismDiscoveryPrepareFiles
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult"'
+  Pop $0
+  ${If} $0 != 0
+    SetErrorLevel 2
+    Abort
+  ${EndIf}
+  Call CubismDiscoveryReadResult
+  ${If} $CubismDiscoveryMalformed != 0
+    SetErrorLevel 2
+    Abort
+  ${EndIf}
+SilentDiscoveryDone:
+SectionEnd
 ; 配置必须在任何永久载荷、托管运行时或插件 JAR 写入前完成。这里只将当前
 ; helper 解压到 NSIS 私有临时目录；无效/未来配置会在安装树变化前失败关闭。
 Section "-写入配置" SecConfig
@@ -1299,6 +1441,20 @@ Section "-核心文件" SecCore
   RMDir /r "$PLUGINSDIR\Turboism-core-plan"
   RMDir /r "$PLUGINSDIR\Turboism-payload-bootstrap"
   Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256"
+SectionEnd
+
+; Optional engine acquisition is independent of plugin selection. Existing
+; engine files are never removed merely because this option is unchecked.
+Section "-可选脚本引擎" SecScriptEngine
+  ${If} $installScriptEngine == 1
+    DetailPrint "$(ScriptEngineTitle)"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-script-engine.ps1" -HomePath "$INSTDIR"'
+    Pop $0
+    ${If} $0 != 0
+      MessageBox MB_ICONEXCLAMATION|MB_OK "$(ScriptEngineError)" /SD IDOK
+      SetErrorLevel 2
+    ${EndIf}
+  ${EndIf}
 SectionEnd
 
 ; 插件 Section + 描述 + 选择状态函数（由 assemble-release.sh 生成，勿手改）
@@ -1372,6 +1528,8 @@ Section "Uninstall"
   Delete "$INSTDIR\configure_turboism.ps1"
   Delete "$INSTDIR\install-jar-payload.ps1"
   Delete "$INSTDIR\install-managed-graal.ps1"
+  Delete "$INSTDIR\install-script-engine.ps1"
+  Delete "$INSTDIR\script-engine.json"
   Delete "$INSTDIR\turboism.ico"
   Delete "$INSTDIR\turboism.png"
   ; The configurator removes managed state only after validated shortcut cleanup.
