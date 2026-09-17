@@ -242,6 +242,56 @@ checkEditorModelAliases.configure {
     dependsOn(checkEditorModelAliasesSelfTest)
 }
 
+/*
+ * Draft pack metadata restates its referenced verification record (selector count,
+ * capability roster, record SHA-256). Those pins drifted once already; the check
+ * task recomputes them from the pinned record bytes, and the self test proves the
+ * tamper matrix fails closed.
+ */
+tasks.register<Exec>("syncDraftPackMetadata") {
+    group = "build"
+    description = "Rewrites DRAFT pack metadata projections from the referenced verification record bytes."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/sync_draft_pack_metadata.py",
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("compatibility/cubism/verification") { include("*.json") }
+    )
+    commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath)
+}
+
+val checkDraftPackMetadataSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed tamper fixtures for draft pack metadata synchronization."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/sync_draft_pack_metadata.py",
+        "scripts/test/test_sync_draft_pack_metadata.py"
+    )
+    inputs.files(
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("compatibility/cubism/verification") { include("*.json") }
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_sync_draft_pack_metadata",
+        "-v"
+    )
+}
+
+val checkDraftPackMetadata by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when DRAFT pack metadata does not match its referenced verification record."
+    dependsOn(checkDraftPackMetadataSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/sync_draft_pack_metadata.py",
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("compatibility/cubism/verification") { include("*.json") }
+    )
+    commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath, "--check")
+}
+
 val checkPackageLayout by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects deprecated SDK/runtime packages and package-only production Java shells."
@@ -755,6 +805,7 @@ val checkCompletedCommit by tasks.registering {
         ":sdk:javadoc",
         "checkOfficialPluginI18nCompleteness",
         checkOfficialPluginReadmes,
+        checkDraftPackMetadata,
         "checkSdkApiBaselineTool",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
