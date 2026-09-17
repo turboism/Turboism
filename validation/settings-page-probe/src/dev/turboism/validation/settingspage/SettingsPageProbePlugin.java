@@ -13,6 +13,10 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JScrollPane;
+import javax.swing.JComponent;
+import java.awt.Rectangle;
+import java.awt.event.MouseWheelEvent;
 import javax.swing.SwingUtilities;
 
 import java.awt.Component;
@@ -46,7 +50,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class SettingsPageProbePlugin implements TurboismPlugin {
 
     private static final String RESULT_FILE = "settings-result.txt";
-    private static final String PREF_KEY = "meshTriangulationHashFix";
+    private static final boolean PERFORMANCE = Boolean.getBoolean("turboism.validation.settingsPerformance");
+    private static final String PREF_KEY = PERFORMANCE ? "uniformLocationCache" : "meshTriangulationHashFix";
     private static final String REVIEWED_VERSION = "5.3.03";
 
     private static final long MENU_TIMEOUT_MILLIS = 300_000L;
@@ -85,6 +90,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         Set.of("Cancel", "キャンセル", "취소", "取消");
 
     private PluginLogger logger;
+    private PluginContext context;
     private Path stateDir;
     private Path turboismHome;
     private final List<String> steps = new ArrayList<>();
@@ -93,6 +99,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
 
     @Override
     public void init(final PluginContext context) {
+        this.context = context;
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
         this.turboismHome = stateDir.getParent().getParent();
@@ -127,11 +134,14 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                     + MENU_TIMEOUT_MILLIS + "ms");
                 return;
             }
+            if (PERFORMANCE) awaitModelAndRenderer();
             runScenario(settingsItem);
             pass = failures.isEmpty();
         } catch (Throwable failure) {
-            failures.add("probe aborted: " + failure.getClass().getSimpleName()
-                + " " + Objects.toString(failure.getMessage(), ""));
+            final Throwable cause = failure instanceof InvocationTargetException invocation
+                && invocation.getCause() != null ? invocation.getCause() : failure;
+            failures.add("probe aborted: " + cause.getClass().getSimpleName()
+                + " " + Objects.toString(cause.getMessage(), ""));
         } finally {
             if (!failures.isEmpty()) pass = false;
             writeResult(pass);
@@ -157,7 +167,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         final TargetControl first = locateToggle(dialog);
         if (first == null) {
             dumpTabDetails(dialog);
-            failures.add("mesh triangulation toggle was not found in the Performance tab");
+            failures.add("target optimization toggle was not found in the Performance tab");
             closeDialog(dialog);
             return;
         }
@@ -166,6 +176,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         evidence.put("toggleLabel", first.checkbox.getText());
         evidence.put("performanceTabCheckboxes", first.siblingSummary);
 
+        if (PERFORMANCE) verifyPerformanceViewport(dialog, first);
         final Boolean persistedAtStart = persistedValue();
         final boolean expectedInitial = persistedAtStart == null || persistedAtStart;
         evidence.put("persistedAtStart",
@@ -191,7 +202,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         final Boolean persistedAfterApply = persistedValue();
         evidence.put("persistedAfterApply",
             persistedAfterApply == null ? "absent" : persistedAfterApply.toString());
-        check(persistedAfterApply != null && persistedAfterApply == proposed,
+        check((persistedAfterApply == null || persistedAfterApply) == proposed,
             "Apply did not persist " + proposed + " (observed "
                 + (persistedAfterApply == null ? "absent" : persistedAfterApply) + ")");
 
@@ -211,7 +222,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         }
         final TargetControl second = locateToggle(reopened);
         if (second == null) {
-            failures.add("mesh triangulation toggle missing after reopen");
+            failures.add("target optimization toggle missing after reopen");
             closeDialog(reopened);
             return;
         }
@@ -234,10 +245,125 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         final Boolean persistedAtEnd = persistedValue();
         evidence.put("persistedAtEnd",
             persistedAtEnd == null ? "absent" : persistedAtEnd.toString());
-        check(persistedAtEnd == null || persistedAtEnd == expectedInitial,
+        check((persistedAtEnd == null || persistedAtEnd) == expectedInitial,
             "restored save did not persist " + expectedInitial + " (observed "
                 + (persistedAtEnd == null ? "absent" : persistedAtEnd) + ")");
         step("scenario", "complete");
+    }
+
+    private void awaitModelAndRenderer() throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(180);
+        while (System.nanoTime() < deadline) {
+            try {
+                final String model = context.cubism().model().active().id().value();
+                final Object slot = System.getProperties().get("turboism.uniform-location.stats");
+                if (slot instanceof java.util.function.Supplier<?> supplier
+                    && supplier.get() instanceof Map<?, ?> counters
+                    && counters.get("active") instanceof Number active && active.longValue() == 1
+                    && counters.get("completedFrames") instanceof Number frames && frames.longValue() > 0) {
+                    evidence.put("activeModel", model);
+                    evidence.put("uniformHookInstalled", "true");
+                    evidence.put("completedFramesBeforeSettings", frames.toString());
+                    return;
+                }
+            } catch (RuntimeException notReady) {
+                // A visible menu can precede completion of the initial model and first paint.
+            }
+            Thread.sleep(POLL_MILLIS);
+        }
+        throw new IllegalStateException("model and native renderer did not become ready");
+    }
+
+    private void verifyPerformanceViewport(final JDialog dialog, final TargetControl target) throws Exception {
+        onEdt(() -> {
+            dialog.setSize(620, 340); dialog.validate();
+            dialog.toFront(); dialog.requestFocus();
+            return null;
+        });
+        final long activationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        boolean active = false;
+        while (!active && System.nanoTime() < activationDeadline) {
+            active = onEdtSettled(dialog::isFocused);
+            if (!active) Thread.sleep(POLL_MILLIS);
+        }
+        if (!active) {
+            evidence.put("focusDiagnostics", onEdtSettled(() -> {
+                StringBuilder details = new StringBuilder();
+                for (Window window : Window.getWindows()) {
+                    if (!window.isShowing()) continue;
+                    if (details.length() > 0) details.append('|');
+                    details.append(safeTitle(window)).append(" focused=").append(window.isFocused())
+                        .append(" focusable=").append(window.isFocusableWindow())
+                        .append(" enabled=").append(window.isEnabled());
+                    if (window instanceof java.awt.Dialog value) details.append(" modal=").append(value.isModal());
+                }
+                return details.toString();
+            }));
+            throw new IllegalStateException("settings window did not activate before focus test");
+        }
+        evidence.put("settingsWindowFocused", "true");
+        final JScrollPane scroll = onEdtSettled(() -> {
+            final Component page = findTabbedPane(dialog).getComponentAt(target.tabIndex);
+            if (!(page instanceof JScrollPane pane)) throw new IllegalStateException("Performance tab has no scroll viewport");
+            return pane;
+        });
+        final AtomicReference<JCheckBox> focusTarget = new AtomicReference<>();
+        onEdt(() -> {
+            if (!scroll.getVerticalScrollBar().isVisible()) throw new IllegalStateException("short dialog did not expose overflow");
+            final List<JCheckBox> boxes = new ArrayList<>();
+            collect(scroll, JCheckBox.class, boxes);
+            if (boxes.size() < 5) throw new IllegalStateException("performance controls are missing");
+            final JCheckBox incremental = boxes.stream().filter(box -> "incremental-update".equals(box.getName()))
+                .findFirst().orElseThrow();
+            if (incremental.isSelected()) throw new IllegalStateException("experimental Slice B unexpectedly defaults on");
+            evidence.put("incrementalDefaultOff", "true");
+            final int initial = scroll.getVerticalScrollBar().getValue();
+            scroll.dispatchEvent(new MouseWheelEvent(scroll, MouseWheelEvent.MOUSE_WHEEL,
+                System.currentTimeMillis(), 0, 20, 20, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, 1));
+            if (scroll.getVerticalScrollBar().getValue() <= initial) throw new IllegalStateException("wheel did not scroll");
+            evidence.put("wheelScrolls", "true");
+            scroll.getVerticalScrollBar().setValue(scroll.getVerticalScrollBar().getMaximum());
+            final JCheckBox last = boxes.get(boxes.size() - 1);
+            focusTarget.set(last);
+            Rectangle lastBounds = SwingUtilities.convertRectangle(last.getParent(), last.getBounds(), scroll.getViewport().getView());
+            if (!scroll.getViewport().getViewRect().intersects(lastBounds)) throw new IllegalStateException("last checkbox remains unreachable");
+            evidence.put("lastCheckboxReachable", "true");
+            final List<JButton> buttons = new ArrayList<>();
+            collect(dialog, JButton.class, buttons);
+            int actions = 0;
+            for (JButton button : buttons) {
+                if (APPLY_LABELS.contains(button.getText()) || OK_LABELS.contains(button.getText()) || CANCEL_LABELS.contains(button.getText())) {
+                    if (SwingUtilities.isDescendingFrom(button, scroll)) throw new IllegalStateException("dialog action scrolls with settings");
+                    Rectangle bounds = SwingUtilities.convertRectangle(button.getParent(), button.getBounds(), dialog.getContentPane());
+                    if (!new Rectangle(dialog.getContentPane().getSize()).contains(bounds)) throw new IllegalStateException("dialog action is clipped");
+                    actions++;
+                }
+            }
+            if (actions != 3) throw new IllegalStateException("expected three fixed dialog actions");
+            evidence.put("fixedActionsVisible", "true");
+            scroll.getVerticalScrollBar().setValue(0);
+            if (!last.requestFocusInWindow()) throw new IllegalStateException("last checkbox focus was refused");
+            return null;
+        });
+        final long focusDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        boolean focusVisible = false;
+        while (!focusVisible && System.nanoTime() < focusDeadline) {
+            focusVisible = onEdtSettled(() -> {
+                final Component focused = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+                if (focused != focusTarget.get() || !SwingUtilities.isDescendingFrom(focused, scroll)) return false;
+                Rectangle bounds = SwingUtilities.convertRectangle(focused.getParent(), focused.getBounds(), scroll.getViewport().getView());
+                return scroll.getViewport().getViewRect().intersects(bounds);
+            });
+            if (!focusVisible) Thread.sleep(POLL_MILLIS);
+        }
+        if (!focusVisible) throw new IllegalStateException("keyboard focus remained outside viewport");
+        evidence.put("keyboardFocusRevealed", "true");
+        onEdt(() -> {
+            final JComponent view = (JComponent) scroll.getViewport().getView();
+            view.scrollRectToVisible(SwingUtilities.convertRectangle(target.checkbox.getParent(), target.checkbox.getBounds(), view));
+            return null;
+        });
+        evidence.put("shortDialog", "620x340");
     }
 
     // ------------------------------------------------------------------ readiness
@@ -352,7 +478,8 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                         .append('=').append(box.isSelected());
                 }
                 for (final JCheckBox box : boxes) {
-                    if (box.getText() != null && MESH_TOGGLE_LABELS.contains(box.getText())) {
+                    if (PERFORMANCE ? "uniform-location-cache".equals(box.getName())
+                        : box.getText() != null && MESH_TOGGLE_LABELS.contains(box.getText())) {
                         return new TargetControl(index, title, box, summary.toString());
                     }
                 }
@@ -513,7 +640,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
             if (!matcher.find()) return null;
             return Boolean.valueOf(matcher.group(1));
         } catch (java.io.IOException | RuntimeException unreadable) {
-            return null;
+            throw new IllegalStateException("task config could not be read", unreadable);
         }
     }
 

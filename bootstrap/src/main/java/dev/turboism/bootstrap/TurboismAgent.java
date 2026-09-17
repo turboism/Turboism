@@ -92,6 +92,14 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedWarpPositionProjectionInstaller> WARP_POSITION_PROJECTION =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedModelUpdateSkipInstaller> MODEL_UPDATE_SKIP =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedIncrementalUpdateInstaller> INCREMENTAL_UPDATE =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedUniformLocationInstaller> UNIFORM_LOCATION_CACHE =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedMatrixScratchInstaller> MATRIX_SCRATCH =
+        new AtomicReference<>();
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -385,6 +393,10 @@ public final class TurboismAgent {
             if (fullRuntimeAdmission) installFloatArrayParseCache(options, instrumentation, host);
             if (fullRuntimeAdmission) installTextureUploadPreparation(options, instrumentation, host);
             if (fullRuntimeAdmission) installWarpPositionProjection(options, instrumentation, host);
+            if (fullRuntimeAdmission) installModelUpdateSkip(options, instrumentation, host);
+            if (fullRuntimeAdmission) installIncrementalUpdate(options, instrumentation, host);
+            if (fullRuntimeAdmission) installUniformLocationCache(options, instrumentation, host);
+            if (fullRuntimeAdmission) installMatrixScratch(options, instrumentation, host);
             final PreviewRuntime runtime;
             try {
                 runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
@@ -404,11 +416,15 @@ public final class TurboismAgent {
                     host.classLoader()
                 ));
             } catch (Throwable failure) {
+                closeMatrixScratch();
+                closeUniformLocationCache();
                 closeMeshMirrorHookIfCurrent(meshMirrorHook);
                 closeImageArchiveReuse();
                 closeFloatArrayParseCache();
                 closeTextureUploadPreparation();
                 closeWarpPositionProjection();
+                closeModelUpdateSkip();
+                closeIncrementalUpdate();
                 throw failure;
             }
             if (!RUNTIME.compareAndSet(null, runtime)) {
@@ -441,6 +457,15 @@ public final class TurboismAgent {
                 }
                 if (WARP_POSITION_PROJECTION.get() != null) {
                     runtimeInfo("TURBOISM_WARP_POSITION_PROJECTION installation=COMPLETE phase=runtime-ready");
+                }
+                if (MODEL_UPDATE_SKIP.get() != null) {
+                    runtimeInfo("TURBOISM_MODEL_UPDATE_SKIP installation=COMPLETE phase=runtime-ready");
+                }
+                if (INCREMENTAL_UPDATE.get() != null) {
+                    runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=COMPLETE phase=runtime-ready");
+                }
+                if (MATRIX_SCRATCH.get() != null) {
+                    runtimeInfo("TURBOISM_MATRIX_SCRATCH installation=COMPLETE phase=runtime-ready");
                 }
                 installPerformanceProbe(options, instrumentation, host);
                 installDockTabPopupHook(
@@ -599,6 +624,149 @@ public final class TurboismAgent {
         if (installation != null) {
             try { installation.close(); }
             catch (Throwable failure) { runtimeWarn("Turboism warp position projection cleanup failed safely"); }
+        }
+    }
+
+    private static void installMatrixScratch(AgentOptions options, Instrumentation instrumentation,
+                                              HostClassLocator.LocatedHost host) {
+        VerifiedMatrixScratchInstaller installer = null;
+        try {
+            if (!VerifiedMatrixScratchInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()),
+                Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer.ENABLE_PROPERTY),
+                Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_MATRIX_SCRATCH installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedMatrixScratchInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!MATRIX_SCRATCH.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_MATRIX_SCRATCH installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_MATRIX_SCRATCH installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeMatrixScratch() {
+        VerifiedMatrixScratchInstaller installer = MATRIX_SCRATCH.getAndSet(null);
+        if (installer == null) return;
+        try {
+            installer.close();
+            runtimeInfo("TURBOISM_MATRIX_SCRATCH restoration=" + (installer.restored() ? "COMPLETE" : "UNVERIFIED"));
+        } catch (Throwable failure) {
+            runtimeWarn("TURBOISM_MATRIX_SCRATCH restoration=FAILED " + failure);
+        }
+    }
+
+    private static void installUniformLocationCache(AgentOptions options, Instrumentation instrumentation,
+                                                    HostClassLocator.LocatedHost host) {
+        if (!dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.enabledByPreference()) {
+            runtimeInfo("TURBOISM_UNIFORM_LOCATION installation=NOT_ADMITTED");
+            return;
+        }
+        VerifiedUniformLocationInstaller installer = null;
+        try {
+            if (!VerifiedUniformLocationInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_UNIFORM_LOCATION installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedUniformLocationInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!UNIFORM_LOCATION_CACHE.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_UNIFORM_LOCATION installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_UNIFORM_LOCATION installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeUniformLocationCache() {
+        VerifiedUniformLocationInstaller installer = UNIFORM_LOCATION_CACHE.getAndSet(null);
+        if (installer == null) return;
+        try {
+            installer.close();
+            runtimeInfo("TURBOISM_UNIFORM_LOCATION restoration=" + (installer.restored() ? "COMPLETE" : "UNVERIFIED"));
+        } catch (Throwable failure) {
+            runtimeWarn("TURBOISM_UNIFORM_LOCATION restoration=FAILED " + failure);
+        }
+    }
+
+    private static void installModelUpdateSkip(AgentOptions options, Instrumentation instrumentation,
+                                               HostClassLocator.LocatedHost host) {
+        if (!dev.turboism.adapter.cubism.optimization.modelupdate
+                .ModelUpdateSkipBridge.flagEnabled()) {
+            runtimeInfo("TURBOISM_MODEL_UPDATE_SKIP installation=NOT_ADMITTED");
+            return;
+        }
+        VerifiedModelUpdateSkipInstaller installer = null;
+        try {
+            if (!VerifiedModelUpdateSkipInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_MODEL_UPDATE_SKIP installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedModelUpdateSkipInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!MODEL_UPDATE_SKIP.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_MODEL_UPDATE_SKIP installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_MODEL_UPDATE_SKIP installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeModelUpdateSkip() {
+        VerifiedModelUpdateSkipInstaller installation = MODEL_UPDATE_SKIP.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism model-update skip cleanup failed safely"); }
+        }
+    }
+
+    private static void installIncrementalUpdate(AgentOptions options, Instrumentation instrumentation,
+                                                 HostClassLocator.LocatedHost host) {
+        if (!dev.turboism.adapter.cubism.optimization.modelupdate.incremental
+                .IncrementalUpdateBridge.flagEnabled()) {
+            runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=NOT_ADMITTED");
+            return;
+        }
+        VerifiedIncrementalUpdateInstaller installer = null;
+        try {
+            if (!VerifiedIncrementalUpdateInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedIncrementalUpdateInstaller(
+                instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!INCREMENTAL_UPDATE.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_INCREMENTAL_UPDATE installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_INCREMENTAL_UPDATE installation=FAILED "
+                + failure.getClass().getName() + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeIncrementalUpdate() {
+        VerifiedIncrementalUpdateInstaller installation = INCREMENTAL_UPDATE.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism incremental update cleanup failed safely"); }
         }
     }
 
@@ -1577,6 +1745,8 @@ public final class TurboismAgent {
                 runtimeWarn("Turboism mesh mirror hook cleanup failed safely");
             }
         }
+        closeMatrixScratch();
+        closeUniformLocationCache();
         final VerifiedPerformanceProbeInstaller performanceProbe = PERFORMANCE_PROBE.getAndSet(null);
         if (performanceProbe != null) {
             try {
@@ -1590,6 +1760,8 @@ public final class TurboismAgent {
         closeFloatArrayParseCache();
         closeTextureUploadPreparation();
         closeWarpPositionProjection();
+        closeModelUpdateSkip();
+        closeIncrementalUpdate();
         final PerformanceFpsHook fpsHook = FPS_HOOK.getAndSet(null);
         if (fpsHook != null) {
             try {
