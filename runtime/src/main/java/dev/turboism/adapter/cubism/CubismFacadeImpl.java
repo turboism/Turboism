@@ -1558,14 +1558,14 @@ public final class CubismFacadeImpl implements CubismFacade {
                     requireModelRead("model.parts.all");
                     return parts.all().stream()
                         .map(value -> (dev.turboism.sdk.cubism.model.Part)
-                            new PermissionCheckedPart(wrapperOwner, value))
+                            new PermissionCheckedPart(CubismFacadeImpl.this, wrapperOwner, value))
                         .toList();
                 }
                 @Override public dev.turboism.sdk.cubism.model.Part find(
                     final dev.turboism.sdk.cubism.model.PartId id
                 ) {
                     requireModelRead("model.parts.find");
-                    return new PermissionCheckedPart(
+                    return new PermissionCheckedPart(CubismFacadeImpl.this, 
                         wrapperOwner,
                         parts.find(Objects.requireNonNull(id, "id"))
                     );
@@ -1575,7 +1575,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final dev.turboism.sdk.cubism.model.PartId id
                 ) {
                     requireModelWrite("model.parts.add");
-                    return new PermissionCheckedPart(wrapperOwner, parts.add(id));
+                    return new PermissionCheckedPart(CubismFacadeImpl.this, wrapperOwner, parts.add(id));
                 }
 
                 @Override public dev.turboism.sdk.cubism.model.Part add(
@@ -1583,7 +1583,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final dev.turboism.sdk.cubism.model.PartId parentId
                 ) {
                     requireModelWrite("model.parts.add");
-                    return new PermissionCheckedPart(
+                    return new PermissionCheckedPart(CubismFacadeImpl.this, 
                         wrapperOwner,
                         parts.add(id, parentId)
                     );
@@ -1593,7 +1593,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final dev.turboism.sdk.cubism.model.PartId id
                 ) {
                     requireModelWrite("model.parts.copy");
-                    return new PermissionCheckedPart(wrapperOwner, parts.copy(id));
+                    return new PermissionCheckedPart(CubismFacadeImpl.this, wrapperOwner, parts.copy(id));
                 }
 
                 @Override public void remove(final dev.turboism.sdk.cubism.model.PartId id) {
@@ -1607,7 +1607,7 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final int index
                 ) {
                     requireModelWrite("model.parts.create");
-                    return new PermissionCheckedPart(wrapperOwner, parts.create(
+                    return new PermissionCheckedPart(CubismFacadeImpl.this, wrapperOwner, parts.create(
                         name,
                         unwrapPart(wrapperOwner, parent),
                         index
@@ -2473,151 +2473,4 @@ public final class CubismFacadeImpl implements CubismFacade {
         }
     }
 
-    private final class PermissionCheckedPart implements dev.turboism.sdk.cubism.model.Part {
-        private final Object owner;
-        private final dev.turboism.sdk.cubism.model.Part delegate;
-
-        private PermissionCheckedPart(
-            final Object owner,
-            final dev.turboism.sdk.cubism.model.Part delegate
-        ) {
-            this.owner = Objects.requireNonNull(owner, "owner");
-            this.delegate = Objects.requireNonNull(delegate, "delegate");
-        }
-        @Override public dev.turboism.sdk.ui.appearance.model.PartAppearance ui() {
-            requireModelRead("part.ui");
-            return delegate.ui();
-        }
-
-        @Override public dev.turboism.sdk.cubism.model.PartId id() { requireModelRead("part.id"); return delegate.id(); }
-        @Override public int index() {
-            requireModelRead("part.index");
-            return delegate.index();
-        }
-        @Override public Optional<String> shortName() {
-            requireModelRead("part.shortName");
-            return delegate.shortName();
-        }
-        @Override public void setShortName(final Optional<String> value) {
-            requireModelWrite("part.setShortName");
-            final Optional<String> checked = Objects.requireNonNull(value, "value");
-            if (checked.filter(String::isBlank).isPresent()) {
-                throw new IllegalArgumentException("short name must not be blank");
-            }
-            delegate.setShortName(checked);
-        }
-        @Override public Optional<dev.turboism.sdk.cubism.model.PartId> parentId() {
-            requireModelRead("part.parentId");
-            return delegate.parentId();
-        }
-        @Override public List<dev.turboism.sdk.cubism.model.PartId> childIds() {
-            requireModelRead("part.childIds");
-            return delegate.childIds();
-        }
-
-        @Override public dev.turboism.sdk.cubism.model.MorphTargets morphTargets() {
-            requireModelRead("part.morphTargets");
-            return delegate.morphTargets();
-        }
-        @Override public boolean visible() {
-            requireModelRead("part.visible");
-            return delegate.visible();
-        }
-        @Override public void setVisible(final boolean value) {
-            requireModelWrite("part.setVisible");
-            delegate.setVisible(value);
-        }
-        @Override public boolean visibleInHierarchy() {
-            requireModelRead("part.visibleInHierarchy");
-            return delegate.visibleInHierarchy();
-        }
-        @Override public boolean locked() {
-            requireModelRead("part.locked");
-            return delegate.locked();
-        }
-        @Override public void setLocked(final boolean value) {
-            requireModelWrite("part.setLocked");
-            delegate.setLocked(value);
-        }
-        @Override public boolean lockedInHierarchy() {
-            requireModelRead("part.lockedInHierarchy");
-            return delegate.lockedInHierarchy();
-        }
-        @Override public Optional<dev.turboism.sdk.cubism.model.Color> editColor() {
-            requireModelRead("part.editColor");
-            return delegate.editColor();
-        }
-        @Override public void setEditColor(
-            final Optional<dev.turboism.sdk.cubism.model.Color> value
-        ) {
-            requireModelWrite("part.setEditColor");
-            delegate.setEditColor(Objects.requireNonNull(value, "value"));
-        }
-        @Override public boolean sketch() {
-            requireModelRead("part.sketch");
-            return delegate.sketch();
-        }
-        @Override public void setSketch(final boolean value) {
-            requireModelWrite("part.setSketch");
-            delegate.setSketch(value);
-        }
-        @Override public int defaultOrder() {
-            requireModelRead("part.defaultOrder");
-            return delegate.defaultOrder();
-        }
-        @Override public void setDefaultOrder(final int value) {
-            requireModelWrite("part.setDefaultOrder");
-            delegate.setDefaultOrder(value);
-        }
-        @Override public String name() { requireModelRead("part.name"); return delegate.name(); }
-        @Override public void setName(final String name) {
-            requireModelWrite("part.setName");
-            runSemantic(
-                CubismOperation.SET_PART_NAME,
-                id().value(),
-                delegate::name,
-                () -> partLifecycle.setName(this, name, delegate::setName)
-            );
-        }
-        @Override public dev.turboism.sdk.cubism.model.AlphaComposition alphaComposition() {
-            requireModelRead("part.alphaComposition");
-            return delegate.alphaComposition();
-        }
-        @Override public List<dev.turboism.sdk.cubism.id.ArtMeshId> maskIds() {
-            requireModelRead("part.maskIds");
-            return delegate.maskIds();
-        }
-        @Override public void setId(final dev.turboism.sdk.cubism.model.PartId id) {
-            requireModelWrite("part.setId");
-            delegate.setId(id);
-        }
-        @Override public void setMaskIds(final List<dev.turboism.sdk.cubism.id.ArtMeshId> maskIds) {
-            requireModelWrite("part.setMaskIds");
-            delegate.setMaskIds(maskIds);
-        }
-        @Override public void setAlphaComposition(
-            final dev.turboism.sdk.cubism.model.AlphaComposition composition
-        ) {
-            requireModelWrite("part.setAlphaComposition");
-            delegate.setAlphaComposition(composition);
-        }
-        @Override public void setParent(
-            final dev.turboism.sdk.cubism.model.Part parent,
-            final int index
-        ) {
-            requireModelWrite("part.setParent");
-            delegate.setParent(unwrapPart(owner, parent), index);
-        }
-        @Override public float getOpacity() { requireModelRead("part.getOpacity"); return delegate.getOpacity(); }
-        @Override public int parentIndex() { requireModelRead("part.parentIndex"); return delegate.parentIndex(); }
-        @Override public void setOpacity(final float opacity) {
-            requireModelWrite("part.setOpacity");
-            runSemantic(
-                CubismOperation.SET_PART_OPACITY,
-                id().value(),
-                delegate::getOpacity,
-                () -> partLifecycle.setOpacity(this, opacity, delegate::setOpacity)
-            );
-        }
-    }
 }
