@@ -86,6 +86,28 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
     }
 
     @Test
+    void closesCoreWhenEditorConnectionConstructionFails() throws Exception {
+        final AtomicReference<RuntimeCoreModelBackend> captured = new AtomicReference<>();
+        final VerifiedHostAdapterConnector.CoreBackendFactory backendFactory = evidence -> {
+            final RuntimeCoreModelBackend backend = coreBackendFactory().create(evidence);
+            captured.set(backend);
+            return backend;
+        };
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> connector(
+                (resolver, sessionId, coreBackend) -> {
+                    throw new IllegalStateException("editor access construction failed");
+                },
+                backendFactory
+            ).connect(new HostInstanceDescriptor("session-failed", evidence()))
+        );
+
+        assertEquals("editor access construction failed", failure.getMessage());
+        assertThrows(IllegalStateException.class, () -> captured.get().clearBorrowedModel());
+    }
+
+    @Test
     void connectWithoutACurrentDocumentSkipsPublishAndKeepsTheJoinFailClosed() throws Exception {
         // No document installed: the resolver chain yields null before the model.
         final HostVerificationEvidence evidence = evidence();
