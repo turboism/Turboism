@@ -128,6 +128,55 @@ class ArtMeshFormListUndoDecoderTest {
     }
 
     @Test
+    void anUnknownSiblingBeforeTheSimpleChildDoesNotWithholdTheLiveRead() {
+        // r93 human-in-loop evidence: the host bundles an unmapped selection-undo child into the
+        // same grouped vertex edit. That unknown child sits BEFORE the keyform child in child
+        // order, so it cannot be a later writer of the same form; the live read stays allowed
+        // and the row decodes FULL instead of degrading to a raw host label.
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1.0F, 1.0F, 1.0F), color(0, 0, 0));
+        final Form live = form(source, "form-default", color(0.4F, 0.8F, 1.0F), color(0, 0, 0));
+        final GroupEntry group = new GroupEntry(List.of(
+            new Object(),
+            new SimpleEntry(live, before, null)
+        ));
+
+        final var child = new NativeHistoryDecoderRegistry()
+            .decode(resolver(), group, "Move selected vertices", true)
+            .detail().orElseThrow()
+            .group().orElseThrow().children().get(1);
+
+        // The group stays PARTIAL because the unmapped sibling is label-only, but the keyform
+        // child itself must decode: the earlier unknown sibling must not withhold its live read.
+        assertEquals(HistoryAction.DetailLevel.FULL, child.detailLevel());
+        assertEquals(1, child.changes().size());
+    }
+
+    @Test
+    void anUnknownSiblingAfterTheSimpleChildStillWithholdsTheLiveRead() {
+        // An unknown child positioned AFTER the keyform child could be a later writer of the
+        // same form, so the live read stays withheld and the child degrades conservatively.
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1.0F, 1.0F, 1.0F), color(0, 0, 0));
+        final Form live = form(source, "form-default", color(0.4F, 0.8F, 1.0F), color(0, 0, 0));
+        final GroupEntry group = new GroupEntry(List.of(
+            new SimpleEntry(live, before, null),
+            new Object()
+        ));
+
+        final var child = new NativeHistoryDecoderRegistry()
+            .decode(resolver(), group, "Move selected vertices", true)
+            .detail().orElseThrow()
+            .group().orElseThrow().children().get(0);
+
+        assertEquals(HistoryAction.DetailLevel.LABEL_ONLY, child.detailLevel());
+        assertEquals(
+            "history.detail.post-state-unavailable",
+            child.degradationCode().orElseThrow()
+        );
+    }
+
+    @Test
     void differentKeyformCoordinatesDoNotBecomeAnObjectLevelFullChange() {
         final Parameter angleX = new Parameter(new HostId("ParamAngleX"), "Angle X");
         final Binding binding = new Binding(angleX);

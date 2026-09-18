@@ -233,7 +233,13 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             return;
         }
         for (final WriterScan.Writer writer : scan.writers()) {
-            if (scan.lastWriter(writer.target()) != writer.entry()) {
+            // An unreadable-but-positioned node (for example the host's selection undo child)
+            // only threatens SimpleUndos visited before it: writes execute in child order, so
+            // an earlier-positioned node cannot be a later writer of the same target. Nodes
+            // after it stay readable; the live value provably remains their own result.
+            final boolean laterUnknownNode = scan.hasUnknownNodeAfter(
+                scan.simpleVisitOrdinal(writer.entry()));
+            if (laterUnknownNode || scan.lastWriter(writer.target()) != writer.entry()) {
                 context.withholdLivePostState(writer.entry());
             }
         }
@@ -248,6 +254,10 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             new java.util.IdentityHashMap<>();
         private final List<Writer> writers = new ArrayList<>();
         private final List<Object> simpleEntries = new ArrayList<>();
+        private final java.util.IdentityHashMap<Object, Integer> simpleVisitOrdinals =
+            new java.util.IdentityHashMap<>();
+        private final List<Integer> unknownVisitOrdinals = new ArrayList<>();
+        private int visits;
         private int nodes;
         private boolean complete = true;
 
@@ -271,6 +281,7 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
 
         private void scanEntry(final Object entry, final int depth) {
             if (!enter(entry, depth)) return;
+            final int visitOrdinal = visits++;
 
             final boolean simple;
             try {
@@ -279,11 +290,12 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
                     entry
                 );
             } catch (RuntimeException unavailable) {
-                complete = false;
+                unknownVisitOrdinals.add(visitOrdinal);
                 return;
             }
             if (simple) {
                 simpleEntries.add(entry);
+                simpleVisitOrdinals.put(entry, visitOrdinal);
                 final Object target;
                 try {
                     target = resolver.invoke("cubism.editor-history.semantic.simple.target", entry);
@@ -308,11 +320,13 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
                     entry
                 );
             } catch (RuntimeException unavailable) {
-                complete = false;
+                unknownVisitOrdinals.add(visitOrdinal);
                 return;
             }
             if (!group) {
-                complete = false;
+                // An unknown leaf class is positioned in child order even without a mapping;
+                // it only withholds SimpleUndos visited before it (see withholdEarlierWriters).
+                unknownVisitOrdinals.add(visitOrdinal);
                 return;
             }
             final Object rawChildren;
@@ -367,6 +381,17 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
 
         private List<Object> simpleEntries() {
             return simpleEntries;
+        }
+
+        private Integer simpleVisitOrdinal(final Object simple) {
+            return simpleVisitOrdinals.get(simple);
+        }
+
+        private boolean hasUnknownNodeAfter(final Integer ordinal) {
+            if (ordinal == null) {
+                return false;
+            }
+            return unknownVisitOrdinals.stream().anyMatch(unknown -> unknown > ordinal);
         }
 
         private Object lastWriter(final Object target) {
