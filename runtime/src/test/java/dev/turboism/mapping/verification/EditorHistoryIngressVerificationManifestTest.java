@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorHistoryIngressVerificationManifestTest {
 
     @Test
-    void nativeUndoStateListenerIsAdmittedFor5203And5302Only() {
+    void nativeUndoStateListenerIsAdmittedFor5203And5302And5303() {
         final Set<String> ingressAliases = EditorHistoryIngressSelectorContract.REQUIRED_ALIASES;
 
         assertFalse(ingressAliases.isEmpty());
@@ -35,15 +35,16 @@ class EditorHistoryIngressVerificationManifestTest {
             )
         );
 
-        assertTrue(Collections.disjoint(
-            EditorModelVerificationManifest.cubism5303StaticAliases(), ingressAliases
-        ), "5.3.03 must not admit the native undo state listener without its own reviewed evidence");
-        assertTrue(Collections.disjoint(
-            EditorModelVerificationManifest.cubism5303RuntimeScope().requiredAliases(), ingressAliases
-        ));
-        assertTrue(Collections.disjoint(
-            EditorModelVerificationManifest.cubism5303ReadAliases(), ingressAliases
-        ));
+        assertTrue(
+            EditorModelVerificationManifest.cubism5303StaticAliases().containsAll(ingressAliases),
+            () -> "5.3.03 missing " + missing(
+                EditorModelVerificationManifest.cubism5303StaticAliases(), ingressAliases
+            )
+        );
+        assertTrue(
+            EditorModelVerificationManifest.cubism5303RuntimeScope().requiredAliases()
+                .containsAll(ingressAliases)
+        );
     }
 
     @Test
@@ -66,11 +67,11 @@ class EditorHistoryIngressVerificationManifestTest {
                 EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
             )
         );
-        assertFalse(
+        assertTrue(
             EditorModelVerificationManifest.cubism5303StaticAliases().contains(
                 EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
             ),
-            "5.3.03 must not admit the entry hook without its own reviewed evidence"
+            "5.3.03 admits the entry hook from its own reviewed record"
         );
         assertTrue(
             EditorModelVerificationManifest.REQUIRED_ALIASES.contains(

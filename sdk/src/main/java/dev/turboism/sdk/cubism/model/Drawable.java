@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** One evaluated Cubism drawable/ArtMesh. */
-@CubismEditor({"5.2.03", "5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface Drawable {
 
     /** Returns this ArtMesh's stable identity within the model. */
