@@ -15,9 +15,8 @@ import java.util.Set;
  * capability: registering an observer on the undo manager reads history state and performs no
  * model mutation, so no new capability is admitted.</p>
  *
- * <p>The selectors are admitted for the reviewed 5.2.03 and 5.3.02 records only. Exact Cubism
- * 5.3.03 keeps the native semantic-history ingress deliberately absent until that version has
- * its own reviewed evidence.</p>
+ * <p>The selectors are admitted for the reviewed 5.2.03, 5.3.02 and 5.3.03 records: each
+ * record's selectors were verified directly against that version's reviewed artifact.</p>
  */
 public final class EditorHistoryIngressSelectorContract {
 

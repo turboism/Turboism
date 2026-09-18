@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** One Cubism Part. */
-@CubismEditor({"5.2.03", "5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface Part extends PartAppearanceAccess {
 
     /** Returns this Part's stable identity within the model. */

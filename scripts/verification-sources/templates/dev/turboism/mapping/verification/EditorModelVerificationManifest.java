@@ -784,9 +784,7 @@ public final class EditorModelVerificationManifest {
     }
 
     static Set<String> cubism5303Capabilities() {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
-        values.remove(EditorHistorySemanticSelectorContract.CAPABILITY_ID);
-        return Set.copyOf(values);
+        return CAPABILITY_IDS;
     }
 
     private static final Set<String> CUBISM_5303_ONLY_ALIASES = Set.of(
@@ -810,8 +808,6 @@ public final class EditorModelVerificationManifest {
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
     public static Set<String> cubism5303StaticAliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
-        values.removeIf(alias -> alias.startsWith("cubism.editor-history.semantic."));
-        values.removeAll(EditorHistoryIngressSelectorContract.REQUIRED_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.modeling-document.last-active-view",
@@ -832,9 +828,10 @@ public final class EditorModelVerificationManifest {
     /**
      * Returns the mature Editor runtime scope for exact Cubism 5.3.03.
      *
-     * <p>The native semantic-history capability and aliases remain deliberately absent until
-     * exact-host evidence for that version is reviewed. Other 5.3.03-only helper aliases remain
-     * recorded but are not required by mature feature contracts.</p>
+     * <p>The native semantic-history capability and aliases are admitted from the reviewed
+     * 5.3.03 record, whose selectors were verified directly against the reviewed artifact.
+     * Other 5.3.03-only helper aliases remain recorded but are not required by mature feature
+     * contracts.</p>
      */
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         return new PinnedVerifiedResolverWorkflow.RuntimeScope(
