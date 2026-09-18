@@ -47,6 +47,10 @@ final class ClipMaskReplacementTest {
             () -> new ClipMaskReplacement(
                 new ArtMeshId("Target"), List.of(new ArtMeshId("Mask")), false, List.of(), false
             ));
+        assertThrows(IllegalArgumentException.class,
+            () -> new ClipMaskReplacement(
+                new ArtMeshId("Target"), List.of(), false, List.of(), false
+            ));
     }
 
     @Test
