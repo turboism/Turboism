@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-history-primary-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
+  echo "usage: run-history-primary-validation.sh <5203|5302|5303> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"

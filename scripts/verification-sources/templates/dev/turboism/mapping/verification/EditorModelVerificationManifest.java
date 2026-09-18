@@ -919,6 +919,78 @@ public final class EditorModelVerificationManifest {
     }
 
     /**
+     * Task-scoped candidate used only to obtain exact-host evidence for the native
+     * semantic-history read families on exact Cubism 5.3.03: the reviewed manager/entry reads,
+     * the semantic decoders (group, property, simple, list, add-remove, part membership and the
+     * form families), the native move routing, and the undo-state listener ingress. No 5.3.03
+     * write capability is admitted by this scope.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303SemanticHistoryValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(
+                    EditorHistoryReadSelectorContract.CAPABILITY_ID,
+                    EditorHistorySemanticSelectorContract.CAPABILITY_ID,
+                    EditorHistoryMoveSelectorContract.CAPABILITY_ID
+                )
+            ),
+            union(
+                cubism5303ReadAliases(),
+                union(
+                    EditorHistoryReadSelectorContract.REQUIRED_ALIASES,
+                    union(
+                        EditorHistoryMoveSelectorContract.REQUIRED_ALIASES,
+                        union(
+                            EditorHistoryIngressSelectorContract.REQUIRED_ALIASES,
+                            union(
+                                EditorHistorySemanticSelectorContract.GROUP_REQUIRED_ALIASES,
+                                union(
+                                    EditorHistorySemanticSelectorContract.PROPERTY_REQUIRED_ALIASES,
+                                    union(
+                                        EditorHistorySemanticSelectorContract.SIMPLE_REQUIRED_ALIASES,
+                                        union(
+                                            EditorHistorySemanticSelectorContract.LIST_REQUIRED_ALIASES,
+                                            union(
+                                                EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES,
+                                                union(
+                                                    EditorHistorySemanticSelectorContract.WARP_FORM_REQUIRED_ALIASES,
+                                                    union(
+                                                        EditorHistorySemanticSelectorContract.ROTATION_FORM_REQUIRED_ALIASES,
+                                                        union(
+                                                            EditorHistorySemanticSelectorContract.ADD_REMOVE_REQUIRED_ALIASES,
+                                                            union(
+                                                                EditorHistorySemanticSelectorContract.ADD_REMOVE_PARAMETER_REQUIRED_ALIASES,
+                                                                union(
+                                                                    EditorHistorySemanticSelectorContract.ADD_REMOVE_PART_REQUIRED_ALIASES,
+                                                                    union(
+                                                                        EditorHistorySemanticSelectorContract.ADD_REMOVE_DRAWABLE_REQUIRED_ALIASES,
+                                                                        union(
+                                                                            EditorHistorySemanticSelectorContract.ADD_REMOVE_DEFORMER_REQUIRED_ALIASES,
+                                                                            union(
+                                                                                EditorHistorySemanticSelectorContract.ADD_REMOVE_PARAMETER_GROUP_REQUIRED_ALIASES,
+                                                                                EditorHistorySemanticSelectorContract.PART_MEMBERSHIP_REQUIRED_ALIASES
+                                                                            )
+                                                                        )
+                                                                    )
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+    }
+
+    /**
      * Task-scoped candidate used only to obtain exact-host evidence for one parameter value write
      * plus native Undo/Redo and final restoration. Every other 5.3.03 write stays excluded.
      */
