@@ -42,7 +42,7 @@ import java.util.function.BiFunction;
  */
 final class InlineLabelCheckBox extends JCheckBox {
     static final int LOGICAL_ICON_SIZE = 16;
-    private static final int ICON_GAP = 5;
+    private static final int ICON_GAP = 2;
     private static final int MAX_NATURAL_WIDTH = 640;
     private static final char ICON_PLACEHOLDER = '\uFFFC';
 
