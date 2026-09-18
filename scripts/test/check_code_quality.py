@@ -33,6 +33,10 @@ PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
     "bootstrap/src/main/java",
+    # Generated verification manifests/contracts are authored as templates here;
+    # scanning them keeps Javadoc and naming coverage on the production source
+    # of truth instead of the byte-identical build output.
+    "scripts/verification-sources/templates",
 )
 PLUGIN_ROOT = "plugins"
 
