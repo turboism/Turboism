@@ -1541,19 +1541,19 @@ run_remote_hook() {
   hook_log="$(safe_label "$(basename "$hook")")"
   if [ "$hook" = "$remote_pre_launch" ] && [ "$remote_pre_launch_background" = 1 ]; then
     if [ "$remote_pre_launch_args_only" = 1 ]; then
-      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}" \
+      DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}" \
         > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
     else
-      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}" \
+      DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}" \
         > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
     fi
     background_hook_started=1
     printf '%s\n' "$!" > "$evidence_dir/background-hook.pid"
     record_owned_process_identity "$!" background-hook
   elif [ "$remote_pre_launch_args_only" = 1 ] && [ "$hook" = "$remote_pre_launch" ]; then
-    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}"
+    DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}"
   else
-    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"
+    DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"
   fi
   if [ "$hook" = "$remote_pre_cleanup" ]; then
     pre_cleanup_hook_done=1
@@ -1909,7 +1909,35 @@ set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
 cd "$task_dir" || exit 1
-"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
+# Under the niri scrolling compositor the launcher's own cmd.exe console becomes a
+# column beside the editor. Columns tile across the viewport, so the editor's AWT
+# coordinates (origin 0,0) only line up with real screen pixels when the editor is the
+# leftmost visible column — otherwise every Robot press lands on the console window.
+# Keep the editor column focused and pinned to the start of its workspace.
+(
+  for _ in \$(seq 1 600); do
+    niri msg -j windows 2>/dev/null | python3 -c '
+import json, subprocess, sys
+task = sys.argv[1]
+try:
+    windows = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for w in windows:
+    title = w.get("title") or ""
+    if task + ".cmo3" in title:
+        if not w.get("is_focused"):
+            subprocess.run(
+                ["niri", "msg", "action", "focus-window", "--id", str(w["id"])],
+                capture_output=True)
+        subprocess.run(
+            ["niri", "msg", "action", "move-column-to-first"],
+            capture_output=True)
+' "$task_id"
+    sleep 2
+  done
+) &
+"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" --debug "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
 rc=\$?
 printf '%s\\n' "\$rc" > "$evidence_dir/wrapper.exit"
 exit "\$rc"

@@ -11,6 +11,7 @@ import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteS
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
@@ -533,6 +534,10 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.manager.position",
         "cubism.editor-history.manager.can-undo",
         "cubism.editor-history.manager.can-redo",
+        "cubism.editor-history.manager.undo-state-listener",
+        "cubism.editor-history.manager.undo-state-listener-remove",
+        "cubism.editor-history.undo-state-listener.class",
+        "cubism.editor-history.edit-mode.begin",
         "cubism.editor-history.entry.class",
         "cubism.editor-history.entry.presentation-name",
         "cubism.editor-history.entry.significant",
@@ -555,6 +560,9 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.semantic.list.redo",
         "cubism.editor-history.semantic.art-mesh-form.class",
         "cubism.editor-history.semantic.art-mesh-form.source",
+        "cubism.editor-history.semantic.warp-form.class",
+        "cubism.editor-history.semantic.rotation-form.class",
+        "cubism.editor-history.semantic.deformer-form.source",
         "cubism.editor-history.semantic.form.guid",
         "cubism.editor-history.semantic.keyform-grid.forms-for-guid",
         "cubism.editor-history.semantic.keyform-on-grid.class",
@@ -579,6 +587,11 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.semantic.add-remove.deformer.item",
         "cubism.editor-history.semantic.add-remove.parameter-group.class",
         "cubism.editor-history.semantic.add-remove.parameter-group.item",
+        "cubism.editor-history.semantic.part-membership.class",
+        "cubism.editor-history.semantic.part-membership.part",
+        "cubism.editor-history.semantic.part-membership.child",
+        "cubism.editor-history.semantic.part-membership.index",
+        "cubism.editor-history.semantic.part-membership.is-add",
         "object-context-menu.parameter.group-row.class",
         "object-context-menu.parameter.group-row.source",
         "object-context-menu.parameter.row-parameters",
@@ -798,6 +811,7 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism5303StaticAliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeIf(alias -> alias.startsWith("cubism.editor-history.semantic."));
+        values.removeAll(EditorHistoryIngressSelectorContract.REQUIRED_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.modeling-document.last-active-view",

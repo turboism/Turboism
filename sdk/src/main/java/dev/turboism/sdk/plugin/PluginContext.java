@@ -260,6 +260,11 @@ public interface PluginContext {
         throw new UnsupportedOperationException("uiHost service is not available");
     }
 
+    /** Declarative native icon references; unavailable until a verified provider is installed. */
+    default dev.turboism.sdk.ui.resource.UiResourceService uiResources() {
+        return dev.turboism.sdk.ui.resource.UiResourceService.unavailable();
+    }
+
     /** Returns the host dialog automation service. */
     default HostDialogAutomationService hostDialogs() {
         throw new UnsupportedOperationException("host dialog automation service is not available");

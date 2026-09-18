@@ -1,8 +1,13 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
 import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEditContext;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
@@ -76,6 +81,73 @@ final class EditorAuthoringTransactionCoordinatorTest {
     }
 
     @Test
+    void relationReadbackFailurePreservesBeforeAndMarksAfterUnknown() {
+        final BindingFixture fixture = new BindingFixture();
+        fixture.coordinator.mutate(
+            fixture.binding,
+            relationContribution("test.relation.failure", "Child", "A", "B")
+                .withCaptureAfter(() -> { throw new IllegalStateException("relation unavailable"); })
+        );
+
+        final HistoryChange change = fixture.host.lastSemanticDetail.orElseThrow().changes().get(0);
+        final HistoryRelationChange relation = change.relation().orElseThrow();
+        assertEquals(HistoryRelationChange.Kind.PART_MEMBERSHIP, relation.kind());
+        assertEquals("A", relation.before().target().orElseThrow().id().orElseThrow());
+        assertEquals(HistoryRelationChange.State.UNKNOWN, relation.after().state());
+        assertEquals(Optional.empty(), relation.after().target());
+        assertEquals(HistoryAction.DetailLevel.PARTIAL,
+            fixture.host.lastSemanticDetail.orElseThrow().detailLevel());
+    }
+
+    @Test
+    void relationReadbackMayReplaceOnlyTheActualAfterEndpoint() {
+        final BindingFixture fixture = new BindingFixture();
+        fixture.coordinator.mutate(
+            fixture.binding,
+            relationContribution("test.relation.readback", "Child", "A", "B")
+                .withCaptureAfter(() -> relationDetail("test.relation.readback", "Child", "A", "C"))
+        );
+
+        final HistoryRelationChange relation = fixture.host.lastSemanticDetail.orElseThrow()
+            .changes().get(0).relation().orElseThrow();
+        assertEquals("A", relation.before().target().orElseThrow().id().orElseThrow());
+        assertEquals("C", relation.after().target().orElseThrow().id().orElseThrow());
+    }
+
+    @Test
+    void groupedRelationsPreserveAtoBtoCEndpointsAndDistinctHistoricalTargets() {
+        final BindingFixture fixture = new BindingFixture();
+        final var result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Relation group"),
+            () -> {
+                fixture.coordinator.mutate(
+                    fixture.binding,
+                    relationContribution("test.relation.a-b", "Child at A", "A", "B")
+                );
+                fixture.coordinator.mutate(
+                    fixture.binding,
+                    relationContribution("test.relation.b-c", "Child at B", "B", "C")
+                );
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        final HistoryEntryDetail detail = fixture.host.lastSemanticDetail.orElseThrow();
+        assertEquals(List.of("Child at A", "Child at B"), detail.targets().stream()
+            .map(target -> target.displayName().orElseThrow()).toList());
+        final List<HistoryEntryDetail> children = detail.group().orElseThrow().children();
+        assertEquals(2, children.size());
+        final HistoryRelationChange first = children.get(0).changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange second = children.get(1).changes().get(0).relation().orElseThrow();
+        assertEquals("A", first.before().target().orElseThrow().id().orElseThrow());
+        assertEquals("B", first.after().target().orElseThrow().id().orElseThrow());
+        assertEquals("B", second.before().target().orElseThrow().id().orElseThrow());
+        assertEquals("C", second.after().target().orElseThrow().id().orElseThrow());
+    }
+
+    @Test
     void preparedIdentityMustActuallyAppearInCommittedHistory() {
         final BindingFixture fixture = new BindingFixture();
         fixture.host.preparedId = Optional.of("not-in-history");
@@ -103,6 +175,78 @@ final class EditorAuthoringTransactionCoordinatorTest {
             List.of(new dev.turboism.sdk.cubism.history.HistoryTarget("PARAMETER", Optional.of("ParamX"), Optional.empty())),
             List.of(dev.turboism.sdk.cubism.history.HistoryChange.set(0, "value", Integer.toString(before), Integer.toString(after))),
             Optional.empty(), Optional.empty());
+    }
+
+    private static EditorUndoContribution relationContribution(
+        final String operationId,
+        final String childName,
+        final String beforeId,
+        final String afterId
+    ) {
+        return new EditorUndoContribution(
+            operationId,
+            "same-child-identity",
+            "Relation " + operationId,
+            (edit, label) -> { },
+            () -> { },
+            () -> true,
+            () -> { },
+            () -> true,
+            Set.of(),
+            relationDetail(operationId, childName, beforeId, afterId)
+        );
+    }
+
+    private static HistoryEntryDetail relationDetail(
+        final String operationId,
+        final String childName,
+        final String beforeId,
+        final String afterId
+    ) {
+        final HistoryTarget child = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("ChildId"),
+            Optional.of(childName)
+        );
+        final HistoryTarget before = new HistoryTarget(
+            "PART",
+            Optional.of(beforeId),
+            Optional.of("Part " + beforeId)
+        );
+        final HistoryTarget after = new HistoryTarget(
+            "PART",
+            Optional.of(afterId),
+            Optional.of("Part " + afterId)
+        );
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(before)
+            ),
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(after)
+            )
+        );
+        final HistoryChange change = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        );
+        return new HistoryEntryDetail(
+            "Relation " + beforeId + " to " + afterId,
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.turboism("plugin.test", operationId),
+            List.of(child),
+            List.of(change),
+            Optional.empty(),
+            Optional.empty()
+        );
     }
 
     @Test

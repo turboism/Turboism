@@ -271,6 +271,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Adopted the reviewed SDK v9 exact release baseline and demoted v8 to a historical audit. The anchor adds one presentation field: `CubismOperationEvent` gained an optional `label` so an observed native Cubism Editor edit can carry the localizable native edit name. The component is appended after `subjectId` and is explicitly not an identity. **Plugin API migration may be required:** a plugin that constructs `CubismOperationEvent` directly must pass the new fifth component; see the [SDK v9 review](sdk/api-contracts/sdk-api-v9-review.md).
+- Adopted the reviewed SDK v8 exact release baseline and demoted v7 to a historical audit. The anchor captures the captured-semantic-timeline and UI surface that the v7 gate never recorded plus four new `CubismOperation` identities for native editor edits (`SET_HIERARCHY_PARENT`, `DETACH_HIERARCHY_PARENT`, `MOVE_DRAWABLE`, `SET_DRAWABLE_COLOR`, appended so no existing constant ordinal moves). **Plugin API migration may be required:** the `HistoryEntry`, `RuntimeSettings` and `PanelView.Toggle` constructors changed; see the [SDK v8 review](sdk/api-contracts/sdk-api-v8-review.md).
 - Split product releases into read-only candidate builds and explicit protected GitHub promotion. Failed candidate attempts reuse the intended version; only promotion creates the official annotated tag and publishes the verified bytes without rebuilding.
 - Adopted the reviewed SDK v8 current-page texture layout contract.
 - Added four-language project and installation documentation and task-contained local host validation supervision.
