@@ -441,6 +441,30 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "background/args-only"):
             self.prepared.capture({**self.request, "argv": ["--remote-pre-launch", str(fps)]}, self.source, "fps:5302")
 
+    def test_reviewed_pointer_observer_hook_is_admitted_with_full_protocol(self) -> None:
+        observer = self.preview / "history-pointer-observer.py"
+        observer.write_text("# reviewed read-only pointer collector fixture\n")
+        argv = ["--remote-pre-launch", str(observer),
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+                "--remote-pre-launch-arg", "--task-id", "--remote-pre-launch-arg", "{TASK_ID}"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "test:5302")
+        staged = [entry["path"] for entry in prepared["sourceInputs"]]
+        self.assertTrue(any(path.endswith("history-pointer-observer.py") for path in staged))
+
+    def test_pointer_observer_hook_requires_task_id_protocol(self) -> None:
+        observer = self.preview / "history-pointer-observer.py"
+        observer.write_text("# reviewed read-only pointer collector fixture\n")
+        with self.assertRaisesRegex(queue.QueueError, "task-id protocol"):
+            self.prepared.capture({**self.request, "argv": [
+                "--remote-pre-launch", str(observer),
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only"]},
+                self.source, "test:5302")
+        with self.assertRaisesRegex(queue.QueueError, "task-id protocol"):
+            self.prepared.capture({**self.request, "argv": [
+                "--remote-pre-launch", str(observer),
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+                "--remote-pre-launch-arg", "{TASK_ID}"]}, self.source, "test:5302")
+
     def test_real_runner_prepare_snapshot_and_replay_are_host_side_effect_free(self) -> None:
         tools = Path(__file__).resolve().parents[1] / "preview"
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",

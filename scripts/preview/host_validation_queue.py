@@ -340,6 +340,14 @@ INPUT_FLAGS = frozenset({"--bundle-root", "--agent", "--home-config", "--fixture
     "--fixture-host", "--fixture-remote", "--remote-pre-launch", "--remote-post-launch",
     "--remote-pre-cleanup"})
 COMPOSITE_FLAGS = frozenset({"--plugin", "--aux-agent", "--home-file", "--home-dir", "--client-script"})
+# Pre-launch hooks admitted by exact reviewed path; values are (protocol message, extra required argv tokens).
+REVIEWED_PRE_LAUNCH_HOOKS = {
+    "scripts/preview/fps-resize-driver.sh":
+        ("FPS hook requires its reviewed background/args-only protocol", ()),
+    "scripts/preview/history-pointer-observer.py":
+        ("pointer hook requires its reviewed background/args-only task-id protocol",
+         ("--task-id",)),
+}
 BOOLEAN_FLAGS = frozenset({"--require-fixture-unchanged", "--keep-prefix",
     "--remote-pre-launch-background", "--remote-pre-launch-args-only"})
 VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-name",
@@ -508,13 +516,23 @@ class PreparedStore:
                     source = Path(source_value)
                     if not source.is_absolute():
                         raise QueueError("normalized inputs must be absolute paths")
-                    # Only the catalogue FPS driver has an enumerated hook closure.
+                    # Only enumerated hooks with a reviewed closure are admitted.
                     # A script's location in scripts/preview is not an approval.
                     if flag in {"--remote-pre-launch", "--remote-post-launch", "--remote-pre-cleanup"}:
-                        if flag != "--remote-pre-launch" or source != source_root / "scripts/preview/fps-resize-driver.sh":
+                        reviewed_hook = None
+                        if flag == "--remote-pre-launch":
+                            try:
+                                reviewed_hook = REVIEWED_PRE_LAUNCH_HOOKS.get(
+                                    source.relative_to(source_root).as_posix())
+                            except ValueError:
+                                reviewed_hook = None
+                        if reviewed_hook is None:
                             raise QueueError("custom hook requires reviewed dependency inventory")
-                        if not {"--remote-pre-launch-background", "--remote-pre-launch-args-only"}.issubset(argv):
-                            raise QueueError("FPS hook requires its reviewed background/args-only protocol")
+                        protocol_message, extra_tokens = reviewed_hook
+                        required_tokens = {"--remote-pre-launch-background", "--remote-pre-launch-args-only",
+                                           *extra_tokens}
+                        if not required_tokens.issubset(argv):
+                            raise QueueError(protocol_message)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
                     source_inputs.append({"source": str(source), "path": relative.as_posix(),
