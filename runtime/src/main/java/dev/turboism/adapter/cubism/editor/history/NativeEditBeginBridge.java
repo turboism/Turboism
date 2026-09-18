@@ -37,6 +37,7 @@ public final class NativeEditBeginBridge {
     /** Receives one observed native edit start, off the host stack. */
     @FunctionalInterface
     public interface BeforeSink {
+        /** Receives the native edit's label (possibly empty); longest label wins. */
         void nativeEditStarted(Optional<String> label);
     }
 
