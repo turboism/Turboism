@@ -291,6 +291,29 @@ exit, and task-owned cleanup — see `README-host-validation-scheduling.md` for
 recovery/quarantine semantics. A PASS is a per-feature exact-host gate; it is
 never implied by the scheduler's own tests.
 
+### Timing knobs for large fixtures
+
+Opening a large fixture project under Proton can take several minutes, so the
+validation harness exposes timing overrides. Defaults keep small-fixture runs
+unchanged:
+
+- `FPS_WINDOW_WAIT_SECONDS` (environment, `fps-resize-driver.sh`): seconds to
+  wait for the visible project-titled window of the exact JVM before giving up
+  (default 600). Iterations are one-second sleeps, so the name is the unit.
+- `-Dturboism.validation.fps.hostReadySeconds=<s>` (FpsHostValidationPlugin):
+  host-READY settle timeout in seconds (default 180).
+- `-Dturboism.validation.fps.settleSeconds=<s>` and
+  `-Dturboism.validation.fps.sustained=<true|false>` (FpsHostValidationPlugin):
+  pre-sample settle window and sustained-jank sampling mode.
+- `-Dturboism.validation.resource.zoomIterations=<n>` (NativeResourceHostAgent):
+  zoom stress-loop length (default 60); the actual value is recorded into the
+  result properties as `zoom.iterations`.
+
+Malformed whole-second overrides fall back to their defaults with a warning
+instead of aborting plugin loading; set them via the task entry in
+`host-validation-tasks.json` (`-D...` JVM flags) or the environment for shell
+drivers.
+
 ## 10. Verification ladder and release checks
 
 Per `ARCHITECTURE.md` §11, run only what the change justifies:

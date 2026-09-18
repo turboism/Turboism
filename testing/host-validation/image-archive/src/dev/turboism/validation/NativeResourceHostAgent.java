@@ -233,7 +233,9 @@ public final class NativeResourceHostAgent {
         observeSoftCache(app, doc, view, frame, "idle");
         phase("zoom.begin");
         try {
-            for (int index = 0; index < 60; index++) {
+            int zoomIterations = Integer.getInteger("turboism.validation.resource.zoomIterations", 60);
+            RESULT.setProperty("zoom.iterations", Integer.toString(zoomIterations));
+            for (int index = 0; index < zoomIterations; index++) {
                 require(!aborted, "observer aborted; no further native actions allowed");
                 String command = index % 2 == 0 ? "command_zoomIn" : "command_zoomOut";
                 float before = (Float) NativeAtlasWorkflow.onEdt(() -> {

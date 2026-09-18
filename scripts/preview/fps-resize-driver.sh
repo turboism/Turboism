@@ -71,9 +71,11 @@ fps_resize_main() {
   local start_ticks_before
   start_ticks_before=$(awk '{print $22}' "/proc/$pid/stat")
 
-  # 2. Wait for the visible project-titled window of that exact JVM.
+  # 2. Wait for the visible project-titled window of that exact JVM. Large
+  #    fixtures can take several minutes to open under Proton, so the window
+  #    wait must cover document load, not just JVM start.
   local win="" c t
-  for _ in $(seq 1 120); do
+  for _ in $(seq 1 "${FPS_WINDOW_WAIT_SECONDS:-600}"); do
     while read -r c; do
       t=$(xdotool getwindowname "$c" 2>/dev/null || true)
       case "$t" in
