@@ -351,15 +351,31 @@ final class CanvasWheelWorkload {
     }
 
     private String verifyUniformPixelsAtState(String stateName, StringBuilder report) throws Exception {
-        onEdt(() -> { setTrialFactor(false); return null; });
-        FrameReadback nativeBefore = captureNativeFrame();
-        FrameReadback nativeRepeat = captureNativeFrame();
-        onEdt(() -> { setTrialFactor(true); return null; });
-        FrameReadback cached = captureNativeFrame();
-        onEdt(() -> { setTrialFactor(false); return null; });
-        FrameReadback nativeAfter = captureNativeFrame();
+        final FrameReadback nativeBefore, nativeRepeat, cached, nativeAfter;
+        if (narrowTrial != null) {
+            // Keep hover/action events out of the four same-state controls. Paint
+            // synchronously here, never queue a nested EDT wait or change timing.
+            List<FrameReadback> captures = NativeParitySequence.capture(enabled -> {
+                setTrialFactor(enabled);
+                return narrowTrial.capture(canvas);
+            });
+            nativeBefore = captures.get(0);
+            nativeRepeat = captures.get(1);
+            cached = captures.get(2);
+            nativeAfter = captures.get(3);
+        } else {
+            // The legacy GL-proxy path requires asynchronous readback completion.
+            onEdt(() -> { setTrialFactor(false); return null; });
+            nativeBefore = captureNativeFrame();
+            nativeRepeat = captureNativeFrame();
+            onEdt(() -> { setTrialFactor(true); return null; });
+            cached = captureNativeFrame();
+            onEdt(() -> { setTrialFactor(false); return null; });
+            nativeAfter = captureNativeFrame();
+        }
         String key = "uniformCache.parity." + stateName + ".";
-        report.append(key).append("nativeBefore=").append(nativeBefore.digest()).append('\n')
+        report.append(key).append("atomicEdt=").append(narrowTrial != null).append('\n')
+            .append(key).append("nativeBefore=").append(nativeBefore.digest()).append('\n')
             .append(key).append("nativeRepeat=").append(nativeRepeat.digest()).append('\n')
             .append(key).append("cached=").append(cached.digest()).append('\n')
             .append(key).append("nativeAfter=").append(nativeAfter.digest()).append('\n')
