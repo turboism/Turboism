@@ -116,7 +116,7 @@ class VerifiedTextureAtlasDataModelHookInstallerTest {
             instrumentation(new ArrayList<>()),
             resolver(
                 "5.3.03",
-                VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 Set.of(VerifiedTextureAtlasDataModelHookInstaller.CAPABILITY_ID)
             ),
             Target.class.getClassLoader(),
@@ -127,7 +127,7 @@ class VerifiedTextureAtlasDataModelHookInstallerTest {
     private VerifiedMemberResolver resolver(final Set<String> capabilities) {
         return resolver(
             "5.3.02",
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
             capabilities
         );
     }

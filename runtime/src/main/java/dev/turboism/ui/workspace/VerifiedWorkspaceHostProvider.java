@@ -5,13 +5,16 @@ import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
 
-final class Cubism53WorkspaceHostProvider implements WorkspaceHostProvider {
+/**
+ * Workspace host provider admitted by exact-version data in {@link WorkspaceControlAdmission}
+ * rather than by a version-bearing type name.
+ */
+final class VerifiedWorkspaceHostProvider implements WorkspaceHostProvider {
     private final WorkspaceReflectionEngine engine;
 
-    Cubism53WorkspaceHostProvider(final VerifiedMemberResolver resolver) {
-        if (!WorkspaceControlAdmission.authorizes5302(resolver)
-            && !WorkspaceControlAdmission.authorizes5303(resolver)) {
-            throw new IllegalArgumentException("resolver is not admitted for exact Cubism 5.3 workspace control");
+    VerifiedWorkspaceHostProvider(final VerifiedMemberResolver resolver) {
+        if (!WorkspaceControlAdmission.authorizes(resolver)) {
+            throw new IllegalArgumentException("resolver is not admitted for exact Cubism workspace control");
         }
         engine = new WorkspaceReflectionEngine(resolver);
     }

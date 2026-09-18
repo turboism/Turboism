@@ -13,7 +13,7 @@ import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorCon
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
@@ -34,10 +34,10 @@ import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelec
 import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacityReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
@@ -231,19 +231,19 @@ public final class EditorModelVerificationManifest {
     private static final Set<String> TEXTURE_ATLAS_ALIASES =
         union(
             union(
-                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES,
+                dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.REQUIRED_ALIASES,
                 union(
                     union(
                         union(
-                            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES,
+                            dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.HOOK_ALIASES,
                             union(
-                                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                                dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                                dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
                             )
                         ),
-                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
                     ),
-                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.STATISTICS_ALIASES
                 )
             ),
             STRUCTURE_ALIASES
@@ -251,16 +251,16 @@ public final class EditorModelVerificationManifest {
 
     private static final Set<String> TEXTURE_ATLAS_ALIASES_52 =
         union(
-            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES,
+            dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.REQUIRED_ALIASES,
             union(
                 union(
-                    dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.HOOK_ALIASES,
+                    dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.HOOK_ALIASES,
                     union(
-                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                        dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                        dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
                     )
                 ),
-                dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+                dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
             )
         )
     ;
@@ -848,7 +848,7 @@ public final class EditorModelVerificationManifest {
             TextureAtlasVerificationManifest.admits5303PersistenceValidationCandidate();
         final Set<String> capabilities = union(Set.of(
             dev.turboism.adapter.cubism.textureatlas
-                .VerifiedCubism5303TextureAtlasSelectorContract.CAPABILITY_ID,
+                .VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
             "cubism.texture-atlas.data-model-hook",
             "cubism.texture-atlas.auto-layout-hook",
             "cubism.texture-atlas.native-layout-invocation",
@@ -856,22 +856,22 @@ public final class EditorModelVerificationManifest {
         ), persistence ? Set.of(EditorHistoryMoveSelectorContract.CAPABILITY_ID) : Set.of());
         final Set<String> aliases = union(
             dev.turboism.adapter.cubism.textureatlas
-                .VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES,
+                .VerifiedTextureAtlasSelectorContract.REQUIRED_ALIASES,
             union(
                 dev.turboism.adapter.cubism.textureatlas
-                    .VerifiedCubism5303TextureAtlasSelectorContract.HOOK_ALIASES,
+                    .VerifiedTextureAtlasSelectorContract.HOOK_ALIASES,
                 union(
                     dev.turboism.adapter.cubism.textureatlas
-                        .VerifiedCubism5303TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                        .VerifiedTextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
                     union(
                         dev.turboism.adapter.cubism.textureatlas
-                            .VerifiedCubism5303TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES,
+                            .VerifiedTextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES,
                         union(
                             dev.turboism.adapter.cubism.textureatlas
-                                .VerifiedCubism5303TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES,
+                                .VerifiedTextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES,
                             union(
                                 dev.turboism.adapter.cubism.textureatlas
-                                    .VerifiedCubism5303TextureAtlasSelectorContract.STATISTICS_ALIASES,
+                                    .VerifiedTextureAtlasSelectorContract.STATISTICS_ALIASES,
                                 persistence
                                     ? EditorHistoryMoveSelectorContract.REQUIRED_ALIASES
                                     : Set.of()
@@ -1458,11 +1458,11 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism52Capabilities() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
-        values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
+        values.add(EditorPartOpacityReadSelectorContract.CAPABILITY_ID);
         values.remove(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
-        values.add(EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID);
+        values.add(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID);
         values.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
-        values.add(EditorPartInspector52SelectorContract.CAPABILITY_ID);
+        values.add(EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -1492,12 +1492,12 @@ public final class EditorModelVerificationManifest {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
-        values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
+        values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
-        values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorPartOpacityReadSelectorContract.REQUIRED_ALIASES);
         values.removeAll(PART_INSPECTOR_5302_ONLY_ALIASES);
-        values.addAll(EditorPartInspector52SelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorPartInspectorIdWriteSelectorContract.REQUIRED_ALIASES);
         values.addAll(PART_NAME_ADDITIVE_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.model-source.update-instances",
@@ -1510,7 +1510,7 @@ public final class EditorModelVerificationManifest {
         values.addAll(EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
         values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
-        values.addAll(EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         return Set.copyOf(values);
     }

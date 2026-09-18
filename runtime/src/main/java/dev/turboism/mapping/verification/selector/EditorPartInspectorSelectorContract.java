@@ -9,7 +9,7 @@ import java.util.Set;
  * {@code Parts_wrapperForInspector}, {@code Parts_wrapperForInspector$clippingMaskId$1},
  * {@code Parts_wrapperForInspector$alphaComposition$1} and
  * {@code properties/AlphaCompostionSelectable}; bytecode-verified against the
- * 5.3.02 host JAR. Cubism 5.2 uses {@link EditorPartInspector52SelectorContract}
+ * 5.3.02 host JAR. Cubism 5.2 uses {@link EditorPartInspectorIdWriteSelectorContract}
  * (id write only).
  */
 public final class EditorPartInspectorSelectorContract {

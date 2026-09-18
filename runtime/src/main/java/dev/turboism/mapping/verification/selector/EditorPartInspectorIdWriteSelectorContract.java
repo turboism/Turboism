@@ -3,12 +3,13 @@ package dev.turboism.mapping.verification.selector;
 import java.util.Set;
 
 /**
- * Exact additive selector contract for the Cubism 5.2 Editor Inspector Part
- * {@code id} write. Evidence: 52-src {@code Parts_wrapperForInspector} has only
- * the id entry (no clippingMaskId / alphaComposition / color entries), so those
- * SDK writes fail closed on 5.2.
+ * Exact additive selector contract for the Editor Inspector Part {@code id} write on the host
+ * whose {@link #CUBISM_VERSION} declares the bound version. Evidence: that artifact's
+ * {@code Parts_wrapperForInspector} has only the id entry (no clippingMaskId /
+ * alphaComposition / color entries), so those SDK writes fail closed there; the newer reviewed
+ * artifact authorizes the full family through {@link EditorPartInspectorSelectorContract}.
  */
-public final class EditorPartInspector52SelectorContract {
+public final class EditorPartInspectorIdWriteSelectorContract {
 
     public static final String CUBISM_VERSION = "5.2.03";
     public static final String ADAPTER_SLICE_ID = EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID;
@@ -45,6 +46,6 @@ public final class EditorPartInspector52SelectorContract {
         "cubism.editor-model.complete-pack.repaint-canvas"
     );
 
-    private EditorPartInspector52SelectorContract() {
+    private EditorPartInspectorIdWriteSelectorContract() {
     }
 }

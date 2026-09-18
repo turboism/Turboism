@@ -37,6 +37,8 @@ public final class NativeParameterAppearanceBridge {
      */
     public static void afterParameterFolder(final Object row) { after(row, true); }
 
+    // INSTALLED holds the live bridge; a different instance means the binding was revoked.
+    @SuppressWarnings("ReferenceEquality")
     private static void after(final Object row, final boolean folder) {
         final Installed installed = INSTALLED.get();
         if (installed == null || row == null) return;
@@ -93,7 +95,9 @@ public final class NativeParameterAppearanceBridge {
 
     static void clearForTesting() { uninstall(); }
 
+    // INSTALLED holds the live bridge; a different instance means the binding was revoked.
     /** Replays exact host row widgets supplied by the verified palette-operation selector. */
+    @SuppressWarnings("ReferenceEquality")
     public static void replayExistingRows(final Iterable<?> rows) {
         Objects.requireNonNull(rows, "rows");
         final Runnable replay = () -> {
