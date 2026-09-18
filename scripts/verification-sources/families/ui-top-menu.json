@@ -1,0 +1,16 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "ui-top-menu",
+  "records": [
+    "cubism-5.2.03-ui-top-menu.json",
+    "cubism-5.3.02-ui-top-menu.json",
+    "cubism-5.3.03-ui-top-menu.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/TopMenuVerificationManifest.java"
+  ],
+  "coverage": true,
+  "packs": [],
+  "extraLiterals": [],
+  "coverageSources": []
+}

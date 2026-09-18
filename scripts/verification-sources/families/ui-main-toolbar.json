@@ -1,0 +1,16 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "ui-main-toolbar",
+  "records": [
+    "cubism-5.2.03-ui-main-toolbar.json",
+    "cubism-5.3.02-ui-main-toolbar.json",
+    "cubism-5.3.03-ui-main-toolbar.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/MainToolbarVerificationManifest.java"
+  ],
+  "coverage": true,
+  "packs": [],
+  "extraLiterals": [],
+  "coverageSources": []
+}
