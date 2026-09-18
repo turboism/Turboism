@@ -256,6 +256,73 @@ class HistoryPanelServiceTest {
     }
 
     @Test
+    void aProvenSingleChildRelationRendersTheTypedRelationInsteadOfTheHostLabel() {
+        // r90 human-in-loop evidence: the host recorded an ArtMesh joining a Part as one
+        // grouped move labeled by the host. The row must render the typed relation copy
+        // instead of falling back to the raw host label.
+        final HistoryTarget child = new HistoryTarget(
+            "ART_MESH", Optional.of("art-1"), Optional.of("图形网格"));
+        final HistoryTarget nextParent = new HistoryTarget(
+            "PART", Optional.of("part-1"), Optional.of("PSD剪切蒙版导入测试"));
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(new HistoryTarget("PART", Optional.of("part-0"), Optional.of("杂项")))),
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET, Optional.of(nextParent))
+        );
+        final HistoryChange change = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            context(HistoryEditContext.Kind.OBJECT),
+            Optional.of(relation)
+        );
+        final HistoryEntryDetail childDetail = new HistoryEntryDetail(
+            "Add Part",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(child),
+            List.of(change),
+            Optional.empty(),
+            Optional.empty()
+        );
+        final HistoryEntryDetail groupDetail = new HistoryEntryDetail(
+            "物体的移动",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.empty(), 1, List.of(childDetail), false)),
+            Optional.empty()
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "物体的移动",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("grouped-part-join")),
+            Optional.empty(),
+            groupDetail
+        );
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+
+        final PanelView.Toggle row = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        ).get(0);
+
+        assertNotNull(row.inlineLabel());
+        assertFalse(row.label().contains("物体的移动"), row.label());
+        assertTrue(row.label().contains("图形网格"), row.label());
+        assertTrue(row.label().contains("joins"), row.label());
+        assertTrue(row.label().contains("PSD剪切蒙版导入测试"), row.label());
+    }
+
+    @Test
     void trustedSingleTargetRowsUseClosedIconsAndNeverInferMoveFromVertexPositions() {
         final HistorySnapshot snapshot = available(
             1,
@@ -281,10 +348,11 @@ class HistoryPanelServiceTest {
         assertEquals(CubismIcon.ART_MESH, icon(rows.get(0)).icon().icon());
         assertEquals(CubismIcon.WARP_DEFORMER, icon(rows.get(1)).icon().icon());
         assertEquals(CubismIcon.ROTATION_DEFORMER, icon(rows.get(2)).icon().icon());
-        assertEquals("1 Set vertex positions Artmesh icon <literal>&mesh", rows.get(0).label());
+        assertEquals("1 Artmesh icon <literal>&mesh Vertex move", rows.get(0).label());
         assertEquals("2 Add Warp deformer icon Warp name", rows.get(1).label());
         assertEquals("3 Remove Rotation deformer icon Rotation name", rows.get(2).label());
         assertFalse(rows.get(0).label().contains("Move"), rows.get(0).label());
+        assertFalse(rows.get(0).label().contains("Set vertex positions"), rows.get(0).label());
         assertTrue(rows.get(0).label().contains("<literal>&mesh"), rows.get(0).label());
     }
 
@@ -1545,6 +1613,7 @@ class HistoryPanelServiceTest {
                 case "history.entry.action.add" -> "Add";
                 case "history.entry.action.remove" -> "Remove";
                 case "history.entry.action.move" -> "Move";
+                case "history.entry.action.vertex-move" -> "Vertex move";
                 case "history.icon.art-mesh" -> "Artmesh icon";
                 case "history.icon.warp-deformer" -> "Warp deformer icon";
                 case "history.icon.rotation-deformer" -> "Rotation deformer icon";
