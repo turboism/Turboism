@@ -81,6 +81,17 @@ Deprecated package shapes such as `sdk.cubism.callback`, feature-local
 `DocumentId`, and callback-named plugin work executors are not compatibility
 surfaces and must not be reintroduced.
 
+Several plugins also keep a `b1/` package tree (`b1/domain`, sometimes
+`b1/application`). `b1` marks a legacy-plugin migration wave, not a
+host-adaptation or compatibility surface: `b1/domain` holds pure, deterministic
+behavior and state declarations salvaged from the pre-SDK codebase (value
+objects, enums, reducers), while `b1/application` is reserved for typed config
+and lifecycle orchestration. B1 code may depend only on the JDK,
+`dev.turboism.sdk.*`, and same-plugin classes — never on
+runtime/core/hook/mapping/adapter/preview packages, `com.live2d.*`, or host
+I/O. When a behavior graduates out of the migration wave, move it to a stable
+plugin-owned package name rather than treating `b1` as permanent structure.
+
 ## 3. Public API model
 
 SDK APIs use Turboism-owned types only. They must not expose:
