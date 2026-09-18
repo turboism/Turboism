@@ -42,7 +42,9 @@ import java.util.Map;
 /** Manual-test-only SDK writer that creates and restores Parameter and native Artmesh Undo items. */
 public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
-    private static final long MAX_EVIDENCE_BYTES = WindowsHistoryManagerValidationProbe.MAX_EVIDENCE_BYTES;
+    // The typed-relation semantic entries are substantially larger than the plain history
+    // rows, so the seed probe carries its own budget instead of borrowing the manager probe's.
+    static final long MAX_EVIDENCE_BYTES = 4L * 1024L * 1024L;
     private static final long TERMINAL_RESERVE_BYTES = 2_048L;
     private static final int MAX_PAIRED_SAMPLES = 21;
     private static final String INTERNAL_ROOT_PART = "__RootPart__";
@@ -1385,7 +1387,10 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 append(artifact,
                     "{\"type\":\"paired-snapshot-failure\",\"phase\":\"" + json(phase)
                         + "\",\"errorType\":\"" + json(exception.getClass().getName())
-                        + "\",\"message\":\"" + json(exception.getMessage()) + "\"}\n");
+                        + "\",\"message\":\"" + json(exception.getMessage())
+                        + "\",\"cause\":\"" + json(String.valueOf(exception.getCause()))
+                        + "\",\"causeType\":\"" + json(exception.getCause() == null
+                            ? "none" : exception.getCause().getClass().getName()) + "\"}\n");
             } catch (Exception writeFailure) {
                 throw new IllegalStateException("Could not write paired history failure", writeFailure);
             }
