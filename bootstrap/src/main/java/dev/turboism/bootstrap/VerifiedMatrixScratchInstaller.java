@@ -177,7 +177,14 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                 throw new IllegalStateException("matrix transform was not admitted: " + transformer.failure());
             }
             synchronized (properties) {
-                if (System.getProperties() != properties || properties.get(MatrixScratchTransformer.ADMISSION_PROPERTY) != admission) {
+                // Identity comparison is intentional: the properties table stores this exact
+                // AtomicBoolean instance (see put above), so reference inequality means another
+                // installation claimed the admission slot.
+                @SuppressWarnings("ReferenceEquality")
+                boolean ownershipChanged =
+                    System.getProperties() != properties
+                        || properties.get(MatrixScratchTransformer.ADMISSION_PROPERTY) != admission;
+                if (ownershipChanged) {
                     throw new IllegalStateException("matrix admission ownership changed");
                 }
                 admission.set(true);
