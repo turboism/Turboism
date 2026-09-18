@@ -58,6 +58,8 @@ public final class HistoryPanelService {
     private final UiHostCapabilityService uiHost;
     private final PluginTaskScheduler tasks;
     private final PluginLogger logger;
+    private static final String PROPERTY_VERTEX_POSITIONS = "vertexPositions";
+
     private final PluginLocalization localization;
     private final HistoryRelationLabelFormatter relationLabelFormatter;
     private final Runnable onRefresh;
@@ -240,7 +242,8 @@ public final class HistoryPanelService {
         final boolean grayed = !applied || stableId.isEmpty();
         final String actionId = stableId.map(HistoryPanelService::moveActionId)
             .orElse("history.entry.unavailable." + entry.index());
-        final Optional<UiInlineLabel> richLabel = richInlineLabel(semantic, entry.index(), unavailable);
+        final Optional<UiInlineLabel> richLabel = richInlineLabel(semantic, entry.index(), unavailable)
+            .or(() -> promotedChildRelationLabel(semantic, entry.index(), unavailable));
         if (richLabel.isPresent()) {
             return PanelView.toggle(
                 "history.entry.toggle." + identity,
@@ -284,14 +287,18 @@ public final class HistoryPanelService {
         final HistoryTarget target = detail.targets().get(0);
         final Optional<IconSpec> icon = iconFor(target);
         final Optional<String> displayName = target.displayName().filter(name -> !name.isBlank());
-        final Optional<String> action = richAction(change);
+        final boolean vertexMove = change.operation() == HistoryChange.Operation.SET
+            && change.property().filter(PROPERTY_VERTEX_POSITIONS::equals).isPresent();
+        final Optional<String> action = vertexMove
+            ? Optional.of(localization.text("history.entry.action.vertex-move"))
+            : richAction(change);
         if (icon.isEmpty() || displayName.isEmpty() || action.isEmpty()) {
             return Optional.empty();
         }
 
         final IconSpec iconSpec = icon.orElseThrow();
         final List<UiInlineLabel.Run> runs = new ArrayList<>();
-        if (change.operation() == HistoryChange.Operation.MOVE) {
+        if (change.operation() == HistoryChange.Operation.MOVE || vertexMove) {
             // "N [icon] A 移动": the moved object leads, matching how the action reads.
             appendBoundedTextRuns(runs, (entryIndex + 1) + " ");
             runs.add(UiInlineLabel.iconRun(
@@ -310,6 +317,28 @@ public final class HistoryPanelService {
         }
         appendRichMetadata(runs, detail, unavailable);
         return Optional.of(UiInlineLabel.of(runs));
+    }
+
+    /**
+     * A host group whose own detail carries no direct change can still prove exactly one
+     * child relation (for example a Parts-tree drag the host recorded as one grouped move).
+     * When that single untruncated child carries exactly one relation change, the row renders
+     * the typed relation instead of falling back to the raw host label.
+     */
+    private Optional<UiInlineLabel> promotedChildRelationLabel(
+        final HistoryEntryDetail detail,
+        final int entryIndex,
+        final String unavailable
+    ) {
+        if (detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
+            || !detail.changes().isEmpty()) {
+            return Optional.empty();
+        }
+        return detail.group()
+            .filter(group -> !group.truncated() && group.children().size() == 1)
+            .map(group -> group.children().get(0))
+            .filter(child -> child.changes().size() == 1)
+            .flatMap(child -> richRelationInlineLabel(child, child.changes().get(0), entryIndex, unavailable));
     }
 
     private Optional<UiInlineLabel> richRelationInlineLabel(
