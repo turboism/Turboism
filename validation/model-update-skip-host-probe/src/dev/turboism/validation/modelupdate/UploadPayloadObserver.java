@@ -12,21 +12,24 @@ import java.util.Map;
  * No command is suppressed. Complete requested float/integer payloads are compared
  * by raw bits; caller position, limit and backing storage are never modified.
  *
- * Only GL_ARRAY_BUFFER is tracked: element-buffer bindings are VAO state and need
- * separate validation. Unobserved/shared-context GPU writers are not ruled out, so
+ * ARRAY_BUFFER and explicitly bound ELEMENT_ARRAY_BUFFER payloads are tracked.
+ * VAO changes discard the known element binding until another explicit bind.
+ * Unobserved/shared-context GPU writers are not ruled out, so
  * even identical payloads are only candidates, never proof that an upload is safe
  * to omit. Native GL errors are observed only when the application queries them.
  */
 final class UploadPayloadObserver {
     private static final int ARRAY_BUFFER = 34962;
+    private static final int ELEMENT_ARRAY_BUFFER = 34963;
     private final long maxBytes;
     private final int maxEntries;
     private final Map<Integer, Entry> entries = new LinkedHashMap<>(16, 0.75f, true);
     private Object context;
-    private int binding;
+    private int arrayBinding, elementBinding;
     private long retainedBytes, peakRetainedBytes;
     private long observedCalls, comparableCalls, baselineCalls, changedCalls;
     private long duplicates, duplicateBytes, duplicateDelegateNanos, scanNanos;
+    private long arrayScanNanos, elementScanNanos;
     private long unknownBindings, unsupportedPayloads, unsupportedTargets;
     private long evictions, invalidations, observerFailures;
 
@@ -44,6 +47,7 @@ final class UploadPayloadObserver {
         clear();
         observedCalls = comparableCalls = baselineCalls = changedCalls = 0L;
         duplicates = duplicateBytes = duplicateDelegateNanos = scanNanos = 0L;
+        arrayScanNanos = elementScanNanos = 0L;
         unknownBindings = unsupportedPayloads = unsupportedTargets = 0L;
         evictions = invalidations = observerFailures = peakRetainedBytes = 0L;
     }
@@ -53,7 +57,7 @@ final class UploadPayloadObserver {
     private void clear() {
         clearEntries();
         context = null;
-        binding = 0;
+        arrayBinding = elementBinding = 0;
     }
 
     private void clearEntries() {
@@ -74,17 +78,26 @@ final class UploadPayloadObserver {
             context = currentContext;
         }
         if (method.equals("glBindBuffer")) {
-            if (integer(args, 0) == ARRAY_BUFFER) binding = integer(args, 1);
+            if (integer(args, 0) == ARRAY_BUFFER) arrayBinding = integer(args, 1);
+            else if (integer(args, 0) == ELEMENT_ARRAY_BUFFER) elementBinding = integer(args, 1);
+            return false;
+        }
+        if (method.startsWith("glBindVertexArray") || method.startsWith("glDeleteVertexArrays")
+            || method.startsWith("glVertexArrayElementBuffer")) {
+            // Element binding belongs to VAO state. Never infer a previous VAO's
+            // binding or query GL: the next explicit element bind is authoritative.
+            elementBinding = 0;
             return false;
         }
         if (method.equals("glDeleteBuffers")) {
             clearEntries();
-            binding = 0;
+            arrayBinding = elementBinding = 0;
             invalidations++;
             return false;
         }
         if (method.equals("glBufferData") || method.equals("glBufferStorage")) {
-            if (integer(args, 0) == ARRAY_BUFFER) invalidate(binding);
+            if (integer(args, 0) == ARRAY_BUFFER) invalidate(arrayBinding);
+            else if (integer(args, 0) == ELEMENT_ARRAY_BUFFER) invalidate(elementBinding);
             else { clearEntries(); invalidations++; }
             return false;
         }
@@ -99,15 +112,17 @@ final class UploadPayloadObserver {
         }
         if (!method.equals("glBufferSubData")) return false;
         observedCalls++;
-        if (integer(args, 0) != ARRAY_BUFFER) {
+        int target = integer(args, 0);
+        if (target != ARRAY_BUFFER && target != ELEMENT_ARRAY_BUFFER) {
             // This is client-payload observation, not a GPU-state cache. Keep the
-            // last observed ARRAY_BUFFER payload while explicitly counting this gap;
+            // last observed supported payloads while explicitly counting this gap;
             // clearing every vertex observation on each index upload would conceal
             // cross-frame duplicates. No residency or safe-omission claim follows.
             unsupportedTargets++;
             return false;
         }
-        if (context == null || binding == 0) { unknownBindings++; return false; }
+        int binding = target == ARRAY_BUFFER ? arrayBinding : elementBinding;
+        if (context == null || binding <= 0) { unknownBindings++; return false; }
         long offset = number(args, 1), size = number(args, 2);
         Object payload = args != null && args.length > 3 ? args[3] : null;
         if (!(payload instanceof FloatBuffer || payload instanceof IntBuffer)
@@ -154,7 +169,10 @@ final class UploadPayloadObserver {
             peakRetainedBytes = Math.max(peakRetainedBytes, retainedBytes);
             return false;
         } finally {
-            scanNanos += System.nanoTime() - started;
+            long elapsed = System.nanoTime() - started;
+            scanNanos += elapsed;
+            if (target == ARRAY_BUFFER) arrayScanNanos += elapsed;
+            else elementScanNanos += elapsed;
         }
     }
 
@@ -195,7 +213,7 @@ final class UploadPayloadObserver {
             + "uploadPayload.gpuResidencyVerified=false\n"
             + "uploadPayload.completeWriteCoverage=false\n"
             + "uploadPayload.performanceAccepted=false\n"
-            + "uploadPayload.scope=GL_ARRAY_BUFFER-float-int-full-requested-range\n"
+            + "uploadPayload.scope=GL_ARRAY_BUFFER-and-explicit-ELEMENT_ARRAY_BUFFER-full-requested-range\n"
             + "uploadPayload.observedCalls=" + observedCalls + "\n"
             + "uploadPayload.comparableCalls=" + comparableCalls + "\n"
             + "uploadPayload.baselineCalls=" + baselineCalls + "\n"
@@ -204,6 +222,8 @@ final class UploadPayloadObserver {
             + "uploadPayload.exactDuplicateBytes=" + duplicateBytes + "\n"
             + "uploadPayload.duplicateDelegateNanos=" + duplicateDelegateNanos + "\n"
             + "uploadPayload.scanNanos=" + scanNanos + "\n"
+            + "uploadPayload.arrayScanNanos=" + arrayScanNanos + "\n"
+            + "uploadPayload.elementScanNanos=" + elementScanNanos + "\n"
             + "uploadPayload.unknownBindings=" + unknownBindings + "\n"
             + "uploadPayload.unsupportedPayloads=" + unsupportedPayloads + "\n"
             + "uploadPayload.unsupportedTargets=" + unsupportedTargets + "\n"
