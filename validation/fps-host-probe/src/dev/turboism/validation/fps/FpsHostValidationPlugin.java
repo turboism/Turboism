@@ -32,16 +32,37 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class FpsHostValidationPlugin implements TurboismPlugin {
 
     private static final String RESULT = "result.txt";
-    private static final long HOST_READY_TIMEOUT_MILLIS = 180_000L;
+    private static final long HOST_READY_TIMEOUT_MILLIS =
+        secondsProperty("turboism.validation.fps.hostReadySeconds", 180) * 1_000L;
     private static final long SETTLE_STEP_MILLIS = 2_000L;
     private static final long PASS_SETTLE_MILLIS = 2_000L;
     private static final Duration SAMPLE_INTERVAL = Duration.ofSeconds(1);
     private static final int SAMPLING_WINDOW_SECONDS = 90;
     /** Sustained-jank mode: sample the full window and emit the per-interval series. */
     private static final boolean SUSTAINED =
-        Boolean.parseBoolean(System.getProperty("turboism.fps.sustained", "false"));
+        Boolean.parseBoolean(System.getProperty("turboism.validation.fps.sustained", "false"));
     private static final long SETTLE_SECONDS =
-        Long.parseLong(System.getProperty("turboism.fps.settleSeconds", "0"));
+        secondsProperty("turboism.validation.fps.settleSeconds", 0);
+
+    /**
+     * Reads a whole-seconds tuning knob, falling back to {@code fallbackSeconds}
+     * with a warning when the value is unset or malformed, so a bad override
+     * cannot abort plugin loading during static initialization.
+     */
+    private static long secondsProperty(final String name, final long fallbackSeconds) {
+        final String raw = System.getProperty(name);
+        if (raw == null || raw.isBlank()) {
+            return fallbackSeconds;
+        }
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (NumberFormatException ignored) {
+            System.err.println(
+                name + "='" + raw + "' is not a whole number; using " + fallbackSeconds + "s"
+            );
+            return fallbackSeconds;
+        }
+    }
 
     /** Reviewed exact host versions the runtime report may advertise as READY. */
     private static final java.util.List<String> REVIEWED_HOST_VERSIONS =
