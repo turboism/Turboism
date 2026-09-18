@@ -1,6 +1,7 @@
 history.button.tooltip
 history.entry.action.add
 history.entry.action.move
+history.entry.action.vertex-move
 history.entry.action.remove
 history.entry.action.set
 history.entry.affected
