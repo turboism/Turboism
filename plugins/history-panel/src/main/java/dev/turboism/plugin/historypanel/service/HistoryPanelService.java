@@ -205,10 +205,12 @@ public final class HistoryPanelService {
             ));
         }
         final List<PanelView> children = new ArrayList<>();
-        // Top bar carries only the entry count (centered); no undo/redo
-        // buttons, no cursor/availability statistics.
-        children.add(PanelView.textCentered(countLine(snapshot)));
-        children.add(PanelView.separator());
+        // Rows start immediately: no top bar, no undo/redo buttons, no
+        // cursor/availability statistics. An empty document still needs one
+        // child: the panel column requires a non-empty placeholder row.
+        if (snapshot.entries().isEmpty()) {
+            children.add(PanelView.text(localization.text("history.panel.empty")));
+        }
         boolean first = true;
         for (final HistoryEntry entry : snapshot.entries()) {
             // Two-pixel row separator between adjacent entries only; the last
@@ -225,10 +227,6 @@ public final class HistoryPanelService {
         // The whole undo/redo list lives inside a scroll view; rows are
         // compact with no vertical padding between them.
         return PanelView.scroll(PanelView.column(children.toArray(PanelView[]::new)));
-    }
-
-    private String countLine(final HistorySnapshot snapshot) {
-        return localization.format("history.panel.count", snapshot.entries().size());
     }
 
     private PanelView renderEntry(final int cursor, final HistoryEntry entry) {

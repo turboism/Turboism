@@ -71,22 +71,16 @@ class HistoryPanelServiceTest {
         assertTrue(view instanceof PanelView.Scroll, "list must be inside a scroll view");
 
         // The top Scroll -> Column children form the exact node-type sequence for
-        // two entries: centered count text, header separator, entry toggle, row
-        // separator, entry toggle. The last entry has no trailing separator.
+        // two entries: entry toggle, row separator, entry toggle. The last entry
+        // has no trailing separator; there is no count top bar.
         final PanelView.Column column = (PanelView.Column) ((PanelView.Scroll) view).child();
         final List<PanelView> children = column.children();
-        assertEquals(5, children.size(), "children=" + children);
-        assertTrue(children.get(0) instanceof PanelView.Text, "first child is the count text");
-        final PanelView.Text countText = (PanelView.Text) children.get(0);
-        assertTrue(countText.centered(), "count text is centered");
-        assertEquals("Current records: 2", countText.value());
-        assertTrue(children.get(1) instanceof PanelView.Separator, "header separator");
-        assertTrue(children.get(2) instanceof PanelView.Toggle, "first entry toggle");
-        assertTrue(children.get(3) instanceof PanelView.Separator, "row separator between entries");
-        assertTrue(children.get(4) instanceof PanelView.Toggle, "second entry toggle");
+        assertEquals(3, children.size(), "children=" + children);
+        assertTrue(children.get(0) instanceof PanelView.Toggle, "first entry toggle");
+        assertTrue(children.get(1) instanceof PanelView.Separator, "row separator between entries");
+        assertTrue(children.get(2) instanceof PanelView.Toggle, "second entry toggle");
         final String text = flatten(view);
-        // Top bar shows only the entry count; no cursor/availability stats.
-        assertTrue(text.contains("Current records: 2"), text);
+        assertFalse(text.contains("Current records"), "no count top bar");
         assertFalse(text.contains("cursor"), "no cursor statistics");
         assertFalse(text.contains("Set Parameter Value"), "semantic rows do not repeat the raw host label");
         assertTrue(text.contains("Parameter(ParamAngleX) value changed from -4.199999 to 12.599998"), text);
@@ -859,7 +853,6 @@ class HistoryPanelServiceTest {
 
         final PanelView view = service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot);
         final String text = flatten(view);
-        assertTrue(text.contains("Current records: 1"), text);
         assertTrue(text.contains("1 Native Action"), text);
         assertTrue(text.contains("no structured detail"), text);
         final PanelView.Toggle toggle = toggles(view).get(0);
@@ -891,7 +884,7 @@ class HistoryPanelServiceTest {
         history.push(available(2, 1, 1, List.of(new HistoryEntry(0, "Write", true, Optional.empty())), true, false));
         tasks.tick();
         assertEquals(1, uiHost.panels().size());
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("Current records: 1"));
+        assertEquals(1, toggles(uiHost.panels().get(0).content()).size());
 
         // Close is idempotent and closes the accepted handle exactly once.
         registration.close();
@@ -913,7 +906,6 @@ class HistoryPanelServiceTest {
         final Registration registration = service.enable();
 
         assertEquals(1, uiHost.panels().size(), "initial refresh keeps the panel usable");
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("Current records: 0"));
         assertEquals(0, rejecting.handles().size());
         assertTrue(logger.warns().stream().anyMatch(message -> message.contains("poller")),
             "bounded warning logged: " + logger.warns());
@@ -948,13 +940,13 @@ class HistoryPanelServiceTest {
         final Registration registration = service.enable();
 
         assertEquals(1, uiHost.panels().size());
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("Current records: 0"));
+        assertEquals(0, toggles(uiHost.panels().get(0).content()).size());
 
         // A snapshot change is picked up by the next poll tick.
         history.push(available(2, 1, 1, List.of(new HistoryEntry(0, "Write", true, Optional.empty())), true, false));
         tasks.tick();
         assertEquals(1, uiHost.panels().size());
-        assertTrue(flatten(uiHost.panels().get(0).content()).contains("Current records: 1"));
+        assertEquals(1, toggles(uiHost.panels().get(0).content()).size());
 
         registration.close();
         assertEquals(0, uiHost.panels().size());
@@ -1610,6 +1602,7 @@ class HistoryPanelServiceTest {
                 case "history.property.reflect-x" -> "reflect X";
                 case "history.property.reflect-y" -> "reflect Y";
                 case "history.property.translation" -> "translation";
+                case "history.panel.empty" -> "No history yet";
                 case "history.entry.action.add" -> "Add";
                 case "history.entry.action.remove" -> "Remove";
                 case "history.entry.action.move" -> "Move";
@@ -1635,9 +1628,6 @@ class HistoryPanelServiceTest {
 
         @Override
         public String format(final String key, final Object... arguments) {
-            if (key.equals("history.panel.count")) {
-                return "Current records: " + arguments[0];
-            }
             if (key.equals("history.entry.affected")) {
                 return arguments[0] + " affected";
             }
