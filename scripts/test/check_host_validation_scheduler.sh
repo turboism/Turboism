@@ -4,6 +4,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$root"
 python3 scripts/test/test_host_validation_scheduler.py
 python3 scripts/test/test_host_validation_queue.py
+python3 scripts/test/test_host_validation_launch_template.py
 python3 scripts/test/test_host_validation_evidence.py
 python3 scripts/test/test_host_validation_retention.py
 bash scripts/test/test_host_validation_env.sh
