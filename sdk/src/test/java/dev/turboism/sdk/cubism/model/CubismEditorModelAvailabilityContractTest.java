@@ -33,8 +33,8 @@ class CubismEditorModelAvailabilityContractTest {
         );
         assertArrayEquals(ALL_DECLARED, Part.class.getMethod("ui")
             .getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ESTABLISHED, Part.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ESTABLISHED, Drawable.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ALL_DECLARED, Part.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ALL_DECLARED, Drawable.class.getAnnotation(CubismEditor.class).value());
         assertArrayEquals(ESTABLISHED, ModelTextures.class.getAnnotation(CubismEditor.class).value());
         assertArrayEquals(ONLY_5_3_02, AlphaComposition.class.getAnnotation(CubismEditor.class).value());
     }
