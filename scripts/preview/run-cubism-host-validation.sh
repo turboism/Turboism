@@ -44,6 +44,7 @@ Local-only options:
   --display <X display, default :0>
   --proton-wrapper <local executable, default shorin-proton-wrapper>
   --proton-runner <local executable>
+  --graphics-device <inherit|nvidia>   task-local GPU selection before Proton (default inherit)
   --prepare-dir <path>                  write runner-request.json and exit
   --transport local                     accepted compatibility spelling
 
@@ -361,6 +362,7 @@ local_evidence_dir=''
 display=':0'
 proton_wrapper='shorin-proton-wrapper'
 proton_runner="$TURBOISM_HOST_VALIDATION_PROTON_RUNNER"
+graphics_device='inherit'
 prepare_dir=''
 transport="${TURBOISM_HOST_VALIDATION_TRANSPORT:-local}"
 dry_run=0
@@ -421,6 +423,7 @@ while [ "$#" -gt 0 ]; do
     --display) require_value "$@"; display="$2"; shift 2 ;;
     --proton-wrapper) require_value "$@"; proton_wrapper="$2"; shift 2 ;;
     --proton-runner) require_value "$@"; proton_runner="$2"; shift 2 ;;
+    --graphics-device) require_value "$@"; graphics_device="$2"; shift 2 ;;
     --prepare-dir) require_value "$@"; prepare_dir="$2"; shift 2 ;;
     --keep-prefix) keep_prefix=1; shift ;;
     --dry-run) dry_run=1; shift ;;
@@ -429,6 +432,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+case "$graphics_device" in
+  inherit|nvidia) ;;
+  *) fail "--graphics-device must be inherit or nvidia" ;;
+esac
 [ -n "$name" ] || fail "--name is required"
 [ -n "$version" ] || fail "--version is required"
 [ -n "$bundle_root" ] || fail "--bundle-root is required"
@@ -793,6 +800,7 @@ normalized_argv=(
   --golden-prefix "$golden_prefix" --host-root "$host_root"
   --local-evidence-dir "$local_evidence_dir" --display "$display"
   --proton-wrapper "$proton_wrapper" --proton-runner "$proton_runner"
+  --graphics-device "$graphics_device"
   --run-label "$run_label" --agent-timeout "$agent_timeout"
   --agent-host-class "$agent_host_class" --ready-timeout "$ready_timeout"
   --result-timeout "$result_timeout" --exit-timeout "$exit_timeout"
@@ -889,6 +897,7 @@ if [ "$dry_run" = 1 ]; then
     "remotePostLaunch=$remote_post_launch" \
     "remotePreCleanup=$remote_pre_cleanup" \
     "windowsEnvironmentCount=${#windows_environment[@]}" \
+    "graphicsDevice=$graphics_device" \
     "goldenCubism=$golden_cubism" \
     "clonedCubism=$cloned_cubism" \
     "expectedJarSha256=$reviewed_jar_sha256" \
@@ -1922,6 +1931,12 @@ cat > "$local_tmp/launch.sh" <<SH
 set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
+# Select the GLX vendor before Proton/Wine initializes its Unix graphics stack.
+# The fixed enum is validated and snapshotted; inherit makes no environment change.
+if [ "$graphics_device" = nvidia ]; then
+  export __NV_PRIME_RENDER_OFFLOAD=1
+  export __GLX_VENDOR_LIBRARY_NAME=nvidia
+fi
 cd "$task_dir" || exit 1
 focus_pid=''
 cleanup_focus() {
