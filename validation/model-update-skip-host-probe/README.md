@@ -164,6 +164,14 @@ redundant scalar/single-matrix writes; it is not enabled by the location factor.
 counts, and native framebuffer parity. Its latency is wheel dispatch through the
 native repaint's EDT barrier, **not physical screen presentation or mouse-to-photon**.
 
+For the production narrow-hook and matrix factors, all four same-camera pixel
+controls now paint within a single EDT turn. `uniformCache.parity.*.atomicEdt=true`
+records this boundary. This prevents queued hover/action changes from separating
+native controls; it neither drops queued events nor masks pixel differences.
+The legacy GL-proxy readback remains asynchronous and reports `atomicEdt=false`.
+`CanvasWheelParityTest` exercises the real wheel parity path with a queued paint
+state change and separately requires a one-pixel cached-image error to fail.
+
 Pixel parity uses real glReadPixels output, excludes pack padding and preserves
 the supplied buffer's position. It rejects blank frames, requires different images
 at two zoom states, and compares native/native/cached/native at each fixed camera
