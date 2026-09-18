@@ -214,6 +214,12 @@
     "description": "Exact Cubism 5.3.03 red-box overlay native setup and cleanup selector evidence.",
     "inventoryRef": "compatibility/cubism/verification/cubism-5.3.03-ui-bounding-box-overlay.json",
     "artifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
-    "confidenceBasis": "Medium-confidence draft projection of matching static selectors; no real-host verification is claimed."
+    "confidenceBasis": "Medium-confidence draft projection of matching static selectors; no real-host verification is claimed.",
+    "selectorCount": 12,
+    "capabilityCount": 1,
+    "capabilityIds": [
+      "cubism.editor-ui.bounding-box-overlay-button"
+    ],
+    "verificationRecordSha256": "d7653ef266f1273822458e7a5bb8736895c88c2b0248d33a5b8e63061c655797"
   }
 }
