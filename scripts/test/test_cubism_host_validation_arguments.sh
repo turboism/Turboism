@@ -5,6 +5,14 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd -- "$script_dir/../.." && pwd -P)"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
+hook_invocations=$(grep -c 'DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook"' "$runner")
+if [ "$hook_invocations" -lt 3 ]; then
+  fail "Runner hook invocations must inherit the managed DISPLAY (found $hook_invocations of 3)"
+fi
+if grep -n 'TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook"' "$runner" | grep -qv 'DISPLAY='; then
+  fail "Runner launches a hook without the managed DISPLAY"
+fi
+
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/turboism-cubism-args.XXXXXX")"
 cleanup() { rm -rf -- "$tmp"; }
 trap cleanup EXIT

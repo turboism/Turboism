@@ -1528,19 +1528,19 @@ run_remote_hook() {
   hook_log="$(safe_label "$(basename "$hook")")"
   if [ "$hook" = "$remote_pre_launch" ] && [ "$remote_pre_launch_background" = 1 ]; then
     if [ "$remote_pre_launch_args_only" = 1 ]; then
-      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}" \
+      DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}" \
         > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
     else
-      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}" \
+      DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}" \
         > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
     fi
     background_hook_started=1
     printf '%s\n' "$!" > "$evidence_dir/background-hook.pid"
     record_owned_process_identity "$!" background-hook
   elif [ "$remote_pre_launch_args_only" = 1 ] && [ "$hook" = "$remote_pre_launch" ]; then
-    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}"
+    DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}"
   else
-    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"
+    DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"
   fi
   if [ "$hook" = "$remote_pre_cleanup" ]; then
     pre_cleanup_hook_done=1
