@@ -49,6 +49,19 @@ The source revision/dirty fingerprint and every captured file digest remain
 associated with the job. Golden/official installation and Proton are separately
 revalidated host dependencies, not redistributed input bundles.
 
+For explicit GPU attribution, the Runner accepts `--graphics-device inherit|nvidia`.
+The default `inherit` preserves the existing process environment. `nvidia` exports
+`__NV_PRIME_RENDER_OFFLOAD=1` and `__GLX_VENDOR_LIBRARY_NAME=nvidia` in the isolated
+Linux launch script **before** Proton starts. This fixed enum is saved in normalized
+arguments and the prepared digest; it is not an arbitrary Linux environment or
+shell hook. It neither installs drivers nor changes global GPU/display settings.
+The host must already support NVIDIA PRIME render offload. A requested selection
+is not proof of the actual GPU: inspect the Cubism console OpenGL vendor/renderer
+and record it with the measured result. Setting these variables only through
+`--windows-env` can be too late for the Proton Unix graphics stack. Cross-GPU
+performance is a separate environment comparison, not a Turboism algorithm gain
+or native-Windows result. Keep normal logging, geometry, draw and pixel checks.
+
 Unknown custom hook dependencies are rejected, not executed speculatively.
 Admitted inventories are the FPS resize driver and the exact `native-resource:5302`
 readonly memory observer closure documented in [native resource workload](README-native-resource-workload.md).
