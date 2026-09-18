@@ -92,7 +92,9 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
         final ClassLoader hostClassLoader
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!verified.isExactCubismVersion("5.2.03") && !verified.isExactCubismVersion("5.3.02")) {
+        if (!verified.isExactCubismVersion("5.2.03")
+            && !verified.isExactCubismVersion("5.3.02")
+            && !verified.isExactCubismVersion("5.3.03")) {
             throw new IllegalArgumentException("Native edit entry hook version is unsupported.");
         }
         final Set<String> aliases = Set.of(

@@ -14,6 +14,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -33,12 +34,11 @@ class VerifiedNativeEditBeginHookInstallerTest {
 
     @Test
     void theHookRequiresTheReviewedVersionAndTheAdmittedAliases() {
-        assertThrows(
-            IllegalArgumentException.class,
+        assertDoesNotThrow(
             () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
                 instrumentation(), resolver("5.3.03", bothEntries()), LOADER
             ),
-            "5.3.03 has no reviewed evidence for a native entry hook"
+            "5.3.03 admits the native entry hook from its own reviewed record"
         );
 
         assertThrows(
