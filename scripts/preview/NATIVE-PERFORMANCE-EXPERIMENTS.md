@@ -1468,7 +1468,7 @@ Graal ❌ 不存在｜CImageResource 关闭（定时缓存）｜
 
 ## I73 — 交互卡顿维度（j1b/j2c fps + s1/s2 selection-lag）
 
-新仪器：`turboism.fps.sustained`+`settleSeconds`（250ms fpsSeries、
+新仪器：`turboism.validation.fps.sustained`+`settleSeconds`（250ms fpsSeries、
 min/p05/zeroFps 指标）；resize driver 加全程日志。
 selection-lag 加 5303+variants（Robot 真拖拽、EDT 10ms 心跳、
 事件间隔、超阈抓栈）。

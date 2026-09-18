@@ -1909,7 +1909,7 @@ set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
 cd "$task_dir" || exit 1
-"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" --debug "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
+"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
 rc=\$?
 printf '%s\\n' "\$rc" > "$evidence_dir/wrapper.exit"
 exit "\$rc"
