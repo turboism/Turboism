@@ -383,3 +383,37 @@ warmup/measuring phase. A partial summary is not proof of a stalled Editor. Do n
 cancel a running full-size slow-control leg merely because it has not flushed its
 summary yet. Failures are written before attempting UI cleanup, and no terminal
 success is accepted without supervisor cleanup evidence.
+
+## Upload-target attribution (observation only)
+
+Use the existing `modelSkip` wheel factor with
+`-Dturboism.validation.modelUpdateGlCalls=true` and optionally
+`-Dturboism.validation.modelUpdateUploadPayloads=true`. Keep the production
+uniform cache explicitly OFF for this GL3-decorated attribution; this is not an
+unproxied narrow-hook comparison. The diagnostic factor keeps model skip ON and
+runs one measured leg. Leave calibration off for 200 events after readiness.
+
+`glUploads.ARRAY_BUFFER`, `.ELEMENT_ARRAY_BUFFER` and `.OTHER` partition the
+`glCalls.glBufferSubData` totals, using the very same delegate timestamps.
+They are not additional time to add to that total. Counts include exceptional
+calls; bytes are counted on normal return, which alone does not prove GL success.
+Every native call, argument, exception and caller buffer view remains unchanged.
+
+`glDuplicateUploads` is a further subset of normally returned uploads whose full
+client payload matches the previous observed payload for that buffer/range.
+`uploadPayload.arrayScanNanos` and `.elementScanNanos` partition CPU comparison
+cost, including baseline copying. Element bindings are known only after an
+explicit bind and are forgotten on VAO bind/deletion or direct element-binding
+mutation; no VAO map or extra GL query
+is used. Buffer identity shares the OpenGL buffer-name namespace across targets.
+Context changes, buffer deletion/reallocation and unsupported writer families
+retain conservative invalidation. Bounded mirrors are released on stop.
+
+Neither identical submitted bytes nor a void GL return proves unchanged GPU
+contents. Shared-context, mapped, shader and unobserved writes are not excluded;
+`gpuResidencyVerified=false` and `completeWriteCoverage=false` remain authoritative.
+No upload is omitted by this probe. Payload scans, reflection and timers perturb
+execution, so these runs locate candidates rather than certify end-to-end speedup.
+Short calibration timings can include compilation effects: record the full-size
+observation as well, and never discard slow samples or replace production A/B
+with these diagnostic numbers.
