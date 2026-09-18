@@ -64,6 +64,16 @@ final class WorkspaceControlAdmission {
         return authorizes(resolver, CUBISM_VERSION_5_3_03, ADAPTER_SLICE_ID_5_3_02);
     }
 
+    /**
+     * Returns whether a resolver is admitted for any reviewed workspace slice.
+     *
+     * @param resolver the resolver to test, may be null
+     * @return {@code true} only when one exact reviewed version fully authorizes
+     */
+    static boolean authorizes(final VerifiedMemberResolver resolver) {
+        return authorizes5203(resolver) || authorizes5302(resolver) || authorizes5303(resolver);
+    }
+
     private static boolean authorizes(
         final VerifiedMemberResolver resolver,
         final String cubismVersion,

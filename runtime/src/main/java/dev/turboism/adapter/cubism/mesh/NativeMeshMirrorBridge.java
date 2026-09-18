@@ -125,11 +125,13 @@ public final class NativeMeshMirrorBridge {
         DIAGNOSTIC.set(DEFAULT_DIAGNOSTIC);
     }
 
+    // INSTALLED holds the live bridge; a different instance means the binding was revoked.
     /**
      * Attaches a widget the host built before binding. Idempotent and safe to call again:
      * the contribution may still be missing at bind time, in which case the recording is kept
      * and the installer's contribution observer calls back here once it arrives.
      */
+    @SuppressWarnings("ReferenceEquality")
     public static void replayPendingAttach() {
         final Binding binding = INSTALLED.get();
         if (binding == null) return;
@@ -2007,6 +2009,8 @@ public final class NativeMeshMirrorBridge {
         return custom;
     }
 
+    // Identity scan by contract: duplicate detection is on the contribution instance itself.
+    @SuppressWarnings("ReferenceEquality")
     private static boolean containsContributionIdentity(
         final List<MeshEditContribution> contributions,
         final MeshEditContribution candidate

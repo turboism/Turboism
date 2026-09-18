@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
@@ -299,15 +299,15 @@ final class EditorObjectReadAccess {
     }
 
     private boolean isCubism52() {
-        return resolver.isExactCubismVersion(EditorInspectorDrawableWrite52SelectorContract.CUBISM_VERSION);
+        return resolver.isExactCubismVersion(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CUBISM_VERSION);
     }
 
     private void requireInspectorWriteAuthorized() {
         final boolean authorized = isCubism52()
             ? resolver.authorizesFeature(
-                EditorInspectorDrawableWrite52SelectorContract.ADAPTER_SLICE_ID,
-                EditorInspectorDrawableWrite52SelectorContract.CAPABILITY_ID,
-                EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES
+                EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.ADAPTER_SLICE_ID,
+                EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID,
+                EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES
             )
             : resolver.authorizesFeature(
                 EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID,

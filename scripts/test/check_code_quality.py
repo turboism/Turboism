@@ -71,7 +71,12 @@ GRANDFATHERED_ASSETS = (
     "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json",
 )
 
-VERSION_SUFFIXED_TYPE = re.compile(r"^\w+(?:52|53|5203|5302)$")
+# A Cubism version fused into a type name appears as a digit run that starts with the major
+# version 5: "52"/"53" encode major.minor, "520" a single-digit patch, "5203"/"5302"/"5303"
+# a two-digit patch. Any maximal digit run of shape 5X, 5XY or 5XYY is a version token no
+# matter where it sits in the name; unrelated digit runs (Point2, M12ReadSnapshotSource,
+# Utf8PluginCatalog) do not start with 5 and stay legal.
+CUBISM_VERSION_TOKEN = re.compile(r"(?<!\d)5\d{1,3}(?!\d)")
 
 ALL_RULES = ("javadoc", "digests", "naming", "assets")
 
@@ -210,7 +215,7 @@ def check_naming(root: Path) -> list[str]:
     failures = []
     for relative in PRODUCTION_ROOTS + (PLUGIN_ROOT,):
         for source in java_sources(root, relative):
-            if VERSION_SUFFIXED_TYPE.match(source.stem):
+            if CUBISM_VERSION_TOKEN.search(source.stem):
                 failures.append(
                     "production type name encodes a Cubism version: "
                     f"{source.relative_to(root).as_posix()}"

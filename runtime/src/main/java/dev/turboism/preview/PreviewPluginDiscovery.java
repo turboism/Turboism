@@ -34,6 +34,8 @@ final class PreviewPluginDiscovery {
         this.log = log;
     }
 
+    // The winning candidate is skipped by identity: equal-value losers must still be reported.
+    @SuppressWarnings("ReferenceEquality")
     Map<String, PreviewPluginCandidate> discover(
         final List<LocalPluginRuntime.PluginFailure> failures
     ) {
