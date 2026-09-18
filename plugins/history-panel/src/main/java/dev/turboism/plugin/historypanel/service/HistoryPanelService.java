@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -243,7 +244,7 @@ public final class HistoryPanelService {
         final String actionId = stableId.map(HistoryPanelService::moveActionId)
             .orElse("history.entry.unavailable." + entry.index());
         final Optional<UiInlineLabel> richLabel = richInlineLabel(semantic, entry.index(), unavailable)
-            .or(() -> promotedChildRelationLabel(semantic, entry.index(), unavailable));
+            .or(() -> promotedChildLabel(semantic, entry.index(), unavailable));
         if (richLabel.isPresent()) {
             return PanelView.toggle(
                 "history.entry.toggle." + identity,
@@ -321,11 +322,12 @@ public final class HistoryPanelService {
 
     /**
      * A host group whose own detail carries no direct change can still prove exactly one
-     * child relation (for example a Parts-tree drag the host recorded as one grouped move).
-     * When that single untruncated child carries exactly one relation change, the row renders
-     * the typed relation instead of falling back to the raw host label.
+     * child edit (for example a Parts-tree drag the host recorded as one grouped move, or a
+     * vertex edit bundled with the host's unmapped selection-undo child). When exactly one
+     * untruncated child carries changes, that child headlines the row instead of falling back
+     * to the raw host label; unmapped siblings stay represented by the partial metadata.
      */
-    private Optional<UiInlineLabel> promotedChildRelationLabel(
+    private Optional<UiInlineLabel> promotedChildLabel(
         final HistoryEntryDetail detail,
         final int entryIndex,
         final String unavailable
@@ -334,11 +336,25 @@ public final class HistoryPanelService {
             || !detail.changes().isEmpty()) {
             return Optional.empty();
         }
-        return detail.group()
-            .filter(group -> !group.truncated() && group.children().size() == 1)
-            .map(group -> group.children().get(0))
-            .filter(child -> child.changes().size() == 1)
-            .flatMap(child -> richRelationInlineLabel(child, child.changes().get(0), entryIndex, unavailable));
+        final HistoryGroup group = detail.group().orElse(null);
+        if (group == null || group.truncated()) {
+            return Optional.empty();
+        }
+        HistoryEntryDetail proven = null;
+        for (final HistoryEntryDetail child : group.children()) {
+            if (child.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
+                || child.changes().isEmpty()) {
+                continue;
+            }
+            if (proven != null) {
+                return Optional.empty();
+            }
+            proven = child;
+        }
+        if (proven == null) {
+            return Optional.empty();
+        }
+        return richInlineLabel(proven, entryIndex, unavailable);
     }
 
     private Optional<UiInlineLabel> richRelationInlineLabel(
