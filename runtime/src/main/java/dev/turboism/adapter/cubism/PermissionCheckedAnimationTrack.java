@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.sdk.cubism.model.AnimationAttribute;
 import dev.turboism.sdk.cubism.model.AnimationAttributeKind;
 import dev.turboism.sdk.cubism.model.AnimationKeyframe;
+import dev.turboism.sdk.cubism.model.AnimationTrackKind;
 import dev.turboism.sdk.cubism.model.AnimationTrack;
 
 import java.util.List;

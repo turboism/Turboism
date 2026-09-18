@@ -14,7 +14,7 @@ import java.util.Optional;
 final class PermissionCheckedAnimationAttribute implements AnimationAttribute {
     private final CubismFacadeImpl facade;
     final Object owner;
-    private final AnimationAttribute delegate;
+    final AnimationAttribute delegate;
 
     PermissionCheckedAnimationAttribute(
         final CubismFacadeImpl facade,
