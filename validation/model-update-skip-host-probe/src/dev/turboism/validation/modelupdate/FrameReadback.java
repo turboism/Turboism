@@ -62,6 +62,30 @@ final class FrameReadback {
         return width == other.width && height == other.height && format == other.format && type == other.type
             && Arrays.equals(words, other.words);
     }
+    /** Exact, untimed failure attribution; no pixels are masked or tolerated. */
+    String difference(FrameReadback other) {
+        if (width != other.width || height != other.height || format != other.format || type != other.type) {
+            throw new IllegalArgumentException("incompatible pixel layouts");
+        }
+        int changed = 0, minX = width, minY = height, maxX = -1, maxY = -1, maxDelta = 0;
+        StringBuilder examples = new StringBuilder();
+        for (int index = 0; index < words.length; index++) {
+            if (words[index] == other.words[index]) continue;
+            int x = index % width, y = index / width;
+            changed++;
+            minX = Math.min(minX, x); minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+            for (int shift = 0; shift < 32; shift += 8) {
+                maxDelta = Math.max(maxDelta, Math.abs(((words[index] >>> shift) & 255)
+                    - ((other.words[index] >>> shift) & 255)));
+            }
+            if (changed <= 16) examples.append(x).append(',').append(y).append(':')
+                .append(Integer.toHexString(words[index])).append("->")
+                .append(Integer.toHexString(other.words[index])).append(';');
+        }
+        return "changedPixels=" + changed + "\nbounds=" + minX + "," + minY + ":" + maxX + "," + maxY
+            + "\nmaximumChannelDelta=" + maxDelta + "\nexamples=" + examples + "\n";
+    }
     String digest() throws Exception {
         MessageDigest sha = MessageDigest.getInstance("SHA-256");
         ByteBuffer row = ByteBuffer.allocate(width * 4);
