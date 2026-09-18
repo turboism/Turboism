@@ -121,7 +121,7 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
         self.assertEqual([], violations)
         self.assertEqual(0, equivalent)
         rendered = GEN.render_all(ROOT)
-        self.assertEqual(65, len(rendered))
+        self.assertEqual(68, len(rendered))
 
     def test_consistent_fixture_passes(self):
         document = record()
