@@ -6,6 +6,7 @@ import java.util.Objects;
 
 /** Runtime-only presentation key for the reviewed logical-16 object-icon family. */
 public record NativeIconVariant(CubismIcon icon, Theme theme, int scalePercent, boolean disabled) {
+    /** Reviewed icon theme variant; the catalog ships light and dark sheets. */
     public enum Theme { LIGHT, DARK }
 
     public NativeIconVariant {

@@ -41,6 +41,7 @@ public final class NativeEditIngress implements AutoCloseable {
      */
     @FunctionalInterface
     public interface Publisher {
+        /** Publishes one observed native edit into the Turboism ingress pipeline. */
         void publish(
             CubismOperation operation,
             CubismOperationOrigin origin,
