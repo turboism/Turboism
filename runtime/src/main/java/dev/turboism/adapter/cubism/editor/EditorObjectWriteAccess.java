@@ -42,17 +42,20 @@ final class EditorObjectWriteAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorObjectReadCore core;
+    private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
 
     EditorObjectWriteAccess(
         final VerifiedMemberResolver resolver,
         final EditorObjectReadCore core,
+        final EditorObjectHierarchyEditAccess hierarchyEditAccess,
         final EditorAuthoringTransactionCoordinator authoringCoordinator,
         final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding
     ) {
         this.resolver = resolver;
         this.core = core;
+        this.hierarchyEditAccess = hierarchyEditAccess;
         this.authoringCoordinator = authoringCoordinator;
         this.authoringBinding = authoringBinding;
     }
@@ -657,6 +660,19 @@ final class EditorObjectWriteAccess {
                 throw new NoSuchElementException(
                     "No Editor Deformer has id " + targetId.value()
                 );
+            }
+            if (hierarchyEditAccess != null && hierarchyEditAccess.relationCaptureAvailable()) {
+                hierarchyEditAccess.setParent(
+                    identity,
+                    modelSource,
+                    model,
+                    current.source(),
+                    source,
+                    true,
+                    -1,
+                    "ArtMesh"
+                );
+                return;
             }
             target = resolver.construct("cubism.editor-model.deformer-id.create", targetId.value());
         } else {

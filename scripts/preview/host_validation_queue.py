@@ -424,6 +424,12 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
         frozenset({"--home-dir"}),
         "plugin-management restart hook requires the staged state via --home-dir",
     ),
+    # Read-only native history pointer collector; the task-id argument lets the
+    # hook bind its evidence file to the queue task identity.
+    "history-pointer-observer.py": (
+        frozenset({"--remote-pre-launch-background", "--remote-pre-launch-args-only", "--task-id"}),
+        "pointer hook requires its reviewed background/args-only task-id protocol",
+    ),
 }
 
 

@@ -5,11 +5,13 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
 
 import java.awt.BorderLayout;
 import javax.swing.JPanel;
+import javax.swing.Icon;
 
 import javax.swing.JComponent;
 import javax.swing.JMenu;
@@ -25,6 +27,7 @@ import java.util.Set;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 /** Exact-version Cubism embedded-panel operations restricted to verified aliases. */
 public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelHostOperations {
@@ -106,11 +109,13 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private final DockTreeTraversal traversal;
     private final dev.turboism.ui.action.EditorUiActionRouter actionRouter;
     private final Map<Object, NativePanel> panels = new IdentityHashMap<>();
+    private final Map<Object, JPanel> stableContentRoots = java.util.Collections.synchronizedMap(new IdentityHashMap<>());
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
     private final Map<Object, Long> lastFloatMillis = new IdentityHashMap<>();
     private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
     private volatile long hostGeneration = Long.MIN_VALUE;
     private final java.util.function.Supplier<java.util.Locale> locale;
+    private final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver;
     private volatile boolean hostActive;
 
     public VerifiedEmbeddedPanelHostOperations(
@@ -137,10 +142,30 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final dev.turboism.ui.action.EditorUiActionRouter actionRouter,
         final java.util.function.Supplier<java.util.Locale> locale
     ) {
+        this(resolver, actionRouter, locale, (reference, disabled) -> Optional.empty());
+    }
+
+    public VerifiedEmbeddedPanelHostOperations(
+        final VerifiedMemberResolver resolver,
+        final dev.turboism.ui.action.EditorUiActionRouter actionRouter,
+        final java.util.Locale locale,
+        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
+    ) {
+        this(resolver, actionRouter, fixedLocale(locale), iconResolver);
+    }
+
+    /** Creates operations with a render-time locale supplier and an icon resolver. */
+    public VerifiedEmbeddedPanelHostOperations(
+        final VerifiedMemberResolver resolver,
+        final dev.turboism.ui.action.EditorUiActionRouter actionRouter,
+        final java.util.function.Supplier<java.util.Locale> locale,
+        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.traversal = new DockTreeTraversal(resolver);
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
         this.locale = Objects.requireNonNull(locale, "locale");
+        this.iconResolver = Objects.requireNonNull(iconResolver, "iconResolver");
     }
 
     private static java.util.function.Supplier<java.util.Locale> fixedLocale(
@@ -155,13 +180,56 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (generation <= 0) {
             throw new IllegalArgumentException("generation must be positive");
         }
-        hostGeneration = generation;
-        hostActive = true;
+        synchronized (stableContentRoots) {
+            hostGeneration = generation;
+            hostActive = true;
+        }
     }
 
     @Override
     public void invalidateHost() {
-        hostActive = false;
+        // Invalidate and clear under the same small lock used by refresh/install snapshots. This
+        // must not dispatch synchronously to the EDT: a queued host operation may be waiting on
+        // that thread, and invalidation is the lifecycle fence that must release it.
+        synchronized (stableContentRoots) {
+            hostActive = false;
+            // A connection may be disposed before its provider registration gets a chance to close
+            // every handle. Drop refresh roots here as the final lifecycle boundary; handles remain
+            // idempotently closeable and cannot resurrect a disposed presentation.
+            stableContentRoots.clear();
+        }
+    }
+
+    /** Refreshes presentation-only state in all retained embedded/floating content roots. */
+    public void refreshPresentation() {
+        onEdt(() -> {
+            final List<JPanel> roots;
+            synchronized (stableContentRoots) {
+                if (!hostActive) {
+                    return null;
+                }
+                roots = List.copyOf(stableContentRoots.values());
+            }
+            for (JPanel root : roots) {
+                try {
+                    SwingPanelViewRenderer.refreshInlineLabelPresentation(root);
+                    root.revalidate();
+                    root.repaint();
+                } catch (Throwable failure) {
+                    // An optional icon/theme refresh must not take down an otherwise healthy host.
+                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                        "embedded-panels",
+                        "Embedded-panel presentation refresh failed safely",
+                        failure
+                    );
+                }
+            }
+            return null;
+        });
+    }
+
+    int retainedStableContentRootCountForTest() {
+        return onEdt(() -> stableContentRoots.size());
     }
 
     @Override
@@ -220,6 +288,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final EmbeddedPanelContributionDescriptor descriptor,
         final BiConsumer<String, Optional<UiActionEvent>> action
     ) {
+        synchronized (stableContentRoots) {
+            if (hostGeneration != Long.MIN_VALUE) {
+                requireActiveHost(hostGeneration);
+            }
+        }
         final NativeDock dock = resolveDock();
         final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
         final Object paletteId = resolver.construct(PALETTE_ID_CREATE, nativeId);
@@ -231,20 +304,27 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             : existingPalette;
 
         panels.put(palette, new NativePanel(dock, palette, paletteId));
-
         final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
-        final JComponent contentRoot = buildContentRoot(descriptor);
-        // The native palette keeps one stable layout-neutral wrapper for its whole
-        // lifetime; refresh swaps the wrapper's single child, so the host container
-        // and any floating window are never rebuilt and layout-specific renderer
-        // roots are never nested inside one another.
-        final JPanel stableContentRoot = new JPanel(new BorderLayout());
-        stableContentRoot.add(contentRoot, BorderLayout.CENTER);
-        final Object content = resolver.construct(SWING_CONTAINER_CREATE, stableContentRoot);
-        resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
         final AtomicBoolean closed = new AtomicBoolean();
         WindowMenuItem windowMenuItem = null;
+        JPanel stableContentRoot = null;
         try {
+            final JComponent contentRoot = buildContentRoot(descriptor);
+            // The native palette keeps one stable layout-neutral wrapper for its whole
+            // lifetime; refresh swaps the wrapper's single child, so the host container
+            // and any floating window are never rebuilt and layout-specific renderer
+            // roots are never nested inside one another.
+            stableContentRoot = new JPanel(new BorderLayout());
+            stableContentRoot.add(contentRoot, BorderLayout.CENTER);
+            synchronized (stableContentRoots) {
+                if (hostGeneration != Long.MIN_VALUE) {
+                    requireActiveHost(hostGeneration);
+                }
+                stableContentRoots.put(palette, stableContentRoot);
+            }
+            final Object content = resolver.construct(SWING_CONTAINER_CREATE, stableContentRoot);
+            resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
+
             // The Window-menu check item and its paletteMenuMap entry must exist before
             // addPalette/setPaletteVisible: native updateWindowMenuItem runs at the end of
             // setPaletteVisible (and on workspace switch/serialization) and iterates the
@@ -276,28 +356,35 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             // Runs native updateWindowMenuItem after the palette is shown so the host
             // derives the initial check state (visible palette => checked menu item).
             refresh(dock);
+            // Register only after every native install step succeeds so failure cleanup covers the
+            // complete construction, including the shared content-coordinator state.
+            PanelCollapsibleContentCoordinator.shared().onPanelRegistered(panelId);
         } catch (RuntimeException | Error failure) {
             final WindowMenuItem installedItem = windowMenuItem;
+            final FloatingPanel floating = floatingPanels.remove(palette);
             closed.set(true);
+            stableContentRoots.remove(palette);
             panels.remove(palette);
-            floatingPanels.remove(palette);
             try {
                 closePanel(
+                    () -> dockFloatingPanel(floating),
                     () -> removeWindowMenuItem(installedItem),
                     () -> removePaletteFromWorkspace(dock, palette),
                     () -> resolver.invoke(PALETTE_MANAGER_CLOSE, dock.paletteManager(), paletteId),
                     () -> refresh(dock)
                 );
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
+            } catch (Throwable cleanupFailure) {
+                if (cleanupFailure != failure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
             }
             throw failure;
         }
 
-        // 目标 panel 注册状态由宿主安装生命周期驱动（provider 无事件 API）：
-        // install 成功 → 注册；PanelHandle.close → 注销。注入分区 pending→落位→pending。
-        PanelCollapsibleContentCoordinator.shared().onPanelRegistered(panelId);
-        final WindowMenuItem installedWindowMenuItem = windowMenuItem;
+        final JPanel installedStableContentRoot = Objects.requireNonNull(
+            stableContentRoot, "stable content root");
+        final WindowMenuItem installedWindowMenuItem = Objects.requireNonNull(
+            windowMenuItem, "window menu item");
         return new PanelHandle() {
             @Override
             public void activate() {
@@ -329,11 +416,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     // still ends with exactly one child; the native palette (and its
                     // floating window) is never rebuilt.
                     final JComponent next = buildContentRoot(descriptor);
-                    final java.awt.Component previous = stableContentRoot.getComponent(0);
-                    stableContentRoot.add(next, BorderLayout.CENTER);
-                    stableContentRoot.remove(previous);
-                    stableContentRoot.revalidate();
-                    stableContentRoot.repaint();
+                    final java.awt.Component previous = installedStableContentRoot.getComponent(0);
+                    installedStableContentRoot.add(next, BorderLayout.CENTER);
+                    installedStableContentRoot.remove(previous);
+                    installedStableContentRoot.revalidate();
+                    installedStableContentRoot.repaint();
                     return null;
                 });
             }
@@ -346,6 +433,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 onEdt(() -> {
                     PanelCollapsibleContentCoordinator.shared().onPanelRemoved(panelId);
                     panels.remove(palette);
+                    stableContentRoots.remove(palette);
                     final FloatingPanel floating = floatingPanels.remove(palette);
                     closePanel(
                         () -> dockFloatingPanel(floating),
@@ -497,7 +585,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             final Map<String, String> actionOwners =
                 PanelCollapsibleContentCoordinator.shared().actionOwners(panelId);
             final JComponent panel = SwingPanelViewRenderer.render(
-                viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale.get());
+                viewContent, routedAction(actionRouter, actionOwners, descriptor.pluginId()), locale.get(),
+                iconResolver);
             final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
             panel.setName(nativeId);
             holder[0] = panel;
@@ -1181,21 +1270,31 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
     static void closePanel(final Runnable... operations) {
         Objects.requireNonNull(operations, "operations");
-        RuntimeException first = null;
+        Throwable first = null;
         for (Runnable operation : operations) {
             try {
                 Objects.requireNonNull(operation, "operation").run();
-            } catch (RuntimeException failure) {
+            } catch (Throwable failure) {
                 if (first == null) {
                     first = failure;
-                } else {
+                } else if (failure != first) {
                     first.addSuppressed(failure);
                 }
             }
         }
         if (first != null) {
-            throw first;
+            rethrowPanelFailure(first);
         }
+    }
+
+    private static void rethrowPanelFailure(final Throwable failure) {
+        if (failure instanceof Error error) {
+            throw error;
+        }
+        if (failure instanceof RuntimeException exception) {
+            throw exception;
+        }
+        throw new IllegalStateException("embedded-panel cleanup failed", failure);
     }
 
     private static <T> T onEdt(final Operation<T> operation) {

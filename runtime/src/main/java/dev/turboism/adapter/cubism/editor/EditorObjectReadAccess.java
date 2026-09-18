@@ -116,8 +116,8 @@ final class EditorObjectReadAccess {
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
         this.core = new EditorObjectReadCore(resolver, currentGuard, evaluatedJoin, lazyPublish);
-        this.writes = new EditorObjectWriteAccess(resolver, core, authoringCoordinator, authoringBinding);
-        this.inspector = new EditorObjectInspectorAccess(resolver, currentGuard, core, authoringCoordinator, authoringBinding);
+        this.writes = new EditorObjectWriteAccess(resolver, core, hierarchyEditAccess, authoringCoordinator, authoringBinding);
+        this.inspector = new EditorObjectInspectorAccess(resolver, currentGuard, core, hierarchyEditAccess, authoringCoordinator, authoringBinding);
         this.clipMasks = new EditorObjectClipMaskAccess(resolver, currentGuard, core, writes);
         this.bindingReads = new EditorObjectBindingReadAccess(resolver, morphTargetAccess, core);
         this.hierarchyEditAccess = hierarchyEditAccess;

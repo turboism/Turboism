@@ -34,17 +34,20 @@ final class EditorObjectInspectorAccess {
     private final EditorObjectReadCore core;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
+    private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
 
     EditorObjectInspectorAccess(
         final VerifiedMemberResolver resolver,
         final EditorObjectReadAccess.CurrentGuard currentGuard,
         final EditorObjectReadCore core,
+        final EditorObjectHierarchyEditAccess hierarchyEditAccess,
         final EditorAuthoringTransactionCoordinator authoringCoordinator,
         final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding
     ) {
         this.resolver = resolver;
         this.currentGuard = currentGuard;
         this.core = core;
+        this.hierarchyEditAccess = hierarchyEditAccess;
         this.authoringCoordinator = authoringCoordinator;
         this.authoringBinding = authoringBinding;
     }
@@ -111,12 +114,14 @@ final class EditorObjectInspectorAccess {
         if (!detach && requested.orElseThrow().value().equals(value.id())) {
             throw new IllegalArgumentException("a Deformer cannot target itself");
         }
+        final Object targetSource;
         final Object targetGuid;
         if (detach) {
+            targetSource = null;
             targetGuid = rootDeformerGuid();
         } else {
             final String targetId = requested.orElseThrow().value();
-            final Object targetSource = core.deformerRefs(identity, modelSource, model).stream()
+            targetSource = core.deformerRefs(identity, modelSource, model).stream()
                 .filter(candidate -> candidate.id().equals(targetId))
                 .map(DeformerRef::source)
                 .findFirst()
@@ -134,6 +139,21 @@ final class EditorObjectInspectorAccess {
             "cubism.editor-model.deformer-source.guid", value.source()
         );
         if (currentGuid == targetGuid) return;
+        if (targetSource != null
+            && hierarchyEditAccess != null
+            && hierarchyEditAccess.relationCaptureAvailable()) {
+            hierarchyEditAccess.setParent(
+                identity,
+                modelSource,
+                model,
+                value.source(),
+                targetSource,
+                true,
+                -1,
+                "Deformer"
+            );
+            return;
+        }
         changeDeformerTarget(modelSource, model, value.source(), targetGuid);
     }
 
@@ -648,7 +668,7 @@ final class EditorObjectInspectorAccess {
                 throw unavailable("Editor Deformer Undo handler is unavailable.");
             }
             final Object changeUndo = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
+                "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
                 handler,
                 model,
                 targetGuid,
