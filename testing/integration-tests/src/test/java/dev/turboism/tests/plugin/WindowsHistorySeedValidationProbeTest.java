@@ -213,7 +213,7 @@ class WindowsHistorySeedValidationProbeTest {
             for (String line : lines) {
                 JSON.readTree(line);
                 assertTrue(line.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
-                    <= WindowsHistoryManagerValidationProbe.MAX_EVIDENCE_BYTES);
+                    <= WindowsHistorySeedValidationProbe.MAX_EVIDENCE_BYTES);
             }
             assertTrue(Files.size(artifact) <= WindowsHistoryManagerValidationProbe.MAX_EVIDENCE_BYTES);
             assertEquals("PASS", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
