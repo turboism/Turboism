@@ -24,6 +24,7 @@ javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$src/dev/turboism/validation/modelupdate/ModelUpdateSkipHostProbePlugin.java" \
   "$src/dev/turboism/validation/modelupdate/CanvasWheelWorkload.java" \
   "$src/dev/turboism/validation/modelupdate/NativeDragSequence.java" \
+  "$src/dev/turboism/validation/modelupdate/NativeParitySequence.java" \
   "$src/dev/turboism/validation/modelupdate/NativeInteractionHost.java" \
   "$src/dev/turboism/validation/modelupdate/NativeInteractionWorkload.java" \
   "$src/dev/turboism/validation/modelupdate/PreparationWatchdog.java" \

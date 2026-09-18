@@ -23,7 +23,18 @@ public final class FrameReadbackTest {
         try { FrameReadback.capture(IntBuffer.wrap(new int[1]), 2, 2, 32993, 5121, 0, 4, 0, 0); }
         catch (IllegalArgumentException expected) { rejected = true; }
         check(rejected, "short buffer rejected");
-        System.out.println("FrameReadbackTest PASS (row padding, position, types, non-vacuous pixels, bounds)");
+        FrameReadback a = FrameReadback.fromArgb(2, 2, new int[]{0xff000000, 0xff000001, 0xff000002, 0xff000003});
+        FrameReadback b = FrameReadback.fromArgb(2, 2, new int[]{0xff000000, 0xff000002, 0xff000002, 0xff000013});
+        String difference = a.difference(b);
+        check(difference.contains("changedPixels=2\n") && difference.contains("bounds=1,0:1,1\n"), "exact difference extent");
+        check(difference.contains("maximumChannelDelta=16\n"), "channel delta");
+        check(a.difference(a).contains("changedPixels=0\n"), "identical images have no differences");
+        check(!a.samePixels(b), "one-bit pixel differences remain failures");
+        rejected = false;
+        try { a.difference(FrameReadback.fromArgb(4, 1, new int[4])); }
+        catch (IllegalArgumentException expected) { rejected = true; }
+        check(rejected, "difference rejects incompatible layout");
+        System.out.println("FrameReadbackTest PASS (row padding, position, types, non-vacuous pixels, bounds, exact diagnostics)");
     }
     private static void check(boolean ok, String reason) { if (!ok) throw new AssertionError(reason); }
 }

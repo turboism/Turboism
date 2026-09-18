@@ -85,8 +85,15 @@ the OFF-observed flag behavior after Undo. The original file is never written.
 Pan must move the camera with every mesh, document-modified flag and Undo state
 unchanged; its original camera values are restored outside measurement. Pixel
 parity at both moved and restored states compares native/native-repeat/cache-on/
-native at a fixed state, rejecting blank images. In-flight mouse/key state is
-released in finally even on failure. Profiled runs are excluded from this driver.
+native at a fixed state, rejecting blank images. All four paints execute in one
+EDT event, so queued hover/action transitions cannot interleave the controls.
+Camera, Undo, modified flag and action state must also remain exactly equal before
+and after every capture. Per-leg diagnostics record full-image difference counts,
+bounds and example pixels without any masking or tolerance. This corrected a
+reproduced false control in which a queued hover action changed the two native
+images; failed historical runs remain failures, not retroactively accepted.
+In-flight mouse/key state is released in finally even on failure. Profiled runs
+are excluded from this driver; captures are outside all timed windows.
 
 5.3.03 calibration jobs: native pan `9983bb26-b2fc-4488-9e20-df309cccd58a` and
 native ArtMesh `b0a02b66-8c77-4651-97ed-c4b7dbf9f702` completed with geometry,
