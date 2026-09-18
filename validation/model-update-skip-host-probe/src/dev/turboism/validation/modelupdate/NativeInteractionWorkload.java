@@ -206,7 +206,7 @@ final class NativeInteractionWorkload {
                 + "\nwholeMeshChanged=" + (kind.equals("artmesh") && NativeInteractionHost.wholeMeshChanged(baseline, moved, host.targetIndex()))
                 + "\nauthoringBefore=" + authoringBefore.size() + "\nauthoringAfter=" + edt(host::appliedAuthoringEdits).size()
                 + "\n" + edt(host::actionState));
-            if (report != null) verifyPixelsAtCurrentState();
+            if (report != null) verifyPixelsAtCurrentState(prefix + "moved");
             if (kind.equals("pan")) {
                 if (cameraBefore.equals(movedCamera) || !changed.isEmpty()
                     || !undoBefore.equals(edt(host::undoState)) || dirtyBefore != edt(host::modified)) {
@@ -253,7 +253,7 @@ final class NativeInteractionWorkload {
                     .append(prefix).append("modifiedFlagMatchesNative=true\n");
             }
             if (report != null) {
-                verifyPixelsAtCurrentState();
+                verifyPixelsAtCurrentState(prefix + "restored");
                 edt(() -> { hook.setEnabled(enabled); return null; });
                 long[] sorted = samples.clone(); Arrays.sort(sorted);
                 long total = Arrays.stream(samples).sum();
@@ -322,13 +322,42 @@ final class NativeInteractionWorkload {
         } finally { edt(() -> { hook.setEnabled(enabled); return null; }); }
     }
 
-    private void verifyPixelsAtCurrentState() throws Exception {
-        final FrameReadback original = edt(() -> { hook.setEnabled(false); return hook.capture(canvas); });
-        final FrameReadback repeat = edt(() -> hook.capture(canvas));
-        final FrameReadback cached = edt(() -> { hook.setEnabled(true); return hook.capture(canvas); });
-        final FrameReadback restored = edt(() -> { hook.setEnabled(false); return hook.capture(canvas); });
-        if (!original.samePixels(repeat)) throw new IllegalStateException("native same-state pixels are unstable");
-        if (!repeat.samePixels(cached) || !cached.samePixels(restored)) throw new IllegalStateException("interaction pixel parity failed");
+    private record ParityCapture(FrameReadback image, String before, String after) { }
+    private String parityState() throws Exception {
+        return "camera=" + host.camera() + "\nundo=" + host.undoState()
+            + "\nmodified=" + host.modified() + "\n" + host.actionState();
+    }
+    private ParityCapture captureParity(boolean enabled) throws Exception {
+        hook.setEnabled(enabled);
+        String before = parityState();
+        FrameReadback image = hook.capture(canvas);
+        return new ParityCapture(image, before, parityState());
+    }
+    private void verifyPixelsAtCurrentState(String label) throws Exception {
+        // One EDT turn prevents queued hover/action transitions between the controls.
+        // It does not disable input processing or alter any measured drag event.
+        final List<ParityCapture> captures = NativeParitySequence.capture(this::captureParity);
+        final ParityCapture original = captures.get(0), repeat = captures.get(1),
+            cached = captures.get(2), restored = captures.get(3);
+        StringBuilder diagnostics = new StringBuilder("label=").append(label).append('\n');
+        int index = 0;
+        boolean sameState = true;
+        for (ParityCapture capture : captures) {
+            diagnostics.append("capture=").append(index++).append("\nbefore:\n").append(capture.before())
+                .append("after:\n").append(capture.after())
+                .append("digest=").append(capture.image().digest()).append('\n');
+            sameState &= original.before().equals(capture.before()) && capture.before().equals(capture.after());
+        }
+        diagnostics.append("sameEdtTurn=true\nstateUnchanged=").append(sameState).append('\n');
+        diagnostics.append("comparison=native-native\n").append(original.image().difference(repeat.image()))
+            .append("comparison=native-cached\n").append(repeat.image().difference(cached.image()))
+            .append("comparison=cached-native\n").append(cached.image().difference(restored.image()));
+        Files.writeString(state.resolve("parity-" + label + ".txt"), diagnostics);
+        if (!sameState) throw new IllegalStateException("native state changed during parity capture: " + label);
+        if (!original.image().samePixels(repeat.image())) throw new IllegalStateException("native same-state pixels are unstable: " + label);
+        if (!repeat.image().samePixels(cached.image()) || !cached.image().samePixels(restored.image())) {
+            throw new IllegalStateException("interaction pixel parity failed: " + label);
+        }
     }
 
     private void release() throws Exception {
