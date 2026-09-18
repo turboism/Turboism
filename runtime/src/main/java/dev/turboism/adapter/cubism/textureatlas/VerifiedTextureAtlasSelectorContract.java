@@ -1,9 +1,17 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-/** Exact Cubism 5.3.03 selector contract for the texture-atlas authoring provider. */
-public final class VerifiedCubism5303TextureAtlasSelectorContract {
+/**
+ * Exact-version selector contract for the texture-atlas authoring provider.
+ *
+ * <p>The alias catalog is shared by every admitted host; what differs per exact Cubism version
+ * is declared as data in {@link Profile} rows looked up through {@link #profileFor(String)}, so
+ * no type name encodes a version.</p>
+ */
+public final class VerifiedTextureAtlasSelectorContract {
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.texture-atlas.layout.write";
@@ -109,6 +117,8 @@ public final class VerifiedCubism5303TextureAtlasSelectorContract {
         VerifiedTextureAtlasNativeInvocationAdapter.DIALOG_INIT
     );
 
+    // Statistics view contribution exists only on the 5.3 profiles: the 5.2.03 artifact uses a
+    // differently structured editor view, so that profile carries an empty statistics set.
     public static final Set<String> STATISTICS_ALIASES = Set.of(
         VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_INIT,
         VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL,
@@ -116,6 +126,62 @@ public final class VerifiedCubism5303TextureAtlasSelectorContract {
         VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_PAGE_STATE_ATLAS
     );
 
-    private VerifiedCubism5303TextureAtlasSelectorContract() {
+    /**
+     * The complete reviewed selector scope bound to one exact Cubism version. All members are
+     * immutable sets; {@code statisticsAliases} is empty where the artifact has no statistics
+     * view contribution.
+     */
+    public record Profile(
+        String cubismVersion,
+        Set<String> requiredAliases,
+        Set<String> hookAliases,
+        Set<String> autoLayoutHookAliases,
+        Set<String> nativeInvocationAliases,
+        Set<String> dialogInjectionAliases,
+        Set<String> statisticsAliases
+    ) {
+    }
+
+    private static final Map<String, Profile> PROFILES = Map.of(
+        "5.2.03", new Profile(
+            "5.2.03",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            Set.of()
+        ),
+        "5.3.02", new Profile(
+            "5.3.02",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        ),
+        "5.3.03", new Profile(
+            "5.3.03",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        )
+    );
+
+    /**
+     * Returns the reviewed profile for one exact Cubism version.
+     *
+     * @param cubismVersion the version reported by the verified resolver
+     * @return the bound profile, or empty when no reviewed record covers that version
+     */
+    public static Optional<Profile> profileFor(final String cubismVersion) {
+        return Optional.ofNullable(PROFILES.get(cubismVersion));
+    }
+
+    private VerifiedTextureAtlasSelectorContract() {
     }
 }

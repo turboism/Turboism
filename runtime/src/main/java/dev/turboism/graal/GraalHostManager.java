@@ -195,6 +195,8 @@ public final class GraalHostManager implements AutoCloseable {
      * Establishes one shared startup result for all queued submissions. A failure briefly
      * backs off retries so a queue cannot turn one timed-out launch into N serial timeouts.
      */
+    // Generations are process-owner handles; identity detects a replaced host, not equal state.
+    @SuppressWarnings("ReferenceEquality")
     private HostGeneration ensureStarted() {
         HostGeneration retired = null;
         HostGeneration immediatelyReady = null;
@@ -354,6 +356,8 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
+    // Owner identity is the generation-currency check: stale generations must not act.
+    @SuppressWarnings("ReferenceEquality")
     private void handleMessage(final HostGeneration owner, final JsonNode message) throws IOException {
         if (host != owner) {
             return;
@@ -373,6 +377,8 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
+    // Owner identity is the generation-currency check: stale generations must not act.
+    @SuppressWarnings("ReferenceEquality")
     private void handleReady(final HostGeneration owner, final JsonNode message) {
         if (host != owner) {
             return;
@@ -624,6 +630,8 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
+    // Owner identity is the generation-currency check: writes go only to the live generation.
+    @SuppressWarnings("ReferenceEquality")
     private void sendLocked(final HostGeneration owner, final JsonNode message) throws IOException {
         final String encoded = mapper.writeValueAsString(message);
         if (encoded.length() > MAX_MESSAGE_CHARS) {
@@ -637,6 +645,8 @@ public final class GraalHostManager implements AutoCloseable {
         owner.writer().flush();
     }
 
+    // Owner identity is the generation-currency check: only the live generation detaches.
+    @SuppressWarnings("ReferenceEquality")
     private void processExited(final HostGeneration owner, final Throwable failure) {
         final HostGeneration detached;
         synchronized (lifecycleLock) {
@@ -656,6 +666,8 @@ public final class GraalHostManager implements AutoCloseable {
         failPendingAfterProcessLoss(detached);
     }
 
+    // Owner identity is the generation-currency check: only the live generation detaches.
+    @SuppressWarnings("ReferenceEquality")
     private void invalidateGeneration(
         final HostGeneration owner,
         final Throwable reason,
@@ -677,6 +689,8 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
+    // Owner identity is the generation-currency check: only the live generation detaches.
+    @SuppressWarnings("ReferenceEquality")
     private HostGeneration detachGenerationLocked(
         final HostGeneration owner,
         final String unavailableDetail
@@ -1088,6 +1102,8 @@ public final class GraalHostManager implements AutoCloseable {
             }
         }
 
+        // Owner identity is the generation-currency check: stale generations must not act.
+        @SuppressWarnings("ReferenceEquality")
         synchronized boolean admitHostCall(final HostGeneration expectedOwner) {
             return state == State.RUNNING
                 && owner == expectedOwner
@@ -1116,6 +1132,8 @@ public final class GraalHostManager implements AutoCloseable {
             return new CancellationClaim(true, false, owner, null);
         }
 
+        // Owner identity is the generation-currency check: stale generations must not act.
+        @SuppressWarnings("ReferenceEquality")
         synchronized TerminalClaim claimTerminal(final HostGeneration expectedOwner) {
             if (state == State.TERMINAL) {
                 return TerminalClaim.rejected();

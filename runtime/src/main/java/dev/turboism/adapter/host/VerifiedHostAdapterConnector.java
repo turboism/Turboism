@@ -7,12 +7,8 @@ import dev.turboism.adapter.cubism.core.CoreVersionExpectation;
 import dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLayoutProvider;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasLayoutProvider;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasSelectorContract;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -486,28 +482,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final String sessionId,
         final TextureAtlasDataModelCapture capture
     ) {
-        if (resolver.isExactCubismVersion("5.3.03")) {
-            return resolver.authorizesFeature(
-                VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-                VerifiedCubism5303TextureAtlasSelectorContract.CAPABILITY_ID,
-                VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES
-            ) ? new VerifiedCubism5303TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
+        final VerifiedTextureAtlasSelectorContract.Profile profile =
+            VerifiedTextureAtlasSelectorContract.profileFor(resolver.cubismVersion()).orElse(null);
+        if (profile == null) {
+            return null;
         }
-        if (resolver.isExactCubismVersion("5.3.02")) {
-            return resolver.authorizesFeature(
-                VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-                VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
-                VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
-            ) ? new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
-        }
-        if (resolver.isExactCubismVersion("5.2.03")) {
-            return resolver.authorizesFeature(
-                VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-                VerifiedCubism520TextureAtlasSelectorContract.CAPABILITY_ID,
-                VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES
-            ) ? new VerifiedCubism520TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
-        }
-        return null;
+        return resolver.authorizesFeature(
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
+            profile.requiredAliases()
+        ) ? new VerifiedTextureAtlasLayoutProvider(resolver, sessionId, capture, profile) : null;
     }
 
     private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(

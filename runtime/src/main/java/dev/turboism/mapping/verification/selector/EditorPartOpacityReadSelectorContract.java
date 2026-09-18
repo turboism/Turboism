@@ -2,8 +2,12 @@ package dev.turboism.mapping.verification.selector;
 
 import java.util.Set;
 
-/** Exact additive selector contract for Cubism 5.2 Part evaluation-opacity reads. */
-public final class EditorPartOpacity52SelectorContract {
+/**
+ * Exact additive selector contract for Part evaluation-opacity reads on the host whose
+ * {@link #CUBISM_VERSION} declares the bound version; the newer reviewed artifact authorizes
+ * authoring writes through {@link EditorPartOpacitySelectorContract} instead.
+ */
+public final class EditorPartOpacityReadSelectorContract {
 
     public static final String CUBISM_VERSION = "5.2.03";
     public static final String ADAPTER_SLICE_ID = EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID;
@@ -21,6 +25,6 @@ public final class EditorPartOpacity52SelectorContract {
         "cubism.editor-model.part-id.value"
     );
 
-    private EditorPartOpacity52SelectorContract() {
+    private EditorPartOpacityReadSelectorContract() {
     }
 }

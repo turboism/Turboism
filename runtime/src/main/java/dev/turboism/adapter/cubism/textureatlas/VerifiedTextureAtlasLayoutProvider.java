@@ -6,24 +6,30 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Exact Cubism 5.3.02 texture-atlas authoring provider. */
-public final class VerifiedCubism5302TextureAtlasLayoutProvider implements TextureAtlasLayoutProvider {
+/**
+ * Exact texture-atlas authoring provider bound to the reviewed selector {@link
+ * VerifiedTextureAtlasSelectorContract.Profile Profile} supplied by the caller, so the host
+ * version is data rather than part of the type name.
+ */
+public final class VerifiedTextureAtlasLayoutProvider implements TextureAtlasLayoutProvider {
 
     private final VerifiedTextureAtlasLayoutProviderEngine engine;
 
-    public VerifiedCubism5302TextureAtlasLayoutProvider(
+    public VerifiedTextureAtlasLayoutProvider(
         final VerifiedMemberResolver resolver,
         final String sessionIdentity,
-        final TextureAtlasDataModelCapture capture
+        final TextureAtlasDataModelCapture capture,
+        final VerifiedTextureAtlasSelectorContract.Profile profile
     ) {
+        Objects.requireNonNull(profile, "profile");
         engine = new VerifiedTextureAtlasLayoutProviderEngine(
             resolver,
             sessionIdentity,
             capture,
-            "5.3.02",
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-            VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
-            VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
+            profile.cubismVersion(),
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
+            profile.requiredAliases()
         );
     }
 

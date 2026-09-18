@@ -440,6 +440,9 @@ public final class CoreShell implements AutoCloseable {
         logger.info("UPDATE_CHECK_RESULT_HINT_SENT status=" + snapshot.status());
     }
 
+    // Reference equality is intentional: a different Snapshot instance, even an equal one,
+    // means the service advanced past the state this pending delivery was captured for.
+    @SuppressWarnings("ReferenceEquality")
     private boolean isDeliverable(
         final CoreUpdateService.Snapshot snapshot,
         final long expectedUiGeneration

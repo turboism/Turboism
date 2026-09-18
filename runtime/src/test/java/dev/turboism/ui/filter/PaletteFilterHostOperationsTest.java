@@ -405,9 +405,9 @@ class PaletteFilterHostOperationsTest {
 
     @Test
     void nodeSourceProfileRoutesExactVersionsToPinnedAccessors() {
-        // Runtime resolver spelling (EditorModelVerificationManifest52) and record spelling.
+        // Exact record spelling routes to the pinned accessor; other spellings fail closed.
         assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
-        assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
+        assertTrue(DeformerNodeSourceProfile.forVersion("5.2.0").isEmpty());
         assertEquals("i", DeformerNodeSourceProfile.forVersion("5.3.02").orElseThrow().accessorName());
         assertTrue(DeformerNodeSourceProfile.forVersion("5.4.0").isEmpty());
         assertTrue(DeformerNodeSourceProfile.forVersion("").isEmpty());
