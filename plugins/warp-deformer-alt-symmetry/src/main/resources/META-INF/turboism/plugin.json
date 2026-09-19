@@ -1,0 +1,49 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.warp-deformer-alt-symmetry",
+  "name": "Warp Deformer Alt Symmetry",
+  "version": "0.1.0",
+  "description": "Extends bounding-box Alt symmetric semantics to Warp Deformer control points: Alt drags mirror across the vertical grid axis, Alt+Shift across the horizontal grid axis.",
+  "entrypoints": [
+    "dev.turboism.plugin.warpdeformeraltsymmetry.WarpDeformerAltSymmetryPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Snapshots Warp Deformer grids on Alt press and diffs them on release to detect the dragged control points."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Commits the mirrored control-point positions through replaceGrid so the symmetric move joins native Undo/Redo."
+    }
+  ],
+  "capabilities": [
+    "cubism.deformer.read",
+    "cubism.deformer.alt-axis-mirror"
+  ],
+  "environment": {
+    "requiresCubism": true
+  },
+  "tags": [
+    "deformer",
+    "warp",
+    "editing",
+    "symmetry"
+  ],
+  "category": "modeling"
+}
