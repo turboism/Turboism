@@ -128,6 +128,11 @@ public final class NativeWarpAltMirrorBridge {
      */
     public static void mirrorPointMove(final Object ref, final Object target, final float weight) {
         try {
+            final long now = System.currentTimeMillis();
+            if (now - LAST_THROTTLE.get() >= 1_000L) {
+                LAST_THROTTLE.set(now);
+                diagnostic("POINT_MOVE_CALL ref=" + (ref == null ? "null" : ref.getClass().getName()));
+            }
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled() || ref == null || target == null) {
                 return;

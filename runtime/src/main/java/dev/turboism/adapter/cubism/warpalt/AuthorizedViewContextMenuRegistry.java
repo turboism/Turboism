@@ -33,4 +33,9 @@ public final class AuthorizedViewContextMenuRegistry implements ViewContextMenuR
     public void setSelected(final String contributionId, final boolean selected) {
         delegate.setSelected(contributionId, selected);
     }
+
+    @Override
+    public void setText(final String contributionId, final String text) {
+        delegate.setText(contributionId, text);
+    }
 }
