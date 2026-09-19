@@ -77,7 +77,8 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final boolean isPointMove = profile.pointMoveOwner().equals(className);
         final boolean isDragTick = profile.dragTickOwner().equals(className);
         final boolean isStrip = profile.stripOwner().equals(className);
-        if (!isPointMove && !isDragTick && !isStrip) return null;
+        final boolean isGreenTick = profile.greenTickOwner().equals(className);
+        if (!isPointMove && !isDragTick && !isStrip && !isGreenTick) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
@@ -87,7 +88,26 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final boolean[] transformed = {false};
         try {
             final ClassReader reader = new ClassReader(classfileBuffer);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES) {
+                @Override
+                protected String getCommonSuperClass(final String left, final String right) {
+                    try {
+                        final ClassLoader classLoader = admittedClassLoader.get() == null
+                            ? WarpAltMirrorNativeMethodTransformer.class.getClassLoader()
+                            : admittedClassLoader.get();
+                        final Class<?> leftType = Class.forName(left.replace('/', '.'), false, classLoader);
+                        final Class<?> rightType = Class.forName(right.replace('/', '.'), false, classLoader);
+                        if (leftType.isAssignableFrom(rightType)) return left;
+                        if (rightType.isAssignableFrom(leftType)) return right;
+                        if (leftType.isInterface() || rightType.isInterface()) return "java/lang/Object";
+                        Class<?> current = leftType;
+                        do current = current.getSuperclass(); while (!current.isAssignableFrom(rightType));
+                        return current.getName().replace('.', '/');
+                    } catch (Throwable ignored) {
+                        return "java/lang/Object";
+                    }
+                }
+            };
             reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
                 @Override
                 public MethodVisitor visitMethod(
@@ -112,7 +132,11 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         && "a".equals(name)
                         && ("(Lcom/live2d/cubism/view/context/actionManager/N;"
                             + "Lcom/live2d/graphics3d/entity/GEntity;)V").equals(descriptor);
-                    if (!pointMoveHere && !dragTickHere && !stripMountHere && !stripLayoutTail) {
+                    final boolean greenTickHere = isGreenTick
+                        && profile.greenTickMethod().equals(name)
+                        && profile.greenTickDescriptor().equals(descriptor);
+                    if (!pointMoveHere && !dragTickHere && !stripMountHere
+                        && !stripLayoutTail && !greenTickHere) {
                         return delegate;
                     }
                     transformed[0] = true;
@@ -125,7 +149,16 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                 return;
                             }
                             visitVarInsn(Opcodes.ALOAD, 0);
-                            if (pointMoveHere) {
+                            if (greenTickHere) {
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mirrorGreenTick",
+                                    "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                                    false
+                                );
+                            } else if (pointMoveHere) {
                                 visitVarInsn(Opcodes.ALOAD, 1);
                                 visitVarInsn(Opcodes.FLOAD, 2);
                                 visitMethodInsn(
