@@ -100,12 +100,11 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         try {
             final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry registry =
                 context.viewContextMenu();
-            registry.contributeButton(
-                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.ButtonContribution(
+            registry.contributeMenuItem(
+                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.MenuItemContribution(
                     AXIS_BUTTON_ID,
                     axisText(armedAxis),
-                    "镜像轴开关 / Mirror axis toggle (Ctrl+Alt+V/H/O)",
-                    ignored -> cycleArmedAxis()));
+                    ignored -> applyArmedAxis((armedAxis + 1) % 3)));
             logger.info("Warp deformer Alt axis-symmetry strip button contributed");
         } catch (RuntimeException | Error unsupported) {
             logger.warn("viewContextMenu unavailable: "

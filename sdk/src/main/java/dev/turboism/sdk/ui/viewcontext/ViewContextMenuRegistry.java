@@ -6,49 +6,38 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * Contributes controls into the modeling view's canvas-top control strip (the
- * GL-drawn view context menu that hosts e.g. the "Lock Drawable Object"
- * toggle). Contributions mount into the same entity group and inherit the
- * strip's per-frame layout, mode visibility and scene-graph hit testing.
+ * Contributes menu items into the modeling view's canvas-top control strip
+ * (the view context menu behind the caret button of the bar that hosts e.g.
+ * the "Lock Drawable Object" toggle).
  */
 public interface ViewContextMenuRegistry {
 
     /**
-     * Adds a text toggle button to the strip. The host invokes the click
-     * consumer on every click; the owning plugin updates the displayed text
-     * through {@link #setText(String, String)} and any behavioural state.
+     * Adds a text menu item to the strip's view context menu. The host invokes
+     * the click consumer on every click; the owning plugin updates the item
+     * text through {@link #setText(String, String)} to reflect its state.
      *
-     * @param contribution descriptor of the button
+     * @param contribution descriptor of the menu item
      */
-    Registration contributeButton(ButtonContribution contribution);
+    Registration contributeMenuItem(MenuItemContribution contribution);
 
     /**
-     * Updates the drawn text of a contributed button.
+     * Updates the drawn text of a contributed menu item.
      *
      * @param contributionId plugin-scoped identity used at contribute time
-     * @param text the new button text
+     * @param text the new item text
      */
     void setText(String contributionId, String text);
 
-    /**
-     * Updates the drawn selected state of a contributed button.
-     *
-     * @param contributionId plugin-scoped identity used at contribute time
-     * @param selected whether the button renders as selected
-     */
-    void setSelected(String contributionId, boolean selected);
-
-    /** One canvas-strip text button owned by a plugin. */
-    record ButtonContribution(
+    /** One canvas-strip menu item owned by a plugin. */
+    record MenuItemContribution(
         String contributionId,
         String text,
-        String tooltip,
         Consumer<Void> onClick
     ) {
-        public ButtonContribution {
+        public MenuItemContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
             text = Objects.requireNonNull(text, "text");
-            tooltip = Objects.requireNonNull(tooltip, "tooltip");
             Objects.requireNonNull(onClick, "onClick");
         }
     }
