@@ -18,12 +18,12 @@ import java.util.Objects;
  * reflectively against the reviewed 5.3.03 host classes.
  *
  * <p>Target strip: {@code CEMainFrameViewCtrl.toolSet_modelingMode} — the
- * horizontal widget bar below the workspace tabs and above the canvas, whose
- * controls include the glue toggle ({@code toolGroup_glue}, CIconToggleButton).
- * Contributed buttons are host {@code CButton} text widgets inserted
- * immediately LEFT of the glue toggle through {@code CContainer.add(CWidget,
- * int)}; they resolve through the reviewed alias chain
- * (app instance -> main frame -> main-frame view) via the bound
+ * horizontal Swing widget bar below the workspace tabs and above the canvas,
+ * whose rightmost control is the glue toggle ({@code toolGroup_glue},
+ * CIconToggleButton). Contributed buttons are host {@code CButton} text
+ * widgets inserted immediately LEFT of the glue toggle through
+ * {@code CContainer.add(CWidget, int)}; they resolve through the reviewed
+ * alias chain (app instance -> main frame -> main-frame view) via the bound
  * {@link VerifiedMemberResolver}.</p>
  */
 public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegistry {
@@ -46,7 +46,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private final Map<String, Entry> entries = new LinkedHashMap<>();
     private final List<Runnable> pendingBuilds = new ArrayList<>();
     private VerifiedMemberResolver resolver;
-    private Object toolSet;
     private boolean mountAttempted;
 
     private record Entry(ViewContextMenuRegistry.ButtonContribution contribution, Object item) { }
@@ -59,7 +58,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /**
      * Binds the verified host resolver (same reviewed alias table as the
-     * horizontal-toolbar operations) and mounts any queued contributions.
+     * horizontal-toolbar operations) and mounts any queued contributions into
+     * the modeling tool strip.
      */
     public void bindResolver(final VerifiedMemberResolver verifiedResolver) {
         Objects.requireNonNull(verifiedResolver, "resolver");
@@ -87,11 +87,15 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             }
         }
         return () -> {
-            synchronized (lock) {
-                final Entry entry = entries.remove(contribution.contributionId());
-                if (entry != null) {
-                    removeFromToolSet(entry.item());
+            try {
+                synchronized (lock) {
+                    final Entry entry = entries.remove(contribution.contributionId());
+                    if (entry != null) {
+                        removeFromToolSet(entry.item());
+                    }
                 }
+            } catch (ReflectiveOperationException | RuntimeException failure) {
+                diagnostic("REMOVE_FAILED " + failure.getClass().getSimpleName());
             }
         };
     }
@@ -123,7 +127,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 + " text=" + contribution.text());
         } catch (Throwable failure) {
             if (hostNotReady(failure)) {
-                diagnostic("HOST_NOT_READY retry=" + retryCount.get());
+                diagnostic("HOST_NOT_READY attempt=" + retryCount.get());
                 scheduleRetry(contribution);
                 return;
             }
@@ -167,7 +171,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         final ClassLoader hostLoader = resolver.hostClassLoader();
         final Class<?> itemClass = Class.forName(BUTTON_CLASS, false, hostLoader);
         final Class<?> iconClass = Class.forName(ICON_CLASS, false, hostLoader);
-        final Class<?> widgetClass = Class.forName(WIDGET_CLASS, false, hostLoader);
         final Class<?> eventClass = Class.forName("com.live2d.ui.event.a", false, hostLoader);
         final Class<?> function1 = Class.forName(FUNCTION1_CLASS, false, hostLoader);
 
@@ -199,43 +202,26 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         final int glueIndex = ((Number) getIndexOf.invoke(toolSetInstance, glue)).intValue();
         final Method add = toolSetInstance.getClass().getMethod("add", widgetClass, int.class);
         add.invoke(toolSetInstance, item, Math.max(0, glueIndex));
-        diagnostic("INSERTED index=" + Math.max(0, glueIndex) + " text=" + contributionText(item));
+        diagnostic("INSERTED index=" + Math.max(0, glueIndex));
     }
 
-    private static String contributionText(final Object item) {
-        try {
-            final Object value = item.getClass().getMethod("getText").invoke(item);
-            return String.valueOf(value);
-        } catch (Throwable ignored) {
-            return "?";
-        }
-    }
-
-    private void removeFromToolSet(final Object item) {
-        try {
-            final Object toolSetInstance = toolSet();
-            final ClassLoader hostLoader = resolver.hostClassLoader();
-            final Method remove = toolSetInstance.getClass().getMethod(
-                "remove", Class.forName(WIDGET_CLASS, false, hostLoader));
-            remove.invoke(toolSetInstance, item);
-        } catch (Throwable failure) {
-            diagnostic("REMOVE_FAILED reason=" + failure.getClass().getName());
-        }
+    private void removeFromToolSet(final Object item) throws ReflectiveOperationException {
+        final Object toolSetInstance = toolSet();
+        final ClassLoader hostLoader = resolver.hostClassLoader();
+        final Class<?> widgetClass = Class.forName(WIDGET_CLASS, false, hostLoader);
+        final Method remove = toolSetInstance.getClass().getMethod("remove", widgetClass);
+        remove.invoke(toolSetInstance, item);
     }
 
     /** Resolves the modeling-mode CHBox via the reviewed alias chain. */
     private Object toolSet() throws ReflectiveOperationException {
-        synchronized (lock) {
-            if (toolSet != null) return toolSet;
-            final Object viewCtrl = mainFrameView();
-            final Field field = viewCtrl.getClass().getField(TOOLSET_FIELD);
-            final Object resolved = field.get(viewCtrl);
-            if (resolved == null) {
-                throw new IllegalStateException("toolSet_modelingMode is not initialised");
-            }
-            toolSet = resolved;
-            return toolSet;
+        final Object viewCtrl = mainFrameView();
+        final Field field = viewCtrl.getClass().getField(TOOLSET_FIELD);
+        final Object resolved = field.get(viewCtrl);
+        if (resolved == null) {
+            throw new IllegalStateException("toolSet_modelingMode is not initialised");
         }
+        return resolved;
     }
 
     /**

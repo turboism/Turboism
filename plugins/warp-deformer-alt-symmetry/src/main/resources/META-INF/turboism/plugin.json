@@ -43,6 +43,11 @@
       "id": "turboism.ui.toolbar.contribute",
       "scope": "application",
       "reason": "Adds the mirror-axis toggle button to the canvas-top control strip."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Shows the armed-axis hint in the host status bar and clears it on disarm."
     }
   ],
   "capabilities": [
