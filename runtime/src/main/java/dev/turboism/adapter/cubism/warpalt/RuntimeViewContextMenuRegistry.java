@@ -11,16 +11,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
- * Runtime implementation of the canvas-strip menu-item surface, built entirely
- * reflectively against the reviewed 5.3.03 host classes (CMenuItem + the strip's
- * caret view context menu).
+ * Runtime implementation of the canvas-strip text-button surface, built entirely
+ * reflectively against the reviewed 5.3.03 host classes (GToggleButtonEntity).
  *
- * <p>The strip's caret menu is created with the strip itself; the injected hook
- * calls {@link #mount(Object)} once the strip exists. Plugins usually contribute
- * before the modeling view exists, so contributions queue here and build on
- * mount; anything contributed afterwards builds in place.</p>
+ * <p>The strip constructs and mounts its own buttons in {@code a.b} (constructor
+ * + {@code R()}); the injected hooks call {@link #mount(Object)} at construction
+ * and {@link #positionStripButton(Object)} at the tail of every strip re-layout,
+ * which places contributed text buttons right of the strip's last (caret)
+ * button. Plugins usually contribute before the modeling view exists, so
+ * contributions queue here and build on mount; anything contributed afterwards
+ * builds in place.</p>
  */
 public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegistry {
 
@@ -28,19 +31,23 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /** Reviewed 5.3.03 selectors (disassembly-verified). */
     private static final String STRIP_CLASS = "com.live2d.cubism.view.context.a.b";
-    private static final String MENU_FIELD = "G";
-    private static final String MENU_CLASS = "com.live2d.ui.menu.k";
-    private static final String MENU_ITEM_CLASS = "com.live2d.ui.menu.CMenuItem";
-    private static final String EVENT_CLASS = "com.live2d.ui.event.a";
+    private static final String BUTTON_CLASS =
+        "com.live2d.cubism.view.context.guiEntity.GToggleButtonEntity";
+    private static final String FONT_CLASS = "com.live2d.type.CFont";
+    private static final String RECT_CLASS = "com.live2d.graphics3d.type.GRectF";
     private static final String FUNCTION1_CLASS = "kotlin.jvm.functions.Function1";
+    private static final int BUTTON_WIDTH = 96;
+    private static final int BUTTON_HEIGHT = 24;
+    private static final float BUTTON_GAP = 6f;
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
     private final List<Runnable> pendingBuilds = new ArrayList<>();
-    private Object menu;
+    private Object strip;
+    private Object button;
     private boolean mountAttempted;
 
-    private record Entry(ViewContextMenuRegistry.MenuItemContribution contribution, Object item) { }
+    private record Entry(ViewContextMenuRegistry.ButtonContribution contribution, Object button) { }
 
     public static RuntimeViewContextMenuRegistry getInstance() {
         return INSTANCE;
@@ -49,11 +56,11 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private RuntimeViewContextMenuRegistry() { }
 
     @Override
-    public Registration contributeMenuItem(final ViewContextMenuRegistry.MenuItemContribution contribution) {
+    public Registration contributeButton(final ViewContextMenuRegistry.ButtonContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         final Runnable build = () -> buildAndMount(contribution);
         synchronized (lock) {
-            if (mountAttempted && menu != null) {
+            if (mountAttempted && strip != null) {
                 build.run();
             } else {
                 pendingBuilds.add(build);
@@ -62,6 +69,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return () -> {
             synchronized (lock) {
                 entries.remove(contribution.contributionId());
+                if (button != null) {
+                    setButtonResponding(button, false);
+                }
             }
         };
     }
@@ -69,13 +79,10 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     @Override
     public void setText(final String contributionId, final String text) {
         synchronized (lock) {
-            final Entry entry = entries.get(contributionId);
-            if (entry == null || entry.item() == null) return;
+            if (button == null) return;
             try {
-                final Method getJMenuItem = entry.item().getClass().getMethod("getJMenuItem");
-                final Object jMenuItem = getJMenuItem.invoke(entry.item());
-                final Method setText = jMenuItem.getClass().getMethod("setText", String.class);
-                setText.invoke(jMenuItem, text);
+                final Method setText = button.getClass().getMethod("setText", String.class);
+                setText.invoke(button, text);
             } catch (ReflectiveOperationException | RuntimeException failure) {
                 diagnostic("SET_TEXT_FAILED " + failure.getClass().getSimpleName());
             }
@@ -84,84 +91,180 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /**
      * Injected at the head of the strip's mount routine with the strip instance.
-     * Stores the strip's caret menu and builds any contributions that queued
-     * before the view existed. Idempotent across repeated mount calls.
+     * Stores the strip and builds any contributions that queued before the view
+     * existed, adding the button to the scene graph directly (the strip's H
+     * group only accepts icon-button entities).
      */
     public void mount(final Object stripInstance) {
-        final int queuedCount;
         synchronized (lock) {
             if (stripInstance == null) return;
-            if (menu == null) {
-                try {
-                    final Field menuField = stripInstance.getClass().getDeclaredField(MENU_FIELD);
-                    menuField.setAccessible(true);
-                    menu = menuField.get(stripInstance);
-                } catch (ReflectiveOperationException | RuntimeException failure) {
-                    diagnostic("MENU_LOOKUP_FAILED reason=" + failure.getClass().getName());
-                    return;
-                }
-            }
+            strip = stripInstance;
             mountAttempted = true;
-            queuedCount = pendingBuilds.size();
             final List<Runnable> queued = new ArrayList<>(pendingBuilds);
             pendingBuilds.clear();
             for (final Runnable build : queued) {
                 build.run();
             }
         }
-        diagnostic("STRIP_MOUNTED queueSize=" + queuedCount
-            + " instance=" + Integer.toHexString(System.identityHashCode(this)));
+        diagnostic("STRIP_MOUNTED instance=" + Integer.toHexString(System.identityHashCode(this)));
     }
 
-    private void buildAndMount(final ViewContextMenuRegistry.MenuItemContribution contribution) {
+    /**
+     * Injected at the tail of the strip's per-frame re-layout. Positions every
+     * contributed text button to the right of the strip's last (caret) button.
+     */
+    public void positionStripButton(final Object stripInstance) {
+        synchronized (lock) {
+            if (stripInstance == null || stripInstance != strip || button == null) return;
+            try {
+                final Object caret = lastStripButton(stripInstance);
+                if (caret == null) return;
+                final Object caretRect = caret.getClass()
+                    .getMethod("getRectOnComponent").invoke(caret);
+                final float x = rectValue(caretRect, "getX")
+                    + rectValue(caretRect, "getWidth") + BUTTON_GAP;
+                final float y = rectValue(caretRect, "getY");
+                final Class<?> rectClass = Class.forName(RECT_CLASS, false,
+                    button.getClass().getClassLoader());
+                final Object bounds = rectClass.getConstructor(
+                    float.class, float.class, float.class, float.class)
+                    .newInstance(x, y, (float) BUTTON_WIDTH, (float) BUTTON_HEIGHT);
+                final Method setBounds = button.getClass()
+                    .getMethod("setBoundsOnComponent", rectClass, float.class);
+                setBounds.invoke(button, bounds, 1.0f);
+            } catch (Throwable failure) {
+                diagnostic("POSITION_FAILED reason=" + failure.getClass().getName());
+            }
+        }
+    }
+
+    private void buildAndMount(final ViewContextMenuRegistry.ButtonContribution contribution) {
         try {
-            if (menu == null) {
-                diagnostic("BUILD_SKIPPED reason=NO_MENU");
+            if (strip == null) {
+                diagnostic("BUILD_SKIPPED reason=NO_STRIP");
                 return;
             }
-            final Object item = createMenuItem(contribution);
-            final Method add = menu.getClass().getMethod("a", itemClassOf(menu));
-            add.invoke(menu, item);
-            entries.put(contribution.contributionId(), new Entry(contribution, item));
-            diagnostic("MENU_ITEM_MOUNTED id=" + contribution.contributionId()
+            final ClassLoader hostLoader = strip.getClass().getClassLoader();
+            final Class<?> buttonClass = Class.forName(BUTTON_CLASS, false, hostLoader);
+            final Class<?> fontClass = Class.forName(FONT_CLASS, false, hostLoader);
+            final Class<?> rectClass = Class.forName(RECT_CLASS, false, hostLoader);
+
+            final Object font = fontClass.getConstructor(java.awt.Font.class)
+                .newInstance(new java.awt.Font("Dialog", java.awt.Font.PLAIN, 12));
+            final Object rect = rectClass
+                .getConstructor(float.class, float.class, float.class, float.class)
+                .newInstance(0f, 0f, (float) BUTTON_WIDTH, (float) BUTTON_HEIGHT);
+
+            final Object built = buttonClass
+                .getConstructor(String.class, fontClass, rectClass)
+                .newInstance(contribution.text(), font, rect);
+
+            setOnAction(built, contribution);
+            setupTooltip(built, contribution.tooltip());
+
+            button = built;
+            addToSceneGraph(stripInstance(), built);
+            diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
                 + " text=" + contribution.text());
         } catch (Throwable failure) {
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
-            diagnostic("MENU_ITEM_MOUNT_FAILED phase=" + phase
+            diagnostic("BUTTON_MOUNT_FAILED phase=" + phase
                 + " reason=" + failure.getClass().getName() + ": " + failure.getMessage());
         }
     }
 
-    private static Class<?> itemClassOf(final Object menu) throws ClassNotFoundException {
-        return Class.forName(MENU_ITEM_CLASS, false, menu.getClass().getClassLoader());
+    private Object stripInstance() {
+        synchronized (lock) {
+            return strip;
+        }
     }
 
-    /** Builds the host CMenuItem reflectively through the host loader. */
-    private Object createMenuItem(
-        final ViewContextMenuRegistry.MenuItemContribution contribution
-    ) throws ReflectiveOperationException {
-        final ClassLoader hostLoader = menu.getClass().getClassLoader();
-        final Class<?> itemClass = Class.forName(MENU_ITEM_CLASS, false, hostLoader);
-        final Class<?> eventClass = Class.forName(EVENT_CLASS, false, hostLoader);
-        final Class<?> function1 = Class.forName(FUNCTION1_CLASS, false, hostLoader);
+    /** Adds the button to the strip's scene-graph overlay (objects on component). */
+    private static void addToSceneGraph(final Object stripInstance, final Object button)
+        throws ReflectiveOperationException {
+        final Object sceneGraph = stripInstance.getClass().getMethod("e").invoke(stripInstance);
+        final Object objectsOnComponent = sceneGraph.getClass()
+            .getMethod("getObjectsOnComponent").invoke(sceneGraph);
+        final Object children = objectsOnComponent.getClass().getMethod("getChildren")
+            .invoke(objectsOnComponent);
+        final Method add = children.getClass().getMethod("add",
+            objectsOnComponent.getClass(), int.class);
+        add.invoke(children, button, 0);
+    }
 
-        final Object handler = Proxy.newProxyInstance(
-            function1.getClassLoader(),
-            new Class<?>[]{function1},
-            (proxy, method, args) -> {
-                if (!method.getName().equals("invoke")) return null;
-                try {
-                    contribution.onClick().accept(null);
-                } catch (Throwable failure) {
-                    diagnostic("CLICK_FAILED reason=" + failure.getClass().getName());
-                }
-                return null;
-            });
+    /** Returns the strip's last mounted (caret) button, or null. */
+    private static Object lastStripButton(final Object stripInstance)
+        throws ReflectiveOperationException {
+        final Field groupField = stripInstance.getClass().getDeclaredField("H");
+        groupField.setAccessible(true);
+        final Object group = groupField.get(stripInstance);
+        if (!(group instanceof List<?> list) || list.isEmpty()) return null;
+        return list.get(list.size() - 1);
+    }
 
-        // CMenuItem(String text, CIcon icon = null tolerated, Function1 handler)
-        return itemClass.getConstructor(String.class, Class.forName(
-            "com.live2d.type.CIcon", false, hostLoader), function1)
-            .newInstance(contribution.text(), null, handler);
+    private static float rectValue(final Object rect, final String accessor)
+        throws ReflectiveOperationException {
+        final Object value = rect.getClass().getMethod(accessor).invoke(rect);
+        return value instanceof Number number ? number.floatValue() : 0f;
+    }
+
+    private static void setOnAction(
+        final Object button,
+        final ViewContextMenuRegistry.ButtonContribution contribution
+    ) {
+        try {
+            final ClassLoader hostLoader = button.getClass().getClassLoader();
+            final Class<?> function1 = Class.forName(FUNCTION1_CLASS, false, hostLoader);
+            final Object handler = Proxy.newProxyInstance(
+                function1.getClassLoader(),
+                new Class<?>[]{function1},
+                (proxy, method, args) -> {
+                    if (!method.getName().equals("invoke")) return null;
+                    try {
+                        contribution.onClick().accept(null);
+                    } catch (Throwable failure) {
+                        diagnostic("CLICK_FAILED reason=" + failure.getClass().getName());
+                    }
+                    return null;
+                });
+            final Method setOnAction = button.getClass().getMethod("setOnAction", function1);
+            setOnAction.invoke(button, handler);
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            throw new PhaseTagged("SET_ON_ACTION", failure);
+        }
+    }
+
+    private static void setupTooltip(final Object button, final String tooltip) {
+        try {
+            final ClassLoader hostLoader = button.getClass().getClassLoader();
+            final Class<?> function0 = Class.forName(
+                "kotlin.jvm.functions.Function0", false, hostLoader);
+            final Object supplier = Proxy.newProxyInstance(
+                function0.getClassLoader(),
+                new Class<?>[]{function0},
+                (proxy, method, args) -> method.getName().equals("invoke") ? tooltip : null);
+            final Method setToolTipText = button.getClass()
+                .getMethod("setToolTipText", function0);
+            setToolTipText.invoke(button, supplier);
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            throw new PhaseTagged("TOOLTIP", failure);
+        }
+    }
+
+    /** Disables the click path of a removed button without touching the strip layout. */
+    private static void setButtonResponding(final Object button, final boolean responding) {
+        try {
+            final ClassLoader hostLoader = button.getClass().getClassLoader();
+            final Class<?> function1 = Class.forName(FUNCTION1_CLASS, false, hostLoader);
+            final Object noop = Proxy.newProxyInstance(
+                function1.getClassLoader(),
+                new Class<?>[]{function1},
+                (proxy, method, args) -> null);
+            final Method setOnAction = button.getClass().getMethod("setOnAction", function1);
+            setOnAction.invoke(button, noop);
+        } catch (Throwable failure) {
+            diagnostic("SET_RESPONDING_FAILED reason=" + failure.getClass().getName());
+        }
     }
 
     /** Carries the reflective phase that failed, for mount diagnostics. */

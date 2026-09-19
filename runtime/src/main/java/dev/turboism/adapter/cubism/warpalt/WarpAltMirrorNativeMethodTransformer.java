@@ -19,11 +19,19 @@ import java.util.function.Consumer;
 /**
  * Exact-selector transformer for the Warp deformer Alt-symmetry hook.
  *
- * <p>Only the profile-selected doc-level point-write method is rewritten, and only
- * for a class loader plus artifact pair that matches the reviewed admission. The
- * injected call passes the point reference, the local target position and the blend
- * weight to the static bridge at the method head, before the native write runs and
- * inside the gesture's own undo envelope.</p>
+ * <p>Three reviewed injection points, each verified against the 5.3.03 artifact
+ * digest with exact owner/method/descriptor selectors:</p>
+ *
+ * <ul>
+ *   <li>{@code WarpPointRef.moveToOnLocal(GVector2, float)} — head: the converged
+ *       doc-level control-point write of every deformer-edit flow; the mirrored
+ *       counterpart write lands inside the gesture's own undo envelope.</li>
+ *   <li>{@code temporaryHandler.a.b(GVector2, aG)} — head: the dedicated bend-tool
+ *       drag tick, carrying the handler, drag position and modifier event.</li>
+ *   <li>{@code a.b.R()} — head of the view-control-strip mount routine, and
+ *       {@code a.b.a(N, GEntity)} — tail of its per-frame re-layout: the view
+ *       control strip hooks that mount and position contributed buttons.</li>
+ * </ul>
  */
 public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTransformer {
     private static final String BRIDGE = "dev/turboism/adapter/cubism/warpalt/NativeWarpAltMirrorBridge";
@@ -68,9 +76,8 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         if (className == null || classfileBuffer == null) return null;
         final boolean isPointMove = profile.pointMoveOwner().equals(className);
         final boolean isDragTick = profile.dragTickOwner().equals(className);
-        final boolean isStripMount = className.equals(
-            "com/live2d/cubism/view/context/a/b");
-        if (!isPointMove && !isDragTick && !isStripMount) return null;
+        final boolean isStrip = profile.stripOwner().equals(className);
+        if (!isPointMove && !isDragTick && !isStrip) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
@@ -92,15 +99,20 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                 ) {
                     final MethodVisitor delegate =
                         super.visitMethod(access, name, descriptor, signature, exceptions);
+
                     final boolean pointMoveHere = isPointMove
                         && profile.pointMoveMethod().equals(name)
                         && profile.pointMoveDescriptor().equals(descriptor);
                     final boolean dragTickHere = isDragTick
                         && profile.dragTickMethod().equals(name)
                         && profile.dragTickDescriptor().equals(descriptor);
-                    final boolean stripMountHere = isStripMount
-                        && name.equals("R") && descriptor.equals("()V");
-                    if (!pointMoveHere && !dragTickHere && !stripMountHere) {
+                    final boolean stripMountHere = isStrip
+                        && "R".equals(name) && "()V".equals(descriptor);
+                    final boolean stripLayoutTail = isStrip
+                        && "a".equals(name)
+                        && ("(Lcom/live2d/cubism/view/context/actionManager/N;"
+                            + "Lcom/live2d/graphics3d/entity/GEntity;)V").equals(descriptor);
+                    if (!pointMoveHere && !dragTickHere && !stripMountHere && !stripLayoutTail) {
                         return delegate;
                     }
                     transformed[0] = true;
@@ -108,6 +120,10 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         @Override
                         public void visitCode() {
                             super.visitCode();
+                            if (stripLayoutTail) {
+                                // Tail-target: the call is injected at each RETURN.
+                                return;
+                            }
                             visitVarInsn(Opcodes.ALOAD, 0);
                             if (pointMoveHere) {
                                 visitVarInsn(Opcodes.ALOAD, 1);
@@ -134,6 +150,21 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                     Opcodes.INVOKESTATIC,
                                     BRIDGE,
                                     "mountViewContextMenu",
+                                    "(Ljava/lang/Object;)V",
+                                    false
+                                );
+                            }
+                        }
+
+                        @Override
+                        public void visitInsn(final int opcode) {
+                            super.visitInsn(opcode);
+                            if (stripLayoutTail && opcode == Opcodes.RETURN) {
+                                visitVarInsn(Opcodes.ALOAD, 0);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "positionStripButton",
                                     "(Ljava/lang/Object;)V",
                                     false
                                 );
