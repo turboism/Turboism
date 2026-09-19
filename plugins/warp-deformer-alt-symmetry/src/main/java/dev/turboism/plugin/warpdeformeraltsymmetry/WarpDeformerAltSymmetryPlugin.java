@@ -115,6 +115,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         if (!(event instanceof final MouseEvent mouseEvent)) {
             return;
         }
+        publishLiveCtrl(mouseEvent);
         try {
             if (mouseEvent.getID() == MouseEvent.MOUSE_PRESSED) {
                 onPress(mouseEvent);
@@ -190,6 +191,22 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             logger.info("WARP_ALT_AXIS armed=" + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
         } catch (RuntimeException | Error unsupported) {
             logger.warn("setArmedAxis unavailable: " + unsupported.getClass().getSimpleName());
+        }
+    }
+
+    private boolean lastPublishedCtrl;
+
+    /** Publishes Ctrl state changes so the native self-only drag skips mirroring. */
+    private void publishLiveCtrl(final MouseEvent event) {
+        final boolean ctrl = (event.getModifiersEx() & MouseEvent.CTRL_DOWN_MASK) != 0;
+        if (ctrl == lastPublishedCtrl) {
+            return;
+        }
+        lastPublishedCtrl = ctrl;
+        try {
+            context.warpAltMirrorParticipation().setLiveCtrlDown(ctrl);
+        } catch (RuntimeException | Error ignored) {
+            // Best-effort; the bridge defaults to mirroring unless told otherwise.
         }
     }
 
