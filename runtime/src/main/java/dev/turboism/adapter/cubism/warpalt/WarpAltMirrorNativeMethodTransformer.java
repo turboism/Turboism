@@ -73,8 +73,9 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         if (className == null || classfileBuffer == null) return null;
         final boolean isPointMove = profile.pointMoveOwner().equals(className);
         final boolean isDragTick = profile.dragTickOwner().equals(className);
+        final boolean isStrip = profile.stripOwner().equals(className);
         final boolean isGreenTick = profile.greenTickOwner().equals(className);
-        if (!isPointMove && !isDragTick && !isGreenTick) return null;
+        if (!isPointMove && !isDragTick && !isGreenTick && !isStrip) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
@@ -122,10 +123,12 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                     final boolean dragTickHere = isDragTick
                         && profile.dragTickMethod().equals(name)
                         && profile.dragTickDescriptor().equals(descriptor);
+                    final boolean stripMountHere = isStrip
+                        && "R".equals(name) && "()V".equals(descriptor);
                     final boolean greenTickHere = isGreenTick
                         && profile.greenTickMethod().equals(name)
                         && profile.greenTickDescriptor().equals(descriptor);
-                    if (!pointMoveHere && !dragTickHere && !greenTickHere) {
+                    if (!pointMoveHere && !dragTickHere && !stripMountHere && !greenTickHere) {
                         return delegate;
                     }
                     transformed[0] = true;
@@ -134,7 +137,15 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         public void visitCode() {
                             super.visitCode();
                             visitVarInsn(Opcodes.ALOAD, 0);
-                            if (greenTickHere) {
+                            if (stripMountHere) {
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mountViewContextMenu",
+                                    "(Ljava/lang/Object;)V",
+                                    false
+                                );
+                            } else if (greenTickHere) {
                                 visitVarInsn(Opcodes.ALOAD, 1);
                                 visitMethodInsn(
                                     Opcodes.INVOKESTATIC,

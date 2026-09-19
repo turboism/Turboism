@@ -15,6 +15,7 @@ import java.awt.event.AWTEventListener;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.awt.image.BufferedImage;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -95,33 +96,46 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
 
     private static final String AXIS_BUTTON_ID = "warp-deformer-alt-symmetry.axis";
 
-    /** Contributes the mirror-axis state button into the canvas-top control strip. */
+    /** Contributes the mirror-axis state buttons into the canvas-top GL strip. */
     private void contributeStripButton() {
         try {
             final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry registry =
                 context.viewContextMenu();
-            registry.contributeButton(
-                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.ButtonContribution(
-                    AXIS_BUTTON_ID,
-                    axisText(armedAxis),
-                    "镜像轴开关 / Mirror axis toggle (Ctrl+Alt+V/H/O)",
-                    ignored -> applyArmedAxis((armedAxis + 1) % 3)));
-            logger.info("Warp deformer Alt axis-symmetry strip button contributed");
+            final Map<Integer, BufferedImage> icons = new java.util.LinkedHashMap<>();
+            icons.put(1, stateIcon("Vertical.png"));
+            icons.put(2, stateIcon("Horizon.png"));
+            icons.put(0, stateIcon("Off.png"));
+            registry.contributeStateButtons(
+                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry
+                    .StateButtonContribution(
+                    AXIS_BUTTON_ID, icons, armedAxis,
+                    state -> applyArmedAxis(state)));
+            logger.info("Warp deformer Alt axis-symmetry strip buttons contributed");
         } catch (RuntimeException | Error unsupported) {
             logger.warn("viewContextMenu unavailable: "
                 + unsupported.getClass().getSimpleName());
         }
     }
 
-    private void cycleArmedAxis() {
-        applyArmedAxis((armedAxis + 1) % 3);
+    private BufferedImage stateIcon(final String name) {
+        try (final var stream = getClass().getResourceAsStream(
+            "/META-INF/turboism/icons/" + name)) {
+            if (stream == null) {
+                logger.warn("mirror icon missing: " + name);
+                return new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
+            }
+            return javax.imageio.ImageIO.read(stream);
+        } catch (java.io.IOException failure) {
+            logger.warn("mirror icon load failed: " + name);
+            return new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
+        }
     }
 
     private void applyArmedAxis(final int axis) {
         armedAxis = axis;
         try {
             context.warpAltMirrorParticipation().setArmedAxis(axis);
-            context.viewContextMenu().setText(AXIS_BUTTON_ID, axisText(axis));
+            context.viewContextMenu().selectState(AXIS_BUTTON_ID, axis);
         } catch (RuntimeException | Error unsupported) {
             logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
             return;
