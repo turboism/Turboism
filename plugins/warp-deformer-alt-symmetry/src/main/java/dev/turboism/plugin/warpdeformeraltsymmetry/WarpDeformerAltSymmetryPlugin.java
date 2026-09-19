@@ -126,8 +126,33 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
             return;
         }
+        showArmedHint(axis);
         logger.info("WARP_ALT_AXIS armed="
             + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
+    }
+
+    /**
+     * Shows/clears the bottom status hint that mirrors the armed axis, in the
+     * style of the update-check hint. Armed states keep a resident compact
+     * metric label; disarming clears it.
+     */
+    private void showArmedHint(final int axis) {
+        try {
+            final var notification = new dev.turboism.sdk.ui.StatusNotification(
+                "warp-deformer-alt-symmetry.hint",
+                "INFO",
+                switch (axis) {
+                    case 1 -> context.localization()
+                        .text("warp-alt-symmetry.hint.vertical");
+                    case 2 -> context.localization()
+                        .text("warp-alt-symmetry.hint.horizontal");
+                    default -> "";
+                },
+                dev.turboism.sdk.ui.StatusNotification.Presentation.COMPACT_METRIC);
+            context.uiHost().notifyStatus(notification);
+        } catch (RuntimeException | Error unsupported) {
+            logger.warn("notifyStatus unavailable: " + unsupported.getClass().getSimpleName());
+        }
     }
 
     private String axisText(final int axis) {
