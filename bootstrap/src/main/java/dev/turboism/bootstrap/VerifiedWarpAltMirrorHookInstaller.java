@@ -55,7 +55,6 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     }
 
     /** Dotted binary name for {@code Class.forName}; the profile owner is the slashed internal name. */
-    private static final String STRIP_CLASS = "com.live2d.cubism.view.context.a.b";
 
     /** Installs the transformer during premain; it intentionally stays unbound. */
     void install() {
@@ -95,7 +94,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 if (loader == null) {
                     throw new IllegalStateException("warp alt mirror host loader is not admitted");
                 }
-                for (final String name : List.of(pointMoveClassName, dragTickClassName, STRIP_CLASS)) {
+                for (final String name : List.of(pointMoveClassName, dragTickClassName)) {
                     currentName = name;
                     final Class<?> defined = Class.forName(name, false, loader);
                     if (defined.getClassLoader() != loader) {
@@ -164,7 +163,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
 
     /** Premain guarantee: the exact targets must not already be defined when we register. */
     private void rejectLoadedTargets() {
-        for (final String name : List.of(pointMoveClassName, dragTickClassName, STRIP_CLASS)) {
+        for (final String name : List.of(pointMoveClassName, dragTickClassName)) {
             for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
                 if (name.equals(type.getName())) {
                     throw new IllegalStateException(

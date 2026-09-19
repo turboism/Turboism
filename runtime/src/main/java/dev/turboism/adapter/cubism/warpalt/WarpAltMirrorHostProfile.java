@@ -29,7 +29,6 @@ public record WarpAltMirrorHostProfile(
     String dragTickOwner,
     String dragTickMethod,
     String dragTickDescriptor,
-    String stripOwner,
     String greenTickOwner,
     String greenTickMethod,
     String greenTickDescriptor
@@ -54,7 +53,6 @@ public record WarpAltMirrorHostProfile(
             "b",
             "(Lcom/live2d/graphics3d/type/GVector2;"
                 + "Lcom/live2d/cubism/view/context/actionManager/aG;)V",
-            "com/live2d/cubism/view/context/a/b",
             "com/live2d/cubism/doc/model/deformer/warp/a$b",
             "a",
             "(Lcom/live2d/cubism/view/context/actionManager/aG;)V"
