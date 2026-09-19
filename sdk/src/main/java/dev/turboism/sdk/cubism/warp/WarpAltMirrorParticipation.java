@@ -23,6 +23,14 @@ public interface WarpAltMirrorParticipation {
     }
 
     /**
+     * Publishes the live Ctrl state tracked at the AWT level. While Ctrl is held
+     * the native drag is self-only (no content deformation), so the mirror does
+     * not apply.
+     */
+    default void setLiveCtrlDown(final boolean down) {
+    }
+
+    /**
      * @return whether the reviewed native drag-tick hook is installed and bound in
      *     this session. Plugins use this to decide whether their own fallback
      *     mirroring (for example an AWT-level path) must stay active.

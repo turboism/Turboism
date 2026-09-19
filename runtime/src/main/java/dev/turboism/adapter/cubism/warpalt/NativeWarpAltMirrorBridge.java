@@ -34,6 +34,12 @@ public final class NativeWarpAltMirrorBridge {
     private static final java.util.concurrent.atomic.AtomicInteger ARMED_AXIS =
         new java.util.concurrent.atomic.AtomicInteger(0);
     /**
+     * Live Ctrl state published by the plugin's AWT listener. Native semantics:
+     * Ctrl+drag moves the control point itself without deforming the child shapes,
+     * so while Ctrl is held the mirror must stay out of the way.
+     */
+    private static final AtomicBoolean LIVE_CTRL = new AtomicBoolean();
+    /**
      * The reviewed warp binder type. Package-private mutable only so tests can point
      * the recognition at stub classes; production never changes it.
      */
@@ -80,6 +86,7 @@ public final class NativeWarpAltMirrorBridge {
         REPORTED_SKIPS.clear();
         LAST_THROTTLE.set(0);
         ARMED_AXIS.set(0);
+        LIVE_CTRL.set(false);
     }
 
     /** Test seam: redirects binder recognition to a stub class name. */
@@ -104,6 +111,15 @@ public final class NativeWarpAltMirrorBridge {
             throw new IllegalArgumentException("axis must be 0 (off), 1 (vertical) or 2 (horizontal)");
         }
         ARMED_AXIS.set(axis);
+    }
+
+    /**
+     * Publishes the live Ctrl state tracked by the plugin's AWT listener. While
+     * Ctrl is held the native point drag is self-only (no content deformation),
+     * so the mirror deliberately does not apply.
+     */
+    public static void setLiveCtrlDown(final boolean down) {
+        LIVE_CTRL.set(down);
     }
 
     /** @return the plugin-facing participation registry owned by this bridge. */
@@ -135,6 +151,10 @@ public final class NativeWarpAltMirrorBridge {
             }
             final int axis = ARMED_AXIS.get();
             if (axis == 0) {
+                return;
+            }
+            if (LIVE_CTRL.get()) {
+                // Native Ctrl semantics: self-only adjustment, never mirrored.
                 return;
             }
             final boolean shift = axis == 2;
