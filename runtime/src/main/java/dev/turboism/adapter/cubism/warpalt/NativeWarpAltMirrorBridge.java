@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,6 +43,7 @@ public final class NativeWarpAltMirrorBridge {
     private static final AtomicReference<String> BINDER_CLASS_NAME =
         new AtomicReference<>(WARP_BINDER_CLASS);
     private static final AtomicBoolean MOVE_APPLIED_REPORTED = new AtomicBoolean();
+    private static final AtomicBoolean GREEN_APPLIED_REPORTED = new AtomicBoolean();
     private static final AtomicLong LAST_THROTTLE = new AtomicLong();
     private static final java.util.Set<String> REPORTED_SKIPS =
         java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
@@ -82,6 +84,7 @@ public final class NativeWarpAltMirrorBridge {
         REPORTED_SKIPS.clear();
         LAST_THROTTLE.set(0);
         ARMED_AXIS.set(0);
+        GREEN_APPLIED_REPORTED.set(false);
     }
 
     /** Test seam: redirects binder recognition to a stub class name. */
@@ -392,6 +395,122 @@ public final class NativeWarpAltMirrorBridge {
         } catch (Throwable failure) {
             diagnostic("STRIP_MOUNT_FAILED reason=" + failure.getClass().getName());
         }
+    }
+
+    /**
+     * Green bezier tick mirror, injected at the head of the reviewed drag-tick
+     * ({@code warp.a$b.a(aG)}). The green cage drag writes bezier points
+     * directly (anchor/cn/cs/cw/ce as absolute local coordinates) and never
+     * touches {@code moveToOnLocal}; the same tick's native bake afterwards
+     * rewrites {@code positions} from the cage, so mirroring the cage point
+     * here joins the gesture's own GroupUndo with no second history entry.
+     *
+     * <p>Axis semantics (r32 feedback): 垂直镜像 = counterpart moves vertically
+     * (mirror across the horizontal line: row flips, dy negated, dx follows,
+     * CONTROL_N/CONTROL_S swap); 水平镜像 = horizontally (mirror across the
+     * vertical line: col flips, dx negated, dy follows, CONTROL_W/E swap).</p>
+     */
+    public static void mirrorGreenTick(final Object action, final Object event) {
+        try {
+            final Binding binding = INSTALLED.get();
+            if (binding == null || !binding.enabled() || action == null || event == null) {
+                return;
+            }
+            if (!PARTICIPATION.hasParticipants()) {
+                return;
+            }
+            final int axis = ARMED_AXIS.get();
+            if (axis == 0) {
+                return;
+            }
+            final boolean vertical = axis == 1;
+            final Field selectionField = action.getClass().getDeclaredField("b");
+            selectionField.setAccessible(true);
+            final Object selection = selectionField.get(action);
+            if (selection == null) return;
+            final Object ref = invoke(selection, "a", new Class<?>[0]);
+            if (ref == null) return;
+            final Object point = invoke(ref, "b", new Class<?>[0]);
+            final int column = invokeInt(ref, "c");
+            final int row = invokeInt(ref, "d");
+            final String type = String.valueOf(invoke(ref, "e", new Class<?>[0]));
+            final Object grid = invoke(ref, "a", new Class<?>[0]);
+            if (point == null || grid == null) return;
+            final int bezierCol = invokeInt(grid, "getBezierCol");
+            final int bezierRow = invokeInt(grid, "getBezierRow");
+            if (bezierCol < 0 || bezierRow < 0) return;
+            final int counterpartCol = vertical ? column : bezierCol - column;
+            final int counterpartRow = vertical ? bezierRow - row : row;
+            if (counterpartCol == column && counterpartRow == row) {
+                return;
+            }
+            final Object table = invoke(grid, "getBezierPtRef", new Class<?>[0]);
+            if (!(table instanceof Object[][] columns)
+                || counterpartCol < 0 || counterpartCol >= columns.length) {
+                return;
+            }
+            if (!(columns[counterpartCol] instanceof Object[])) {
+                return;
+            }
+            final Object[] counterpartColumnList = (Object[]) columns[counterpartCol];
+            if (counterpartRow < 0 || counterpartRow >= counterpartColumnList.length) {
+                return;
+            }
+            final Object counterpart = counterpartColumnList[counterpartRow];
+            if (counterpart == null) return;
+            final Object delta = invoke(event, "aH", new Class<?>[0]);
+            if (delta == null) return;
+            final float dx = invokeFloat(delta, "getX");
+            final float dy = invokeFloat(delta, "getY");
+            if (Math.abs(dx) <= AltAxisMirrorMath.MOVE_EPSILON
+                && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
+                return;
+            }
+            final Object draggedHandle = handleOf(point, type);
+            final String counterType = counterpartHandleType(type, vertical);
+            final Object counterHandle = handleOf(counterpart, counterType);
+            if (draggedHandle == null || counterHandle == null) return;
+            final float curX = invokeFloat(counterHandle, "getX");
+            final float curY = invokeFloat(counterHandle, "getY");
+            final float mirroredDx = vertical ? dx : -dx;
+            final float mirroredDy = vertical ? -dy : dy;
+            invoke(counterHandle, "setX", new Class<?>[]{float.class}, curX + mirroredDx);
+            invoke(counterHandle, "setY", new Class<?>[]{float.class}, curY + mirroredDy);
+            if (GREEN_APPLIED_REPORTED.compareAndSet(false, true)) {
+                diagnostic("MIRROR_GREEN_APPLIED axis="
+                    + (vertical ? "vertical" : "horizontal"));
+            }
+        } catch (Throwable failure) {
+            diagnostic("GREEN_TICK_MIRROR_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    /** Maps a dragged handle type to the axis-mirrored counterpart handle type. */
+    private static String counterpartHandleType(final String draggedType, final boolean vertical) {
+        // 垂直镜像 (Y flip, up/down): CONTROL_N <-> CONTROL_S; W/E keep.
+        // 水平镜像 (X flip, left/right): CONTROL_W <-> CONTROL_E; N/S keep.
+        return switch (draggedType) {
+            case "CONTROL_N" -> vertical ? "CONTROL_S" : "CONTROL_N";
+            case "CONTROL_S" -> vertical ? "CONTROL_N" : "CONTROL_S";
+            case "CONTROL_W" -> vertical ? "CONTROL_W" : "CONTROL_E";
+            case "CONTROL_E" -> vertical ? "CONTROL_E" : "CONTROL_W";
+            default -> draggedType;
+        };
+    }
+
+    private static final java.util.Map<String, String> HANDLE_ACCESSORS = java.util.Map.of(
+        "ANCHOR", "getAnchor",
+        "CONTROL_N", "getCn",
+        "CONTROL_S", "getCs",
+        "CONTROL_W", "getCw",
+        "CONTROL_E", "getCe"
+    );
+
+    private static Object handleOf(final Object point, final String type)
+        throws ReflectiveOperationException {
+        final String accessor = HANDLE_ACCESSORS.get(type);
+        if (accessor == null) return null;
+        return invoke(point, accessor, new Class<?>[0]);
     }
 
     /** Route stage marker with the event's modifier snapshot. */
