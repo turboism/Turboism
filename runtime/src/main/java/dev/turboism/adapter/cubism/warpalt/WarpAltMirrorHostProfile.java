@@ -28,7 +28,8 @@ public record WarpAltMirrorHostProfile(
     String pointMoveDescriptor,
     String dragTickOwner,
     String dragTickMethod,
-    String dragTickDescriptor
+    String dragTickDescriptor,
+    String stripOwner
 ) {
 
     private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
@@ -49,7 +50,8 @@ public record WarpAltMirrorHostProfile(
             "com/live2d/cubism/view/context/temporaryHandler/a",
             "b",
             "(Lcom/live2d/graphics3d/type/GVector2;"
-                + "Lcom/live2d/cubism/view/context/actionManager/aG;)V"
+                + "Lcom/live2d/cubism/view/context/actionManager/aG;)V",
+            "com/live2d/cubism/view/context/a/b"
         );
     }
 }

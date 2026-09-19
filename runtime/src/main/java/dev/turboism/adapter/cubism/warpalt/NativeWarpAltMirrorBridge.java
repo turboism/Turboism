@@ -148,7 +148,7 @@ public final class NativeWarpAltMirrorBridge {
             // content-deformation application, so the mirrored counterpart write
             // moves the cage point without affecting child shapes — symmetric
             // self-only adjustment.
-            final boolean shift = axis == 2;
+            final boolean vertical = axis == 1;
             // a() returns _index; h() returns the step field which is 0 in the
             // level-2 deformer-edit flow, so the row width is derived from the
             // positions array instead (square grids).
@@ -170,8 +170,11 @@ public final class NativeWarpAltMirrorBridge {
             final int height = width;
             final int row = index / step;
             final int column = index % step;
-            final int counterpartRow = shift ? height - 1 - row : row;
-            final int counterpartColumn = shift ? column : step - 1 - column;
+            // User-facing semantics (r32 feedback): 垂直镜像 moves the counterpart
+            // vertically (up/down, y negated); 水平镜像 moves it horizontally
+            // (left/right, x negated).
+            final int counterpartRow = vertical ? height - 1 - row : row;
+            final int counterpartColumn = vertical ? column : step - 1 - column;
             final int counterpart = counterpartRow * step + counterpartColumn;
             if (counterpart == index
                 || counterpart * 2 + 1 >= positions.length
@@ -186,7 +189,7 @@ public final class NativeWarpAltMirrorBridge {
                 && Math.abs(dy) <= AltAxisMirrorMath.MOVE_EPSILON) {
                 return;
             }
-            if (shift) {
+            if (vertical) {
                 positions[counterpart * 2] += weight * dx;
                 positions[counterpart * 2 + 1] -= weight * dy;
             } else {
@@ -194,7 +197,7 @@ public final class NativeWarpAltMirrorBridge {
                 positions[counterpart * 2 + 1] += weight * dy;
             }
             if (MOVE_APPLIED_REPORTED.compareAndSet(false, true)) {
-                diagnostic("MIRROR_APPLIED axis=" + (shift ? "horizontal" : "vertical")
+                diagnostic("MIRROR_APPLIED axis=" + (vertical ? "vertical" : "horizontal")
                     + " step=" + step);
             }
         } catch (Throwable failure) {
