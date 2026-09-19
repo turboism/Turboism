@@ -172,6 +172,11 @@ public interface PluginContext {
         throw new UnsupportedOperationException("warpAltMirrorParticipation service is not available");
     }
 
+    /** Canvas-top strip (view context menu) button surface. */
+    default dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenu() {
+        throw new UnsupportedOperationException("viewContextMenu service is not available");
+    }
+
     default MeshEditUiService meshEditUi() {
         throw new UnsupportedOperationException("meshEditUi service is not available");
     }
