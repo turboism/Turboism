@@ -98,6 +98,23 @@ final class NativeWarpAltMirrorPointMoveTest {
     }
 
     @Test
+    void liveCtrlHoldsTheMirrorForSelfOnlyDrag() {
+        final StubPointRef moved = StubPointRef.grid6x6().ref(0, 0);
+        final StubPointRef counterpart = moved.sibling(0, 5);
+        final var registration = participate();
+
+        // Native Ctrl semantics: self-only adjustment, never mirrored.
+        NativeWarpAltMirrorBridge.setLiveCtrlDown(true);
+        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        assertEquals(0.5f, counterpart.positions[10], 1.0e-6f);
+
+        NativeWarpAltMirrorBridge.setLiveCtrlDown(false);
+        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        assertEquals(-0.4f, counterpart.positions[10], 1.0e-4f);
+        registration.close();
+    }
+
+    @Test
     void inertWithoutParticipantsOrWithoutAlt() {
         final StubPointRef moved = StubPointRef.grid6x6().ref(0, 0);
         final StubPointRef counterpart = moved.sibling(0, 5);
