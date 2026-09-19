@@ -49,9 +49,4 @@ public final class AuthorizedWarpAltMirrorParticipation implements WarpAltMirror
     public void setArmedAxis(final int axis) {
         delegate.setArmedAxis(axis);
     }
-
-    @Override
-    public void setLiveCtrlDown(final boolean down) {
-        delegate.setLiveCtrlDown(down);
-    }
 }

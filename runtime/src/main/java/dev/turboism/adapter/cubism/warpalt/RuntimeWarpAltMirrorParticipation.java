@@ -35,11 +35,6 @@ public final class RuntimeWarpAltMirrorParticipation implements WarpAltMirrorPar
         NativeWarpAltMirrorBridge.setArmedAxis(axis);
     }
 
-    @Override
-    public void setLiveCtrlDown(final boolean down) {
-        NativeWarpAltMirrorBridge.setLiveCtrlDown(down);
-    }
-
     boolean hasParticipants() {
         return participants.get() > 0;
     }
