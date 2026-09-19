@@ -98,19 +98,18 @@ final class NativeWarpAltMirrorPointMoveTest {
     }
 
     @Test
-    void liveCtrlHoldsTheMirrorForSelfOnlyDrag() {
+    void mirrorAppliesUnderNativeCtrlSelfOnlyDrags() {
+        // Native Ctrl semantics: the gesture moves the control point without
+        // deforming the child shapes. The mirrored counterpart write is a plain
+        // positions-array update too, so both cage points move while the native
+        // deformation suppression covers the whole gesture.
         final StubPointRef moved = StubPointRef.grid6x6().ref(0, 0);
         final StubPointRef counterpart = moved.sibling(0, 5);
         final var registration = participate();
 
-        // Native Ctrl semantics: self-only adjustment, never mirrored.
-        NativeWarpAltMirrorBridge.setLiveCtrlDown(true);
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
-        assertEquals(0.5f, counterpart.positions[10], 1.0e-6f);
-
-        NativeWarpAltMirrorBridge.setLiveCtrlDown(false);
         NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
         assertEquals(-0.4f, counterpart.positions[10], 1.0e-4f);
+        assertEquals(0.3f, counterpart.positions[11], 1.0e-4f);
         registration.close();
     }
 
