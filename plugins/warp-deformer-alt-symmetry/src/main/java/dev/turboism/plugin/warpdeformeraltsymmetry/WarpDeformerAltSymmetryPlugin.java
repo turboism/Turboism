@@ -52,6 +52,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private PluginContext context;
     private PluginLogger logger;
     private AWTEventListener listener;
+    private int armedAxis;
 
     private final AtomicBoolean applying = new AtomicBoolean(false);
 
@@ -181,13 +182,13 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
                 return;
             }
         }
-        final boolean consume = axis != 0;
-        if (consume) {
-            keyEvent.consume();
-        }
+        keyEvent.consume();
+        armedAxis = axis;
         try {
             context.warpAltMirrorParticipation().setArmedAxis(axis);
-            logger.info("WARP_ALT_AXIS armed=" + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
+            context.viewContextMenu().setSelected("warp-deformer-alt-symmetry.axis", axis != 0);
+            logger.info("WARP_ALT_AXIS armed="
+                + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
         } catch (RuntimeException | Error unsupported) {
             logger.warn("setArmedAxis unavailable: " + unsupported.getClass().getSimpleName());
         }

@@ -68,7 +68,9 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         if (className == null || classfileBuffer == null) return null;
         final boolean isPointMove = profile.pointMoveOwner().equals(className);
         final boolean isDragTick = profile.dragTickOwner().equals(className);
-        if (!isPointMove && !isDragTick) return null;
+        final boolean isStripMount = className.equals(
+            "com/live2d/cubism/view/context/a/b");
+        if (!isPointMove && !isDragTick && !isStripMount) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
@@ -96,7 +98,9 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                     final boolean dragTickHere = isDragTick
                         && profile.dragTickMethod().equals(name)
                         && profile.dragTickDescriptor().equals(descriptor);
-                    if (!pointMoveHere && !dragTickHere) {
+                    final boolean stripMountHere = isStripMount
+                        && name.equals("R") && descriptor.equals("()V");
+                    if (!pointMoveHere && !dragTickHere && !stripMountHere) {
                         return delegate;
                     }
                     transformed[0] = true;
@@ -105,8 +109,8 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         public void visitCode() {
                             super.visitCode();
                             visitVarInsn(Opcodes.ALOAD, 0);
-                            visitVarInsn(Opcodes.ALOAD, 1);
                             if (pointMoveHere) {
+                                visitVarInsn(Opcodes.ALOAD, 1);
                                 visitVarInsn(Opcodes.FLOAD, 2);
                                 visitMethodInsn(
                                     Opcodes.INVOKESTATIC,
@@ -115,13 +119,22 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                     "(Ljava/lang/Object;Ljava/lang/Object;F)V",
                                     false
                                 );
-                            } else {
+                            } else if (dragTickHere) {
+                                visitVarInsn(Opcodes.ALOAD, 1);
                                 visitVarInsn(Opcodes.ALOAD, 2);
                                 visitMethodInsn(
                                     Opcodes.INVOKESTATIC,
                                     BRIDGE,
                                     "mirrorWarpDragMove",
                                     "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                                    false
+                                );
+                            } else {
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mountViewContextMenu",
+                                    "(Ljava/lang/Object;)V",
                                     false
                                 );
                             }

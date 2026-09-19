@@ -364,6 +364,28 @@ public final class NativeWarpAltMirrorBridge {
         diagEventModifiers(event, "MOVE_SELECTED");
     }
 
+    /** Strip (view context menu) diagnostics, prefixed for log filtering. */
+    public static void diagStrip(final String stage) {
+        try {
+            diagnostic("STRIP_DIAG stage=" + stage);
+        } catch (Throwable ignored) {
+            // never reach the host call site
+        }
+    }
+
+    /**
+     * Injected at the head of the strip's mount routine with the strip instance;
+     * hands it to the view-context-menu registry so contributed buttons mount
+     * into the same entity group.
+     */
+    public static void mountViewContextMenu(final Object strip) {
+        try {
+            RuntimeViewContextMenuRegistry.getInstance().mount(strip);
+        } catch (Throwable failure) {
+            diagnostic("STRIP_MOUNT_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
     /** Route stage marker with the event's modifier snapshot. */
     public static void diagRoute(final Object stage, final Object event) {
         try {
