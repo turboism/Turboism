@@ -88,8 +88,54 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         }
         Toolkit.getDefaultToolkit().addAWTEventListener(
             listener, AWTEvent.MOUSE_EVENT_MASK | AWTEvent.KEY_EVENT_MASK);
+        contributeStripButton();
         logger.info("Warp deformer Alt axis-symmetry installed:"
             + " Ctrl+Alt+V vertical mirror, Ctrl+Alt+H horizontal, Ctrl+Alt+O off");
+    }
+
+    private static final String AXIS_BUTTON_ID = "warp-deformer-alt-symmetry.axis";
+
+    /** Contributes the mirror-axis state button into the canvas-top control strip. */
+    private void contributeStripButton() {
+        try {
+            final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry registry =
+                context.viewContextMenu();
+            registry.contributeButton(
+                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.ButtonContribution(
+                    AXIS_BUTTON_ID,
+                    axisText(armedAxis),
+                    "镜像轴开关 / Mirror axis toggle (Ctrl+Alt+V/H/O)",
+                    ignored -> cycleArmedAxis()));
+            logger.info("Warp deformer Alt axis-symmetry strip button contributed");
+        } catch (RuntimeException | Error unsupported) {
+            logger.warn("viewContextMenu unavailable: "
+                + unsupported.getClass().getSimpleName());
+        }
+    }
+
+    private void cycleArmedAxis() {
+        applyArmedAxis((armedAxis + 1) % 3);
+    }
+
+    private void applyArmedAxis(final int axis) {
+        armedAxis = axis;
+        try {
+            context.warpAltMirrorParticipation().setArmedAxis(axis);
+            context.viewContextMenu().setText(AXIS_BUTTON_ID, axisText(axis));
+        } catch (RuntimeException | Error unsupported) {
+            logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
+            return;
+        }
+        logger.info("WARP_ALT_AXIS armed="
+            + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
+    }
+
+    private String axisText(final int axis) {
+        return switch (axis) {
+            case 1 -> context.localization().text("warp-alt-symmetry.axis.vertical");
+            case 2 -> context.localization().text("warp-alt-symmetry.axis.horizontal");
+            default -> context.localization().text("warp-alt-symmetry.axis.off");
+        };
     }
 
     @Override
@@ -183,15 +229,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             }
         }
         keyEvent.consume();
-        armedAxis = axis;
-        try {
-            context.warpAltMirrorParticipation().setArmedAxis(axis);
-            context.viewContextMenu().setSelected("warp-deformer-alt-symmetry.axis", axis != 0);
-            logger.info("WARP_ALT_AXIS armed="
-                + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
-        } catch (RuntimeException | Error unsupported) {
-            logger.warn("setArmedAxis unavailable: " + unsupported.getClass().getSimpleName());
-        }
+        applyArmedAxis(axis);
     }
 
     private boolean nativeMirrorActive() {

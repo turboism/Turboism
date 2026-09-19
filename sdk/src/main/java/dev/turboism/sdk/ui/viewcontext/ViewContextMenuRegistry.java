@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * Contributes buttons into the modeling view's canvas-top control strip (the
+ * Contributes controls into the modeling view's canvas-top control strip (the
  * GL-drawn view context menu that hosts e.g. the "Lock Drawable Object"
  * toggle). Contributions mount into the same entity group and inherit the
  * strip's per-frame layout, mode visibility and scene-graph hit testing.
@@ -14,13 +14,21 @@ import java.util.function.Consumer;
 public interface ViewContextMenuRegistry {
 
     /**
-     * Adds a click-cycle button to the strip.
+     * Adds a text toggle button to the strip. The host invokes the click
+     * consumer on every click; the owning plugin updates the displayed text
+     * through {@link #setText(String, String)} and any behavioural state.
      *
-     * @param contribution descriptor of the button; the click consumer fires on
-     *     every click and owns the resulting state (the host draws the button's
-     *     selected visual from {@link #setSelected})
+     * @param contribution descriptor of the button
      */
     Registration contributeButton(ButtonContribution contribution);
+
+    /**
+     * Updates the drawn text of a contributed button.
+     *
+     * @param contributionId plugin-scoped identity used at contribute time
+     * @param text the new button text
+     */
+    void setText(String contributionId, String text);
 
     /**
      * Updates the drawn selected state of a contributed button.
@@ -30,17 +38,17 @@ public interface ViewContextMenuRegistry {
      */
     void setSelected(String contributionId, boolean selected);
 
-    /** One canvas-strip button owned by a plugin. */
+    /** One canvas-strip text button owned by a plugin. */
     record ButtonContribution(
         String contributionId,
-        String name,
-        String tooltipTitle,
-        String tooltipDescription,
+        String text,
+        String tooltip,
         Consumer<Void> onClick
     ) {
         public ButtonContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
-            name = Objects.requireNonNull(name, "name");
+            text = Objects.requireNonNull(text, "text");
+            tooltip = Objects.requireNonNull(tooltip, "tooltip");
             Objects.requireNonNull(onClick, "onClick");
         }
     }
