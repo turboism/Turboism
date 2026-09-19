@@ -968,6 +968,11 @@ public final class TurboismAgent {
                 "Turboism warp alt mirror runtime binding disabled safely: "
                     + failure.getClass().getName() + ": " + failure.getMessage()
             );
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "warp-alt-mirror",
+                "warp alt mirror bind failed",
+                failure
+            );
         }
     }
 

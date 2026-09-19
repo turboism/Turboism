@@ -54,7 +54,8 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         this.dragTickClassName = profile.dragTickOwner().replace('/', '.');
     }
 
-    private static final String STRIP_CLASS = "com/live2d/cubism/view/context/a/b";
+    /** Dotted binary name for {@code Class.forName}; the profile owner is the slashed internal name. */
+    private static final String STRIP_CLASS = "com.live2d.cubism.view.context.a.b";
 
     /** Installs the transformer during premain; it intentionally stays unbound. */
     void install() {
@@ -87,6 +88,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         synchronized (lifecycleLock) {
             if (closed) throw new IllegalStateException("warp alt mirror hook installer is closed");
             if (!installed) throw new IllegalStateException("warp alt mirror transformer is not installed");
+            String currentName = pointMoveClassName;
             try {
                 final ClassLoader admitted = transformer.admittedClassLoader();
                 final ClassLoader loader = admitted != null ? admitted : hostClassLoader;
@@ -94,6 +96,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                     throw new IllegalStateException("warp alt mirror host loader is not admitted");
                 }
                 for (final String name : List.of(pointMoveClassName, dragTickClassName, STRIP_CLASS)) {
+                    currentName = name;
                     final Class<?> defined = Class.forName(name, false, loader);
                     if (defined.getClassLoader() != loader) {
                         throw new IllegalStateException(
@@ -101,7 +104,8 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                     }
                 }
             } catch (ClassNotFoundException | LinkageError failure) {
-                throw new IllegalStateException("warp alt mirror lazy target definition failed", failure);
+                throw new IllegalStateException(
+                    "warp alt mirror lazy target definition failed for " + currentName, failure);
             }
             if (transformer.admittedClassLoader() == null) {
                 throw new IllegalStateException("warp alt mirror host loader is not admitted");
