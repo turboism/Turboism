@@ -122,10 +122,43 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
                 + " text=" + contribution.text());
         } catch (Throwable failure) {
+            if (hostNotReady(failure)) {
+                diagnostic("HOST_NOT_READY retry=" + retryCount.get());
+                scheduleRetry(contribution);
+                return;
+            }
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
             diagnostic("BUTTON_MOUNT_FAILED phase=" + phase
                 + " reason=" + failure.getClass().getName() + ": " + failure.getMessage());
         }
+    }
+
+    private static boolean hostNotReady(final Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof dev.turboism.mapping.verification.VerifiedAccessException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private final java.util.concurrent.atomic.AtomicInteger retryCount =
+        new java.util.concurrent.atomic.AtomicInteger();
+
+    private void scheduleRetry(final ViewContextMenuRegistry.ButtonContribution contribution) {
+        final int attempt = retryCount.incrementAndGet();
+        if (attempt > 120) {
+            diagnostic("RETRY_GAVE_UP after=" + attempt);
+            return;
+        }
+        final javax.swing.Timer timer = new javax.swing.Timer(1_000, ev -> {
+            synchronized (lock) {
+                if (entries.containsKey(contribution.contributionId())) return;
+            }
+            buildAndMount(contribution);
+        });
+        timer.setRepeats(false);
+        timer.start();
     }
 
     /** Builds the host CButton text widget through the host class loader. */
