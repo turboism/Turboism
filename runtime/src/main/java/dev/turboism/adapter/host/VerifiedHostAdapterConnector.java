@@ -886,6 +886,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         ),
                         editorUiActionRouter
                     ));
+                    dev.turboism.adapter.cubism.warpalt.RuntimeViewContextMenuRegistry
+                        .getInstance().bindResolver(toolbar.resolver());
                 }
                 if (panel != null) {
                     providers.add(new EmbeddedPanelContributionProvider(

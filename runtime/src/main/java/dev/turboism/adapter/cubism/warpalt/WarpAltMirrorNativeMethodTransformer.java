@@ -28,9 +28,6 @@ import java.util.function.Consumer;
  *       counterpart write lands inside the gesture's own undo envelope.</li>
  *   <li>{@code temporaryHandler.a.b(GVector2, aG)} — head: the dedicated bend-tool
  *       drag tick, carrying the handler, drag position and modifier event.</li>
- *   <li>{@code a.b.R()} — head of the view-control-strip mount routine, and
- *       {@code a.b.a(N, GEntity)} — tail of its per-frame re-layout: the view
- *       control strip hooks that mount and position contributed buttons.</li>
  * </ul>
  */
 public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTransformer {
@@ -76,9 +73,8 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         if (className == null || classfileBuffer == null) return null;
         final boolean isPointMove = profile.pointMoveOwner().equals(className);
         final boolean isDragTick = profile.dragTickOwner().equals(className);
-        final boolean isStrip = profile.stripOwner().equals(className);
         final boolean isGreenTick = profile.greenTickOwner().equals(className);
-        if (!isPointMove && !isDragTick && !isStrip && !isGreenTick) return null;
+        if (!isPointMove && !isDragTick && !isGreenTick) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
@@ -126,17 +122,10 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                     final boolean dragTickHere = isDragTick
                         && profile.dragTickMethod().equals(name)
                         && profile.dragTickDescriptor().equals(descriptor);
-                    final boolean stripMountHere = isStrip
-                        && "R".equals(name) && "()V".equals(descriptor);
-                    final boolean stripLayoutTail = isStrip
-                        && "a".equals(name)
-                        && ("(Lcom/live2d/cubism/view/context/actionManager/N;"
-                            + "Lcom/live2d/graphics3d/entity/GEntity;)V").equals(descriptor);
                     final boolean greenTickHere = isGreenTick
                         && profile.greenTickMethod().equals(name)
                         && profile.greenTickDescriptor().equals(descriptor);
-                    if (!pointMoveHere && !dragTickHere && !stripMountHere
-                        && !stripLayoutTail && !greenTickHere) {
+                    if (!pointMoveHere && !dragTickHere && !greenTickHere) {
                         return delegate;
                     }
                     transformed[0] = true;
@@ -144,10 +133,6 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         @Override
                         public void visitCode() {
                             super.visitCode();
-                            if (stripLayoutTail) {
-                                // Tail-target: the call is injected at each RETURN.
-                                return;
-                            }
                             visitVarInsn(Opcodes.ALOAD, 0);
                             if (greenTickHere) {
                                 visitVarInsn(Opcodes.ALOAD, 1);
@@ -189,20 +174,6 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                             }
                         }
 
-                        @Override
-                        public void visitInsn(final int opcode) {
-                            super.visitInsn(opcode);
-                            if (stripLayoutTail && opcode == Opcodes.RETURN) {
-                                visitVarInsn(Opcodes.ALOAD, 0);
-                                visitMethodInsn(
-                                    Opcodes.INVOKESTATIC,
-                                    BRIDGE,
-                                    "positionStripButton",
-                                    "(Ljava/lang/Object;)V",
-                                    false
-                                );
-                            }
-                        }
                     };
                 }
             }, 0);

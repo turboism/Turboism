@@ -385,19 +385,6 @@ public final class NativeWarpAltMirrorBridge {
     }
 
     /**
-     * Injected at the head of the strip's mount routine with the strip instance;
-     * hands it to the view-context-menu registry so contributed buttons mount
-     * into the same entity group.
-     */
-    public static void mountViewContextMenu(final Object strip) {
-        try {
-            RuntimeViewContextMenuRegistry.getInstance().mount(strip);
-        } catch (Throwable failure) {
-            diagnostic("STRIP_MOUNT_FAILED reason=" + failure.getClass().getName());
-        }
-    }
-
-    /**
      * Green bezier tick mirror, injected at the head of the reviewed drag-tick
      * ({@code warp.a$b.a(aG)}). The green cage drag writes bezier points
      * directly (anchor/cn/cs/cw/ce as absolute local coordinates) and never
