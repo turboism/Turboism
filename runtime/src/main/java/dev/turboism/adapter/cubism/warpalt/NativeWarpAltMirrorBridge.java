@@ -388,6 +388,20 @@ public final class NativeWarpAltMirrorBridge {
         }
     }
 
+    /**
+     * Injected at the tail of the strip's layout dispatch (a(N, GEntity) RETURN);
+     * re-seats the contributed button flush right of the view dropdown arrow.
+     * Missing from the bridge until now — the injected call must resolve or
+     * every strip dispatch throws NoSuchMethodError.
+     */
+    public static void positionStripButton(final Object strip) {
+        try {
+            RuntimeViewContextMenuRegistry.getInstance().positionButton(strip);
+        } catch (Throwable failure) {
+            diagnostic("STRIP_POSITION_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
     /** Strip (view context menu) diagnostics, prefixed for log filtering. */
     public static void diagStrip(final String stage) {
         try {
