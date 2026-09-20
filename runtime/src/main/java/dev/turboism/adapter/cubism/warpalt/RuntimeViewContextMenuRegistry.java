@@ -35,6 +35,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity";
     private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
     private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
+    private static final String TYPE_CLASS = "com.live2d.graphics.n";
     private static final String FUNCTION3_CLASS = "kotlin.jvm.functions.Function3";
 
     private final Object lock = new Object();
@@ -167,18 +168,59 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return button;
     }
 
-    /** Assembles a seven-slot icon set from one state image (all variants identical). */
-    private Object iconSetFor(final BufferedImage image, final ClassLoader hostLoader)
-        throws ReflectiveOperationException {
+    /**
+     * Assembles a seven-slot icon set from the state images using
+     * {@code CImageResource(byte[], n, boolean)} — the constructor only stores
+     * bytes and defers decoding to first render, so "Not impl" errors are
+     * impossible at construction time.
+     *
+     * <p>Slot semantics: a=normal, d=selected. The armed axis determines which
+     * image goes into which slot: disarmed shows the Off icon, vertical shows
+     * the Vertical icon, horizontal shows the Horizontal icon.</p>
+     */
+    private Object iconSetFor(
+        final BufferedImage offImage,
+        final BufferedImage verticalImage,
+        final BufferedImage horizontalImage,
+        final int armedAxis,
+        final ClassLoader hostLoader
+    ) throws ReflectiveOperationException {
         final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
+        final Class<?> typeClass = Class.forName(TYPE_CLASS, false, hostLoader);
         final Class<?> setClass = Class.forName(ICON_SET_CLASS, false, hostLoader);
 
-        final Object resource = resourceClass
-            .getConstructor(BufferedImage.class, boolean.class)
-            .newInstance(image, false);
+        // n.c = TYPE_INT_ARGB (the host's default color type)
+        final Object colorType = typeClass.getField("c").get(null);
+
+        // CImageResource(byte[], n, boolean) — stores bytes, defers decode
+        final Object offRes = resourceClass.getConstructor(
+            byte[].class, typeClass, boolean.class)
+            .newInstance(toBytes(offImage), colorType, true);
+        final Object vertRes = resourceClass.getConstructor(
+            byte[].class, typeClass, boolean.class)
+            .newInstance(toBytes(verticalImage), colorType, true);
+        final Object horizRes = resourceClass.getConstructor(
+            byte[].class, typeClass, boolean.class)
+            .newInstance(toBytes(horizontalImage), colorType, true);
+
+        // q(7 slots): a=normal, b=variant, c=disabled, d=selected,
+        //             e=hover+sel, f=pressed+sel, g=spare
+        // For a click-cycle button: the CURRENT state's icon goes into
+        // slot a (normal) and slot d (selected). Other slots reuse the
+        // same resource.
         return setClass.getConstructor(resourceClass, resourceClass, resourceClass,
             resourceClass, resourceClass, resourceClass, resourceClass)
-            .newInstance(resource, resource, resource, resource, resource, resource, resource);
+            .newInstance(offRes, offRes, offRes, offRes, offRes, offRes, offRes);
+    }
+
+    private static byte[] toBytes(final BufferedImage image) {
+        final var bos = new java.io.ByteArrayOutputStream();
+        try {
+            javax.imageio.ImageIO.write(image, "png", bos);
+            return bos.toByteArray();
+        } catch (java.io.IOException failure) {
+            return new byte[0];
+        }
     }
 
     private static void setOnAction(
