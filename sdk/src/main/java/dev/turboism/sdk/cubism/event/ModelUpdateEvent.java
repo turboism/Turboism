@@ -1,7 +1,5 @@
-package dev.turboism.sdk.event.cubism;
+package dev.turboism.sdk.cubism.event;
 
-import dev.turboism.sdk.cubism.event.CubismOperation;
-import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;

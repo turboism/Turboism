@@ -19,7 +19,16 @@ private val forbiddenImportPatterns = listOf(
     "dev.turboism.core.parameter.*" to "SDK/plugins must not import runtime parameter internals",
     "dev.turboism.core.mesh.*" to "SDK/plugins must not import runtime mesh internals",
     "dev.turboism.core.psd.*" to "SDK/plugins must not import runtime PSD internals",
-    "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals"
+    "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals",
+    "dev.turboism.sdk.event.cubism.*" to
+        "SDK/plugins must not import the retired dev.turboism.sdk.event.cubism package " +
+        "(Cubism events live in dev.turboism.sdk.cubism.event)"
+)
+
+private val forbiddenPackageDeclarations = listOf(
+    Regex("""^\s*package\s+dev\.turboism\.sdk\.event\.cubism\s*;""") to
+        "Retired package dev.turboism.sdk.event.cubism must not be reintroduced " +
+        "(Cubism events live in dev.turboism.sdk.cubism.event)"
 )
 
 private val productionDependencyConfigurations = setOf(
@@ -173,6 +182,7 @@ private fun scanProductionSources(root: Project, project: Project, state: Bounda
 
 private fun checkSourceFile(root: Project, project: Project, file: java.io.File, state: BoundaryState) {
     val lines = file.readLines()
+    checkForbiddenPackageDeclaration(root, file, lines, state)
     val restricted = project.path == ":sdk" || project.path.startsWith(":plugins:")
     if (restricted) {
         checkRestrictedImports(root, file, lines, state)
@@ -180,6 +190,21 @@ private fun checkSourceFile(root: Project, project: Project, file: java.io.File,
     }
     if (project.path.startsWith(":plugins:")) {
         checkForbiddenHostUiTraversal(root, file, lines, state)
+    }
+}
+
+private fun checkForbiddenPackageDeclaration(
+    root: Project,
+    file: java.io.File,
+    lines: List<String>,
+    state: BoundaryState
+) {
+    lines.forEach { line ->
+        forbiddenPackageDeclarations.forEach { (pattern, message) ->
+            if (pattern.containsMatchIn(line)) {
+                state.reject("${file.relativeTo(root.projectDir)}: $message")
+            }
+        }
     }
 }
 
