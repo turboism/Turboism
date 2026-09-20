@@ -22,10 +22,6 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-mcp-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
-close_options=()
-# The reviewed 5302 close route uses Alt+F4; focus tracking is task/fixture-scoped.
-if [ "$version" = 5302 ]; then close_options+=(--focus-editor-window); fi
-
 exec bash "$runner" \
   --name mcp \
   --version "$version" \
@@ -52,5 +48,4 @@ exec bash "$runner" \
   --ready-timeout 360 \
   --result-timeout 900 \
   --exit-timeout 240 \
-  "${close_options[@]}" \
   "$@"
