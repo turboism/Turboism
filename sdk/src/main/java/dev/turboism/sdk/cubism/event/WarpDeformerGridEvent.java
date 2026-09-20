@@ -1,4 +1,4 @@
-package dev.turboism.sdk.event.cubism;
+package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;

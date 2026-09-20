@@ -1,60 +1,62 @@
-package dev.turboism.sdk.event.cubism;
+package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
-/** Typed states of the semantic ArtMesh opacity write event family. */
-public sealed interface DrawableOpacityEvent extends TurboismEvent
-    permits DrawableOpacityEvent.Before, DrawableOpacityEvent.On, DrawableOpacityEvent.After {
+/** Typed states of the semantic ArtMesh visibility write event family. */
+public sealed interface DrawableVisibilityEvent extends TurboismEvent
+    permits DrawableVisibilityEvent.Before,
+            DrawableVisibilityEvent.On,
+            DrawableVisibilityEvent.After {
 
     Drawable drawable();
 
-    final class Before implements DrawableOpacityEvent {
+    final class Before implements DrawableVisibilityEvent {
         private final Drawable drawable;
-        private final float requestedOpacity;
+        private final boolean requestedVisible;
         private final CallbackScope callbackScope;
-        private float opacity;
+        private boolean visible;
 
         public Before(
             final Drawable drawable,
-            final float requestedOpacity,
-            final float opacity
+            final boolean requestedVisible,
+            final boolean visible
         ) {
-            this(drawable, requestedOpacity, opacity, null);
+            this(drawable, requestedVisible, visible, null);
         }
 
         private Before(
             final Drawable drawable,
-            final float requestedOpacity,
-            final float opacity,
+            final boolean requestedVisible,
+            final boolean visible,
             final CallbackScope callbackScope
         ) {
             this.drawable = Objects.requireNonNull(drawable, "drawable");
-            this.requestedOpacity = requestedOpacity;
-            this.opacity = opacity;
+            this.requestedVisible = requestedVisible;
+            this.visible = visible;
             this.callbackScope = callbackScope;
         }
 
-        /** Opens a callback-scoped mutable candidate for the intercepted opacity edit. */
+        /** Opens a callback-scoped mutable candidate for the intercepted visibility edit. */
         public static Callback openCallback(
             final Drawable drawable,
-            final float requestedOpacity,
-            final float opacity
+            final boolean requestedVisible,
+            final boolean visible
         ) {
-            return new Callback(drawable, requestedOpacity, opacity);
+            return new Callback(drawable, requestedVisible, visible);
         }
 
         @Override public Drawable drawable() { return drawable; }
-        public float requestedOpacity() { return requestedOpacity; }
-        /** Returns the candidate opacity value that will be applied. */
-        public float opacity() { return opacity; }
+        public boolean requestedVisible() { return requestedVisible; }
+        /** Returns the candidate visibility value that will be applied. */
+        public boolean visible() { return visible; }
 
-        /** Replaces the candidate opacity value for the current callback. */
-        public void setOpacity(final float opacity) {
+        /** Replaces the candidate visibility value for the current callback. */
+        public void setVisible(final boolean visible) {
             if (callbackScope != null) callbackScope.requireOpen();
-            this.opacity = opacity;
+            this.visible = visible;
         }
 
         public static final class Callback implements AutoCloseable {
@@ -63,10 +65,10 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
 
             private Callback(
                 final Drawable drawable,
-                final float requestedOpacity,
-                final float opacity
+                final boolean requestedVisible,
+                final boolean visible
             ) {
-                event = new Before(drawable, requestedOpacity, opacity, scope);
+                event = new Before(drawable, requestedVisible, visible, scope);
             }
 
             /** Returns the mutable event while this callback scope remains open. */
@@ -87,7 +89,7 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
                     throw new IllegalStateException(
-                        "Drawable opacity before-event mutation is outside its callback scope."
+                        "Drawable visibility before-event mutation is outside its callback scope."
                     );
                 }
             }
@@ -99,12 +101,13 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
         }
     }
 
-    record On(Drawable drawable, float oldOpacity, float newOpacity)
-        implements DrawableOpacityEvent {
+    record On(Drawable drawable, boolean oldVisible, boolean newVisible)
+        implements DrawableVisibilityEvent {
         public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
-    record After(Drawable drawable, float finalOpacity) implements DrawableOpacityEvent {
+    record After(Drawable drawable, boolean finalVisible)
+        implements DrawableVisibilityEvent {
         public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 }

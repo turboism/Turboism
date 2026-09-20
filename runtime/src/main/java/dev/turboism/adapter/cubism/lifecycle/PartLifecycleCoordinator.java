@@ -2,8 +2,8 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.event.cubism.PartNameEvent;
-import dev.turboism.sdk.event.cubism.PartOpacityEvent;
+import dev.turboism.sdk.cubism.event.PartNameEvent;
+import dev.turboism.sdk.cubism.event.PartOpacityEvent;
 import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginDescriptor;

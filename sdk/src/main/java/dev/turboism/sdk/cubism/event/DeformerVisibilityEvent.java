@@ -1,39 +1,39 @@
-package dev.turboism.sdk.event.cubism;
+package dev.turboism.sdk.cubism.event;
 
-import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
-/** Typed states of the semantic ArtMesh visibility write event family. */
-public sealed interface DrawableVisibilityEvent extends TurboismEvent
-    permits DrawableVisibilityEvent.Before,
-            DrawableVisibilityEvent.On,
-            DrawableVisibilityEvent.After {
+/** Typed states of the semantic Deformer visibility write event family. */
+public sealed interface DeformerVisibilityEvent extends TurboismEvent
+    permits DeformerVisibilityEvent.Before,
+            DeformerVisibilityEvent.On,
+            DeformerVisibilityEvent.After {
 
-    Drawable drawable();
+    Deformer deformer();
 
-    final class Before implements DrawableVisibilityEvent {
-        private final Drawable drawable;
+    final class Before implements DeformerVisibilityEvent {
+        private final Deformer deformer;
         private final boolean requestedVisible;
         private final CallbackScope callbackScope;
         private boolean visible;
 
         public Before(
-            final Drawable drawable,
+            final Deformer deformer,
             final boolean requestedVisible,
             final boolean visible
         ) {
-            this(drawable, requestedVisible, visible, null);
+            this(deformer, requestedVisible, visible, null);
         }
 
         private Before(
-            final Drawable drawable,
+            final Deformer deformer,
             final boolean requestedVisible,
             final boolean visible,
             final CallbackScope callbackScope
         ) {
-            this.drawable = Objects.requireNonNull(drawable, "drawable");
+            this.deformer = Objects.requireNonNull(deformer, "deformer");
             this.requestedVisible = requestedVisible;
             this.visible = visible;
             this.callbackScope = callbackScope;
@@ -41,14 +41,14 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
 
         /** Opens a callback-scoped mutable candidate for the intercepted visibility edit. */
         public static Callback openCallback(
-            final Drawable drawable,
+            final Deformer deformer,
             final boolean requestedVisible,
             final boolean visible
         ) {
-            return new Callback(drawable, requestedVisible, visible);
+            return new Callback(deformer, requestedVisible, visible);
         }
 
-        @Override public Drawable drawable() { return drawable; }
+        @Override public Deformer deformer() { return deformer; }
         public boolean requestedVisible() { return requestedVisible; }
         /** Returns the candidate visibility value that will be applied. */
         public boolean visible() { return visible; }
@@ -64,11 +64,11 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
             private final Before event;
 
             private Callback(
-                final Drawable drawable,
+                final Deformer deformer,
                 final boolean requestedVisible,
                 final boolean visible
             ) {
-                event = new Before(drawable, requestedVisible, visible, scope);
+                event = new Before(deformer, requestedVisible, visible, scope);
             }
 
             /** Returns the mutable event while this callback scope remains open. */
@@ -89,7 +89,7 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
                     throw new IllegalStateException(
-                        "Drawable visibility before-event mutation is outside its callback scope."
+                        "Deformer visibility before-event mutation is outside its callback scope."
                     );
                 }
             }
@@ -101,13 +101,13 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
         }
     }
 
-    record On(Drawable drawable, boolean oldVisible, boolean newVisible)
-        implements DrawableVisibilityEvent {
-        public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
+    record On(Deformer deformer, boolean oldVisible, boolean newVisible)
+        implements DeformerVisibilityEvent {
+        public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
-    record After(Drawable drawable, boolean finalVisible)
-        implements DrawableVisibilityEvent {
-        public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
+    record After(Deformer deformer, boolean finalVisible)
+        implements DeformerVisibilityEvent {
+        public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 }
