@@ -5,6 +5,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import dev.turboism.tests.plugin.McpValidationHostClose;
+import dev.turboism.tests.plugin.McpTexturePersistenceProbe;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -55,7 +56,11 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     private void awaitResult() {
         final Path result = validationStateRoot().resolve(RESULT_FILE);
         final long deadline = System.currentTimeMillis() + RESULT_TIMEOUT_MILLIS;
+        boolean textureRoundTripHandled = false;
         while (enabled && System.currentTimeMillis() < deadline) {
+            if (!textureRoundTripHandled) {
+                textureRoundTripHandled = McpTexturePersistenceProbe.runIfRequested(context, validationStateRoot());
+            }
             if (terminalResult(result)) {
                 logger.info("MCP_HOST_VALIDATION_RESULT observed=" + result.getFileName());
                 requestAutomatedHostClose();

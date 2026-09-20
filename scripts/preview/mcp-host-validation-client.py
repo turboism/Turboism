@@ -1080,7 +1080,10 @@ def main() -> int:
         report.append("assertion.textureWriteReadback.status=PASS")
         report.append("assertion.textureUndoRedoRestoration.status=PASS")
         report.append("assertion.textureDeletionScope.status=PASS")
-        report.append("texturePersistence=NOT_TESTED_IN_REVERSIBLE_HTTP_MATRIX")
+        validate_native_texture_roundtrip(state_root, task_id)
+        report.append("assertion.textureNativeLayersAndPixels.status=PASS")
+        report.append("assertion.textureSaveReopen.status=PASS")
+        report.append("texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED")
 
         hierarchy = await_resource(
             client,
@@ -1153,6 +1156,43 @@ def main() -> int:
         report.append(f"status={status}")
         publish_atomic(result_path, "\n".join(report) + "\n")
     return 0 if status == "PASS" else 1
+
+
+def validate_native_texture_roundtrip(
+    state_root: Path, task_id: str, *, timeout_seconds: float = 420,
+) -> dict[str, str]:
+    """Require exact-run native layer/pixel and save/reopen evidence before final PASS."""
+    require(bool(task_id) and sanitize(task_id) == task_id, "invalid native round-trip run ID")
+    request = state_root / "mcp-texture-roundtrip-request.properties"
+    result = state_root / "mcp-texture-roundtrip-result.properties"
+    publish_atomic(request, f"runId={task_id}\nstatus=REQUESTED\n")
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if result.is_file():
+            require(result.stat().st_size <= 65536, "native round-trip evidence exceeds its bound")
+            values: dict[str, str] = {}
+            for line in result.read_text(encoding="utf-8").splitlines():
+                if not line or line.startswith("#"):
+                    continue
+                key, separator, value = line.partition("=")
+                require(bool(separator) and key not in values, "invalid native round-trip evidence")
+                values[key] = value
+            require(values.get("runId") == task_id, "native round-trip belongs to another task")
+            require(values.get("status") == "PASS",
+                    "native texture round-trip failed: " + values.get("error", "missing terminal result"))
+            for key in ("nativeLayerPixelUndoRedo", "saveReopen"):
+                require(values.get(key) == "PASS", f"native round-trip lacks {key} evidence")
+            for key in ("fixtureUnchanged", "originalReopened"):
+                require(values.get(key) == "true", f"native round-trip lacks {key} evidence")
+            require(values.get("persistenceOperationKinds") == "5", "not all texture operations were persisted")
+            for before, after in (("savedFingerprint", "reopenedFingerprint"),
+                                  ("rawPixelsBefore", "rawPixelsRestored")):
+                digest = values.get(before, "")
+                require(len(digest) == 64 and all(char in "0123456789abcdef" for char in digest)
+                        and digest == values.get(after), "native round-trip fingerprint mismatch")
+            return values
+        time.sleep(min(0.25, max(0, deadline - time.monotonic())))
+    raise ValidationFailure("native texture round-trip timed out without complete evidence")
 
 
 def texture_content(snapshot: dict[str, Any]) -> dict[str, Any]:
