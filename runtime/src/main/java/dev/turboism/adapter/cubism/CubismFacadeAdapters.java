@@ -166,6 +166,39 @@ final class CubismFacadeAdapters {
         };
     }
 
+    static dev.turboism.sdk.cubism.edit.EditSessionService editSessionServiceView(
+        final CubismFacadeImpl facade,
+        final dev.turboism.sdk.cubism.edit.EditSessionService delegate
+    ) {
+        return new dev.turboism.sdk.cubism.edit.EditSessionService() {
+            @Override
+            public boolean isEditApproved(
+                final dev.turboism.sdk.plugin.PluginContext context
+            ) throws dev.turboism.sdk.cubism.edit.EditSessionException {
+                facade.requireActiveScope();
+                facade.permissionGate.require(
+                    CubismFacadeImpl.EDIT_PERMISSION,
+                    "edit.isEditApproved"
+                );
+                return delegate.isEditApproved(context);
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.edit.EditSession open(
+                final dev.turboism.sdk.plugin.PluginContext context,
+                final dev.turboism.sdk.cubism.id.DocumentId document,
+                final dev.turboism.sdk.cubism.edit.EditSessionOptions options
+            ) throws dev.turboism.sdk.cubism.edit.EditSessionException {
+                facade.requireActiveScope();
+                facade.permissionGate.require(
+                    CubismFacadeImpl.EDIT_PERMISSION,
+                    "edit.open"
+                );
+                return delegate.open(context, document, options);
+            }
+        };
+    }
+
     static TextureAtlasLayoutService layoutServiceView(
         final CubismFacadeImpl facade,
         final TextureAtlasLayoutService delegate

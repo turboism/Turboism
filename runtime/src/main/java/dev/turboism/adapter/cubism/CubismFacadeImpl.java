@@ -54,6 +54,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     public static final String MODEL_READ_PERMISSION = "turboism.cubism.model.read";
     public static final String MODEL_WRITE_PERMISSION = "turboism.cubism.model.write";
     public static final String MESH_READ_PERMISSION = "turboism.cubism.mesh.read";
+    public static final String EDIT_PERMISSION = "turboism.cubism.edit";
 
     private static final HostSnapshotSource.HostSelection EMPTY_SELECTION = new HostSnapshotSource.HostSelection(
         List.of(),
@@ -70,6 +71,8 @@ public final class CubismFacadeImpl implements CubismFacade {
     private CubismHistory history = CubismHistory.unavailable();
     private AuthoringTransactionService authoringTransactions =
         AuthoringTransactionService.unavailable();
+    private dev.turboism.sdk.cubism.edit.EditSessionService editSessions =
+        dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime;
     final ParameterLifecycleCoordinator parameterLifecycle;
     final PartLifecycleCoordinator partLifecycle;
@@ -335,6 +338,48 @@ public final class CubismFacadeImpl implements CubismFacade {
             authoringTransactions,
             "authoringTransactions"
         );
+    }
+
+    /**
+     * Full production construction seam including history, authoring transactions, and the
+     * external-application editing-session service (spec 046, T2).
+     */
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final CubismHistory history,
+        final AuthoringTransactionService authoringTransactions,
+        final dev.turboism.sdk.cubism.edit.EditSessionService editSessions
+    ) {
+        this(
+            source,
+            permissionGate,
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            nativeInvocations,
+            editorObjectLifecycle,
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
+            textureAtlasAlgorithms,
+            history,
+            authoringTransactions
+        );
+        this.editSessions = Objects.requireNonNull(editSessions, "editSessions");
     }
 
     public CubismFacadeImpl(
@@ -906,6 +951,13 @@ public final class CubismFacadeImpl implements CubismFacade {
         requireActiveScope();
         final AuthoringTransactionService delegate = authoringTransactions;
         return CubismFacadeAdapters.authoringTransactionsView(this, delegate);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.edit.EditSessionService edit() {
+        requireActiveScope();
+        final dev.turboism.sdk.cubism.edit.EditSessionService delegate = editSessions;
+        return CubismFacadeAdapters.editSessionServiceView(this, delegate);
     }
 
     @Override

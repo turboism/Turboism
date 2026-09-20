@@ -6,6 +6,10 @@ import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelec
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionManager;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionService;
+import dev.turboism.adapter.cubism.edit.VerifiedEditorEditSessionHost;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
@@ -59,7 +63,7 @@ import java.util.Optional;
 /** Generation-bound natural model view over one verified Editor modeling document. */
 public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider,
+    RuntimeAuthoringTransactionProvider, RuntimeEditSessionProvider,
     dev.turboism.adapter.cubism.BorrowedModelRelease {
 
     private final VerifiedMemberResolver resolver;
@@ -79,6 +83,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorPsdSnapshotAccess psdSnapshotAccess;
     private final VerifiedEditorAuthoringTransactionHost authoringHost;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final VerifiedEditorEditSessionHost editSessionHost;
+    private final RuntimeEditSessionManager editSessionManager;
     private final Object generationLock = new Object();
     private String lazyPublishAttemptedIdentity;
     /**
@@ -117,7 +123,21 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::authoringNativeBinding,
             this::authoringGeneration
         );
-        this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(authoringHost);
+        final java.util.concurrent.atomic.AtomicBoolean editScopeGate =
+            new java.util.concurrent.atomic.AtomicBoolean();
+        this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(
+            authoringHost,
+            editScopeGate
+        );
+        this.editSessionHost = new VerifiedEditorEditSessionHost(
+            resolver,
+            this::authoringNativeBinding,
+            this::authoringGeneration
+        );
+        this.editSessionManager = new RuntimeEditSessionManager(
+            editSessionHost,
+            editScopeGate
+        );
         this.combinedAccess = new EditorParameterCombinedAccess(
             resolver,
             this::requireCurrent,
@@ -209,6 +229,20 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         return new RuntimeAuthoringTransactionService(
             authoringCoordinator,
             () -> authoringHost.binding(pluginId)
+        );
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.edit.EditSessionService editSessions(
+        final String pluginId,
+        final java.util.function.Supplier<Optional<dev.turboism.sdk.cubism.id.DocumentId>>
+            activeDocumentId
+    ) {
+        return new RuntimeEditSessionService(
+            editSessionManager,
+            editSessionHost,
+            pluginId,
+            activeDocumentId
         );
     }
 
