@@ -75,11 +75,15 @@ class McpHostValidationClientTest(unittest.TestCase):
                   "steps": [{"id": "read", "output": {"ok": True, "error": None}},
                             {"id": "write", "diagnosticId": "step.failed", "output": {
                                 "ok": False, "error": {"code": "STALE_STATE", "message": "/private/raw-model"}}}]}
+        failed["steps"] = [{"id": "successful" + str(index), "output": {"ok": True, "error": None}}
+                           for index in range(20)] + failed["steps"]
         with mock.patch.object(CLIENT, "tool_result", return_value=failed):
             with self.assertRaises(CLIENT.ValidationFailure) as raised:
                 CLIENT.tool_call(object(), "turboism.transaction.execute", {"secret": "do-not-emit"})
         self.assertIn("transaction.failed", str(raised.exception))
         self.assertIn("STALE_STATE", str(raised.exception))
+        self.assertNotIn("successful19", str(raised.exception))
+        self.assertIn('"completedStepCount": 21', str(raised.exception))
         self.assertNotIn("raw-model", str(raised.exception))
         self.assertNotIn("do-not-emit", str(raised.exception))
 
