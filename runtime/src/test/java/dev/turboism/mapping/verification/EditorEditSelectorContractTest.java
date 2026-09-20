@@ -27,16 +27,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Admission guard for the ported external-application editing surface (spec 046, Phase 1).
  *
- * <p>The thirty-six {@code cubism.editor-model.edit.*} capability rows are declared ahead of
- * their verification records, so {@link VerifiedMemberResolver#authorizesFeature} must reject
- * every one of them on every supported host. This test pins both halves of that contract:</p>
+ * <p>Most of the thirty-six {@code cubism.editor-model.edit.*} capability rows are declared
+ * ahead of their verification records, so {@link VerifiedMemberResolver#authorizesFeature} must
+ * reject them on every supported host. The three selection rows are the T5 exception: their
+ * capability ids and members are bound on all three exact artifacts, so resolvers admit them.
+ * This test pins both halves of that contract:</p>
  *
  * <ul>
  *   <li>every declared member alias is bound by the committed records exactly where the
  *   feasibility matrix claims (READY rows are fully bound on all three versions; ADJACENT and
  *   field-restricted sets keep their documented unbound members), and</li>
- *   <li>real resolvers admitted against the exact 5.2.03 and 5.3.02 host artifacts reject all
- *   thirty-six edit capability rows while still authorizing a verified control capability.</li>
+ *   <li>real resolvers admitted against the exact 5.2.03 and 5.3.02 host artifacts reject the
+ *   non-selection edit rows, admit the three selection rows, and still authorize a verified
+ *   control capability.</li>
  * </ul>
  */
 final class EditorEditSelectorContractTest {
@@ -214,14 +217,22 @@ final class EditorEditSelectorContractTest {
         );
     }
 
+    /** The three selection rows T5 bound into every supported record. */
+    private static final Set<String> SELECTION_ROWS = Set.of(
+        EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditSelectionSelectorContract.ADD_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditSelectionSelectorContract.CLEAR_SELECTED_OBJECTS_CAPABILITY_ID
+    );
+
     @Test
-    void committedRecordsLackEveryEditCapabilityRowSoAdmissionFailsClosed() throws Exception {
+    void committedRecordsDeclareOnlyTheVerifiedSelectionRows() throws Exception {
         for (VersionCase version : VERSIONS) {
             final StaticVerificationRecord record = loadRecord(version);
-            for (String capabilityId : EDIT_ROWS.keySet()) {
-                assertFalse(
-                    record.capabilityIds().contains(capabilityId),
-                    version.version() + " must not yet declare " + capabilityId
+            for (Map.Entry<String, Set<String>> row : EDIT_ROWS.entrySet()) {
+                assertEquals(
+                    SELECTION_ROWS.contains(row.getKey()),
+                    record.capabilityIds().contains(row.getKey()),
+                    version.version() + " capability declaration mismatch for " + row.getKey()
                 );
             }
         }
@@ -230,10 +241,8 @@ final class EditorEditSelectorContractTest {
     @Test
     void readyRowMemberAliasesAreBoundInEverySupportedRecord() throws Exception {
         // Rows whose alias sets the feasibility matrix marks READY: every member is bound in
-        // every supported record. Selection Get/Add are intentionally excluded — they are the
-        // verification-record-missing rows and keep unbound members below.
+        // every supported record — including the selection rows T5 verified on all artifacts.
         final Map<String, Set<String>> ready = new LinkedHashMap<>(EDIT_ROWS);
-        ready.remove(EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID);
         for (VersionCase version : VERSIONS) {
             final Set<String> aliases = recordAliases(version);
             for (Map.Entry<String, Set<String>> row : ready.entrySet()) {
@@ -253,11 +262,10 @@ final class EditorEditSelectorContractTest {
         final Set<String> aliases5302 = recordAliases(VERSIONS.get(1));
         final Set<String> aliases5303 = recordAliases(VERSIONS.get(2));
 
-        // GetSelectedObjects: the selection guid list exists only on 5.3.03.
-        assertUnbound(aliases5203, EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES,
-            "cubism.editor-model.update-manager.selection-guid-list");
-        assertUnbound(aliases5302, EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES,
-            "cubism.editor-model.update-manager.selection-guid-list");
+        // GetSelectedObjects: T5 bytecode verification bound the selection guid list on all
+        // three exact artifacts, so the whole read row is now bound everywhere.
+        assertBound(aliases5203, EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES);
+        assertBound(aliases5302, EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES);
         assertBound(aliases5303, EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES);
 
         // EditParameterGroup NewId: parameter-group.set-id is unverified on every host.
@@ -328,7 +336,7 @@ final class EditorEditSelectorContractTest {
     }
 
     @Test
-    void realResolversRejectEveryEditRowAndAdmitTheVerifiedControl() throws Exception {
+    void realResolversRejectUnverifiedRowsAndAdmitTheVerifiedOnes() throws Exception {
         for (VersionCase version : VERSIONS) {
             if (version.artifactDir() == null) {
                 continue;
@@ -343,14 +351,22 @@ final class EditorEditSelectorContractTest {
             );
 
             for (Map.Entry<String, Set<String>> row : EDIT_ROWS.entrySet()) {
-                assertFalse(
-                    resolver.authorizesFeature(
-                        EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
-                        row.getKey(),
-                        row.getValue()
-                    ),
-                    version.version() + " must reject unverified row " + row.getKey()
+                final boolean admitted = resolver.authorizesFeature(
+                    EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
+                    row.getKey(),
+                    row.getValue()
                 );
+                if (SELECTION_ROWS.contains(row.getKey())) {
+                    assertTrue(
+                        admitted,
+                        version.version() + " must admit verified row " + row.getKey()
+                    );
+                } else {
+                    assertFalse(
+                        admitted,
+                        version.version() + " must reject unverified row " + row.getKey()
+                    );
+                }
             }
             assertTrue(
                 resolver.authorizesFeature(

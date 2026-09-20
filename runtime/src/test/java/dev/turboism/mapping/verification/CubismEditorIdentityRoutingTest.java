@@ -19,7 +19,7 @@ class CubismEditorIdentityRoutingTest {
         assertManifest(
             EditorModelVerificationManifest.forArtifact(artifact),
             "cubism-5.3.03.editor-model.static",
-            "b927e74d5e169dfead29ec8aaf0e6c929e0eed41dd622a1f3bbc77c50b3aded3",
+            "f0670d68aaac07f2e9bd4e0419c207ef9343585af59506dc391c133b8769221e",
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             EditorModelVerificationManifest.cubism5303Capabilities(),
             EditorModelVerificationManifest.cubism5303StaticAliases()

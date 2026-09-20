@@ -15777,8 +15777,8 @@
       "main": "b8c09b5a",
       "entryUnionCount": 393
     },
-    "selectorCount": 773,
-    "capabilityCount": 64,
+    "selectorCount": 774,
+    "capabilityCount": 67,
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -15800,6 +15800,9 @@
       "cubism.editor-model.deformer-inspector.write",
       "cubism.editor-model.edit-level.read",
       "cubism.editor-model.edit-level.write",
+      "cubism.editor-model.edit.selection.add-selected-objects",
+      "cubism.editor-model.edit.selection.clear-selected-objects",
+      "cubism.editor-model.edit.selection.get-selected-objects",
       "cubism.editor-model.glue-inspector.write",
       "cubism.editor-model.model-instance.read",
       "cubism.editor-model.model-name.write",
@@ -15845,6 +15848,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "48268c91b03314870ea21779ef64538ed095c939e87c11afa86f9fea69b71acc"
+    "verificationRecordSha256": "e52eb8420014686f46b19d2d946ed737d601e908c73f0e5e23e1a47620cc1f39"
   }
 }
