@@ -252,11 +252,15 @@ final class EditorObjectInspectorAccess {
             newId,
             () -> {
                 setGlueIdValue(value.source(), newId);
+                // ID-keyed native instance lookup must observe the new identity even inside an
+                // ambient transaction; the root's deferred refresh is too late for child readback.
+                resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
                 verifyModel(modelSource);
             },
             () -> newId.equals(core.objectId(value.source())),
             () -> {
                 setGlueIdValue(value.source(), original);
+                resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
                 verifyModel(modelSource);
             },
             () -> original.equals(core.objectId(value.source()))
