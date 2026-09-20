@@ -304,4 +304,87 @@ public interface UiHostCapabilityService {
     default Registration contributePaletteFilter(PaletteFilterRegistry.PaletteFilterContribution contribution) {
         throw new UnsupportedOperationException("palette filter contribution is unavailable");
     }
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static UiHostCapabilityService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements UiHostCapabilityService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contributeOverlay(final OverlayContribution contribution) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeBoundingBoxOverlayButton(
+            final BoundingBoxOverlayButton contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public ContextSourceSnapshot contextSource() {
+            throw unavailable();
+        }
+
+        @Override public ViewportSnapshot viewport() {
+            throw unavailable();
+        }
+
+        @Override public Registration openDialog(final DialogRequest request) {
+            throw unavailable();
+        }
+
+        @Override public boolean confirmDialog(final DialogRequest request) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeEmbeddedPanel(
+            final EmbeddedPanelContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public Optional<String> requestFile(final FileChooserRequest request) {
+            return Optional.empty();
+        }
+
+        @Override public Registration notifyStatus(final StatusNotification notification) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeContextMenu(
+            final ContextMenuRegistry.ContextMenuContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeMainToolbar(
+            final MainToolbarRegistry.MainToolbarContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributePaletteToolbar(
+            final PaletteToolbarRegistry.PaletteToolbarContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("uiHost service is not available");
+        }
+    }
 }

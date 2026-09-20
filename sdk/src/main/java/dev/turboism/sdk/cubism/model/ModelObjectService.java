@@ -26,12 +26,25 @@ public interface ModelObjectService {
 
     void delete(ModelObjectReference target, ModelObjectDeletePolicy policy);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     static ModelObjectService unavailable() {
         return Unavailable.INSTANCE;
     }
 
     enum Unavailable implements ModelObjectService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override public List<ModelObjectDescriptor> list() {
             throw unavailable();

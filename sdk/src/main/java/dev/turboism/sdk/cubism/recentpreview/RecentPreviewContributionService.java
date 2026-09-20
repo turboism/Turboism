@@ -24,6 +24,15 @@ public interface RecentPreviewContributionService {
     default void refresh() {
     }
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     /** Safe-mode instance: contribution is refused and refresh is a no-op. */
     static RecentPreviewContributionService unavailable() {
         return Unavailable.INSTANCE;
@@ -31,6 +40,10 @@ public interface RecentPreviewContributionService {
 
     enum Unavailable implements RecentPreviewContributionService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public Registration contribute(final RecentPreviewRenderer renderer) {

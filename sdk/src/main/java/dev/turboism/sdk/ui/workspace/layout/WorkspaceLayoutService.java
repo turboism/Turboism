@@ -16,12 +16,34 @@ public interface WorkspaceLayoutService {
 
     CompletionStage<WorkspaceLayoutSnapshot> current();
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     static WorkspaceLayoutService unavailable() {
-        final WorkspaceLayoutSnapshot snapshot = new WorkspaceLayoutSnapshot(
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements WorkspaceLayoutService {
+        INSTANCE;
+
+        private static final WorkspaceLayoutSnapshot SNAPSHOT = new WorkspaceLayoutSnapshot(
             WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
             Optional.empty(),
             Optional.of("workspace.layout.unavailable")
         );
-        return () -> CompletableFuture.completedFuture(snapshot);
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public CompletionStage<WorkspaceLayoutSnapshot> current() {
+            return CompletableFuture.completedFuture(SNAPSHOT);
+        }
     }
 }
