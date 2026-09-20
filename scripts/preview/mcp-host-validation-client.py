@@ -1400,7 +1400,23 @@ def tool_result(client: McpClient, name: str, arguments: dict[str, Any]) -> dict
 
 def tool_call(client: McpClient, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     structured = tool_result(client, name, arguments)
-    require(structured.get("ok") is not False, f"tool {name} failed")
+    if structured.get("ok") is False:
+        details = {key: structured[key] for key in ("outcome", "diagnosticId", "code")
+                   if key in structured}
+        if isinstance(structured.get("error"), dict):
+            details["errorCode"] = structured["error"].get("code")
+        steps = []
+        for step in structured.get("steps", []):
+            if not isinstance(step, dict):
+                continue
+            output = step.get("output")
+            output = output if isinstance(output, dict) else {}
+            error = output.get("error")
+            steps.append({"id": step.get("id"), "diagnosticId": step.get("diagnosticId"),
+                          "outcome": output.get("outcome"),
+                          "errorCode": error.get("code") if isinstance(error, dict) else output.get("code")})
+        details["steps"] = steps
+        raise ValidationFailure(f"tool {name} failed: {sanitize(json.dumps(details))}")
     return structured
 
 

@@ -70,6 +70,19 @@ class McpHostValidationClientTest(unittest.TestCase):
         self.assertNotIn("name: 'turboism.history.move'", text)
         self.assertIn("name: 'turboism.history.read'", text)
 
+    def test_tool_failure_keeps_diagnostic_codes_without_raw_messages_or_arguments(self) -> None:
+        failed = {"ok": False, "outcome": "ROLLED_BACK", "diagnosticId": "transaction.failed",
+                  "steps": [{"id": "read", "output": {"ok": True, "error": None}},
+                            {"id": "write", "diagnosticId": "step.failed", "output": {
+                                "ok": False, "error": {"code": "STALE_STATE", "message": "/private/raw-model"}}}]}
+        with mock.patch.object(CLIENT, "tool_result", return_value=failed):
+            with self.assertRaises(CLIENT.ValidationFailure) as raised:
+                CLIENT.tool_call(object(), "turboism.transaction.execute", {"secret": "do-not-emit"})
+        self.assertIn("transaction.failed", str(raised.exception))
+        self.assertIn("STALE_STATE", str(raised.exception))
+        self.assertNotIn("raw-model", str(raised.exception))
+        self.assertNotIn("do-not-emit", str(raised.exception))
+
     def test_glue_baseline_runs_before_matrices_that_leave_redo_history(self) -> None:
         source = inspect.getsource(CLIENT.main)
         self.assertLess(source.index("validate_audit_input_guards(client"),
