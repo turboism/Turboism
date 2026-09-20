@@ -288,6 +288,35 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return accessor.invoke(iconRegistry);
     }
 
+    /**
+     * Updates the button's visual state: off → DISABLED visual (q.e slash
+     * icon via setButtonEnabled(false)); vertical → NORMAL (q.a via
+     * setButtonEnabled(true) + setButtonSelected(false)); horizontal →
+     * SELECTED (setButtonEnabled(true) + setButtonSelected(true)).
+     * Each call triggers the native {@code updateAppearance()}.
+     */
+    public void updateButtonState(final String contributionId, final int axis) {
+        synchronized (lock) {
+            for (final Entry entry : entries.values()) {
+                if (!contributionId.equals(entry.contribution().contributionId())) continue;
+                try {
+                    final ClassLoader hostLoader = entry.currentButton().getClass().getClassLoader();
+                    final Class<?> buttonClass = entry.currentButton().getClass();
+                    final boolean enabled = axis != 0;
+                    final boolean selected = axis == 2;
+                    buttonClass.getMethod("setButtonEnabled", boolean.class)
+                        .invoke(entry.currentButton(), enabled);
+                    buttonClass.getMethod("setButtonSelected", boolean.class)
+                        .invoke(entry.currentButton(), selected);
+                    diagnostic("BUTTON_STATE_UPDATED axis=" + axis
+                        + " enabled=" + enabled + " selected=" + selected);
+                } catch (ReflectiveOperationException | RuntimeException failure) {
+                    diagnostic("UPDATE_STATE_FAILED " + failure.getClass().getSimpleName());
+                }
+            }
+        }
+    }
+
     private static void diagnostic(final String stage) {
         try {
             dev.turboism.runtime.log.RuntimeDiagnostics.info(
