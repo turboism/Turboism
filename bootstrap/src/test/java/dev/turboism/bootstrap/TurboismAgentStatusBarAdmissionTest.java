@@ -10,9 +10,16 @@ final class TurboismAgentStatusBarAdmissionTest {
 
     @Test
     void admitsExact5303OnlyAfterFullRuntimeAdmission() {
-        assertTrue(TurboismAgent.statusBarRuntimeAdmitted("5.3.03", true));
-        assertFalse(TurboismAgent.statusBarRuntimeAdmitted("5.3.03", false));
-        assertFalse(TurboismAgent.statusBarRuntimeAdmitted("5.3.04", true));
+        assertTrue(environment("5.3.03", true).ordinaryReviewedRuntimeAdmitted());
+        assertFalse(environment("5.3.03", false).ordinaryReviewedRuntimeAdmitted());
+        assertFalse(environment("5.3.04", true).ordinaryReviewedRuntimeAdmitted());
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+    }
+
+    private static HookEnvironment environment(final String profile, final boolean admitted) {
+        return HookEnvironment.builder()
+            .profile(profile)
+            .fullRuntimeAdmission(admitted)
+            .build();
     }
 }
