@@ -38,8 +38,18 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
         return new InvisibleModal() {
             @Override
             public void show() {
-                dialog.setLocationRelativeTo(ownerWindow(context));
-                dialog.setVisible(true);
+                // The official call site blocks its own handler on the modal's nested event
+                // loop for the pulse duration; posting the show instead keeps the session's
+                // dispatch task free while the invisible dialog still intercepts host input.
+                SwingUtilities.invokeLater(() -> {
+                    dialog.setLocationRelativeTo(ownerWindow(context));
+                    dialog.setVisible(true);
+                });
+            }
+
+            @Override
+            public void hide() {
+                SwingUtilities.invokeLater(() -> dialog.setVisible(false));
             }
 
             @Override

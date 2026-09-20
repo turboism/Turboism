@@ -10,9 +10,11 @@ package dev.turboism.adapter.cubism.edit;
 public interface EditSessionUiLock {
 
     /**
-     * Engages the lock: disables the main window when one is available, installs the invisible
-     * modal input interceptor, and either shows the status dialog immediately (non-silent) or
-     * arms the forced-reveal timer ({@code silent = true}).
+     * Engages the lock: disables the main window when one is available. For
+     * {@code silent = true} the official startup pulse runs — the invisible modal interceptor
+     * is shown at once and holds input for up to the silent timeout, after which the status
+     * dialog is revealed; non-silent sessions show the status dialog immediately and never
+     * create the interceptor.
      */
     void engage(boolean silent);
 
