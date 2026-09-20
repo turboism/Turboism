@@ -31,7 +31,8 @@ final class HookManifest {
     /**
      * Loads and instantiates every declared contributor.
      *
-     * @param loader the class loader that owns the agent classes
+     * @param loader the class loader that owns the agent classes, or {@code null}
+     *        when the agent runs on the bootstrap class path
      * @return the contributors in manifest order; never {@code null}
      * @throws HookManifestException when the manifest is missing or invalid
      */
@@ -44,9 +45,19 @@ final class HookManifest {
         return List.copyOf(contributors);
     }
 
+    // The distributed agent declares Boot-Class-Path, so its classes (and this
+    // manifest reader) have no defining loader. The -javaagent jar is also on
+    // the system class path, which carries the same manifest resource.
+    private static InputStream openManifest(final ClassLoader loader) {
+        if (loader != null) {
+            return loader.getResourceAsStream(RESOURCE);
+        }
+        return ClassLoader.getSystemResourceAsStream(RESOURCE);
+    }
+
     private static List<String> readClassNames(final ClassLoader loader) throws HookManifestException {
         final Set<String> classNames = new LinkedHashSet<>();
-        try (InputStream stream = loader.getResourceAsStream(RESOURCE)) {
+        try (InputStream stream = openManifest(loader)) {
             if (stream == null) {
                 throw new HookManifestException("hook manifest is missing: " + RESOURCE);
             }
