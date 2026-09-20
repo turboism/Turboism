@@ -667,6 +667,35 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertEquals(1, fixture.host.commitCount);
     }
 
+    /**
+     * Regression: an {@code Error} raised by {@code host.history} after the shared
+     * {@code editScopeGate} CAS succeeds — before the ambient scope exists — must still
+     * release the gate. A leaked gate wedges every sibling coordinator and edit session
+     * sharing it across threads.
+     */
+    @Test
+    void historyErrorBeforeScopeReleasesTheSharedEditScopeGate() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicBoolean gate = new AtomicBoolean();
+        final EditorAuthoringTransactionCoordinator coordinator =
+            new EditorAuthoringTransactionCoordinator(fixture.host, gate);
+        final AssertionError failure = new AssertionError("history capture failed");
+        fixture.host.historyError = failure;
+
+        assertSame(failure, assertThrows(AssertionError.class, () -> coordinator.execute(
+            fixture.binding, AuthoringTransactionOptions.of("History error"), () -> "unreached"
+        )));
+        assertFalse(gate.get());
+
+        // A sibling root over the same gate must still be admitted after the Error path.
+        fixture.host.historyError = null;
+        final EditorAuthoringTransactionCoordinator sibling =
+            new EditorAuthoringTransactionCoordinator(fixture.host, gate);
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, sibling.execute(
+            fixture.binding, AuthoringTransactionOptions.of("Next root"), () -> 7
+        ).outcome());
+    }
+
     private static EditorUndoContribution contribution(
         final String id,
         final AtomicInteger value,
@@ -734,6 +763,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         private boolean failEnd;
         private Error endError;
         private Error refreshError;
+        private Error historyError;
         private int refreshCount;
         private Optional<HistoryEntryDetail> lastSemanticDetail = Optional.empty();
         private Optional<HistoryEntryDetail> preparedDetail = Optional.empty();
@@ -764,6 +794,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         }
 
         HistorySnapshot history() {
+            if (historyError != null) throw historyError;
             return new HistorySnapshot(
                 HistorySnapshot.Availability.AVAILABLE,
                 1,
