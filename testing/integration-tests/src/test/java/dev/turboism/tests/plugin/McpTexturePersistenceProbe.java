@@ -205,6 +205,7 @@ public final class McpTexturePersistenceProbe {
         private Object originalDocument;
         private Object savedDocument;
         private Snapshot baseline;
+        private Snapshot pristine;
         private String originalHash;
         private volatile boolean nativeTimedOut;
 
@@ -252,15 +253,23 @@ public final class McpTexturePersistenceProbe {
                 originalDocument.getClass().getMethod("saveDocument", File.class, boolean.class);
                 originalDocument.getClass().getMethod("closeFile", boolean.class, boolean.class);
                 appClass.getMethod("command_open", File.class, boolean.class);
-                baseline = snapshot();
-                result.setProperty("baselineInputCount", Integer.toString(baseline.inputs().size()));
-                result.setProperty("baselinePixelLayerCount", Integer.toString(baseline.pixels().size()));
-                require(!baseline.inputs().isEmpty() && !baseline.pixels().isEmpty(),
-                    "Fixture lacks native evidence: inputs=" + baseline.inputs().size()
-                        + ", pixelLayers=" + baseline.pixels().size());
+                pristine = snapshot();
+                result.setProperty("pristineFingerprint", pristine.digest());
+                result.setProperty("pristineInputCount", Integer.toString(pristine.inputs().size()));
+                require(!pristine.pixels().isEmpty(), "Fixture must contain actual raw-layer pixels");
                 return null;
             });
             try {
+                edt(() -> {
+                    if (pristine.inputs().isEmpty()) seedNativeLayerInput();
+                    baseline = snapshot();
+                    result.setProperty("baselineInputCount", Integer.toString(baseline.inputs().size()));
+                    result.setProperty("baselinePixelLayerCount", Integer.toString(baseline.pixels().size()));
+                    require(!baseline.inputs().isEmpty() && !baseline.pixels().isEmpty(),
+                        "Fixture lacks native evidence: inputs=" + baseline.inputs().size()
+                            + ", pixelLayers=" + baseline.pixels().size());
+                    return null;
+                });
                 verifyNativeRawUndo();
                 verifyPersistence();
             } finally {
@@ -290,6 +299,55 @@ public final class McpTexturePersistenceProbe {
             require(moved.outcome() == HistoryMoveResult.Outcome.MOVED
                 || moved.outcome() == HistoryMoveResult.Outcome.NO_CHANGE, "Native history restoration failed");
             require(position() == target, "Native history position mismatch");
+        }
+
+        private void seedNativeLayerInput() throws Exception {
+            requireFile(currentDocument(), fixture);
+            final Object source = call(currentDocument(), "getModelSource");
+            final Object manager = call(source, "getTextureManager");
+            final Object image = ((List<?>) call(manager, "getAllModelImages")).stream().findFirst().orElseThrow();
+            final Object inputs = call(call(image, "getInputFilterEnv"), "getLayerInputData");
+            require(inputs != null && ((Map<?, ?>) call(inputs, "getImageToLayerInput")).isEmpty(),
+                "Fixture setup must never overwrite existing layer inputs");
+            final Object raw = call(((List<?>) call(manager, "getRawImages")).stream().findFirst().orElseThrow(), "getImage");
+            Object selectedLayer = null;
+            for (Object layer : (Iterable<?>) call(raw, "layerIterable")) {
+                if (layer.getClass().getName().equals("com.live2d.cubism.doc.resources.CLayer")) {
+                    selectedLayer = layer;
+                    break;
+                }
+            }
+            require(selectedLayer != null, "Fixture setup has no native pixel layer");
+            final ClassLoader loader = app.getClass().getClassLoader();
+            final Class<?> affine = Class.forName("com.live2d.type.CAffine", false, loader);
+            final Class<?> inputType = Class.forName(
+                "com.live2d.cubism.doc.model.extension.textureInput.inputFilter.CLayerInputData", false, loader);
+            final Class<?> clip = Class.forName("com.live2d.graphics.filter.concreteFilter.clip.AClip", false, loader);
+            final Object input = inputType.getConstructor(selectedLayer.getClass(), affine, clip)
+                .newInstance(selectedLayer, affine.getConstructor().newInstance(), null);
+            final Object rawGuid = call(raw, "getGuid");
+            final Class<?> undoType = Class.forName(
+                "com.live2d.cubism.doc.model.texture.TextureManagerHandler$UndoAddOrRemove_LayerInput", false, loader);
+            final Object undoable = undoType.getConstructor(inputs.getClass(), rawGuid.getClass(), List.class, boolean.class)
+                .newInstance(inputs, rawGuid, List.of(input), true);
+            final Class<?> undoBase = Class.forName("com.live2d.undo.ACUndoable", false, loader);
+            final Class<?> callback = Class.forName("kotlin.jvm.functions.Function1", false, loader);
+            final Object editMode = call(currentDocument(), "getEditMode_modeling");
+            final Object root = invoke(editMode.getClass().getMethod("beginEdit", String.class), editMode,
+                "MCP test fixture: Native layer input");
+            boolean completed = false;
+            try {
+                require(Boolean.TRUE.equals(invoke(root.getClass().getMethod("addEdit", undoBase, boolean.class),
+                    root, undoable, true)), "Fixture setup native Undo was rejected");
+                call(undoable, "forceRedo");
+                call(source, "updateModelInstances");
+                completed = true;
+            } finally {
+                invoke(editMode.getClass().getMethod("endEdit", boolean.class, callback), editMode, !completed, null);
+            }
+            result.setProperty("nativeFixtureSetup", "ONE_LAYER_INPUT_USING_NATIVE_UNDO");
+            result.setProperty("seedModelImageId", guid(call(image, "getGuid")));
+            result.setProperty("seedRawImageId", guid(rawGuid));
         }
 
         private void verifyNativeRawUndo() throws Exception {
@@ -364,7 +422,7 @@ public final class McpTexturePersistenceProbe {
             });
             openOwned(fixture);
             edt(() -> {
-                require(snapshot().equals(baseline), "Original fixture reopen did not restore full native state");
+                require(snapshot().equals(pristine), "Original fixture reopen did not restore full native state");
                 return null;
             });
         }
@@ -420,14 +478,14 @@ public final class McpTexturePersistenceProbe {
                 if (document == null) return false;
                 final Object value = call(document, "getFile");
                 if (value instanceof File && Files.isSameFile(((File) value).toPath(), fixture)
-                    && snapshot().equals(baseline)) return true;
+                    && snapshot().equals(pristine)) return true;
                 require(document == originalDocument || document == savedDocument,
                     "Unknown active document prevents recovery");
                 closeOwned(document);
                 return false;
             });
             if (!alreadyRestored) openOwned(fixture);
-            edt(() -> { require(snapshot().equals(baseline), "Recovery did not restore the original native state"); return null; });
+            edt(() -> { require(snapshot().equals(pristine), "Recovery did not restore the original native state"); return null; });
         }
 
         private Snapshot snapshot() throws Exception {
