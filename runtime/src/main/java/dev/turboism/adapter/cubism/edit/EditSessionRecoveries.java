@@ -23,6 +23,17 @@ public final class EditSessionRecoveries {
     public static final EditSessionRecovery.Selector ALWAYS_COMPENSATING =
         (host, binding) -> compensating();
 
+    /**
+     * The capability-driven selection policy: the official {@code CUndoManager.revert()} path
+     * when {@link EditorEditSessionHost#undoRevertVerified} reports the {@code
+     * cubism.editor-model.undo.revert} capability row verified on the connected host, and the
+     * compensating path otherwise. Compensation stays the safe default while the row is
+     * unverified — which is every currently supported host, since the row's verification
+     * records do not yet exist.
+     */
+    public static final EditSessionRecovery.Selector PREFER_REVERT_WHEN_VERIFIED =
+        (host, binding) -> host.undoRevertVerified(binding) ? reverting() : compensating();
+
     private EditSessionRecoveries() {
     }
 
@@ -36,6 +47,19 @@ public final class EditSessionRecoveries {
         return Compensating.INSTANCE;
     }
 
+    /**
+     * Returns the official {@code CUndoManager.revert()} recovery: end the native session edit
+     * so the group undo lands as one history entry, then revert it — the official cancel path
+     * undoes the top entry and removes the range, restoring the model without leaving an undo
+     * record. Only selected when the revert capability row is verified.
+     *
+     * <p>OPEN: the {@code endEdit} first-argument meaning is inferred ({@code false} = keep the
+     * session's group entry for revert to consume); direct host evidence is deferred to T7.</p>
+     */
+    public static EditSessionRecovery reverting() {
+        return Reverting.INSTANCE;
+    }
+
     private enum Compensating implements EditSessionRecovery {
         INSTANCE;
 
@@ -47,6 +71,23 @@ public final class EditSessionRecoveries {
             Objects.requireNonNull(host, "host");
             Objects.requireNonNull(request, "request");
             host.endEdit(request.binding(), request.editToken(), true);
+            verifyHistoryRestored(host, request);
+            host.refreshAfterSession(request.binding());
+        }
+    }
+
+    private enum Reverting implements EditSessionRecovery {
+        INSTANCE;
+
+        @Override
+        public void recover(
+            final EditorEditSessionHost host,
+            final EditSessionRecoveryRequest request
+        ) throws EditSessionException {
+            Objects.requireNonNull(host, "host");
+            Objects.requireNonNull(request, "request");
+            host.endEdit(request.binding(), request.editToken(), false);
+            host.revert(request.binding());
             verifyHistoryRestored(host, request);
             host.refreshAfterSession(request.binding());
         }
