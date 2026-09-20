@@ -30,4 +30,8 @@ public final class AuthorizedViewContextMenuRegistry implements ViewContextMenuR
         return delegate.contributeStateButtons(contribution);
     }
 
+    @Override
+    public void updateButtonState(final String contributionId, final int axis) {
+        delegate.updateButtonState(contributionId, axis);
+    }
 }
