@@ -1074,16 +1074,17 @@ def main() -> int:
         report.append("assertion.parameterWriteReadback.status=PASS")
         report.append("assertion.parameterWriteCleanup.status=PASS")
 
+        # Capture native inputs/pixels before ANY texture deletion can disturb them.
+        validate_native_texture_roundtrip(state_root, task_id)
+        report.append("assertion.textureNativeLayersAndPixels.status=PASS")
+        report.append("assertion.textureSaveReopen.status=PASS")
+        report.append("texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED")
         texture_operations = validate_reversible_texture_authoring(client, task_id)
         mutations.append("TEXTURE_LIBRARY_CHANGED_UNDONE_REDONE_AND_RESTORED")
         report.append(f"textureAuthoringOperationCount={texture_operations}")
         report.append("assertion.textureWriteReadback.status=PASS")
         report.append("assertion.textureUndoRedoRestoration.status=PASS")
         report.append("assertion.textureDeletionScope.status=PASS")
-        validate_native_texture_roundtrip(state_root, task_id)
-        report.append("assertion.textureNativeLayersAndPixels.status=PASS")
-        report.append("assertion.textureSaveReopen.status=PASS")
-        report.append("texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED")
 
         hierarchy = await_resource(
             client,
