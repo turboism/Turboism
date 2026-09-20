@@ -56,7 +56,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private PluginLogger logger;
     private AWTEventListener listener;
     private int armedAxis;
-    private Registration armedHint;
+    private dev.turboism.sdk.ui.CanvasHintHandle armedHint;
 
     private final AtomicBoolean applying = new AtomicBoolean(false);
 
@@ -177,25 +177,32 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         };
     }
 
+    /**
+     * Shows/clears the armed-axis hint as the host's native canvas hint —
+     * the same drawing-area, lower-right surface Turboism's update check
+     * uses. The notification id is a stable replacement key, so switching
+     * between vertical and horizontal re-issues the hint in place; closing
+     * the previous handle on disarm clears it.
+     */
     private void showArmedHint(final int axis) {
-        Registration next = null;
+        dev.turboism.sdk.ui.CanvasHintHandle next = null;
         try {
             if (axis != 0) {
-                next = context.uiHost().notifyStatus(
-                    new dev.turboism.sdk.ui.StatusNotification(
+                next = context.uiHost().notifyCanvasHint(
+                    new dev.turboism.sdk.ui.CanvasHintNotification(
                         "warp-deformer-alt-symmetry.hint",
-                        "INFO",
                         axis == 1
                             ? context.localization()
                                 .text("warp-alt-symmetry.hint.vertical")
                             : context.localization()
                                 .text("warp-alt-symmetry.hint.horizontal"),
-                        dev.turboism.sdk.ui.StatusNotification.Presentation.COMPACT_METRIC));
+                        dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED));
             }
         } catch (RuntimeException | Error unsupported) {
-            logger.warn("notifyStatus unavailable: " + unsupported.getClass().getSimpleName());
+            logger.warn("notifyCanvasHint unavailable: "
+                + unsupported.getClass().getSimpleName());
         }
-        final Registration previous = armedHint;
+        final dev.turboism.sdk.ui.CanvasHintHandle previous = armedHint;
         armedHint = next;
         if (previous != null) {
             try {
