@@ -325,6 +325,12 @@ final class EditorEditSelectorContractTest {
             assertBound(aliases, EditorEditPartObjectSelectorContract.GET_OBJECT_REQUIRED_ALIASES);
         }
 
+        // GetObject Glue members — the glue enumeration, local name, live-instance form
+        // chain, and intensity read — are bound on every supported host.
+        for (Set<String> aliases : List.of(aliases5203, aliases5302, aliases5303)) {
+            assertBound(aliases, EditorEditPartObjectSelectorContract.GET_OBJECT_GLUE_ALIASES);
+        }
+
         // 5.3-only EditPart rendering fields.
         assertBound(aliases5302, EditorEditPartObjectSelectorContract.EDIT_PART_EXTENDED_ALIASES);
         assertBound(aliases5303, EditorEditPartObjectSelectorContract.EDIT_PART_EXTENDED_ALIASES);

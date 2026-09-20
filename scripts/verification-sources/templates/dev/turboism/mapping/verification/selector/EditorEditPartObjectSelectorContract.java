@@ -216,6 +216,22 @@ public final class EditorEditPartObjectSelectorContract {
     );
 
     /**
+     * {@code GetObject} Glue members: glue enumeration and identity, the glue-local name,
+     * the live-instance form chain ({@code model.get-object} → {@code glue.current-keyform} →
+     * {@code CGlueForm}), and the intensity read. Bound on every supported host.
+     */
+    public static final Set<String> GET_OBJECT_GLUE_ALIASES = unionAll(
+        GET_OBJECT_REQUIRED_ALIASES,
+        Set.of(
+            "cubism.editor-model.model-source.all-glues",
+            "cubism.editor-model.glue-source.local-name",
+            "cubism.editor-model.model.get-object",
+            "cubism.editor-model.glue.current-keyform",
+            "cubism.editor-model.glue-form.intensity"
+        )
+    );
+
+    /**
      * {@code DeleteObject}: selection fixup plus the delete command and read-back refresh.
      * ArtPath deletion is open pending host validation; the member set is the verified
      * drawable/deformer/part path.
