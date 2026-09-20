@@ -18,11 +18,12 @@ import java.util.Optional;
  *
  * <p>{@link #object(GetObject)} follows the official {@code GetObject} contract: the payload
  * records mirror the official 1.1.0 data blocks. Reads are admitted per kind where the bound
- * host record carries every member the block needs — WarpDeformer and RotationDeformer read on
- * all supported hosts; Part and ArtMesh read on 5.3.x hosts whose models expose the extended
- * part/art-mesh readers, and fail closed on 5.2.03 where those members do not exist. {@link
- * EditObjectKind#GLUE} cannot be addressed through {@link ModelObjectReference} and {@link
- * EditObjectKind#ART_PATH} has no official data payload; both fail closed.
+ * host record carries every member the block needs — WarpDeformer, RotationDeformer, and Glue
+ * read on all supported hosts; Part and ArtMesh read on 5.3.x hosts whose models expose the
+ * extended part/art-mesh readers, and fail closed on 5.2.03 where those members do not exist.
+ * A glue target cannot be named by {@link ModelObjectReference#kind()}: it resolves through
+ * the host's glue enumeration by id alone, so the declared kind is not consulted on that
+ * route. {@link EditObjectKind#ART_PATH} has no official data payload and fails closed.
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface PartObjectOps {
@@ -37,8 +38,9 @@ public interface PartObjectOps {
     /**
      * Reads one object with its typed property payload ({@code GetObject}).
      *
-     * @return the object snapshot; Glue and ArtPath reads fail closed, and Part/ArtMesh
-     *     reads fail closed on hosts lacking the extended readers (5.2.03)
+     * @return the object snapshot; glue reads resolve by id through the glue enumeration
+     *     regardless of the declared reference kind, ArtPath reads fail closed, and
+     *     Part/ArtMesh reads fail closed on hosts lacking the extended readers (5.2.03)
      */
     EditObjectSnapshot object(GetObject request) throws EditSessionException;
 

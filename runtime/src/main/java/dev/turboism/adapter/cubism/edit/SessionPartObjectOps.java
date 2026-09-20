@@ -4,6 +4,7 @@ import dev.turboism.mapping.verification.selector.EditorEditPartObjectSelectorCo
 import dev.turboism.sdk.cubism.edit.EditAlphaBlend;
 import dev.turboism.sdk.cubism.edit.EditArtMeshData;
 import dev.turboism.sdk.cubism.edit.EditColorBlend;
+import dev.turboism.sdk.cubism.edit.EditGlueData;
 import dev.turboism.sdk.cubism.edit.EditLabelColor;
 import dev.turboism.sdk.cubism.edit.EditObjectData;
 import dev.turboism.sdk.cubism.edit.EditObjectKind;
@@ -34,14 +35,15 @@ import java.util.Set;
  * {@code MoveObjectOnPartsPalette}, {@code AddPart}, {@code EditPart}, {@code EditArtMesh}, and
  * {@code EditGlue}.
  *
- * <p>{@code GetObject} reads the official external API 1.1.0 data blocks: warp and rotation
- * deformers are readable on every supported host; parts and art meshes stay closed on 5.2.03
- * where the extended readers ({@code useOffscreen}, part clip list, part color/alpha
- * composition, part-form visual members, art-mesh alpha composition) are absent from the host;
- * glue payloads are unreachable because {@link
- * dev.turboism.sdk.cubism.model.ModelObjectKind} cannot address a glue object, and ArtPath
- * reads fail closed because the official API defines no ArtPath payload. {@code Parameters[]}
- * keyform conditions stay rejected: the official condition gate rewrites the model's parameter
+ * <p>{@code GetObject} reads the official external API 1.1.0 data blocks. Warp deformer,
+ * rotation deformer, and glue payloads are readable on every supported host; parts and art
+ * meshes stay closed on 5.2.03 where the extended readers ({@code useOffscreen}, part clip
+ * list, part color/alpha composition, part-form visual members, art-mesh alpha composition)
+ * are absent from the host; and ArtPath reads fail closed because the official API defines
+ * no ArtPath payload. {@link dev.turboism.sdk.cubism.model.ModelObjectKind} cannot name a
+ * glue object, so glue targets resolve through the glue enumeration by id alone — the
+ * declared reference kind is not consulted on that route. {@code Parameters[]} keyform
+ * conditions stay rejected: the official condition gate rewrites the model's parameter
  * set during the read, which is not host-validated here (T7).</p>
  *
  * <p>{@code DeleteObject} follows the official envelope — selection cleared through the
@@ -85,16 +87,17 @@ final class SessionPartObjectOps implements PartObjectOps {
                 EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
                 EditorEditPartObjectSelectorContract.GET_OBJECT_REQUIRED_ALIASES,
                 "GetObject");
-            final Object source = ops.requireObjectSource(access, request.object());
+            final Object source = ops.requireGetObjectSource(access, request.object());
             final EditObjectKind kind = ops.kindOf(access, source);
             final EditObjectData data = switch (kind) {
                 case PART -> partData(access, source);
                 case ART_MESH -> artMeshData(access, source);
                 case WARP_DEFORMER -> warpDeformerData(access, source);
                 case ROTATION_DEFORMER -> rotationDeformerData(access, source);
-                // GLUE is not addressable through ModelObjectKind and ART_PATH has no
-                // official payload — requireObjectSource already rejected the reference.
-                case ART_PATH, GLUE -> throw new EditUnavailableException(
+                case GLUE -> glueData(access, source);
+                // ART_PATH has no official payload — requireGetObjectSource already
+                // rejected the reference through the declared-kind check.
+                case ART_PATH -> throw new EditUnavailableException(
                     "cubism.edit.op-unverified",
                     "GetObject(" + kind + ") is not verified on this Cubism host");
             };
@@ -699,6 +702,53 @@ final class SessionPartObjectOps implements PartObjectOps {
                 (float) ops.number(
                     access.invoke("cubism.editor-model.rotation-form.origin-y", form),
                     "Editor rotation origin")));
+    }
+
+    /**
+     * The official {@code Glue} block: the glue-local name, the {@code %Root}-normalized
+     * parent part, the live instance's keyform intensity, and the label color.
+     */
+    private EditGlueData glueData(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) throws EditSessionException {
+        ops.require(
+            access,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_GLUE_ALIASES,
+            "GetObject(GLUE)");
+        return new EditGlueData(
+            ops.optionalText(
+                access.invoke("cubism.editor-model.glue-source.local-name", source),
+                "Editor glue name"),
+            parentPartId(access, source),
+            ops.number(
+                access.invoke(
+                    "cubism.editor-model.glue-form.intensity",
+                    glueForm(access, source)),
+                "Editor glue intensity"),
+            labelColor(access, source));
+    }
+
+    /**
+     * The glue form of {@code source}'s live instance through the verified inspector chain:
+     * {@code CModel.getObject} resolves the source id to the {@code CGlue} instance and
+     * {@code glue.current-keyform} yields its {@code CGlueForm}.
+     */
+    private Object glueForm(final EditSessionOpsAccess access, final Object source) {
+        final Object instance = access.invoke(
+            "cubism.editor-model.model.get-object",
+            access.model(),
+            access.invoke("cubism.editor-model.parameter-controllable-source.id", source));
+        if (instance == null) {
+            throw ops.unavailable("Editor glue instance is unavailable.");
+        }
+        final Object form =
+            access.invoke("cubism.editor-model.glue.current-keyform", instance);
+        if (form == null) {
+            throw ops.unavailable("Editor glue form is unavailable.");
+        }
+        return form;
     }
 
     /**
