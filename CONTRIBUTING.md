@@ -40,6 +40,33 @@ push is refused.
 
 ## Verification
 
+### Gate cheat sheet
+
+| Gate | What it checks | When to run it |
+| --- | --- | --- |
+| focused compile/test | the narrowest affected `:module:compileJava`, `:module:test --tests '<class>'` | during implementation |
+| `devCheck` | every production `classes` task plus permanent structural boundaries: duplicate Java imports, package layout, module boundaries, code-quality ratchet (Javadoc/digests/naming/assets), repository hygiene, Editor-model alias admission, plugin metadata validation, fx-broker argument contracts | after a meaningful implementation slice; the daily entry point |
+| `checkIntegration` | `devCheck` plus packaged and cross-module behavior: async host-read foundation, Cubism Core API inventory/member/selector policies, plugin inspection runtime, first-party plugin metadata and READMEs, distribution protocol contract, preview bundle layout, packaged host-validation bundle checks, preview bootstrap bridge and plugin runtime | when a change crosses module, packaging, or preview-agent seams |
+| `checkCompletedCommit` | `checkIntegration` plus every subproject `test`, `:sdk:javadoc`, official-plugin i18n completeness and README checks, SDK API baseline tool and report, module-boundary/code-quality/hygiene selftests, plugin event reference determinism | once, when a coherent change is ready to land |
+| `checkRelease` | `checkCompletedCommit` plus supply-chain and release-artifact checks: ASM admission and resolved bytecode dependency graph, release tooling selftests, SDK v2–v10 exact-API compatibility and linkage, market release metadata, Java/Windows installer and localization checks | release work only; requires `-PinstallerVersion=<release-version> -PturboismRelease=true` matching the framework version |
+| host validation | exact-version Cubism runs through `validate*Host<version>` tasks (parameter, workspace, theme, clip-mask, PSD import, FPS, status bar, bounding-box overlay, separate save path) | explicitly selected per affected feature and Cubism version; needs a separately installed licensed Editor; never part of a default aggregate |
+
+### Build wiring
+
+`build.gradle.kts` applies seven scripts from `gradle/`:
+
+- `common-java.gradle.kts` — JDK 17 toolchain, the single framework-version source, and stable/beta/nightly channel identity for all modules.
+- `module-boundaries.gradle.kts` — `checkModuleBoundaries`: dependency direction and forbidden import/package/host-UI-traversal scanning.
+- `asm-admission.gradle.kts` — bytecode-tool supply chain: only `:runtime` may resolve the pinned ASM artifact; other bytecode libraries fail closed.
+- `runtime-verification.gradle.kts` — plugin metadata validation and static host-selector verification CLIs.
+- `sdk-api.gradle.kts` — SDK public-API baseline tooling and exact-version compatibility checks.
+- `distribution-preview.gradle.kts` — preview bundle assembly plus distribution protocol and bundle-layout contracts.
+- `verification.gradle.kts` — the layered gates in the table above and the host-validation task registrations.
+
+`scripts/preview/` holds the local host-validation machinery those `validate*Host` tasks invoke: the `host_validation.py` admission queue and containment, packaging/launch scripts, and per-feature probes. It is opt-in, uses one UID-scoped queue root and host-admission lock, and is never installed or started by Gradle; see `scripts/preview/README-host-validation-scheduling.md`.
+
+### Running the gates
+
 During implementation, run the narrowest affected compile or test task. Examples:
 
 ```sh
