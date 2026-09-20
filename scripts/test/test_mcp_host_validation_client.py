@@ -4,6 +4,7 @@ import importlib.util
 import inspect
 import json
 import unittest
+import tempfile
 from unittest import mock
 from pathlib import Path
 
@@ -39,6 +40,28 @@ class McpHostValidationClientTest(unittest.TestCase):
             "turboism://active/model/parameter-bindings",
             "turboism://environment/runtime-diagnostics",
         } <= CLIENT.EXPECTED_RESOURCES)
+
+    def test_native_roundtrip_requires_all_current_run_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            digest = "a" * 64
+            evidence = ("runId=queue-ours\nstatus=PASS\nfixtureUnchanged=true\noriginalReopened=true\n"
+                        "nativeLayerPixelUndoRedo=PASS\nsaveReopen=PASS\npersistenceOperationKinds=5\n"
+                        f"savedFingerprint={digest}\nreopenedFingerprint={digest}\n"
+                        f"rawPixelsBefore={digest}\nrawPixelsRestored={digest}\n")
+            (root / "mcp-texture-roundtrip-result.properties").write_text(evidence)
+            result = CLIENT.validate_native_texture_roundtrip(root, "queue-ours", timeout_seconds=0.1)
+            self.assertEqual("PASS", result["saveReopen"])
+            self.assertEqual("runId=queue-ours\nstatus=REQUESTED\n",
+                             (root / "mcp-texture-roundtrip-request.properties").read_text())
+
+    def test_native_roundtrip_rejects_foreign_run_and_missing_pixel_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for text in ("runId=foreign\nstatus=PASS\n", "runId=queue-ours\nstatus=PASS\n"):
+                (root / "mcp-texture-roundtrip-result.properties").write_text(text)
+                with self.assertRaises(CLIENT.ValidationFailure):
+                    CLIENT.validate_native_texture_roundtrip(root, "queue-ours", timeout_seconds=0.01)
 
     def test_texture_projection_compares_actual_content_not_state_tokens(self) -> None:
         content = {"rawImages": [{"id": "raw", "name": "Raw", "width": 16, "height": 16}],

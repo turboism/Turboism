@@ -36,6 +36,7 @@ exec bash "$runner" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \
+  --jvm-option '-Dturboism.validation.fixture={FIXTURE}' \
   --jvm-option '-Dturboism.mcp.port=0' \
   --jvm-option '-Dturboism.mcp.requestsPerMinute=600' \
   --ready-marker 'MCP host validation probe initialized' \
