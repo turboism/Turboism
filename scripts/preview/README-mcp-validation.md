@@ -99,7 +99,10 @@ restored metadata is a failure, not a skipped assertion. Metadata equality alone
 pixel or persistence correctness.
 
 Before the first texture mutation, a separate run-correlated test-only probe captures native
-layer-input GUID/affine mappings and full raw-layer ARGB hashes. It requires nonempty evidence,
+layer-input GUID/affine mappings and full raw-layer ARGB hashes. When the pristine fixture has
+pixels but no input connections, it creates one recorded connection between an existing layer and
+model image using the native LayerInput Undo factory on the task copy. It retains a separate pristine
+fingerprint and requires the seeded connection to survive deletion/Undo/Redo restoration. It then
 performs raw-image deletion and single-root Undo/Redo/final Undo, and compares the full native state.
 It then exercises all five operation kinds, saves to a new fixed file under the same task home,
 closes the owned document, reopens the saved file, compares persisted state, and reopens the original
