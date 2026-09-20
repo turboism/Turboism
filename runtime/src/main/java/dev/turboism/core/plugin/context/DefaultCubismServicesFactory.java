@@ -213,6 +213,16 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             modelAccess instanceof dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider provider
                 ? provider.authoringTransactions(dependencies.descriptor().id())
                 : dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.unavailable();
+        final dev.turboism.sdk.cubism.edit.EditSessionService editSessions =
+            modelAccess instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider provider
+                ? provider.editSessions(
+                    dependencies.descriptor().id(),
+                    () -> activeDocumentId(hostAdapters.projectWorkspace())
+                )
+                : dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
+        if (editSessions instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionService runtimeService) {
+            dependencies.disposableScope().register(runtimeService::shutdown);
+        }
         final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
             modelAccess,
             dependencies.disposableScope(),
@@ -239,7 +249,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
             history,
-            authoringTransactions
+            authoringTransactions,
+            editSessions
         );
         final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
             facade,
@@ -293,5 +304,22 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             backupCoordinator
         );
         return new CubismEditorApiAvailabilityInterceptor(cubismEditorVersion).intercept(services);
+    }
+
+    /**
+     * Resolves the host's active-document identity for edit-session admission; empty when no
+     * document is active or the workspace cannot report it.
+     */
+    private static java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId> activeDocumentId(
+        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter projectWorkspace
+    ) {
+        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter
+            .AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>> result =
+            projectWorkspace.activeDocument();
+        if (!result.isAvailable() || result.value().isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        return result.value().orElseThrow().map(
+            snapshot -> new dev.turboism.sdk.cubism.id.DocumentId(snapshot.documentId()));
     }
 }

@@ -33,6 +33,14 @@ public final class EditorEditSessionSelectorContract {
         "cubism.editor-model.edit.session.notify-undo-cancel";
 
     /**
+     * {@code UndoRevert}: the {@code CUndoManager.revert()} member a cancelled session prefers
+     * when the row is verified (spec 046, T6). Declared ahead of its verification records —
+     * until a record lists it, the runtime falls back to the compensating recovery path.
+     */
+    public static final String UNDO_REVERT_CAPABILITY_ID =
+        "cubism.editor-model.undo.revert";
+
+    /**
      * Navigation members every session operation needs to reach the modeling document, its edit
      * mode, and the main frame that hosts the editing dialog.
      */
@@ -63,6 +71,63 @@ public final class EditorEditSessionSelectorContract {
         "cubism.editor-model.undo-listener.class",
         "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.complete-pack.repaint-canvas"
+    );
+
+    /**
+     * Main-window members the session UI lock needs to reach the {@code JFrame} it disables
+     * while a session is open: {@code CEMainFrameCtrl.getMainFrame()} yields the {@code CFrame}
+     * wrapper and {@code CFrame.getJFrame()} the Swing window. Both members are declared ahead of
+     * their verification records — until they are bound on a host, admission keeps the session
+     * surface closed there.
+     */
+    public static final String SESSION_MAIN_WINDOW_ALIAS =
+        "cubism.editor-model.main-frame.main-window";
+    public static final String SESSION_MAIN_WINDOW_JFRAME_ALIAS =
+        "cubism.editor-model.main-frame.jframe";
+
+    public static final Set<String> SESSION_UI_LOCK_ALIASES = unionAll(
+        Set.of(
+            "cubism.editor-model.app-controller.instance",
+            "cubism.editor-model.app-controller.main-frame"
+        ),
+        Set.of(
+            SESSION_MAIN_WINDOW_ALIAS,
+            SESSION_MAIN_WINDOW_JFRAME_ALIAS
+        )
+    );
+
+    /**
+     * {@code UndoRevert}: undo-manager reach plus the revert member itself. The row is a T6
+     * placeholder — the {@code cubism.editor-history.manager.revert} member is declared ahead of
+     * its verification records on every supported version.
+     */
+    public static final Set<String> UNDO_REVERT_REQUIRED_ALIASES = Set.of(
+        "cubism.editor-model.app-controller.instance",
+        "cubism.editor-model.app-controller.current-document",
+        "cubism.editor-history.document.undo-manager",
+        "cubism.editor-history.manager.revert"
+    );
+
+    /**
+     * The full member set an admitted session needs on the host: navigation, edit-mode
+     * bracketing, undo capture, history reconciliation, and the main-window chain the UI lock
+     * disables. Session admission checks this set under {@link #EDIT_BEGIN_CAPABILITY_ID}.
+     */
+    public static final Set<String> SESSION_ADMISSION_REQUIRED_ALIASES = unionAll(
+        SESSION_NAVIGATION_ALIASES,
+        SESSION_UI_LOCK_ALIASES,
+        Set.of(
+            "cubism.editor-model.edit-mode.begin",
+            "cubism.editor-model.edit-mode.end",
+            "cubism.editor-model.undo.add",
+            "cubism.editor-model.undo.add-listener",
+            "cubism.editor-model.undo-listener.class",
+            "cubism.editor-history.document.undo-manager",
+            "cubism.editor-history.manager.class",
+            "cubism.editor-history.manager.entries",
+            "cubism.editor-history.manager.position",
+            "cubism.editor-history.manager.move-to"
+        )
     );
 
     /**
