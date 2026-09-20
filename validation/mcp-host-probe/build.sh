@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Builds the task-local MCP host lifecycle probe against the public SDK only.
+# Builds the task-local MCP lifecycle probe and shared test-only UI close helper.
+# None of the helper classes are production SDK/runtime dependencies.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
-sdk_jar="$(ls build/worktree/*/sdk/libs/sdk-*.jar 2>/dev/null | head -1)"
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
+sdk_jar="$(find "build/worktree/$worktree_id/sdk/libs" -maxdepth 1 -name 'sdk-*.jar' -type f | head -1)"
 if [ -z "$sdk_jar" ] || [ ! -f "$sdk_jar" ]; then
   echo "error: sdk jar not found; run :sdk:jar first" >&2
   exit 1
@@ -16,7 +18,10 @@ src="$base/src"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
+helper_root="testing/integration-tests/src/test/java/dev/turboism/tests/plugin"
 javac --release 17 -cp "$sdk_jar" -d "$out" \
+  "$helper_root/WindowsHistoryNativeUiHostClose.java" \
+  "$helper_root/McpValidationHostClose.java" \
   "$src/dev/turboism/validation/mcp/McpHostValidationPlugin.java"
 cp -r "$src/META-INF" "$out/"
 

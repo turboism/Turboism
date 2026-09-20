@@ -88,6 +88,22 @@ and guarded-history interoperability checks with the official `@modelcontextprot
 Streamable HTTP client. Its dependencies are intentionally not bundled into the production plugin
 or this validation package.
 
+## Task-owned normal close
+
+The lifecycle probe consumes only a terminal result whose `runId` matches the current task.
+After the client finishes, it reuses the tested native UI close helper: the exact 5302 route
+uses focused Alt+F4; 5203 and 5303 use their verified synthetic close event. MCP reserves
+`display-input` and only the 5302 wrapper enables fixture-scoped focus tracking.
+
+The helper selects exactly one window matching the copied fixture, never an arbitrary visible
+window. It handles only an unambiguous save-confirmation dialog owned by that window and naming
+that fixture. Unknown/foreign dialogs fail closed. There is no `System.exit` or process-kill
+fallback in the probe. It is packaged only in the validation bundle, not in production plugins.
+
+A client `status=PASS` is still insufficient: the normal-exit and outside-supervisor containment
+proofs must also pass. `wrapper.cleanup` records whether native exit evidence was observed or the
+launcher timed out; a timeout is not relabeled as a successful native exit.
+
 ## Host requirements and evidence meaning
 
 The runner must use an exact reviewed Cubism installation launched through the official

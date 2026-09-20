@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
- * Bounded, opt-in normal-close path for the native history UI probe.
+ * Bounded, opt-in normal-close path shared by native history and MCP validation probes.
  *
  * <p>This helper deliberately owns no process-exit fallback. It can request the same
  * version-specific close gesture used by the other Windows validation probes, and it can click
@@ -221,8 +221,8 @@ final class WindowsHistoryNativeUiHostClose {
     /**
      * Returns whether the caller has a task-scoped identity strong enough to permit a close.
      *
-     * <p>The native UI catalog currently runs on 5302, but the 5203 synthetic route remains here
-     * because it is an existing, reviewed route. No newer version is admitted by this helper.</p>
+     * <p>The native UI catalog uses 5302. MCP additionally uses the reviewed 5203 and 5303
+     * synthetic close routes. Unknown versions remain unavailable.</p>
      */
     static CloseEligibility eligibility(
         final boolean automate,
@@ -402,18 +402,18 @@ final class WindowsHistoryNativeUiHostClose {
             && validTitlePrefix(title.substring(0, title.length() - fixture.length()));
     }
 
-    /** Keeps the existing exact-version route: synthetic close is a 5203-only quirk. */
+    /** Preserves established routes and the synthetic 5303 route proven by MCP validation. */
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
         if (hostVersion == null) {
             throw new IllegalArgumentException(
-                "turboism.validation.hostVersion must be 5203 or 5302"
+                "turboism.validation.hostVersion must be 5203, 5302, or 5303"
             );
         }
         return switch (hostVersion) {
-            case "5203" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+            case "5203", "5303" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
             case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
             default -> throw new IllegalArgumentException(
-                "turboism.validation.hostVersion must be 5203 or 5302: " + hostVersion
+                "turboism.validation.hostVersion must be 5203, 5302, or 5303: " + hostVersion
             );
         };
     }

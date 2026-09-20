@@ -51,10 +51,10 @@ class HostValidationSchedulerTest(unittest.TestCase):
         self.assertFalse(self.manifest.tasks["dialog-automation"].runnable)
         self.assertFalse(self.manifest.tasks["backup-interactive"].runnable)
 
-    def test_mcp_has_exact_versions_and_one_managed_host_slot(self) -> None:
+    def test_mcp_reserves_exact_host_and_display_for_native_close(self) -> None:
         task = self.manifest.tasks["mcp"]
         self.assertEqual(("5203", "5302", "5303"), task.versions)
-        self.assertEqual({"host-slot": 1}, task.resources)
+        self.assertEqual({"host-slot": 1, "display-input": 1}, task.resources)
         with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not start the host")):
             for version in task.versions:
                 command = scheduler.render_command(self.request("mcp:" + version), self.manifest)
