@@ -16,9 +16,13 @@ import java.util.Optional;
  * and individual objects, deleting objects, reordering palette entries, and creating or editing
  * parts, art meshes, and glue.
  *
- * <p>{@link #object(GetObject)} follows the official {@code GetObject} contract: it supports
- * reading ArtMesh, Part, WarpDeformer, RotationDeformer, and Glue objects, but {@link
- * EditObjectKind#ART_PATH} data reads are not supported and fail closed.
+ * <p>{@link #object(GetObject)} follows the official {@code GetObject} contract: the payload
+ * records mirror the official 1.1.0 data blocks. Reads are admitted per kind where the bound
+ * host record carries every member the block needs — WarpDeformer and RotationDeformer read on
+ * all supported hosts; Part and ArtMesh read on 5.3.x hosts whose models expose the extended
+ * part/art-mesh readers, and fail closed on 5.2.03 where those members do not exist. {@link
+ * EditObjectKind#GLUE} cannot be addressed through {@link ModelObjectReference} and {@link
+ * EditObjectKind#ART_PATH} has no official data payload; both fail closed.
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface PartObjectOps {
@@ -33,7 +37,8 @@ public interface PartObjectOps {
     /**
      * Reads one object with its typed property payload ({@code GetObject}).
      *
-     * @return the object snapshot; ArtPath reads fail closed
+     * @return the object snapshot; Glue and ArtPath reads fail closed, and Part/ArtMesh
+     *     reads fail closed on hosts lacking the extended readers (5.2.03)
      */
     EditObjectSnapshot object(GetObject request) throws EditSessionException;
 
