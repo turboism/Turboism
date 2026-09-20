@@ -160,7 +160,10 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         // Reuse the host's own lock-button icon set (b$a.c()) — proven to
         // render in this GL strip. User PNG icons will be swapped in once
         // the button visibility is confirmed.
-        final Object iconSet = hostIconSet(barClass);
+        final BufferedImage offImg = contribution.stateIcons().getOrDefault(0, iconImage);
+        final BufferedImage vertImg = contribution.stateIcons().getOrDefault(1, iconImage);
+        final BufferedImage horizImg = contribution.stateIcons().getOrDefault(2, iconImage);
+        final Object iconSet = iconSetFor(offImg, vertImg, horizImg, state, hostLoader);
         final Object button = factory.invoke(null,
             stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
 
@@ -236,7 +239,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             (proxy, method, args) -> {
                 if (!method.getName().equals("invoke")) return null;
                 try {
-                    contribution.onClick().accept(state);
+                    contribution.onClick().accept(null);
                 } catch (Throwable failure) {
                     diagnostic("CLICK_FAILED reason=" + failure.getClass().getName());
                 }
