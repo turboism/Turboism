@@ -13,7 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 PROTOCOL_VERSION = "2025-11-25"
 EXPECTED_TOOLS = {
@@ -22,6 +22,8 @@ EXPECTED_TOOLS = {
     "turboism.parameter_bindings.apply",
     "turboism.glues.read",
     "turboism.glues.write",
+    "turboism.textures.read",
+    "turboism.textures.write",
     "turboism.history.read",
     "turboism.history.undo",
     "turboism.history.redo",
@@ -1072,6 +1074,14 @@ def main() -> int:
         report.append("assertion.parameterWriteReadback.status=PASS")
         report.append("assertion.parameterWriteCleanup.status=PASS")
 
+        texture_operations = validate_reversible_texture_authoring(client, task_id)
+        mutations.append("TEXTURE_LIBRARY_CHANGED_UNDONE_REDONE_AND_RESTORED")
+        report.append(f"textureAuthoringOperationCount={texture_operations}")
+        report.append("assertion.textureWriteReadback.status=PASS")
+        report.append("assertion.textureUndoRedoRestoration.status=PASS")
+        report.append("assertion.textureDeletionScope.status=PASS")
+        report.append("texturePersistence=NOT_TESTED_IN_REVERSIBLE_HTTP_MATRIX")
+
         hierarchy = await_resource(
             client,
             "turboism://active/model/hierarchy",
@@ -1143,6 +1153,169 @@ def main() -> int:
         report.append(f"status={status}")
         publish_atomic(result_path, "\n".join(report) + "\n")
     return 0 if status == "PASS" else 1
+
+
+def texture_content(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Compare actual library metadata independently from advancing state tokens."""
+    return {key: array_value(snapshot.get(key), f"textures.{key}")
+            for key in ("rawImages", "modelImageGroups", "textureAtlases")}
+
+
+def texture_snapshot(client: McpClient) -> dict[str, Any]:
+    snapshot = tool_call(client, "turboism.textures.read", {"operation": "list"})
+    text_value(snapshot.get("stateToken"), "texture read correlation token")
+    object_value(snapshot.get("state"), "texture expected state")
+    texture_content(snapshot)
+    assert_no_absolute_paths(snapshot)
+    return snapshot
+
+
+def texture_write_cycle(
+    client: McpClient,
+    arguments: dict[str, Any],
+    check: Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], None],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Prove one native write, one Undo, one Redo and complete metadata restoration."""
+    before = texture_snapshot(client)
+    original = texture_content(before)
+    position = integer_value(history_snapshot(client).get("position"), "texture history position")
+    after: dict[str, Any] = {}
+    receipt: dict[str, Any] = {}
+    try:
+        receipt = tool_call(client, "turboism.textures.write", {
+            **arguments, "expectedState": before["state"],
+        })
+        require(receipt.get("outcome") == "APPLIED" and receipt.get("retryable") is False,
+                "texture write did not return a confirmed non-retryable receipt")
+        after = texture_content(texture_snapshot(client))
+        changed = history_snapshot(client)
+        require(integer_value(changed.get("position"), "texture changed position") == position + 1,
+                "texture write did not create exactly one native Undo entry")
+        require(after != original, "texture write made no observable library change")
+        check(original, after, receipt)
+        for undo, expected, expected_position in ((True, original, position),
+                                                   (False, after, position + 1),
+                                                   (True, original, position)):
+            moved = tool_call(client, "turboism.history.undo" if undo else "turboism.history.redo",
+                              history_guard_arguments(history_snapshot(client), undo=undo))
+            require(moved.get("outcome") == "MOVED", "texture native history did not move")
+            require(integer_value(history_snapshot(client).get("position"), "texture restored position")
+                    == expected_position, "texture native history position mismatch")
+            require(texture_content(texture_snapshot(client)) == expected,
+                    "texture native Undo/Redo did not restore the actual library metadata")
+    finally:
+        current = history_snapshot(client)
+        current_position = integer_value(current.get("position"), "texture cleanup position")
+        if current_position == position + 1:
+            tool_call(client, "turboism.history.undo", history_guard_arguments(current, undo=True))
+        require(integer_value(history_snapshot(client).get("position"), "texture final position") == position,
+                "texture cleanup cannot safely resolve an unexpected history position")
+        require(texture_content(texture_snapshot(client)) == original,
+                "texture cleanup left changed library metadata")
+    return original, after, receipt
+
+
+def validate_reversible_texture_authoring(client: McpClient, task_id: str) -> int:
+    baseline = texture_snapshot(client)
+    original = texture_content(baseline)
+    before_history = history_snapshot(client)
+    raw_images = original["rawImages"]
+    images = [image for group in original["modelImageGroups"]
+              for image in array_value(object_value(group, "texture group").get("modelImages"), "model images")]
+    require(bool(raw_images) and bool(images), "texture authoring fixture needs raw and model images")
+    raw_id = text_value(object_value(raw_images[0], "raw image").get("id"), "raw id")
+    image_id = text_value(object_value(images[0], "model image").get("id"), "model image id")
+    name = "TurboismTexture-" + task_id[-16:]
+    token = object_value(baseline["state"], "texture expected state")
+    stale = dict(token)
+    stale["historyRevision"] = integer_value(token.get("historyRevision"), "texture revision") + 1
+    invalids = [
+        {"operation": "add_model_image_group", "name": name, "expectedState": stale},
+        {"operation": "remove_raw_image", "id": raw_id, "confirmDelete": False, "expectedState": token},
+        {"operation": "remove_model_image", "id": image_id, "expectedState": token},
+        {"operation": "add_texture_atlas", "name": name, "widthPixels": 0, "heightPixels": 64,
+         "expectedState": token},
+        {"operation": "remove_texture_atlas", "id": "missing-" + task_id[-16:], "confirmDelete": True,
+         "expectedState": token},
+    ]
+    for arguments in invalids:
+        _, _, body = client._post({"jsonrpc": "2.0", "id": client._id(), "method": "tools/call",
+                                 "params": {"name": "turboism.textures.write", "arguments": arguments}})
+        envelope = object_value(json.loads(body), "texture rejection envelope")
+        result = envelope.get("result")
+        rejected = isinstance(envelope.get("error"), dict) or (
+            isinstance(result, dict) and result.get("isError") is True)
+        require(rejected, "unsafe texture request was not rejected")
+        require(texture_content(texture_snapshot(client)) == original, "rejected texture request changed state")
+        require_history_unchanged(before_history, history_snapshot(client), "rejected texture request changed history")
+
+    def group_created(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        require(len(after["modelImageGroups"]) == len(before["modelImageGroups"]) + 1,
+                "model image group was not created")
+        require(sum(group.get("groupName") == name for group in after["modelImageGroups"]) == 1,
+                "new model image group name is not unambiguous")
+
+    texture_write_cycle(client, {"operation": "add_model_image_group", "name": name}, group_created)
+
+    def atlas_created(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        old_ids = {value["id"] for value in before["textureAtlases"]}
+        added = [value for value in after["textureAtlases"] if value["id"] not in old_ids]
+        require(len(added) == 1 and added[0].get("name") == name,
+                "new atlas has no unambiguous native identity")
+        require(added[0].get("width") == 64 and added[0].get("height") == 64, "atlas size mismatch")
+        # The native ID must be retained in the receipt, independently of a later metadata read.
+        text_value(receipt.get("receipt"), "texture write receipt")
+        require(receipt.get("id") == added[0]["id"], "atlas receipt omitted its generated native ID")
+
+    texture_write_cycle(client, {"operation": "add_texture_atlas", "name": name,
+                                 "widthPixels": 64, "heightPixels": 64}, atlas_created)
+
+    def removed_id(key: str, target: str) -> Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], None]:
+        def check(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+            require({value["id"] for value in after[key]} == {value["id"] for value in before[key]} - {target},
+                    "texture removal affected a different identity set")
+        return check
+
+    # A fixture without an atlas gets one reversible task-local setup edit, never a silent skip.
+    atlas_setup = not bool(original["textureAtlases"])
+    setup_position = integer_value(history_snapshot(client).get("position"), "atlas setup position")
+    try:
+        if atlas_setup:
+            state = texture_snapshot(client)
+            tool_call(client, "turboism.textures.write", {"operation": "add_texture_atlas", "name": name,
+                      "widthPixels": 64, "heightPixels": 64, "expectedState": state["state"]})
+        atlases = texture_content(texture_snapshot(client))["textureAtlases"]
+        require(bool(atlases), "atlas setup produced no atlas")
+        atlas_id = text_value(atlases[0].get("id"), "atlas deletion id")
+        texture_write_cycle(client, {"operation": "remove_texture_atlas", "id": atlas_id,
+                                     "confirmDelete": True}, removed_id("textureAtlases", atlas_id))
+    finally:
+        if atlas_setup:
+            current = history_snapshot(client)
+            if integer_value(current.get("position"), "atlas setup cleanup") == setup_position + 1:
+                tool_call(client, "turboism.history.undo", history_guard_arguments(current, undo=True))
+            require(texture_content(texture_snapshot(client)) == original, "atlas setup was not restored")
+
+    def model_image_removed(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        def ids(value: dict[str, Any]) -> set[str]:
+            return {image["id"] for group in value["modelImageGroups"] for image in group["modelImages"]}
+        require(ids(after) == ids(before) - {image_id}, "model-image removal changed the wrong images")
+
+    texture_write_cycle(client, {"operation": "remove_model_image", "id": image_id,
+                                 "confirmDelete": True}, model_image_removed)
+    original_hierarchy = resource_json(client, "turboism://active/model/hierarchy")
+
+    def raw_image_removed(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        removed_id("rawImages", raw_id)(before, after, receipt)
+        require(after["modelImageGroups"] == before["modelImageGroups"], "raw removal deleted model images")
+        require(after["textureAtlases"] == before["textureAtlases"], "raw removal modified texture atlases")
+        require(resource_json(client, "turboism://active/model/hierarchy") == original_hierarchy,
+                "raw removal changed model object hierarchy")
+
+    texture_write_cycle(client, {"operation": "remove_raw_image", "id": raw_id,
+                                 "confirmDelete": True}, raw_image_removed)
+    require(texture_content(texture_snapshot(client)) == original, "texture matrix did not restore its baseline")
+    return 5
 
 
 def validate_audit_input_guards(client: McpClient, parameters: list[Any]) -> int:

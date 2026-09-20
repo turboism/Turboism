@@ -112,6 +112,8 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.parameter_bindings.apply` | 应用类型化的参数绑定操作和原生原子传输。 |
 | `turboism.glues.read` | 列出或读取精确版本路由的 Glue 创作状态。 |
 | `turboism.glues.write` | 应用一次带原生撤销能力的 Glue 修改。 |
+| `turboism.textures.read` | 读取有数量上限的纹理库元数据和当前状态前置条件。 |
+| `turboism.textures.write` | 执行一次受状态校验保护、支持独立原生撤销的纹理库操作。 |
 | `turboism.history.read` | 读取不可变的原生撤销历史快照。 |
 | `turboism.history.undo` | 使用世代、修订版本及可选条目标识执行受保护的撤销。 |
 | `turboism.history.redo` | 使用世代、修订版本及可选条目标识执行受保护的重做。 |
@@ -139,7 +141,19 @@ url = "http://127.0.0.1:43123/mcp"
 
 该操作不是单参数反转，也不反转混合形状绑定。结果包含操作范围和受影响的参数 ID；回读成功时还包含全部受影响的普通绑定。不接受 `parameterId` 字段。单参数反转需要独立的、已验证的 Provider 契约。
 
-三个 `*.apply` 工具仍为 `transactionEligible: false`，`turboism.transaction.execute` 会在开启事务前拒绝它们。这不表示单个原生操作没有 Undo。`turboism.capabilities.read` 会公开这些临时例外。覆盖账本现在跟踪明确列出的十二个 SDK 类型，包括模型对象、参数和绑定接口，但不声称覆盖整个 SDK。`MCP_LEGACY_WRITE` 表示已公开的旧式写入，不代表已具备分组事务能力；新增账本行中空的 `supportedVersions` 表示账本未作精确版本声明，实际运行仍受 Provider 准入控制。
+三个 `*.apply` 工具仍为 `transactionEligible: false`，`turboism.transaction.execute` 会在开启事务前拒绝它们。这不表示单个原生操作没有 Undo。`turboism.capabilities.read` 会公开这些临时例外。覆盖账本现在跟踪明确列出的十三个 SDK 类型，包括模型对象、参数、绑定和纹理接口，但不声称覆盖整个 SDK。`MCP_LEGACY_WRITE` 表示已公开的旧式写入，不代表已具备分组事务能力；新增账本行中空的 `supportedVersions` 表示账本未作精确版本声明，实际运行仍受 Provider 准入控制。
+
+#### 纹理库创作
+
+先调用 `turboism.textures.read`，参数为 `{"operation":"list"}`，再把返回的 **`state` 对象** 原样放入写入请求的 `expectedState`。另一个 `stateToken` 字符串仅用于关联本次读取，不是写入前置条件或授权令牌。写入或撤销／重做后应重新读取状态；原生历史不可用时拒绝写入。
+
+适配范围为精确版本 `5.2.03 / 5.3.02 / 5.3.03`，操作包括 `add_model_image_group`（`name`）、`remove_model_image`（`id`）、`add_texture_atlas`（`name`、`widthPixels`、`heightPixels`）、`remove_texture_atlas`（`id`）和 `remove_raw_image`（`id`）。所有删除都必须显式传入 `confirmDelete: true`。模型图像组使用名称，不伪造 GUID；重名创建会在修改前拒绝。
+
+名称和 ID 上限为 256 个 Unicode 码点，图集每边尺寸为 1–16384 像素。读取时，每个顶层集合最多 1024 项，嵌套模型图像总数最多 1024；超限返回错误而非静默截断。成功写入后的回读失败保留结果标识，返回 `APPLIED_WITH_READBACK_WARNING` 和 `postState: null`。无法证明结果的原生异常返回 `OUTCOME_UNKNOWN`，不会误称 `NOT_APPLIED`，也不会建议自动重试或泄露宿主异常中的路径。
+
+这些操作有独立原生 Undo，但 `transactionEligible` 仍为 `false`；覆盖账本使用 `MCP_WRITE_STANDALONE_UNDO` 区分它们与可加入分组事务的操作。删除原始图像仅处理指定原始图像及其输入连接，保留模型图像、ArtMesh 和图集；5.2 的实现组合原生 Undo 操作，不调用删除对话框。
+
+这是纹理库增删，不是像素上传、任意文件导入导出或通过 MCP 应用图集布局。版本元数据说明运行时适配与测试范围；实机验收单独记录，不能由接口注解或单元测试推断已通过实机验证。
 
 #### 资源
 
@@ -245,7 +259,7 @@ url = "http://127.0.0.1:43123/mcp"
 - 工作区切换和默认布局变更被有意设为不可用，因为运行时当前以 `turboism.host.unsafe` 对它们进行门控。
 - 在 MCP 会话无需接受原始路径即可获得真实 `UserFileHandle` 授权之前，`EditorFileCommandRequest`、导入/导出、另存为、备份和其他基于句柄的文件工作流始终不可用。
 - 不公开通用 SDK 调用、反射、任意原生成员、shell 执行、原始路径、对话框自动化和生命周期注册 API。
-- 性能采样、画布/配置文件、物理/动画、纹理图集创作、屏幕截图和二进制资源仍是独立的未来能力，具有各自的权限和精确宿主证据要求。
+- 性能采样、画布/配置文件、物理/动画、纹理像素导入及通过 MCP 应用图集布局、屏幕截图和二进制资源仍是独立的未来能力，具有各自的权限和精确宿主证据要求。
 - 删除操作具有破坏性。默认会拒绝被引用的对象；必须显式请求级联。
 
 ## 故障排除

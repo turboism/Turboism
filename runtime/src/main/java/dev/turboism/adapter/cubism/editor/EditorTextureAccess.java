@@ -291,7 +291,8 @@ final class EditorTextureAccess {
         for (Object image : list(ALL_MODEL_IMAGES, textureManager(source), "model image")) {
             final Object environment = resolver.invoke("cubism.editor-model.model-image.input-filter-env", image);
             final Object inputs = resolver.invoke("cubism.editor-model.model-image-filter-env.layer-input-data", environment);
-            if (inputs == null || !observed.add(inputs)) continue;
+            if (inputs == null) throw new IllegalStateException("Model image layer-input map is unavailable.");
+            if (!observed.add(inputs)) continue;
             final Object layers = resolver.invoke("cubism.editor-model.layer-selector-map.get", inputs, guid);
             if (layers == null) continue;
             if (!(layers instanceof List<?>)) throw new IllegalStateException("Invalid raw-image layer inputs.");

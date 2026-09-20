@@ -25,6 +25,8 @@ class McpHostValidationClientTest(unittest.TestCase):
             "turboism.parameter_bindings.apply",
             "turboism.glues.read",
             "turboism.glues.write",
+            "turboism.textures.read",
+            "turboism.textures.write",
             "turboism.history.read",
             "turboism.history.undo",
             "turboism.history.redo",
@@ -37,6 +39,80 @@ class McpHostValidationClientTest(unittest.TestCase):
             "turboism://active/model/parameter-bindings",
             "turboism://environment/runtime-diagnostics",
         } <= CLIENT.EXPECTED_RESOURCES)
+
+    def test_texture_projection_compares_actual_content_not_state_tokens(self) -> None:
+        content = {"rawImages": [{"id": "raw", "name": "Raw", "width": 16, "height": 16}],
+                   "modelImageGroups": [], "textureAtlases": []}
+        self.assertEqual(content, CLIENT.texture_content({**content, "stateToken": {"historyRevision": 99}}))
+        with self.assertRaises(CLIENT.ValidationFailure):
+            CLIENT.texture_content({"rawImages": [], "modelImageGroups": []})
+
+    def test_texture_snapshot_uses_the_public_state_object_not_the_correlation_token(self) -> None:
+        snapshot = {"ok": True, "operation": "list", "stateToken": "request-correlation",
+                    "state": {"documentId": "doc", "modelId": "model", "historyGeneration": 1,
+                              "historyRevision": 2},
+                    "rawImages": [], "modelImageGroups": [], "textureAtlases": []}
+        with mock.patch.object(CLIENT, "tool_call", return_value=snapshot):
+            self.assertEqual(snapshot, CLIENT.texture_snapshot(object()))
+
+    def test_texture_cycle_requires_one_undo_and_restores_actual_metadata(self) -> None:
+        content = {"rawImages": [], "modelImageGroups": [], "textureAtlases": []}
+        created = {"id": "native-atlas", "name": "Audit", "width": 64, "height": 64}
+        state = {"position": 0}
+        calls = []
+        def history(_client):
+            return {"availability": "AVAILABLE", "generation": 1, "revision": len(calls),
+                    "position": state["position"], "entries": [{"entryId": "entry-1"}]}
+        def read(_client):
+            return {**content, "textureAtlases": [created] if state["position"] else [],
+                    "stateToken": "correlation-only",
+                    "state": {"documentId": "doc", "modelId": "model", "historyGeneration": 1,
+                              "historyRevision": len(calls)}}
+        def call(_client, name, args):
+            calls.append(name)
+            if name == "turboism.textures.write":
+                self.assertEqual("doc", args["expectedState"]["documentId"])
+                state["position"] = 1
+                return {"ok": True, "outcome": "APPLIED", "retryable": False,
+                        "receipt": "write-receipt", "id": "native-atlas"}
+            state["position"] = 0 if name.endswith("undo") else 1
+            return {"ok": True, "outcome": "MOVED"}
+        checks = []
+        with mock.patch.object(CLIENT, "history_snapshot", side_effect=history), \
+             mock.patch.object(CLIENT, "texture_snapshot", side_effect=read), \
+             mock.patch.object(CLIENT, "tool_call", side_effect=call):
+            CLIENT.texture_write_cycle(object(), {"operation": "add_texture_atlas", "name": "Audit",
+                "widthPixels": 64, "heightPixels": 64}, lambda before, after, receipt: checks.append(after))
+        self.assertEqual(["turboism.textures.write", "turboism.history.undo",
+                          "turboism.history.redo", "turboism.history.undo"], calls)
+        self.assertEqual(0, state["position"])
+        self.assertEqual([created], checks[0]["textureAtlases"])
+
+    def test_texture_write_receipt_failure_still_attempts_guarded_undo(self) -> None:
+        content = {"rawImages": [], "modelImageGroups": [], "textureAtlases": []}
+        state = {"position": 0}
+        calls = []
+        def history(_client):
+            return {"availability": "AVAILABLE", "generation": 1, "revision": len(calls),
+                    "position": state["position"], "entries": [{"entryId": "entry-1"}]}
+        def read(_client):
+            return {**content, "stateToken": "correlation-only", "state": {"documentId": "doc", "modelId": "model",
+                    "historyGeneration": 1, "historyRevision": len(calls)}}
+        def call(_client, name, args):
+            calls.append(name)
+            if name == "turboism.textures.write":
+                state["position"] = 1
+                return {"ok": True, "outcome": "OUTCOME_UNKNOWN", "retryable": True}
+            state["position"] = 0
+            return {"ok": True, "outcome": "MOVED"}
+        with mock.patch.object(CLIENT, "history_snapshot", side_effect=history), \
+             mock.patch.object(CLIENT, "texture_snapshot", side_effect=read), \
+             mock.patch.object(CLIENT, "tool_call", side_effect=call):
+            with self.assertRaises(CLIENT.ValidationFailure):
+                CLIENT.texture_write_cycle(object(), {"operation": "add_model_image_group", "name": "Audit"},
+                                           lambda *args: None)
+        self.assertEqual(["turboism.textures.write", "turboism.history.undo"], calls)
+        self.assertEqual(0, state["position"])
 
     def test_selects_a_bounded_reversible_glue_intensity_mutation(self) -> None:
         selected = CLIENT.choose_glue_intensity_mutation([

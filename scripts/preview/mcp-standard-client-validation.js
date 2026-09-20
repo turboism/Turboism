@@ -14,6 +14,8 @@ const EXPECTED_TOOLS = new Set([
   'turboism.parameter_bindings.apply',
   'turboism.glues.read',
   'turboism.glues.write',
+  'turboism.textures.read',
+  'turboism.textures.write',
   'turboism.history.read',
   'turboism.history.undo',
   'turboism.history.redo',
