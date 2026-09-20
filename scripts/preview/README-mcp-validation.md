@@ -95,10 +95,24 @@ identity alone disappears and returns on Undo.
 
 Every cycle attempts guarded cleanup at only the expected native history position. It never jumps
 to an arbitrary history cursor or changes an original model. An unexpected position or mismatched
-restored metadata is a failure, not a skipped assertion. The result records
-`texturePersistence=NOT_TESTED_IN_REVERSIBLE_HTTP_MATRIX`: this matrix does not save/reopen a model
-and must not be reported as texture persistence acceptance. Native pixel/pose equivalence and
-internal layer-input reconstruction need their own observations beyond metadata equality.
+restored metadata is a failure, not a skipped assertion. Metadata equality alone does not establish
+pixel or persistence correctness.
+
+Before the first texture mutation, a separate run-correlated test-only probe captures native
+layer-input GUID/affine mappings and full raw-layer ARGB hashes. It requires nonempty evidence,
+performs raw-image deletion and single-root Undo/Redo/final Undo, and compares the full native state.
+It then exercises all five operation kinds, saves to a new fixed file under the same task home,
+closes the owned document, reopens the saved file, compares persisted state, and reopens the original
+unchanged task fixture. The client requires both `nativeLayerPixelUndoRedo=PASS` and `saveReopen=PASS`,
+matching fingerprints and unchanged-fixture evidence before it can publish overall PASS. The final
+report records `texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED` only after those checks.
+
+The helper is compiled only into the validation probe. SDK methods perform texture writes/history;
+additional native inspection and document save/close/open are restricted to the exact canonical
+verification-record JAR digest and current task files. No production MCP file endpoint, unrestricted
+reflection hook, or new host-class dependency is exposed. Unknown ownership, symlinks, a preexisting
+output, incomplete evidence, or a native timeout fail closed. Saved outputs remain task evidence.
+This checks raw-layer pixels and input reconstruction, not final rendered canvas appearance.
 
 ## Other validation
 
