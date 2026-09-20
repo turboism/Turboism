@@ -173,6 +173,7 @@ tasks.register<Exec>("checkCodeQuality") {
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src") { include("cubism*/java/**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
         fileTree("plugins") { include("**/src/main/java/**/*.java") },
         fileTree("compatibility/cubism") { include("**/*.json") }
@@ -211,6 +212,7 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
     )
     inputs.files(
         fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
+        fileTree("runtime/src") { include("cubism*/java/dev/turboism/adapter/cubism/**/*.java") },
         "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
         "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
         "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
@@ -249,7 +251,8 @@ val checkPackageLayout by tasks.registering(Exec::class) {
     inputs.file("scripts/test/check_package_layout.py")
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
-        fileTree("runtime/src/main/java") { include("**/*.java") }
+        fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src") { include("cubism*/java/**/*.java") }
     )
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
 }

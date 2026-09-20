@@ -17,7 +17,12 @@ import re
 import sys
 from pathlib import Path
 
-IMPLEMENTATION_ROOT = "runtime/src/main/java"
+IMPLEMENTATION_ROOTS = (
+    "runtime/src/main/java",
+    "runtime/src/cubism5203/java",
+    "runtime/src/cubism5302/java",
+    "runtime/src/cubism5303/java",
+)
 BASE_RECORDS = (
     "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
     "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
@@ -40,19 +45,20 @@ UNUSED_ALIAS_MAXIMUM = 0
 def implementation_aliases(root: Path) -> set[str]:
     """Return production aliases, excluding contracts/manifests that merely declare evidence."""
     aliases: set[str] = set()
-    base = root / IMPLEMENTATION_ROOT
-    if not base.exists():
-        return aliases
-    for source in sorted(base.rglob("*.java")):
-        if VERIFICATION_PATH in source.as_posix():
+    for implementation_root in IMPLEMENTATION_ROOTS:
+        base = root / implementation_root
+        if not base.exists():
             continue
-        text = source.read_text(encoding="utf-8")
-        for alias in ALIAS_LITERAL.findall(text):
-            if alias.endswith(".") or alias.endswith(".class"):
+        for source in sorted(base.rglob("*.java")):
+            if VERIFICATION_PATH in source.as_posix():
                 continue
-            aliases.add(alias)
-        if "presetAlias(" in text and PRESET_ALIAS_PREFIX in text:
-            aliases.update(PRESET_ALIAS_PREFIX + color for color in PRESET_COLORS)
+            text = source.read_text(encoding="utf-8")
+            for alias in ALIAS_LITERAL.findall(text):
+                if alias.endswith(".") or alias.endswith(".class"):
+                    continue
+                aliases.add(alias)
+            if "presetAlias(" in text and PRESET_ALIAS_PREFIX in text:
+                aliases.update(PRESET_ALIAS_PREFIX + color for color in PRESET_COLORS)
     return aliases
 
 

@@ -118,6 +118,47 @@ sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
 }
 
+/*
+ * Per-Cubism-version adapter implementations live in dedicated source sets so the
+ * reviewed-host surface is reviewable one version at a time. Each versioned set
+ * compiles against main's output (shared engines, contracts, resolvers); main
+ * never statically references the versioned classes and reaches them by name at
+ * the admission-gated dispatch points. No new Gradle module is introduced: every
+ * versioned output is packaged into the same runtime JAR.
+ */
+val versionedCubismSourceSets = listOf("cubism5203", "cubism5302", "cubism5303")
+    .map { name ->
+        sourceSets.create(name).also { versioned ->
+            versioned.java.srcDir("src/$name/java")
+            // classesDirs tracks compileJava only; the full main output would
+            // pull in the classes task and make classes -> cubism*Classes ->
+            // compileJava -> classes a cycle.
+            versioned.compileClasspath += sourceSets.main.get().output.classesDirs +
+                sourceSets.main.get().compileClasspath
+            versioned.runtimeClasspath += sourceSets.main.get().output +
+                sourceSets.main.get().runtimeClasspath
+        }
+    }
+
+sourceSets.named("test") {
+    versionedCubismSourceSets.forEach { versioned ->
+        compileClasspath += versioned.output
+        runtimeClasspath += versioned.output
+    }
+}
+
+tasks.named("classes") {
+    versionedCubismSourceSets.forEach { versioned ->
+        dependsOn("${versioned.name}Classes")
+    }
+}
+
+tasks.jar {
+    versionedCubismSourceSets.forEach { versioned ->
+        from(versioned.output)
+    }
+}
+
 val frameworkVersionResource = layout.buildDirectory.file(
     "generated/resources/turboism-framework-version/framework-version.properties"
 )

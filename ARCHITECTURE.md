@@ -27,6 +27,11 @@ The authoritative project list is `settings.gradle.kts`.
 :runtime
   Plugin runtime, policies, Cubism/Editor adapters, providers, mapping,
   hook infrastructure, transactions, diagnostics, and shared services.
+  Per-version adapter implementations are split into `src/cubism5203`,
+  `src/cubism5302`, and `src/cubism5303` source sets inside the same module:
+  they compile against main's shared engines and contracts, are packaged
+  into the same JAR, and are reached by name at admission-gated dispatch
+  points so no Gradle module is added.
 
 :plugins:*
   First-party plugins. They are treated like external consumers and depend
