@@ -193,19 +193,19 @@ These remain typed operations owned by runtime adapters. They share the same obj
 
 ## 8. Permissions and capabilities
 
-Permissions describe risk boundaries rather than individual methods:
+Permissions describe risk boundaries rather than individual methods. The canonical catalog is `dev.turboism.sdk.permission.PermissionIds`; manifests declare ids through the `turboism.permission` schema. Representative ids:
 
 ```text
-turboism.cubism.read
-turboism.cubism.write
-turboism.user-file.read
-turboism.user-file.write
-turboism.network
-turboism.process
+turboism.cubism.model.read / turboism.cubism.model.write
+turboism.file.read / turboism.file.write
+turboism.network.fetch
+turboism.process.run
 turboism.host.unsafe
 ```
 
-Routine UI contributions, local configuration, plugin storage, localization, diagnostics, events, and bounded tasks are governed primarily through ownership, namespace, quota, lifecycle, and cleanup.
+Permission ids are declared at the granularity a reviewer must approve and the runtime must be able to revoke. Surfaces that attach a plugin to shared host UI therefore carry their own contribution permissions — `turboism.ui.menu.contribute`, `turboism.ui.toolbar.main.contribute`, `turboism.ui.panel.contribute`, `turboism.ui.context-menu.contribute`, `turboism.ui.dialog.contribute`, `turboism.ui.canvas.hint`, and so on — rather than riding on a blanket UI grant. First-party manifests declare them exactly the way third-party plugins do; the fine granularity exists so each contribution can be audited and revoked independently.
+
+Ownership, namespace, quota, lifecycle, and cleanup then bound what a granted plugin may do at runtime; they complement a declared permission rather than replace it. Plugin-private facilities that cannot cross a risk boundary — localization, the plugin logger and paths, bounded task scheduling, the disposable scope — carry no dedicated permission id.
 
 The terms are independent:
 
