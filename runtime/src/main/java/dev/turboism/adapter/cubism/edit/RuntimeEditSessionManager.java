@@ -99,6 +99,15 @@ public final class RuntimeEditSessionManager {
     }
 
     /**
+     * The native session boundary the operation families dispatch through (spec 046, T3):
+     * {@link EditorEditSessionHost#dispatch} reaches the host UI thread and {@link
+     * EditorEditSessionHost#opsAccess} opens the binding-scoped member surface.
+     */
+    EditorEditSessionHost host() {
+        return host;
+    }
+
+    /**
      * Reports whether an admitted session is currently open — the signal the authoring
      * coordinator consults to reject new roots. Safe to call from any thread.
      */
