@@ -1412,10 +1412,13 @@ def tool_call(client: McpClient, name: str, arguments: dict[str, Any]) -> dict[s
             output = step.get("output")
             output = output if isinstance(output, dict) else {}
             error = output.get("error")
+            if output.get("ok") is not False and not step.get("diagnosticId"):
+                continue
             steps.append({"id": step.get("id"), "diagnosticId": step.get("diagnosticId"),
                           "outcome": output.get("outcome"),
                           "errorCode": error.get("code") if isinstance(error, dict) else output.get("code")})
-        details["steps"] = steps
+        details["failedSteps"] = steps
+        details["completedStepCount"] = len(structured.get("steps", [])) - len(steps)
         raise ValidationFailure(f"tool {name} failed: {sanitize(json.dumps(details))}")
     return structured
 
