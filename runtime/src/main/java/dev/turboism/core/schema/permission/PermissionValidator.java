@@ -18,6 +18,7 @@ public final class PermissionValidator extends AbstractJsonValidator {
         "turboism.ui.menu", "turboism.ui.toolbar", "turboism.ui.palette",
         "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
         "turboism.cubism.model.observe", "turboism.cubism.model.intercept",
+        "turboism.cubism.edit",
         "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
         "turboism.cubism.recent-file.read",
         "turboism.file.read", "turboism.file.write", "turboism.network.fetch",
