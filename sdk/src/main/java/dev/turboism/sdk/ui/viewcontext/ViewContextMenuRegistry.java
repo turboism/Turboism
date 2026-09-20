@@ -19,20 +19,29 @@ public interface ViewContextMenuRegistry {
     /**
      * Adds a single icon toggle button to the strip whose icon cycles through
      * the provided state images on click. The host invokes the click consumer
-     * with the clicked state on every click.
+     * on every click.
      *
      * @param contribution descriptor of the state button
      */
     Registration contributeStateButtons(StateButtonContribution contribution);
 
     /**
+     * Updates the button's visual state to match the armed axis.
+     * {@code axis == 0} (off) shows the DISABLED visual (slash icon);
+     * {@code axis == 1} (vertical) shows NORMAL with the vertical icon;
+     * {@code axis == 2} (horizontal) shows SELECTED with the horizontal icon.
+     *
+     * @param contributionId plugin-scoped identity used at contribute time
+     * @param axis the armed axis (0=off, 1=vertical, 2=horizontal)
+     */
+    void updateButtonState(String contributionId, int axis);
 
     /** A state-cycling icon button owned by a plugin. */
     record StateButtonContribution(
         String contributionId,
         Map<Integer, BufferedImage> stateIcons,
         int initialState,
-        Consumer<Void> onClick
+        Consumer<Integer> onClick
     ) {
         public StateButtonContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
