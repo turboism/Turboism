@@ -331,9 +331,37 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
     }
 
+    /**
+     * Inserts the contributed button into the strip layout group directly
+     * after the view dropdown arrow (strip field {@code z}, whose handler
+     * opens the view menu). Disassembly-verified group order in 5.3.03:
+     *   H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]  (left cluster)
+     *   K=[z(dropdown),w,Sep,y,x]                          (view cluster)
+     * Falls back to group H at {@code index} when the dropdown is absent
+     * (e.g. FormAnimation view). Group discovery is runtime-scoped so a
+     * host layout variant that moves {@code z} still places us beside it.
+     */
     private static void insertIntoGroup(
         final Object stripInstance, final Object button, final int index)
         throws ReflectiveOperationException {
+        final Object dropdownArrow = readField(stripInstance, "z");
+        if (dropdownArrow != null) {
+            for (final Field field : stripInstance.getClass().getDeclaredFields()) {
+                if (!java.util.List.class.isAssignableFrom(field.getType())) continue;
+                field.setAccessible(true);
+                final Object value = field.get(stripInstance);
+                if (!(value instanceof List<?> list)) continue;
+                final int dropdownIndex = list.indexOf(dropdownArrow);
+                if (dropdownIndex < 0 || list.contains(button)) continue;
+                @SuppressWarnings("unchecked")
+                final List<Object> target = (List<Object>) value;
+                target.add(Math.min(dropdownIndex + 1, target.size()), button);
+                diagnostic("BUTTON_INSERTED group=" + field.getName()
+                    + " index=" + (dropdownIndex + 1) + " after=viewDropdownArrow");
+                return;
+            }
+            diagnostic("DROPDOWN_GROUP_NOT_FOUND fallback=H");
+        }
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
         groupField.setAccessible(true);
         final Object group = groupField.get(stripInstance);
@@ -342,6 +370,17 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         if (list.contains(button)) return;
         ((List<Object>) group).add(Math.min(index, list.size()), button);
+        diagnostic("BUTTON_INSERTED group=H index=" + Math.min(index, list.size()));
+    }
+
+    private static Object readField(final Object owner, final String name)
+            throws IllegalAccessException {
+        for (final Field field : owner.getClass().getDeclaredFields()) {
+            if (!field.getName().equals(name)) continue;
+            field.setAccessible(true);
+            return field.get(owner);
+        }
+        return null;
     }
 
     private static void removeButton(final Object button) {
