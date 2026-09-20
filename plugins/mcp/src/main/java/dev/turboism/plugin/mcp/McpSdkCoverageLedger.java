@@ -20,6 +20,7 @@ final class McpSdkCoverageLedger {
         "MCP_READ",
         "MCP_WRITE_UNDOABLE",
         "MCP_COMMAND_NON_UNDOABLE",
+        "MCP_LEGACY_WRITE",
         "RUNTIME_UNAVAILABLE",
         "EXCLUDED_WITH_REASON"
     );

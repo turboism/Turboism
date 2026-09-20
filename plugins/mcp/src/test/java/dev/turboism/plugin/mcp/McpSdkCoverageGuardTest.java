@@ -5,6 +5,12 @@ import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.Glues;
+import dev.turboism.sdk.cubism.model.ModelObjectService;
+import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.model.ParameterDefinitions;
+import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
+import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import org.junit.jupiter.api.Test;
@@ -35,6 +41,7 @@ final class McpSdkCoverageGuardTest {
         "MCP_READ",
         "MCP_WRITE_UNDOABLE",
         "MCP_COMMAND_NON_UNDOABLE",
+        "MCP_LEGACY_WRITE",
         "RUNTIME_UNAVAILABLE",
         "EXCLUDED_WITH_REASON"
     );
@@ -44,7 +51,13 @@ final class McpSdkCoverageGuardTest {
         CubismHistory.class,
         AuthoringTransactionService.class,
         SelectionQueryService.class,
-        EditorCommandService.class
+        EditorCommandService.class,
+        ModelObjectService.class,
+        Parameters.class,
+        ParameterDefinitions.class,
+        ParameterBindingOperations.class,
+        ParameterBindingBatchOperations.class,
+        Parameter.class
     );
 
     @Test
@@ -104,6 +117,15 @@ final class McpSdkCoverageGuardTest {
             }
             if ("MCP_COMMAND_NON_UNDOABLE".equals(classification)) {
                 assertFalse(transactionEligible);
+            }
+            if ("MCP_LEGACY_WRITE".equals(classification)) {
+                assertFalse(transactionEligible);
+                assertEquals("EXTERNAL_SIDE_EFFECT", effect);
+                assertEquals("UNVERIFIED", undoVerification);
+                assertTrue(Set.of(McpProductionDomainCatalog.APPLY,
+                    McpParameterDomain.PARAMETERS_APPLY, McpParameterDomain.BINDINGS_APPLY)
+                    .contains(row.get("endpoint")));
+                assertFalse(text(row.get("reason")).isBlank());
             }
             if (Set.of("RUNTIME_UNAVAILABLE", "EXCLUDED_WITH_REASON")
                 .contains(classification)) {

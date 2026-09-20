@@ -36,7 +36,8 @@ final class McpOutputSchemas {
                 entry("ok", booleanSchema()),
                 entry("stopOnError", booleanSchema()),
                 entry("results", array(parameterOperationResult())),
-                entry("parameters", array(parameter()))
+                entry("parameters", nullableArray(parameter())),
+                entry("parameterSnapshotWarning", error())
             ),
             List.of("ok", "stopOnError", "results", "parameters")
         ));
@@ -278,6 +279,9 @@ final class McpOutputSchemas {
                 ))),
                 entry("retryable", constant(false)),
                 entry("canonicalPointIds", nullableArray(stringSchema())),
+                entry("scope", enumSchema(List.of("all_target_bindings"))),
+                entry("affectedParameterIds", array(stringSchema())),
+                entry("affectedBindings", array(binding())),
                 entry("parameterId", stringSchema()),
                 entry("sourceParameterId", stringSchema()),
                 entry("targetParameterId", stringSchema()),
