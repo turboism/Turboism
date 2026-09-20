@@ -20,6 +20,13 @@ dependencies {
     testImplementation("com.fasterxml.jackson.core:jackson-core:2.18.9")
 }
 
+tasks.named<ProcessResources>("processTestResources") {
+    from(rootProject.file("compatibility/cubism/verification")) {
+        include("cubism-5.2.03-editor-model.json", "cubism-5.3.02-editor-model.json", "cubism-5.3.03-editor-model.json")
+        into("META-INF/turboism/verification")
+    }
+}
+
 tasks.test {
     dependsOn(":plugins:project-inspector:jar")
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
