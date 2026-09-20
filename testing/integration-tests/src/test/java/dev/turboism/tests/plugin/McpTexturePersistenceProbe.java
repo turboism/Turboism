@@ -253,8 +253,11 @@ public final class McpTexturePersistenceProbe {
                 originalDocument.getClass().getMethod("closeFile", boolean.class, boolean.class);
                 appClass.getMethod("command_open", File.class, boolean.class);
                 baseline = snapshot();
+                result.setProperty("baselineInputCount", Integer.toString(baseline.inputs().size()));
+                result.setProperty("baselinePixelLayerCount", Integer.toString(baseline.pixels().size()));
                 require(!baseline.inputs().isEmpty() && !baseline.pixels().isEmpty(),
-                    "Fixture must contain observable native layer inputs and pixels");
+                    "Fixture lacks native evidence: inputs=" + baseline.inputs().size()
+                        + ", pixelLayers=" + baseline.pixels().size());
                 return null;
             });
             try {
