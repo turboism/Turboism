@@ -125,10 +125,15 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         && profile.dragTickDescriptor().equals(descriptor);
                     final boolean stripMountHere = isStrip
                         && "R".equals(name) && "()V".equals(descriptor);
+                    final boolean stripLayoutTail = isStrip
+                        && "a".equals(name)
+                        && ("(Lcom/live2d/cubism/view/context/actionManager/N;"
+                            + "Lcom/live2d/graphics3d/entity/GEntity;)V").equals(descriptor);
                     final boolean greenTickHere = isGreenTick
                         && profile.greenTickMethod().equals(name)
                         && profile.greenTickDescriptor().equals(descriptor);
-                    if (!pointMoveHere && !dragTickHere && !stripMountHere && !greenTickHere) {
+                    if (!pointMoveHere && !dragTickHere && !stripMountHere
+                        && !stripLayoutTail && !greenTickHere) {
                         return delegate;
                     }
                     transformed[0] = true;
@@ -136,6 +141,9 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         @Override
                         public void visitCode() {
                             super.visitCode();
+                            if (stripLayoutTail) {
+                                return;
+                            }
                             visitVarInsn(Opcodes.ALOAD, 0);
                             if (stripMountHere) {
                                 visitMethodInsn(
@@ -185,6 +193,20 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                             }
                         }
 
+                        @Override
+                        public void visitInsn(final int opcode) {
+                            super.visitInsn(opcode);
+                            if (stripLayoutTail && opcode == Opcodes.RETURN) {
+                                visitVarInsn(Opcodes.ALOAD, 0);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "positionStripButton",
+                                    "(Ljava/lang/Object;)V",
+                                    false
+                                );
+                            }
+                        }
                     };
                 }
             }, 0);
