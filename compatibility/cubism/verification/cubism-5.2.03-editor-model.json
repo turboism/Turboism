@@ -85,6 +85,83 @@
   "safeMode": "Fail closed and keep unified Editor model access, default-keyform lock read/write, native control label-background reads/writes, parameter-definition writes, Combined pairing writes, Part opacity editing, or Part display-name reads/writes unavailable when the exact artifact, classloader, document type, model generation, plugin permission, separate feature capability, palette operation path, or exact selector roster does not match. Cubism 5.2.03 admits only the verified Part display-name subset; Part opacity remains unavailable because its 5.3 authoring keyform members do not exist in the exact 5.2.03 artifact.",
   "selectors": [
     {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.texture-undo_undo",
+      "alias": "cubism.editor-model.texture-undo.undo",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/ACUndoable",
+      "memberName": "undo",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.model-image_input-filter-env",
+      "alias": "cubism.editor-model.model-image.input-filter-env",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
+      "memberName": "getInputFilterEnv",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.model-image-filter-env_layer-input-data",
+      "alias": "cubism.editor-model.model-image-filter-env.layer-input-data",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv",
+      "memberName": "getLayerInputData",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.layer-selector-map_get",
+      "alias": "cubism.editor-model.layer-selector-map.get",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap",
+      "memberName": "get",
+      "descriptor": "(Lcom/live2d/type/CLayeredImageGuid;)Ljava/util/List;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_layer-input_create",
+      "alias": "cubism.editor-model.texture-undo.layer-input.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_LayerInput",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap;Lcom/live2d/type/CLayeredImageGuid;Ljava/util/List;Z)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_raw-image_create",
+      "alias": "cubism.editor-model.texture-undo.raw-image.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_RawImage",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Lcom/live2d/cubism/doc/resources/CLayeredImage;IZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.texture-undo_force-redo",
+      "alias": "cubism.editor-model.texture-undo.force-redo",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/ACSimpleUndoable",
+      "memberName": "forceRedo",
+      "descriptor": "()Lcom/live2d/undo/ACSimpleUndoable;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_2_03.editor_history_semantic.class.group_class",
       "alias": "cubism.editor-history.semantic.group.class",
       "kind": "class",

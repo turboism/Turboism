@@ -85,6 +85,17 @@
   "safeMode": "Fail closed and keep unified Editor model access, default-keyform lock read/write, native control label-background reads/writes, parameter-definition writes, Combined pairing writes, Undo/Redo, hooks, persistence, object context menus, and texture-atlas authoring unavailable when the exact 5.3.03 artifact, classloader, document type, model generation, plugin permission, feature capability, palette operation path, or complete selector roster does not match.",
   "selectors": [
     {
+      "mappingId": "cubism.mapping.v5.3.03.editor_model.method.texture-undo_undo",
+      "alias": "cubism.editor-model.texture-undo.undo",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/ACUndoable",
+      "memberName": "undo",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_history.method.document_undo_manager",
       "alias": "cubism.editor-history.document.undo-manager",
       "kind": "method",
