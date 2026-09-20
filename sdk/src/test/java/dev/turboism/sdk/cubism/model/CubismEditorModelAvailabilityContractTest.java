@@ -2,6 +2,8 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
+import dev.turboism.sdk.cubism.id.ModelImageId;
+import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -35,7 +37,7 @@ class CubismEditorModelAvailabilityContractTest {
             .getAnnotation(CubismEditor.class).value());
         assertArrayEquals(ALL_DECLARED, Part.class.getAnnotation(CubismEditor.class).value());
         assertArrayEquals(ALL_DECLARED, Drawable.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ESTABLISHED, ModelTextures.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ALL_DECLARED, ModelTextures.class.getAnnotation(CubismEditor.class).value());
         assertArrayEquals(ONLY_5_3_02, AlphaComposition.class.getAnnotation(CubismEditor.class).value());
     }
 
@@ -59,17 +61,26 @@ class CubismEditorModelAvailabilityContractTest {
     }
 
     @Test
-    void drawableAndTextureOverridesIncludeTheDeclared5303Contract() throws Exception {
+    void drawableOverrideIncludesTheDeclared5303Contract() throws Exception {
         assertArrayEquals(
             EXACT_5_3,
             Drawable.class.getMethod("setAlphaComposition", AlphaComposition.class)
                 .getAnnotation(CubismEditor.class).value()
         );
-        assertArrayEquals(
-            EXACT_5_3,
-            ModelTextures.class.getMethod("removeRawImage", RawImageId.class)
-                .getAnnotation(CubismEditor.class).value()
-        );
+    }
+
+    @Test
+    void textureMetadataExpansionPreservesEveryEffectiveWriteRestriction() throws Exception {
+        for (Method method : List.of(
+            ModelTextures.class.getMethod("addModelImageGroup", String.class),
+            ModelTextures.class.getMethod("removeModelImage", ModelImageId.class),
+            ModelTextures.class.getMethod("addTextureAtlas", String.class, int.class, int.class),
+            ModelTextures.class.getMethod("removeTextureAtlas", TextureAtlasId.class)
+        )) {
+            assertArrayEquals(ESTABLISHED, method.getAnnotation(CubismEditor.class).value());
+        }
+        // Previously intersected with the class-level 5.2.03/5.3.02 restriction.
+        assertOnly5302(ModelTextures.class.getMethod("removeRawImage", RawImageId.class));
     }
 
     private static void assertOnly5302(final Method method) {
