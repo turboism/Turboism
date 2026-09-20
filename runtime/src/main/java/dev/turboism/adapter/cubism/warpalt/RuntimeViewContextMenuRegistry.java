@@ -156,7 +156,10 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         factory.setAccessible(true);
 
-        final Object iconSet = iconSetFor(iconImage, hostLoader);
+        // Reuse the host's own lock-button icon set (b$a.c()) — proven to
+        // render in this GL strip. User PNG icons will be swapped in once
+        // the button visibility is confirmed.
+        final Object iconSet = hostIconSet(barClass);
         final Object button = factory.invoke(null,
             stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
 
@@ -227,6 +230,17 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         } catch (Throwable failure) {
             // best-effort removal
         }
+    }
+
+    /** Reuses the host's lock-button icon set (b$a singleton, accessor c()). */
+    private static Object hostIconSet(final Class<?> barClass)
+        throws ReflectiveOperationException {
+        final Field singleton = barClass.getDeclaredField("a");
+        singleton.setAccessible(true);
+        final Object iconRegistry = singleton.get(null);
+        final Method accessor = iconRegistry.getClass().getMethod("c");
+        accessor.setAccessible(true);
+        return accessor.invoke(iconRegistry);
     }
 
     private static void diagnostic(final String stage) {
