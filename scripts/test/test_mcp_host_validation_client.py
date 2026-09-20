@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 import unittest
 from unittest import mock
@@ -68,6 +69,14 @@ class McpHostValidationClientTest(unittest.TestCase):
             self.assertIn(f"'{endpoint}'", text)
         self.assertNotIn("name: 'turboism.history.move'", text)
         self.assertIn("name: 'turboism.history.read'", text)
+
+    def test_glue_baseline_runs_before_matrices_that_leave_redo_history(self) -> None:
+        source = inspect.getsource(CLIENT.main)
+        self.assertLess(source.index("validate_audit_input_guards(client"),
+                        source.index("validate_reversible_glue_authoring(client"))
+        for later in ("validate_reversible_binding_inversion(client", "validate_reversible_parameter_write(client"):
+            self.assertLess(source.index("validate_reversible_glue_authoring(client"), source.index(later),
+                            "Glue's original-history tip guard must run before an Undo leaves a Redo tail")
 
     def test_connection_is_numeric_loopback_without_proxy_or_redirect(self) -> None:
         client = CLIENT.McpClient("http://127.0.0.1:43123/mcp", CLIENT.PROTOCOL_VERSION)
