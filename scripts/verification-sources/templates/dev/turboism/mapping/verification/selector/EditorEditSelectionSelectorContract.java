@@ -8,12 +8,11 @@ import java.util.Set;
  * surface: {@code GetSelectedObjects}, {@code AddSelectedObjects}, and
  * {@code ClearSelectedObjects}.
  *
- * <p>{@code GetSelectedObjects} and {@code AddSelectedObjects} are deliberately declared in a
- * verification-record-missing shape: {@code update-manager.selection-guid-list} is only verified
- * on 5.3.03, the 5.2.03/5.3.02 records do not carry it, and the boolean semantics of
- * {@code update-manager.set-selection} are not yet host-validated. Both capability rows must stay
- * rejected at runtime until the missing verification lands; declaring them here pins the intended
- * member set without weakening admission.</p>
+ * <p>{@code update-manager.selection-guid-list} is now statically verified on all three exact
+ * host artifacts (the 5.2.03/5.3.02 records gained it by bytecode inspection in T5), so the
+ * three rows below are the verified member sets the runtime gates on. The boolean semantics of
+ * {@code update-manager.set-selection} remain unverified by host validation (T7): the rows stay
+ * bound to the reviewed member set, and any member a record drops still fails closed.</p>
  */
 public final class EditorEditSelectionSelectorContract {
 
@@ -44,9 +43,9 @@ public final class EditorEditSelectionSelectorContract {
     );
 
     /**
-     * {@code GetSelectedObjects} — verification record missing on 5.2.03 and 5.3.02:
-     * {@code update-manager.selection-guid-list} is verified only on 5.3.03, and the runtime
-     * selection snapshot is not yet wired. Must remain rejected until then.
+     * {@code GetSelectedObjects}: update-manager reach, the selection guid list, and the
+     * guid-to-id translation members. Verified on all three exact artifacts; any member a
+     * record drops still fails the row closed.
      */
     public static final Set<String> GET_SELECTED_OBJECTS_REQUIRED_ALIASES = unionAll(
         SELECTION_ACCESS_ALIASES,
@@ -55,14 +54,16 @@ public final class EditorEditSelectionSelectorContract {
     );
 
     /**
-     * {@code AddSelectedObjects} — verification record missing: the {@code setSelection} boolean
-     * flags are not host-validated and the read side of the selection is not yet wired, so the
-     * append semantics cannot be confirmed. Must remain rejected until then.
+     * {@code AddSelectedObjects}: the read side of the union-write plus the verified
+     * {@code setSelection} member. The {@code setSelection} boolean flag semantics are
+     * documented as awaiting host validation (T7); the member set itself is verified.
      */
     public static final Set<String> ADD_SELECTED_OBJECTS_REQUIRED_ALIASES = unionAll(
         SELECTION_ACCESS_ALIASES,
         SELECTION_IDENTITY_ALIASES,
-        Set.of("cubism.editor-model.update-manager.set-selection")
+        Set.of(
+            "cubism.editor-model.update-manager.selection-guid-list",
+            "cubism.editor-model.update-manager.set-selection")
     );
 
     /** {@code ClearSelectedObjects}: empties the selection through the same verified member. */

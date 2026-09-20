@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
@@ -1565,6 +1566,78 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         Objects.requireNonNull(value, name);
         if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
         return value;
+    }
+
+    /**
+     * Facade selection read (spec 046, T5): the host selection guid list translated to model
+     * object ids on the bound document. The read is gated by the
+     * {@code cubism.editor-model.edit.selection.get-selected-objects} capability row and every
+     * member it needs; when the row or any member is unverified — or no modeling document is
+     * bound — the snapshot reports an empty selection rather than failing.
+     *
+     * @return the selected object ids in host order; empty when unavailable or nothing selected
+     */
+    public List<String> selectedObjectIds() {
+        if (!resolver.authorizesFeature(
+            EditorEditSelectionSelectorContract.ADAPTER_SLICE_ID,
+            EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
+            EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES
+        )) {
+            return List.of();
+        }
+        try {
+            final Object app = resolver.invokeStatic(
+                "cubism.editor-model.app-controller.instance");
+            final Object document = app == null ? null : resolver.invoke(
+                "cubism.editor-model.app-controller.current-document", app);
+            if (!resolver.isInstance(
+                "cubism.editor-model.modeling-document.class", document)) {
+                return List.of();
+            }
+            final Object source = resolver.invoke(
+                "cubism.editor-model.modeling-document.model-source", document);
+            final Object updateManager = resolver.invoke(
+                "cubism.editor-model.app-controller.update-manager", app);
+            if (source == null || updateManager == null) {
+                return List.of();
+            }
+            final Object raw = resolver.invoke(
+                "cubism.editor-model.update-manager.selection-guid-list", updateManager);
+            final java.util.Map<String, String> idByGuid = new java.util.HashMap<>();
+            for (final Object object : iterable(
+                resolver.invoke("cubism.editor-model.model-source.all-objects", source))) {
+                final String guid = nullableText(resolver.invoke(
+                    "cubism.editor-model.guid.value",
+                    resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-source.guid", object)));
+                final String id = nullableText(resolver.invoke(
+                    "cubism.editor-model.id.value",
+                    resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-source.id", object)));
+                if (guid != null && id != null) {
+                    idByGuid.put(guid, id);
+                }
+            }
+            final ArrayList<String> ids = new ArrayList<>();
+            for (final Object guid : iterable(raw)) {
+                final String id = idByGuid.get(
+                    nullableText(resolver.invoke("cubism.editor-model.guid.value", guid)));
+                if (id != null) {
+                    ids.add(id);
+                }
+            }
+            return List.copyOf(ids);
+        } catch (RuntimeException failure) {
+            return List.of();
+        }
+    }
+
+    private static Iterable<?> iterable(final Object value) {
+        return value instanceof Iterable<?> iterable ? iterable : List.of();
+    }
+
+    private static String nullableText(final Object value) {
+        return value instanceof String text && !text.isBlank() ? text : null;
     }
 
     record Binding(
