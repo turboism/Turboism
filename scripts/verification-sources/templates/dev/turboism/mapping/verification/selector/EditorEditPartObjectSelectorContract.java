@@ -133,44 +133,85 @@ public final class EditorEditPartObjectSelectorContract {
     );
 
     /**
-     * {@code GetObject}: the object read surface plus per-kind detail members. ArtPath data reads
-     * have no members by design — the official API does not support them.
+     * {@code GetObject}: the object read surface shared by every kind — object lookup, palette
+     * kind checks, the {@code %Root} parent normalization chain, the interpolated-form read,
+     * form visual members, and label color. Warp and rotation payloads need nothing beyond
+     * this set, so they read on every supported host.
      */
     public static final Set<String> GET_OBJECT_REQUIRED_ALIASES = unionAll(
         EditorEditSessionSelectorContract.SESSION_NAVIGATION_ALIASES,
+        OBJECT_LOOKUP_ALIASES,
         EditorObjectReadSelectorContract.REQUIRED_ALIASES,
         LABEL_COLOR_READ_ALIASES,
         Set.of(
-            "cubism.editor-model.model.get-object",
-            "cubism.editor-model.model-source.get-object",
-            "cubism.editor-model.part-source.local-name",
-            "cubism.editor-model.part-source.default-order",
-            "cubism.editor-model.part-source.sketch",
-            "cubism.editor-model.part-source.edit-color",
-            "cubism.editor-model.deformer-source.class",
-            "cubism.editor-model.deformer-source.guid",
+            "cubism.editor-model.model-source.root-part",
+            "cubism.editor-model.model.parts",
+            "cubism.editor-model.part.source",
+            "cubism.editor-model.glue-source.class",
+            "cubism.editor-model.parameter-controllable-source.name-or-id-string",
+            "cubism.editor-model.parameter-controllable-source.target-deformer-id",
+            "cubism.editor-model.parameter-controllable.interpolated-form",
             "cubism.editor-model.deformer-form.multiply-color",
             "cubism.editor-model.deformer-form.screen-color",
             "cubism.editor-model.drawable-form.multiply-color",
             "cubism.editor-model.drawable-form.screen-color",
-            "cubism.editor-model.glue-source.local-name",
-            "cubism.editor-model.glue-form.intensity",
-            "cubism.editor-model.glue-form.class"
+            "cubism.editor-model.float-color.hex-rgb"
         )
     );
 
     /**
-     * Extended set for {@code GetObject} returning the Part fields that only exist on 5.3.x
-     * hosts ({@code IsOffscreen}, {@code ClippingIds}, {@code Opacity}, alpha composition).
+     * {@code GetObject} Part fields that only exist on 5.3.x hosts: {@code IsGrouped},
+     * {@code IsGuidImage}, {@code IsOffscreen}, {@code ClippingIds}, {@code IsReverseMask},
+     * the part-form visual members, and both composition enums. Stays rejected on 5.2.03.
      */
     public static final Set<String> GET_OBJECT_PART_EXTENDED_ALIASES = unionAll(
         GET_OBJECT_REQUIRED_ALIASES,
         Set.of(
+            "cubism.editor-model.part-source.enable-draw-order-group",
+            "cubism.editor-model.part-source.sketch",
             "cubism.editor-model.part-source.use-offscreen",
             "cubism.editor-model.part-source.clip-guid-list",
+            "cubism.editor-model.part-source.invert-clipping-mask",
+            "cubism.editor-model.part-source.color-composition",
             "cubism.editor-model.part-source.alpha-composition",
             "cubism.editor-model.part-form.class",
-            "cubism.editor-model.part-form.opacity"
+            "cubism.editor-model.part-form.draw-order",
+            "cubism.editor-model.part-form.opacity",
+            "cubism.editor-model.part-form.multiply-color",
+            "cubism.editor-model.part-form.screen-color",
+            "cubism.editor-model.color-composition.values",
+            "cubism.editor-model.alpha-composition.values"
+        )
+    );
+
+    /**
+     * {@code GetObject} ArtMesh fields that only exist on 5.3.x hosts: {@code ColorBlend} and
+     * {@code AlphaBlend} compositions — the {@code AlphaComposition} enum does not exist on
+     * 5.2.03, so art-mesh reads stay rejected there.
+     */
+    public static final Set<String> GET_OBJECT_ART_MESH_EXTENDED_ALIASES = unionAll(
+        GET_OBJECT_REQUIRED_ALIASES,
+        Set.of(
+            "cubism.editor-model.art-mesh-source.color-composition",
+            "cubism.editor-model.art-mesh-source.alpha-composition",
+            "cubism.editor-model.color-composition.values",
+            "cubism.editor-model.alpha-composition.values"
+        )
+    );
+
+    /**
+     * {@code GetObject} WarpDeformer detail members: the bezier subdivision extension the
+     * official {@code BezierDivH}/{@code BezierDivV} fields read. Bound on every supported
+     * host.
+     */
+    public static final Set<String> GET_OBJECT_WARP_ALIASES = unionAll(
+        GET_OBJECT_REQUIRED_ALIASES,
+        Set.of(
+            "cubism.editor-model.parameter-controllable-source.extensions",
+            "cubism.editor-model.warp-bezier-extension.class",
+            "cubism.editor-model.warp-bezier-extension.edit-level",
+            "cubism.editor-model.warp-bezier-extension.bezier-col",
+            "cubism.editor-model.warp-bezier-extension.bezier-row"
         )
     );
 

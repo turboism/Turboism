@@ -24,6 +24,7 @@
     "cubism.editor-model.deformer-inspector.write",
     "cubism.editor-model.edit-level.read",
     "cubism.editor-model.edit-level.write",
+    "cubism.editor-model.edit.part-object.get-object",
     "cubism.editor-model.edit.selection.add-selected-objects",
     "cubism.editor-model.edit.selection.clear-selected-objects",
     "cubism.editor-model.edit.selection.get-selected-objects",
@@ -946,6 +947,28 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.art_mesh_source_color_composition",
+      "alias": "cubism.editor-model.art-mesh-source.color-composition",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "memberName": "getColorComposition",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.art_mesh_source_alpha_composition",
+      "alias": "cubism.editor-model.art-mesh-source.alpha-composition",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "memberName": "getAlphaComposition",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/AlphaComposition;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.art_mesh_source_guid",
       "alias": "cubism.editor-model.art-mesh-source.guid",
       "kind": "method",
@@ -1789,6 +1812,17 @@
       "memberName": "getG",
       "descriptor": "()F",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.float_color_hex_rgb",
+      "alias": "cubism.editor-model.float-color.hex-rgb",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/type/CFloatColor",
+      "memberName": "getHexRGB",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -3476,6 +3510,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_name_or_id_string",
+      "alias": "cubism.editor-model.parameter-controllable-source.name-or-id-string",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "memberName": "getNameOrIdString",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_locked",
       "alias": "cubism.editor-model.parameter-controllable-source.locked",
       "kind": "method",
@@ -3564,6 +3609,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_target_deformer_id",
+      "alias": "cubism.editor-model.parameter-controllable-source.target-deformer-id",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "memberName": "getTargetDeformerId",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/id/CDeformerId;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_visible",
       "alias": "cubism.editor-model.parameter-controllable-source.visible",
       "kind": "method",
@@ -3603,6 +3659,17 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
       "memberName": "getKeyformGridSource",
       "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_interpolated_form",
+      "alias": "cubism.editor-model.parameter-controllable.interpolated-form",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllable",
+      "memberName": "getInterpolatedForm",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -4433,6 +4500,39 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.part_form_draw_order",
+      "alias": "cubism.editor-model.part-form.draw-order",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartForm",
+      "memberName": "getDrawOrder",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.part_form_multiply_color",
+      "alias": "cubism.editor-model.part-form.multiply-color",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartForm",
+      "memberName": "getMultiplyColor",
+      "descriptor": "()Lcom/live2d/type/CFloatColor;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.part_form_screen_color",
+      "alias": "cubism.editor-model.part-form.screen-color",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartForm",
+      "memberName": "getScreenColor",
+      "descriptor": "()Lcom/live2d/type/CFloatColor;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.part_form_opacity",
       "alias": "cubism.editor-model.part-form.opacity",
       "kind": "method",
@@ -4769,6 +4869,39 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
       "memberName": "isSketch",
       "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.part_source_enable_draw_order_group",
+      "alias": "cubism.editor-model.part-source.enable-draw-order-group",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+      "memberName": "getEnableDrawOrderGroup",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.part_source_invert_clipping_mask",
+      "alias": "cubism.editor-model.part-source.invert-clipping-mask",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+      "memberName": "getInvertClippingMask",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.part_source_color_composition",
+      "alias": "cubism.editor-model.part-source.color-composition",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+      "memberName": "getColorComposition",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -5661,6 +5794,50 @@
       "memberName": "getPositions",
       "descriptor": "()[F",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.class.warp_bezier_extension",
+      "alias": "cubism.editor-model.warp-bezier-extension.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_edit_level",
+      "alias": "cubism.editor-model.warp-bezier-extension.edit-level",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+      "memberName": "getEditLevel",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_bezier_col",
+      "alias": "cubism.editor-model.warp-bezier-extension.bezier-col",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+      "memberName": "getBezierCol",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_bezier_row",
+      "alias": "cubism.editor-model.warp-bezier-extension.bezier-row",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+      "memberName": "getBezierRow",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },

@@ -2,20 +2,30 @@ package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.mapping.verification.selector.EditorEditPartObjectSelectorContract;
 import dev.turboism.sdk.cubism.edit.EditAlphaBlend;
+import dev.turboism.sdk.cubism.edit.EditArtMeshData;
+import dev.turboism.sdk.cubism.edit.EditColorBlend;
 import dev.turboism.sdk.cubism.edit.EditLabelColor;
+import dev.turboism.sdk.cubism.edit.EditObjectData;
 import dev.turboism.sdk.cubism.edit.EditObjectKind;
 import dev.turboism.sdk.cubism.edit.EditObjectNode;
 import dev.turboism.sdk.cubism.edit.EditObjectSnapshot;
+import dev.turboism.sdk.cubism.edit.EditPartData;
+import dev.turboism.sdk.cubism.edit.EditRectangle;
+import dev.turboism.sdk.cubism.edit.EditRotationDeformerData;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
+import dev.turboism.sdk.cubism.edit.EditWarpDeformerData;
 import dev.turboism.sdk.cubism.edit.PartObjectOps;
+import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.model.Point2;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -24,13 +34,15 @@ import java.util.Set;
  * {@code MoveObjectOnPartsPalette}, {@code AddPart}, {@code EditPart}, {@code EditArtMesh}, and
  * {@code EditGlue}.
  *
- * <p>{@code GetObject} fails closed per kind: the payload records require every field, and the
- * records carry no reader for {@code Grouped}, {@code ReverseMask}, part multiply/screen colors,
- * or {@code ColorBlend} on parts; for {@code ColorBlend}/{@code AlphaBlend} reads on art meshes;
- * for {@code BezierDiv*} on warp deformers; and for rotation-deformer {@code vertices}. Glue
- * payloads would be readable, but {@link dev.turboism.sdk.cubism.model.ModelObjectKind} cannot
- * address a glue object, so {@code object} reports typed unavailability for every kind until
- * the missing readers are admitted (T7).</p>
+ * <p>{@code GetObject} reads the official external API 1.1.0 data blocks: warp and rotation
+ * deformers are readable on every supported host; parts and art meshes stay closed on 5.2.03
+ * where the extended readers ({@code useOffscreen}, part clip list, part color/alpha
+ * composition, part-form visual members, art-mesh alpha composition) are absent from the host;
+ * glue payloads are unreachable because {@link
+ * dev.turboism.sdk.cubism.model.ModelObjectKind} cannot address a glue object, and ArtPath
+ * reads fail closed because the official API defines no ArtPath payload. {@code Parameters[]}
+ * keyform conditions stay rejected: the official condition gate rewrites the model's parameter
+ * set during the read, which is not host-validated here (T7).</p>
  *
  * <p>{@code DeleteObject} follows the official envelope — selection cleared through the
  * verified {@code set-selection} member, then the {@code model-handler.remove-objects} batch —
@@ -75,12 +87,19 @@ final class SessionPartObjectOps implements PartObjectOps {
                 "GetObject");
             final Object source = ops.requireObjectSource(access, request.object());
             final EditObjectKind kind = ops.kindOf(access, source);
-            // Every reachable payload needs fields with no verified reader; report the exact
-            // gap instead of fabricating values.
-            throw new EditUnavailableException(
-                "cubism.edit.op-unverified",
-                "GetObject(" + kind + ") is not verified on this Cubism host: "
-                    + missingReaders(kind));
+            final EditObjectData data = switch (kind) {
+                case PART -> partData(access, source);
+                case ART_MESH -> artMeshData(access, source);
+                case WARP_DEFORMER -> warpDeformerData(access, source);
+                case ROTATION_DEFORMER -> rotationDeformerData(access, source);
+                // GLUE is not addressable through ModelObjectKind and ART_PATH has no
+                // official payload — requireObjectSource already rejected the reference.
+                case ART_PATH, GLUE -> throw new EditUnavailableException(
+                    "cubism.edit.op-unverified",
+                    "GetObject(" + kind + ") is not verified on this Cubism host");
+            };
+            return new EditObjectSnapshot(
+                new ModelObjectId(ops.objectId(access, source)), data);
         });
     }
 
@@ -463,6 +482,446 @@ final class SessionPartObjectOps implements PartObjectOps {
     }
 
     // ------------------------------------------------------------------
+    // GetObject per-kind readers — field order follows the official 1.1.0 data blocks
+    // ------------------------------------------------------------------
+
+    private EditPartData partData(final EditSessionOpsAccess access, final Object source)
+        throws EditSessionException {
+        ops.require(
+            access,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_PART_EXTENDED_ALIASES,
+            "GetObject(PART)");
+        final Object form = interpolatedForm(
+            access,
+            source,
+            "cubism.editor-model.model.parts",
+            "cubism.editor-model.part.source",
+            "cubism.editor-model.part.class");
+        return new EditPartData(
+            nameOrId(access, source),
+            parentPartId(access, source),
+            ops.flag(
+                access.invoke(
+                    "cubism.editor-model.part-source.enable-draw-order-group", source),
+                "Editor part grouped flag"),
+            ops.flag(
+                access.invoke("cubism.editor-model.part-source.sketch", source),
+                "Editor part guide-image flag"),
+            ops.flag(
+                access.invoke("cubism.editor-model.part-source.use-offscreen", source),
+                "Editor part offscreen flag"),
+            clippingIds(
+                access,
+                access.invoke("cubism.editor-model.part-source.clip-guid-list", source)),
+            ops.flag(
+                access.invoke(
+                    "cubism.editor-model.part-source.invert-clipping-mask", source),
+                "Editor part reverse-mask flag"),
+            ops.integer(
+                access.invoke("cubism.editor-model.part-form.draw-order", form),
+                "Editor part draw order"),
+            ops.number(
+                    access.invoke("cubism.editor-model.part-form.opacity", form),
+                    "Editor part opacity")
+                * 100.0,
+            hexColor(
+                access, access.invoke("cubism.editor-model.part-form.multiply-color", form)),
+            hexColor(
+                access, access.invoke("cubism.editor-model.part-form.screen-color", form)),
+            colorBlendOf(
+                access,
+                access.invoke(
+                    "cubism.editor-model.part-source.color-composition", source)),
+            alphaBlendOf(
+                access,
+                access.invoke(
+                    "cubism.editor-model.part-source.alpha-composition", source)),
+            labelColor(access, source));
+    }
+
+    private EditArtMeshData artMeshData(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) throws EditSessionException {
+        ops.require(
+            access,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_ART_MESH_EXTENDED_ALIASES,
+            "GetObject(ART_MESH)");
+        final Object form = interpolatedForm(
+            access,
+            source,
+            "cubism.editor-model.model.all-art-meshes",
+            "cubism.editor-model.art-mesh.source",
+            "cubism.editor-model.art-mesh.class");
+        return new EditArtMeshData(
+            ops.localName(access, source),
+            parentPartId(access, source),
+            parentDeformerId(access, source),
+            clippingIds(
+                access,
+                access.invoke("cubism.editor-model.art-mesh-source.clip-guid-list", source)),
+            ops.flag(
+                access.invoke("cubism.editor-model.art-mesh-source.inverted-mask", source),
+                "Editor art mesh reverse-mask flag"),
+            ops.integer(
+                access.invoke("cubism.editor-model.drawable-form.draw-order", form),
+                "Editor art mesh draw order"),
+            ops.number(
+                    access.invoke("cubism.editor-model.drawable-form.opacity", form),
+                    "Editor art mesh opacity")
+                * 100.0,
+            hexColor(
+                access,
+                access.invoke("cubism.editor-model.drawable-form.multiply-color", form)),
+            hexColor(
+                access,
+                access.invoke("cubism.editor-model.drawable-form.screen-color", form)),
+            colorBlendOf(
+                access,
+                access.invoke(
+                    "cubism.editor-model.art-mesh-source.color-composition", source)),
+            alphaBlendOf(
+                access,
+                access.invoke(
+                    "cubism.editor-model.art-mesh-source.alpha-composition", source)),
+            ops.flag(
+                access.invoke("cubism.editor-model.art-mesh-source.culling", source),
+                "Editor art mesh culling flag"),
+            labelColor(access, source),
+            ops.floatArray(
+                        access.invoke(
+                            "cubism.editor-model.art-mesh-source.positions", source),
+                        "Editor art mesh positions")
+                    .length
+                / 2);
+    }
+
+    private EditWarpDeformerData warpDeformerData(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) throws EditSessionException {
+        ops.require(
+            access,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_WARP_ALIASES,
+            "GetObject(WARP_DEFORMER)");
+        final Object form = interpolatedForm(
+            access,
+            source,
+            "cubism.editor-model.model.all-deformers",
+            "cubism.editor-model.deformer.source",
+            "cubism.editor-model.warp.class");
+        final int col = ops.integer(
+            access.invoke("cubism.editor-model.warp-source.col", source),
+            "Editor warp column count");
+        final int row = ops.integer(
+            access.invoke("cubism.editor-model.warp-source.row", source),
+            "Editor warp row count");
+        final Object bezier = bezierExtension(access, source);
+        return new EditWarpDeformerData(
+            nameOrId(access, source),
+            parentPartId(access, source),
+            parentDeformerId(access, source),
+            ops.number(
+                    access.invoke("cubism.editor-model.deformer-form.opacity", form),
+                    "Editor warp opacity")
+                * 100.0,
+            hexColor(
+                access,
+                access.invoke("cubism.editor-model.deformer-form.multiply-color", form)),
+            hexColor(
+                access,
+                access.invoke("cubism.editor-model.deformer-form.screen-color", form)),
+            col,
+            row,
+            bezier == null
+                ? Optional.empty()
+                : Optional.of(ops.integer(
+                    access.invoke(
+                        "cubism.editor-model.warp-bezier-extension.bezier-col", bezier),
+                    "Editor warp bezier divisions")),
+            bezier == null
+                ? Optional.empty()
+                : Optional.of(ops.integer(
+                    access.invoke(
+                        "cubism.editor-model.warp-bezier-extension.bezier-row", bezier),
+                    "Editor warp bezier divisions")),
+            labelColor(access, source),
+            warpRectangle(access, form, col, row));
+    }
+
+    private EditRotationDeformerData rotationDeformerData(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) throws EditSessionException {
+        ops.require(
+            access,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
+            EditorEditPartObjectSelectorContract.GET_OBJECT_REQUIRED_ALIASES,
+            "GetObject(ROTATION_DEFORMER)");
+        final Object form = interpolatedForm(
+            access,
+            source,
+            "cubism.editor-model.model.all-deformers",
+            "cubism.editor-model.deformer.source",
+            "cubism.editor-model.rotation.class");
+        return new EditRotationDeformerData(
+            nameOrId(access, source),
+            parentPartId(access, source),
+            parentDeformerId(access, source),
+            ops.number(
+                access.invoke("cubism.editor-model.rotation-form.angle", form),
+                "Editor rotation angle"),
+            ops.number(
+                access.invoke("cubism.editor-model.rotation-source.base-angle", source),
+                "Editor rotation base angle"),
+            ops.number(
+                    access.invoke("cubism.editor-model.rotation-form.scale", form),
+                    "Editor rotation scale")
+                * 100.0,
+            ops.number(
+                    access.invoke("cubism.editor-model.deformer-form.opacity", form),
+                    "Editor rotation opacity")
+                * 100.0,
+            hexColor(
+                access,
+                access.invoke("cubism.editor-model.deformer-form.multiply-color", form)),
+            hexColor(
+                access,
+                access.invoke("cubism.editor-model.deformer-form.screen-color", form)),
+            labelColor(access, source),
+            new Point2(
+                (float) ops.number(
+                    access.invoke("cubism.editor-model.rotation-form.origin-x", form),
+                    "Editor rotation origin"),
+                (float) ops.number(
+                    access.invoke("cubism.editor-model.rotation-form.origin-y", form),
+                    "Editor rotation origin")));
+    }
+
+    /**
+     * The interpolated form of {@code source}'s live instance, matching the official {@code
+     * GetObject} read of {@code getInterpolatedForm()}: form-state fields report the
+     * interpolated state, not the selected keyform cell.
+     */
+    private Object interpolatedForm(
+        final EditSessionOpsAccess access,
+        final Object source,
+        final String instancesAlias,
+        final String sourceAlias,
+        final String instanceClassAlias
+    ) {
+        for (final Object instance : ops.list(
+            access.invoke(instancesAlias, access.model()), "Editor object instances")) {
+            if (access.invoke(sourceAlias, instance) == source) {
+                if (!access.isInstance(instanceClassAlias, instance)) {
+                    throw ops.unavailable("Editor object instance kind is invalid.");
+                }
+                final Object form = access.invoke(
+                    "cubism.editor-model.parameter-controllable.interpolated-form", instance);
+                if (form == null) {
+                    throw ops.unavailable("Editor interpolated form is unavailable.");
+                }
+                return form;
+            }
+        }
+        throw ops.unavailable("Editor object instance is unavailable.");
+    }
+
+    /**
+     * The official {@code ParentId} normalization: a missing parent or the synthetic root part
+     * both serialize as {@code %Root}; the typed surface reports {@link Optional#empty()}.
+     */
+    private Optional<PartId> parentPartId(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) {
+        final Object parent = access.invoke(
+            "cubism.editor-model.part-source.parent", source);
+        if (parent == null) {
+            return Optional.empty();
+        }
+        final String value = ops.partIdValue(
+            access, access.invoke("cubism.editor-model.part-source.id", parent));
+        final Object root = access.invoke(
+            "cubism.editor-model.model-source.root-part", access.modelSource());
+        final String rootId = ops.partIdValue(
+            access, access.invoke("cubism.editor-model.part-source.id", root));
+        return value.equals(rootId) ? Optional.empty() : Optional.of(new PartId(value));
+    }
+
+    /**
+     * The official {@code ParentDeformerId} normalization: a missing target deformer serializes
+     * as {@code %Root}; the typed surface reports {@link Optional#empty()}.
+     */
+    private Optional<DeformerId> parentDeformerId(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) {
+        final Object target = access.invoke(
+            "cubism.editor-model.parameter-controllable-source.target-deformer-id", source);
+        return target == null
+            ? Optional.empty()
+            : Optional.of(new DeformerId(ops.idValue(access, target)));
+    }
+
+    /**
+     * Translates a host clip-guid list to object ids. Guids that no longer resolve are skipped —
+     * the host can retain stale entries.
+     */
+    private List<ModelObjectId> clippingIds(
+        final EditSessionOpsAccess access,
+        final Object guidList
+    ) {
+        final ArrayList<ModelObjectId> ids = new ArrayList<>();
+        for (final Object guid : ops.list(guidList, "Editor clipping guid list")) {
+            final String value = ops.guidValue(access, guid);
+            for (final Object candidate : ops.allObjectSources(access)) {
+                if (ops.sourceGuid(access, candidate).equals(value)) {
+                    ids.add(new ModelObjectId(ops.objectId(access, candidate)));
+                    break;
+                }
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    private String nameOrId(final EditSessionOpsAccess access, final Object source) {
+        return ops.text(
+            access.invoke(
+                "cubism.editor-model.parameter-controllable-source.name-or-id-string",
+                source),
+            "Editor object name");
+    }
+
+    private Optional<String> hexColor(
+        final EditSessionOpsAccess access,
+        final Object color
+    ) {
+        return color == null
+            ? Optional.empty()
+            : Optional.of(ops.text(
+                access.invoke("cubism.editor-model.float-color.hex-rgb", color),
+                "Editor form color"));
+    }
+
+    /**
+     * Maps a host {@code ColorComposition} constant to the SDK enum by declaration order —
+     * the 5.3.x host enum and {@link EditColorBlend} share the same constant sequence.
+     */
+    private EditColorBlend colorBlendOf(
+        final EditSessionOpsAccess access,
+        final Object composition
+    ) {
+        final Object[] values = enumValues(
+            access, "cubism.editor-model.color-composition.values", "color blend");
+        final EditColorBlend[] blends = EditColorBlend.values();
+        for (int i = 0; i < values.length && i < blends.length; i++) {
+            if (values[i] == composition) {
+                return blends[i];
+            }
+        }
+        throw ops.unavailable("Editor color blend is unsupported.");
+    }
+
+    /**
+     * Maps a host {@code AlphaComposition} constant to the SDK enum by declaration order —
+     * the host enum and {@link EditAlphaBlend} share the same constant sequence.
+     */
+    private EditAlphaBlend alphaBlendOf(
+        final EditSessionOpsAccess access,
+        final Object composition
+    ) {
+        final Object[] values = enumValues(
+            access, "cubism.editor-model.alpha-composition.values", "alpha blend");
+        final EditAlphaBlend[] blends = EditAlphaBlend.values();
+        for (int i = 0; i < values.length && i < blends.length; i++) {
+            if (values[i] == composition) {
+                return blends[i];
+            }
+        }
+        throw ops.unavailable("Editor alpha blend is unsupported.");
+    }
+
+    private Object[] enumValues(
+        final EditSessionOpsAccess access,
+        final String valuesAlias,
+        final String label
+    ) {
+        final Object values = access.invokeStatic(valuesAlias);
+        if (!(values instanceof Object[] array)) {
+            throw ops.unavailable("Editor " + label + " values are unavailable.");
+        }
+        return array;
+    }
+
+    /**
+     * The edit-level-2 bezier subdivision extension the official {@code GetObject} reports
+     * ({@code BezierDivH}/{@code BezierDivV}); {@code null} when the warp has none.
+     */
+    private Object bezierExtension(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) {
+        for (final Object extension : ops.list(
+            access.invoke(
+                "cubism.editor-model.parameter-controllable-source.extensions", source),
+            "Editor warp extensions")) {
+            if (access.isInstance(
+                    "cubism.editor-model.warp-bezier-extension.class", extension)
+                && ops.integer(
+                        access.invoke(
+                            "cubism.editor-model.warp-bezier-extension.edit-level",
+                            extension),
+                        "Editor warp bezier edit level")
+                    == 2) {
+                return extension;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The official {@code Rectangle} read: corner positions of the interpolated lattice,
+     * {@code positions[2*(i + j*(col+1))]}, reported in the official constructor order
+     * (top-left, bottom-left, top-right, bottom-right).
+     */
+    private EditRectangle warpRectangle(
+        final EditSessionOpsAccess access,
+        final Object form,
+        final int col,
+        final int row
+    ) {
+        final float[] positions = ops.floatArray(
+            access.invoke("cubism.editor-model.warp-form.positions", form),
+            "Editor warp positions");
+        if (col < 0 || row < 0 || positions.length < 2 * (col + 1) * (row + 1)) {
+            throw ops.unavailable("Editor warp positions are malformed.");
+        }
+        return new EditRectangle(
+            warpCorner(positions, 0),
+            warpCorner(positions, 2 * row * (col + 1)),
+            warpCorner(positions, 2 * col),
+            warpCorner(positions, 2 * (col + row * (col + 1))));
+    }
+
+    private Point2 warpCorner(final float[] positions, final int offset) {
+        return new Point2(positions[offset], positions[offset + 1]);
+    }
+
+    private EditLabelColor labelColor(
+        final EditSessionOpsAccess access,
+        final Object source
+    ) {
+        return ops.readLabelColor(
+            access,
+            access.invoke(
+                "cubism.editor-model.parameter-controllable-source.label-color", source));
+    }
+
+    // ------------------------------------------------------------------
     // orchestration helpers
     // ------------------------------------------------------------------
 
@@ -641,17 +1100,6 @@ final class SessionPartObjectOps implements PartObjectOps {
                 "cubism.edit.op-unverified",
                 fields + " is not verified on this Cubism host");
         }
-    }
-
-    private static String missingReaders(final EditObjectKind kind) {
-        return switch (kind) {
-            case PART -> "grouped, reverseMask, multiply/screen colors, colorBlend, alphaBlend";
-            case ART_MESH -> "colorBlend, alphaBlend";
-            case WARP_DEFORMER -> "bezierDivH/bezierDivV";
-            case ROTATION_DEFORMER -> "vertices";
-            case GLUE -> "ModelObjectKind cannot address glue objects";
-            case ART_PATH -> "the official API does not support ArtPath data reads";
-        };
     }
 
 }
