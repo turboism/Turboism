@@ -1038,11 +1038,8 @@ def main() -> int:
         rejected_count = validate_audit_input_guards(client, parameter_values)
         report.append(f"auditRejectedRequestCount={rejected_count}")
         report.append("assertion.auditPreflightNoMutation.status=PASS")
-        inversion = validate_reversible_binding_inversion(client, parameter_values)
-        mutations.append(inversion)
-        report.append("assertion.explicitBindingScope.status=PASS")
-        report.append("assertion.bindingUndoRedoRestoration.status=PASS")
-
+        # Glue's original-history invariant requires the untouched history tip. Run it before
+        # other reversible matrices, whose final Undo intentionally leaves a Redo tail.
         glue_mutation, glue_version = validate_reversible_glue_authoring(client, task_id)
         mutations.append(glue_mutation)
         report.append(f"glueProviderVersion={sanitize(glue_version)}")
@@ -1053,6 +1050,11 @@ def main() -> int:
         report.append("assertion.glueTransaction.status=PASS")
         report.append("assertion.glueRollback.status=PASS")
         report.append("assertion.glueFinalRestoration.status=PASS")
+
+        inversion = validate_reversible_binding_inversion(client, parameter_values)
+        mutations.append(inversion)
+        report.append("assertion.explicitBindingScope.status=PASS")
+        report.append("assertion.bindingUndoRedoRestoration.status=PASS")
 
         parameters = await_resource(
             client,
