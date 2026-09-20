@@ -197,7 +197,7 @@ final class McpHttpServerIntegrationTest {
             ));
             assertEquals(200, tools.statusCode());
             final List<Object> toolDefinitions = array(result(tools).get("tools"));
-            assertEquals(11, toolDefinitions.size());
+            assertEquals(13, toolDefinitions.size());
             assertEquals(
                 McpProductionDomainCatalog.APPLY,
                 object(toolDefinitions.get(0)).get("name")
@@ -213,7 +213,9 @@ final class McpHttpServerIntegrationTest {
                 McpHistoryCommandDomain.HISTORY_UNDO,
                 McpHistoryCommandDomain.HISTORY_REDO,
                 McpTransactionDomain.TRANSACTION_EXECUTE,
-                McpCapabilitiesDomain.CAPABILITIES_READ
+                McpCapabilitiesDomain.CAPABILITIES_READ,
+                "turboism.textures.read",
+                "turboism.textures.write"
             )));
             assertFalse(toolNames.contains("turboism.history.move"));
 

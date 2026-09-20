@@ -284,6 +284,19 @@ class EditorTextureAccessTest {
         assertTrue(fixture.editMode.edits.isEmpty());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03"})
+    void missing52LayerInputMapRejectsBeforeRemoval(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.manager.allModelImages.get(0).filterEnv.inputs = null;
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
+        assertThrows(IllegalStateException.class, () -> textures.removeRawImage(new RawImageId("raw-1")));
+        assertEquals(1, fixture.manager.rawImages.size());
+        assertTrue(fixture.editMode.edits.isEmpty());
+        assertTrue(fixture.editMode.labels.isEmpty());
+    }
+
     private static EditorTextureAccess access(final String version, final boolean includeCapability) {
         return new EditorTextureAccess(resolver(version, includeCapability), (identity, model) -> { });
     }
@@ -546,7 +559,7 @@ class EditorTextureAccessTest {
     }
 
     public static final class HostFilterEnv {
-        final HostLayerSelectorMap inputs = new HostLayerSelectorMap();
+        HostLayerSelectorMap inputs = new HostLayerSelectorMap();
         public HostLayerSelectorMap layerInputData() { return inputs; }
     }
 

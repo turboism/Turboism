@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
+import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.ParameterDefinitions;
@@ -40,6 +41,7 @@ final class McpSdkCoverageGuardTest {
     private static final Set<String> CLASSIFICATIONS = Set.of(
         "MCP_READ",
         "MCP_WRITE_UNDOABLE",
+        "MCP_WRITE_STANDALONE_UNDO",
         "MCP_COMMAND_NON_UNDOABLE",
         "MCP_LEGACY_WRITE",
         "RUNTIME_UNAVAILABLE",
@@ -57,7 +59,8 @@ final class McpSdkCoverageGuardTest {
         ParameterDefinitions.class,
         ParameterBindingOperations.class,
         ParameterBindingBatchOperations.class,
-        Parameter.class
+        Parameter.class,
+        ModelTextures.class
     );
 
     @Test
@@ -114,6 +117,14 @@ final class McpSdkCoverageGuardTest {
                     "set_name", "set_id", "set_intensity",
                     "set_drawable_a", "set_drawable_b"
                 ).contains(row.get("operation")));
+            }
+            if ("MCP_WRITE_STANDALONE_UNDO".equals(classification)) {
+                assertEquals("UNDOABLE_WRITE", effect);
+                assertFalse(transactionEligible);
+                assertTrue(Set.of("RUNTIME_VERIFIED", "EXACT_HOST_VERIFIED").contains(undoVerification));
+                assertEquals("turboism.textures.write", row.get("endpoint"));
+                assertTrue(Set.of("add_model_image_group", "remove_model_image", "add_texture_atlas",
+                    "remove_texture_atlas", "remove_raw_image").contains(row.get("operation")));
             }
             if ("MCP_COMMAND_NON_UNDOABLE".equals(classification)) {
                 assertFalse(transactionEligible);

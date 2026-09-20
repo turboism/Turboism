@@ -59,11 +59,41 @@ final class McpTextureDomainTest {
 
         final McpVersionSupport support = tools.registration(McpTextureDomain.TEXTURES_WRITE).versionSupport();
         assertTrue(support.scoped());
-        assertEquals("dev.turboism.sdk.cubism.model.ModelTextures", support.providerCapabilityId());
+        assertEquals("cubism.editor-model.texture.write", support.providerCapabilityId());
         assertEquals(List.of("5.2.03", "5.3.02", "5.3.03"), support.supportedVersions());
         assertEquals(McpVersionSupport.UndoVerification.RUNTIME_VERIFIED,
             support.operations().get(0).undoVerification(),
             "exact-host verification is the parent's responsibility");
+    }
+
+    @Test
+    void capabilityMetadataUsesNativeCapabilityIdsAndListsEachWriteOperation() {
+        final TextureHarness harness = TextureHarness.create();
+        final McpToolCatalog tools = new McpTextureDomain(harness.facade()).tools(harness.execution());
+        assertEquals("cubism.editor-model.texture.read",
+            tools.registration(McpTextureDomain.TEXTURES_READ).versionSupport().providerCapabilityId());
+        final McpVersionSupport writes = tools.registration(McpTextureDomain.TEXTURES_WRITE).versionSupport();
+        assertEquals("cubism.editor-model.texture.write", writes.providerCapabilityId());
+        assertEquals(java.util.Set.of("add_model_image_group", "remove_model_image", "add_texture_atlas",
+                "remove_texture_atlas", "remove_raw_image"),
+            writes.operations().stream().map(McpVersionSupport.OperationSupport::operation)
+                .collect(java.util.stream.Collectors.toSet()));
+        for (McpVersionSupport.OperationSupport operation : writes.operations()) {
+            assertFalse(operation.transactionEligible());
+            assertEquals(List.of("5.2.03", "5.3.02", "5.3.03"), operation.supportedVersions());
+        }
+    }
+
+    @Test
+    void supplementaryUnicodeNameKeepsItsConfirmedWriteReceipt() {
+        final TextureHarness harness = TextureHarness.create();
+        final String name = "\uD83C\uDF19".repeat(256);
+        final Map<String, Object> output = invokeWrite(harness, Map.of(
+            "operation", "add_model_image_group", "expectedState", harness.state(), "name", name));
+        assertEquals("APPLIED", output.get("outcome"));
+        assertEquals(name, output.get("groupName"));
+        assertEquals(1, harness.addModelImageGroupCalls());
+        assertTrue(harness.groups.get().stream().anyMatch(group -> name.equals(group.groupName())));
     }
 
     @Test
@@ -528,6 +558,104 @@ final class McpTextureDomainTest {
         assertEquals(0, harness.addModelImageGroupCalls());
     }
 
+    @Test
+    void nativeFailureAfterMutationIsNeverReportedAsNotApplied() {
+        final TextureHarness harness = TextureHarness.create();
+        ((ModelStub) harness.activeModel.get()).failureAfterWrite =
+            new IllegalStateException("sensitive /private/model.cmo3");
+        final Map<String, Object> output = invokeWriteExpectingFailure(harness, Map.of(
+            "operation", "add_model_image_group", "expectedState", harness.state(), "name", "Committed"));
+        assertTrue(harness.groups.get().stream().anyMatch(group -> group.groupName().equals("Committed")));
+        assertEquals("OUTCOME_UNKNOWN", output.get("outcome"));
+        assertEquals("OUTCOME_UNKNOWN", object(output.get("error")).get("outcome"));
+        assertEquals(false, output.get("retryable"));
+        assertFalse(Json.stringify(output).contains("/private/"));
+    }
+
+    @Test
+    void failedPostStateReadDoesNotFabricateThePreWriteState() {
+        final TextureHarness harness = TextureHarness.create();
+        harness.failReadbackAfterNextWrite();
+        final Map<String, Object> output = invokeWrite(harness, Map.of(
+            "operation", "add_texture_atlas", "expectedState", harness.state(),
+            "name", "Committed", "widthPixels", 64, "heightPixels", 64));
+        assertEquals("APPLIED_WITH_READBACK_WARNING", output.get("outcome"));
+        assertEquals(null, output.get("postState"), "unobserved post-state must be null, not the expected old state");
+        assertEquals("generated-atlas-id", output.get("id"));
+    }
+
+    @Test
+    void dimensionsAcceptIntegralJsonNumbersAfterWireRoundTrip() {
+        final TextureHarness harness = TextureHarness.create();
+        final Map<String, Object> arguments = object(dev.turboism.protocol.json.StrictJson.parse(
+            dev.turboism.protocol.json.StrictJson.bytes(Map.of(
+                "operation", "add_texture_atlas", "expectedState", harness.state(),
+                "name", "Wire", "widthPixels", 64L, "heightPixels", 128L))));
+        final Map<String, Object> output = invokeWrite(harness, arguments);
+        assertEquals("APPLIED", output.get("outcome"));
+        assertEquals(1, harness.addTextureAtlasCalls());
+    }
+
+    @Test
+    void overflowingExpectedRevisionCannotWrapAroundToTheCurrentRevision() {
+        final TextureHarness harness = TextureHarness.create();
+        final Map<String, Object> state = new LinkedHashMap<>(harness.state());
+        state.put("historyRevision", new java.math.BigInteger("18446744073709551627"));
+        final Map<String, Object> output = structured(new McpTextureDomain(harness.facade()).call(
+            McpTextureDomain.TEXTURES_WRITE, Map.of("operation", "add_model_image_group",
+                "expectedState", state, "name", "Forbidden")));
+        assertFalse((Boolean) output.get("ok"));
+        assertEquals(0, harness.addModelImageGroupCalls());
+    }
+
+    @Test
+    void unavailableNativeHistoryRejectsWritesBeforeDispatch() {
+        final TextureHarness harness = TextureHarness.create();
+        harness.history.set(new CubismHistoryStub(new HistorySnapshot(
+            HistorySnapshot.Availability.UNAVAILABLE, 7L, 11L, 0, List.of(), false, false)));
+        final Map<String, Object> output = invokeWriteExpectingFailure(harness, Map.of(
+            "operation", "add_model_image_group", "expectedState", harness.state(), "name", "Forbidden"));
+        assertEquals("HISTORY_UNAVAILABLE", codeOf(output));
+        assertEquals(0, harness.addModelImageGroupCalls());
+    }
+
+    @Test
+    void permissionsFailClosedWithSchemaValidErrorAndNoSensitivePath() {
+        final TextureHarness harness = TextureHarness.create();
+        harness.activeModel.set((CubismModel) Proxy.newProxyInstance(
+            CubismModel.class.getClassLoader(), new Class<?>[] { CubismModel.class },
+            (proxy, method, arguments) -> { throw new SecurityException("/private/path.cmo3"); }));
+        final Map<String, Object> output = invokeWriteExpectingFailure(harness, Map.of(
+            "operation", "add_model_image_group", "expectedState", harness.state(), "name", "Forbidden"));
+        assertEquals("PERMISSION_DENIED", codeOf(output));
+        assertEquals("NOT_APPLIED", output.get("outcome"));
+        assertFalse(Json.stringify(output).contains("/private/"));
+    }
+
+    @Test
+    void nestedImageOverflowFailsBeforeSerializingAnUnboundedGroup() {
+        final TextureHarness harness = TextureHarness.create();
+        final List<ModelImageEntry> images = new ArrayList<>();
+        for (int index = 0; index < 1025; index++) {
+            images.add(new ModelImageEntryStub(new ModelImageId("image-" + index), "Image", 16, 16));
+        }
+        harness.groups.set(List.of(new ModelImageGroupStub("Huge", "", List.copyOf(images))));
+        final Map<String, Object> output = structured(new McpTextureDomain(harness.facade())
+            .tools(harness.execution()).call(McpTextureDomain.TEXTURES_READ, Map.of("operation", "list")));
+        assertEquals(false, output.get("ok"));
+        assertEquals("TEXTURE_LIST_OVERFLOW", output.get("code"));
+    }
+
+    @Test
+    void unknownDirectOperationCannotAcquireAnAppliedOutcome() {
+        final TextureHarness harness = TextureHarness.create();
+        final Map<String, Object> output = structured(new McpTextureDomain(harness.facade()).call(
+            McpTextureDomain.TEXTURES_WRITE,
+            Map.of("operation", "unknown", "expectedState", harness.state())));
+        assertEquals(false, output.get("ok"));
+        assertEquals("NOT_APPLIED", output.get("outcome"));
+    }
+
     // ---- helpers ------------------------------------------------------------
 
     private static Map<String, Object> invokeWrite(
@@ -842,6 +970,7 @@ final class McpTextureDomainTest {
     }
 
     private static final class ModelStub implements CubismModel, ModelTextures {
+        private RuntimeException failureAfterWrite;
         private final String modelId;
         private final String name;
         private final AtomicReference<List<RawTexture>> rawImages;
@@ -909,6 +1038,7 @@ final class McpTextureDomainTest {
             final List<ModelImageGroup> updated = new ArrayList<>(current);
             updated.add(new ModelImageGroupStub(name, "", List.of()));
             groups.set(List.copyOf(updated));
+            if (failureAfterWrite != null) throw failureAfterWrite;
         }
 
         @Override public void removeModelImage(final ModelImageId id) {

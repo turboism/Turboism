@@ -41,7 +41,7 @@ final class McpTextureDomain {
     static final String TEXTURES_READ = "turboism.textures.read";
     static final String TEXTURES_WRITE = "turboism.textures.write";
 
-    private static final String PROVIDER_CAPABILITY_ID = "dev.turboism.sdk.cubism.model.ModelTextures";
+    private static final String PROVIDER_CAPABILITY_ID = "cubism.editor-model.texture.write";
     private static final List<String> SUPPORTED_VERSIONS =
         List.of("5.2.03", "5.3.02", "5.3.03");
 
@@ -70,6 +70,7 @@ final class McpTextureDomain {
                 McpOperationEffect.READ,
                 McpExecutionAffinity.UI_THREAD,
                 false,
+                McpVersionSupport.exact("cubism.editor-model.texture.read", SUPPORTED_VERSIONS),
                 execution,
                 arguments -> call(TEXTURES_READ, arguments)
             ),
@@ -95,9 +96,19 @@ final class McpTextureDomain {
                 default -> failure("UNKNOWN_TOOL", "Unknown texture tool: " + name);
             };
         } catch (TextureWriteException rejected) {
-            output = writeFailure(rejected.code, rejected.getMessage());
+            output = rejected(name, rejected.code, rejected.getMessage());
         } catch (RuntimeException failure) {
-            output = failure("INTERNAL_FAILURE", "Texture domain rejected the request: " + failure.getMessage());
+            if (failure instanceof SecurityException
+                || failure instanceof dev.turboism.sdk.permission.CubismPermissionException) {
+                output = rejected(name, "PERMISSION_DENIED", "Texture access is not permitted");
+            } else if (failure instanceof UnsupportedOperationException
+                || failure instanceof dev.turboism.sdk.cubism.CubismEditorApiUnavailableException) {
+                output = rejected(name, "TEXTURE_PROVIDER_UNAVAILABLE", "No admitted texture provider is available");
+            } else if (failure instanceof IllegalArgumentException) {
+                output = rejected(name, "INVALID_ARGUMENT", "Texture arguments do not match the operation contract");
+            } else {
+                output = rejected(name, "READ_FAILED", "Could not inspect the active texture state before writing");
+            }
         }
         final boolean ok = Boolean.TRUE.equals(output.get("ok"));
         return envelope(output, !ok);
@@ -141,6 +152,9 @@ final class McpTextureDomain {
         } catch (RuntimeException failure) {
             return failure("HISTORY_UNAVAILABLE", "Could not read native Undo history snapshot");
         }
+        if (history.availability() != HistorySnapshot.Availability.AVAILABLE) {
+            return failure("HISTORY_UNAVAILABLE", "Native Undo history is unavailable");
+        }
         final StateSnapshot state = StateSnapshot.of(doc.documentId(), model.modelId(), history);
         final List<RawTexture> rawImages = textures.rawImages();
         final List<ModelImageGroup> groups = textures.modelImageGroups();
@@ -152,6 +166,13 @@ final class McpTextureDomain {
                 "TEXTURE_LIST_OVERFLOW",
                 "Texture projection exceeds the bounded item count of " + MAX_ITEMS
             );
+        }
+        long modelImageCount = 0;
+        for (ModelImageGroup group : groups) {
+            modelImageCount += group.modelImages().size();
+            if (modelImageCount > MAX_ITEMS) {
+                return failure("TEXTURE_LIST_OVERFLOW", "Nested model images exceed the bounded item count");
+            }
         }
         final Map<String, Object> output = new LinkedHashMap<>();
         output.put("ok", true);
@@ -250,18 +271,23 @@ final class McpTextureDomain {
         } catch (TextureWriteException rejected) {
             return writeFailure(rejected.code, rejected.getMessage());
         }
+        if (!Boolean.TRUE.equals(preview.get("ok"))) return preview;
         // The preview already carries ok=true and the receipt; only need to attach
         // the outcome/post-state. If readback fails after a successful native write,
         // the previewed identity is still valid.
         final Map<String, Object> refreshed;
         try {
-            refreshed = readCurrentSnapshot().expose();
+            final CurrentSnapshot after = readCurrentSnapshot();
+            if (!after.documentId().equals(current.documentId()) || !after.modelId().equals(current.modelId())) {
+                throw new IllegalStateException("Active model changed during readback");
+            }
+            refreshed = after.expose();
         } catch (RuntimeException failure) {
             final Map<String, Object> warning = new LinkedHashMap<>(preview);
             warning.put("outcome", "APPLIED_WITH_READBACK_WARNING");
             warning.put("retryable", false);
-            warning.put("postState", expected.expose());
-            warning.put("readbackWarning", "readback after native write failed: " + failure.getMessage());
+            warning.put("postState", null);
+            warning.put("readbackWarning", "Native write completed, but its post-state could not be read; read again before another write");
             return warning;
         }
         final Map<String, Object> ok = new LinkedHashMap<>(preview);
@@ -293,8 +319,8 @@ final class McpTextureDomain {
             current.textures().addModelImageGroup(name);
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                "NATIVE_WRITE_REJECTED",
-                "Native addModelImageGroup rejected: " + failure.getMessage()
+                nativeFailureCode(failure),
+                "Native addModelImageGroup did not complete normally; do not retry automatically"
             );
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
@@ -326,8 +352,8 @@ final class McpTextureDomain {
             current.textures().removeModelImage(new ModelImageId(resolved.id()));
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                "NATIVE_WRITE_REJECTED",
-                "Native removeModelImage rejected: " + failure.getMessage()
+                nativeFailureCode(failure),
+                "Native removeModelImage did not complete normally; do not retry automatically"
             );
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
@@ -357,8 +383,8 @@ final class McpTextureDomain {
             generatedId = current.textures().addTextureAtlas(name, widthPixels, heightPixels).value();
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                "NATIVE_WRITE_REJECTED",
-                "Native addTextureAtlas rejected: " + failure.getMessage()
+                nativeFailureCode(failure),
+                "Native addTextureAtlas did not complete normally; do not retry automatically"
             );
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
@@ -394,8 +420,8 @@ final class McpTextureDomain {
             current.textures().removeTextureAtlas(new TextureAtlasId(id));
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                "NATIVE_WRITE_REJECTED",
-                "Native removeTextureAtlas rejected: " + failure.getMessage()
+                nativeFailureCode(failure),
+                "Native removeTextureAtlas did not complete normally; do not retry automatically"
             );
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
@@ -428,8 +454,8 @@ final class McpTextureDomain {
             current.textures().removeRawImage(new RawImageId(id));
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                "NATIVE_WRITE_REJECTED",
-                "Native removeRawImage rejected: " + failure.getMessage()
+                nativeFailureCode(failure),
+                "Native removeRawImage did not complete normally; do not retry automatically"
             );
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
@@ -521,6 +547,9 @@ final class McpTextureDomain {
             );
         }
         final HistorySnapshot history = cubism.history().snapshot();
+        if (history.availability() != HistorySnapshot.Availability.AVAILABLE) {
+            throw new TextureWriteException("HISTORY_UNAVAILABLE", "Native Undo history is unavailable");
+        }
         return new CurrentSnapshot(
             document.documentId(),
             model.modelId(),
@@ -554,16 +583,33 @@ final class McpTextureDomain {
         return output;
     }
 
+    private static String nativeFailureCode(final RuntimeException failure) {
+        if (failure instanceof SecurityException
+            || failure instanceof dev.turboism.sdk.permission.CubismPermissionException) {
+            return "PERMISSION_DENIED";
+        }
+        if (failure instanceof dev.turboism.sdk.cubism.CubismEditorApiUnavailableException) {
+            return "TEXTURE_PROVIDER_UNAVAILABLE";
+        }
+        // The SDK's untyped native exception cannot prove whether the mutation was rolled back.
+        return "NATIVE_WRITE_FAILED";
+    }
+
+    private static Map<String, Object> rejected(final String name, final String code, final String message) {
+        return TEXTURES_WRITE.equals(name) ? writeFailure(code, message) : failure(code, message);
+    }
+
     private static Map<String, Object> writeFailure(final String code, final String message) {
+        final String outcome = "NATIVE_WRITE_FAILED".equals(code) ? "OUTCOME_UNKNOWN" : "NOT_APPLIED";
         final Map<String, Object> output = new LinkedHashMap<>();
         output.put("ok", false);
         output.put("operation", "write");
-        output.put("outcome", "NOT_APPLIED");
+        output.put("outcome", outcome);
         output.put("retryable", false);
         output.put("error", linked(
             entry("code", code),
             entry("message", message),
-            entry("outcome", "NOT_APPLIED"),
+            entry("outcome", outcome),
             entry("retryable", false)
         ));
         return output;
@@ -598,7 +644,7 @@ final class McpTextureDomain {
         if (!(value instanceof String text)) {
             throw new TextureWriteException("INVALID_ARGUMENT", label + " must be a string");
         }
-        if (text.length() > maxLength) {
+        if (text.codePointCount(0, text.length()) > maxLength) {
             throw new TextureWriteException(
                 "INVALID_ARGUMENT",
                 label + " exceeds the bounded length of " + maxLength
@@ -615,16 +661,27 @@ final class McpTextureDomain {
 
     private static int boundedDimension(final Map<String, Object> values, final String key) {
         final Object value = values.get(key);
-        if (!(value instanceof Integer integer)) {
-            throw new TextureWriteException("INVALID_ARGUMENT", key + " must be an integer");
-        }
+        final long integer = exactNonNegativeLong(value, key);
         if (integer <= 0 || integer > MAX_DIMENSION) {
             throw new TextureWriteException(
                 "INVALID_ARGUMENT",
                 key + " must be between 1 and " + MAX_DIMENSION + " inclusive"
             );
         }
-        return integer;
+        return (int) integer;
+    }
+
+    private static long exactNonNegativeLong(final Object raw, final String label) {
+        if (!(raw instanceof Number number)) {
+            throw new TextureWriteException("INVALID_ARGUMENT", label + " must be an integer");
+        }
+        try {
+            final long value = new java.math.BigDecimal(number.toString()).longValueExact();
+            if (value < 0) throw new ArithmeticException("negative");
+            return value;
+        } catch (NumberFormatException | ArithmeticException invalid) {
+            throw new TextureWriteException("INVALID_ARGUMENT", label + " must be an exact nonnegative 64-bit integer");
+        }
     }
 
     // ---- linked-map helpers -------------------------------------------------
@@ -651,9 +708,10 @@ final class McpTextureDomain {
             entry(
                 "description",
                 "Returns path-free rawImages, modelImageGroups, and textureAtlases "
-                    + "metadata for the active model, together with a fresh stateToken "
-                    + "(documentId/modelId/historyGeneration/historyRevision) for use as "
-                    + "the expectedState of a subsequent turboism.textures.write."
+                    + "metadata for the active model. Pass the returned state object "
+                    + "(documentId/modelId/historyGeneration/historyRevision) as "
+                    + "expectedState on turboism.textures.write. stateToken is only a "
+                    + "read-correlation ID, not a write authorization token."
             ),
             entry("inputSchema", linked(
                 entry("type", "object"),
@@ -703,14 +761,17 @@ final class McpTextureDomain {
         return McpVersionSupport.exact(
             PROVIDER_CAPABILITY_ID,
             SUPPORTED_VERSIONS,
-            List.of(McpVersionSupport.OperationSupport.available(
-                "turboism.textures.write",
-                McpOperationEffect.UNDOABLE_WRITE,
-                false,
-                McpVersionSupport.UndoVerification.RUNTIME_VERIFIED,
-                SUPPORTED_VERSIONS,
-                "Standalone native-Undo write; transaction grouping not yet proven, so transactionEligible=false."
-            ))
+            List.of(OP_ADD_MODEL_IMAGE_GROUP, OP_REMOVE_MODEL_IMAGE, OP_ADD_TEXTURE_ATLAS,
+                    OP_REMOVE_TEXTURE_ATLAS, OP_REMOVE_RAW_IMAGE).stream()
+                .map(operation -> McpVersionSupport.OperationSupport.available(
+                    operation,
+                    McpOperationEffect.UNDOABLE_WRITE,
+                    false,
+                    McpVersionSupport.UndoVerification.RUNTIME_VERIFIED,
+                    SUPPORTED_VERSIONS,
+                    "Standalone native-Undo adapter with runtime regressions; exact-host readiness "
+                        + "is tracked separately. No grouped authoring transaction support."
+                )).toList()
         );
     }
 
@@ -883,7 +944,7 @@ final class McpTextureDomain {
             )),
             entry("outcome", linked(entry("type", "string"), entry("const", "APPLIED_WITH_READBACK_WARNING"))),
             entry("retryable", linked(entry("type", "boolean"), entry("const", false))),
-            entry("postState", stateSchema()),
+            entry("postState", linked(entry("type", "null"))),
             entry("readbackWarning", linked(entry("type", "string"), entry("minLength", 1))),
             entry("diagnosticId", linked(entry("type", "string"), entry("minLength", 1))),
             entry("groupName", stringField),
@@ -1062,8 +1123,8 @@ final class McpTextureDomain {
             if (!(generationValue instanceof Number) || !(revisionValue instanceof Number)) {
                 throw new IllegalArgumentException("expectedState generation/revision must be numeric");
             }
-            final long generation = ((Number) generationValue).longValue();
-            final long revision = ((Number) revisionValue).longValue();
+            final long generation = exactNonNegativeLong(generationValue, "historyGeneration");
+            final long revision = exactNonNegativeLong(revisionValue, "historyRevision");
             if (generation < 0 || revision < 0) {
                 throw new IllegalArgumentException("expectedState generation/revision must not be negative");
             }
