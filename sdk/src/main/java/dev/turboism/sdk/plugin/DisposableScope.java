@@ -51,6 +51,7 @@ public final class DisposableScope implements AutoCloseable {
         };
     }
 
+    /** Closes every claimed entry before rethrowing failures; fatal errors remain the primary cause. */
     @Override
     public void close() throws Exception {
         List<Entry> toClose;
@@ -62,7 +63,7 @@ public final class DisposableScope implements AutoCloseable {
             toClose = new ArrayList<>(closeables);
             closeables.clear();
         }
-        Exception first = null;
+        Throwable first = null;
         for (int i = toClose.size() - 1; i >= 0; i--) {
             Entry entry = toClose.get(i);
             if (!entry.claim()) {
@@ -70,17 +71,27 @@ public final class DisposableScope implements AutoCloseable {
             }
             try {
                 entry.closeable.close();
-            } catch (Exception e) {
+            } catch (Throwable failure) {
                 if (first == null) {
-                    first = e;
-                } else {
-                    first.addSuppressed(e);
+                    first = failure;
+                } else if (first != failure) {
+                    if (failurePriority(failure) > failurePriority(first)) {
+                        failure.addSuppressed(first);
+                        first = failure;
+                    } else {
+                        first.addSuppressed(failure);
+                    }
                 }
             }
         }
-        if (first != null) {
-            throw first;
-        }
+        if (first instanceof Error fatal) throw fatal;
+        if (first instanceof Exception exception) throw exception;
+        if (first != null) throw new IllegalStateException("Scope cleanup failed", first);
+    }
+
+    private static int failurePriority(final Throwable failure) {
+        if (failure instanceof VirtualMachineError || failure instanceof ThreadDeath) return 2;
+        return failure instanceof Error ? 1 : 0;
     }
 
     private static void closeSafely(AutoCloseable closeable) {

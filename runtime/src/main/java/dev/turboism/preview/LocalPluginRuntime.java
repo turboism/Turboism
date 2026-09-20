@@ -55,6 +55,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
 
     public LocalPluginRuntime(
         final Path home,
@@ -362,35 +363,44 @@ public final class LocalPluginRuntime implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (!closed.compareAndSet(false, true)) {
-            return;
+        // Stop admission immediately, but do not confuse it with completed cleanup.
+        closed.set(true);
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Local plugin runtime cleanup failed",
+                () -> {
+                    // The shell was admitted last, so it leaves first.
+                    if (coreShell != null) {
+                        coreShell.close();
+                        coreShell = null;
+                    }
+                },
+                () -> {
+                    closedSummaries = PreviewPluginSummaryFactory.sorted(shutdown.closeAll(loaded));
+                    loaded.clear();
+                },
+                updateService::close,
+                this::closeJvmSettings,
+                contextFactory::close,
+                editorLifecycleEvents::close,
+                projectFileLifecycle::close,
+                editorObjectLifecycle::close,
+                partLifecycle::close,
+                parameterLifecycle::close,
+                this::closeHostReadLane
+            );
         }
-        final List<LoadedPluginSummary> summaries = new ArrayList<>();
-        try {
-            // The shell was admitted after every external plugin, so it leaves first.
-            if (coreShell != null) {
-                coreShell.close();
-                coreShell = null;
+        cleanup.close();
+    }
+
+    private void closeJvmSettings() throws Exception {
+        if (cubismJvmSettings instanceof AutoCloseable closeable) {
+            try {
+                closeable.close();
+            } catch (Exception | Error failure) {
+                shutdown.tryLogStableFailure("runtime", "GRAAL_RUNTIME_CLOSE_FAILED");
+                throw failure;
             }
-            summaries.addAll(shutdown.closeAll(loaded));
-        } finally {
-            updateService.close();
-            if (cubismJvmSettings instanceof AutoCloseable closeable) {
-                try {
-                    closeable.close();
-                } catch (Exception failure) {
-                    shutdown.tryLogStableFailure("runtime", "GRAAL_RUNTIME_CLOSE_FAILED");
-                }
-            }
-            contextFactory.close();
-            editorLifecycleEvents.close();
-            projectFileLifecycle.close();
-            editorObjectLifecycle.close();
-            partLifecycle.close();
-            parameterLifecycle.close();
-            closeHostReadLane();
-            closedSummaries = PreviewPluginSummaryFactory.sorted(summaries);
-            loaded.clear();
         }
     }
 
@@ -412,8 +422,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private void closeHostReadLane() {
         try {
             hostReadLane.close();
-        } catch (Throwable failure) {
+        } catch (RuntimeException | Error failure) {
             shutdown.tryLogStableFailure("runtime", "HOST_READ_LANE_CLOSE_FAILED");
+            throw failure;
         }
     }
 
