@@ -66,10 +66,22 @@ class ValidationFailure(RuntimeError):
     pass
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str,
+                         headers: Any, newurl: str) -> None:
+        raise ValidationFailure("MCP validation must not follow HTTP redirects")
+
+
 class McpClient:
     def __init__(self, endpoint: str, advertised_version: str) -> None:
-        if not endpoint.startswith("http://127.0.0.1:") or not endpoint.endswith("/mcp"):
+        parsed = urllib.parse.urlsplit(endpoint)
+        if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1"
+                or parsed.username is not None or parsed.password is not None
+                or parsed.path != "/mcp" or parsed.query or parsed.fragment
+                or parsed.port is None or not 1 <= parsed.port <= 65535):
             raise ValidationFailure("connection endpoint is not numeric loopback /mcp")
+        # Never send local model data through an inherited HTTP proxy or redirect.
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         if advertised_version != PROTOCOL_VERSION:
             raise ValidationFailure("connection protocol version is unexpected")
         self.endpoint = endpoint
@@ -123,7 +135,7 @@ class McpClient:
         request = urllib.request.Request(self.endpoint, method="DELETE")
         request.add_header("MCP-Session-Id", self.session_id)
         try:
-            with urllib.request.urlopen(request, timeout=15) as response:
+            with self.opener.open(request, timeout=15) as response:
                 require(response.status == 200, f"DELETE session HTTP status={response.status}")
         except urllib.error.HTTPError as failure:
             raise ValidationFailure(f"DELETE session HTTP status={failure.code}") from failure
@@ -154,7 +166,7 @@ class McpClient:
         if include_session and self.session_id is not None:
             request.add_header("MCP-Session-Id", self.session_id)
         try:
-            with urllib.request.urlopen(request, timeout=45) as response:
+            with self.opener.open(request, timeout=45) as response:
                 return response.status, lower_headers(response.headers.items()), response.read()
         except urllib.error.HTTPError as failure:
             return failure.code, lower_headers(failure.headers.items()), failure.read()
@@ -1017,6 +1029,20 @@ def main() -> int:
         assert_no_absolute_paths(model_textures)
         report.append("assertion.modelTextures.status=PASS")
 
+        parameters = await_resource(
+            client, "turboism://active/model/parameters",
+            lambda value: isinstance(value.get("parameters"), list) and bool(value.get("parameters")),
+            "active model parameters",
+        )
+        parameter_values = array_value(parameters.get("parameters"), "parameters")
+        rejected_count = validate_audit_input_guards(client, parameter_values)
+        report.append(f"auditRejectedRequestCount={rejected_count}")
+        report.append("assertion.auditPreflightNoMutation.status=PASS")
+        inversion = validate_reversible_binding_inversion(client, parameter_values)
+        mutations.append(inversion)
+        report.append("assertion.explicitBindingScope.status=PASS")
+        report.append("assertion.bindingUndoRedoRestoration.status=PASS")
+
         glue_mutation, glue_version = validate_reversible_glue_authoring(client, task_id)
         mutations.append(glue_mutation)
         report.append(f"glueProviderVersion={sanitize(glue_version)}")
@@ -1117,6 +1143,95 @@ def main() -> int:
     return 0 if status == "PASS" else 1
 
 
+def validate_audit_input_guards(client: McpClient, parameters: list[Any]) -> int:
+    parameter = object_value(parameters[0], "guard parameter")
+    parameter_id = text_value(parameter.get("id"), "guard parameter id")
+    original = finite_number(parameter.get("value"), "guard original value")
+    minimum = finite_number(parameter.get("minimumValue"), "guard minimum")
+    maximum = finite_number(parameter.get("maximumValue"), "guard maximum")
+    candidate = minimum if not math.isclose(original, minimum) else maximum
+    operation = {"operation": "set_value", "parameterId": parameter_id, "value": candidate}
+    parameter_uri = "turboism://active/model/parameters/" + urllib.parse.quote(parameter_id, safe="")
+    initial_history = history_snapshot(client)
+    hierarchy = resource_json(client, "turboism://active/model/hierarchy")
+    count = 0
+    invalid_calls = [
+        ("turboism.parameters.apply", {"operations": [operation, 7]}),
+        ("turboism.parameters.apply", {"operations": []}),
+        ("turboism.parameter_bindings.apply", {"operations": []}),
+        ("turboism.parameter_bindings.apply", {"operations": [{
+            "operation": "invert", "parameterId": "McpMissingParameter",
+            "targets": [{"type": "art_mesh", "id": "McpMissingTarget"}]}]}),
+        ("turboism.parameter_bindings.apply", {"operations": [{
+            "operation": "unbind", "parameterId": parameter_id,
+            "target": {"type": "art_mesh", "id": "McpMissingTarget"}}, 7]}),
+        ("turboism.model_objects.apply", {"operations": [{
+            "operation": "create", "kind": "part", "name": "McpMustNotBeCreated"}, 7]}),
+    ]
+    for name, arguments in invalid_calls:
+        error = rpc_error(client, "tools/call", {"name": name, "arguments": arguments})
+        require(error.get("code") == -32602, "malformed MCP arguments were not rejected")
+        count += 1
+    for invalid_id in (None, [], {}, True, 1.5):
+        status, _, body = client._post({"jsonrpc": "2.0", "id": invalid_id,
+            "method": "tools/call", "params": {"name": "turboism.parameters.apply",
+                "arguments": {"operations": [operation]}}})
+        response = object_value(json.loads(body), "invalid-id response")
+        require(status == 200 and object_value(response.get("error"), "invalid-id error").get("code") == -32600,
+                "invalid RPC ID was not rejected before dispatch")
+        count += 1
+    require_history_unchanged(initial_history, history_snapshot(client), "invalid requests changed history")
+    require(resource_json(client, "turboism://active/model/hierarchy") == hierarchy,
+            "invalid requests changed the model hierarchy")
+    require(math.isclose(finite_number(resource_json(client, parameter_uri).get("value"), "guard value"),
+                         original, rel_tol=0.0, abs_tol=1.0e-6), "invalid requests changed a parameter")
+    return count
+
+
+def validate_reversible_binding_inversion(client: McpClient, parameters: list[Any]) -> str:
+    normal_ids = {item["id"] for item in parameters if item.get("type") == "normal"}
+    uri = "turboism://active/model/parameter-bindings"
+    before = resource_json(client, uri)
+    bindings = [binding for group in array_value(before.get("parameterBindings"), "binding groups")
+                for binding in array_value(group.get("bindings"), "bindings")
+                if group.get("parameterId") in normal_ids and binding.get("family") == "keyform_grid"]
+    candidate = next((binding for binding in bindings if len(binding.get("points", [])) > 1), None)
+    require(candidate is not None, "fixture has no invertible normal keyform binding")
+    target = object_value(candidate.get("target"), "inversion target")
+    affected = {binding["parameterId"] for binding in bindings if binding.get("target") == target}
+    history_before = history_snapshot(client)
+    position = integer_value(history_before.get("position"), "inversion initial position")
+    restored = False
+    try:
+        output = tool_call(client, "turboism.parameter_bindings.apply", {"operations": [{
+            "operation": "invert_all_bindings", "scope": "all_target_bindings", "targets": [target]}]})
+        item = object_value(array_value(output.get("results"), "inversion results")[0], "inversion receipt")
+        receipt = object_value(item.get("result"), "inversion write result")
+        require(item.get("ok") is True and receipt.get("outcome") == "APPLIED"
+                and receipt.get("retryable") is False, "inversion receipt is not confirmed")
+        require(receipt.get("scope") == "all_target_bindings"
+                and set(receipt.get("affectedParameterIds", [])) == affected,
+                "inversion receipt does not identify the complete affected scope")
+        require({binding["parameterId"] for binding in receipt.get("affectedBindings", [])} == affected,
+                "inversion readback omits affected parameter bindings")
+        changed = history_snapshot(client)
+        require(integer_value(changed.get("position"), "inversion changed position") == position + 1,
+                "inversion did not produce exactly one native Undo entry")
+        for tool, undo in (("turboism.history.undo", True), ("turboism.history.redo", False),
+                           ("turboism.history.undo", True)):
+            moved = tool_call(client, tool, history_guard_arguments(history_snapshot(client), undo=undo))
+            require(moved.get("outcome") == "MOVED", "binding history movement failed")
+        require(resource_json(client, uri) == before, "binding metadata did not restore after final Undo")
+        require(history_snapshot(client).get("position") == position, "binding history position did not restore")
+        restored = True
+        return "ALL_BINDINGS_CHANGED_UNDONE_REDONE_AND_RESTORED"
+    finally:
+        if not restored:
+            current = history_snapshot(client)
+            if current.get("position") == position + 1:
+                tool_call(client, "turboism.history.undo", history_guard_arguments(current, undo=True))
+
+
 def validate_reversible_parameter_write(
     client: McpClient,
     parameters: list[Any],
@@ -1162,6 +1277,10 @@ def validate_reversible_parameter_write(
             "stopOnError": True,
         })
         require(changed.get("ok") is True, "parameter mutation batch failed")
+        receipt = object_value(array_value(changed.get("results"), "parameter results")[0], "parameter receipt")
+        write = object_value(receipt.get("result"), "parameter write result")
+        require(receipt.get("ok") is True and write.get("outcome") == "APPLIED"
+                and write.get("retryable") is False, "parameter confirmed receipt is incomplete")
         changed_state = resource_json(client, resource_uri)
         changed_value = finite_number(changed_state.get("value"), "changed parameter.value")
         require(
@@ -1185,8 +1304,18 @@ def validate_reversible_parameter_write(
             math.isclose(restored_value, original, rel_tol=0.0, abs_tol=1.0e-5),
             "history cleanup value was not visible on resource readback",
         )
+        redone = tool_call(client, "turboism.history.redo",
+                           history_guard_arguments(history_snapshot(client), undo=False))
+        require(redone.get("outcome") == "MOVED", "parameter Redo did not move")
+        require(math.isclose(finite_number(resource_json(client, resource_uri).get("value"), "redo value"),
+                             mutation_value, rel_tol=0.0, abs_tol=1.0e-5), "parameter Redo value mismatch")
+        final_undo = tool_call(client, "turboism.history.undo",
+                              history_guard_arguments(history_snapshot(client), undo=True))
+        require(final_undo.get("outcome") == "MOVED", "parameter final Undo did not move")
+        require(math.isclose(finite_number(resource_json(client, resource_uri).get("value"), "final value"),
+                             original, rel_tol=0.0, abs_tol=1.0e-5), "parameter final restoration mismatch")
         restored = True
-        return "PARAMETER_CHANGED_AND_UNDONE"
+        return "PARAMETER_CHANGED_UNDONE_REDONE_AND_RESTORED"
     except Exception as failure:
         primary_failure = failure
         raise

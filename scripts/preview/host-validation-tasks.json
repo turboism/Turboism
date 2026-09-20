@@ -20,6 +20,13 @@
     }
   },
   "tasks": {
+    "mcp": {
+      "description": "Production MCP HTTP discovery, guarded writes, transactions and restoration with a pinned stdlib client.",
+      "command": "scripts/preview/run-mcp-host-validation.sh",
+      "versions": ["5203", "5302", "5303"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
     "atlas": {
       "description": "Fixed single-invocation current-page Geometry validation; final 2500 explicitly authorized after preliminary PASS.",
       "command": "scripts/preview/run-atlas-host-validation.sh",

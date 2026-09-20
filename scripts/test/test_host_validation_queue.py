@@ -441,6 +441,67 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "background/args-only"):
             self.prepared.capture({**self.request, "argv": ["--remote-pre-launch", str(fps)]}, self.source, "fps:5302")
 
+    def mcp_request(self):
+        client = self.preview / "mcp-host-validation-client.py"
+        client.write_text("# reviewed stdlib-client fixture, never executed\n")
+        return {"schemaVersion": 1, "environment": {}, "argv": [
+            "--name", "mcp", "--version", "5302", "--agent", str(self.input),
+            "--client-script", str(client) + ":mcp-host-validation-client.py",
+            "--client-python", str(Path(sys.executable).resolve()),
+            "--result-file", "state/mcp-host-validation.properties",
+            "--require-fixture-unchanged"]}
+
+    def test_mcp_client_snapshot_and_pinned_interpreter(self):
+        request = self.mcp_request()
+        descriptor = self.prepared.capture(request, self.source, "mcp:5302")
+        dependency = next(item for item in descriptor["hostDependencies"]
+                          if item["option"] == "mcp-client-python")
+        self.assertEqual(str(Path(sys.executable).resolve()), dependency["path"])
+        command = self.prepared.command(descriptor["digest"], self.base / "evidence")
+        frozen = Path(command[command.index("--client-script") + 1].split(":", 1)[0])
+        (self.preview / "mcp-host-validation-client.py").unlink()
+        self.assertTrue(frozen.read_text().startswith("# reviewed stdlib-client"))
+        self.assertEqual(descriptor, self.prepared.load(descriptor["digest"]))
+        self.assertEqual([], self.store.jobs())
+
+    def test_mcp_missing_duplicate_substituted_or_cross_task_inputs_are_rejected(self):
+        original = self.mcp_request()["argv"]
+        cases = []
+        for flag in ("--client-python", "--client-script", "--result-file"):
+            index = original.index(flag)
+            cases.append(original[:index] + original[index + 2:])
+            cases.append(original + original[index:index + 2])
+        cases.extend([
+            original + ["--remote-post-launch", str(self.input)],
+            original + ["--focus-editor-window"],
+            original + ["--version", "5203"],
+            [item for item in original if item != "--require-fixture-unchanged"],
+        ])
+        for flag, value in (("--client-python", str(self.input)),
+                            ("--client-script", str(self.input) + ":mcp-host-validation-client.py"),
+                            ("--client-script", str(self.preview / "mcp-host-validation-client.py") + ":other.py")):
+            changed = original.copy()
+            changed[changed.index(flag) + 1] = value
+            cases.append(changed)
+        for argv in cases:
+            with self.subTest(argv=argv), self.assertRaises(queue.QueueError):
+                self.prepared.capture({"schemaVersion": 1, "argv": argv}, self.source, "mcp:5302")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({"schemaVersion": 1, "argv": original}, self.source, "other:5302")
+        self.assertEqual([], list((self.store.root / "prepared").iterdir()))
+
+    def test_mcp_interpreter_drift_blocks_before_execution(self):
+        request = self.mcp_request()
+        interpreter = self.base / "test-python"
+        interpreter.write_bytes(b"synthetic interpreter, never executed")
+        interpreter.chmod(0o700)
+        request["argv"][request["argv"].index("--client-python") + 1] = str(interpreter)
+        with mock.patch.object(sys, "executable", str(interpreter)):
+            descriptor = self.prepared.capture(request, self.source, "mcp:5302")
+        interpreter.write_bytes(b"changed interpreter")
+        with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
+            self.prepared.command(descriptor["digest"], self.base / "evidence")
+
     def memory_request(self):
         directory = self.source / "scripts/test"
         directory.mkdir(exist_ok=True)

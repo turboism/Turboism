@@ -392,7 +392,7 @@ INPUT_FLAGS = frozenset({"--bundle-root", "--agent", "--home-config", "--fixture
     "--remote-pre-cleanup"})
 COMPOSITE_FLAGS = frozenset({"--plugin", "--aux-agent", "--home-file", "--home-dir", "--client-script"})
 BOOLEAN_FLAGS = frozenset({"--require-fixture-unchanged", "--keep-prefix",
-    "--remote-pre-launch-background", "--remote-pre-launch-args-only"})
+    "--remote-pre-launch-background", "--remote-pre-launch-args-only", "--focus-editor-window"})
 VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-name",
     "--result-marker", "--result-file", "--result-pass-line", "--result-fail-line",
     "--ready-marker", "--failure-marker", "--trigger", "--jvm-option", "--windows-env",
@@ -400,7 +400,7 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
     "--proton-wrapper", "--proton-runner", "--local-evidence-dir", "--transport",
-    "--remote-pre-launch-arg", "--aux-agent-before-main"})
+    "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python"})
 
 # Reviewed pre-launch hook inventory: hook file name -> (protocol flags the
 # invocation must carry, error description). Each entry is an explicit review of
@@ -565,6 +565,48 @@ def memory_observer_dependency(argv: list[str], source_root: Path, task_spec: st
             "sha256": runtime_digest(interpreter)}
 
 
+def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) -> dict[str, str] | None:
+    """Admit only the reviewed MCP stdlib client, never arbitrary client scripts."""
+    options: dict[str, list[str]] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag in BOOLEAN_FLAGS:
+            options.setdefault(flag, []).append("")
+            index += 1
+        elif flag in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS and index + 1 < len(argv):
+            options.setdefault(flag, []).append(argv[index + 1])
+            index += 2
+        else:
+            raise QueueError(f"unsupported normalized runner option: {flag}")
+    if not any(flag in options for flag in ("--client-script", "--client-python")):
+        if not task_spec.startswith("mcp:") and options.get("--name") != ["mcp"]:
+            return None
+    versions = options.get("--version", [])
+    if (options.get("--name") != ["mcp"] or len(versions) != 1
+            or versions[0] not in {"5203", "5302", "5303"}
+            or task_spec not in {"direct-runner", "mcp:" + versions[0]}):
+        raise QueueError("custom client requires reviewed dependency inventory for the exact MCP task")
+    client = source_root / "scripts/preview/mcp-host-validation-client.py"
+    expected = {
+        "--client-script": [str(client) + ":mcp-host-validation-client.py"],
+        "--result-file": ["state/mcp-host-validation.properties"],
+        "--require-fixture-unchanged": [""],
+    }
+    if any(options.get(flag) != values for flag, values in expected.items()):
+        raise QueueError("MCP client requires exact unshadowed dependency inventory and result protocol")
+    if any(flag in options for flag in ("--remote-pre-launch", "--remote-post-launch",
+            "--remote-pre-cleanup", "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+            "--focus-editor-window")):
+        raise QueueError("MCP client dependency inventory cannot include extra hooks or desktop focus control")
+    interpreter = Path(sys.executable).resolve(strict=True)
+    if (options.get("--client-python") != [str(interpreter)]
+            or not interpreter.is_file() or not os.access(interpreter, os.X_OK)):
+        raise QueueError("MCP client requires the preparing Python interpreter")
+    return {"option": "mcp-client-python", "path": str(interpreter),
+            "sha256": runtime_digest(interpreter)}
+
+
 class PreparedStore:
     def __init__(self, store: Store):
         self.store = store
@@ -589,6 +631,7 @@ class PreparedStore:
             raise QueueError("normalized runner must express all configuration as argv")
         source_root = source_root.resolve(strict=True)
         memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
+        mcp_dependency = mcp_client_dependency(argv, source_root, task_spec)
         if self.store.production and "--host-root" in argv:
             from host_validation_retention import check_space
             check_space(self.store.root, (Path(argv[argv.index("--host-root") + 1]),))
@@ -610,7 +653,9 @@ class PreparedStore:
                     raise QueueError(f"missing canonical runner/helper: {required}")
             rendered: list[str] = []
             source_inputs: list[dict[str, Any]] = []
-            host_dependencies: list[dict[str, str]] = [memory_dependency] if memory_dependency else []
+            host_dependencies: list[dict[str, str]] = [
+                item for item in (memory_dependency, mcp_dependency) if item is not None
+            ]
             index = 0
             while index < len(argv):
                 flag = argv[index]
@@ -624,7 +669,7 @@ class PreparedStore:
                 index += 2
                 if flag == "--transport" and value != "local":
                     raise QueueError("only local host execution is supported")
-                if flag == "--client-script":
+                if flag == "--client-script" and mcp_dependency is None:
                     raise QueueError("custom client requires reviewed dependency inventory")
                 if flag in {"--proton-wrapper", "--proton-runner"}:
                     dependency = Path(value)

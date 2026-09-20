@@ -5,6 +5,25 @@ loopback Streamable HTTP connection file. The external client writes redacted ev
 task-scoped Turboism home, deletes its MCP session, and never runs against the golden Proton prefix
 directly.
 
+## Managed local execution
+
+Build `previewBundle` and `:plugins:mcp:jar`, then run `validation/mcp-host-probe/build.sh`
+and `scripts/preview/package-windows-mcp-validation.sh`. Use the existing ignored `.env`
+fixture and exact-host settings, or set `TURBOISM_ENV_FILE` explicitly for an isolated worktree.
+
+```bash
+python3 scripts/preview/host_validation.py plan mcp:5302
+python3 scripts/preview/host_validation.py prepare mcp:5302 --run-label mcp-audit
+python3 scripts/preview/host_validation.py submit --prepared PREPARED_ID --request-id UNIQUE_REQUEST --json
+python3 scripts/preview/host_validation.py wait JOB_ID
+```
+
+Substitute returned IDs. Versions `5203`, `5302`, and `5303` share the same single host slot.
+The queue freezes the canonical stdlib client and pins the preparing Python executable;
+Runner executes the copied client with `-I`, without inherited proxies or redirects.
+Arbitrary custom client scripts and extra hooks remain rejected. Preparation and wrapper
+`--dry-run` do not launch Cubism and are not a readiness verdict.
+
 ## Public protocol assertions
 
 The raw stdlib HTTP client requires the exact public catalog introduced by the MCP read/write and
@@ -45,6 +64,17 @@ client then proves, through the public MCP transport only:
 
 If any stage fails, the client attempts direct field-by-field restoration on the task-local model
 copy and reports both the primary and cleanup failure classes without persisting connection data.
+
+## Audited adapter regressions
+
+The client additionally rejects eleven malformed batch / legacy inversion / JSON-RPC ID
+requests through the real HTTP transport, then verifies unchanged native history, hierarchy
+and parameter state. It executes the explicitly scoped `invert_all_bindings` operation on a
+normal keyform-bound target, checks its complete affected-parameter receipt, and performs
+native Undo / Redo / final Undo with metadata and history-position restoration. These checks
+verify the MCP scope/receipt and native history contracts, not visual keyform-pose geometry.
+The parameter value matrix also checks confirmed non-retryable receipts and Undo/Redo/restore.
+Injected readback failures remain deterministic unit-test evidence, not fabricated host faults.
 
 ## Other validation
 
