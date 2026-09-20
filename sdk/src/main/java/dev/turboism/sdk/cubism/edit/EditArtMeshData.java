@@ -4,14 +4,15 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
-import dev.turboism.sdk.cubism.model.Point2;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * Read payload of an {@link EditObjectKind#ART_MESH} object, matching the official
- * {@code ArtMesh} data block of {@code GetObject}, including mesh geometry.
+ * {@code ArtMesh} data block of {@code GetObject} (external API 1.1.0). The official
+ * block reports the mesh's {@code Vertices} as a vertex <em>count</em> — it does not
+ * return UVs, triangles, or per-vertex coordinates.
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditArtMeshData(
@@ -28,9 +29,7 @@ public record EditArtMeshData(
         EditAlphaBlend alphaBlend,
         boolean culling,
         EditLabelColor labelColor,
-        List<Point2> vertices,
-        List<Point2> uvs,
-        List<EditTriangle> triangles)
+        int vertexCount)
         implements EditObjectData {
 
     public EditArtMeshData {
@@ -46,9 +45,9 @@ public record EditArtMeshData(
         Objects.requireNonNull(colorBlend, "colorBlend");
         Objects.requireNonNull(alphaBlend, "alphaBlend");
         Objects.requireNonNull(labelColor, "labelColor");
-        vertices = List.copyOf(Objects.requireNonNull(vertices, "vertices"));
-        uvs = List.copyOf(Objects.requireNonNull(uvs, "uvs"));
-        triangles = List.copyOf(Objects.requireNonNull(triangles, "triangles"));
+        if (vertexCount < 0) {
+            throw new IllegalArgumentException("vertexCount must be non-negative");
+        }
     }
 
     @Override

@@ -4,13 +4,13 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * Read payload of a {@link EditObjectKind#ROTATION_DEFORMER} object, matching the official
- * {@code RotationDeformer} data block of {@code GetObject}.
+ * {@code RotationDeformer} data block of {@code GetObject} (external API 1.1.0). The official
+ * block reports a single {@code Position{X,Y}} pivot — it does not return a vertex list.
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditRotationDeformerData(
@@ -24,7 +24,7 @@ public record EditRotationDeformerData(
         Optional<String> multiplyColor,
         Optional<String> screenColor,
         EditLabelColor labelColor,
-        List<Point2> vertices)
+        Point2 position)
         implements EditObjectData {
 
     public EditRotationDeformerData {
@@ -40,7 +40,7 @@ public record EditRotationDeformerData(
         Objects.requireNonNull(multiplyColor, "multiplyColor");
         Objects.requireNonNull(screenColor, "screenColor");
         Objects.requireNonNull(labelColor, "labelColor");
-        vertices = List.copyOf(Objects.requireNonNull(vertices, "vertices"));
+        Objects.requireNonNull(position, "position");
     }
 
     @Override

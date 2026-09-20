@@ -107,12 +107,65 @@ final class EditOpsContractTest {
             () -> new EditLabelColor(EditLabelColorType.CUSTOM, Optional.empty()));
         assertThrows(IllegalArgumentException.class,
             () -> new EditLabelColor(EditLabelColorType.RED, Optional.of("#fff")));
-        assertThrows(IllegalArgumentException.class, () -> new EditRectangle(List.of()));
-        assertThrows(IllegalArgumentException.class, () -> new EditTriangle(-1, 0, 0));
+        assertThrows(NullPointerException.class, () -> new EditRectangle(null, p(), p(), p()));
+        assertThrows(NullPointerException.class, () -> new EditRectangle(p(), p(), p(), null));
+        assertThrows(IllegalArgumentException.class, () -> new EditArtMeshData(
+            "m", Optional.empty(), Optional.empty(), List.of(), false, 0, 0.5,
+            Optional.empty(), Optional.empty(), EditColorBlend.NORMAL, EditAlphaBlend.OVER,
+            false, EditLabelColor.of(EditLabelColorType.UNDEFINED), -1));
         assertThrows(IllegalArgumentException.class, () -> new ParameterStructureOps.MoveParameter(
             new dev.turboism.sdk.cubism.id.ParameterId("p"),
             new dev.turboism.sdk.cubism.id.ParameterGroupId("g"),
             Optional.of(-1)));
+    }
+
+    /**
+     * The {@code GetObject} payload records match the official 1.1.0 data blocks exactly:
+     * {@code Vertices} is a count, {@code RotationDeformer} carries one {@code Position},
+     * {@code WarpDeformer} carries one {@code Rectangle}, and no invented geometry members
+     * (uvs / triangles / vertex lists / rectangle lists) leak into the surface.
+     */
+    @Test
+    void objectPayloadsMatchTheOfficialDataBlocks() {
+        assertRecordComponents(EditArtMeshData.class,
+            "clippingIds", List.class, "vertexCount", int.class);
+        assertRecordComponents(EditRotationDeformerData.class,
+            "position", dev.turboism.sdk.cubism.model.Point2.class);
+        assertRecordComponents(EditWarpDeformerData.class,
+            "bezierDivH", Optional.class, "bezierDivV", Optional.class,
+            "rectangle", EditRectangle.class);
+        assertRecordComponents(EditRectangle.class,
+            "topLeft", dev.turboism.sdk.cubism.model.Point2.class,
+            "bottomLeft", dev.turboism.sdk.cubism.model.Point2.class,
+            "topRight", dev.turboism.sdk.cubism.model.Point2.class,
+            "bottomRight", dev.turboism.sdk.cubism.model.Point2.class);
+
+        for (final Class<?> payload : List.of(
+                EditArtMeshData.class, EditPartData.class, EditWarpDeformerData.class,
+                EditRotationDeformerData.class, EditGlueData.class)) {
+            for (final RecordComponent component : payload.getRecordComponents()) {
+                final String name = component.getName();
+                assertTrue(
+                    !name.equals("vertices") && !name.equals("uvs")
+                        && !name.equals("triangles") && !name.equals("rectangles"),
+                    payload.getSimpleName() + " carries invented geometry member " + name);
+            }
+        }
+    }
+
+    private static void assertRecordComponents(
+        final Class<?> record, final Object... nameTypePairs) {
+        final java.util.Map<String, Class<?>> components = new java.util.HashMap<>();
+        for (final RecordComponent component : record.getRecordComponents()) {
+            components.put(component.getName(), component.getType());
+        }
+        for (int i = 0; i < nameTypePairs.length; i += 2) {
+            final String name = (String) nameTypePairs[i];
+            final Class<?> type = (Class<?>) nameTypePairs[i + 1];
+            assertEquals(
+                type, components.get(name),
+                record.getSimpleName() + "." + name + " has the wrong component type");
+        }
     }
 
     @Test
@@ -190,6 +243,10 @@ final class EditOpsContractTest {
             return constructor.newInstance(args);
         }
         throw new AssertionError("no sample value for " + type.getName());
+    }
+
+    private static dev.turboism.sdk.cubism.model.Point2 p() {
+        return new dev.turboism.sdk.cubism.model.Point2(0.0f, 0.0f);
     }
 
     private static dev.turboism.sdk.cubism.model.ModelObjectReference object() {
