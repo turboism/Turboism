@@ -267,13 +267,13 @@ final class VerifiedMeshMirrorHookInstallerTest {
             null, null, profile(), calls::add
         );
         installer.install();
-        TurboismAgent.MESH_MIRROR_HOOK.set(installer);
+        MeshMirrorHookContributor.CURRENT.set(installer);
 
-        TurboismAgent.closeMeshMirrorHookIfCurrent(installer);
+        MeshMirrorHookContributor.closeCurrent(installer);
 
         assertFalse(installer.isInstalled());
         assertFalse(installer.isBound());
-        assertTrue(TurboismAgent.MESH_MIRROR_HOOK.get() == null);
+        assertTrue(MeshMirrorHookContributor.CURRENT.get() == null);
         assertEquals(1, calls.stream().filter(value -> value.equals("remove")).count());
     }
 
@@ -284,13 +284,13 @@ final class VerifiedMeshMirrorHookInstallerTest {
             null, null, profile()
         );
         candidate.install();
-        TurboismAgent.MESH_MIRROR_HOOK.set(candidate);
+        MeshMirrorHookContributor.CURRENT.set(candidate);
         try {
-            assertThrows(IllegalStateException.class, () -> TurboismAgent.startPreviewRuntime(
+            assertThrows(IllegalStateException.class, () -> PreviewRuntimeLauncher.startPreviewRuntime(
                 candidate, () -> { throw new IllegalStateException("preview start failed"); }
             ));
             assertFalse(candidate.isInstalled());
-            assertNull(TurboismAgent.MESH_MIRROR_HOOK.get());
+            assertNull(MeshMirrorHookContributor.CURRENT.get());
 
             final VerifiedMeshMirrorHookInstaller prior = new VerifiedMeshMirrorHookInstaller(
                 instrumentation(new ArrayList<>()), getClass().getClassLoader(),
@@ -302,21 +302,21 @@ final class VerifiedMeshMirrorHookInstallerTest {
             );
             prior.install();
             different.install();
-            TurboismAgent.MESH_MIRROR_HOOK.set(prior);
+            MeshMirrorHookContributor.CURRENT.set(prior);
             try {
-                assertThrows(IllegalStateException.class, () -> TurboismAgent.startPreviewRuntime(
+                assertThrows(IllegalStateException.class, () -> PreviewRuntimeLauncher.startPreviewRuntime(
                     different, () -> { throw new IllegalStateException("preview start failed"); }
                 ));
                 assertTrue(prior.isInstalled());
                 assertTrue(different.isInstalled());
-                assertSame(prior, TurboismAgent.MESH_MIRROR_HOOK.get());
+                assertSame(prior, MeshMirrorHookContributor.CURRENT.get());
             } finally {
-                TurboismAgent.MESH_MIRROR_HOOK.compareAndSet(prior, null);
+                MeshMirrorHookContributor.CURRENT.compareAndSet(prior, null);
                 prior.close();
                 different.close();
             }
         } finally {
-            TurboismAgent.MESH_MIRROR_HOOK.compareAndSet(candidate, null);
+            MeshMirrorHookContributor.CURRENT.compareAndSet(candidate, null);
             candidate.close();
         }
     }
@@ -329,17 +329,17 @@ final class VerifiedMeshMirrorHookInstallerTest {
             null, null, profile(), calls::add
         );
         candidate.install();
-        TurboismAgent.MESH_MIRROR_HOOK.set(candidate);
+        MeshMirrorHookContributor.CURRENT.set(candidate);
         final boolean[] runtimeClosed = {false};
 
-        TurboismAgent.closeDuplicateRuntimeAndMeshMirrorHook(
+        PreviewRuntimeLauncher.closeDuplicateRuntimeAndMeshMirrorHook(
             () -> runtimeClosed[0] = true,
             candidate
         );
 
         assertTrue(runtimeClosed[0]);
         assertFalse(candidate.isInstalled());
-        assertNull(TurboismAgent.MESH_MIRROR_HOOK.get());
+        assertNull(MeshMirrorHookContributor.CURRENT.get());
         assertTrue(calls.contains("remove"));
     }
 
@@ -350,17 +350,17 @@ final class VerifiedMeshMirrorHookInstallerTest {
             null, null, profile()
         );
         candidate.install();
-        TurboismAgent.MESH_MIRROR_HOOK.set(candidate);
+        MeshMirrorHookContributor.CURRENT.set(candidate);
         try {
             assertThrows(IllegalStateException.class, () ->
-                TurboismAgent.closeDuplicateRuntimeAndMeshMirrorHook(
+                PreviewRuntimeLauncher.closeDuplicateRuntimeAndMeshMirrorHook(
                     () -> { throw new IllegalStateException("runtime close failed"); }, candidate
                 )
             );
             assertFalse(candidate.isInstalled());
-            assertNull(TurboismAgent.MESH_MIRROR_HOOK.get());
+            assertNull(MeshMirrorHookContributor.CURRENT.get());
         } finally {
-            TurboismAgent.MESH_MIRROR_HOOK.compareAndSet(candidate, null);
+            MeshMirrorHookContributor.CURRENT.compareAndSet(candidate, null);
             candidate.close();
         }
     }

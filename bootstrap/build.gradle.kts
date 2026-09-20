@@ -53,13 +53,6 @@ tasks.processResources {
             into("META-INF/turboism/verification")
         }
     }
-    // Bundle the project-owned built-in themes so the bootstrap can inject the
-    // persisted theme appearance before the Cubism GL scene initializes (the
-    // off-canvas background color is cached in a singleton Lazy and cannot be
-    // refreshed at runtime).
-    from(rootProject.file("plugins/ui-theme/src/main/resources/themes")) {
-        into("themes")
-    }
 }
 
 val performanceProbeCarrierJar by tasks.registering(Jar::class) {

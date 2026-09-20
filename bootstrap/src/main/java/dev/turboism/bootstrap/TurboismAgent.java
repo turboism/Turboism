@@ -1,79 +1,33 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
-import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
-import dev.turboism.adapter.jdk.PipeImplLoopbackInstaller;
-import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryHostProfile;
-import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
-import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
-import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
-import dev.turboism.mapping.verification.EditorModelVerificationManifest;
-import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.bootstrap.PreviewRuntimeLauncher.ResolvedHost;
 import dev.turboism.preview.PreviewRuntime;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.instrument.Instrumentation;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
-
-/** Java-agent entrypoint for the Turboism 0.1 Developer Preview. */
+/**
+ * Java-agent entrypoint for the Turboism 0.1 Developer Preview.
+ *
+ * <p>Install-time hooks are no longer wired here: the agent scans the
+ * {@code META-INF/turboism/hooks} manifest, lets each {@link HookContributor}
+ * decide its own admission, and forwards install/bind/uninstall through the
+ * shared protocol. Verified/fail-closed semantics live in the contributors
+ * and their installers, not in this class.</p>
+ */
 public final class TurboismAgent {
 
-    private static final String VERIFICATION_RESOURCE_DIRECTORY =
-        "/META-INF/turboism/verification/";
     private static final AtomicBoolean START_REQUESTED = new AtomicBoolean(false);
     private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
-    private static final AtomicReference<VerifiedParameterHookInstaller> PARAMETER_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedProjectLifecycleHookInstaller>
-        PROJECT_LIFECYCLE_HOOK = new AtomicReference<>();
-    private static final AtomicReference<VerifiedFileChooserHistoryHookInstaller>
-        FILE_CHOOSER_HISTORY_HOOK = new AtomicReference<>();
-    private static final AtomicReference<VerifiedTextureAtlasDataModelHookInstaller> TEXTURE_ATLAS_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedTextureAtlasAutoLayoutHookInstaller> TEXTURE_ATLAS_AUTO_LAYOUT_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedFloatingTabCloseHookInstaller> FLOATING_TAB_CLOSE_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedObjectContextMenuHookInstaller> OBJECT_CONTEXT_MENU_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedParameterPointContextMenuHookInstaller> PARAMETER_POINT_MENU_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OBJECT_CONTEXT_MENU_BRIDGE =
-        new AtomicReference<>();
-    private static final AtomicReference<dev.turboism.sdk.plugin.Registration> PARAMETER_POINT_MENU_BRIDGE =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedPhysicsEditorHookInstaller> PHYSICS_EDITOR_HOOK =
-        new AtomicReference<>();
-    static final AtomicReference<VerifiedMeshMirrorHookInstaller> MESH_MIRROR_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedControlAppearanceHookInstaller>
-        CONTROL_APPEARANCE_HOOK = new AtomicReference<>();
-    private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
-        new AtomicReference<>();
-    private static final AtomicReference<PipeImplLoopbackInstaller.Installation> PIPE_IMPL_SHIM =
-        new AtomicReference<>();
-    private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OVERLAY_HOOK =
-        new AtomicReference<>();
-    private static final AtomicReference<VerifiedPerformanceProbeInstaller> PERFORMANCE_PROBE =
-        new AtomicReference<>();
-    private static final AtomicReference<PerformanceFpsHook> FPS_HOOK =
-        new AtomicReference<>();
+    private static final AtomicReference<HookRegistry> HOOKS =
+        new AtomicReference<>(new HookRegistry());
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -87,53 +41,28 @@ public final class TurboismAgent {
     }
 
     /**
-     * Java agent entry point used when Turboism is attached at JVM startup.
-     *
-     * <p>This is the supported attachment mode: it runs before Cubism's own classes load, so the
-     * startup-suppression transformer can still see them.</p>
-     *
-     * @param options the raw agent option string, may be null
-     * @param instrumentation the JVM instrumentation handle
+     * Entry point used when attached at JVM startup. This is the supported
+     * mode: it runs before Cubism's own classes load, so transformers can
+     * still see them.
      */
     public static void premain(final String options, final Instrumentation instrumentation) {
         requestStart(
             StartupSuppressionInstaller.AttachmentMode.PREMAIN,
             options,
-            instrumentation
+            instrumentation,
+            JVM_SHUTDOWN_HOOK_REGISTRAR
         );
     }
 
     /**
-     * Java agent entry point used when Turboism is attached to an already-running JVM.
-     *
-     * <p>Classes Cubism has already loaded are past the transformer, so this mode starts the
-     * runtime with a reduced set of hooks rather than pretending it matched premain.</p>
-     *
-     * @param options the raw agent option string, may be null
-     * @param instrumentation the JVM instrumentation handle
+     * Entry point used when attached to an already-running JVM. Classes the
+     * host has already loaded are past the transformers, so this mode starts
+     * the runtime with a reduced set of hooks.
      */
     public static void agentmain(final String options, final Instrumentation instrumentation) {
         requestStart(
             StartupSuppressionInstaller.AttachmentMode.AGENTMAIN,
             options,
-            instrumentation
-        );
-    }
-
-    static boolean meshMirrorPremainOnly(
-        final StartupSuppressionInstaller.AttachmentMode attachmentMode
-    ) {
-        return attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN;
-    }
-
-    private static void requestStart(
-        final StartupSuppressionInstaller.AttachmentMode attachmentMode,
-        final String rawOptions,
-        final Instrumentation instrumentation
-    ) {
-        requestStart(
-            attachmentMode,
-            rawOptions,
             instrumentation,
             JVM_SHUTDOWN_HOOK_REGISTRAR
         );
@@ -155,22 +84,20 @@ public final class TurboismAgent {
         final ShutdownHookRegistrar shutdownHookRegistrar
     ) {
         if (!START_REQUESTED.compareAndSet(false, true)) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+            RuntimeDiagnostics.debug(
                 "bootstrap",
                 "Agent start ignored because the runtime was already requested"
             );
             return;
         }
-
         final AgentOptions options;
         try {
-            options = AgentOptions.parse(rawOptions, defaultHome());
+            options = AgentOptions.parse(rawOptions, AgentOptions.defaultHome());
         } catch (RuntimeException exception) {
             START_REQUESTED.set(false);
             System.out.println("Turboism agent options rejected: " + exception.getMessage());
             return;
         }
-
         try {
             shutdownHookRegistrar.register(new Thread(TurboismAgent::shutdown, "turboism-shutdown"));
         } catch (RuntimeException failure) {
@@ -178,216 +105,82 @@ public final class TurboismAgent {
             System.err.println("Turboism agent start rejected: shutdown hook is unavailable");
             return;
         }
-
-        final StartupSuppressionInstaller.Installation startupSuppression =
-            StartupSuppressionInstaller.install(
-                attachmentMode,
-                instrumentation,
-                options.home(),
-                System.getProperty("java.class.path", ""),
-                Path.of(System.getProperty("user.dir", ".")),
-                code -> dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                    "bootstrap",
-                    "Startup suppression: " + code
-                )
-            );
-        if (attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN) {
-            installMeshMirrorHookPremain(
-                instrumentation,
-                System.getProperty("java.class.path", ""),
-                Path.of(System.getProperty("user.dir", ".")),
-                dev.turboism.config.RuntimeStartupConfig.load(options.home())
-            );
+        JvmShims.install(attachmentMode, instrumentation, options);
+        final HookEnvironment premainEnvironment = HookEnvironment.builder()
+            .instrumentation(instrumentation)
+            .options(options)
+            .classPath(System.getProperty("java.class.path", ""))
+            .workingDirectory(Path.of(System.getProperty("user.dir", ".")))
+            .startupPolicy(dev.turboism.config.RuntimeStartupConfig.load(options.home()))
+            .build();
+        final boolean premain = MeshMirrorHookContributor.premainOnly(attachmentMode);
+        final List<HookContributor> premainInstalled = new ArrayList<>();
+        final List<HookContributor> deferred = new ArrayList<>();
+        for (HookContributor contributor : loadHookManifest()) {
+            if (contributor.phase() == HookContributor.Phase.PREMAIN) {
+                if (premain && installPhaseHook(contributor, premainEnvironment)) {
+                    premainInstalled.add(contributor);
+                }
+            } else {
+                deferred.add(contributor);
+            }
         }
-        if (!STARTUP_SUPPRESSION.compareAndSet(null, startupSuppression)) {
-            startupSuppression.close();
-        }
-        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-            "bootstrap",
-            "Startup suppression status=" + startupSuppression.status()
-                + ", safeMode=" + startupSuppression.policy().safeMode()
-        );
-        final PipeImplLoopbackInstaller.Installation pipeImplShim =
-            PipeImplLoopbackInstaller.install(
+        BootstrapThreadFactory.create(
+            () -> start(
+                options,
                 instrumentation,
-                code -> dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                    "bootstrap",
-                    "Pipe shim: " + code
-                )
-            );
-        if (!PIPE_IMPL_SHIM.compareAndSet(null, pipeImplShim)) {
-            pipeImplShim.close();
-        }
-        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-            "bootstrap",
-            "Pipe shim status=" + pipeImplShim.status()
-                + ", transformOutcome=" + pipeImplShim.transformOutcome()
-        );
-        final Thread bootstrap = BootstrapThreadFactory.create(
-            () -> start(options, instrumentation)
-        );
-        bootstrap.start();
+                List.copyOf(premainInstalled),
+                List.copyOf(deferred)
+            )
+        ).start();
     }
 
-    private static void start(final AgentOptions options, final Instrumentation instrumentation) {
+    private static void start(
+        final AgentOptions options,
+        final Instrumentation instrumentation,
+        final List<HookContributor> premainInstalled,
+        final List<HookContributor> contributors
+    ) {
         try {
-            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+            RuntimeDiagnostics.debug(
                 "bootstrap",
                 "Agent active; waiting for the Cubism host"
             );
-            final Optional<HostClassLocator.LocatedHost> located = new HostClassLocator().await(
-                instrumentation,
-                options.hostClassName(),
-                options.detectionTimeout()
-            );
+            final Optional<ResolvedHost> located =
+                PreviewRuntimeLauncher.resolveHost(instrumentation, options);
             if (located.isEmpty()) {
                 System.out.println("Turboism agent stopped: Cubism host class was not observed");
                 return;
             }
-            final HostClassLocator.LocatedHost host = located.orElseThrow();
-
-            final String profile = EditorModelVerificationManifest.resourceProfileForArtifact(
-                HostArtifactDigest.from(host.artifact())
+            final ResolvedHost resolved = located.orElseThrow();
+            installPhase(
+                contributors,
+                HookContributor.Phase.HOST_RESOLVED,
+                environment(instrumentation, options, resolved, null)
             );
-            final Path verificationRecord = extractVerificationRecord(
-                options.home(),
-                "cubism-" + profile + "-project-workspace.json"
+            final VerifiedMeshMirrorHookInstaller meshMirrorHook =
+                MeshMirrorHookContributor.CURRENT.get();
+            final PreviewRuntime runtime = PreviewRuntimeLauncher.startPreviewRuntime(
+                meshMirrorHook,
+                () -> PreviewRuntimeLauncher.start(options, resolved)
             );
-            final Path editorModelVerificationRecord = extractVerificationRecord(
-                options.home(),
-                "cubism-" + profile + "-editor-model.json"
-            );
-            // Editor and Core version lines are independent trust roots. The paired
-            // 5.3.03 Editor distribution still carries the reviewed 5.3.02 Core artifact,
-            // so Core evidence is selected later by the Core digest rather than this profile.
-            final Path coreArtifact = host.artifact().resolveSibling("Live2DCubismCore.jar")
-                .toAbsolutePath().normalize();
-            if (!Files.isRegularFile(coreArtifact)) {
-                throw new IOException("Exact Cubism Core artifact is missing beside the Editor JAR");
-            }
-            final String coreProfile = dev.turboism.mapping.verification
-                .VerifiedCorePublicApiResolverFactory.profileForArtifact(coreArtifact);
-            final Path coreRuntimeVerificationRecord = extractVerificationRecord(
-                options.home(),
-                "cubism-" + coreProfile + "-core-model-read.json"
-            );
-            final boolean fullRuntimeAdmission = dev.turboism.mapping.verification
-                .ReviewedHostArtifacts.admitsFullRuntime(profile);
-            final Path mainToolbarVerificationRecord = fullRuntimeAdmission
-                ? extractVerificationRecord(options.home(), "cubism-" + profile + "-ui-main-toolbar.json")
-                : null;
-            final Path embeddedPanelVerificationRecord = fullRuntimeAdmission
-                ? extractVerificationRecord(options.home(), "cubism-" + profile + "-ui-embedded-panel.json")
-                : null;
-            final Path topMenuVerificationRecord = fullRuntimeAdmission
-                ? extractVerificationRecord(options.home(), "cubism-" + profile + "-ui-top-menu.json")
-                : null;
-            final Path boundingBoxOverlayVerificationRecord = fullRuntimeAdmission
-                ? extractVerificationRecord(
-                    options.home(), "cubism-" + profile + "-ui-bounding-box-overlay.json"
-                )
-                : null;
-            // Hooks remain suppressed until exact artifact identity and full-runtime admission
-            // have both completed. Once admitted, the ordinary reviewed profile routes every P3 lane.
-            if (fpsRuntimeAdmitted(profile, fullRuntimeAdmission)) {
-                publishFpsHook(instrumentation, host);
-            }
-
-            final Optional<Path> statusBarVerificationRecord = fullRuntimeAdmission
-                ? Optional.of(extractVerificationRecord(
-                    options.home(), "cubism-" + profile + "-ui-status-bar.json"
-                ))
-                : Optional.empty();
-            final Optional<Path> clipMaskVerificationRecord =
-                ClipMaskVerificationManifest.reviewedCubismVersions().contains(profile)
-                    ? Optional.of(extractVerificationRecord(
-                        options.home(), "cubism-" + profile + "-clipmask.json"
-                    ))
-                    : Optional.empty();
-            final Path autoBackupVerificationRecord = fullRuntimeAdmission
-                ? extractVerificationRecord(
-                    options.home(), "cubism-" + profile + "-autobackup.json"
-                )
-                : null;
-            final Path controlAppearanceVerificationRecord = fullRuntimeAdmission
-                ? extractVerificationRecord(
-                    options.home(), "cubism-" + profile + "-ui-control-appearance.json"
-                )
-                : null;
-            final VerifiedMeshMirrorHookInstaller meshMirrorHook = MESH_MIRROR_HOOK.get();
-            final PreviewRuntime runtime;
-            try {
-                runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
-                    options.home(),
-                    verificationRecord,
-                    editorModelVerificationRecord,
-                    coreRuntimeVerificationRecord,
-                    mainToolbarVerificationRecord,
-                    embeddedPanelVerificationRecord,
-                    topMenuVerificationRecord,
-                    boundingBoxOverlayVerificationRecord,
-                    statusBarVerificationRecord,
-                    clipMaskVerificationRecord,
-                    autoBackupVerificationRecord,
-                    host.artifact(),
-                    coreArtifact,
-                    host.classLoader()
-                ));
-            } catch (Throwable failure) {
-                closeMeshMirrorHookIfCurrent(meshMirrorHook);
-                throw failure;
-            }
             if (!RUNTIME.compareAndSet(null, runtime)) {
-                closeDuplicateRuntimeAndMeshMirrorHook(runtime::close, meshMirrorHook);
+                PreviewRuntimeLauncher.closeDuplicateRuntimeAndMeshMirrorHook(
+                    runtime::close,
+                    meshMirrorHook
+                );
                 return;
             }
-            if (parameterLifecycleRuntimeAdmitted(profile, fullRuntimeAdmission)) {
-                installParameterHook(runtime, instrumentation, host);
+            final HookEnvironment runtimeEnvironment =
+                environment(instrumentation, options, resolved, runtime);
+            for (HookContributor contributor : premainInstalled) {
+                try {
+                    contributor.bind(runtimeEnvironment);
+                } catch (Throwable failure) {
+                    runtimeWarn("Turboism hook binding disabled safely: " + contributor.id());
+                }
             }
-            if (projectLifecycleRuntimeAdmitted(profile, fullRuntimeAdmission)) {
-                installProjectLifecycleHook(runtime, instrumentation, host);
-            }
-            if (fileChooserHistoryRuntimeAdmitted(profile, fullRuntimeAdmission)) {
-                installFileChooserHistoryHook(runtime, instrumentation, host);
-            }
-            if (textureAtlasRuntimeAdmitted(profile, fullRuntimeAdmission)) {
-                installTextureAtlasHook(runtime, instrumentation, host);
-                installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
-            }
-            if (fullRuntimeAdmission) {
-                installPerformanceProbe(options, instrumentation, host);
-                installDockTabPopupHook(
-                    embeddedPanelVerificationRecord,
-                    instrumentation,
-                    host
-                );
-                installFloatingFrameDisposeHook(
-                    embeddedPanelVerificationRecord,
-                    instrumentation,
-                    host,
-                    runtime
-                );
-                installFloatingTabCloseHook(
-                    embeddedPanelVerificationRecord,
-                    instrumentation,
-                    host
-                );
-                installObjectContextMenuHook(runtime, instrumentation, host);
-                installPhysicsEditorHook(runtime, instrumentation, host);
-                bindMeshMirrorHook(
-                    runtime,
-                    dev.turboism.adapter.cubism.mesh.MeshMirrorHookAdmission.admitted(
-                        runtime.loadReport().loaded()
-                    )
-                );
-                installBoundingBoxOverlayHook(runtime, instrumentation);
-                installControlAppearanceHook(
-                    runtime,
-                    instrumentation,
-                    host,
-                    controlAppearanceVerificationRecord
-                );
-            }
+            installPhase(contributors, HookContributor.Phase.RUNTIME_STARTED, runtimeEnvironment);
             runtimeInfo(
                 "Turboism Developer Preview started: host=" + runtime.hostState()
                     + ", plugins=" + runtime.loadReport().loaded().size()
@@ -406,631 +199,88 @@ public final class TurboismAgent {
             } else {
                 runtime.error("bootstrap", "Turboism bootstrap failed safely", failure);
             }
-
         }
     }
 
-    private static Path extractVerificationRecord(
-        final Path home,
-        final String fileName
-    ) throws IOException {
-        final String resource = VERIFICATION_RESOURCE_DIRECTORY + fileName;
-        final Path target = home.resolve("state")
-            .resolve("verification")
-            .resolve(fileName)
-            .toAbsolutePath()
-            .normalize();
-        Files.createDirectories(target.getParent());
-        try (InputStream source = TurboismAgent.class.getResourceAsStream(resource)) {
-            if (source == null) {
-                throw new IOException("Embedded Cubism verification record is missing");
-            }
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-        return target;
-    }
-
-    private static void installParameterHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
+    private static void installPhase(
+        final List<HookContributor> contributors,
+        final HookContributor.Phase phase,
+        final HookEnvironment environment
     ) {
-        VerifiedParameterHookInstaller installer = null;
-        try {
-            installer = VerifiedParameterHookInstaller.fromVerifiedResolver(
-                instrumentation,
-                runtime.editorModelResolver(),
-                host.classLoader(),
-                runtime.hostAccess().parameterLifecycle(),
-                runtime.hostAccess().modelAccess()
-            );
-            installer.install();
-            if (!PARAMETER_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-            } else {
-                runtimeInfo("TURBOISM_PARAMETER_HOOK installation=COMPLETE");
+        for (HookContributor contributor : contributors) {
+            if (contributor.phase() == phase) {
+                installPhaseHook(contributor, environment);
             }
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn("Turboism parameter hook disabled safely: " + failure.getClass().getName());
-
         }
     }
 
-    private static void installProjectLifecycleHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
+    private static boolean installPhaseHook(
+        final HookContributor contributor,
+        final HookEnvironment environment
     ) {
-        VerifiedProjectLifecycleHookInstaller installer = null;
         try {
-            final var profile =
-                dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfile.forArtifact(
-                    HostArtifactDigest.from(host.artifact())
-                ).orElseThrow(() -> new IllegalStateException(
-                    "Unsupported project lifecycle host artifact"
-                ));
-            installer = new VerifiedProjectLifecycleHookInstaller(
-                instrumentation,
-                host.classLoader(),
-                profile,
-                runtime.hostAccess().projectFileLifecycle(),
-                runtime.hostAccess().editorLifecycleEvents()
-            );
-            installer.install();
-            if (!PROJECT_LIFECYCLE_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-            } else {
-                runtimeInfo("TURBOISM_PROJECT_LIFECYCLE_HOOK installation=COMPLETE");
+            if (!contributor.admitted(environment)) {
+                return false;
             }
+            HOOKS.get().enroll(contributor, contributor.install(environment));
+            return true;
         } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn(
-                "Turboism project lifecycle hook disabled safely: "
-                    + failure.getClass().getName()
-            );
+            runtimeWarn("Turboism hook disabled safely: " + contributor.id());
+            return false;
         }
     }
 
-    private static void installFileChooserHistoryHook(
-        final PreviewRuntime runtime,
+    private static HookEnvironment environment(
         final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        VerifiedFileChooserHistoryHookInstaller installer = null;
-        try {
-            final var profile = FileChooserHistoryHostProfile.forArtifact(
-                HostArtifactDigest.from(host.artifact())
-            ).orElseThrow(() -> new IllegalStateException(
-                "Unsupported file-chooser history host artifact"
-            ));
-            installer = new VerifiedFileChooserHistoryHookInstaller(
-                instrumentation,
-                host.classLoader(),
-                profile,
-                runtime.fileChooserHistoryService()
-            );
-            installer.install();
-            if (!FILE_CHOOSER_HISTORY_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-            } else {
-                runtimeInfo("TURBOISM_FILE_CHOOSER_HISTORY_HOOK installation=COMPLETE");
-            }
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn(
-                "Turboism file-chooser history hook disabled safely: "
-                    + failure.getClass().getName()
-            );
-        }
-    }
-    private static boolean safeModeActive() {
-        final StartupSuppressionInstaller.Installation suppression = STARTUP_SUPPRESSION.get();
-        return suppression != null && suppression.policy().safeMode();
-    }
-
-    private static void installDockTabPopupHook(
-        final Path embeddedPanelVerificationRecord,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        if (safeModeActive()) {
-            runtimeInfo("Turboism dock-tab popup hook skipped in safe mode");
-            return;
-        }
-        VerifiedDockTabPopupHookInstaller installer = null;
-        try {
-            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
-                .create(
-                    embeddedPanelVerificationRecord,
-                    host.artifact(),
-                    host.classLoader()
-                );
-            installer = new VerifiedDockTabPopupHookInstaller(
-                instrumentation,
-                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.operation"),
-                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.palette-field"),
-                resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.menu-append"),
-                host.classLoader()
-            );
-            installer.install();
-            if (!DOCK_TAB_POPUP_HOOK.compareAndSet(null, installer)) installer.close();
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn("Turboism dock-tab popup hook disabled safely: " + failure.getClass().getName());
-
-        }
-    }
-
-    private static void installFloatingFrameDisposeHook(
-        final Path embeddedPanelVerificationRecord,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host,
+        final AgentOptions options,
+        final ResolvedHost resolved,
         final PreviewRuntime runtime
     ) {
-        if (safeModeActive()) {
-            runtimeInfo("Turboism floating-frame dispose hook skipped in safe mode");
-            return;
-        }
-        VerifiedFloatingFrameDisposeHookInstaller installer = null;
+        return HookEnvironment.builder()
+            .instrumentation(instrumentation)
+            .options(options)
+            .host(resolved.host())
+            .runtime(runtime)
+            .profile(resolved.profile())
+            .fullRuntimeAdmission(resolved.fullRuntimeAdmission())
+            .safeMode(JvmShims.safeModeActive())
+            .verificationDirectory(options.home().resolve("state").resolve("verification"))
+            .build();
+    }
+
+    private static List<HookContributor> loadHookManifest() {
         try {
-            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
-                .create(embeddedPanelVerificationRecord, host.artifact(), host.classLoader());
-            installer = new VerifiedFloatingFrameDisposeHookInstaller(
-                instrumentation,
-                resolver.verifiedSelector("cubism.ui-panel.palette-frame.raw-disposed"),
-                host.classLoader()
+            return HookManifest.load(TurboismAgent.class.getClassLoader());
+        } catch (HookManifest.HookManifestException failure) {
+            RuntimeDiagnostics.warn(
+                "bootstrap",
+                "Turboism hooks disabled safely: " + failure.getMessage()
             );
-            installer.install();
-            if (!FLOATING_FRAME_DISPOSE_HOOK.compareAndSet(null, installer)) installer.close();
-            runtimeInfo("Turboism floating-frame dispose hook installed");
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn(
-                "Turboism floating-frame dispose hook disabled safely: "
-                    + failure.getClass().getName()
-            );
-        }
-    }
-
-    private static void installFloatingTabCloseHook(
-        final Path embeddedPanelVerificationRecord,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        if (safeModeActive()) {
-            runtimeInfo("Turboism floating-tab close hook skipped in safe mode");
-            return;
-        }
-        VerifiedFloatingTabCloseHookInstaller installer = null;
-        try {
-            final var resolver = new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
-                .create(embeddedPanelVerificationRecord, host.artifact(), host.classLoader());
-            installer = new VerifiedFloatingTabCloseHookInstaller(
-                instrumentation,
-                resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.operation"),
-                resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.palette-field"),
-                host.classLoader()
-            );
-            installer.install();
-            if (!FLOATING_TAB_CLOSE_HOOK.compareAndSet(null, installer)) installer.close();
-            runtimeInfo("Turboism floating-tab close hook installed");
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn(
-                "Turboism floating-tab close hook disabled safely: "
-                    + failure.getClass().getName()
-            );
-        }
-    }
-
-    private static void installObjectContextMenuHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        VerifiedObjectContextMenuHookInstaller installer = null;
-        dev.turboism.sdk.plugin.Registration bridge = null;
-        dev.turboism.sdk.plugin.Registration parameterPointBridge = null;
-        VerifiedParameterPointContextMenuHookInstaller parameterPointInstaller = null;
-        try {
-            final ObjectContextMenuHostProfile profile = ObjectContextMenuHostProfile.forArtifact(
-                HostArtifactDigest.from(host.artifact())
-            ).orElseThrow(() -> new IllegalStateException("Unsupported object context-menu host artifact"));
-            final var handler = runtime.hostAccess().objectContextMenuHandler();
-            if (handler == null) throw new IllegalStateException("Object context-menu runtime handler is unavailable");
-            bridge = dev.turboism.ui.context.NativeObjectContextMenuBridge.install(handler);
-            final var parameterPointHandler = runtime.hostAccess().parameterPointMenuHandler();
-            if (parameterPointHandler == null) {
-                throw new IllegalStateException("Parameter-point context-menu runtime handler is unavailable");
-            }
-            parameterPointBridge =
-                dev.turboism.ui.context.NativeParameterPointContextMenuBridge.install(parameterPointHandler);
-            installer = new VerifiedObjectContextMenuHookInstaller(
-                instrumentation,
-                profile.bindings(),
-                host.classLoader()
-            );
-            installer.install();
-            final ParameterPointContextMenuHostProfile parameterPointProfile =
-                ParameterPointContextMenuHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
-                    .orElseThrow(() -> new IllegalStateException("Unsupported parameter-point context-menu host artifact"));
-            parameterPointInstaller = new VerifiedParameterPointContextMenuHookInstaller(
-                instrumentation, parameterPointProfile.owner(), parameterPointProfile.contextDescriptor(), host.classLoader()
-            );
-            parameterPointInstaller.install();
-            if (!OBJECT_CONTEXT_MENU_BRIDGE.compareAndSet(null, bridge)
-                || !PARAMETER_POINT_MENU_BRIDGE.compareAndSet(null, parameterPointBridge)
-                || !PARAMETER_POINT_MENU_HOOK.compareAndSet(null, parameterPointInstaller)
-                || !OBJECT_CONTEXT_MENU_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-                parameterPointInstaller.close();
-                parameterPointBridge.close();
-                bridge.close();
-            }
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            if (parameterPointInstaller != null) parameterPointInstaller.close();
-            if (bridge != null) bridge.close();
-            if (parameterPointBridge != null) parameterPointBridge.close();
-            runtimeWarn("Turboism object context-menu hook disabled safely: " + failure.getClass().getName());
-
-        }
-    }
-
-    private static void installPhysicsEditorHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        VerifiedPhysicsEditorHookInstaller installer = null;
-        try {
-            final PhysicsEditorHostProfile profile = PhysicsEditorHostProfile.forArtifact(
-                HostArtifactDigest.from(host.artifact())
-            ).orElseThrow(() -> new IllegalStateException("Unsupported Physics Settings host artifact"));
-            installer = new VerifiedPhysicsEditorHookInstaller(
-                instrumentation,
-                host.classLoader(),
-                runtime.hostAccess().physicsEditorCoordinator(),
-                profile
-            );
-            installer.install();
-            if (!PHYSICS_EDITOR_HOOK.compareAndSet(null, installer)) installer.close();
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn("Turboism physics editor hook disabled safely: " + failure.getClass().getName());
-
-        }
-    }
-
-    private static void installBoundingBoxOverlayHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation
-    ) {
-        try {
-            final dev.turboism.sdk.plugin.Registration hook =
-                new dev.turboism.ui.overlay.BoundingBoxOverlayButtonHookInstaller(instrumentation)
-                    .install(runtime.hostAccess().boundingBoxOverlayResolver().orElseThrow());
-            if (!OVERLAY_HOOK.compareAndSet(null, hook)) {
-                hook.close();
-            }
-        } catch (Throwable failure) {
-            runtimeWarn(
-                "Turboism bounding-box overlay hook disabled safely: " + failure.getClass().getName()
-
-            );
-        }
-    }
-
-    private static void installPerformanceProbe(
-        final AgentOptions options,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        if (!options.performanceProbeInstall()) return;
-        VerifiedPerformanceProbeInstaller installer = null;
-        try {
-            installer = new VerifiedPerformanceProbeInstaller(
-                instrumentation,
-                host.artifact(),
-                host.classLoader(),
-                options.home().resolve("lib/performance-probe-carrier.jar")
-            );
-            installer.install(
-                options.performanceProbeCapture(),
-                options.performanceProbeScenario(),
-                options.performanceProbeAgentSha256(),
-                options.performanceProbeFixtureSha256(),
-                java.time.Duration.ofSeconds(options.performanceProbeDelaySeconds()),
-                java.time.Duration.ofSeconds(options.performanceProbeDurationSeconds()),
-                options.performanceProbeOutput(),
-                options.performanceProbeRunId(),
-                options.performanceProbeRollbackOutput()
-            );
-            if (!PERFORMANCE_PROBE.compareAndSet(null, installer)) installer.close();
-            runtimeInfo(
-                "Turboism validation performance probe installed; capture="
-                    + options.performanceProbeCapture()
-            );
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn(
-                "Turboism validation performance probe disabled safely: "
-                    + failure.getClass().getName()
-            );
-        }
-    }
-
-    private static VerifiedMeshMirrorHookInstaller installMeshMirrorHookPremain(
-        final Instrumentation instrumentation,
-        final String classPath,
-        final Path workingDirectory,
-        final dev.turboism.config.RuntimeStartupConfig policy
-    ) {
-        if (!meshMirrorHookEnabled(policy)) return null;
-        final Optional<Path> artifact = StartupSuppressionInstaller.locateHostArtifact(classPath, workingDirectory);
-        if (artifact.isEmpty()) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
-                "mesh-mirror",
-                "Mesh mirror hook unavailable because the host artifact was not admitted"
-            );
-            return null;
-        }
-        try {
-            final HostArtifactDigest digest = HostArtifactDigest.from(artifact.orElseThrow());
-            if (!meshMirrorRuntimeAdmitted(digest)) {
-                throw new IllegalStateException("Mesh mirror host artifact is not runtime-admitted");
-            }
-            final var profile = dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forArtifact(digest)
-                .orElseThrow(() -> new IllegalStateException("Unsupported mesh mirror host artifact"));
-            final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
-                instrumentation,
-                null,
-                artifact.orElseThrow().toAbsolutePath().normalize(),
-                profile
-            );
-            installer.install();
-            if (!MESH_MIRROR_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-                return null;
-            }
-            return installer;
-        } catch (Throwable failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "mesh-mirror",
-                "Mesh mirror hook disabled safely",
-                failure
-            );
-            return null;
-        }
-    }
-
-
-    static boolean statusBarRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
-    }
-
-    static boolean parameterLifecycleRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
-    }
-
-    static boolean projectLifecycleRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
-    }
-
-    static boolean fileChooserHistoryRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
-    }
-
-    static boolean textureAtlasRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
-    }
-
-    static boolean autoBackupRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
-    }
-
-    static boolean fpsRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
-    }
-
-    private static boolean ordinaryReviewedRuntimeAdmitted(
-        final String profile,
-        final boolean fullRuntimeAdmission
-    ) {
-        return fullRuntimeAdmission
-            && dev.turboism.mapping.verification.ReviewedHostArtifacts.admitsFullRuntime(profile);
-    }
-
-    static boolean meshMirrorHookEnabled(
-        final dev.turboism.config.RuntimeStartupConfig policy
-    ) {
-        return policy != null && policy.hookEnabled("cubism.mesh.mirror-axis");
-    }
-
-    static boolean meshMirrorRuntimeAdmitted(final HostArtifactDigest artifact) {
-        return dev.turboism.mapping.verification.ReviewedHostArtifacts.cubismVersionOf(artifact)
-            .filter(dev.turboism.mapping.verification.ReviewedHostArtifacts::admitsFullRuntime)
-            .isPresent();
-    }
-
-    static void closeMeshMirrorHookIfCurrent(final VerifiedMeshMirrorHookInstaller installer) {
-        if (installer == null || !MESH_MIRROR_HOOK.compareAndSet(installer, null)) return;
-        installer.close();
-    }
-
-    @FunctionalInterface
-    interface PreviewRuntimeStarter {
-        PreviewRuntime start() throws Throwable;
-    }
-
-    static PreviewRuntime startPreviewRuntime(
-        final VerifiedMeshMirrorHookInstaller candidate,
-        final PreviewRuntimeStarter starter
-    ) throws Throwable {
-        try {
-            return starter.start();
-        } catch (Throwable failure) {
-            closeMeshMirrorHookIfCurrent(candidate);
-            throw failure;
-        }
-    }
-
-    static void closeDuplicateRuntimeAndMeshMirrorHook(
-        final Runnable runtimeClose,
-        final VerifiedMeshMirrorHookInstaller candidate
-    ) {
-        try {
-            runtimeClose.run();
-        } finally {
-            closeMeshMirrorHookIfCurrent(candidate);
-        }
-    }
-
-    private static void bindMeshMirrorHook(
-        final PreviewRuntime runtime,
-        final boolean authorized
-    ) {
-        final VerifiedMeshMirrorHookInstaller installer = MESH_MIRROR_HOOK.get();
-        if (installer == null) {
-            if (!authorized) {
-                runtimeInfo("Turboism mesh mirror hook disabled by policy or missing authorized consumer");
-            }
-            return;
-        }
-        if (!authorized) {
-            installer.close();
-            MESH_MIRROR_HOOK.compareAndSet(installer, null);
-            return;
-        }
-        try {
-            installer.defineLazyTargets();
-            installer.bind(
-                runtime.hostAccess().meshMirrorAxisService(),
-                runtime.hostAccess().meshEditUiService()
-            );
-        } catch (Throwable failure) {
-            installer.close();
-            MESH_MIRROR_HOOK.compareAndSet(installer, null);
-            runtimeWarn(
-                "Turboism mesh mirror runtime binding disabled safely: " + failure.getClass().getName()
-            );
-        }
-    }
-
-    private static void publishFpsHook(
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        PerformanceFpsHookInstaller installer = null;
-        try {
-            installer = new PerformanceFpsHookInstaller(
-                instrumentation,
-                host.artifact(),
-                host.classLoader()
-            );
-            if (!FPS_HOOK.compareAndSet(null, installer)) installer.close();
-            PerformanceFpsHookRegistry.publish(installer);
-        } catch (Throwable failure) {
-            if (installer != null) {
-                try {
-                    installer.close();
-                } catch (Throwable closeFailure) {
-                    failure.addSuppressed(closeFailure);
-                }
-            }
-            runtimeWarn(
-                "Turboism FPS counting hook disabled safely: " + failure.getClass().getName()
-            );
-        }
-    }
-
-    private static void installControlAppearanceHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host,
-        final Path verificationRecord
-    ) {
-        VerifiedControlAppearanceHookInstaller installer = null;
-        try {
-            final var resolver = new dev.turboism.mapping.verification.VerifiedControlAppearanceResolverFactory()
-                .create(verificationRecord, host.artifact(), host.classLoader());
-            final long generation = runtime.hostAccess().paletteAppearanceCoordinator().hostGeneration();
-            installer = VerifiedControlAppearanceHookInstaller.fromVerifiedResolver(
-                instrumentation,
-                resolver,
-                generation,
-                runtime.hostAccess().paletteAppearanceCoordinator()
-            );
-            installer.install();
-            if (!CONTROL_APPEARANCE_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-            }
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn("Turboism control-appearance hook disabled safely: " + failure.getClass().getName());
-
+            return List.of();
         }
     }
 
     private static void runtimeInfo(final String message) {
         final PreviewRuntime runtime = RUNTIME.get();
-        if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
+        if (runtime == null) {
+            RuntimeDiagnostics.info("bootstrap", message);
+        } else {
+            runtime.info("bootstrap", message);
+        }
     }
 
     private static void runtimeWarn(final String message) {
         final PreviewRuntime runtime = RUNTIME.get();
-        if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
-    }
-    private static Path defaultHome() {
-        final String configured = System.getProperty("turboism.home");
-        if (configured != null && !configured.isBlank()) {
-            return Path.of(configured).toAbsolutePath().normalize();
+        if (runtime == null) {
+            RuntimeDiagnostics.warn("bootstrap", message);
+        } else {
+            runtime.warn("bootstrap", message);
         }
-        try {
-            final Path location = Path.of(
-                TurboismAgent.class.getProtectionDomain().getCodeSource().getLocation().toURI()
-            ).toAbsolutePath().normalize();
-            if (Files.isRegularFile(location)) {
-                return location.getParent();
-            }
-            return location.resolve("turboism-preview");
-        } catch (URISyntaxException | RuntimeException exception) {
-            return Path.of("turboism-preview").toAbsolutePath().normalize();
-        }
-    }
-
-    static boolean shutdownForTesting() {
-        return shutdownRuntime();
     }
 
     private static void shutdown() {
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
-        closeProjectLifecycleHook(runtime, "process-exit");
-        closeFileChooserHistoryHook(runtime, "process-exit");
-        closeParameterHook(runtime, "process-exit");
-        closeTextureAtlasHooks(runtime, "process-exit");
+        HOOKS.get().closeOnProcessExit(TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
         if (runtime == null) {
             return;
         }
@@ -1043,249 +293,9 @@ public final class TurboismAgent {
         }
     }
 
-    private static void closeProjectLifecycleHook(
-        final PreviewRuntime runtime,
-        final String phase
-    ) {
-        final VerifiedProjectLifecycleHookInstaller projectHook =
-            PROJECT_LIFECYCLE_HOOK.getAndSet(null);
-        if (projectHook == null) {
-            return;
-        }
-        try {
-            projectHook.close();
-            final String message =
-                "TURBOISM_PROJECT_LIFECYCLE_HOOK cleanup=COMPLETE phase=" + phase;
-            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
-        } catch (Throwable failure) {
-            final String message =
-                "Turboism project lifecycle hook cleanup failed safely: phase=" + phase;
-            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
-        }
-    }
-
-    private static void closeFileChooserHistoryHook(
-        final PreviewRuntime runtime,
-        final String phase
-    ) {
-        final VerifiedFileChooserHistoryHookInstaller fileChooserHistoryHook =
-            FILE_CHOOSER_HISTORY_HOOK.getAndSet(null);
-        if (fileChooserHistoryHook == null) {
-            return;
-        }
-        try {
-            fileChooserHistoryHook.close();
-            final String message =
-                "TURBOISM_FILE_CHOOSER_HISTORY_HOOK cleanup=COMPLETE phase=" + phase;
-            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
-        } catch (Throwable failure) {
-            final String message =
-                "Turboism file-chooser history hook cleanup failed safely: phase=" + phase;
-            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
-        }
-    }
-
-    private static void closeTextureAtlasHooks(
-        final PreviewRuntime runtime,
-        final String phase
-    ) {
-        final VerifiedTextureAtlasAutoLayoutHookInstaller autoLayout =
-            TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.get();
-        if (autoLayout != null) {
-            try {
-                autoLayout.close();
-                TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(autoLayout, null);
-                final String message =
-                    "TURBOISM_TEXTURE_ATLAS_AUTO_LAYOUT_HOOK cleanup=COMPLETE phase=" + phase;
-                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
-            } catch (Throwable failure) {
-                final String message =
-                    "Turboism texture-atlas automatic-layout hook cleanup failed safely: phase="
-                        + phase;
-                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
-            }
-        }
-        final VerifiedTextureAtlasDataModelHookInstaller dataModel =
-            TEXTURE_ATLAS_HOOK.get();
-        if (dataModel != null) {
-            try {
-                dataModel.close();
-                TEXTURE_ATLAS_HOOK.compareAndSet(dataModel, null);
-                final String message =
-                    "TURBOISM_TEXTURE_ATLAS_DATA_MODEL_HOOK cleanup=COMPLETE phase=" + phase;
-                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
-            } catch (Throwable failure) {
-                final String message =
-                    "Turboism texture-atlas data-model hook cleanup failed safely: phase=" + phase;
-                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
-            }
-        }
-    }
-
-    private static void closeParameterHook(
-        final PreviewRuntime runtime,
-        final String phase
-    ) {
-        final VerifiedParameterHookInstaller parameterHook = PARAMETER_HOOK.getAndSet(null);
-        if (parameterHook == null) {
-            return;
-        }
-        try {
-            parameterHook.close();
-            final String message = "TURBOISM_PARAMETER_HOOK cleanup=COMPLETE phase=" + phase;
-            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
-        } catch (Throwable failure) {
-            final String message = "Turboism parameter hook cleanup failed safely: phase=" + phase;
-            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
-        }
-    }
-
-    private static boolean shutdownRuntime() {
-        final StartupSuppressionInstaller.Installation startupSuppression =
-            STARTUP_SUPPRESSION.getAndSet(null);
-        if (startupSuppression != null) {
-            try {
-                startupSuppression.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism startup suppression cleanup failed safely");
-
-            }
-        }
-        final PipeImplLoopbackInstaller.Installation pipeImplShim =
-            PIPE_IMPL_SHIM.getAndSet(null);
-        if (pipeImplShim != null) {
-            try {
-                pipeImplShim.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism pipe shim cleanup failed safely");
-            }
-        }
-        final VerifiedObjectContextMenuHookInstaller objectContextMenuHook =
-            OBJECT_CONTEXT_MENU_HOOK.getAndSet(null);
-        if (objectContextMenuHook != null) {
-            try {
-                objectContextMenuHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism object context-menu hook cleanup failed safely");
-
-            }
-        }
-        final VerifiedParameterPointContextMenuHookInstaller parameterPointMenuHook =
-            PARAMETER_POINT_MENU_HOOK.getAndSet(null);
-        if (parameterPointMenuHook != null) {
-            try {
-                parameterPointMenuHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism parameter-point context-menu hook cleanup failed safely");
-
-            }
-        }
-        final dev.turboism.sdk.plugin.Registration objectContextMenuBridge =
-            OBJECT_CONTEXT_MENU_BRIDGE.getAndSet(null);
-        if (objectContextMenuBridge != null) {
-            try {
-                objectContextMenuBridge.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism object context-menu bridge cleanup failed safely");
-
-            }
-        }
-        final dev.turboism.sdk.plugin.Registration parameterPointMenuBridge =
-            PARAMETER_POINT_MENU_BRIDGE.getAndSet(null);
-        if (parameterPointMenuBridge != null) {
-            try {
-                parameterPointMenuBridge.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism parameter-point context-menu bridge cleanup failed safely");
-
-            }
-        }
-        final VerifiedMeshMirrorHookInstaller meshMirrorHook = MESH_MIRROR_HOOK.getAndSet(null);
-        if (meshMirrorHook != null) {
-            try {
-                meshMirrorHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism mesh mirror hook cleanup failed safely");
-            }
-        }
-        final VerifiedPerformanceProbeInstaller performanceProbe = PERFORMANCE_PROBE.getAndSet(null);
-        if (performanceProbe != null) {
-            try {
-                performanceProbe.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism performance probe cleanup failed safely");
-            }
-        }
-
-        final PerformanceFpsHook fpsHook = FPS_HOOK.getAndSet(null);
-        if (fpsHook != null) {
-            try {
-                fpsHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism FPS hook cleanup failed safely");
-            }
-            PerformanceFpsHookRegistry.clear(fpsHook);
-        }
-        final VerifiedDockTabPopupHookInstaller dockTabPopupHook = DOCK_TAB_POPUP_HOOK.getAndSet(null);
-        if (dockTabPopupHook != null) {
-            try {
-                dockTabPopupHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism dock-tab popup hook cleanup failed safely");
-
-            }
-        }
-        final VerifiedFloatingFrameDisposeHookInstaller floatingFrameHook =
-            FLOATING_FRAME_DISPOSE_HOOK.getAndSet(null);
-        if (floatingFrameHook != null) {
-            try {
-                floatingFrameHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism floating-frame dispose hook cleanup failed safely");
-            }
-        }
-        final VerifiedFloatingTabCloseHookInstaller floatingTabCloseHook =
-            FLOATING_TAB_CLOSE_HOOK.getAndSet(null);
-        if (floatingTabCloseHook != null) {
-            try {
-                floatingTabCloseHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism floating-tab close hook cleanup failed safely");
-            }
-        }
-        closeProjectLifecycleHook(RUNTIME.get(), "runtime-close");
-
-        closeFileChooserHistoryHook(RUNTIME.get(), "runtime-close");
-        closeParameterHook(RUNTIME.get(), "runtime-close");
-        closeTextureAtlasHooks(RUNTIME.get(), "runtime-close");
-        final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
-        if (physicsHook != null) {
-            try {
-                physicsHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism physics editor hook cleanup failed safely");
-
-            }
-        }
-        final dev.turboism.sdk.plugin.Registration overlayHook = OVERLAY_HOOK.getAndSet(null);
-        if (overlayHook != null) {
-            try {
-                overlayHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism bounding-box overlay hook cleanup failed safely");
-
-            }
-        }
-        final VerifiedControlAppearanceHookInstaller controlAppearanceHook =
-            CONTROL_APPEARANCE_HOOK.getAndSet(null);
-        if (controlAppearanceHook != null) {
-            try {
-                controlAppearanceHook.close();
-            } catch (Throwable failure) {
-                runtimeWarn("Turboism control-appearance hook cleanup failed safely");
-
-            }
-        }
+    static boolean shutdownForTesting() {
+        JvmShims.closeAll(TurboismAgent::runtimeWarn);
+        HOOKS.get().closeAll(TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
         if (runtime == null) {
             return false;
@@ -1293,80 +303,12 @@ public final class TurboismAgent {
         try {
             runtime.close();
         } catch (Throwable failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+            RuntimeDiagnostics.error(
                 "bootstrap",
                 "Shutdown hook failed safely: RUNTIME_CLOSE_FAILED",
                 failure
             );
         }
         return true;
-    }
-
-    private static void installTextureAtlasHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        VerifiedTextureAtlasDataModelHookInstaller installer = null;
-        try {
-            installer = VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
-                instrumentation,
-                runtime.editorModelResolver(),
-                host.classLoader(),
-                runtime.textureAtlasDataModelCapture()
-            );
-            installer.install();
-            if (!TEXTURE_ATLAS_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-            } else {
-                runtimeInfo("TURBOISM_TEXTURE_ATLAS_DATA_MODEL_HOOK installation=COMPLETE");
-            }
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtimeWarn(
-                "Turboism texture-atlas hook disabled safely: " + failure.getClass().getName()
-            );
-        }
-    }
-
-    private static void installTextureAtlasAutoLayoutHook(
-        final PreviewRuntime runtime,
-        final Instrumentation instrumentation,
-        final HostClassLocator.LocatedHost host
-    ) {
-        VerifiedTextureAtlasAutoLayoutHookInstaller installer = null;
-        try {
-            final RuntimeTextureAtlasEditorUi editorUi =
-                runtime.hostAccess().textureAtlasEditorUi();
-            installer = VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
-                instrumentation,
-                runtime.editorModelResolver(),
-                host.classLoader(),
-                runtime.hostAccess().textureAtlasNativeInvocations(),
-                () -> {
-                    final Object callback = System.getProperties().get(
-                        VerifiedTextureAtlasAutoLayoutHookInstaller.PLUGIN_CALLBACK_KEY
-                    );
-                    return callback instanceof java.util.function.BooleanSupplier supplier
-                        && supplier.getAsBoolean();
-                },
-                editorUi,
-                runtime.hostAccess().textureAtlasAlgorithms(),
-                runtime.effectiveLocale()
-            );
-            installer.install();
-            if (!TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(null, installer)) {
-                installer.close();
-            } else {
-                runtimeInfo("TURBOISM_TEXTURE_ATLAS_AUTO_LAYOUT_HOOK installation=COMPLETE");
-            }
-        } catch (Throwable failure) {
-            if (installer != null) installer.close();
-            runtime.error(
-                "bootstrap",
-                "Turboism texture-atlas automatic-layout hook disabled safely",
-                failure
-            );
-        }
     }
 }

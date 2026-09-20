@@ -167,4 +167,22 @@ record AgentOptions(
             );
         }
     }
+
+    static Path defaultHome() {
+        final String configured = System.getProperty("turboism.home");
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        try {
+            final Path location = Path.of(
+                AgentOptions.class.getProtectionDomain().getCodeSource().getLocation().toURI()
+            ).toAbsolutePath().normalize();
+            if (java.nio.file.Files.isRegularFile(location)) {
+                return location.getParent();
+            }
+            return location.resolve("turboism-preview");
+        } catch (java.net.URISyntaxException | RuntimeException exception) {
+            return Path.of("turboism-preview").toAbsolutePath().normalize();
+        }
+    }
 }
