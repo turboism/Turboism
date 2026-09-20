@@ -93,7 +93,9 @@ or this validation package.
 The lifecycle probe consumes only a terminal result whose `runId` matches the current task.
 After the client finishes, it reuses the tested native UI close helper: the exact 5302 route
 uses focused Alt+F4; 5203 and 5303 use their verified synthetic close event. MCP reserves
-`display-input` and only the 5302 wrapper enables fixture-scoped focus tracking.
+`display-input`. The in-process helper verifies that the selected task window is active before
+sending the native gesture; failure to acquire focus stops the close. No external desktop-focus
+poller is admitted by the MCP client's dependency inventory.
 
 The helper selects exactly one window matching the copied fixture, never an arbitrary visible
 window. It handles only an unambiguous save-confirmation dialog owned by that window and naming
