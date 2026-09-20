@@ -55,8 +55,14 @@ readonly memory observer closure documented in [native resource workload](README
 The latter requires three fixed helper destinations, a pinned Python interpreter and
 managed background execution; it is not general hook admission. The history
 baseline wrapper's `collect-history-validation-evidence.sh` cleanup hook, FX hooks,
-MCP clients and generated plugin-chooser hooks remain blocked at snapshot admission
-until their complete dependencies are explicitly reviewed; do not bypass the queue.
+generated plugin-chooser hooks remain blocked at snapshot admission until their complete
+dependencies are explicitly reviewed; do not bypass the queue. The MCP task admits only
+`scripts/preview/mcp-host-validation-client.py` with its fixed task filename, MCP task/version,
+terminal result path, unchanged-fixture requirement and the preparing Python interpreter.
+The client uses only Python's standard library; the interpreter hash is recorded and rechecked,
+and Runner invokes it with `-I`. The client disables inherited HTTP proxies and redirects.
+Its code and the Runner are captured in the immutable input snapshot. Missing/duplicate inputs,
+substituted clients/interpreters, extra hooks and all other custom clients remain rejected.
 `host-validation-transport.sh` retains local-only utility names for path/copy
 compatibility; it contains no SSH/SCP execution and is a required snapshotted helper.
 Interactive WebDAV backup is not supported unattended and is explicitly blocked
