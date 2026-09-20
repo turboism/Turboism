@@ -2,46 +2,52 @@ package dev.turboism.sdk.ui.viewcontext;
 
 import dev.turboism.sdk.plugin.Registration;
 
+import java.awt.image.BufferedImage;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * Contributes text toggle buttons into the modeling view's canvas-top GL
- * control strip (the bar hosting the "Lock Drawable Object" toggle and the
+ * Contributes a state button into the modeling view's canvas-top GL control
+ * strip (the bar hosting the "Lock Drawable Object" toggle and the
  * display-visibility buttons). Contributed buttons mount into the strip's own
- * scene graph and are re-positioned by the hook whenever the strip re-layouts.
+ * button group and inherit its per-frame layout, mode visibility and
+ * scene-graph hit testing.
  */
 public interface ViewContextMenuRegistry {
 
     /**
-     * Adds a text toggle button to the strip. The host invokes the click
-     * consumer on every click; the owning plugin updates the button text
-     * through {@link #setText(String, String)} to reflect its state.
+     * Adds a single icon toggle button to the strip whose icon cycles through
+     * the provided state images on click. The host invokes the click consumer
+     * with the clicked state on every click.
      *
-     * @param contribution descriptor of the button
+     * @param contribution descriptor of the state button
      */
-    Registration contributeButton(ButtonContribution contribution);
+    Registration contributeStateButtons(StateButtonContribution contribution);
 
     /**
-     * Updates the drawn text of a contributed button.
+     * Programmatically selects a contributed state (used for keyboard toggles
+     * that must stay in sync with the strip visuals).
      *
      * @param contributionId plugin-scoped identity used at contribute time
-     * @param text the new button text
+     * @param state the state key whose icon is displayed
      */
-    void setText(String contributionId, String text);
+    void selectState(String contributionId, int state);
 
-    /** One canvas-strip text button owned by a plugin. */
-    record ButtonContribution(
+    /** A state-cycling icon button owned by a plugin. */
+    record StateButtonContribution(
         String contributionId,
-        String text,
-        String tooltip,
-        Consumer<Void> onClick
+        Map<Integer, BufferedImage> stateIcons,
+        int initialState,
+        Consumer<Integer> onClick
     ) {
-        public ButtonContribution {
+        public StateButtonContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
-            text = Objects.requireNonNull(text, "text");
-            tooltip = Objects.requireNonNull(tooltip, "tooltip");
+            stateIcons = Objects.requireNonNull(stateIcons, "stateIcons");
             Objects.requireNonNull(onClick, "onClick");
+            if (stateIcons.isEmpty()) {
+                throw new IllegalArgumentException("stateIcons must not be empty");
+            }
         }
     }
 }
