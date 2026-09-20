@@ -119,7 +119,27 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.capabilities.read` | Reads operation effects, version support, transaction eligibility, and SDK coverage. |
 | `turboism.editor_commands.execute` | Executes discoverable direct and typed non-file Editor commands. |
 
-Writes run after runtime permission and argument checks. Mixed batches can partially succeed and report per-operation results; they are not presented as transactions unless the underlying SDK batch is atomic.
+The complete batch is checked against its input schema before the first write. A malformed later entry rejects the request without applying earlier entries. Valid-shaped batches can still partially succeed when a runtime operation fails; completed results are preserved and `stopOnError` controls subsequent execution. A native atomic sub-operation does not make the whole MCP batch a transaction.
+
+##### Write outcomes and inversion migration
+
+Confirmed parameter writes retain `outcome`, `retryable: false`, and their identity even when subsequent reads fail. A detail read failure returns `APPLIED_WITH_READBACK_WARNING`. If the optional final parameter snapshot fails, `parameters` is `null` and `parameterSnapshotWarning` explains why; completed `results` remain intact. Do not retry a confirmed write just because its readback is unavailable.
+
+The ambiguous parameter-binding operation `invert` is rejected before dispatch. To explicitly reverse **every normal keyform binding** on selected targets, use:
+
+```json
+{
+  "operations": [{
+    "operation": "invert_all_bindings",
+    "scope": "all_target_bindings",
+    "targets": [{"type": "art_mesh", "id": "ArtMesh1"}]
+  }]
+}
+```
+
+This is not single-parameter inversion and does not invert blend-shape bindings. The receipt includes the scope and affected parameter IDs; successful readback includes all affected normal bindings. A `parameterId` field is not accepted for this operation. Single-parameter inversion requires a separate verified provider contract.
+
+The three `*.apply` tools remain `transactionEligible: false`; `turboism.transaction.execute` rejects them before opening a transaction. This does not imply that their individual native operations lack Undo. `turboism.capabilities.read` exposes these temporary exceptions. Its coverage ledger now tracks twelve explicitly listed SDK owners, including model-object, parameter and binding APIs; it is not whole-SDK coverage. `MCP_LEGACY_WRITE` marks exposed legacy writes without claiming grouped transaction readiness. Empty `supportedVersions` on these added ledger rows means no exact-version claim is made by the ledger; actual provider admission still applies.
 
 ### Resources
 
