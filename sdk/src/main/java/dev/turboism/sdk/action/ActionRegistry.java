@@ -3,6 +3,7 @@ package dev.turboism.sdk.action;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -17,6 +18,33 @@ public interface ActionRegistry {
         String label();
 
         Consumer<ActionContext> handler();
+
+        /**
+         * Returns an action with the given identity, display label and handler.
+         *
+         * @param id action identity matching the {@code register} id
+         * @param label display text
+         * @param handler invoked with the invocation context on trigger
+         */
+        static Action of(final String id, final String label, final Consumer<ActionContext> handler) {
+            return new SimpleAction(id, label, handler);
+        }
+    }
+
+    /**
+     * Value-style {@link Action} implementation for registrations that carry
+     * no per-callback state.
+     *
+     * @param id action identity
+     * @param label display text
+     * @param handler invoked with the invocation context on trigger
+     */
+    record SimpleAction(String id, String label, Consumer<ActionContext> handler) implements Action {
+        public SimpleAction {
+            Objects.requireNonNull(id, "id");
+            Objects.requireNonNull(label, "label");
+            Objects.requireNonNull(handler, "handler");
+        }
     }
 
     interface ActionContext {

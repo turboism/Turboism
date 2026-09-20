@@ -30,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 /**
  * 剪贴蒙版检查器（clipmask-viewer）官方插件。
@@ -137,22 +136,11 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
     private void registerAction() {
         final Registration registration = context.actions().register(
             OPEN_VIEWER_ACTION_ID,
-            new ActionRegistry.Action() {
-                @Override
-                public String id() {
-                    return OPEN_VIEWER_ACTION_ID;
-                }
-
-                @Override
-                public String label() {
-                    return localization.text("button.open");
-                }
-
-                @Override
-                public Consumer<ActionRegistry.ActionContext> handler() {
-                    return ignored -> openViewer();
-                }
-            }
+            ActionRegistry.Action.of(
+                OPEN_VIEWER_ACTION_ID,
+                localization.text("button.open"),
+                ignored -> openViewer()
+            )
         );
         context.disposableScope().register(registration);
     }
