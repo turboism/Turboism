@@ -21,16 +21,17 @@ public final class AuthorizedViewContextMenuRegistry implements ViewContextMenuR
     }
 
     @Override
-    public Registration contributeButton(final ViewContextMenuRegistry.ButtonContribution contribution) {
+    public Registration contributeStateButtons(
+        final ViewContextMenuRegistry.StateButtonContribution contribution) {
         permissions.check(
             dev.turboism.sdk.permission.PermissionIds.TURBOISM_UI_TOOLBAR_CONTRIBUTE,
-            "viewcontext.button.contribute"
+            "viewcontext.statebuttons.contribute"
         );
-        return delegate.contributeButton(contribution);
+        return delegate.contributeStateButtons(contribution);
     }
 
     @Override
-    public void setText(final String contributionId, final String text) {
-        delegate.setText(contributionId, text);
+    public void selectState(final String contributionId, final int state) {
+        delegate.selectState(contributionId, state);
     }
 }
