@@ -1037,6 +1037,11 @@ def main() -> int:
             "active model parameters",
         )
         parameter_values = array_value(parameters.get("parameters"), "parameters")
+        # Establish native texture evidence before any authoring or history operation.
+        validate_native_texture_roundtrip(state_root, task_id)
+        report.append("assertion.textureNativeLayersAndPixels.status=PASS")
+        report.append("assertion.textureSaveReopen.status=PASS")
+        report.append("texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED")
         rejected_count = validate_audit_input_guards(client, parameter_values)
         report.append(f"auditRejectedRequestCount={rejected_count}")
         report.append("assertion.auditPreflightNoMutation.status=PASS")
@@ -1074,11 +1079,6 @@ def main() -> int:
         report.append("assertion.parameterWriteReadback.status=PASS")
         report.append("assertion.parameterWriteCleanup.status=PASS")
 
-        # Capture native inputs/pixels before ANY texture deletion can disturb them.
-        validate_native_texture_roundtrip(state_root, task_id)
-        report.append("assertion.textureNativeLayersAndPixels.status=PASS")
-        report.append("assertion.textureSaveReopen.status=PASS")
-        report.append("texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED")
         texture_operations = validate_reversible_texture_authoring(client, task_id)
         mutations.append("TEXTURE_LIBRARY_CHANGED_UNDONE_REDONE_AND_RESTORED")
         report.append(f"textureAuthoringOperationCount={texture_operations}")
