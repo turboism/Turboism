@@ -78,7 +78,7 @@ class WindowsHistoryNativeUiHostCloseTest {
     }
 
     @Test
-    void theExistingVersionRoutesAreKeptWithoutAdmittingNewVersions() {
+    void exactMcp5303RouteIsAddedWithoutChangingEstablishedRoutes() {
         assertEquals(
             WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4,
             WindowsHistoryNativeUiHostClose.hostCloseRoute("5302")
@@ -87,9 +87,13 @@ class WindowsHistoryNativeUiHostCloseTest {
             WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
             WindowsHistoryNativeUiHostClose.hostCloseRoute("5203")
         );
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+            WindowsHistoryNativeUiHostClose.hostCloseRoute("5303")
+        );
         assertThrows(
             IllegalArgumentException.class,
-            () -> WindowsHistoryNativeUiHostClose.hostCloseRoute("5303")
+            () -> WindowsHistoryNativeUiHostClose.hostCloseRoute("5304")
         );
         assertThrows(
             IllegalArgumentException.class,

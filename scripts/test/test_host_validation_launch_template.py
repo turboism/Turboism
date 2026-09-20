@@ -76,6 +76,25 @@ class LaunchTemplateTest(unittest.TestCase):
     def test_opt_in_focus_helper_is_reaped_at_launcher_exit(self):
         self.run_template(0, focus=True)
 
+    def test_cleanup_diagnostic_distinguishes_timeout_from_native_exit(self):
+        source = RUNNER.read_text()
+        functions = re.findall(r'remote_record_wrapper_cleanup\(\) \{\n.*?\n\}', source, re.S)
+        self.assertEqual(1, len(functions))
+        with tempfile.TemporaryDirectory(prefix="turboism-cleanup-reason-") as temporary:
+            for reason in ("native-exit-evidence-observed", "launcher-exit-timeout"):
+                recorded = subprocess.run(
+                    ["bash", "-c", functions[0] + '\nremote_record_wrapper_cleanup "$reason"'],
+                    env={**os.environ, "evidence_dir": temporary, "reason": reason},
+                    capture_output=True, text=True, timeout=5,
+                )
+                self.assertEqual(0, recorded.returncode, recorded.stderr)
+                self.assertEqual(
+                    f"reason={reason}\ncleanupOwner=supervisor\n",
+                    (Path(temporary) / "wrapper.cleanup").read_text(),
+                )
+        self.assertIn("remote_record_wrapper_cleanup 'launcher-exit-timeout'", source)
+        self.assertIn("remote_record_wrapper_cleanup 'native-exit-evidence-observed'", source)
+
     def test_wrapper_failure_remains_observable(self):
         argv, values = self.run_template(17)
         self.assertEqual([values["cmd_unix"], "/c", values["win_launch"]], argv[-3:])

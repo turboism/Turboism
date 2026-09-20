@@ -4,9 +4,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
-import javax.swing.SwingUtilities;
-import java.awt.Frame;
-import java.awt.event.WindowEvent;
+import dev.turboism.tests.plugin.McpValidationHostClose;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -76,8 +74,10 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     private static boolean terminalResult(final Path result) {
         if (!Files.isRegularFile(result)) return false;
         try {
-            return Files.readAllLines(result).stream()
-                .anyMatch(line -> line.equals("status=PASS") || line.equals("status=FAIL"));
+            final var lines = Files.readAllLines(result);
+            final String runId = System.getProperty("turboism.validation.runId");
+            return runId != null && lines.contains("runId=" + runId)
+                && lines.stream().anyMatch(line -> line.equals("status=PASS") || line.equals("status=FAIL"));
         } catch (Exception ignored) {
             return false;
         }
@@ -92,32 +92,14 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
 
     private void requestAutomatedHostClose() {
         try {
-            final Runnable request = () -> {
-                Frame modelFrame = null;
-                Frame cubismFrame = null;
-                Frame fallbackFrame = null;
-                for (Frame frame : Frame.getFrames()) {
-                    if (!frame.isVisible()) continue;
-                    if (fallbackFrame == null) fallbackFrame = frame;
-                    final String title = frame.getTitle();
-                    if (title != null && title.contains(".cmo3")) {
-                        modelFrame = frame;
-                        break;
-                    }
-                    if (cubismFrame == null && title != null && title.contains("Cubism")) {
-                        cubismFrame = frame;
-                    }
-                }
-                final Frame frame = modelFrame != null
-                    ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
-                if (frame == null) {
-                    logger.warn("Automated MCP host close skipped: no visible Cubism frame");
-                    return;
-                }
-                frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-            };
-            if (SwingUtilities.isEventDispatchThread()) request.run();
-            else SwingUtilities.invokeAndWait(request);
+            final String outcome = McpValidationHostClose.request(
+                Boolean.getBoolean("turboism.validation.exitOnComplete"),
+                enabled,
+                terminalResult(validationStateRoot().resolve(RESULT_FILE)),
+                System.getProperty("turboism.validation.runId"),
+                System.getProperty("turboism.validation.hostVersion")
+            );
+            logger.info("MCP_HOST_CLOSE " + outcome);
         } catch (Exception failure) {
             logger.error("Automated MCP host close request failed", failure);
         }
