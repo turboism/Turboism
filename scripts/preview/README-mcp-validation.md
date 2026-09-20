@@ -30,6 +30,7 @@ The raw stdlib HTTP client requires the exact public catalog introduced by the M
 authoring-transaction cutover:
 
 - `turboism.glues.read` and `turboism.glues.write`
+- `turboism.textures.read` and `turboism.textures.write`
 - `turboism.history.read`, `turboism.history.undo`, and `turboism.history.redo`
 - `turboism.transaction.execute` and `turboism.capabilities.read`
 - the three explicitly recorded temporary `*.apply` compatibility exceptions
@@ -75,6 +76,29 @@ native Undo / Redo / final Undo with metadata and history-position restoration. 
 verify the MCP scope/receipt and native history contracts, not visual keyform-pose geometry.
 The parameter value matrix also checks confirmed non-retryable receipts and Undo/Redo/restore.
 Injected readback failures remain deterministic unit-test evidence, not fabricated host faults.
+
+## Reversible texture-library authoring matrix
+
+The copied fixture must contain at least one raw image and one model image. The texture matrix
+runs after the original Glue/history-tip checks and existing binding/parameter matrices. It uses
+`turboism.textures.read`'s `state` object as `expectedState`; the separate `stateToken` string is
+only a read correlation identifier.
+
+The matrix rejects stale state, missing or false deletion confirmation, zero atlas dimensions,
+and unknown targets without changing the library or history. It then exercises each of the five
+texture-library operations, requires a confirmed non-retryable write receipt and exactly one native
+Undo position, and checks full metadata equality after Undo, Redo, and final restoration. Generated
+atlas IDs must be present in the write receipt. If the fixture has no atlas, a task-local atlas is
+created for the remove-atlas cycle and restored afterward. Raw-image removal must preserve the
+other raw images, model images, ArtMesh identities, and atlas metadata; the selected raw-image
+identity alone disappears and returns on Undo.
+
+Every cycle attempts guarded cleanup at only the expected native history position. It never jumps
+to an arbitrary history cursor or changes an original model. An unexpected position or mismatched
+restored metadata is a failure, not a skipped assertion. The result records
+`texturePersistence=NOT_TESTED_IN_REVERSIBLE_HTTP_MATRIX`: this matrix does not save/reopen a model
+and must not be reported as texture persistence acceptance. Native pixel/pose equivalence and
+internal layer-input reconstruction need their own observations beyond metadata equality.
 
 ## Other validation
 

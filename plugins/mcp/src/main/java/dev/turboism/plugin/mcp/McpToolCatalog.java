@@ -321,10 +321,11 @@ final class McpToolCatalog {
                 }
             }
             if (value instanceof String text) {
+                final int length = text.codePointCount(0, text.length());
                 if (schema.get("minLength") instanceof Number minimum
-                    && text.length() < minimum.intValue()) return path + " is too short";
+                    && length < minimum.intValue()) return path + " is too short";
                 if (schema.get("maxLength") instanceof Number maximum
-                    && text.length() > maximum.intValue()) return path + " is too long";
+                    && length > maximum.intValue()) return path + " is too long";
             }
             if (value instanceof Number number) {
                 final java.math.BigDecimal decimal = new java.math.BigDecimal(number.toString());
