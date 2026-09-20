@@ -26,13 +26,6 @@ public interface ViewContextMenuRegistry {
     Registration contributeStateButtons(StateButtonContribution contribution);
 
     /**
-     * Programmatically selects a contributed state (used for keyboard toggles
-     * that must stay in sync with the strip visuals).
-     *
-     * @param contributionId plugin-scoped identity used at contribute time
-     * @param state the state key whose icon is displayed
-     */
-    void selectState(String contributionId, int state);
 
     /** A state-cycling icon button owned by a plugin. */
     record StateButtonContribution(

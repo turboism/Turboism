@@ -45,8 +45,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private record Entry(
         ViewContextMenuRegistry.StateButtonContribution contribution,
-        Object currentButton,
-        int currentState
+        Object currentButton
     ) { }
 
     public static RuntimeViewContextMenuRegistry getInstance() {
@@ -96,26 +95,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         };
     }
 
-    /** Switches the button icon to the state's image (destroy + recreate). */
-    public void selectState(final String contributionId, final int state) {
-        synchronized (lock) {
-            final Entry entry = entries.get(contributionId);
-            if (entry == null) return;
-            final BufferedImage image = entry.contribution().stateIcons().get(state);
-            if (image == null) return;
-            final int index = hIndexOf(entry.currentButton());
-            removeButton(entry.currentButton());
-            try {
-                final Object newButton = createButton(entry.contribution(), image, state);
-                insertIntoGroup(strip, newButton, index);
-                entries.put(contributionId, new Entry(entry.contribution(), newButton, state));
-                diagnostic("STATE_SWAPPED state=" + state);
-            } catch (Throwable failure) {
-                diagnostic("STATE_SWAP_FAILED reason=" + failure.getClass().getName());
-            }
-        }
-    }
-
     private void buildAndMount(final ViewContextMenuRegistry.StateButtonContribution contribution) {
         try {
             if (strip == null) {
@@ -132,7 +111,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final Object button = createButton(contribution, initialImage, initialState);
             insertIntoGroup(strip, button, 2);
             entries.put(contribution.contributionId(),
-                new Entry(contribution, button, initialState));
+                new Entry(contribution, button));
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
                 + " state=" + initialState);
         } catch (Throwable failure) {
@@ -233,21 +212,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         if (list.contains(button)) return;
         ((List<Object>) group).add(Math.min(index, list.size()), button);
-    }
-
-    private int hIndexOf(final Object button) {
-        try {
-            final Field groupField = strip.getClass().getDeclaredField("H");
-            groupField.setAccessible(true);
-            final Object group = groupField.get(strip);
-            if (group instanceof List<?> list) {
-                for (int i = 0; i < list.size(); i++) {
-                    if (list.get(i) == button) return i;
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-        return 2;
     }
 
     private static void removeButton(final Object button) {

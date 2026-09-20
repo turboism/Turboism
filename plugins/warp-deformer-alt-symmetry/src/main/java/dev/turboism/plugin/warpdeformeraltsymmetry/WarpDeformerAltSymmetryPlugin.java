@@ -152,7 +152,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         armedAxis = axis;
         try {
             context.warpAltMirrorParticipation().setArmedAxis(axis);
-            registrySelectState(axis);
+            // no button state sync needed
         } catch (RuntimeException | Error unsupported) {
             logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
             return;
@@ -160,13 +160,6 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         showArmedHint(axis);
         logger.info("WARP_ALT_AXIS armed="
             + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
-    }
-
-    private void registrySelectState(final int axis) {
-        try {
-            context.viewContextMenu().selectState(AXIS_BUTTON_ID, axis);
-        } catch (RuntimeException | Error ignored) {
-        }
     }
 
 
