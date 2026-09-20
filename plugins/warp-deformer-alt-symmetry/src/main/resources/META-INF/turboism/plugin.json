@@ -45,9 +45,9 @@
       "reason": "Adds the mirror-axis toggle button to the canvas-top control strip."
     },
     {
-      "id": "turboism.ui.status.notify",
+      "id": "turboism.ui.canvas.hint",
       "scope": "application",
-      "reason": "Shows the armed-axis hint in the host status bar and clears it on disarm."
+      "reason": "Shows the armed-axis hint over the drawing area in the host's native lower-right hint surface and clears it on disarm."
     }
   ],
   "capabilities": [
