@@ -15,6 +15,7 @@ import java.awt.event.AWTEventListener;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -124,7 +125,18 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
                 logger.warn("mirror icon missing: " + name);
                 return new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
             }
-            return javax.imageio.ImageIO.read(stream);
+            final BufferedImage raw = javax.imageio.ImageIO.read(stream);
+            // The host's CWritableImage only implements TYPE_INT_ARGB (type 2);
+            // ImageIO.read may return TYPE_4BYTE_ABGR (type 6) for PNGs.
+            if (raw.getType() != BufferedImage.TYPE_INT_ARGB) {
+                final BufferedImage converted = new BufferedImage(
+                    raw.getWidth(), raw.getHeight(), BufferedImage.TYPE_INT_ARGB);
+                final Graphics2D g = converted.createGraphics();
+                g.drawImage(raw, 0, 0, null);
+                g.dispose();
+                return converted;
+            }
+            return raw;
         } catch (java.io.IOException failure) {
             logger.warn("mirror icon load failed: " + name);
             return new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);

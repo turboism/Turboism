@@ -37,8 +37,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private static final String BUTTON_CLASS =
         "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity";
     private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
-    private static final String WRITABLE_CLASS = "com.live2d.graphics.CWritableImage";
-    private static final String GROUP_CLASS = "com.live2d.ui.control.CButtonGroup";
+    private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
+    private static final String TYPE_CLASS = "com.live2d.graphics.n";
     private static final String FUNCTION3_CLASS = "kotlin.jvm.functions.Function3";
 
     private final Object lock = new Object();
@@ -147,12 +147,11 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 diagnostic("BUILD_SKIPPED reason=NO_STRIP");
                 return;
             }
-            final Object group = exclusiveGroup(strip);
             final Map<Integer, Object> stateButtons = new LinkedHashMap<>();
             for (final Map.Entry<Integer, BufferedImage> state
                 : contribution.stateIcons().entrySet()) {
                 final Object button = createButton(strip, contribution,
-                    state.getValue(), state.getKey(), group);
+                    state.getValue(), state.getKey());
                 insertIntoGroup(strip, button);
                 stateButtons.put(state.getKey(), button);
             }
@@ -162,8 +161,12 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 + " count=" + stateButtons.size());
         } catch (Throwable failure) {
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
-            diagnostic("BUTTON_MOUNT_FAILED phase=" + phase
-                + " reason=" + failure.getClass().getName() + ": " + failure.getMessage());
+            final StringBuilder chain = new StringBuilder();
+            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+                if (chain.length() > 0) chain.append(" <- ");
+                chain.append(cause.getClass().getSimpleName()).append(": ").append(cause.getMessage());
+            }
+            diagnostic("BUTTON_MOUNT_FAILED phase=" + phase + " chain=" + chain);
         }
     }
 
@@ -172,8 +175,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         final Object stripInstance,
         final ViewContextMenuRegistry.StateButtonContribution contribution,
         final BufferedImage iconImage,
-        final int state,
-        final Object group
+        final int state
     ) throws ReflectiveOperationException {
         final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
         final Class<?> barClass = stripInstance.getClass();
@@ -208,37 +210,25 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
 
         setOnAction(button, contribution, state);
-        joinExclusiveGroup(button, group);
         return button;
     }
 
     /** Assembles a seven-slot icon set from one state image (all variants identical). */
     private Object iconSetFor(final BufferedImage image, final ClassLoader hostLoader)
         throws ReflectiveOperationException {
-        final Class<?> writableClass = Class.forName(WRITABLE_CLASS, false, hostLoader);
+        final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
+        final Class<?> typeClass = Class.forName(TYPE_CLASS, false, hostLoader);
         final Class<?> setClass = Class.forName(
             "com.live2d.cubism.view.context.guiEntity.q", false, hostLoader);
 
-        final Object writable = writableClass.getConstructor(BufferedImage.class)
-            .newInstance(image);
-        return setClass.getConstructor(writableClass, writableClass, writableClass,
-            writableClass, writableClass, writableClass, writableClass)
-            .newInstance(writable, writable, writable, writable, writable, writable, writable);
+        final Object resource = resourceClass
+            .getConstructor(BufferedImage.class, boolean.class)
+            .newInstance(image, false);
+        return setClass.getConstructor(resourceClass, resourceClass, resourceClass,
+            resourceClass, resourceClass, resourceClass, resourceClass)
+            .newInstance(resource, resource, resource, resource, resource, resource, resource);
     }
 
-    private Object exclusiveGroup(final Object stripInstance)
-        throws ReflectiveOperationException {
-        final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
-        final Class<?> groupClass = Class.forName(GROUP_CLASS, false, hostLoader);
-        return groupClass.getConstructor().newInstance();
-    }
-
-    private static void joinExclusiveGroup(final Object button, final Object group)
-        throws ReflectiveOperationException {
-        final Method setButtonGroup = button.getClass()
-            .getMethod("setButtonGroup", group.getClass());
-        setButtonGroup.invoke(button, group);
-    }
 
     private static void setOnAction(
         final Object button,
