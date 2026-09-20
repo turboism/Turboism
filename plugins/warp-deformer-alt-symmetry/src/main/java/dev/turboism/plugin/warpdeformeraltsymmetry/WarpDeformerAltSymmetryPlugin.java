@@ -110,7 +110,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
                 new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry
                     .StateButtonContribution(
                     AXIS_BUTTON_ID, icons, armedAxis,
-                    state -> applyArmedAxis(state)));
+                    ignored -> cycleArmedAxis()));
             logger.info("Warp deformer Alt axis-symmetry strip button contributed");
         } catch (RuntimeException | Error unsupported) {
             logger.warn("viewContextMenu unavailable: "

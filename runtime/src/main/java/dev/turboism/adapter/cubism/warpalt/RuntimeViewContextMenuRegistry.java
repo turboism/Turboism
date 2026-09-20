@@ -46,8 +46,12 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private record Entry(
         ViewContextMenuRegistry.StateButtonContribution contribution,
-        Object currentButton
+        Object currentButton,
+        Map<Integer, Object> stateEntities
     ) { }
+
+    /** Button plus the self-built per-state icon entities mounted inside it. */
+    private record BuiltButton(Object button, Map<Integer, Object> stateEntities) { }
 
     public static RuntimeViewContextMenuRegistry getInstance() {
         return INSTANCE;
@@ -109,12 +113,14 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 .containsKey(contribution.initialState())
                 ? contribution.initialState()
                 : contribution.stateIcons().keySet().iterator().next();
-            final Object button = createButton(contribution, initialImage, initialState);
-            insertIntoGroup(strip, button, 2);
+            final BuiltButton built = createButton(contribution, initialImage, initialState);
+            insertIntoGroup(strip, built.button(), 2);
             entries.put(contribution.contributionId(),
-                new Entry(contribution, button));
+                new Entry(contribution, built.button(), built.stateEntities()));
+            applyInitialState(built.button(), built.stateEntities(), initialState);
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
-                + " state=" + initialState);
+                + " state=" + initialState
+                + " entities=" + built.stateEntities().size());
         } catch (Throwable failure) {
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
             diagnostic("BUTTON_MOUNT_FAILED phase=" + phase
@@ -123,7 +129,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     }
 
     /** Replicates the host's own lock-button construction with a plugin-provided icon. */
-    private Object createButton(
+    private BuiltButton createButton(
         final ViewContextMenuRegistry.StateButtonContribution contribution,
         final BufferedImage iconImage,
         final int state
@@ -157,63 +163,108 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         factory.setAccessible(true);
 
-        // Reuse the host's own lock-button icon set (b$a.c()) — proven to
-        // render in this GL strip. User PNG icons will be swapped in once
-        // the button visibility is confirmed.
         final BufferedImage offImg = contribution.stateIcons().getOrDefault(0, iconImage);
         final BufferedImage vertImg = contribution.stateIcons().getOrDefault(1, iconImage);
         final BufferedImage horizImg = contribution.stateIcons().getOrDefault(2, iconImage);
-        final Object iconSet = iconSetFor(offImg, vertImg, horizImg, state, hostLoader);
+        final Object[] resources = stateResources(offImg, vertImg, horizImg, hostLoader);
+        final Object iconSet = iconSetFor(resources, hostLoader);
         final Object button = factory.invoke(null,
             stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
 
+        final Map<Integer, Object> stateEntities = mountStateIcons(button, resources, hostLoader);
         setOnAction(button, contribution, state);
-        return button;
+        return new BuiltButton(button, stateEntities);
     }
 
     /**
-     * Assembles a seven-slot icon set from the state images using
-     * {@code CImageResource(byte[], n, boolean)} — the constructor only stores
-     * bytes and defers decoding to first render, so "Not impl" errors are
-     * impossible at construction time.
-     *
-     * <p>Slot semantics: a=normal, d=selected. The armed axis determines which
-     * image goes into which slot: disarmed shows the Off icon, vertical shows
-     * the Vertical icon, horizontal shows the Horizontal icon.</p>
+     * Builds one icon entity per state with the host's own icon-entity factory
+     * ({@code AGSimpleIconButtonEntity$c.a(CImageResource, String)}), registers
+     * each in the button's {@code items} list and scene-graph children, and
+     * returns them keyed by state. State visuals are driven by calling
+     * {@code setSelected(entity)} — the host enables only the chosen item — so
+     * the three-state cycle does not depend on the two-state toggle flags.
+     * Entity names must be resolvable by the host's {@code _selectedState}
+     * parser: Disabled / Normal / Selected.
      */
-    private Object iconSetFor(
+    private static Map<Integer, Object> mountStateIcons(
+        final Object button,
+        final Object[] resources,
+        final ClassLoader hostLoader
+    ) throws ReflectiveOperationException {
+        final Class<?> gEntityClass =
+            Class.forName("com.live2d.graphics3d.entity.GEntity", false, hostLoader);
+        final Object icon = button.getClass().getMethod("getIcon").invoke(button);
+        final Method createIcon = icon.getClass().getMethod("a",
+            Class.forName(RESOURCE_CLASS, false, hostLoader), String.class);
+        final Object items = button.getClass().getMethod("getItems").invoke(button);
+        final Object children = button.getClass().getMethod("getChildren").invoke(button);
+        final Method addChild = children.getClass().getMethod("add", gEntityClass, int.class);
+
+        final String[] names = {"Disabled", "Normal", "Selected"};
+        final Map<Integer, Object> entities = new LinkedHashMap<>();
+        for (int state = 0; state < resources.length; state++) {
+            final Object entity = createIcon.invoke(icon, resources[state], names[state]);
+            @SuppressWarnings("unchecked")
+            final List<Object> itemList = (List<Object>) items;
+            itemList.add(entity);
+            addChild.invoke(children, entity, 0);
+            entities.put(state, entity);
+        }
+        return entities;
+    }
+
+    /**
+     * Builds the three state {@code CImageResource}s (off / vertical /
+     * horizontal) via {@code CImageResource(byte[], n, boolean)} — the
+     * constructor only stores bytes and defers decoding to first render, so
+     * "Not impl" errors are impossible at construction time.
+     */
+    private static Object[] stateResources(
         final BufferedImage offImage,
         final BufferedImage verticalImage,
         final BufferedImage horizontalImage,
-        final int armedAxis,
         final ClassLoader hostLoader
     ) throws ReflectiveOperationException {
         final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
         final Class<?> typeClass = Class.forName(TYPE_CLASS, false, hostLoader);
-        final Class<?> setClass = Class.forName(ICON_SET_CLASS, false, hostLoader);
-
         // n.c = TYPE_INT_ARGB (the host's default color type)
         final Object colorType = typeClass.getField("c").get(null);
+        final var ctor = resourceClass.getConstructor(
+            byte[].class, typeClass, boolean.class);
+        return new Object[]{
+            ctor.newInstance(toBytes(offImage), colorType, true),
+            ctor.newInstance(toBytes(verticalImage), colorType, true),
+            ctor.newInstance(toBytes(horizontalImage), colorType, true),
+        };
+    }
 
-        // CImageResource(byte[], n, boolean) — stores bytes, defers decode
-        final Object offRes = resourceClass.getConstructor(
-            byte[].class, typeClass, boolean.class)
-            .newInstance(toBytes(offImage), colorType, true);
-        final Object vertRes = resourceClass.getConstructor(
-            byte[].class, typeClass, boolean.class)
-            .newInstance(toBytes(verticalImage), colorType, true);
-        final Object horizRes = resourceClass.getConstructor(
-            byte[].class, typeClass, boolean.class)
-            .newInstance(toBytes(horizontalImage), colorType, true);
-
-        // q(7 slots): a=normal, b=variant, c=disabled, d=selected,
-        //             e=hover+sel, f=pressed+sel, g=spare
-        // For a click-cycle button: the CURRENT state's icon goes into
-        // slot a (normal) and slot d (selected). Other slots reuse the
-        // same resource.
+    /**
+     * Assembles the seven-slot fallback icon set from the state resources.
+     * Primary state visuals are driven by the self-built entities (see
+     * {@link #mountStateIcons}); this set only covers transient
+     * {@code updateAppearance()} passes triggered by the host's
+     * enabled/selected flag writes, so each slot carries a sensible icon:
+     *   a=NORMAL(vertical) b=SELECTED(horizontal) c/d=vertical hover/press
+     *   e=DISABLED(off) f/g=horizontal hover/press.
+     */
+    private static Object iconSetFor(
+        final Object[] resources,
+        final ClassLoader hostLoader
+    ) throws ReflectiveOperationException {
+        final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
+        final Class<?> setClass = Class.forName(ICON_SET_CLASS, false, hostLoader);
+        final Object offRes = resources[0];
+        final Object vertRes = resources[1];
+        final Object horizRes = resources[2];
         return setClass.getConstructor(resourceClass, resourceClass, resourceClass,
             resourceClass, resourceClass, resourceClass, resourceClass)
-            .newInstance(offRes, offRes, offRes, offRes, offRes, offRes, offRes);
+            .newInstance(vertRes,   // a  NORMAL      (vertical)
+                horizRes,           // b  SELECTED    (horizontal)
+                vertRes,            // c  ROLLOVER    (vertical hover)
+                vertRes,            // d  PRESSED     (vertical press)
+                offRes,             // e  DISABLED    (off)
+                horizRes,           // f  SELECTEDROLLOVER
+                horizRes);          // g  SELECTEDPRESSED
     }
 
     private static byte[] toBytes(final BufferedImage image) {
@@ -239,14 +290,45 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             (proxy, method, args) -> {
                 if (!method.getName().equals("invoke")) return null;
                 try {
-                    contribution.onClick().accept(null);
+                    contribution.onClick().accept(state);
                 } catch (Throwable failure) {
-                    diagnostic("CLICK_FAILED reason=" + failure.getClass().getName());
+                    final StringBuilder sb = new StringBuilder();
+                    for (Throwable c = failure; c != null; c = c.getCause()) {
+                        if (sb.length() > 0) sb.append(" <- ");
+                        sb.append(c.getClass().getName()).append(": ").append(c.getMessage());
+                        for (final StackTraceElement st : c.getStackTrace()) {
+                            if (st.getClassName().contains("turboism") || st.getClassName().contains("plugin")) {
+                                sb.append(" at ").append(st.getClassName()).append(".").append(st.getMethodName()).append(":").append(st.getLineNumber());
+                                break;
+                            }
+                        }
+                    }
+                    diagnostic("CLICK_FAILED chain=" + sb);
                 }
                 return null;
             });
         final Method setOnAction = button.getClass().getMethod("setOnAction", function3);
         setOnAction.invoke(button, handler);
+    }
+
+    /** Applies the initial state visuals so the state entity shows at mount. */
+    private static void applyInitialState(
+        final Object button,
+        final Map<Integer, Object> stateEntities,
+        final int state
+    ) throws ReflectiveOperationException {
+        final boolean enabled = state != 0;
+        final boolean selected = state == 2;
+        final Class<?> buttonClass = button.getClass();
+        buttonClass.getMethod("setButtonEnabled", boolean.class).invoke(button, enabled);
+        buttonClass.getMethod("setButtonSelected", boolean.class).invoke(button, selected);
+        final Object entity = stateEntities.get(state);
+        if (entity != null) {
+            buttonClass.getMethod("setSelected",
+                Class.forName("com.live2d.graphics3d.entity.GEntity",
+                    false, buttonClass.getClassLoader()))
+                .invoke(button, entity);
+        }
     }
 
     private static void insertIntoGroup(
@@ -276,40 +358,37 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             // best-effort removal
         }
     }
-
-    /** Reuses the host's lock-button icon set (b$a singleton, accessor c()). */
-    private static Object hostIconSet(final Class<?> barClass)
-        throws ReflectiveOperationException {
-        final Field singleton = barClass.getDeclaredField("a");
-        singleton.setAccessible(true);
-        final Object iconRegistry = singleton.get(null);
-        final Method accessor = iconRegistry.getClass().getMethod("c");
-        accessor.setAccessible(true);
-        return accessor.invoke(iconRegistry);
-    }
-
     /**
-     * Updates the button's visual state: off → DISABLED visual (q.e slash
-     * icon via setButtonEnabled(false)); vertical → NORMAL (q.a via
-     * setButtonEnabled(true) + setButtonSelected(false)); horizontal →
-     * SELECTED (setButtonEnabled(true) + setButtonSelected(true)).
-     * Each call triggers the native {@code updateAppearance()}.
+     * Updates the button's visual state. Flag writes first (they fire the
+     * native {@code updateAppearance()} over the fallback q slots), then
+     * {@code setSelected(self-built entity)} — the host enables only the
+     * chosen item — so the displayed icon is always ours:
+     * off → Disabled entity, vertical → Normal entity, horizontal →
+     * Selected entity.
      */
     public void updateButtonState(final String contributionId, final int axis) {
         synchronized (lock) {
             for (final Entry entry : entries.values()) {
                 if (!contributionId.equals(entry.contribution().contributionId())) continue;
                 try {
-                    final ClassLoader hostLoader = entry.currentButton().getClass().getClassLoader();
-                    final Class<?> buttonClass = entry.currentButton().getClass();
+                    final Object button = entry.currentButton();
+                    final Class<?> buttonClass = button.getClass();
                     final boolean enabled = axis != 0;
                     final boolean selected = axis == 2;
                     buttonClass.getMethod("setButtonEnabled", boolean.class)
-                        .invoke(entry.currentButton(), enabled);
+                        .invoke(button, enabled);
                     buttonClass.getMethod("setButtonSelected", boolean.class)
-                        .invoke(entry.currentButton(), selected);
+                        .invoke(button, selected);
+                    final Object entity = entry.stateEntities().get(axis);
+                    if (entity != null) {
+                        buttonClass.getMethod("setSelected",
+                            Class.forName("com.live2d.graphics3d.entity.GEntity",
+                                false, buttonClass.getClassLoader()))
+                            .invoke(button, entity);
+                    }
                     diagnostic("BUTTON_STATE_UPDATED axis=" + axis
-                        + " enabled=" + enabled + " selected=" + selected);
+                        + " enabled=" + enabled + " selected=" + selected
+                        + " entity=" + (entity != null));
                 } catch (ReflectiveOperationException | RuntimeException failure) {
                     diagnostic("UPDATE_STATE_FAILED " + failure.getClass().getSimpleName());
                 }
