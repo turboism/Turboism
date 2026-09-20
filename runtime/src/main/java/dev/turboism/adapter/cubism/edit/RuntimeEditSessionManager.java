@@ -82,7 +82,9 @@ public final class RuntimeEditSessionManager {
 
     /**
      * Creates a production manager over one session host with the Swing UI lock and the
-     * default compensating recovery policy.
+     * capability-driven recovery policy: verified {@code CUndoManager.revert()} when the
+     * capability row binds, compensating recovery otherwise (the default on every currently
+     * supported host).
      */
     public RuntimeEditSessionManager(
         final EditorEditSessionHost host,
@@ -92,7 +94,7 @@ public final class RuntimeEditSessionManager {
             host,
             editScopeGate,
             new SwingEditSessionUiLockFactory(),
-            EditSessionRecoveries.ALWAYS_COMPENSATING
+            EditSessionRecoveries.PREFER_REVERT_WHEN_VERIFIED
         );
     }
 
