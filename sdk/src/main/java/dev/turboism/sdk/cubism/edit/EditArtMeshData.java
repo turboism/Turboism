@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
@@ -12,6 +13,7 @@ import java.util.Optional;
  * Read payload of an {@link EditObjectKind#ART_MESH} object, matching the official
  * {@code ArtMesh} data block of {@code GetObject}, including mesh geometry.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditArtMeshData(
         String name,
         Optional<PartId> parentId,

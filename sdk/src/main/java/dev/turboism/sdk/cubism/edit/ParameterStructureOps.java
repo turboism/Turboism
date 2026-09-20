@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
@@ -9,6 +10,7 @@ import java.util.Optional;
  * Typed operations of the parameter-structure family of the editing surface: reading the
  * parameter tree and adding, editing, deleting, or reordering parameters and parameter groups.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface ParameterStructureOps {
 
     /**

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import java.util.Objects;
 
@@ -16,6 +17,7 @@ import java.util.Objects;
  * @param document the model document the session edits
  * @param options the options the session was opened with
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditSessionOpenResult(DocumentId document, EditSessionOptions options) {
 
     public EditSessionOpenResult {
