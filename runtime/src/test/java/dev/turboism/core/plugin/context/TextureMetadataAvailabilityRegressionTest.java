@@ -30,20 +30,34 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     @Test
-    void admittingMetadataDoesNotAdmitAny5303TextureWrites() {
+    void reviewed5303AllowsTheFiveVerifiedTextureWrites() {
         final RecordingTextures delegate = new RecordingTextures();
         final ModelTextures textures = wrapped("5.3.03", delegate);
-        assertThrows(CubismEditorApiUnavailableException.class,
-            () -> textures.addModelImageGroup("group"));
-        assertThrows(CubismEditorApiUnavailableException.class,
-            () -> textures.removeModelImage(new ModelImageId("image")));
-        assertThrows(CubismEditorApiUnavailableException.class,
-            () -> textures.addTextureAtlas("atlas", 1024, 1024));
-        assertThrows(CubismEditorApiUnavailableException.class,
-            () -> textures.removeTextureAtlas(new TextureAtlasId("atlas")));
-        assertThrows(CubismEditorApiUnavailableException.class,
-            () -> textures.removeRawImage(new RawImageId("raw")));
-        assertEquals(0, delegate.writes);
+        textures.addModelImageGroup("group");
+        textures.removeModelImage(new ModelImageId("image"));
+        assertEquals(new TextureAtlasId("atlas"), textures.addTextureAtlas("atlas", 1024, 1024));
+        textures.removeTextureAtlas(new TextureAtlasId("atlas"));
+        textures.removeRawImage(new RawImageId("raw"));
+        assertEquals(5, delegate.writes);
+    }
+
+    @Test
+    void unknownVersionsRejectAllWritesBeforeTheDelegate() {
+        for (String version : List.of("5.3.01", "5.3.04", "5.4.00")) {
+            final RecordingTextures delegate = new RecordingTextures();
+            final ModelTextures textures = wrapped(version, delegate);
+            assertThrows(CubismEditorApiUnavailableException.class,
+                () -> textures.addModelImageGroup("group"));
+            assertThrows(CubismEditorApiUnavailableException.class,
+                () -> textures.removeModelImage(new ModelImageId("image")));
+            assertThrows(CubismEditorApiUnavailableException.class,
+                () -> textures.addTextureAtlas("atlas", 1024, 1024));
+            assertThrows(CubismEditorApiUnavailableException.class,
+                () -> textures.removeTextureAtlas(new TextureAtlasId("atlas")));
+            assertThrows(CubismEditorApiUnavailableException.class,
+                () -> textures.removeRawImage(new RawImageId("raw")));
+            assertEquals(0, delegate.writes);
+        }
     }
 
     @Test
@@ -58,14 +72,8 @@ final class TextureMetadataAvailabilityRegressionTest {
             textures.removeModelImage(new ModelImageId("image"));
             textures.addTextureAtlas("atlas", 1024, 1024);
             textures.removeTextureAtlas(new TextureAtlasId("atlas"));
-            if (version.equals("5.3.02")) {
-                textures.removeRawImage(new RawImageId("raw"));
-                assertEquals(5, delegate.writes);
-            } else {
-                assertThrows(CubismEditorApiUnavailableException.class,
-                    () -> textures.removeRawImage(new RawImageId("raw")));
-                assertEquals(4, delegate.writes);
-            }
+            textures.removeRawImage(new RawImageId("raw"));
+            assertEquals(5, delegate.writes);
             assertEquals(3, delegate.reads);
         }
     }

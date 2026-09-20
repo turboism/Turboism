@@ -16,9 +16,10 @@ import java.util.Set;
  * undo factories ({@code UndoAddOrRemove_ModelImageGroup}, {@code UndoAddOrRemove_ModelImage},
  * {@code UndoAddOrRemove_TextureAtlas}, {@code UndoAddOrRemove_RawImage}) whose
  * construct-and-redo objects are registered into the edit-mode {@code GroupUndo}.
- * Cubism 5.2.03 lacks the non-dialog raw-image removal path
- * ({@code TextureManagerHandler.a(CLayeredImageGuid, boolean)} is 5.3.02-only),
- * so {@code removeRawImage} fails closed on 5.2.</p>
+ * Cubism 5.2.03 lacks the 5.3 non-dialog raw-image handler overload. Its adapter
+ * instead composes the same native layer-input and raw-image Undo factories,
+ * registering each prepared edit before forceRedo and never invoking a dialog
+ * or deleting the owning model images, ArtMeshes or texture atlases.</p>
  */
 public final class EditorTextureSelectorContract {
 
@@ -60,9 +61,19 @@ public final class EditorTextureSelectorContract {
 
     public static final Set<String> WRITE_REQUIRED_ALIASES = writeAliases();
 
-    /** Aliases required only for the 5.3.02 raw-image removal path. */
+    /** Aliases required for the exact 5.3.02 and 5.3.03 raw-image removal route. */
     public static final Set<String> REMOVE_RAW_IMAGE_ALIASES = Set.of(
         "cubism.editor-model.texture-handler.remove-raw-image"
+    );
+
+    /** Exact 5.2.03 native factories and reads for non-cascading raw-image removal. */
+    public static final Set<String> REMOVE_RAW_IMAGE_5203_ALIASES = Set.of(
+        "cubism.editor-model.model-image.input-filter-env",
+        "cubism.editor-model.model-image-filter-env.layer-input-data",
+        "cubism.editor-model.layer-selector-map.get",
+        "cubism.editor-model.texture-undo.layer-input.create",
+        "cubism.editor-model.texture-undo.raw-image.create",
+        "cubism.editor-model.texture-undo.force-redo"
     );
 
     private static Set<String> writeAliases() {
@@ -76,6 +87,7 @@ public final class EditorTextureSelectorContract {
             "cubism.editor-model.edit-mode.begin",
             "cubism.editor-model.edit-mode.end",
             "cubism.editor-model.undo.add",
+            "cubism.editor-model.texture-undo.undo",
             "cubism.editor-model.undo.add-listener",
             "cubism.editor-model.undo-listener.class",
             "cubism.editor-model.model-source.update-instances",
