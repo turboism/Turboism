@@ -1,0 +1,23 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.fps.observer",
+  "name": "FPS Lifecycle Acceptance Observer",
+  "version": "0.0.0",
+  "description": "Test-only independent subscriber for exact-host lifecycle acceptance.",
+  "entrypoints": ["dev.turboism.validation.fpsobserver.FpsLifecycleObserverPlugin"],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [{"name": "Turboism Validation"}],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {"baseName": "META-INF/turboism/i18n/messages", "locales": []},
+  "dependencies": [],
+  "permissions": [{
+    "id": "turboism.performance.stats.read",
+    "scope": "application",
+    "reason": "Verifies a separate plugin remains subscribed when the actor scope closes."
+  }],
+  "capabilities": [],
+  "environment": {"requiresCubism": true, "ui": "swing"}
+}

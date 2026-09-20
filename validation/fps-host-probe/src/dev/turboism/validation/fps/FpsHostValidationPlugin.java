@@ -103,6 +103,10 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             logger.warn("FPS_EXERCISER_READY_TIMEOUT"
                 + " reason=active-model-not-present"
                 + " timeoutMillis=" + HOST_READY_TIMEOUT_MILLIS);
+            if (Boolean.getBoolean("turboism.validation.fps.lifecycle")) {
+                FpsLifecycleAcceptance.run(context, stateDir, hostVersionLabel(), "missing");
+                return;
+            }
             final JvmSnapshot jvm = jvmSnapshot();
             finish(false, "model readiness timeout", "missing", "missing", 0L, 0.0, 0, "none",
                 jvm, jvm, summarizeJank(List.of()), List.of());
@@ -131,7 +135,11 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                 return;
             }
         }
-        runSampling(hostVersion, modelId.orElseThrow());
+        if (Boolean.getBoolean("turboism.validation.fps.lifecycle")) {
+            FpsLifecycleAcceptance.run(context, stateDir, hostVersion, modelId.orElseThrow());
+        } else {
+            runSampling(hostVersion, modelId.orElseThrow());
+        }
     }
 
     /**
