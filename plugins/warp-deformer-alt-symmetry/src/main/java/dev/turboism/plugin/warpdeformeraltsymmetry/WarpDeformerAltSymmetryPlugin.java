@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.awt.AWTEvent;
@@ -55,6 +56,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private PluginLogger logger;
     private AWTEventListener listener;
     private int armedAxis;
+    private Registration armedHint;
 
     private final AtomicBoolean applying = new AtomicBoolean(false);
 
@@ -176,21 +178,31 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     }
 
     private void showArmedHint(final int axis) {
+        Registration next = null;
         try {
-            final var notification = new dev.turboism.sdk.ui.StatusNotification(
-                "warp-deformer-alt-symmetry.hint",
-                "INFO",
-                switch (axis) {
-                    case 1 -> context.localization()
-                        .text("warp-alt-symmetry.hint.vertical");
-                    case 2 -> context.localization()
-                        .text("warp-alt-symmetry.hint.horizontal");
-                    default -> "";
-                },
-                dev.turboism.sdk.ui.StatusNotification.Presentation.COMPACT_METRIC);
-            context.uiHost().notifyStatus(notification);
+            if (axis != 0) {
+                next = context.uiHost().notifyStatus(
+                    new dev.turboism.sdk.ui.StatusNotification(
+                        "warp-deformer-alt-symmetry.hint",
+                        "INFO",
+                        axis == 1
+                            ? context.localization()
+                                .text("warp-alt-symmetry.hint.vertical")
+                            : context.localization()
+                                .text("warp-alt-symmetry.hint.horizontal"),
+                        dev.turboism.sdk.ui.StatusNotification.Presentation.COMPACT_METRIC));
+            }
         } catch (RuntimeException | Error unsupported) {
             logger.warn("notifyStatus unavailable: " + unsupported.getClass().getSimpleName());
+        }
+        final Registration previous = armedHint;
+        armedHint = next;
+        if (previous != null) {
+            try {
+                previous.close();
+            } catch (RuntimeException | Error failure) {
+                logger.warn("armed-hint close failed: " + failure.getClass().getSimpleName());
+            }
         }
     }
 
@@ -199,6 +211,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     public void disable() {
         Toolkit.getDefaultToolkit().removeAWTEventListener(listener);
         armed = null;
+        showArmedHint(0);
         logger.info("Warp deformer Alt axis-symmetry listener removed");
     }
 
