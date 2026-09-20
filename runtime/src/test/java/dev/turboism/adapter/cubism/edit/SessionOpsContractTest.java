@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.edit.DeformerOps;
 import dev.turboism.sdk.cubism.edit.EditAlphaBlend;
 import dev.turboism.sdk.cubism.edit.EditArtMeshData;
 import dev.turboism.sdk.cubism.edit.EditColorBlend;
+import dev.turboism.sdk.cubism.edit.EditGlueData;
 import dev.turboism.sdk.cubism.edit.EditLabelColor;
 import dev.turboism.sdk.cubism.edit.EditLabelColorType;
 import dev.turboism.sdk.cubism.edit.EditObjectKind;
@@ -672,6 +673,51 @@ final class SessionOpsContractTest {
     }
 
     @Test
+    void getObjectReadsTheOfficialGlueBlock() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        // ModelObjectKind cannot name a glue — the declared kind is not consulted on
+        // the glue route; the id resolves through the glue enumeration alone.
+        final EditObjectSnapshot snapshot = session.partObjects().object(
+            new PartObjectOps.GetObject(
+                new ModelObjectReference(ModelObjectKind.ART_MESH, "glue1"),
+                List.of()));
+
+        assertEquals(new ModelObjectId("glue1"), snapshot.object());
+        final EditGlueData data = (EditGlueData) snapshot.data();
+        assertEquals(EditObjectKind.GLUE, data.kind());
+        assertEquals("GlueName", data.name());
+        assertEquals(Optional.of(new PartId("sub-part")), data.parentId());
+        assertEquals(0.65, data.intensity(), 1.0e-6);
+        assertEquals(EditLabelColorType.UNDEFINED, data.labelColor().type());
+        assertTrue(fixture.access.called("cubism.editor-model.model-source.all-glues"));
+        assertTrue(fixture.access.called("cubism.editor-model.model.get-object"));
+        assertTrue(fixture.access.called("cubism.editor-model.glue.current-keyform"));
+        assertEquals(List.of("GetObject"), fixture.host.opsDispatchLabels());
+    }
+
+    @Test
+    void getObjectGlueFailsClosedWithoutTheGlueMembers() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        // A record missing the glue form read keeps the glue kind locked while the
+        // shared read surface stays open.
+        fixture.access.denyAlias("cubism.editor-model.glue-form.intensity");
+        final EditSession session = fixture.open();
+
+        assertThrows(EditUnavailableException.class,
+            () -> session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.ART_MESH, "glue1"),
+                    List.of())));
+        assertEquals(EditObjectKind.WARP_DEFORMER,
+            session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, "warp1"),
+                    List.of())).data().kind());
+    }
+
+    @Test
     void getObjectRejectsAnArtPathReference() throws EditSessionException {
         final Fixture fixture = new Fixture();
         fixture.access.objects.add(fixture.artPath);
@@ -704,7 +750,8 @@ final class SessionOpsContractTest {
                 new PartObjectOps.GetObject(
                     new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1"),
                     List.of())));
-        // Warp and rotation stay open — their readers never touch the denied members.
+        // Warp, rotation, and glue stay open — their readers never touch the denied
+        // members. The glue route needs no extended part/art-mesh reader.
         assertEquals(EditObjectKind.WARP_DEFORMER,
             session.partObjects().object(
                 new PartObjectOps.GetObject(
@@ -714,6 +761,11 @@ final class SessionOpsContractTest {
             session.partObjects().object(
                 new PartObjectOps.GetObject(
                     new ModelObjectReference(ModelObjectKind.ROTATION_DEFORMER, "rot1"),
+                    List.of())).data().kind());
+        assertEquals(EditObjectKind.GLUE,
+            session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.ART_MESH, "glue1"),
                     List.of())).data().kind());
     }
 
@@ -891,6 +943,7 @@ final class SessionOpsContractTest {
         final HostSource artPath;
         final PartSource rootPart;
         final PartSource subPart;
+        final GlueSource glue;
         final ParamSource paramSource;
         final RuntimeEditSessionManager manager = new RuntimeEditSessionManager(
             host,
@@ -911,6 +964,7 @@ final class SessionOpsContractTest {
             rootPart.children.add(mesh);
             subPart = new PartSource("sub-part", "g-sub");
             subPart.parent = rootPart;
+            glue = new GlueSource("glue1", "g-glue");
             paramSource = new ParamSource("AngleZ", "pg1", "Angle Z", 0.0, 0.0, 30.0);
             final Group childGroup = new Group("group-a", "Group A");
             final Group rootGroup = new Group("root-group", "Root");
@@ -988,8 +1042,14 @@ final class SessionOpsContractTest {
             rotForm.originY = 4.0;
             rot.form = rotForm;
 
+            glue.name = "GlueName";
+            glue.parent = subPart;
+            final GlueForm glueForm = new GlueForm();
+            glueForm.intensity = 0.65f;
+            glue.form = glueForm;
+
             access.script(
-                mesh, other, artPath, rootPart, subPart, paramSource, rootGroup,
+                mesh, other, artPath, rootPart, subPart, glue, paramSource, rootGroup,
                 List.of(warp, rot));
         }
 
@@ -1059,6 +1119,11 @@ final class SessionOpsContractTest {
         GlueSource(final String id, final String guid) { super(id, guid); }
     }
 
+    /** Fake {@code CGlueForm}: only the verified {@code getIntensity} member is scripted. */
+    private static final class GlueForm {
+        float intensity;
+    }
+
     /** A live model instance: {@code *.source} resolves back to the scripted source. */
     private static class HostInstance {
         final HostSource source;
@@ -1082,6 +1147,10 @@ final class SessionOpsContractTest {
 
     private static final class RotInstance extends HostInstance {
         RotInstance(final HostSource source) { super(source); }
+    }
+
+    private static final class GlueInstance extends HostInstance {
+        GlueInstance(final HostSource source) { super(source); }
     }
 
     /** Fake {@code CFloatColor}: only the verified {@code getHexRGB} member is scripted. */
@@ -1225,6 +1294,7 @@ final class SessionOpsContractTest {
         final Param param = new Param();
         final Object undo = new Object();
         final List<Object> objects = new ArrayList<>();
+        final List<Object> glues = new ArrayList<>();
         List<Object> deformers = List.of();
         List<Object> selectionGuids = List.of();
 
@@ -1247,6 +1317,7 @@ final class SessionOpsContractTest {
             final HostSource artPath,
             final PartSource rootPart,
             final PartSource subPart,
+            final GlueSource glue,
             final ParamSource paramSource,
             final Group rootGroup,
             final List<Object> deformerList
@@ -1257,6 +1328,7 @@ final class SessionOpsContractTest {
             objects.add(subPart);
             objects.addAll(deformerList);
             deformers = deformerList;
+            glues.add(glue);
 
             final List<Object> partInstances =
                 List.of(new PartInstance(rootPart), new PartInstance(subPart));
@@ -1269,12 +1341,16 @@ final class SessionOpsContractTest {
                         ? new WarpInstance((HostSource) deformer)
                         : new RotInstance((HostSource) deformer));
             }
+            final Map<String, Object> instancesById = new HashMap<>();
+            instancesById.put(glue.id.value(), new GlueInstance(glue));
 
             on("cubism.editor-model.model-source.all-objects", (t, a) -> objects);
             on("cubism.editor-model.model-source.all-deformers", (t, a) -> deformers);
             on("cubism.editor-model.model-source.all-art-meshes",
                 (t, a) -> List.of(mesh, other));
-            on("cubism.editor-model.model-source.all-glues", (t, a) -> List.of());
+            on("cubism.editor-model.model-source.all-glues", (t, a) -> glues);
+            on("cubism.editor-model.model.get-object",
+                (t, a) -> instancesById.get(((HostId) a[0]).value()));
             on("cubism.editor-model.model-source.parts", (t, a) -> List.of(rootPart));
             on("cubism.editor-model.model-source.root-part", (t, a) -> rootPart);
             on("cubism.editor-model.model-source.root-parameter-group", (t, a) -> rootGroup);
@@ -1422,6 +1498,12 @@ final class SessionOpsContractTest {
                 (t, a) -> ((HostSource) t).guid);
             on("cubism.editor-model.deformer-source.set-local-name", (t, a) -> null);
             on("cubism.editor-model.glue-source.set-local-name", (t, a) -> null);
+            on("cubism.editor-model.glue-source.local-name",
+                (t, a) -> ((HostSource) t).name);
+            on("cubism.editor-model.glue.current-keyform",
+                (t, a) -> ((HostInstance) t).source.form);
+            on("cubism.editor-model.glue-form.intensity",
+                (t, a) -> ((GlueForm) t).intensity);
             on("cubism.editor-model.update-manager.selection-guid-list",
                 (t, a) -> selectionGuids);
             on("cubism.editor-model.update-manager.set-selection", (t, a) -> null);

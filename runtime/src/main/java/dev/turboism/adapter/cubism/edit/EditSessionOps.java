@@ -314,17 +314,51 @@ final class EditSessionOps {
                 "Cubism object is absent: " + reference.id());
         }
         final EditObjectKind kind = kindOf(access, found);
-        final EditObjectKind expected = switch (reference.kind()) {
+        if (kind != expectedKind(reference.kind())) {
+            throw new IllegalArgumentException(
+                "Cubism object " + reference.id() + " is a " + kind
+                    + ", not a " + expectedKind(reference.kind()));
+        }
+        return found;
+    }
+
+    /**
+     * Resolves a {@code GetObject} target. Parts, art meshes, and deformers resolve through the
+     * object enumeration and must match the declared {@link ModelObjectKind}; a glue object —
+     * which {@link ModelObjectKind} cannot name — resolves through the glue enumeration by id
+     * alone, so the declared kind is not consulted on that route.
+     */
+    Object requireGetObjectSource(
+        final EditSessionOpsAccess access,
+        final ModelObjectReference reference
+    ) {
+        Object found = findObjectSource(access, reference.id());
+        if (found == null) {
+            found = findGlueSource(access, reference.id());
+        }
+        if (found == null) {
+            throw new NoSuchElementException(
+                "Cubism object is absent: " + reference.id());
+        }
+        final EditObjectKind kind = kindOf(access, found);
+        if (kind == EditObjectKind.GLUE) {
+            return found;
+        }
+        if (kind != expectedKind(reference.kind())) {
+            throw new IllegalArgumentException(
+                "Cubism object " + reference.id() + " is a " + kind
+                    + ", not a " + expectedKind(reference.kind()));
+        }
+        return found;
+    }
+
+    private EditObjectKind expectedKind(final ModelObjectKind kind) {
+        return switch (kind) {
             case PART -> EditObjectKind.PART;
             case ART_MESH -> EditObjectKind.ART_MESH;
             case WARP_DEFORMER -> EditObjectKind.WARP_DEFORMER;
             case ROTATION_DEFORMER -> EditObjectKind.ROTATION_DEFORMER;
         };
-        if (kind != expected) {
-            throw new IllegalArgumentException(
-                "Cubism object " + reference.id() + " is a " + kind + ", not a " + expected);
-        }
-        return found;
     }
 
     Object requireObjectSourceById(
@@ -377,12 +411,20 @@ final class EditSessionOps {
     }
 
     Object requireGlueSource(final EditSessionOpsAccess access, final GlueId id) {
+        final Object found = findGlueSource(access, id.value());
+        if (found == null) {
+            throw new NoSuchElementException("Cubism glue object is absent: " + id.value());
+        }
+        return found;
+    }
+
+    private Object findGlueSource(final EditSessionOpsAccess access, final String id) {
         for (final Object source : allGlueSources(access)) {
-            if (objectId(access, source).equals(id.value())) {
+            if (objectId(access, source).equals(id)) {
                 return source;
             }
         }
-        throw new NoSuchElementException("Cubism glue object is absent: " + id.value());
+        return null;
     }
 
     /** Resolves a parameter id to its {@code CParameterSource} via the model parameter set. */
