@@ -1,10 +1,8 @@
 package dev.turboism.adapter.cubism.warpalt;
 
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 
-import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -13,20 +11,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
- * Runtime implementation of the canvas-top GL strip state-button surface, built
+ * Runtime implementation of the canvas-top GL strip text-button surface, built
  * reflectively against the reviewed 5.3.03 host classes.
  *
- * <p>Target: the GL-drawn view context strip {@code a.b} (the bar hosting the
- * "Lock Drawable Object" toggle and the display-visibility buttons). The strip's
- * H group only accepts {@code GToggleIconButtonEntity}, so the contributed
- * control is one toggle button per provided state, each carrying the
- * plugin-provided icon wrapped into a generated {@code q} icon set
- * ({@code CWritableImage} from the plugin PNG). Buttons join one exclusive
- * {@code CButtonGroup} (host radio behavior) and mount into H through the
- * strip's own {@code R()} routine, so per-frame layout, mode visibility and
- * scene-graph hit testing all come from the host.</p>
+ * <p>Target: the GL-drawn view context strip {@code a.b}. The strip's H group
+ * only accepts {@code GToggleIconButtonEntity} (icon buttons), so the
+ * contributed control is a {@code GToggleButtonEntity} (text toggle button)
+ * mounted directly into the scene graph after the strip's caret (▼) button.
+ * The strip's per-frame layout {@code a(N, GEntity)} re-positions the button
+ * each frame via a tail-injected hook. The button's text shows the armed-axis
+ * i18n label and cycles on click, with native hover/selected/pressed
+ * backgrounds from {@code AGSimpleButtonEntity}.</p>
  */
 public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegistry {
 
@@ -35,11 +33,13 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     /** Reviewed 5.3.03 selectors (disassembly-verified). */
     private static final String STRIP_CLASS = "com.live2d.cubism.view.context.a.b";
     private static final String BUTTON_CLASS =
-        "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity";
-    private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
-    private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
-    private static final String TYPE_CLASS = "com.live2d.graphics.n";
-    private static final String FUNCTION3_CLASS = "kotlin.jvm.functions.Function3";
+        "com.live2d.cubism.view.context.guiEntity.GToggleButtonEntity";
+    private static final String FONT_CLASS = "com.live2d.type.CFont";
+    private static final String RECT_CLASS = "com.live2d.graphics3d.type.GRectF";
+    private static final String FUNCTION1_CLASS = "kotlin.jvm.functions.Function1";
+    private static final float BUTTON_GAP = 6f;
+    private static final int BUTTON_WIDTH = 88;
+    private static final int BUTTON_HEIGHT = 24;
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
@@ -48,37 +48,15 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private boolean mountAttempted;
 
     private record Entry(
-        ViewContextMenuRegistry.StateButtonContribution contribution,
-        Map<Integer, Object> buttons
+        ViewContextMenuRegistry.ButtonContribution contribution,
+        Object button
     ) { }
 
     public static RuntimeViewContextMenuRegistry getInstance() {
         return INSTANCE;
     }
 
-    private VerifiedMemberResolver resolver;
-
     private RuntimeViewContextMenuRegistry() { }
-
-    /**
-     * Binds the verified host resolver (same reviewed alias table as the
-     * horizontal-toolbar operations) and mounts any queued contributions into
-     * the modeling tool strip.
-     */
-    public void bindResolver(final dev.turboism.mapping.verification.VerifiedMemberResolver
-        verifiedResolver) {
-        Objects.requireNonNull(verifiedResolver, "resolver");
-        synchronized (lock) {
-            resolver = verifiedResolver;
-            mountAttempted = true;
-            final List<Runnable> queued = new ArrayList<>(pendingBuilds);
-            pendingBuilds.clear();
-            for (final Runnable build : queued) {
-                build.run();
-            }
-        }
-        diagnostic("RESOLVER_BOUND");
-    }
 
     /**
      * Injected at the head of the strip's mount routine with the strip instance.
@@ -99,9 +77,48 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         diagnostic("STRIP_MOUNTED instance=" + Integer.toHexString(System.identityHashCode(this)));
     }
 
+    /**
+     * Injected at the tail of the strip's per-frame re-layout. Positions each
+     * contributed text button to the right of the strip's last (caret) button.
+     */
+    public void positionStripButton(final Object stripInstance) {
+        synchronized (lock) {
+            if (stripInstance == null || stripInstance != strip || entries.isEmpty()) return;
+            try {
+                final Object caret = lastStripButton(stripInstance);
+                if (caret == null) return;
+                final Method getRect = caret.getClass()
+                    .getMethod("getBoundsOnComponent", float.class);
+                final Object caretRect = getRect.invoke(caret, 1.0f);
+                if (caretRect == null) return;
+                final float x = floatField(caretRect, "x")
+                    + floatField(caretRect, "w") + BUTTON_GAP;
+                final float y = floatField(caretRect, "y");
+                final Class<?> rectClass = Class.forName(RECT_CLASS, false,
+                    stripInstance.getClass().getClassLoader());
+                final Object bounds = rectClass.getConstructor(
+                    float.class, float.class, float.class, float.class)
+                    .newInstance(x, y, (float) BUTTON_WIDTH, (float) BUTTON_HEIGHT);
+                for (final Entry entry : entries.values()) {
+                    final Method setBounds = entry.button().getClass()
+                        .getMethod("setBoundsOnComponent", rectClass, float.class);
+                    setBounds.invoke(entry.button(), bounds, 1.0f);
+                }
+            } catch (Throwable failure) {
+                diagnostic("POSITION_FAILED reason=" + failure.getClass().getName());
+            }
+        }
+    }
+
+    private static float floatField(final Object rect, final String name)
+        throws ReflectiveOperationException {
+        final Field field = rect.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.getFloat(rect);
+    }
+
     @Override
-    public Registration contributeStateButtons(
-        final ViewContextMenuRegistry.StateButtonContribution contribution) {
+    public Registration contributeButton(final ViewContextMenuRegistry.ButtonContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         final Runnable build = () -> buildAndMount(contribution);
         synchronized (lock) {
@@ -113,156 +130,134 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         return () -> {
             synchronized (lock) {
-                entries.remove(contribution.contributionId());
+                final Entry entry = entries.remove(contribution.contributionId());
+                if (entry != null) {
+                    removeFromSceneGraph(entry.button());
+                }
             }
         };
     }
 
-    /**
-     * Programmatically selects a contributed state button (keyboard sync).
-     */
-    public void selectState(final String contributionId, final int state) {
+    @Override
+    public void setText(final String contributionId, final String text) {
         synchronized (lock) {
             final Entry entry = entries.get(contributionId);
             if (entry == null) return;
-            final Object target = entry.buttons().get(state);
-            if (target == null) return;
             try {
-                final ClassLoader hostLoader = target.getClass().getClassLoader();
-                final Class<?> buttonClass = Class.forName(BUTTON_CLASS, false, hostLoader);
-                final Method setSelected = buttonClass.getMethod("setSelected", boolean.class);
-                for (final Map.Entry<Integer, Object> slot : entry.buttons().entrySet()) {
-                    setSelected.invoke(slot.getValue(), slot.getKey() == state);
-                }
-                diagnostic("STATE_SELECTED state=" + state);
+                final Method setText = entry.button().getClass().getMethod("setText", String.class);
+                setText.invoke(entry.button(), text);
+                diagnostic("BUTTON_TEXT_SET text=" + text);
             } catch (ReflectiveOperationException | RuntimeException failure) {
-                diagnostic("SET_STATE_FAILED " + failure.getClass().getSimpleName());
+                diagnostic("SET_TEXT_FAILED " + failure.getClass().getSimpleName());
             }
         }
     }
 
-    private void buildAndMount(final ViewContextMenuRegistry.StateButtonContribution contribution) {
+    private void buildAndMount(final ViewContextMenuRegistry.ButtonContribution contribution) {
         try {
             if (strip == null) {
                 diagnostic("BUILD_SKIPPED reason=NO_STRIP");
                 return;
             }
-            final Map<Integer, Object> stateButtons = new LinkedHashMap<>();
-            for (final Map.Entry<Integer, BufferedImage> state
-                : contribution.stateIcons().entrySet()) {
-                final Object button = createButton(strip, contribution,
-                    state.getValue(), state.getKey());
-                insertIntoGroup(strip, button);
-                stateButtons.put(state.getKey(), button);
-            }
-            entries.put(contribution.contributionId(),
-                new Entry(contribution, stateButtons));
-            diagnostic("BUTTONS_MOUNTED id=" + contribution.contributionId()
-                + " count=" + stateButtons.size());
+            final ClassLoader hostLoader = strip.getClass().getClassLoader();
+            final Class<?> buttonClass = Class.forName(BUTTON_CLASS, false, hostLoader);
+            final Class<?> fontClass = Class.forName(FONT_CLASS, false, hostLoader);
+            final Class<?> rectClass = Class.forName(RECT_CLASS, false, hostLoader);
+
+            final Object font = fontClass.getConstructor(java.awt.Font.class)
+                .newInstance(new java.awt.Font("Dialog", java.awt.Font.PLAIN, 12));
+            final Object rect = rectClass
+                .getConstructor(float.class, float.class, float.class, float.class)
+                .newInstance(0f, 0f, (float) BUTTON_WIDTH, (float) BUTTON_HEIGHT);
+
+            final Object button = buttonClass
+                .getConstructor(String.class, fontClass, rectClass)
+                .newInstance(contribution.text(), font, rect);
+
+            setOnAction(button, contribution);
+            setupTooltip(button, contribution.tooltip());
+
+            addToSceneGraph(strip, button);
+            entries.put(contribution.contributionId(), new Entry(contribution, button));
+            diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
+                + " text=" + contribution.text());
         } catch (Throwable failure) {
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
-            final StringBuilder chain = new StringBuilder();
-            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
-                if (chain.length() > 0) chain.append(" <- ");
-                chain.append(cause.getClass().getSimpleName()).append(": ").append(cause.getMessage());
-            }
-            diagnostic("BUTTON_MOUNT_FAILED phase=" + phase + " chain=" + chain);
+            diagnostic("BUTTON_MOUNT_FAILED phase=" + phase
+                + " reason=" + failure.getClass().getName() + ": " + failure.getMessage());
         }
     }
-
-    /** Replicates the host's own lock-button construction with a plugin-provided icon. */
-    private Object createButton(
-        final Object stripInstance,
-        final ViewContextMenuRegistry.StateButtonContribution contribution,
-        final BufferedImage iconImage,
-        final int state
-    ) throws ReflectiveOperationException {
-        final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
-        final Class<?> barClass = stripInstance.getClass();
-        final Class<?> buttonClass = Class.forName(BUTTON_CLASS, false, hostLoader);
-
-        // private static GToggleIconButtonEntity a(b, String, CFont, GRectF, Z, Z, q, int, Object)
-        Method factory = null;
-        for (final Method method : barClass.getDeclaredMethods()) {
-            if (!method.getName().equals("a")
-                || method.getParameterCount() != 9
-                || method.getReturnType() != buttonClass) {
-                continue;
-            }
-            final Class<?>[] types = method.getParameterTypes();
-            if (types[0] == barClass
-                && types[1] == String.class
-                && types[3] == Class.forName("com.live2d.graphics3d.type.GRectF", false, hostLoader)
-                && types[4] == boolean.class
-                && types[5] == boolean.class
-                && types[8] == Object.class) {
-                factory = method;
-                break;
-            }
-        }
-        if (factory == null) {
-            throw new IllegalStateException("strip button factory not found");
-        }
-        factory.setAccessible(true);
-
-        final Object iconSet = iconSetFor(iconImage, hostLoader);
-        final Object button = factory.invoke(null,
-            stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
-
-        setOnAction(button, contribution, state);
-        return button;
-    }
-
-    /** Assembles a seven-slot icon set from one state image (all variants identical). */
-    private Object iconSetFor(final BufferedImage image, final ClassLoader hostLoader)
-        throws ReflectiveOperationException {
-        final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
-        final Class<?> typeClass = Class.forName(TYPE_CLASS, false, hostLoader);
-        final Class<?> setClass = Class.forName(
-            "com.live2d.cubism.view.context.guiEntity.q", false, hostLoader);
-
-        final Object resource = resourceClass
-            .getConstructor(BufferedImage.class, boolean.class)
-            .newInstance(image, false);
-        return setClass.getConstructor(resourceClass, resourceClass, resourceClass,
-            resourceClass, resourceClass, resourceClass, resourceClass)
-            .newInstance(resource, resource, resource, resource, resource, resource, resource);
-    }
-
 
     private static void setOnAction(
         final Object button,
-        final ViewContextMenuRegistry.StateButtonContribution contribution,
-        final int state
+        final ViewContextMenuRegistry.ButtonContribution contribution
     ) throws ReflectiveOperationException {
         final ClassLoader hostLoader = button.getClass().getClassLoader();
-        final Class<?> function3 = Class.forName(FUNCTION3_CLASS, false, hostLoader);
+        final Class<?> function1 = Class.forName(FUNCTION1_CLASS, false, hostLoader);
         final Object handler = Proxy.newProxyInstance(
-            function3.getClassLoader(),
-            new Class<?>[]{function3},
+            function1.getClassLoader(),
+            new Class<?>[]{function1},
             (proxy, method, args) -> {
                 if (!method.getName().equals("invoke")) return null;
                 try {
-                    contribution.onClick().accept(state);
+                    contribution.onClick().accept(null);
                 } catch (Throwable failure) {
                     diagnostic("CLICK_FAILED reason=" + failure.getClass().getName());
                 }
                 return null;
             });
-        final Method setOnAction = button.getClass().getMethod("setOnAction", function3);
+        final Method setOnAction = button.getClass().getMethod("setOnAction", function1);
         setOnAction.invoke(button, handler);
     }
 
-    private static void insertIntoGroup(final Object stripInstance, final Object button)
+    private static void setupTooltip(final Object button, final String tooltip)
+        throws ReflectiveOperationException {
+        final ClassLoader hostLoader = button.getClass().getClassLoader();
+        final Class<?> function0 = Class.forName(
+            "kotlin.jvm.functions.Function0", false, hostLoader);
+        final Object supplier = Proxy.newProxyInstance(
+            function0.getClassLoader(),
+            new Class<?>[]{function0},
+            (proxy, method, args) -> method.getName().equals("invoke") ? tooltip : null);
+        final Method setToolTipText = button.getClass().getMethod(
+            "setToolTipText", function0);
+        setToolTipText.invoke(button, supplier);
+    }
+
+    private static void addToSceneGraph(final Object stripInstance, final Object button)
+        throws ReflectiveOperationException {
+        final Object sceneGraph = stripInstance.getClass().getMethod("e").invoke(stripInstance);
+        final Object objectsOnComponent = sceneGraph.getClass()
+            .getMethod("getObjectsOnComponent").invoke(sceneGraph);
+        final Object children = objectsOnComponent.getClass()
+            .getMethod("getChildren").invoke(objectsOnComponent);
+        final Method add = children.getClass().getMethod("add",
+            objectsOnComponent.getClass(), int.class);
+        add.invoke(children, button, 0);
+    }
+
+    private void removeFromSceneGraph(final Object button) {
+        try {
+            final Object parent = button.getClass()
+                .getMethod("getParentEntity").invoke(button);
+            if (parent != null) {
+                parent.getClass().getMethod("getChildren").invoke(parent)
+                    .getClass().getMethod("remove", Object.class)
+                    .invoke(parent.getClass().getMethod("getChildren")
+                        .invoke(parent), button);
+            }
+        } catch (Throwable ignored) {
+            // never reach the host call site
+        }
+    }
+
+    private static Object lastStripButton(final Object stripInstance)
         throws ReflectiveOperationException {
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
         groupField.setAccessible(true);
         final Object group = groupField.get(stripInstance);
-        if (!(group instanceof List<?> list)) {
-            throw new IllegalStateException("strip group H is not a list");
-        }
-        if (list.contains(button)) return;
-        ((List<Object>) group).add(Math.min(2, list.size()), button);
+        if (!(group instanceof List<?> list) || list.isEmpty()) return null;
+        return list.get(list.size() - 1);
     }
 
     private static void diagnostic(final String stage) {
