@@ -263,6 +263,14 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     }
 
     @Override
+    public EditSessionOpsAccess opsAccess(
+        final EditorAuthoringTransactionCoordinator.Binding binding
+    ) {
+        final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
+        return new VerifiedOpsAccess(active);
+    }
+
+    @Override
     public <T> T dispatch(final String label, final HostTask<T> task) throws EditSessionException {
         Objects.requireNonNull(label, "label");
         Objects.requireNonNull(task, "task");
@@ -322,5 +330,77 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
             throw new IllegalStateException("Editor edit session binding is stale");
         }
         return active;
+    }
+
+    /**
+     * Verified member surface bound to one session's native binding (spec 046, T3). Every member
+     * call resolves through the {@link VerifiedMemberResolver}; {@link #authorizesFeature} gates
+     * each operation on its declared capability row before a member is reached.
+     */
+    private final class VerifiedOpsAccess implements EditSessionOpsAccess {
+
+        private final VerifiedEditorAuthoringTransactionHost.NativeBinding binding;
+
+        private VerifiedOpsAccess(
+            final VerifiedEditorAuthoringTransactionHost.NativeBinding binding
+        ) {
+            this.binding = binding;
+        }
+
+        @Override
+        public Object document() {
+            return binding.document();
+        }
+
+        @Override
+        public Object modelSource() {
+            return binding.source();
+        }
+
+        @Override
+        public Object model() {
+            return binding.model();
+        }
+
+        @Override
+        public boolean authorizesFeature(
+            final String capabilityId,
+            final java.util.Set<String> aliases
+        ) {
+            try {
+                return resolver.authorizesFeature(
+                    EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
+                    capabilityId,
+                    aliases
+                );
+            } catch (RuntimeException failure) {
+                return false;
+            }
+        }
+
+        @Override
+        public Object invoke(final String alias, final Object target, final Object... arguments) {
+            return resolver.invoke(alias, target, arguments);
+        }
+
+        @Override
+        public Object invokeStatic(final String alias, final Object... arguments) {
+            return resolver.invokeStatic(alias, arguments);
+        }
+
+        @Override
+        public Object construct(final String alias, final Object... arguments) {
+            return resolver.construct(alias, arguments);
+        }
+
+        @Override
+        public Object readStaticField(final String alias) {
+            return resolver.readStaticField(alias);
+        }
+
+        @Override
+        public boolean isInstance(final String alias, final Object value) {
+            return resolver.isInstance(alias, value);
+        }
     }
 }

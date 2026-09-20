@@ -31,9 +31,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * the binding's staleness; a stale binding forces a host-side cancellation so a document switch
  * or close can never leave edits dangling.</p>
  *
- * <p>The five operation families are routed through {@link SessionOpsGate}: Phase 2 delegates
- * are the fail-closed {@code unavailable()} families (operation routing is Phase 3), so an open
- * session reports typed unavailability while a cancelled one always reports cancellation.</p>
+ * <p>The five operation families are routed through {@link SessionOpsGate}: the delegates are
+ * the Phase 3 routed implementations (spec 046, T3), so an open session dispatches verified
+ * member calls to the host UI thread while a cancelled one always reports cancellation.</p>
  */
 final class RuntimeEditSession implements EditSession {
 
@@ -50,16 +50,11 @@ final class RuntimeEditSession implements EditSession {
         new AtomicReference<>(EditSessionState.OPEN);
     private volatile CancelSource cancelSource;
 
-    private final ParameterKeyOps parameterKeys =
-        SessionOpsGate.bind(ParameterKeyOps.class, ParameterKeyOps.unavailable(), this);
-    private final ParameterStructureOps parameterStructure =
-        SessionOpsGate.bind(ParameterStructureOps.class, ParameterStructureOps.unavailable(), this);
-    private final SelectionOps selection =
-        SessionOpsGate.bind(SelectionOps.class, SelectionOps.unavailable(), this);
-    private final PartObjectOps partObjects =
-        SessionOpsGate.bind(PartObjectOps.class, PartObjectOps.unavailable(), this);
-    private final DeformerOps deformers =
-        SessionOpsGate.bind(DeformerOps.class, DeformerOps.unavailable(), this);
+    private final ParameterKeyOps parameterKeys;
+    private final ParameterStructureOps parameterStructure;
+    private final SelectionOps selection;
+    private final PartObjectOps partObjects;
+    private final DeformerOps deformers;
 
     RuntimeEditSession(
         final RuntimeEditSessionManager manager,
@@ -78,6 +73,17 @@ final class RuntimeEditSession implements EditSession {
         this.uiLock = Objects.requireNonNull(uiLock, "uiLock");
         this.historyBefore = Objects.requireNonNull(historyBefore, "historyBefore");
         this.openResult = new EditSessionOpenResult(document, options);
+        final EditSessionOps ops = new EditSessionOps(this);
+        this.parameterKeys =
+            SessionOpsGate.bind(ParameterKeyOps.class, new SessionParameterKeyOps(ops), this);
+        this.parameterStructure = SessionOpsGate.bind(
+            ParameterStructureOps.class, new SessionParameterStructureOps(ops), this);
+        this.selection =
+            SessionOpsGate.bind(SelectionOps.class, new SessionSelectionOps(ops), this);
+        this.partObjects =
+            SessionOpsGate.bind(PartObjectOps.class, new SessionPartObjectOps(ops), this);
+        this.deformers =
+            SessionOpsGate.bind(DeformerOps.class, new SessionDeformerOps(ops), this);
     }
 
     @Override
@@ -181,6 +187,26 @@ final class RuntimeEditSession implements EditSession {
 
     EditorAuthoringTransactionCoordinator.Binding binding() {
         return binding;
+    }
+
+    /**
+     * Dispatches one operation family call to the host UI thread (spec 046, T3). The session
+     * gate already re-validated the session state; the host dispatch bounds the wait.
+     */
+    <T> T dispatchToHost(
+        final String label,
+        final EditorEditSessionHost.HostTask<T> task
+    ) throws EditSessionException {
+        return manager.host().dispatch(label, task);
+    }
+
+    /**
+     * Opens the binding-scoped verified member surface for one dispatched operation. The host
+     * re-validates the binding's staleness when the accessor is opened, so a stale session
+     * cannot reach a member.
+     */
+    EditSessionOpsAccess opsAccess() throws EditSessionException {
+        return manager.host().opsAccess(binding);
     }
 
     Object editToken() {

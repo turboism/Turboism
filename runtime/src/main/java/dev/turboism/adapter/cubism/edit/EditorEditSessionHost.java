@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
+import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 
 import java.util.Optional;
@@ -92,6 +93,24 @@ public interface EditorEditSessionHost {
      * time — a timeout raises {@link EditSessionException}, never a hung plugin thread.
      */
     <T> T dispatch(String label, HostTask<T> task) throws EditSessionException;
+
+    /**
+     * Opens the session-scoped verified member surface the operation families orchestrate
+     * through (spec 046, T3). The returned accessor is bound to this exact binding: every member
+     * call re-validates staleness on the verified host, and every alias it invokes is resolved
+     * through the verified member resolver. The default is fail-closed — hosts that cannot
+     * supply a verified surface report typed unavailability instead of an accessor.
+     *
+     * @throws EditSessionException when no verified member surface exists for this binding
+     */
+    default EditSessionOpsAccess opsAccess(
+        final EditorAuthoringTransactionCoordinator.Binding binding
+    ) throws EditSessionException {
+        throw new EditUnavailableException(
+            "cubism.edit.ops-access",
+            "Editor edit session member surface is unavailable on this host"
+        );
+    }
 
     /** Records or derives an opaque diagnostic identity for a terminal outcome. */
     String diagnosticId(String code, Throwable failure);
