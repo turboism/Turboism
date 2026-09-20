@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 class CubismEditorModelAvailabilityContractTest {
 
     private static final String[] ALL_DECLARED = {"5.2.03", "5.3.02", "5.3.03"};
-    private static final String[] ESTABLISHED = {"5.2.03", "5.3.02"};
     private static final String[] ONLY_5_3_02 = {"5.3.02"};
     private static final String[] EXACT_5_3 = {"5.3.02", "5.3.03"};
 
@@ -70,17 +69,17 @@ class CubismEditorModelAvailabilityContractTest {
     }
 
     @Test
-    void textureMetadataExpansionPreservesEveryEffectiveWriteRestriction() throws Exception {
+    void textureAuthoringDeclaresAllThreeExactReviewedVersions() throws Exception {
         for (Method method : List.of(
             ModelTextures.class.getMethod("addModelImageGroup", String.class),
             ModelTextures.class.getMethod("removeModelImage", ModelImageId.class),
             ModelTextures.class.getMethod("addTextureAtlas", String.class, int.class, int.class),
             ModelTextures.class.getMethod("removeTextureAtlas", TextureAtlasId.class)
         )) {
-            assertArrayEquals(ESTABLISHED, method.getAnnotation(CubismEditor.class).value());
+            assertArrayEquals(ALL_DECLARED, method.getAnnotation(CubismEditor.class).value());
         }
-        // Previously intersected with the class-level 5.2.03/5.3.02 restriction.
-        assertOnly5302(ModelTextures.class.getMethod("removeRawImage", RawImageId.class));
+        assertArrayEquals(ALL_DECLARED, ModelTextures.class.getMethod("removeRawImage", RawImageId.class)
+            .getAnnotation(CubismEditor.class).value());
     }
 
     private static void assertOnly5302(final Method method) {

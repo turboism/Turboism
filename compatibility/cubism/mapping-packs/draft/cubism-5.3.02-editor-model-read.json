@@ -6,6 +6,15 @@
   "cubismVersion": "5.3.02",
   "entries": [
     {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.texture-undo_undo",
+      "kind": "method", "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.undo", "runtime": "undo",
+      "profile": "cubism-5.3.02", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "", "descriptor": "()V",
+      "x.verification": {"ownerInternalName": "com/live2d/undo/ACUndoable", "requiredAccessFlags": 1, "forbiddenAccessFlags": 8}
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.class.group_class",
       "kind": "class",
       "owner": "editor-history-semantic-read",

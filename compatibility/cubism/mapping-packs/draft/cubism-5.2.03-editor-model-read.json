@@ -6,6 +6,74 @@
   "cubismVersion": "5.2.03",
   "entries": [
     {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.texture-undo_undo",
+      "kind": "method", "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.undo", "runtime": "undo",
+      "profile": "cubism-5.2.03", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "", "descriptor": "()V",
+      "x.verification": {"ownerInternalName": "com/live2d/undo/ACUndoable", "requiredAccessFlags": 1, "forbiddenAccessFlags": 8}
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.model-image_input-filter-env",
+      "kind": "method", "owner": "editor-model-read",
+      "name": "cubism.editor-model.model-image.input-filter-env", "runtime": "getInputFilterEnv",
+      "profile": "cubism-5.2.03", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv;",
+      "x.verification": {"ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage", "requiredAccessFlags": 17, "forbiddenAccessFlags": 8}
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.model-image-filter-env_layer-input-data",
+      "kind": "method", "owner": "editor-model-read",
+      "name": "cubism.editor-model.model-image-filter-env.layer-input-data", "runtime": "getLayerInputData",
+      "profile": "cubism-5.2.03", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap;",
+      "x.verification": {"ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv", "requiredAccessFlags": 17, "forbiddenAccessFlags": 8}
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.layer-selector-map_get",
+      "kind": "method", "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-selector-map.get", "runtime": "get",
+      "profile": "cubism-5.2.03", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "",
+      "descriptor": "(Lcom/live2d/type/CLayeredImageGuid;)Ljava/util/List;",
+      "x.verification": {"ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap", "requiredAccessFlags": 17, "forbiddenAccessFlags": 8}
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_layer-input_create",
+      "kind": "constructor", "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.layer-input.create", "runtime": "<init>",
+      "profile": "cubism-5.2.03", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap;Lcom/live2d/type/CLayeredImageGuid;Ljava/util/List;Z)V",
+      "x.verification": {"ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_LayerInput", "requiredAccessFlags": 1, "forbiddenAccessFlags": 8}
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_raw-image_create",
+      "kind": "constructor", "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.raw-image.create", "runtime": "<init>",
+      "profile": "cubism-5.2.03", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Lcom/live2d/cubism/doc/resources/CLayeredImage;IZ)V",
+      "x.verification": {"ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_RawImage", "requiredAccessFlags": 1, "forbiddenAccessFlags": 8}
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.texture-undo_force-redo",
+      "kind": "method", "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.force-redo", "runtime": "forceRedo",
+      "profile": "cubism-5.2.03", "status": "DRAFT", "stability": "experimental",
+      "source": "exact-public-classfile-observation", "verifiedBy": "none", "verifiedAt": null,
+      "confidence": "high", "intermediary": "", "descriptor": "()Lcom/live2d/undo/ACSimpleUndoable;",
+      "x.verification": {"ownerInternalName": "com/live2d/undo/ACSimpleUndoable", "requiredAccessFlags": 17, "forbiddenAccessFlags": 8}
+    },
+    {
       "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.group_class",
       "kind": "class",
       "owner": "editor-history-semantic-read",

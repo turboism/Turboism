@@ -1592,6 +1592,7 @@ public final class EditorModelVerificationManifest {
         values.addAll(TEXTURE_ATLAS_ALIASES_52);
         values.addAll(EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
         values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
+        values.addAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES);
         values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
         values.addAll(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
