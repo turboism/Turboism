@@ -1054,7 +1054,7 @@ remote_normal_exit_evidence_seen() {
 }
 
 remote_record_wrapper_cleanup() {
-  printf '%s\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' \
+  printf 'reason=%s\ncleanupOwner=supervisor\n' "$1" \
     > "$evidence_dir/wrapper.cleanup"
 }
 
@@ -2053,7 +2053,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   if remote_normal_exit_evidence_seen; then
     case "$version" in 5302|5303) normal_exit=1 ;; esac
     if remote_process_alive; then
-      remote_record_wrapper_cleanup
+      remote_record_wrapper_cleanup 'native-exit-evidence-observed'
       remote_stop_process_tree
       wrapper_cleanup_done=1
     fi
@@ -2064,7 +2064,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
 done
 if remote_process_alive; then
   log "launcher remained alive after terminal PASS; stopping the task-scoped process tree"
-  remote_record_wrapper_cleanup
+  remote_record_wrapper_cleanup 'launcher-exit-timeout'
   remote_stop_process_tree
   wrapper_cleanup_done=1
 fi
