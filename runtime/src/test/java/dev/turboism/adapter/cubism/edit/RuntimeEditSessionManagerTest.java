@@ -161,6 +161,22 @@ final class RuntimeEditSessionManagerTest {
     }
 
     @Test
+    void prefersTheVerifiedRevertRecoveryWhenTheCapabilityBinds() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        final EditSession session = fixture.open();
+
+        final EditSessionCloseResult result = session.cancel();
+
+        assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
+        // Reverting path: the group undo lands as one entry (endEdit cancel=false), then the
+        // host revert removes it.
+        assertEquals(List.of(Boolean.FALSE), fixture.host.endEditCancelFlags);
+        assertEquals(1, fixture.host.revertCount);
+        assertEquals(1, fixture.host.refreshCount);
+    }
+
+    @Test
     void alwaysCompensatingSelectorNeverCallsRevert() throws EditSessionException {
         final Fixture fixture = new Fixture();
         fixture.host.revertVerified = true;
@@ -191,6 +207,18 @@ final class RuntimeEditSessionManagerTest {
         assertTrue(result.diagnosticId().isPresent());
         assertEquals(EditSessionState.CANCELLED, session.state());
         assertFalse(fixture.editScopeGate.get());
+    }
+
+    @Test
+    void reportsAFailedCloseWhenRevertThrows() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        fixture.host.failRevert = true;
+        final EditSession session = fixture.open();
+
+        final EditSessionCloseResult result = session.cancel();
+
+        assertEquals(EditSessionCloseOutcome.FAILED, result.outcome());
     }
 
     @Test
@@ -438,7 +466,7 @@ final class RuntimeEditSessionManagerTest {
                 }
                 return lockFactory.create(context);
             },
-            EditSessionRecoveries.ALWAYS_COMPENSATING
+            EditSessionRecoveries.PREFER_REVERT_WHEN_VERIFIED
         );
 
         EditSession open() throws EditSessionException {
