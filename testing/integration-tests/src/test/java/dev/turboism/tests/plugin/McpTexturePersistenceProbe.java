@@ -447,10 +447,14 @@ public final class McpTexturePersistenceProbe {
                 atlas.name() + "/" + atlas.width() + "/" + atlas.height() + "/" + atlas.modelImageCount());
             final Object manager = call(call(currentDocument(), "getModelSource"), "getTextureManager");
             final Map<String, String> inputs = new TreeMap<>();
-            for (Object image : (List<?>) call(manager, "getAllModelImages")) {
+            final List<?> nativeImages = (List<?>) call(manager, "getAllModelImages");
+            int nullMaps = 0;
+            int linkedRawCount = 0;
+            for (Object image : nativeImages) {
+                linkedRawCount += ((List<?>) call(image, "getLinkedRawImageGuids")).size();
                 final String imageId = guid(call(image, "getGuid"));
                 final Object map = call(call(image, "getInputFilterEnv"), "getLayerInputData");
-                if (map == null) continue;
+                if (map == null) { nullMaps++; continue; }
                 for (var entry : ((Map<?, ?>) call(map, "getImageToLayerInput")).entrySet()) {
                     final List<String> layers = new ArrayList<>();
                     for (Object input : (List<?>) entry.getValue()) {
@@ -460,6 +464,9 @@ public final class McpTexturePersistenceProbe {
                     inputs.put(imageId + "|" + guid(entry.getKey()), layers.toString());
                 }
             }
+            result.setProperty("observedNativeModelImages", Integer.toString(nativeImages.size()));
+            result.setProperty("observedNullInputMaps", Integer.toString(nullMaps));
+            result.setProperty("observedLinkedRawGuids", Integer.toString(linkedRawCount));
             final Map<String, String> pixels = new TreeMap<>();
             long pixelCount = 0;
             for (Object wrapper : (List<?>) call(manager, "getRawImages")) {
