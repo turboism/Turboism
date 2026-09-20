@@ -332,17 +332,38 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * is absent (e.g. FormAnimation view).
      */
     /**
-     * Appends the contributed button at the END of the strip's left tool
-     * cluster (group H), after the last native button F — the position the
-     * operator picked among strip-first/cluster-end options. Disassembly-
-     * verified 5.3.03 order: H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]
-     * laid out left-flow, followed by I, a divider, J and the right-aligned
-     * K view cluster (▾). Appending to H seats the button between F and the
-     * o/I segment, before the divider.
+     * Seats the contributed button at the strip's LAST visual slot: the view
+     * cluster K is laid out RIGHT-ALIGNED ({@code x = maxX - acc - width}),
+     * so inserting at K index 0 makes it the rightmost button, right of the
+     * view dropdown arrow (strip field {@code z}) — the seat the operator
+     * confirmed on the host. Fallback when the dropdown group is absent:
+     * append to the END of the left tool cluster H (after F).
+     * Disassembly-verified 5.3.03 order:
+     *   H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F] left-flow;
+     *   K=[z,w,Sep,y,x] right-aligned (rendered x,y,Sep,w,z ▾).
      */
     private static void insertIntoGroup(
         final Object stripInstance, final Object button)
         throws ReflectiveOperationException {
+        final Object dropdownArrow = readField(stripInstance, "z");
+        if (dropdownArrow != null) {
+            for (final Field field : stripInstance.getClass().getDeclaredFields()) {
+                if (!java.util.List.class.isAssignableFrom(field.getType())) continue;
+                field.setAccessible(true);
+                final Object value = field.get(stripInstance);
+                if (!(value instanceof List<?> list)) continue;
+                if (list.indexOf(dropdownArrow) < 0 || list.contains(button)) continue;
+                @SuppressWarnings("unchecked")
+                final List<Object> target = (List<Object>) value;
+                target.add(0, button);
+                diagnostic("BUTTON_INSERTED group=" + field.getName()
+                    + " index=0 at=stripEnd(rightOfViewDropdown)");
+                reparentToStrip(stripInstance, button);
+                ensureRect(button);
+                return;
+            }
+            diagnostic("DROPDOWN_GROUP_NOT_FOUND fallback=H end");
+        }
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
         groupField.setAccessible(true);
         final Object group = groupField.get(stripInstance);
