@@ -102,6 +102,10 @@
   "cubism.editor-model.edit.session.edit-send-progress",
   "cubism.editor-model.edit.session.get-is-edit-approval",
   "cubism.editor-model.edit.session.notify-undo-cancel",
+  "cubism.editor-model.undo.revert",
+  "cubism.editor-history.manager.revert",
+  "cubism.editor-model.main-frame.main-window",
+  "cubism.editor-model.main-frame.jframe",
   "cubism.editor-model.parameter-group.set-id"
  ],
  "coverageSourceGlobs": [
