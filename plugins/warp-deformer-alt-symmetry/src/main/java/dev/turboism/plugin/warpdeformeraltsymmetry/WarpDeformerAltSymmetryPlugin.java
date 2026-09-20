@@ -14,10 +14,9 @@ import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.List;
 import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -97,57 +96,33 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
 
     private static final String AXIS_BUTTON_ID = "warp-deformer-alt-symmetry.axis";
 
-    /** Contributes the mirror-axis state buttons into the canvas-top GL strip. */
+    /** Contributes the mirror-axis cycle text button into the canvas-top GL strip. */
     private void contributeStripButton() {
         try {
             final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry registry =
                 context.viewContextMenu();
-            final Map<Integer, BufferedImage> icons = new java.util.LinkedHashMap<>();
-            icons.put(1, stateIcon("Vertical.png"));
-            icons.put(2, stateIcon("Horizon.png"));
-            icons.put(0, stateIcon("Off.png"));
-            registry.contributeStateButtons(
-                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry
-                    .StateButtonContribution(
-                    AXIS_BUTTON_ID, icons, armedAxis,
-                    state -> applyArmedAxis(state)));
-            logger.info("Warp deformer Alt axis-symmetry strip buttons contributed");
+            registry.contributeButton(
+                new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.ButtonContribution(
+                    AXIS_BUTTON_ID,
+                    axisText(armedAxis),
+                    "镜像轴开关 / Mirror axis toggle (Ctrl+Alt+V/H/O)",
+                    ignored -> cycleArmedAxis()));
+            logger.info("Warp deformer Alt axis-symmetry strip button contributed");
         } catch (RuntimeException | Error unsupported) {
             logger.warn("viewContextMenu unavailable: "
                 + unsupported.getClass().getSimpleName());
         }
     }
 
-    private BufferedImage stateIcon(final String name) {
-        try (final var stream = getClass().getResourceAsStream(
-            "/META-INF/turboism/icons/" + name)) {
-            if (stream == null) {
-                logger.warn("mirror icon missing: " + name);
-                return new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
-            }
-            final BufferedImage raw = javax.imageio.ImageIO.read(stream);
-            // The host's CWritableImage only implements TYPE_INT_ARGB (type 2);
-            // ImageIO.read may return TYPE_4BYTE_ABGR (type 6) for PNGs.
-            if (raw.getType() != BufferedImage.TYPE_INT_ARGB) {
-                final BufferedImage converted = new BufferedImage(
-                    raw.getWidth(), raw.getHeight(), BufferedImage.TYPE_INT_ARGB);
-                final Graphics2D g = converted.createGraphics();
-                g.drawImage(raw, 0, 0, null);
-                g.dispose();
-                return converted;
-            }
-            return raw;
-        } catch (java.io.IOException failure) {
-            logger.warn("mirror icon load failed: " + name);
-            return new BufferedImage(96, 96, BufferedImage.TYPE_INT_ARGB);
-        }
+    private void cycleArmedAxis() {
+        applyArmedAxis((armedAxis + 1) % 3);
     }
 
     private void applyArmedAxis(final int axis) {
         armedAxis = axis;
         try {
             context.warpAltMirrorParticipation().setArmedAxis(axis);
-            context.viewContextMenu().selectState(AXIS_BUTTON_ID, axis);
+            context.viewContextMenu().setText(AXIS_BUTTON_ID, axisText(axis));
         } catch (RuntimeException | Error unsupported) {
             logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
             return;
@@ -156,6 +131,15 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         logger.info("WARP_ALT_AXIS armed="
             + (axis == 1 ? "vertical" : axis == 2 ? "horizontal" : "off"));
     }
+
+    private String axisText(final int axis) {
+        return switch (axis) {
+            case 1 -> context.localization().text("warp-alt-symmetry.axis.vertical");
+            case 2 -> context.localization().text("warp-alt-symmetry.axis.horizontal");
+            default -> context.localization().text("warp-alt-symmetry.axis.off");
+        };
+    }
+
 
     /**
      * Shows/clears the bottom status hint that mirrors the armed axis, in the
@@ -181,13 +165,6 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         }
     }
 
-    private String axisText(final int axis) {
-        return switch (axis) {
-            case 1 -> context.localization().text("warp-alt-symmetry.axis.vertical");
-            case 2 -> context.localization().text("warp-alt-symmetry.axis.horizontal");
-            default -> context.localization().text("warp-alt-symmetry.axis.off");
-        };
-    }
 
     @Override
     public void disable() {
