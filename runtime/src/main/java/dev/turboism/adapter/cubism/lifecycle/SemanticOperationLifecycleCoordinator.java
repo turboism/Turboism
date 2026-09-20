@@ -2,8 +2,8 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
-import dev.turboism.sdk.event.cubism.ModelUpdateEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
+import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;

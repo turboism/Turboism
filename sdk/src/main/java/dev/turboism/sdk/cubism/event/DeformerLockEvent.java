@@ -1,62 +1,60 @@
-package dev.turboism.sdk.event.cubism;
+package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
-/** Typed states of the semantic Deformer visibility write event family. */
-public sealed interface DeformerVisibilityEvent extends TurboismEvent
-    permits DeformerVisibilityEvent.Before,
-            DeformerVisibilityEvent.On,
-            DeformerVisibilityEvent.After {
+/** Typed states of the semantic Deformer lock write event family. */
+public sealed interface DeformerLockEvent extends TurboismEvent
+    permits DeformerLockEvent.Before, DeformerLockEvent.On, DeformerLockEvent.After {
 
     Deformer deformer();
 
-    final class Before implements DeformerVisibilityEvent {
+    final class Before implements DeformerLockEvent {
         private final Deformer deformer;
-        private final boolean requestedVisible;
+        private final boolean requestedLocked;
         private final CallbackScope callbackScope;
-        private boolean visible;
+        private boolean locked;
 
         public Before(
             final Deformer deformer,
-            final boolean requestedVisible,
-            final boolean visible
+            final boolean requestedLocked,
+            final boolean locked
         ) {
-            this(deformer, requestedVisible, visible, null);
+            this(deformer, requestedLocked, locked, null);
         }
 
         private Before(
             final Deformer deformer,
-            final boolean requestedVisible,
-            final boolean visible,
+            final boolean requestedLocked,
+            final boolean locked,
             final CallbackScope callbackScope
         ) {
             this.deformer = Objects.requireNonNull(deformer, "deformer");
-            this.requestedVisible = requestedVisible;
-            this.visible = visible;
+            this.requestedLocked = requestedLocked;
+            this.locked = locked;
             this.callbackScope = callbackScope;
         }
 
-        /** Opens a callback-scoped mutable candidate for the intercepted visibility edit. */
+        /** Opens a callback-scoped mutable candidate for the intercepted lock-state edit. */
         public static Callback openCallback(
             final Deformer deformer,
-            final boolean requestedVisible,
-            final boolean visible
+            final boolean requestedLocked,
+            final boolean locked
         ) {
-            return new Callback(deformer, requestedVisible, visible);
+            return new Callback(deformer, requestedLocked, locked);
         }
 
         @Override public Deformer deformer() { return deformer; }
-        public boolean requestedVisible() { return requestedVisible; }
-        /** Returns the candidate visibility value that will be applied. */
-        public boolean visible() { return visible; }
+        public boolean requestedLocked() { return requestedLocked; }
+        /** Returns the candidate lock-state value that will be applied. */
+        public boolean locked() { return locked; }
 
-        /** Replaces the candidate visibility value for the current callback. */
-        public void setVisible(final boolean visible) {
+        /** Replaces the candidate lock-state value for the current callback. */
+        public void setLocked(final boolean locked) {
             if (callbackScope != null) callbackScope.requireOpen();
-            this.visible = visible;
+            this.locked = locked;
         }
 
         public static final class Callback implements AutoCloseable {
@@ -65,10 +63,10 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
 
             private Callback(
                 final Deformer deformer,
-                final boolean requestedVisible,
-                final boolean visible
+                final boolean requestedLocked,
+                final boolean locked
             ) {
-                event = new Before(deformer, requestedVisible, visible, scope);
+                event = new Before(deformer, requestedLocked, locked, scope);
             }
 
             /** Returns the mutable event while this callback scope remains open. */
@@ -89,7 +87,7 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
                     throw new IllegalStateException(
-                        "Deformer visibility before-event mutation is outside its callback scope."
+                        "Deformer lock before-event mutation is outside its callback scope."
                     );
                 }
             }
@@ -101,13 +99,12 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
         }
     }
 
-    record On(Deformer deformer, boolean oldVisible, boolean newVisible)
-        implements DeformerVisibilityEvent {
+    record On(Deformer deformer, boolean oldLocked, boolean newLocked)
+        implements DeformerLockEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
-    record After(Deformer deformer, boolean finalVisible)
-        implements DeformerVisibilityEvent {
+    record After(Deformer deformer, boolean finalLocked) implements DeformerLockEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 }

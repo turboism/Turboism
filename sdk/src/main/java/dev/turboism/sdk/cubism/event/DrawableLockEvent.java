@@ -1,37 +1,37 @@
-package dev.turboism.sdk.event.cubism;
+package dev.turboism.sdk.cubism.event;
 
-import dev.turboism.sdk.cubism.model.Deformer;
+import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
-/** Typed states of the semantic Deformer lock write event family. */
-public sealed interface DeformerLockEvent extends TurboismEvent
-    permits DeformerLockEvent.Before, DeformerLockEvent.On, DeformerLockEvent.After {
+/** Typed states of the semantic ArtMesh lock write event family. */
+public sealed interface DrawableLockEvent extends TurboismEvent
+    permits DrawableLockEvent.Before, DrawableLockEvent.On, DrawableLockEvent.After {
 
-    Deformer deformer();
+    Drawable drawable();
 
-    final class Before implements DeformerLockEvent {
-        private final Deformer deformer;
+    final class Before implements DrawableLockEvent {
+        private final Drawable drawable;
         private final boolean requestedLocked;
         private final CallbackScope callbackScope;
         private boolean locked;
 
         public Before(
-            final Deformer deformer,
+            final Drawable drawable,
             final boolean requestedLocked,
             final boolean locked
         ) {
-            this(deformer, requestedLocked, locked, null);
+            this(drawable, requestedLocked, locked, null);
         }
 
         private Before(
-            final Deformer deformer,
+            final Drawable drawable,
             final boolean requestedLocked,
             final boolean locked,
             final CallbackScope callbackScope
         ) {
-            this.deformer = Objects.requireNonNull(deformer, "deformer");
+            this.drawable = Objects.requireNonNull(drawable, "drawable");
             this.requestedLocked = requestedLocked;
             this.locked = locked;
             this.callbackScope = callbackScope;
@@ -39,14 +39,14 @@ public sealed interface DeformerLockEvent extends TurboismEvent
 
         /** Opens a callback-scoped mutable candidate for the intercepted lock-state edit. */
         public static Callback openCallback(
-            final Deformer deformer,
+            final Drawable drawable,
             final boolean requestedLocked,
             final boolean locked
         ) {
-            return new Callback(deformer, requestedLocked, locked);
+            return new Callback(drawable, requestedLocked, locked);
         }
 
-        @Override public Deformer deformer() { return deformer; }
+        @Override public Drawable drawable() { return drawable; }
         public boolean requestedLocked() { return requestedLocked; }
         /** Returns the candidate lock-state value that will be applied. */
         public boolean locked() { return locked; }
@@ -62,11 +62,11 @@ public sealed interface DeformerLockEvent extends TurboismEvent
             private final Before event;
 
             private Callback(
-                final Deformer deformer,
+                final Drawable drawable,
                 final boolean requestedLocked,
                 final boolean locked
             ) {
-                event = new Before(deformer, requestedLocked, locked, scope);
+                event = new Before(drawable, requestedLocked, locked, scope);
             }
 
             /** Returns the mutable event while this callback scope remains open. */
@@ -87,7 +87,7 @@ public sealed interface DeformerLockEvent extends TurboismEvent
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
                     throw new IllegalStateException(
-                        "Deformer lock before-event mutation is outside its callback scope."
+                        "Drawable lock before-event mutation is outside its callback scope."
                     );
                 }
             }
@@ -99,12 +99,12 @@ public sealed interface DeformerLockEvent extends TurboismEvent
         }
     }
 
-    record On(Deformer deformer, boolean oldLocked, boolean newLocked)
-        implements DeformerLockEvent {
-        public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
+    record On(Drawable drawable, boolean oldLocked, boolean newLocked)
+        implements DrawableLockEvent {
+        public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
-    record After(Deformer deformer, boolean finalLocked) implements DeformerLockEvent {
-        public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
+    record After(Drawable drawable, boolean finalLocked) implements DrawableLockEvent {
+        public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 }

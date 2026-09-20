@@ -103,6 +103,13 @@ def main() -> None:
             "class Fixture { Object value() { return dev.turboism.core.parameter.ForbiddenType.value; } }\n",
             "Forbidden fully-qualified reference",
         ),
+        (
+            "retired-event-package",
+            "",
+            "",
+            "package dev.turboism.sdk.event.cubism;\nclass Fixture {}\n",
+            "Retired package dev.turboism.sdk.event.cubism must not be reintroduced",
+        ),
     ]
     for fixture in fixtures:
         run_fixture(fixture[0], *fixture[1:])
