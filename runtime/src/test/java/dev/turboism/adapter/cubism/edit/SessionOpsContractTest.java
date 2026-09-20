@@ -2,16 +2,24 @@ package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.sdk.cubism.edit.DeformerOps;
+import dev.turboism.sdk.cubism.edit.EditAlphaBlend;
+import dev.turboism.sdk.cubism.edit.EditArtMeshData;
+import dev.turboism.sdk.cubism.edit.EditColorBlend;
 import dev.turboism.sdk.cubism.edit.EditLabelColor;
+import dev.turboism.sdk.cubism.edit.EditLabelColorType;
 import dev.turboism.sdk.cubism.edit.EditObjectKind;
 import dev.turboism.sdk.cubism.edit.EditObjectNode;
+import dev.turboism.sdk.cubism.edit.EditObjectSnapshot;
 import dev.turboism.sdk.cubism.edit.EditParameterGroupNode;
 import dev.turboism.sdk.cubism.edit.EditParameterKeyCondition;
 import dev.turboism.sdk.cubism.edit.EditParameterNode;
+import dev.turboism.sdk.cubism.edit.EditPartData;
+import dev.turboism.sdk.cubism.edit.EditRotationDeformerData;
 import dev.turboism.sdk.cubism.edit.EditSession;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditSessionOptions;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
+import dev.turboism.sdk.cubism.edit.EditWarpDeformerData;
 import dev.turboism.sdk.cubism.edit.ParameterKeyOps;
 import dev.turboism.sdk.cubism.edit.ParameterStructureOps;
 import dev.turboism.sdk.cubism.edit.PartObjectOps;
@@ -27,6 +35,7 @@ import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.ModelObjectKind;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.model.Point2;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -526,6 +535,205 @@ final class SessionOpsContractTest {
     }
 
     // ------------------------------------------------------------------
+    // GetObject per-kind payload reads (official 1.1.0 data blocks)
+    // ------------------------------------------------------------------
+
+    @Test
+    void getObjectReadsTheOfficialWarpDeformerBlock() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        final EditObjectSnapshot snapshot = session.partObjects().object(
+            new PartObjectOps.GetObject(
+                new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, "warp1"),
+                List.of()));
+
+        assertEquals(new ModelObjectId("warp1"), snapshot.object());
+        final EditWarpDeformerData data = (EditWarpDeformerData) snapshot.data();
+        assertEquals(EditObjectKind.WARP_DEFORMER, data.kind());
+        assertEquals("WarpName", data.name());
+        assertEquals(Optional.of(new PartId("sub-part")), data.parentId());
+        assertEquals(Optional.empty(), data.parentDeformerId());
+        assertEquals(25.0, data.opacity());
+        assertEquals(Optional.of("#0A0B0C"), data.multiplyColor());
+        assertEquals(Optional.of("#0D0E0F"), data.screenColor());
+        assertEquals(2, data.warpDivH());
+        assertEquals(3, data.warpDivV());
+        // The level-2 bezier extension wins; the level-3 sibling is ignored.
+        assertEquals(Optional.of(4), data.bezierDivH());
+        assertEquals(Optional.of(5), data.bezierDivV());
+        assertEquals(EditLabelColorType.UNDEFINED, data.labelColor().type());
+        assertEquals(new Point2(10.0f, 20.0f), data.rectangle().topLeft());
+        assertEquals(new Point2(10.0f, 60.0f), data.rectangle().bottomLeft());
+        assertEquals(new Point2(50.0f, 20.0f), data.rectangle().topRight());
+        assertEquals(new Point2(50.0f, 60.0f), data.rectangle().bottomRight());
+        assertEquals(List.of("GetObject"), fixture.host.opsDispatchLabels());
+    }
+
+    @Test
+    void getObjectReadsTheOfficialRotationDeformerBlock() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        final EditObjectSnapshot snapshot = session.partObjects().object(
+            new PartObjectOps.GetObject(
+                new ModelObjectReference(ModelObjectKind.ROTATION_DEFORMER, "rot1"),
+                List.of()));
+
+        assertEquals(new ModelObjectId("rot1"), snapshot.object());
+        final EditRotationDeformerData data = (EditRotationDeformerData) snapshot.data();
+        assertEquals(EditObjectKind.ROTATION_DEFORMER, data.kind());
+        assertEquals("RotName", data.name());
+        assertEquals(Optional.empty(), data.parentId());
+        assertEquals(Optional.of(new DeformerId("warp1")), data.parentDeformerId());
+        assertEquals(45.0, data.angle());
+        assertEquals(10.0, data.baseAngle());
+        assertEquals(150.0, data.scale());
+        assertEquals(75.0, data.opacity());
+        assertEquals(Optional.of("#222222"), data.multiplyColor());
+        assertEquals(Optional.of("#333333"), data.screenColor());
+        assertEquals(new Point2(3.0f, 4.0f), data.position());
+    }
+
+    @Test
+    void getObjectReadsTheOfficialArtMeshBlock() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        final EditObjectSnapshot snapshot = session.partObjects().object(
+            new PartObjectOps.GetObject(
+                new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1"),
+                List.of()));
+
+        assertEquals(new ModelObjectId("mesh1"), snapshot.object());
+        final EditArtMeshData data = (EditArtMeshData) snapshot.data();
+        assertEquals(EditObjectKind.ART_MESH, data.kind());
+        // ArtMesh Name is the local name; the other kinds read name-or-id.
+        assertEquals("MeshName", data.name());
+        assertEquals(Optional.of(new PartId("sub-part")), data.parentId());
+        assertEquals(Optional.of(new DeformerId("warp1")), data.parentDeformerId());
+        assertEquals(List.of(new ModelObjectId("other")), data.clippingIds());
+        assertTrue(data.reverseMask());
+        assertEquals(3, data.drawOrder());
+        assertEquals(80.0, data.opacity());
+        assertEquals(Optional.of("#102030"), data.multiplyColor());
+        assertEquals(Optional.of("#405060"), data.screenColor());
+        assertEquals(EditColorBlend.ADD, data.colorBlend());
+        assertEquals(EditAlphaBlend.OUT, data.alphaBlend());
+        assertTrue(data.culling());
+        assertEquals(4, data.vertexCount());
+        assertTrue(fixture.access.called(
+            "cubism.editor-model.parameter-controllable-source.local-name"));
+        assertFalse(fixture.access.called(
+            "cubism.editor-model.parameter-controllable-source.name-or-id-string"));
+    }
+
+    @Test
+    void getObjectReadsTheOfficialPartBlock() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        final EditObjectSnapshot snapshot = session.partObjects().object(
+            new PartObjectOps.GetObject(
+                new ModelObjectReference(ModelObjectKind.PART, "root-part"),
+                List.of()));
+
+        assertEquals(new ModelObjectId("root-part"), snapshot.object());
+        final EditPartData data = (EditPartData) snapshot.data();
+        assertEquals(EditObjectKind.PART, data.kind());
+        assertEquals("RootPartName", data.name());
+        // The root part has no parent: %Root normalizes to empty.
+        assertEquals(Optional.empty(), data.parentId());
+        assertTrue(data.grouped());
+        assertTrue(data.guidImage());
+        assertFalse(data.offscreen());
+        assertEquals(List.of(new ModelObjectId("other")), data.clippingIds());
+        assertTrue(data.reverseMask());
+        assertEquals(7, data.drawOrder());
+        assertEquals(50.0, data.opacity());
+        assertEquals(Optional.of("#AABBCC"), data.multiplyColor());
+        assertEquals(Optional.of("#112233"), data.screenColor());
+        assertEquals(EditColorBlend.MULTIPLY, data.colorBlend());
+        assertEquals(EditAlphaBlend.ATOP, data.alphaBlend());
+    }
+
+    @Test
+    void getObjectNormalizesTheSyntheticRootParent() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        final EditObjectSnapshot snapshot = session.partObjects().object(
+            new PartObjectOps.GetObject(
+                new ModelObjectReference(ModelObjectKind.PART, "sub-part"),
+                List.of()));
+
+        // subPart's parent IS the root part — %Root serializes as empty.
+        assertEquals(Optional.empty(), ((EditPartData) snapshot.data()).parentId());
+    }
+
+    @Test
+    void getObjectRejectsAnArtPathReference() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.access.objects.add(fixture.artPath);
+        final EditSession session = fixture.open();
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.ART_MESH, "path1"),
+                    List.of())));
+    }
+
+    @Test
+    void getObjectFailsClosedWithoutTheVerifiedSurface() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        // Simulates the 5.2.03 record: the part/art-mesh extended readers are absent,
+        // so only the warp/rotation payloads may leave the capability gate.
+        fixture.access.denyAlias("cubism.editor-model.part-source.use-offscreen");
+        fixture.access.denyAlias("cubism.editor-model.art-mesh-source.alpha-composition");
+        final EditSession session = fixture.open();
+
+        assertThrows(EditUnavailableException.class,
+            () -> session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.PART, "root-part"),
+                    List.of())));
+        assertThrows(EditUnavailableException.class,
+            () -> session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1"),
+                    List.of())));
+        // Warp and rotation stay open — their readers never touch the denied members.
+        assertEquals(EditObjectKind.WARP_DEFORMER,
+            session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, "warp1"),
+                    List.of())).data().kind());
+        assertEquals(EditObjectKind.ROTATION_DEFORMER,
+            session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.ROTATION_DEFORMER, "rot1"),
+                    List.of())).data().kind());
+    }
+
+    @Test
+    void getObjectFailsClosedWhenTheCapabilityIsDenied() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.access.deny(
+            dev.turboism.mapping.verification.selector
+                .EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID);
+        final EditSession session = fixture.open();
+
+        assertThrows(EditUnavailableException.class,
+            () -> session.partObjects().object(
+                new PartObjectOps.GetObject(
+                    new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, "warp1"),
+                    List.of())));
+        assertEquals(List.of(), fixture.access.memberCalls());
+    }
+
+    // ------------------------------------------------------------------
     // request builders
     // ------------------------------------------------------------------
 
@@ -682,6 +890,7 @@ final class SessionOpsContractTest {
         final MeshSource other;
         final HostSource artPath;
         final PartSource rootPart;
+        final PartSource subPart;
         final ParamSource paramSource;
         final RuntimeEditSessionManager manager = new RuntimeEditSessionManager(
             host,
@@ -700,6 +909,8 @@ final class SessionOpsContractTest {
             artPath = new HostSource("path1", "g-path");
             rootPart = new PartSource("root-part", "g-root");
             rootPart.children.add(mesh);
+            subPart = new PartSource("sub-part", "g-sub");
+            subPart.parent = rootPart;
             paramSource = new ParamSource("AngleZ", "pg1", "Angle Z", 0.0, 0.0, 30.0);
             final Group childGroup = new Group("group-a", "Group A");
             final Group rootGroup = new Group("root-group", "Root");
@@ -708,8 +919,77 @@ final class SessionOpsContractTest {
             final WarpSource warp = new WarpSource("warp1", "g-warp");
             final RotSource rot = new RotSource("rot1", "g-rot");
             rot.targetDeformer = warp;
+
+            rootPart.name = "RootPartName";
+            rootPart.enableDrawOrderGroup = true;
+            rootPart.sketch = true;
+            rootPart.clipGuids = List.of(other.guid);
+            rootPart.reverseMask = true;
+            rootPart.colorBlend = COLOR_BLEND_VALUES[EditColorBlend.MULTIPLY.ordinal()];
+            rootPart.alphaBlend = ALPHA_BLEND_VALUES[EditAlphaBlend.ATOP.ordinal()];
+            final PartForm rootForm = new PartForm();
+            rootForm.drawOrder = 7;
+            rootForm.opacity = 0.5;
+            rootForm.multiply = new FloatColor("#AABBCC");
+            rootForm.screen = new FloatColor("#112233");
+            rootPart.form = rootForm;
+            subPart.name = "SubPartName";
+            subPart.colorBlend = COLOR_BLEND_VALUES[EditColorBlend.NORMAL.ordinal()];
+            subPart.alphaBlend = ALPHA_BLEND_VALUES[EditAlphaBlend.OVER.ordinal()];
+            subPart.form = new PartForm();
+
+            mesh.name = "MeshName";
+            mesh.parent = subPart;
+            mesh.targetDeformerId = warp.id;
+            mesh.clipGuids = List.of(other.guid);
+            mesh.reverseMask = true;
+            mesh.culling = true;
+            mesh.positions = new float[] {0, 0, 1, 0, 0, 1, 1, 1};
+            mesh.colorBlend = COLOR_BLEND_VALUES[EditColorBlend.ADD.ordinal()];
+            mesh.alphaBlend = ALPHA_BLEND_VALUES[EditAlphaBlend.OUT.ordinal()];
+            final DrawableForm meshForm = new DrawableForm();
+            meshForm.drawOrder = 3;
+            meshForm.opacity = 0.8;
+            meshForm.multiply = new FloatColor("#102030");
+            meshForm.screen = new FloatColor("#405060");
+            mesh.form = meshForm;
+            other.name = "OtherName";
+            other.colorBlend = COLOR_BLEND_VALUES[EditColorBlend.NORMAL.ordinal()];
+            other.alphaBlend = ALPHA_BLEND_VALUES[EditAlphaBlend.OVER.ordinal()];
+            other.form = new DrawableForm();
+
+            warp.name = "WarpName";
+            warp.parent = subPart;
+            warp.col = 2;
+            warp.row = 3;
+            warp.extensions = List.of(new BezierExt(3, 9, 9), new BezierExt(2, 4, 5));
+            final WarpForm warpForm = new WarpForm();
+            warpForm.opacity = 0.25;
+            warpForm.multiply = new FloatColor("#0A0B0C");
+            warpForm.screen = new FloatColor("#0D0E0F");
+            warpForm.positions = new float[] {
+                10, 20, 0, 0, 50, 20,
+                0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0,
+                10, 60, 0, 0, 50, 60,
+            };
+            warp.form = warpForm;
+
+            rot.name = "RotName";
+            rot.targetDeformerId = warp.id;
+            rot.baseAngle = 10.0;
+            final RotForm rotForm = new RotForm();
+            rotForm.angle = 45.0;
+            rotForm.scale = 1.5;
+            rotForm.opacity = 0.75;
+            rotForm.multiply = new FloatColor("#222222");
+            rotForm.screen = new FloatColor("#333333");
+            rotForm.originX = 3.0;
+            rotForm.originY = 4.0;
+            rot.form = rotForm;
+
             access.script(
-                mesh, other, artPath, rootPart, paramSource, rootGroup,
+                mesh, other, artPath, rootPart, subPart, paramSource, rootGroup,
                 List.of(warp, rot));
         }
 
@@ -733,7 +1013,20 @@ final class SessionOpsContractTest {
         Object handler = new Handler();
         Object grid = new Object();
         Object targetDeformer;
+        Object targetDeformerId;
         Object labelColor;
+        Object parent;
+        Object form;
+        List<Object> extensions = List.of();
+        List<Object> clipGuids = List.of();
+        boolean enableDrawOrderGroup;
+        boolean sketch;
+        boolean offscreen;
+        boolean reverseMask;
+        boolean culling;
+        float[] positions = new float[0];
+        Object colorBlend;
+        Object alphaBlend;
 
         HostSource(final String id, final String guid) {
             this.id = new HostId(id);
@@ -752,15 +1045,113 @@ final class SessionOpsContractTest {
     }
 
     private static final class WarpSource extends HostSource {
+        int col;
+        int row;
         WarpSource(final String id, final String guid) { super(id, guid); }
     }
 
     private static final class RotSource extends HostSource {
+        double baseAngle;
         RotSource(final String id, final String guid) { super(id, guid); }
     }
 
     private static final class GlueSource extends HostSource {
         GlueSource(final String id, final String guid) { super(id, guid); }
+    }
+
+    /** A live model instance: {@code *.source} resolves back to the scripted source. */
+    private static class HostInstance {
+        final HostSource source;
+
+        HostInstance(final HostSource source) {
+            this.source = source;
+        }
+    }
+
+    private static final class PartInstance extends HostInstance {
+        PartInstance(final HostSource source) { super(source); }
+    }
+
+    private static final class MeshInstance extends HostInstance {
+        MeshInstance(final HostSource source) { super(source); }
+    }
+
+    private static final class WarpInstance extends HostInstance {
+        WarpInstance(final HostSource source) { super(source); }
+    }
+
+    private static final class RotInstance extends HostInstance {
+        RotInstance(final HostSource source) { super(source); }
+    }
+
+    /** Fake {@code CFloatColor}: only the verified {@code getHexRGB} member is scripted. */
+    private static final class FloatColor {
+        final String hex;
+
+        FloatColor(final String hex) {
+            this.hex = hex;
+        }
+    }
+
+    /** Fake {@code CWarpDeformerBezierExtension}. */
+    private static final class BezierExt {
+        final int editLevel;
+        final int col;
+        final int row;
+
+        BezierExt(final int editLevel, final int col, final int row) {
+            this.editLevel = editLevel;
+            this.col = col;
+            this.row = row;
+        }
+    }
+
+    private static final class PartForm {
+        int drawOrder;
+        double opacity;
+        Object multiply;
+        Object screen;
+    }
+
+    private static final class DrawableForm {
+        int drawOrder;
+        double opacity;
+        Object multiply;
+        Object screen;
+    }
+
+    private static class DeformerForm {
+        double opacity;
+        Object multiply;
+        Object screen;
+    }
+
+    private static final class WarpForm extends DeformerForm {
+        float[] positions = new float[0];
+    }
+
+    private static final class RotForm extends DeformerForm {
+        double angle;
+        double scale;
+        double originX;
+        double originY;
+    }
+
+    /** Host {@code ColorComposition} constants, in the 5.3.x declaration order. */
+    private static final Object[] COLOR_BLEND_VALUES;
+
+    /** Host {@code AlphaComposition} constants, in declaration order. */
+    private static final Object[] ALPHA_BLEND_VALUES;
+
+    static {
+        COLOR_BLEND_VALUES = new Object[EditColorBlend.values().length];
+        for (int i = 0; i < COLOR_BLEND_VALUES.length; i++) {
+            COLOR_BLEND_VALUES[i] = new Object();
+        }
+        ALPHA_BLEND_VALUES = new Object[EditAlphaBlend.values().length];
+        for (int i = 0; i < ALPHA_BLEND_VALUES.length; i++) {
+            ALPHA_BLEND_VALUES[i] = new Object();
+        }
     }
 
     private static final class Handler {}
@@ -848,19 +1239,36 @@ final class SessionOpsContractTest {
         private final List<Call> calls = new ArrayList<>();
         private boolean denyAll;
         private final Set<String> denied = new HashSet<>();
+        private final Set<String> deniedAliases = new HashSet<>();
 
         void script(
             final HostSource mesh,
             final HostSource other,
             final HostSource artPath,
             final PartSource rootPart,
+            final PartSource subPart,
             final ParamSource paramSource,
             final Group rootGroup,
             final List<Object> deformerList
         ) {
             objects.add(mesh);
             objects.add(other);
+            objects.add(rootPart);
+            objects.add(subPart);
+            objects.addAll(deformerList);
             deformers = deformerList;
+
+            final List<Object> partInstances =
+                List.of(new PartInstance(rootPart), new PartInstance(subPart));
+            final List<Object> meshInstances =
+                List.of(new MeshInstance(mesh), new MeshInstance(other));
+            final ArrayList<Object> deformerInstances = new ArrayList<>();
+            for (final Object deformer : deformerList) {
+                deformerInstances.add(
+                    deformer instanceof WarpSource
+                        ? new WarpInstance((HostSource) deformer)
+                        : new RotInstance((HostSource) deformer));
+            }
 
             on("cubism.editor-model.model-source.all-objects", (t, a) -> objects);
             on("cubism.editor-model.model-source.all-deformers", (t, a) -> deformers);
@@ -896,6 +1304,97 @@ final class SessionOpsContractTest {
                 (t, a) -> ((HostSource) t).targetDeformer);
             on("cubism.editor-model.parameter-controllable-source.label-color",
                 (t, a) -> ((HostSource) t).labelColor);
+            on("cubism.editor-model.parameter-controllable-source.name-or-id-string",
+                (t, a) -> ((HostSource) t).name);
+            on("cubism.editor-model.parameter-controllable-source.target-deformer-id",
+                (t, a) -> ((HostSource) t).targetDeformerId);
+            on("cubism.editor-model.parameter-controllable-source.extensions",
+                (t, a) -> ((HostSource) t).extensions);
+            on("cubism.editor-model.parameter-controllable.interpolated-form",
+                (t, a) -> ((HostInstance) t).source.form);
+            on("cubism.editor-model.part-source.parent",
+                (t, a) -> ((HostSource) t).parent);
+            on("cubism.editor-model.float-color.hex-rgb",
+                (t, a) -> ((FloatColor) t).hex);
+            on("cubism.editor-model.part-source.enable-draw-order-group",
+                (t, a) -> ((HostSource) t).enableDrawOrderGroup);
+            on("cubism.editor-model.part-source.sketch",
+                (t, a) -> ((HostSource) t).sketch);
+            on("cubism.editor-model.part-source.use-offscreen",
+                (t, a) -> ((HostSource) t).offscreen);
+            on("cubism.editor-model.part-source.clip-guid-list",
+                (t, a) -> ((HostSource) t).clipGuids);
+            on("cubism.editor-model.part-source.invert-clipping-mask",
+                (t, a) -> ((HostSource) t).reverseMask);
+            on("cubism.editor-model.part-source.color-composition",
+                (t, a) -> ((HostSource) t).colorBlend);
+            on("cubism.editor-model.part-source.alpha-composition",
+                (t, a) -> ((HostSource) t).alphaBlend);
+            on("cubism.editor-model.part-form.draw-order",
+                (t, a) -> ((PartForm) t).drawOrder);
+            on("cubism.editor-model.part-form.opacity",
+                (t, a) -> ((PartForm) t).opacity);
+            on("cubism.editor-model.part-form.multiply-color",
+                (t, a) -> ((PartForm) t).multiply);
+            on("cubism.editor-model.part-form.screen-color",
+                (t, a) -> ((PartForm) t).screen);
+            on("cubism.editor-model.art-mesh-source.clip-guid-list",
+                (t, a) -> ((HostSource) t).clipGuids);
+            on("cubism.editor-model.art-mesh-source.inverted-mask",
+                (t, a) -> ((HostSource) t).reverseMask);
+            on("cubism.editor-model.art-mesh-source.color-composition",
+                (t, a) -> ((HostSource) t).colorBlend);
+            on("cubism.editor-model.art-mesh-source.alpha-composition",
+                (t, a) -> ((HostSource) t).alphaBlend);
+            on("cubism.editor-model.art-mesh-source.culling",
+                (t, a) -> ((HostSource) t).culling);
+            on("cubism.editor-model.art-mesh-source.positions",
+                (t, a) -> ((HostSource) t).positions);
+            on("cubism.editor-model.drawable-form.draw-order",
+                (t, a) -> ((DrawableForm) t).drawOrder);
+            on("cubism.editor-model.drawable-form.opacity",
+                (t, a) -> ((DrawableForm) t).opacity);
+            on("cubism.editor-model.drawable-form.multiply-color",
+                (t, a) -> ((DrawableForm) t).multiply);
+            on("cubism.editor-model.drawable-form.screen-color",
+                (t, a) -> ((DrawableForm) t).screen);
+            on("cubism.editor-model.warp-source.col",
+                (t, a) -> ((WarpSource) t).col);
+            on("cubism.editor-model.warp-source.row",
+                (t, a) -> ((WarpSource) t).row);
+            on("cubism.editor-model.warp-form.positions",
+                (t, a) -> ((WarpForm) t).positions);
+            on("cubism.editor-model.deformer-form.opacity",
+                (t, a) -> ((DeformerForm) t).opacity);
+            on("cubism.editor-model.deformer-form.multiply-color",
+                (t, a) -> ((DeformerForm) t).multiply);
+            on("cubism.editor-model.deformer-form.screen-color",
+                (t, a) -> ((DeformerForm) t).screen);
+            on("cubism.editor-model.warp-bezier-extension.edit-level",
+                (t, a) -> ((BezierExt) t).editLevel);
+            on("cubism.editor-model.warp-bezier-extension.bezier-col",
+                (t, a) -> ((BezierExt) t).col);
+            on("cubism.editor-model.warp-bezier-extension.bezier-row",
+                (t, a) -> ((BezierExt) t).row);
+            on("cubism.editor-model.rotation-form.angle",
+                (t, a) -> ((RotForm) t).angle);
+            on("cubism.editor-model.rotation-form.scale",
+                (t, a) -> ((RotForm) t).scale);
+            on("cubism.editor-model.rotation-form.origin-x",
+                (t, a) -> ((RotForm) t).originX);
+            on("cubism.editor-model.rotation-form.origin-y",
+                (t, a) -> ((RotForm) t).originY);
+            on("cubism.editor-model.rotation-source.base-angle",
+                (t, a) -> ((RotSource) t).baseAngle);
+            on("cubism.editor-model.model.parts", (t, a) -> partInstances);
+            on("cubism.editor-model.part.source",
+                (t, a) -> ((HostInstance) t).source);
+            on("cubism.editor-model.model.all-art-meshes", (t, a) -> meshInstances);
+            on("cubism.editor-model.art-mesh.source",
+                (t, a) -> ((HostInstance) t).source);
+            on("cubism.editor-model.model.all-deformers", (t, a) -> deformerInstances);
+            on("cubism.editor-model.deformer.source",
+                (t, a) -> ((HostInstance) t).source);
             on("cubism.editor-model.parameter-controllable-source.set-local-name",
                 (t, a) -> null);
             on("cubism.editor-model.parameter-controllable.keyform-grid",
@@ -942,6 +1441,10 @@ final class SessionOpsContractTest {
             onStatic("cubism.editor-model.model-handler.create-free-id-default",
                 a -> a[1]);
             onStatic("cubism.editor-model.model-source.verify", a -> null);
+            onStatic("cubism.editor-model.color-composition.values",
+                a -> COLOR_BLEND_VALUES);
+            onStatic("cubism.editor-model.alpha-composition.values",
+                a -> ALPHA_BLEND_VALUES);
 
             onConstruct("cubism.editor-model.parameter-id.create", a -> new HostId((String) a[0]));
             onConstruct("cubism.editor-model.parameter-source.create", a -> new ParamSource(
@@ -958,6 +1461,12 @@ final class SessionOpsContractTest {
             isInstanceOf("cubism.editor-model.warp-source.class", WarpSource.class);
             isInstanceOf("cubism.editor-model.rotation-source.class", RotSource.class);
             isInstanceOf("cubism.editor-model.glue-source.class", GlueSource.class);
+            isInstanceOf("cubism.editor-model.part.class", PartInstance.class);
+            isInstanceOf("cubism.editor-model.art-mesh.class", MeshInstance.class);
+            isInstanceOf("cubism.editor-model.warp.class", WarpInstance.class);
+            isInstanceOf("cubism.editor-model.rotation.class", RotInstance.class);
+            isInstanceOf("cubism.editor-model.warp-bezier-extension.class",
+                BezierExt.class);
             isInstanceOf("cubism.editor-model.parameter-group.class", Group.class);
             isInstanceOf("cubism.editor-model.parameter-source.class", ParamSource.class);
             isInstanceOf("cubism.editor-model.parameter-group-handler.class",
@@ -974,6 +1483,10 @@ final class SessionOpsContractTest {
 
         void deny(final String capabilityId) {
             denied.add(capabilityId);
+        }
+
+        void denyAlias(final String alias) {
+            deniedAliases.add(alias);
         }
 
         @Override
@@ -993,7 +1506,9 @@ final class SessionOpsContractTest {
 
         @Override
         public boolean authorizesFeature(final String capabilityId, final Set<String> aliases) {
-            return !denyAll && !denied.contains(capabilityId);
+            return !denyAll
+                && !denied.contains(capabilityId)
+                && deniedAliases.stream().noneMatch(aliases::contains);
         }
 
         @Override

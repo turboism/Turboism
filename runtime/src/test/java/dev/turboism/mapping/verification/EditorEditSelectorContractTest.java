@@ -29,17 +29,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Most of the thirty-six {@code cubism.editor-model.edit.*} capability rows are declared
  * ahead of their verification records, so {@link VerifiedMemberResolver#authorizesFeature} must
- * reject them on every supported host. The three selection rows are the T5 exception: their
- * capability ids and members are bound on all three exact artifacts, so resolvers admit them.
- * This test pins both halves of that contract:</p>
+ * reject them on every supported host. The exceptions are the three selection rows (T5) and the
+ * {@code GetObject} row (Phase 3b): their capability ids and members are bound on all three
+ * exact artifacts, so resolvers admit them. This test pins both halves of that contract:</p>
  *
  * <ul>
  *   <li>every declared member alias is bound by the committed records exactly where the
  *   feasibility matrix claims (READY rows are fully bound on all three versions; ADJACENT and
  *   field-restricted sets keep their documented unbound members), and</li>
  *   <li>real resolvers admitted against the exact 5.2.03 and 5.3.02 host artifacts reject the
- *   non-selection edit rows, admit the three selection rows, and still authorize a verified
- *   control capability.</li>
+ *   non-verified edit rows, admit the selection rows and {@code GetObject}, and still authorize
+ *   a verified control capability.</li>
  * </ul>
  */
 final class EditorEditSelectorContractTest {
@@ -217,20 +217,24 @@ final class EditorEditSelectorContractTest {
         );
     }
 
-    /** The three selection rows T5 bound into every supported record. */
-    private static final Set<String> SELECTION_ROWS = Set.of(
+    /**
+     * The rows bound into every supported record: the three selection rows (T5) and the
+     * {@code GetObject} read row (Phase 3b bytecode verification).
+     */
+    private static final Set<String> VERIFIED_ROWS = Set.of(
         EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
         EditorEditSelectionSelectorContract.ADD_SELECTED_OBJECTS_CAPABILITY_ID,
-        EditorEditSelectionSelectorContract.CLEAR_SELECTED_OBJECTS_CAPABILITY_ID
+        EditorEditSelectionSelectorContract.CLEAR_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID
     );
 
     @Test
-    void committedRecordsDeclareOnlyTheVerifiedSelectionRows() throws Exception {
+    void committedRecordsDeclareOnlyTheVerifiedEditRows() throws Exception {
         for (VersionCase version : VERSIONS) {
             final StaticVerificationRecord record = loadRecord(version);
             for (Map.Entry<String, Set<String>> row : EDIT_ROWS.entrySet()) {
                 assertEquals(
-                    SELECTION_ROWS.contains(row.getKey()),
+                    VERIFIED_ROWS.contains(row.getKey()),
                     record.capabilityIds().contains(row.getKey()),
                     version.version() + " capability declaration mismatch for " + row.getKey()
                 );
@@ -292,15 +296,34 @@ final class EditorEditSelectorContractTest {
             "cubism.editor-model.part-source.remove-child");
         assertBound(aliases5303, EditorEditPartObjectSelectorContract.MOVE_OBJECT_REMOVE_CHILD_ALIASES);
 
-        // 5.3-only Part read fields for GetObject.
+        // 5.3-only Part read fields for GetObject: the 5.2.03 host lacks the offscreen/clip/
+        // blend part readers, the part-form visual reads, and the alpha-composition carrier.
         assertBound(aliases5302, EditorEditPartObjectSelectorContract.GET_OBJECT_PART_EXTENDED_ALIASES);
         assertBound(aliases5303, EditorEditPartObjectSelectorContract.GET_OBJECT_PART_EXTENDED_ALIASES);
         assertUnbound(aliases5203, EditorEditPartObjectSelectorContract.GET_OBJECT_PART_EXTENDED_ALIASES,
             "cubism.editor-model.part-source.use-offscreen",
             "cubism.editor-model.part-source.clip-guid-list",
+            "cubism.editor-model.part-source.invert-clipping-mask",
+            "cubism.editor-model.part-source.color-composition",
             "cubism.editor-model.part-source.alpha-composition",
+            "cubism.editor-model.alpha-composition.values",
             "cubism.editor-model.part-form.class",
-            "cubism.editor-model.part-form.opacity");
+            "cubism.editor-model.part-form.opacity",
+            "cubism.editor-model.part-form.multiply-color",
+            "cubism.editor-model.part-form.screen-color");
+
+        // GetObject ArtMesh: only the AlphaComposition carrier is missing on 5.2.03.
+        assertBound(aliases5302, EditorEditPartObjectSelectorContract.GET_OBJECT_ART_MESH_EXTENDED_ALIASES);
+        assertBound(aliases5303, EditorEditPartObjectSelectorContract.GET_OBJECT_ART_MESH_EXTENDED_ALIASES);
+        assertUnbound(aliases5203, EditorEditPartObjectSelectorContract.GET_OBJECT_ART_MESH_EXTENDED_ALIASES,
+            "cubism.editor-model.art-mesh-source.alpha-composition",
+            "cubism.editor-model.alpha-composition.values");
+
+        // GetObject Warp/Rotation members are bound on every supported host.
+        for (Set<String> aliases : List.of(aliases5203, aliases5302, aliases5303)) {
+            assertBound(aliases, EditorEditPartObjectSelectorContract.GET_OBJECT_WARP_ALIASES);
+            assertBound(aliases, EditorEditPartObjectSelectorContract.GET_OBJECT_REQUIRED_ALIASES);
+        }
 
         // 5.3-only EditPart rendering fields.
         assertBound(aliases5302, EditorEditPartObjectSelectorContract.EDIT_PART_EXTENDED_ALIASES);
@@ -356,7 +379,7 @@ final class EditorEditSelectorContractTest {
                     row.getKey(),
                     row.getValue()
                 );
-                if (SELECTION_ROWS.contains(row.getKey())) {
+                if (VERIFIED_ROWS.contains(row.getKey())) {
                     assertTrue(
                         admitted,
                         version.version() + " must admit verified row " + row.getKey()
