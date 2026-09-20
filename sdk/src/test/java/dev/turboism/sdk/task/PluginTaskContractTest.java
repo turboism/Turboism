@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -176,18 +177,25 @@ class PluginTaskContractTest {
     }
 
     @Test
-    void pluginContextDefaultAccessorFailsWithTheFrozenCompatibilityMessage() {
+    void pluginContextDefaultAccessorReturnsTheUnavailableSentinel() {
         final PluginContext context = (PluginContext) Proxy.newProxyInstance(
             PluginContext.class.getClassLoader(),
             new Class<?>[] {PluginContext.class},
             PluginTaskContractTest::invokeDefault
         );
 
-        final UnsupportedOperationException error = assertThrows(
-            UnsupportedOperationException.class,
-            context::tasks
-        );
-        assertEquals("task scheduler is not available", error.getMessage());
+        final PluginTaskScheduler scheduler = context.tasks();
+
+        assertSame(PluginTaskScheduler.unavailable(), scheduler);
+        assertFalse(scheduler.isAvailable());
+        final TaskSubmission submission = scheduler.submit(new PluginTaskRequest(
+            new TaskId("refresh.unavailable"),
+            PluginTaskKind.COMPUTE,
+            PluginTaskPriority.NORMAL,
+            token -> { }
+        ));
+        assertEquals(TaskSubmissionStatus.REJECTED, submission.status());
+        assertEquals(Optional.of(TaskRejectionReason.RUNTIME_UNAVAILABLE), submission.rejectionReason());
     }
 
     private static TaskHandle handle(final TaskId id) {

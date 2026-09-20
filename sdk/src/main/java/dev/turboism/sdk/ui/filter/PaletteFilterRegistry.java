@@ -26,6 +26,32 @@ public interface PaletteFilterRegistry {
      */
     Registration contribute(PaletteFilterContribution contribution);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static PaletteFilterRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements PaletteFilterRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contribute(final PaletteFilterContribution contribution) {
+            java.util.Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException("paletteFilter registry is not available");
+        }
+    }
+
     record PaletteFilterContribution(
         String contributionId,
         String paletteId,

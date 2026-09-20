@@ -13,6 +13,15 @@ public interface ScreenshotCaptureService {
 
     CompletionStage<ScreenshotCaptureResult> capture(ScreenshotCaptureRequest request);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     /** Safe-mode instance: every capture completes exceptionally (fail closed). */
     static ScreenshotCaptureService unavailable() {
         return Unavailable.INSTANCE;
@@ -20,6 +29,10 @@ public interface ScreenshotCaptureService {
 
     enum Unavailable implements ScreenshotCaptureService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public CompletionStage<ScreenshotCaptureResult> capture(final ScreenshotCaptureRequest request) {

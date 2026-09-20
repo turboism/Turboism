@@ -307,6 +307,17 @@
       "reason": "Projected by kind in the current selection summary."
     },
     {
+      "sdkMethod": "dev.turboism.sdk.cubism.service.query.SelectionQueryService#isAvailable()Z",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Service availability probe for the unavailable sentinel contract; not an MCP capability."
+    },
+    {
       "sdkMethod": "dev.turboism.sdk.cubism.command.EditorCommandService#available()Ljava/util/Set;",
       "classification": "MCP_READ",
       "endpoint": "turboism://host/editor-commands",
@@ -316,6 +327,17 @@
       "undoVerification": "NOT_APPLICABLE",
       "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
       "reason": "Projected by the typed Editor command inventory resource."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.command.EditorCommandService#isAvailable()Z",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Service availability probe for the unavailable sentinel contract; not an MCP capability."
     },
     {
       "sdkMethod": "dev.turboism.sdk.cubism.command.EditorCommandService#execute(Ldev/turboism/sdk/cubism/command/EditorCommand;)Ldev/turboism/sdk/cubism/command/EditorCommandResult;",

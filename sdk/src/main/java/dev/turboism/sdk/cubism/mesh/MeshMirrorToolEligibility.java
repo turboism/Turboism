@@ -8,4 +8,30 @@ import java.util.Set;
 public interface MeshMirrorToolEligibility {
 
     Registration extendEligibleTools(Set<MeshEditTool> tools);
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static MeshMirrorToolEligibility unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements MeshMirrorToolEligibility {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration extendEligibleTools(final Set<MeshEditTool> tools) {
+            throw new UnsupportedOperationException(
+                "meshMirrorToolEligibility service is not available");
+        }
+    }
 }

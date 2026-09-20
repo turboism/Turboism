@@ -18,4 +18,45 @@ public interface PluginLocalization {
     String format(String key, Object... arguments);
 
     boolean contains(String key);
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static PluginLocalization unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements PluginLocalization {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Locale locale() {
+            throw unavailable();
+        }
+
+        @Override public String text(final String key) {
+            throw unavailable();
+        }
+
+        @Override public String format(final String key, final Object... arguments) {
+            throw unavailable();
+        }
+
+        @Override public boolean contains(final String key) {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("localization service is not available");
+        }
+    }
 }

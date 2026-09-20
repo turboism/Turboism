@@ -25,6 +25,15 @@ public interface CubismLogService {
     /** Returns the currently published filter. */
     LogFilter filter();
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     enum LogLevel {
         TRACE, DEBUG, INFO, WARN, ERROR, FATAL
     }
@@ -73,24 +82,29 @@ public interface CubismLogService {
     }
 
     static CubismLogService unavailable() {
-        return new CubismLogService() {
-            private LogFilter filter = LogFilter.all();
+        return Unavailable.INSTANCE;
+    }
 
-            @Override
-            public Registration subscribe(final Consumer<LogEntry> listener) {
-                Objects.requireNonNull(listener, "listener");
-                return () -> { };
-            }
+    enum Unavailable implements CubismLogService {
+        INSTANCE;
 
-            @Override
-            public void setFilter(final LogFilter filter) {
-                this.filter = Objects.requireNonNull(filter, "filter");
-            }
+        private LogFilter filter = LogFilter.all();
 
-            @Override
-            public LogFilter filter() {
-                return filter;
-            }
-        };
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration subscribe(final Consumer<LogEntry> listener) {
+            Objects.requireNonNull(listener, "listener");
+            return () -> { };
+        }
+
+        @Override public void setFilter(final LogFilter filter) {
+            this.filter = Objects.requireNonNull(filter, "filter");
+        }
+
+        @Override public LogFilter filter() {
+            return filter;
+        }
     }
 }

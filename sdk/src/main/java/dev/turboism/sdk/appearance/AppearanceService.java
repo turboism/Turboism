@@ -22,13 +22,28 @@ public interface AppearanceService {
     CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance();
 
     /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
      * @return a service that changes nothing: {@link #current()} reports
      *     {@link AppearanceStatus.Availability#UNAVAILABLE} at revision 0, and both mutating calls
      *     complete with an {@code UNAVAILABLE} outcome and the {@code appearance.unavailable}
      *     diagnostic id. Never returns {@code null} and never fails.
      */
     static AppearanceService unavailable() {
-        final AppearanceStatus status = new AppearanceStatus(
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements AppearanceService {
+        INSTANCE;
+
+        private static final AppearanceStatus STATUS = new AppearanceStatus(
             AppearanceStatus.Availability.UNAVAILABLE,
             AppearanceStatus.Source.NATIVE,
             java.util.Optional.empty(),
@@ -36,30 +51,30 @@ public interface AppearanceService {
             0,
             java.util.Optional.of("appearance.unavailable")
         );
-        return new AppearanceService() {
-            @Override
-            public CompletionStage<AppearanceStatus> current() {
-                return CompletableFuture.completedFuture(status);
-            }
 
-            @Override
-            public CompletionStage<AppearanceApplyResult> apply(final AppearanceRequest request) {
-                java.util.Objects.requireNonNull(request, "request");
-                return CompletableFuture.completedFuture(new AppearanceApplyResult(
-                    AppearanceApplyResult.Outcome.UNAVAILABLE,
-                    status,
-                    java.util.Optional.of("appearance.unavailable")
-                ));
-            }
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
-            @Override
-            public CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
-                return CompletableFuture.completedFuture(new AppearanceRestoreResult(
-                    AppearanceRestoreResult.Outcome.UNAVAILABLE,
-                    status,
-                    java.util.Optional.of("appearance.unavailable")
-                ));
-            }
-        };
+        @Override public CompletionStage<AppearanceStatus> current() {
+            return CompletableFuture.completedFuture(STATUS);
+        }
+
+        @Override public CompletionStage<AppearanceApplyResult> apply(final AppearanceRequest request) {
+            java.util.Objects.requireNonNull(request, "request");
+            return CompletableFuture.completedFuture(new AppearanceApplyResult(
+                AppearanceApplyResult.Outcome.UNAVAILABLE,
+                STATUS,
+                java.util.Optional.of("appearance.unavailable")
+            ));
+        }
+
+        @Override public CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
+            return CompletableFuture.completedFuture(new AppearanceRestoreResult(
+                AppearanceRestoreResult.Outcome.UNAVAILABLE,
+                STATUS,
+                java.util.Optional.of("appearance.unavailable")
+            ));
+        }
     }
 }
