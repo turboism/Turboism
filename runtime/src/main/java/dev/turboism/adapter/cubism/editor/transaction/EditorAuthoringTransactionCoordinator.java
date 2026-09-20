@@ -101,55 +101,58 @@ public final class EditorAuthoringTransactionCoordinator {
                 diagnostic("authoring.edit-scope-conflict", null)
             );
         }
-        if (!checkedBinding.isCurrentThread() || !current(checkedBinding)) {
-            editScopeGate.set(false);
-            return AuthoringTransactionResult.rejectedScope(
-                Optional.empty(),
-                diagnostic("authoring.scope-rejected", null)
-            );
-        }
-
-        final HistorySnapshot before;
+        // Once the CAS succeeds every path — including an Error raised before the scope is
+        // established — must release the gate; a missed release wedges every session and
+        // transaction across threads.
         try {
-            before = Objects.requireNonNull(host.history(checkedBinding), "history");
-        } catch (RuntimeException failure) {
-            editScopeGate.set(false);
-            return AuthoringTransactionResult.unavailable(
-                diagnostic("authoring.history-unavailable", failure)
-            );
-        }
-        if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
-            editScopeGate.set(false);
-            return AuthoringTransactionResult.unavailable(
-                diagnostic("authoring.history-unavailable", null)
-            );
-        }
+            if (!checkedBinding.isCurrentThread() || !current(checkedBinding)) {
+                return AuthoringTransactionResult.rejectedScope(
+                    Optional.empty(),
+                    diagnostic("authoring.scope-rejected", null)
+                );
+            }
 
-        final EditorAuthoringScope scope = new EditorAuthoringScope(
-            checkedBinding,
-            checkedOptions,
-            nextTransactionId(),
-            before
-        );
-        ambient.set(scope);
-        try {
-            final T value;
+            final HistorySnapshot before;
             try {
-                value = checkedWork.run();
-                if (!current(checkedBinding)) {
-                    throw new ScopeRejectedException("authoring binding changed before commit");
+                before = Objects.requireNonNull(host.history(checkedBinding), "history");
+            } catch (RuntimeException failure) {
+                return AuthoringTransactionResult.unavailable(
+                    diagnostic("authoring.history-unavailable", failure)
+                );
+            }
+            if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
+                return AuthoringTransactionResult.unavailable(
+                    diagnostic("authoring.history-unavailable", null)
+                );
+            }
+
+            final EditorAuthoringScope scope = new EditorAuthoringScope(
+                checkedBinding,
+                checkedOptions,
+                nextTransactionId(),
+                before
+            );
+            ambient.set(scope);
+            try {
+                final T value;
+                try {
+                    value = checkedWork.run();
+                    if (!current(checkedBinding)) {
+                        throw new ScopeRejectedException("authoring binding changed before commit");
+                    }
+                } catch (ScopeRejectedException failure) {
+                    return recover(scope, failure, true);
+                } catch (Exception | Error failure) {
+                    return recover(scope, failure, false);
                 }
-            } catch (ScopeRejectedException failure) {
-                return recover(scope, failure, true);
-            } catch (Exception | Error failure) {
-                return recover(scope, failure, false);
+                if (!scope.changed()) {
+                    return noChange(scope, value);
+                }
+                return commit(scope, value);
+            } finally {
+                ambient.remove();
             }
-            if (!scope.changed()) {
-                return noChange(scope, value);
-            }
-            return commit(scope, value);
         } finally {
-            ambient.remove();
             editScopeGate.set(false);
         }
     }
