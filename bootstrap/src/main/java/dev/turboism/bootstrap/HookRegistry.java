@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
@@ -13,10 +14,16 @@ import java.util.function.Consumer;
  * every enrolled handle closes before the preview runtime, in reverse
  * install order. Flagged handles report
  * {@code cleanup=COMPLETE phase=...} exactly like the hand-wired agent.</p>
+ *
+ * <p>Enrollment on the premain and bootstrap threads races the JVM
+ * shutdown-hook close pass, so entries live in a {@link CopyOnWriteArrayList}.
+ * Each close pass walks a snapshot and claims entries with an atomic
+ * {@code remove}: a handle enrolled mid-pass is simply left enrolled, and
+ * two racing passes never close the same handle twice.</p>
  */
 final class HookRegistry {
 
-    private final List<Entry> entries = new ArrayList<>();
+    private final List<Entry> entries = new CopyOnWriteArrayList<>();
 
     HookRegistry() {
     }
@@ -70,12 +77,15 @@ final class HookRegistry {
         final boolean processExitOnly,
         final String phase
     ) {
-        for (int index = entries.size() - 1; index >= 0; index--) {
-            final Entry entry = entries.get(index);
+        final List<Entry> snapshot = new ArrayList<>(entries);
+        for (int index = snapshot.size() - 1; index >= 0; index--) {
+            final Entry entry = snapshot.get(index);
             if (processExitOnly && !entry.processExit) {
                 continue;
             }
-            entries.remove(index);
+            if (!entries.remove(entry)) {
+                continue;
+            }
             try {
                 entry.handle.close();
                 if (entry.processExit) {
