@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,63 +18,71 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Drives {@link EditSessionDialogLock} through fake {@link EditSessionDialogPrimitives} — no real
- * Swing dialog or timer is ever created.
+ * Swing dialog or timer is ever created, and the pulse clock is injected so the official
+ * 100ms-poll / 10000ms-timeout cadence is exercised deterministically.
  */
 final class EditSessionDialogLockTest {
 
     @Test
-    void engageDisablesTheWindowAndArmsTheInvisibleModalTimer() {
+    void nonSilentEngageShowsTheStatusDialogImmediatelyWithoutAModal() {
         final Primitives primitives = new Primitives();
+        final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
             primitives,
-            new EditSessionUiLockContext(Optional.of(new Object()), () -> {})
+            new EditSessionUiLockContext(Optional.of(new Object()), () -> {}),
+            now::get
         );
 
         lock.engage(false);
 
+        // Official: silent=false shows the status dialog at once and never creates the
+        // invisible modal interceptor.
         assertEquals(List.of(false), primitives.windowEnabled);
-        assertEquals(
-            List.of(
-                EditSessionDialogLock.INVISIBLE_MODAL_DELAY_MS
-            ),
-            primitives.armedDelays
-        );
-        assertFalse(primitives.modal.shown);
+        assertEquals(0, primitives.modalCount.get());
         assertTrue(primitives.status.shown);
-
-        primitives.fire(EditSessionDialogLock.INVISIBLE_MODAL_DELAY_MS);
-        assertTrue(primitives.modal.shown);
+        assertTrue(primitives.armedDelays.isEmpty());
     }
 
     @Test
-    void silentEngageHidesTheStatusDialogUntilTheRevealTimerFires() {
+    void silentEngageShowsTheInvisibleModalAtOnceAndPollsThePulseTimeout() {
         final Primitives primitives = new Primitives();
+        final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
             primitives,
-            new EditSessionUiLockContext(Optional.of(new Object()), () -> {})
+            new EditSessionUiLockContext(Optional.of(new Object()), () -> {}),
+            now::get
         );
 
         lock.engage(true);
 
+        assertEquals(List.of(false), primitives.windowEnabled);
+        assertTrue(primitives.modal.shown);
         assertFalse(primitives.status.shown);
-        assertEquals(
-            List.of(
-                EditSessionDialogLock.INVISIBLE_MODAL_DELAY_MS,
-                EditSessionDialogLock.SILENT_REVEAL_DELAY_MS
-            ),
-            primitives.armedDelays
-        );
+        assertEquals(List.of(EditSessionDialogLock.MODAL_PULSE_POLL_MS), primitives.armedDelays);
 
-        primitives.fire(EditSessionDialogLock.SILENT_REVEAL_DELAY_MS);
+        // A poll tick before the timeout re-arms; the modal keeps holding the input block.
+        now.addAndGet(500);
+        primitives.fire(EditSessionDialogLock.MODAL_PULSE_POLL_MS);
+        assertFalse(primitives.modal.hidden);
+        assertFalse(primitives.status.shown);
+
+        // Once the official 10000ms timeout elapses, the pulse releases the modal and reveals
+        // the status dialog.
+        now.addAndGet(EditSessionDialogLock.SILENT_PULSE_TIMEOUT_MS);
+        primitives.fire(EditSessionDialogLock.MODAL_PULSE_POLL_MS);
+        assertTrue(primitives.modal.hidden);
+        assertTrue(primitives.modal.disposed);
         assertTrue(primitives.status.shown);
     }
 
     @Test
-    void disengageRestoresTheWindowDisposesDialogsAndCancelsTimers() {
+    void disengageDuringThePulseReleasesTheModalWithoutRevealingStatus() {
         final Primitives primitives = new Primitives();
+        final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
             primitives,
-            new EditSessionUiLockContext(Optional.of(new Object()), () -> {})
+            new EditSessionUiLockContext(Optional.of(new Object()), () -> {}),
+            now::get
         );
         lock.engage(true);
 
@@ -81,26 +90,28 @@ final class EditSessionDialogLockTest {
 
         assertEquals(List.of(false, true), primitives.windowEnabled);
         assertTrue(primitives.modal.disposed);
-        assertTrue(primitives.status.disposed);
+        assertFalse(primitives.status.shown);
         assertTrue(primitives.timers.stream().allMatch(FakeTimer::cancelled));
 
-        // A late-firing timer must not resurrect a disposed dialog.
+        // A late-firing poll must not resurrect a disposed dialog.
         primitives.fireAll();
-        assertFalse(primitives.modal.shown);
+        assertEquals(1, primitives.modal.showCount);
         assertFalse(primitives.status.shown);
     }
 
     @Test
     void engageIsIdempotentAndDisengageIsSafeWithoutEngage() {
         final Primitives primitives = new Primitives();
+        final AtomicLong now = new AtomicLong();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
             primitives,
-            new EditSessionUiLockContext(Optional.empty(), () -> {})
+            new EditSessionUiLockContext(Optional.empty(), () -> {}),
+            now::get
         );
 
         lock.disengage();
-        lock.engage(false);
-        lock.engage(false);
+        lock.engage(true);
+        lock.engage(true);
 
         assertEquals(1, primitives.modalCount.get());
         assertEquals(1, primitives.statusCount.get());
@@ -114,7 +125,8 @@ final class EditSessionDialogLockTest {
         final AtomicBoolean cancelRequested = new AtomicBoolean();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
             primitives,
-            new EditSessionUiLockContext(Optional.empty(), () -> cancelRequested.set(true))
+            new EditSessionUiLockContext(Optional.empty(), () -> cancelRequested.set(true)),
+            () -> 0L
         );
         lock.engage(false);
 
@@ -128,7 +140,8 @@ final class EditSessionDialogLockTest {
         final Primitives primitives = new Primitives();
         final EditSessionDialogLock lock = new EditSessionDialogLock(
             primitives,
-            new EditSessionUiLockContext(Optional.empty(), () -> {})
+            new EditSessionUiLockContext(Optional.empty(), () -> {}),
+            () -> 0L
         );
 
         lock.log("dropped");
@@ -180,13 +193,14 @@ final class EditSessionDialogLockTest {
         }
 
         void fire(final int delayMs) {
-            timers.stream()
+            // Snapshot: a pulse tick may re-arm the next 100ms timer while firing.
+            List.copyOf(timers).stream()
                 .filter(timer -> timer.delayMs == delayMs && !timer.cancelled())
                 .forEach(FakeTimer::fire);
         }
 
         void fireAll() {
-            timers.forEach(FakeTimer::fire);
+            List.copyOf(timers).forEach(FakeTimer::fire);
         }
     }
 
@@ -220,11 +234,19 @@ final class EditSessionDialogLockTest {
 
     private static final class FakeModal implements InvisibleModal {
         boolean shown;
+        boolean hidden;
         boolean disposed;
+        int showCount;
 
         @Override
         public void show() {
             shown = true;
+            showCount++;
+        }
+
+        @Override
+        public void hide() {
+            hidden = true;
         }
 
         @Override
