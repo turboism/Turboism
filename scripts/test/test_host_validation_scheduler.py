@@ -33,7 +33,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
             "animation-timeline", "atlas", "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
-            "dialog-automation", "fps", "host-locale", "incremental-update", "model-update-skip", "parameter",
+            "dialog-automation", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
             "parameter-batch-transfer", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
             "startup-suppression", "status-bar", "theme", "update-check", "workspace",
@@ -50,6 +50,18 @@ class HostValidationSchedulerTest(unittest.TestCase):
         )
         self.assertFalse(self.manifest.tasks["dialog-automation"].runnable)
         self.assertFalse(self.manifest.tasks["backup-interactive"].runnable)
+
+    def test_mcp_has_exact_versions_and_one_managed_host_slot(self) -> None:
+        task = self.manifest.tasks["mcp"]
+        self.assertEqual(("5203", "5302", "5303"), task.versions)
+        self.assertEqual({"host-slot": 1}, task.resources)
+        with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not start the host")):
+            for version in task.versions:
+                command = scheduler.render_command(self.request("mcp:" + version), self.manifest)
+                self.assertTrue(command[1].endswith("run-mcp-host-validation.sh"))
+                self.assertEqual([version, "test-run"], command[2:])
+        with self.assertRaises(scheduler.SchedulerError):
+            self.request("mcp:5400")
 
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]

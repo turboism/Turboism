@@ -66,6 +66,8 @@ Common options:
   --failure-marker <runtime-log marker>      repeatable
   --trigger <Turboism-home-relative path>
   --client-script <local-script[:task-name]>
+  --client-python <absolute-interpreter>      run the reviewed Python client with -I
+  --focus-editor-window                     opt-in task-local niri focus tracking
   --jvm-option <JVM option>                  repeatable
   --windows-env <NAME=value>                 repeatable task-local launch environment
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
@@ -340,6 +342,8 @@ result_fail_line='status=FAIL'
 trigger_path=''
 client_script=''
 client_script_remote_name=''
+client_python=''
+focus_editor_window=0
 jvm_options=()
 windows_environment=()
 cubism_java=''
@@ -393,6 +397,8 @@ while [ "$#" -gt 0 ]; do
     --result-fail-line) require_value "$@"; result_fail_line="$2"; shift 2 ;;
     --trigger) require_value "$@"; trigger_path="$2"; shift 2 ;;
     --client-script) require_value "$@"; client_script="$2"; shift 2 ;;
+    --client-python) require_value "$@"; client_python="$2"; shift 2 ;;
+    --focus-editor-window) focus_editor_window=1; shift ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
     --windows-env) require_value "$@"; windows_environment+=("$2"); shift 2 ;;
     --cubism-java) require_value "$@"; cubism_java="$2"; shift 2 ;;
@@ -532,6 +538,12 @@ fi
 [ -z "$result_file" ] || require_relative_path "$result_file" "result file"
 [ -z "$trigger_path" ] || require_relative_path "$trigger_path" "trigger path"
 
+if [ -n "$client_python" ]; then
+  [ -n "$client_script" ] || fail "--client-python requires --client-script"
+  require_safe_text "$client_python" "client Python interpreter"
+  [[ "$client_python" == /* ]] && [ -f "$client_python" ] && [ -x "$client_python" ] \
+    || fail "client Python interpreter must be an absolute executable file"
+fi
 if [ -n "$client_script" ]; then
   local_path="$client_script"
   if [[ "$client_script" == *:* ]]; then
@@ -810,6 +822,8 @@ else
 fi
 [ -n "$trigger_path" ] && normalized_argv+=(--trigger "$trigger_path")
 [ -n "$client_script" ] && normalized_argv+=(--client-script "$client_script:$client_script_remote_name")
+[ -n "$client_python" ] && normalized_argv+=(--client-python "$client_python")
+[ "$focus_editor_window" = 1 ] && normalized_argv+=(--focus-editor-window)
 for option in "${jvm_options[@]}"; do normalized_argv+=(--jvm-option "$option"); done
 for assignment in "${windows_environment[@]}"; do normalized_argv+=(--windows-env "$assignment"); done
 [ -n "$cubism_java" ] && normalized_argv+=(--cubism-java "$cubism_java")
@@ -1909,11 +1923,21 @@ set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
 cd "$task_dir" || exit 1
+focus_pid=''
+cleanup_focus() {
+  if [ -n "\$focus_pid" ]; then
+    kill "\$focus_pid" 2>/dev/null || true
+    wait "\$focus_pid" 2>/dev/null || true
+  fi
+}
+trap cleanup_focus EXIT
+# Focus tracking is opt-in for Robot workflows, never for ordinary HTTP validation.
 # Under the niri scrolling compositor the launcher's own cmd.exe console becomes a
 # column beside the editor. Columns tile across the viewport, so the editor's AWT
 # coordinates (origin 0,0) only line up with real screen pixels when the editor is the
 # leftmost visible column — otherwise every Robot press lands on the console window.
-# Keep the editor column focused and pinned to the start of its workspace.
+# Keep only this task's editor focused and reap our helper when the launcher exits.
+if [ "$focus_editor_window" = 1 ]; then
 (
   for _ in \$(seq 1 600); do
     niri msg -j windows 2>/dev/null | python3 -c '
@@ -1937,7 +1961,9 @@ for w in windows:
     sleep 2
   done
 ) &
-"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" --debug "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
+focus_pid=\$!
+fi
+"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
 rc=\$?
 printf '%s\\n' "\$rc" > "$evidence_dir/wrapper.exit"
 exit "\$rc"
@@ -1982,7 +2008,11 @@ if [ -n "$trigger_path" ]; then
 fi
 if [ -n "$client_script" ]; then
   log "running task-local validation client $client_script_remote_name"
-  if ! "$task_dir/$client_script_remote_name" "$home_dir" "$task_id" \
+  client_command=("$task_dir/$client_script_remote_name")
+  if [ -n "$client_python" ]; then
+    client_command=("$client_python" -I "$task_dir/$client_script_remote_name")
+  fi
+  if ! "${client_command[@]}" "$home_dir" "$task_id" \
     > "$evidence_dir/client.out" 2> "$evidence_dir/client.err"; then
     fail "task-local validation client failed"
   fi
