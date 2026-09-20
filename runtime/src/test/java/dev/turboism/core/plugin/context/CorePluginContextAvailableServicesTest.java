@@ -10,6 +10,8 @@ import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
+import dev.turboism.sdk.performance.PerformanceProbeService;
+import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -34,10 +36,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Covers {@link CorePluginContext#availableServices()}: the reported set must reflect what the
@@ -159,9 +164,127 @@ class CorePluginContextAvailableServicesTest {
         assertFalse(context.availableServices().contains(PluginService.FILE_CHOOSER_HISTORY));
     }
 
+    @Test
+    void performanceSubscriptionsBelongToTheActualContextScope() throws Exception {
+        final CorePluginContext.Dependencies dependencies = performanceDependencies(TEMP);
+        final ManualPerformanceProbe shared = new ManualPerformanceProbe();
+        dependencies.eventBroker().observationBaseline(PerformanceProbeService.class).set(shared);
+        final CorePluginContext context = new CorePluginContext(dependencies, RuntimeHostAdapters.safeMode());
+        final PerformanceProbeService retained = context.performanceStats();
+        try {
+            retained.sample(Duration.ofSeconds(1), ignored -> { });
+            assertEquals(1, shared.consumers.size());
+            dependencies.disposableScope().close();
+            assertEquals(0, shared.consumers.size(), "scope disposal must detach shared registrations");
+            assertThrows(IllegalStateException.class, retained::snapshot);
+            assertThrows(IllegalStateException.class,
+                () -> retained.sample(Duration.ofSeconds(1), ignored -> { }));
+            assertEquals(0, shared.closes.get(), "a plugin never owns the shared sampler");
+        } finally {
+            dependencies.disposableScope().close();
+            dependencies.runtimeScheduler().shutdown();
+        }
+    }
+
+    @Test
+    void disposingOnePerformanceScopePreservesAnotherPluginSubscription() throws Exception {
+        final CorePluginContext.Dependencies first = performanceDependencies(TEMP);
+        final CorePluginContext.Dependencies second = performanceDependencies(TEMP);
+        final ManualPerformanceProbe shared = new ManualPerformanceProbe();
+        first.eventBroker().observationBaseline(PerformanceProbeService.class).set(shared);
+        second.eventBroker().observationBaseline(PerformanceProbeService.class).set(shared);
+        final AtomicInteger firstCalls = new AtomicInteger();
+        final AtomicInteger secondCalls = new AtomicInteger();
+        try {
+            new CorePluginContext(first, RuntimeHostAdapters.safeMode()).performanceStats()
+                .sample(Duration.ofSeconds(1), ignored -> firstCalls.incrementAndGet());
+            new CorePluginContext(second, RuntimeHostAdapters.safeMode()).performanceStats()
+                .sample(Duration.ofSeconds(1), ignored -> secondCalls.incrementAndGet());
+            first.disposableScope().close();
+            shared.emit();
+            assertEquals(0, firstCalls.get());
+            assertEquals(1, secondCalls.get());
+            assertEquals(1, shared.consumers.size());
+            assertEquals(0, shared.closes.get());
+        } finally {
+            first.disposableScope().close();
+            second.disposableScope().close();
+            first.runtimeScheduler().shutdown();
+            second.runtimeScheduler().shutdown();
+        }
+    }
+
+    @Test
+    void lateDelegateRegistrationIsClosedWhenScopeDisposesDuringAdmission() throws Exception {
+        final CorePluginContext.Dependencies dependencies = performanceDependencies(TEMP);
+        final ManualPerformanceProbe shared = new ManualPerformanceProbe();
+        dependencies.eventBroker().observationBaseline(PerformanceProbeService.class).set(shared);
+        final PerformanceProbeService service =
+            new CorePluginContext(dependencies, RuntimeHostAdapters.safeMode()).performanceStats();
+        shared.onAdmission = () -> {
+            try { dependencies.disposableScope().close(); }
+            catch (Exception failure) { throw new IllegalStateException(failure); }
+        };
+        try {
+            assertThrows(IllegalStateException.class,
+                () -> service.sample(Duration.ofSeconds(1), ignored -> { }));
+            assertEquals(0, shared.consumers.size(), "late returned delegate handles cannot be orphaned");
+        } finally {
+            dependencies.disposableScope().close();
+            dependencies.runtimeScheduler().shutdown();
+        }
+    }
+
+    @Test
+    void fallbackSamplerAndLazyAccessFailClosedWithThePluginScope() throws Exception {
+        final CorePluginContext.Dependencies dependencies = performanceDependencies(TEMP);
+        final CorePluginContext context = new CorePluginContext(dependencies, RuntimeHostAdapters.safeMode());
+        try {
+            final PerformanceProbeService fallback = context.performanceStats();
+            fallback.sample(Duration.ofHours(1), ignored -> { });
+            dependencies.disposableScope().close();
+            assertThrows(IllegalStateException.class, fallback::snapshot);
+            assertThrows(IllegalStateException.class,
+                () -> context.performanceStats().sample(Duration.ofHours(1), ignored -> { }));
+        } finally {
+            dependencies.disposableScope().close();
+            dependencies.runtimeScheduler().shutdown();
+        }
+    }
+
+    private static CorePluginContext.Dependencies performanceDependencies(final Path dataDir) {
+        return dependencies(dataDir, List.of(new PluginDescriptor.PermissionRef() {
+            @Override public String id() { return "turboism.performance.stats.read"; }
+            @Override public String scope() { return "application"; }
+            @Override public Optional<String> reason() { return Optional.of("scope regression"); }
+        }));
+    }
+
+    private static final class ManualPerformanceProbe implements PerformanceProbeService, AutoCloseable {
+        private final List<Consumer<PerformanceSnapshot>> consumers = new CopyOnWriteArrayList<>();
+        private final AtomicInteger closes = new AtomicInteger();
+        private Runnable onAdmission = () -> { };
+        @Override public PerformanceSnapshot snapshot() {
+            return new PerformanceSnapshot(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        }
+        @Override public Registration sample(final Duration interval, final Consumer<PerformanceSnapshot> consumer) {
+            onAdmission.run();
+            consumers.add(consumer);
+            return () -> consumers.remove(consumer);
+        }
+        private void emit() { consumers.forEach(consumer -> consumer.accept(snapshot())); }
+        @Override public void close() { closes.incrementAndGet(); consumers.clear(); }
+    }
+
     private static CorePluginContext.Dependencies dependencies(final Path dataDir) {
+        return dependencies(dataDir, List.of());
+    }
+
+    private static CorePluginContext.Dependencies dependencies(
+        final Path dataDir, final List<PluginDescriptor.PermissionRef> permissions
+    ) {
         return new CorePluginContext.Dependencies(
-            descriptor(),
+            descriptor(permissions),
             logger(),
             paths(dataDir),
             uiScheduler(),
@@ -174,7 +297,7 @@ class CorePluginContextAvailableServicesTest {
         );
     }
 
-    private static PluginDescriptor descriptor() {
+    private static PluginDescriptor descriptor(final List<PluginDescriptor.PermissionRef> requestedPermissions) {
         return new PluginDescriptor() {
             @Override public String id() { return "dev.turboism.test.AvailableServicesTest"; }
             @Override public String name() { return "Available Services Test"; }
@@ -199,7 +322,7 @@ class CorePluginContextAvailableServicesTest {
                 };
             }
             @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
+            @Override public List<PermissionRef> permissions() { return requestedPermissions; }
             @Override public List<String> capabilities() { return List.of(); }
             @Override public Environment environment() {
                 return new Environment() {

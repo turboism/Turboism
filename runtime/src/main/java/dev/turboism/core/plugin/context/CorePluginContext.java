@@ -1244,19 +1244,18 @@ public final class CorePluginContext implements PluginContext {
                             dev.turboism.sdk.performance.PerformanceProbeService.class
                         )
                         .get();
-                performanceStatsService = shared == null
+                final dev.turboism.permissions.PermissionChecker permissionChecker =
+                    dev.turboism.permissions.PermissionChecker.from(dependencies.permissions());
+                final dev.turboism.performance.RuntimePerformanceProbeService owned = shared == null
                     ? new dev.turboism.performance.RuntimePerformanceProbeService(
-                        dependencies.descriptor().id(),
-                        dev.turboism.permissions.PermissionChecker.from(
-                            dependencies.permissions()
-                        ),
-                        dependencies.clock()
-                    )
-                    : new dev.turboism.performance.PermissionCheckedPerformanceProbeService(
-                        shared,
-                        dev.turboism.permissions.PermissionChecker.from(
-                            dependencies.permissions()
-                        )
+                        dependencies.descriptor().id(), permissionChecker, dependencies.clock()
+                    ) : null;
+                performanceStatsService =
+                    dev.turboism.performance.PermissionCheckedPerformanceProbeService.bind(
+                        shared == null ? owned : shared,
+                        permissionChecker,
+                        dependencies.disposableScope(),
+                        owned
                     );
             }
             return performanceStatsService;
