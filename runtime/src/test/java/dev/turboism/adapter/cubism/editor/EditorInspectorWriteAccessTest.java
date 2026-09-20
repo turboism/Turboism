@@ -242,7 +242,8 @@ class EditorInspectorWriteAccessTest {
             result.receipt().orElseThrow().transactionId(),
             projectedHistory.entries().get(0).transactionId().orElseThrow()
         );
-        assertEquals(1, fixture.source.updateCount);
+        assertEquals(2, fixture.source.updateCount,
+            "one ID-index refresh before child readback plus the coalesced root refresh");
         assertEquals(1, fixture.pack.partRefreshCount);
         assertEquals(1, fixture.pack.deformerRefreshCount);
         assertEquals(1, fixture.pack.repaintCount);
@@ -263,6 +264,8 @@ class EditorInspectorWriteAccessTest {
                 .authoringTransactions("plugin.test");
 
             assertEquals(Optional.of(version), access.active().glues().providerVersion());
+            // Native Cubism indexes instances by the old ID until update-instances runs.
+            fixture.source.model.freezeGlueIndex();
             final var result = service.execute(
                 AuthoringTransactionOptions.of("Adjust Glue on " + version),
                 () -> {
@@ -274,7 +277,9 @@ class EditorInspectorWriteAccessTest {
                     glue.setId(new GlueId("GlueRenamed"));
                     // The original wrapper is intentionally stale after an ID change; readback must
                     // resolve the new identity rather than reusing that wrapper.
-                    return access.active().glues().find(new GlueId("GlueRenamed")).id().value();
+                    final var readback = access.active().glues().find(new GlueId("GlueRenamed"));
+                    assertEquals(0.75F, readback.intensity(), "readback must work before root commit");
+                    return readback.id().value();
                 }
             );
 
@@ -287,6 +292,28 @@ class EditorInspectorWriteAccessTest {
             assertEquals(0.75F, fixture.glue.form.intensity, version);
             assertFalse(fixture.editMode.aborted, version);
         }
+    }
+
+    @Test
+    void glueIdRollbackRestoresNativeInstanceIndexAsWellAsSourceIdentity() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        fixture.source.model.freezeGlueIndex();
+        final var service = ((RuntimeAuthoringTransactionProvider) access).authoringTransactions("plugin.test");
+        final java.util.concurrent.atomic.AtomicBoolean readbackCompleted = new java.util.concurrent.atomic.AtomicBoolean();
+        final var result = service.execute(AuthoringTransactionOptions.of("Rejected Glue ID edit"), () -> {
+            access.active().glues().find(new GlueId("Glue1")).setId(new GlueId("TemporaryGlue"));
+            assertEquals(0.5F, access.active().glues().find(new GlueId("TemporaryGlue")).intensity());
+            readbackCompleted.set(true);
+            throw new IllegalArgumentException("injected later step failure");
+        });
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertTrue(readbackCompleted.get(), "rollback must happen after successful renamed-ID readback");
+        assertEquals("Glue1", fixture.glue.source.id.value());
+        assertEquals(0.5F, access.active().glues().find(new GlueId("Glue1")).intensity());
+        assertEquals(null, fixture.source.model.getObject(new Id("TemporaryGlue")));
+        assertTrue(fixture.document.undoManager.entries.isEmpty());
     }
 
     @Test
@@ -648,7 +675,10 @@ class EditorInspectorWriteAccessTest {
         public List<ArtMeshSource> allArtMeshes() { return all.stream().filter(s -> s instanceof ArtMeshSource).map(s -> (ArtMeshSource) s).toList(); }
         public List<DeformerSource> allDeformers() { return all.stream().filter(s -> s instanceof DeformerSource).map(s -> (DeformerSource) s).toList(); }
         public List<GlueSource> allGlues() { return all.stream().filter(s -> s instanceof GlueSource).map(s -> (GlueSource) s).toList(); }
-        public void updateInstances() { updateCount++; }
+        public void updateInstances() {
+            updateCount++;
+            if (model.indexedGlues != null) model.freezeGlueIndex();
+        }
         public static void verify$default(final ModelSource source, final boolean fix, final Object unused, final int mask, final Object unused2) {
             Fixture.current.verifyCount++;
         }
@@ -666,10 +696,16 @@ class EditorInspectorWriteAccessTest {
         final List<HostArtMesh> artMeshes = new ArrayList<>();
         final List<HostDeformer> deformers = new ArrayList<>();
         final List<HostGlue> glues = new ArrayList<>();
+        java.util.Map<String, HostGlue> indexedGlues;
+        void freezeGlueIndex() {
+            indexedGlues = new java.util.LinkedHashMap<>();
+            for (HostGlue glue : glues) indexedGlues.put(glue.source().id().value(), glue);
+        }
         public List<HostPart> parts() { return parts; }
         public List<HostArtMesh> allArtMeshes() { return artMeshes; }
         public List<HostDeformer> allDeformers() { return deformers; }
         public Object getObject(final Id id) {
+            if (indexedGlues != null) return indexedGlues.get(id.value());
             return glues.stream().filter(g -> g.source().id().value().equals(id.value())).findFirst().orElse(null);
         }
     }
