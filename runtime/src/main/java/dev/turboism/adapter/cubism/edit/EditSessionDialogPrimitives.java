@@ -28,8 +28,19 @@ public interface EditSessionDialogPrimitives {
 
     /** The invisible application-modal input interceptor. */
     interface InvisibleModal {
-        /** Shows the dialog; the host pumps a nested event queue that swallows input. */
+        /**
+         * Shows the dialog; the host pumps a nested event queue that swallows input.
+         * Implementations may present asynchronously so the caller's dispatch task is not
+         * parked for the pulse duration — the modal's own nested loop intercepts host input
+         * either way.
+         */
         void show();
+
+        /**
+         * Hides the dialog without disposing it — the official {@code setVisible(false)}
+         * that releases the modal input block when the silent pulse ends.
+         */
+        void hide();
 
         /** Disposes the dialog. */
         void dispose();
