@@ -55,7 +55,8 @@
     "cubism.deformer.alt-axis-mirror"
   ],
   "environment": {
-    "requiresCubism": true
+    "requiresCubism": true,
+    "ui": "none"
   },
   "tags": [
     "deformer",
