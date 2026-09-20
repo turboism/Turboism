@@ -23,6 +23,9 @@ from pathlib import Path
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
+    "runtime/src/cubism5203/java",
+    "runtime/src/cubism5302/java",
+    "runtime/src/cubism5303/java",
     "bootstrap/src/main/java",
 )
 PLUGIN_ROOT = "plugins"

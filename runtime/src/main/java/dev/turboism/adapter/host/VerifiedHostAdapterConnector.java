@@ -7,11 +7,8 @@ import dev.turboism.adapter.cubism.core.CoreVersionExpectation;
 import dev.turboism.adapter.cubism.core.RuntimeCoreModelBackend;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
-import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
@@ -491,23 +488,52 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 VerifiedCubism5303TextureAtlasSelectorContract.CAPABILITY_ID,
                 VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES
-            ) ? new VerifiedCubism5303TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
+            ) ? versionedProvider("VerifiedCubism5303TextureAtlasLayoutProvider", resolver, sessionId, capture) : null;
         }
         if (resolver.isExactCubismVersion("5.3.02")) {
             return resolver.authorizesFeature(
                 VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID,
                 VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
-            ) ? new VerifiedCubism5302TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
+            ) ? versionedProvider("VerifiedCubism5302TextureAtlasLayoutProvider", resolver, sessionId, capture) : null;
         }
         if (resolver.isExactCubismVersion("5.2.03")) {
             return resolver.authorizesFeature(
                 VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 VerifiedCubism520TextureAtlasSelectorContract.CAPABILITY_ID,
                 VerifiedCubism520TextureAtlasSelectorContract.REQUIRED_ALIASES
-            ) ? new VerifiedCubism520TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
+            ) ? versionedProvider("VerifiedCubism520TextureAtlasLayoutProvider", resolver, sessionId, capture) : null;
         }
         return null;
+    }
+
+    /*
+     * The versioned providers compile in their own per-version source sets, so
+     * main reaches them by name instead of importing them. The class is only
+     * ever resolved after the exact-version and feature-admission checks above,
+     * keeping the fail-closed dispatch order unchanged.
+     */
+    private static TextureAtlasLayoutProvider versionedProvider(
+        final String simpleName,
+        final VerifiedMemberResolver resolver,
+        final String sessionId,
+        final TextureAtlasDataModelCapture capture
+    ) {
+        try {
+            return (TextureAtlasLayoutProvider) Class
+                .forName("dev.turboism.adapter.cubism.textureatlas." + simpleName)
+                .getDeclaredConstructor(
+                    VerifiedMemberResolver.class,
+                    String.class,
+                    TextureAtlasDataModelCapture.class
+                )
+                .newInstance(resolver, sessionId, capture);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(
+                "Versioned texture-atlas provider is unavailable: " + simpleName,
+                failure
+            );
+        }
     }
 
     private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(
