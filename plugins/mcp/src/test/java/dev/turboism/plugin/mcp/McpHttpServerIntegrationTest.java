@@ -308,6 +308,69 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void allThreeLegacyApplyToolsAreDiscoverablyExcludedFromTransactions() throws Exception {
+        try (McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices()))) {
+            final Map<String, Object> capabilities = structuredResult(toolCall(server.endpoint(), 90,
+                McpCapabilitiesDomain.CAPABILITIES_READ, Map.of()));
+            final Map<Object, Map<String, Object>> registrations = new java.util.LinkedHashMap<>();
+            for (Object raw : array(capabilities.get("operations"))) {
+                final Map<String, Object> registration = object(raw);
+                registrations.put(registration.get("name"), registration);
+            }
+            for (String name : List.of(McpProductionDomainCatalog.APPLY,
+                McpParameterDomain.PARAMETERS_APPLY, McpParameterDomain.BINDINGS_APPLY)) {
+                assertEquals(Boolean.FALSE, registrations.get(name).get("transactionEligible"));
+                final Map<String, Object> envelope = result(toolCall(server.endpoint(), 91,
+                    McpTransactionDomain.TRANSACTION_EXECUTE, Map.of(
+                        "label", "Excluded legacy operation", "steps", List.of(Map.of(
+                            "id", "legacy", "tool", name, "arguments", Map.of())))));
+                assertEquals(Boolean.TRUE, envelope.get("isError"));
+                final Map<String, Object> rejected = object(envelope.get("structuredContent"));
+                assertEquals("REJECTED_REQUEST", rejected.get("outcome"));
+                assertEquals("mcp.transaction.tool_not_eligible", rejected.get("diagnosticId"));
+            }
+        }
+    }
+
+    @Test
+    void malformedStructuralTailIsRejectedOverHttpBeforeAnyRename() throws Exception {
+        final MutableObjects objects = new MutableObjects();
+        objects.put(new ModelObjectDescriptor(
+            new ModelObjectReference(ModelObjectKind.PART, "PartHead"), "Head", Optional.empty()));
+        try (McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), objects, new FakeReadServices()))) {
+            final HttpResponse<byte[]> response = toolCall(server.endpoint(), 100,
+                McpProductionDomainCatalog.APPLY, Map.of("operations", List.of(
+                    Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"),
+                    7)));
+            assertEquals(200, response.statusCode());
+            final Map<String, Object> body = object(StrictJson.parse(response.body()));
+            assertEquals(-32602L, integer(object(body.get("error")).get("code")));
+            assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
+        }
+    }
+
+    @Test
+    void invalidRequestIdCannotExecuteAnOtherwiseValidStructuralWrite() throws Exception {
+        final MutableObjects objects = new MutableObjects();
+        objects.put(new ModelObjectDescriptor(
+            new ModelObjectReference(ModelObjectKind.PART, "PartHead"), "Head", Optional.empty()));
+        try (McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), objects, new FakeReadServices()))) {
+            ensureSession(server.endpoint());
+            final HttpResponse<byte[]> response = request(server.endpoint(), TOKEN, null, true, SESSIONS.get(server.endpoint()), Map.of(
+                "jsonrpc", "2.0", "id", List.of(100), "method", "tools/call", "params", Map.of(
+                    "name", McpProductionDomainCatalog.APPLY, "arguments", Map.of("operations", List.of(
+                        Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"))))));
+            assertEquals(200, response.statusCode());
+            final Map<String, Object> body = object(StrictJson.parse(response.body()));
+            assertEquals(-32600L, integer(object(body.get("error")).get("code")));
+            assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
+        }
+    }
+
+    @Test
     void rejectsSymlinkedConnectionFileWithoutTouchingItsTarget() throws Exception {
         final Path outside = temporaryDirectory.resolveSibling(
             temporaryDirectory.getFileName() + "-mcp-outside"

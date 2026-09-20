@@ -119,7 +119,27 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.capabilities.read` | 读取操作效果、版本支持、事务资格和 SDK 覆盖账本。 |
 | `turboism.editor_commands.execute` | 执行可发现的直接 Editor 命令和类型化的非文件 Editor 命令。 |
 
-写入会在运行时权限和参数检查后执行。混合批次可能部分成功并报告每个操作的结果；除非底层 SDK 批次是原子的，否则它们不会被表述为事务。
+整个批次会在首次写入前完成输入 Schema 检查。后面的条目存在格式错误时，前面的条目也不会执行。格式正确的批次仍可能因运行时失败而部分成功；已完成结果会保留，`stopOnError` 决定是否继续执行。单个原生子操作的原子性不代表整个 MCP 批次具有事务性。
+
+##### 写入结果与反转操作迁移
+
+已确认的参数写入会保留 `outcome`、`retryable: false` 和对象身份，不会被后续回读失败覆盖。详情回读失败返回 `APPLIED_WITH_READBACK_WARNING`；可选的最终参数快照失败时，`parameters` 为 `null`，并附带 `parameterSnapshotWarning`，已完成的 `results` 不会丢失。不要因为回读不可用而重试已确认的写入。
+
+含义不明确的参数绑定操作 `invert` 已被禁止，且会在写入前拒绝。显式反转目标对象的**全部普通关键形绑定**应使用：
+
+```json
+{
+  "operations": [{
+    "operation": "invert_all_bindings",
+    "scope": "all_target_bindings",
+    "targets": [{"type": "art_mesh", "id": "ArtMesh1"}]
+  }]
+}
+```
+
+该操作不是单参数反转，也不反转混合形状绑定。结果包含操作范围和受影响的参数 ID；回读成功时还包含全部受影响的普通绑定。不接受 `parameterId` 字段。单参数反转需要独立的、已验证的 Provider 契约。
+
+三个 `*.apply` 工具仍为 `transactionEligible: false`，`turboism.transaction.execute` 会在开启事务前拒绝它们。这不表示单个原生操作没有 Undo。`turboism.capabilities.read` 会公开这些临时例外。覆盖账本现在跟踪明确列出的十二个 SDK 类型，包括模型对象、参数和绑定接口，但不声称覆盖整个 SDK。`MCP_LEGACY_WRITE` 表示已公开的旧式写入，不代表已具备分组事务能力；新增账本行中空的 `supportedVersions` 表示账本未作精确版本声明，实际运行仍受 Provider 准入控制。
 
 #### 资源
 
