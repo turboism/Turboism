@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
 import java.util.Optional;
@@ -15,6 +16,7 @@ import java.util.Optional;
  * @param parameter the parameter to condition on; empty entries widen the condition
  * @param value the key value to condition on; empty entries widen the condition
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditParameterKeyCondition(Optional<ParameterId> parameter, Optional<Double> value) {
 
     public EditParameterKeyCondition {

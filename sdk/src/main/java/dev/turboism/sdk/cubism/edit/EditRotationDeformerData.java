@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
@@ -11,6 +12,7 @@ import java.util.Optional;
  * Read payload of a {@link EditObjectKind#ROTATION_DEFORMER} object, matching the official
  * {@code RotationDeformer} data block of {@code GetObject}.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditRotationDeformerData(
         String name,
         Optional<PartId> parentId,

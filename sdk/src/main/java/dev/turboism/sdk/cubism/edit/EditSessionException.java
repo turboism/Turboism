@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismServiceException;
 
 /**
@@ -10,6 +11,7 @@ import dev.turboism.sdk.cubism.CubismServiceException;
  * block for the whole editing surface catch this type; callers that care about the specific
  * failure branch on the concrete subclass or the code.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public class EditSessionException extends CubismServiceException {
     /** Creates a failure with a stable diagnostic code and a human-readable message. */
     public EditSessionException(final String code, final String message) {

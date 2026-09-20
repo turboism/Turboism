@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -8,6 +9,7 @@ import java.util.Objects;
  * <p>The {@link #source()} records who cancelled the session so plugins can distinguish a user
  * cancelling the modal dialog from a host-forced teardown or their own earlier {@code cancel()}.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public final class EditCancelledException extends EditSessionException {
     /** Stable diagnostic code carried by every cancellation failure. */
     public static final String CODE = "cubism.edit.cancelled";

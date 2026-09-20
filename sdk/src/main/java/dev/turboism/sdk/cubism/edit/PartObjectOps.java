@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.PartId;
@@ -19,6 +20,7 @@ import java.util.Optional;
  * reading ArtMesh, Part, WarpDeformer, RotationDeformer, and Glue objects, but {@link
  * EditObjectKind#ART_PATH} data reads are not supported and fail closed.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface PartObjectOps {
 
     /**

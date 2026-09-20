@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 /**
  * Receives session-level notifications from the host while an edit session is open.
  *
@@ -8,6 +9,7 @@ package dev.turboism.sdk.cubism.edit;
  * with {@code Enabled = true}. Sessions without a listener behave as if the notification is
  * disabled.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 @FunctionalInterface
 public interface EditSessionListener {
 

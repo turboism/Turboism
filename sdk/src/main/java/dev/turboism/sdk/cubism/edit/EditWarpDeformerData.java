@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.PartId;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.Optional;
  * Read payload of a {@link EditObjectKind#WARP_DEFORMER} object, matching the official
  * {@code WarpDeformer} data block of {@code GetObject}, including lattice geometry.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditWarpDeformerData(
         String name,
         Optional<PartId> parentId,

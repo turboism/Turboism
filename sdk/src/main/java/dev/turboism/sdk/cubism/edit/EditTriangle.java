@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 /**
  * One mesh triangle expressed as three indices into the vertex list.
  *
@@ -7,6 +8,7 @@ package dev.turboism.sdk.cubism.edit;
  * @param b second vertex index
  * @param c third vertex index
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditTriangle(int a, int b, int c) {
 
     public EditTriangle {
