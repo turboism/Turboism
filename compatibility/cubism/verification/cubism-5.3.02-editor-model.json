@@ -24,6 +24,9 @@
     "cubism.editor-model.deformer-inspector.write",
     "cubism.editor-model.edit-level.read",
     "cubism.editor-model.edit-level.write",
+    "cubism.editor-model.edit.selection.add-selected-objects",
+    "cubism.editor-model.edit.selection.clear-selected-objects",
+    "cubism.editor-model.edit.selection.get-selected-objects",
     "cubism.editor-model.glue-inspector.write",
     "cubism.editor-model.model-instance.read",
     "cubism.editor-model.model-name.write",
@@ -5560,6 +5563,17 @@
       "descriptor": null,
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.selection_guid_list",
+      "alias": "cubism.editor-model.update-manager.selection-guid-list",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEUpdateManager",
+      "memberName": "getSelectionGuidList",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {

@@ -9,6 +9,7 @@ import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorCont
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
@@ -168,7 +169,10 @@ public final class EditorModelVerificationManifest {
         EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
         "cubism.editor-model.part-inspector.write",
         "cubism.editor-model.deformer-inspector.write",
-        "cubism.editor-model.glue-inspector.write"
+        "cubism.editor-model.glue-inspector.write",
+        EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditSelectionSelectorContract.ADD_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditSelectionSelectorContract.CLEAR_SELECTED_OBJECTS_CAPABILITY_ID
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
@@ -402,6 +406,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.model-source.update-visible-lock-hierarchy",
+        "cubism.editor-model.update-manager.selection-guid-list",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
         "cubism.editor-model.part.source",
@@ -819,8 +824,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.parameter-controllable-source.internal-set-parent",
             "cubism.editor-model.parameter-group.guid",
             "cubism.editor-model.part-source.remove-child",
-            "cubism.editor-model.part.id",
-            "cubism.editor-model.update-manager.selection-guid-list"
+            "cubism.editor-model.part.id"
         ));
         return Set.copyOf(values);
     }

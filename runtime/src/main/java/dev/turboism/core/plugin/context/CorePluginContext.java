@@ -557,6 +557,27 @@ public final class CorePluginContext implements PluginContext {
             );
     }
 
+    /**
+     * Projects the facade snapshot source for a connected host session: the project/workspace
+     * adapter supplies project and document snapshots, and — when the bound model access is the
+     * verified editor-backed implementation — its selection read supplies selected object ids
+     * (spec 046, T5). Any other model access keeps the selection empty.
+     */
+    private static dev.turboism.adapter.cubism.HostSnapshotSource hostSnapshotSource(
+        final RuntimeHostAdapterAccess hostAccess
+    ) {
+        final java.util.function.Supplier<java.util.List<String>> selectionReader =
+            hostAccess.modelAccess()
+                    instanceof dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess
+                        editorBacked
+                ? editorBacked::selectedObjectIds
+                : java.util.List::of;
+        return HostSessionSnapshotSource.forSession(
+            hostAccess.adapters().projectWorkspace(),
+            selectionReader
+        );
+    }
+
     private CorePluginContext(
         final Dependencies dependencies,
         final CubismServicesFactory cubismServicesFactory,
@@ -570,9 +591,7 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this.dependencies = hostAccess == null
             ? Objects.requireNonNull(dependencies, "dependencies")
-            : dependencies.withHostSnapshotSource(HostSessionSnapshotSource.forSession(
-                hostAccess.adapters().projectWorkspace()
-            ));
+            : dependencies.withHostSnapshotSource(hostSnapshotSource(hostAccess));
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.uiResourceService = adapters.uiResources();
         final CubismServicesFactory servicesFactory = Objects.requireNonNull(
