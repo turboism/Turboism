@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -11,6 +12,7 @@ import java.util.Optional;
  * @param customColor the custom hex color; required iff {@code type} is
  *     {@link EditLabelColorType#CUSTOM}, absent otherwise
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditLabelColor(EditLabelColorType type, Optional<String> customColor) {
 
     public EditLabelColor {

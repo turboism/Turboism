@@ -1,6 +1,8 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 /** How an {@link EditSession} terminated. */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public enum EditSessionCloseOutcome {
     /**
      * The session closed normally: the model keeps the edits and the editor may record one

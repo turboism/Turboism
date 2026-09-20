@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -16,6 +17,7 @@ import java.util.Optional;
  * @param diagnosticId stable diagnostic id; present iff {@code outcome} is
  *     {@link EditSessionCloseOutcome#FAILED}
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record EditSessionCloseResult(
         EditSessionCloseOutcome outcome,
         Optional<CancelSource> cancelSource,

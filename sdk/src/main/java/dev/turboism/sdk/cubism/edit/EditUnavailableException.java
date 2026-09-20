@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -10,6 +11,7 @@ import java.util.Objects;
  * handle comes from {@link EditSession#unavailable()}, the call raises this exception instead of
  * guessing at editor internals. The exception never means the model was partially edited.
  */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public final class EditUnavailableException extends EditSessionException {
     /** Stable diagnostic code carried by every unavailable failure. */
     public static final String CODE = "cubism.edit.unavailable";
