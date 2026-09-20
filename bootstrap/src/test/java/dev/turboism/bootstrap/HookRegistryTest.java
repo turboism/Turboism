@@ -4,10 +4,15 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class HookRegistryTest {
@@ -102,5 +107,53 @@ final class HookRegistryTest {
         assertTrue(secondClosed.get());
         assertEquals(1, warnings.size());
         assertTrue(warnings.get(0).contains("HOOK_B"));
+    }
+
+    @Test
+    void enrollmentRacingTheProcessExitPassNeverCorruptsOrDoubleCloses()
+        throws InterruptedException {
+        for (int round = 0; round < 200; round++) {
+            final HookRegistry registry = new HookRegistry();
+            final List<AtomicInteger> closeCounts = new ArrayList<>();
+            for (int index = 0; index < 6; index++) {
+                final AtomicInteger closes = new AtomicInteger();
+                closeCounts.add(closes);
+                registry.enroll(
+                    contributor("HOOK_SEED_" + index, true),
+                    closes::incrementAndGet
+                );
+            }
+            final CountDownLatch ready = new CountDownLatch(1);
+            final ConcurrentLinkedQueue<Throwable> failures = new ConcurrentLinkedQueue<>();
+            final Thread closer = new Thread(() -> {
+                try {
+                    ready.await(5, TimeUnit.SECONDS);
+                    registry.closeOnProcessExit(message -> {
+                    }, message -> {
+                    });
+                } catch (Throwable failure) {
+                    failures.add(failure);
+                }
+            });
+            closer.start();
+            ready.countDown();
+            for (int index = 0; index < 6; index++) {
+                final AtomicInteger closes = new AtomicInteger();
+                closeCounts.add(closes);
+                try {
+                    registry.enroll(
+                        contributor("HOOK_LATE_" + index, true),
+                        closes::incrementAndGet
+                    );
+                } catch (Throwable failure) {
+                    failures.add(failure);
+                }
+            }
+            closer.join(TimeUnit.SECONDS.toMillis(5));
+            assertNull(failures.peek(), "round " + round + " threw");
+            for (final AtomicInteger closes : closeCounts) {
+                assertTrue(closes.get() <= 1, "handle closed " + closes.get() + " times");
+            }
+        }
     }
 }
