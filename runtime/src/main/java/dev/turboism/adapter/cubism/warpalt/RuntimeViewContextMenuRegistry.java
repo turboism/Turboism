@@ -103,6 +103,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                     final Method setBounds = entry.button().getClass()
                         .getMethod("setBoundsOnComponent", rectClass, float.class);
                     setBounds.invoke(entry.button(), bounds, 1.0f);
+                    diagnostic("POSITIONED x=" + x + " y=" + y
+                        + " w=" + BUTTON_WIDTH + " h=" + BUTTON_HEIGHT);
                 }
             } catch (Throwable failure) {
                 diagnostic("POSITION_FAILED reason=" + failure.getClass().getName());
@@ -166,9 +168,13 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
             final Object font = fontClass.getConstructor(java.awt.Font.class)
                 .newInstance(new java.awt.Font("Dialog", java.awt.Font.PLAIN, 12));
+            // Place the button at a known-visible position in the strip area.
+            // The strip runs along the top of the canvas; x=280 places it past
+            // the display-toggle buttons. The layout-tail hook would normally
+            // refine this, but for now a fixed position guarantees visibility.
             final Object rect = rectClass
                 .getConstructor(float.class, float.class, float.class, float.class)
-                .newInstance(0f, 0f, (float) BUTTON_WIDTH, (float) BUTTON_HEIGHT);
+                .newInstance(280f, 0f, (float) BUTTON_WIDTH, (float) BUTTON_HEIGHT);
 
             final Object button = buttonClass
                 .getConstructor(String.class, fontClass, rectClass)
