@@ -33,4 +33,45 @@ public interface ParameterQueryService {
      * @throws CubismServiceException if the host could not be queried
      */
     boolean exists(ParameterId id) throws CubismServiceException;
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static ParameterQueryService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements ParameterQueryService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Optional<ParameterSummary> findById(final ParameterId id)
+            throws CubismServiceException {
+            throw unavailable();
+        }
+
+        @Override public List<ParameterSummary> listAll() throws CubismServiceException {
+            throw unavailable();
+        }
+
+        @Override public boolean exists(final ParameterId id) throws CubismServiceException {
+            throw unavailable();
+        }
+
+        private static CubismServiceException unavailable() {
+            return new CubismServiceException(
+                "cubism.query.unavailable",
+                "parameterQuery service is not available"
+            );
+        }
+    }
 }

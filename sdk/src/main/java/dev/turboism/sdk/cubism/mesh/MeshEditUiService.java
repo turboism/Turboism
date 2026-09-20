@@ -10,6 +10,35 @@ public interface MeshEditUiService {
 
     Registration contributeMirrorAxisAngleControl(MirrorAxisAngleControl contribution);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static MeshEditUiService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements MeshEditUiService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contributeMirrorAxisAngleControl(
+            final MirrorAxisAngleControl contribution
+        ) {
+            Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException(
+                "meshEditUi service is not available");
+        }
+    }
+
     record MirrorAxisAngleControl(
         String contributionId,
         String label,

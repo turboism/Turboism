@@ -28,6 +28,15 @@ public interface McpConnectionService {
      */
     Registration publish(McpHttpConnection connection);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     /** @return a fail-closed service used when runtime composition does not provide this capability */
     static McpConnectionService unavailable() {
         return Unavailable.INSTANCE;
@@ -35,6 +44,10 @@ public interface McpConnectionService {
 
     enum Unavailable implements McpConnectionService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public Optional<McpHttpConnection> current() {

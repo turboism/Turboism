@@ -22,6 +22,15 @@ public interface SceneTableService {
     default void setManualReordering(final String tableId, final boolean enabled) {
     }
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     static SceneTableService unavailable() {
         return Unavailable.INSTANCE;
     }
@@ -58,6 +67,10 @@ public interface SceneTableService {
 
     enum Unavailable implements SceneTableService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public void setHeader(final String tableId, final String columnId, final String label) {

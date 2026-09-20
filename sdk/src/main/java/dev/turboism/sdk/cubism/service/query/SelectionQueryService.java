@@ -33,4 +33,41 @@ public interface SelectionQueryService {
      * Because the current host integration is pull-based, an event is emitted only when a fresh
      * query detects a transition; this API does not claim a native push subscription.
      */
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static SelectionQueryService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements SelectionQueryService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public SelectionSummary currentSelection() throws CubismServiceException {
+            throw unavailable();
+        }
+
+        @Override public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind)
+            throws CubismServiceException {
+            throw unavailable();
+        }
+
+        private static CubismServiceException unavailable() {
+            return new CubismServiceException(
+                "cubism.query.unavailable",
+                "selectionQuery service is not available"
+            );
+        }
+    }
 }

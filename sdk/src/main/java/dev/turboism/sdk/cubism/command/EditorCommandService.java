@@ -13,6 +13,14 @@ public interface EditorCommandService {
 
     EditorCommandResult execute(EditorParameterizedRequest request);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
 
     static EditorCommandService unavailable() {
         return Unavailable.INSTANCE;
@@ -20,6 +28,10 @@ public interface EditorCommandService {
 
     enum Unavailable implements EditorCommandService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public Set<EditorCommand> available() {

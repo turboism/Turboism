@@ -62,5 +62,50 @@ public interface PluginConfigRegistry {
         throw new UnsupportedOperationException("typed config write is not available");
     }
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static PluginConfigRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements PluginConfigRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration readScope(final String relativePath) {
+            throw unavailable();
+        }
+
+        @Override public Registration writeScope(final String relativePath) {
+            throw unavailable();
+        }
+
+        @Override public Optional<String> readString(final String relativePath, final String key) {
+            return Optional.empty();
+        }
+
+        @Override public void writeString(
+            final String relativePath,
+            final String key,
+            final String value
+        ) {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("config registry is not available");
+        }
+    }
+
     record ConfigScope(String relativePath, String permissionId) {}
 }

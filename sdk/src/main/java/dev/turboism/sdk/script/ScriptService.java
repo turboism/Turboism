@@ -22,7 +22,12 @@ public interface ScriptService {
 
     ScriptRunHandle run(ScriptRunRequest request);
 
-    default boolean available() {
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
         return true;
     }
 
@@ -32,6 +37,11 @@ public interface ScriptService {
 
     enum Unavailable implements ScriptService {
         INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public List<ScriptDescriptor> list() {
@@ -69,11 +79,6 @@ public interface ScriptService {
                     return false;
                 }
             };
-        }
-
-        @Override
-        public boolean available() {
-            return false;
         }
     }
 }

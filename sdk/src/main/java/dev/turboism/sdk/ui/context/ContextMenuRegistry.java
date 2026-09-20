@@ -31,6 +31,32 @@ public interface ContextMenuRegistry {
      */
     Registration contribute(ContextMenuContribution contribution);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static ContextMenuRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements ContextMenuRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contribute(final ContextMenuContribution contribution) {
+            Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException("contextMenu registry is not available");
+        }
+    }
+
     /** Host menu a contribution attaches to, and the object kinds that menu can carry. */
     enum Location {
         DEFORMER_TAB(EnumSet.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH)),

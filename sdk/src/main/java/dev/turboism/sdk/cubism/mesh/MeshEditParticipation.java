@@ -15,4 +15,30 @@ public interface MeshEditParticipation {
      * @throws SecurityException if the plugin does not hold the mesh write permission
      */
     Registration participate(MeshEditParticipant participant);
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static MeshEditParticipation unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements MeshEditParticipation {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration participate(final MeshEditParticipant participant) {
+            throw new UnsupportedOperationException(
+                "meshEditParticipation service is not available");
+        }
+    }
 }

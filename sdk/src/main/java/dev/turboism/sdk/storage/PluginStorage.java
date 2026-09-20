@@ -1,5 +1,8 @@
 package dev.turboism.sdk.storage;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -132,4 +135,99 @@ public interface PluginStorage {
         StoragePath path,
         boolean recursive
     );
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static PluginStorage unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements PluginStorage {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public CompletionStage<StorageReadResult<String>> readUtf8(
+            final StoragePath path,
+            final int maxBytes
+        ) {
+            return CompletableFuture.completedFuture(new StorageReadResult<>(
+                Optional.empty(), Optional.of(unavailable(path)), false));
+        }
+
+        @Override public CompletionStage<StorageReadResult<byte[]>> readBytes(
+            final StoragePath path,
+            final int maxBytes
+        ) {
+            return CompletableFuture.completedFuture(new StorageReadResult<>(
+                Optional.empty(), Optional.of(unavailable(path)), false));
+        }
+
+        @Override public CompletionStage<StorageWriteResult> writeUtf8Atomic(
+            final StoragePath path,
+            final String content
+        ) {
+            return CompletableFuture.completedFuture(
+                new StorageWriteResult(false, Optional.of(unavailable(path))));
+        }
+
+        @Override public CompletionStage<StorageWriteResult> writeBytesAtomic(
+            final StoragePath path,
+            final byte[] content
+        ) {
+            return CompletableFuture.completedFuture(
+                new StorageWriteResult(false, Optional.of(unavailable(path))));
+        }
+
+        @Override public CompletionStage<StorageListResult> list(
+            final StoragePath directory,
+            final int maxEntries
+        ) {
+            return CompletableFuture.completedFuture(new StorageListResult(
+                List.of(), Optional.of(unavailable(directory)), false));
+        }
+
+        @Override public CompletionStage<StorageMutationResult> copy(
+            final StoragePath source,
+            final StoragePath target,
+            final boolean replaceExisting
+        ) {
+            return CompletableFuture.completedFuture(
+                new StorageMutationResult(false, Optional.of(unavailable(source))));
+        }
+
+        @Override public CompletionStage<StorageMutationResult> moveAtomic(
+            final StoragePath source,
+            final StoragePath target,
+            final boolean replaceExisting
+        ) {
+            return CompletableFuture.completedFuture(
+                new StorageMutationResult(false, Optional.of(unavailable(source))));
+        }
+
+        @Override public CompletionStage<StorageMutationResult> delete(
+            final StoragePath path,
+            final boolean recursive
+        ) {
+            return CompletableFuture.completedFuture(
+                new StorageMutationResult(false, Optional.of(unavailable(path))));
+        }
+
+        private static StorageError unavailable(final StoragePath path) {
+            return new StorageError(
+                StorageErrorCode.RUNTIME_UNAVAILABLE,
+                "storage service is not available",
+                path
+            );
+        }
+    }
 }

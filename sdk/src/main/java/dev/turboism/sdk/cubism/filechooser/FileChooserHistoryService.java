@@ -54,6 +54,15 @@ public interface FileChooserHistoryService {
      */
     Registration registerProvider(Provider provider);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     /** Safe-mode instance: reads are empty and writes fail closed. */
     static FileChooserHistoryService unavailable() {
         return Unavailable.INSTANCE;
@@ -92,6 +101,11 @@ public interface FileChooserHistoryService {
 
         enum Unavailable implements FileChooserHistoryService {
         INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public Optional<Path> projectRecentDirectory() {

@@ -32,4 +32,53 @@ public interface MeshEditService {
 
     /** The current mesh, or an empty snapshot when no mesh is being edited. */
     MeshSnapshot snapshot();
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static MeshEditService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements MeshEditService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public MeshEditResult addPoints(final List<MeshPointPosition> points) {
+            return refused();
+        }
+
+        @Override public MeshEditResult deletePoints(final List<MeshPointRef> points) {
+            return refused();
+        }
+
+        @Override public MeshEditResult movePoints(final List<MeshPointRef> points) {
+            return refused();
+        }
+
+        @Override public MeshEditResult addEdges(final List<MeshEdgeRef> edges) {
+            return refused();
+        }
+
+        @Override public MeshEditResult deleteEdges(final List<MeshEdgeRef> edges) {
+            return refused();
+        }
+
+        @Override public MeshSnapshot snapshot() {
+            return MeshSnapshot.empty();
+        }
+
+        private static MeshEditResult refused() {
+            return MeshEditResult.refused("meshEdit service is not available");
+        }
+    }
 }

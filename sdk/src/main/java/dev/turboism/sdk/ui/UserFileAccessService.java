@@ -1,5 +1,7 @@
 package dev.turboism.sdk.ui;
 
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -36,4 +38,74 @@ public interface UserFileAccessService {
         UserFileHandle handle,
         byte[] content
     );
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static UserFileAccessService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements UserFileAccessService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public CompletionStage<UserFileRequestResult> request(
+            final UserFileRequest request
+        ) {
+            return CompletableFuture.completedFuture(new UserFileRequestResult(
+                UserFileRequestStatus.UNAVAILABLE,
+                Optional.empty(),
+                Optional.of(unavailable())
+            ));
+        }
+
+        @Override public CompletionStage<UserFileReadResult<String>> readUtf8(
+            final UserFileHandle handle,
+            final int maxBytes
+        ) {
+            return CompletableFuture.completedFuture(new UserFileReadResult<>(
+                Optional.empty(), Optional.of(unavailable()), false));
+        }
+
+        @Override public CompletionStage<UserFileReadResult<byte[]>> readBytes(
+            final UserFileHandle handle,
+            final int maxBytes
+        ) {
+            return CompletableFuture.completedFuture(new UserFileReadResult<>(
+                Optional.empty(), Optional.of(unavailable()), false));
+        }
+
+        @Override public CompletionStage<UserFileWriteResult> writeUtf8Atomic(
+            final UserFileHandle handle,
+            final String content
+        ) {
+            return CompletableFuture.completedFuture(
+                new UserFileWriteResult(false, Optional.of(unavailable())));
+        }
+
+        @Override public CompletionStage<UserFileWriteResult> writeBytesAtomic(
+            final UserFileHandle handle,
+            final byte[] content
+        ) {
+            return CompletableFuture.completedFuture(
+                new UserFileWriteResult(false, Optional.of(unavailable())));
+        }
+
+        private static UserFileError unavailable() {
+            return new UserFileError(
+                UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                "user file access service is not available"
+            );
+        }
+    }
 }

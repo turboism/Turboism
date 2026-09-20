@@ -102,4 +102,88 @@ public interface CubismReadCapabilityService {
     Optional<WorkspaceSnapshot> workspace();
 
     Optional<ThemeStatusSnapshot> themeStatus();
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static CubismReadCapabilityService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements CubismReadCapabilityService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Deprecated
+        @Override public Optional<ProjectSnapshot> activeProject() {
+            throw unavailable();
+        }
+
+        @Deprecated
+        @Override public Optional<DocumentSnapshot> activeDocument() {
+            throw unavailable();
+        }
+
+        @Deprecated
+        @Override public Optional<ModelSnapshot> activeModel() {
+            throw unavailable();
+        }
+
+        @Override public SelectionSnapshot selection() {
+            throw unavailable();
+        }
+
+        @Override public List<ParameterSnapshot> parameters() {
+            throw unavailable();
+        }
+
+        @Override public List<ModelObjectSnapshot> modelObjects() {
+            throw unavailable();
+        }
+
+        @Override public List<ArtMeshSnapshot> meshes() {
+            throw unavailable();
+        }
+
+        @Override public List<DeformerSnapshot> deformers() {
+            throw unavailable();
+        }
+
+        @Override public List<PsdDocumentSnapshot> psdDocuments() {
+            throw unavailable();
+        }
+
+        @Override public List<ClipMaskSnapshot> clipMasks() {
+            throw unavailable();
+        }
+
+        @Override public List<TextureAtlasSnapshot> textureAtlases() {
+            throw unavailable();
+        }
+
+        @Override public Optional<RenderStatusSnapshot> renderStatus() {
+            throw unavailable();
+        }
+
+        @Override public Optional<WorkspaceSnapshot> workspace() {
+            throw unavailable();
+        }
+
+        @Override public Optional<ThemeStatusSnapshot> themeStatus() {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("cubismRead service is not available");
+        }
+    }
 }

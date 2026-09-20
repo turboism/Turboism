@@ -507,10 +507,11 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     }
 
     private static dev.turboism.sdk.i18n.PluginLocalization localization(final PluginContext context) {
-        try {
-            return context.localization();
-        } catch (UnsupportedOperationException unavailable) {
-            return new dev.turboism.sdk.i18n.PluginLocalization() {
+        final dev.turboism.sdk.i18n.PluginLocalization service = context.localization();
+        if (service.isAvailable()) {
+            return service;
+        }
+        return new dev.turboism.sdk.i18n.PluginLocalization() {
                 @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
                 @Override public String text(final String key) {
                     return switch (key) {
@@ -536,8 +537,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                     };
                 }
                 @Override public boolean contains(final String key) { return true; }
-            };
-        }
+        };
     }
 
     private void registerAction(

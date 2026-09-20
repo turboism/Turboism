@@ -20,6 +20,32 @@ public interface PaletteToolbarRegistry {
     Registration contribute(PaletteToolbarContribution contribution);
 
     /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static PaletteToolbarRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements PaletteToolbarRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contribute(final PaletteToolbarContribution contribution) {
+            java.util.Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException("paletteToolbar registry is not available");
+        }
+    }
+
+    /**
      * A single toolbar button a plugin wants shown in a palette.
      *
      * @param contributionId identifier the plugin gives this contribution, used to tell its own

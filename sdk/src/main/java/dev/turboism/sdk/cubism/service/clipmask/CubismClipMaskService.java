@@ -24,6 +24,31 @@ public interface CubismClipMaskService {
     List<ClipMaskRecord> collectClipMaskRecords();
 
     /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static CubismClipMaskService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements CubismClipMaskService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public List<ClipMaskRecord> collectClipMaskRecords() {
+            throw new UnsupportedOperationException("clipMask service is not available");
+        }
+    }
+
+    /**
      * Read-only ArtMesh clip-mask snapshot exposed to plugins.
      *
      * @param guid stable ArtMesh GUID (the clip-mask target mesh id)

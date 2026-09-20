@@ -34,6 +34,32 @@ public interface MainToolbarRegistry {
     }
 
     /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    static MainToolbarRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    enum Unavailable implements MainToolbarRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contribute(final MainToolbarContribution contribution) {
+            Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException("mainToolbar registry is not available");
+        }
+    }
+
+    /**
      * A toolbar entry described with a raw anchor string.
      *
      * @param contributionId plugin-scoped entry identity

@@ -54,8 +54,12 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 /**
  * Runtime context provided to a plugin during {@link TurboismPlugin#init(PluginContext)}.
  *
- * <p>Optional surfaces keep throwing defaults unless their SDK contract defines an existing
- * unavailable singleton; those surfaces return that singleton here for safe-mode compatibility.</p>
+ * <p>Optional surfaces follow a single unavailability contract: every optional accessor returns
+ * the service's {@code unavailable()} singleton, and each service exposes {@code isAvailable()}
+ * for probing ({@code false} only on the sentinel). Accessors never throw
+ * {@link UnsupportedOperationException} themselves; what the sentinel does on a domain call is
+ * defined by each service's contract (structured failure result, empty value, or a stable
+ * exception).</p>
  */
 public interface PluginContext {
 
@@ -74,19 +78,19 @@ public interface PluginContext {
     PluginPaths paths();
 
     default PluginLocalization localization() {
-        throw new UnsupportedOperationException("localization service is not available");
+        return PluginLocalization.unavailable();
     }
 
     default PluginTaskScheduler tasks() {
-        throw new UnsupportedOperationException("task scheduler is not available");
+        return PluginTaskScheduler.unavailable();
     }
 
     default AsyncHostReadService hostReads() {
-        throw new UnsupportedOperationException("async host read service is not available");
+        return AsyncHostReadService.unavailable();
     }
 
     default PluginStorage storage() {
-        throw new UnsupportedOperationException("storage service is not available");
+        return PluginStorage.unavailable();
     }
 
     default ScriptService scripts() {
@@ -94,25 +98,25 @@ public interface PluginContext {
     }
 
     default UserFileAccessService userFiles() {
-        throw new UnsupportedOperationException("user file access service is not available");
+        return UserFileAccessService.unavailable();
     }
 
     CubismFacade cubism();
 
     default ParameterQueryService parameterQuery() {
-        throw new UnsupportedOperationException("parameterQuery service is not available");
+        return ParameterQueryService.unavailable();
     }
 
     default SelectionQueryService selectionQuery() {
-        throw new UnsupportedOperationException("selectionQuery service is not available");
+        return SelectionQueryService.unavailable();
     }
 
     default ModelHierarchyQueryService modelHierarchyQuery() {
-        throw new UnsupportedOperationException("modelHierarchyQuery service is not available");
+        return ModelHierarchyQueryService.unavailable();
     }
 
     default CubismReadCapabilityService cubismRead() {
-        throw new UnsupportedOperationException("cubismRead service is not available");
+        return CubismReadCapabilityService.unavailable();
     }
 
     default ModelObjectService modelObjects() {
@@ -120,7 +124,7 @@ public interface PluginContext {
     }
 
     default CubismClipMaskService cubismClipMasks() {
-        throw new UnsupportedOperationException("clipMask service is not available");
+        return CubismClipMaskService.unavailable();
     }
 
     default RecentFileService recentFiles() {
@@ -144,31 +148,31 @@ public interface PluginContext {
     }
 
     default MeshMirrorAxisService meshMirrorAxis() {
-        throw new UnsupportedOperationException("meshMirrorAxis service is not available");
+        return MeshMirrorAxisService.unavailable();
     }
 
     default MeshEditService meshEdit() {
-        throw new UnsupportedOperationException("meshEdit service is not available");
+        return MeshEditService.unavailable();
     }
 
     default MeshEditParticipation meshEditParticipation() {
-        throw new UnsupportedOperationException("meshEditParticipation service is not available");
+        return MeshEditParticipation.unavailable();
     }
 
     default MeshMirrorCounterparts meshMirrorCounterparts() {
-        throw new UnsupportedOperationException("meshMirrorCounterparts service is not available");
+        return MeshMirrorCounterparts.unavailable();
     }
 
     default MeshMirrorToolEligibility meshMirrorToolEligibility() {
-        throw new UnsupportedOperationException("meshMirrorToolEligibility service is not available");
+        return MeshMirrorToolEligibility.unavailable();
     }
 
     default MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
-        throw new UnsupportedOperationException("meshMirrorMoveParticipation service is not available");
+        return MeshMirrorMoveParticipation.unavailable();
     }
 
     default MeshEditUiService meshEditUi() {
-        throw new UnsupportedOperationException("meshEditUi service is not available");
+        return MeshEditUiService.unavailable();
     }
 
     default EditorCommandService editorCommands() {
@@ -188,15 +192,15 @@ public interface PluginContext {
     MenuRegistry menus();
 
     default MainToolbarRegistry mainToolbar() {
-        throw new UnsupportedOperationException("mainToolbar registry is not available");
+        return MainToolbarRegistry.unavailable();
     }
 
     default PaletteToolbarRegistry paletteToolbar() {
-        throw new UnsupportedOperationException("paletteToolbar registry is not available");
+        return PaletteToolbarRegistry.unavailable();
     }
 
     default PaletteFilterRegistry paletteFilter() {
-        throw new UnsupportedOperationException("paletteFilter registry is not available");
+        return PaletteFilterRegistry.unavailable();
     }
 
     default SceneTableService sceneTable() {
@@ -204,11 +208,11 @@ public interface PluginContext {
     }
 
     default UiHostCapabilityService uiHost() {
-        throw new UnsupportedOperationException("uiHost service is not available");
+        return UiHostCapabilityService.unavailable();
     }
 
     default HostDialogAutomationService hostDialogs() {
-        throw new UnsupportedOperationException("host dialog automation service is not available");
+        return HostDialogAutomationService.unavailable();
     }
 
     default AppearanceService appearance() {
@@ -225,11 +229,11 @@ public interface PluginContext {
     }
 
     default ContextMenuRegistry contextMenu() {
-        throw new UnsupportedOperationException("contextMenu registry is not available");
+        return ContextMenuRegistry.unavailable();
     }
 
     default PluginConfigRegistry config() {
-        throw new UnsupportedOperationException("config registry is not available");
+        return PluginConfigRegistry.unavailable();
     }
 
 
@@ -238,7 +242,7 @@ public interface PluginContext {
     }
 
     default RuntimeSettingsService runtimeSettings() {
-        throw new UnsupportedOperationException("runtime settings service is not available");
+        return RuntimeSettingsService.unavailable();
     }
 
     /**
