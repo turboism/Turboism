@@ -32,7 +32,7 @@ public interface ViewContextMenuRegistry {
         String contributionId,
         Map<Integer, BufferedImage> stateIcons,
         int initialState,
-        Consumer<Integer> onClick
+        Consumer<Void> onClick
     ) {
         public StateButtonContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
