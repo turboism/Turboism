@@ -16,7 +16,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
         "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale", "useTextIcon",
-        "safeMode", "diagnostics", "hooks", "launcher"
+        "safeMode", "diagnostics", "hooks", "launcher", "textureAtlas"
     );
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
@@ -34,6 +34,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     );
     private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath");
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
+    private static final Set<String> ALLOWED_TEXTURE_ATLAS_FIELDS = Set.of("algorithmId", "parallel");
 
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);
@@ -140,8 +141,59 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         validateOptionalBoolean(node, "useTextIcon", errors, source);
         validateHooks(node, errors, source);
         validateLauncher(node, errors, source);
+        validateTextureAtlas(node, errors, source);
 
         return errors;
+    }
+
+    /**
+     * Validates the runtime-owned texture-atlas automatic-layout selection:
+     * {@code algorithmId} must be textual or null (null is the native default) and
+     * {@code parallel} must be boolean when present.
+     */
+    private void validateTextureAtlas(
+        final JsonNode root,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!root.has("textureAtlas")) return;
+        final JsonNode textureAtlas = root.get("textureAtlas");
+        if (textureAtlas == null || !textureAtlas.isObject()) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_TYPE", "textureAtlas must be an object", "textureAtlas", source
+            ));
+            return;
+        }
+        textureAtlas.fieldNames().forEachRemaining(field -> {
+            if (!ALLOWED_TEXTURE_ATLAS_FIELDS.contains(field)) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                    "Unknown textureAtlas field: " + field,
+                    "textureAtlas." + field,
+                    source
+                ));
+            }
+        });
+        if (textureAtlas.has("algorithmId")) {
+            final JsonNode algorithmId = textureAtlas.get("algorithmId");
+            if (algorithmId != null && !algorithmId.isNull()
+                && (!algorithmId.isTextual() || algorithmId.asText().isBlank())) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_TYPE",
+                    "textureAtlas.algorithmId must be a non-blank string or null",
+                    "textureAtlas.algorithmId",
+                    source
+                ));
+            }
+        }
+        if (textureAtlas.has("parallel") && !textureAtlas.get("parallel").isBoolean()) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_TYPE",
+                "textureAtlas.parallel must be a boolean",
+                "textureAtlas.parallel",
+                source
+            ));
+        }
     }
 
     private void validateLauncher(

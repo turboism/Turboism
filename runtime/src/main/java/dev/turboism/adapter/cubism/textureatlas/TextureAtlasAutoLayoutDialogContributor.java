@@ -33,7 +33,7 @@ import java.util.ResourceBundle;
  */
 public final class TextureAtlasAutoLayoutDialogContributor {
 
-    /** Shared bridge key consumed by the texture-atlas plugin and the runtime dialog ingress. */
+    /** Shared bridge keys mirroring the runtime-owned selection for host-side observers. */
     public static final String ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
     public static final String PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
     public static final String VALIDATION_OBSERVER_KEY =
@@ -44,14 +44,16 @@ public final class TextureAtlasAutoLayoutDialogContributor {
     private static final int SPACER_ROW = 5;
     private static final int SPACER_ROW_PUSHED = 8;
 
-    private final TextureAtlasLayoutAlgorithmRegistry registry;
+    private final RuntimeTextureAtlasLayoutAlgorithmRegistry registry;
+    private final TextureAtlasAutoLayoutSelection selection;
     private final ResourceBundle bundle;
 
     public TextureAtlasAutoLayoutDialogContributor(
-        final TextureAtlasLayoutAlgorithmRegistry registry,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry,
         final Locale locale
     ) {
         this.registry = Objects.requireNonNull(registry, "registry");
+        this.selection = registry.selectionState();
         this.bundle = ResourceBundle.getBundle(
             "dev.turboism.adapter.cubism.textureatlas.messages",
             locale == null ? Locale.getDefault() : locale
@@ -130,15 +132,19 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         labelConstraints.insets = new Insets(insetY, 0, insetY, 12);
         center.add(algorithmLabel, labelConstraints);
 
-        final String[] names = algorithms.stream()
-            .map(TextureAtlasLayoutAlgorithm::displayName)
-            .toArray(String[]::new);
+        // Index 0 is the synthetic native entry; plugin registrations follow.
+        final String[] names = new String[algorithms.size() + 1];
+        names[0] = bundle.getString("dialog.algorithm.native");
+        for (int i = 0; i < algorithms.size(); i++) {
+            names[i + 1] = algorithms.get(i).displayName();
+        }
         final JComboBox<String> algorithmCombo = new JComboBox<>(names);
-        final String configured = System.getProperty(ALGORITHM_KEY, "");
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection current =
+            selection.selection();
         int initialIndex = 0;
         for (int i = 0; i < algorithms.size(); i++) {
-            if (algorithms.get(i).id().equals(configured)) {
-                initialIndex = i;
+            if (algorithms.get(i).id().equals(current.algorithmId())) {
+                initialIndex = i + 1;
                 break;
             }
         }
@@ -147,34 +153,45 @@ public final class TextureAtlasAutoLayoutDialogContributor {
 
         final JCheckBox parallelCheck = new JCheckBox(
             bundle.getString("dialog.parallel.check"),
-            "true".equals(System.getProperty(PARALLEL_KEY, "false"))
+            current.parallel()
         );
         parallelCheck.setToolTipText(bundle.getString("dialog.parallel.tooltip"));
 
+        final Runnable publishSelection = () -> {
+            final int index = algorithmCombo.getSelectedIndex();
+            // The synthetic native entry uses the "native" id (never a real registration):
+            // dispatch resolves a missing id to the native fallback, and an explicit
+            // native choice stays distinguishable from an unset selection.
+            final String algorithmId = index <= 0
+                ? ALGO_NATIVE
+                : algorithms.get(Math.min(index - 1, algorithms.size() - 1)).id();
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection next =
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection(
+                    algorithmId, parallelCheck.isSelected()
+                );
+            selection.select(next);
+            // Mirror the runtime-owned selection onto the bridge keys for host-side observers.
+            System.getProperties().put(ALGORITHM_KEY, algorithmId);
+            System.getProperties().put(PARALLEL_KEY, String.valueOf(next.parallel()));
+        };
+
         final Runnable syncParallel = () -> {
-            final TextureAtlasLayoutAlgorithm selected =
-                algorithms.get(Math.min(algorithmCombo.getSelectedIndex(), algorithms.size() - 1));
-            final boolean supported = selected.supportsParallel();
+            final int index = algorithmCombo.getSelectedIndex();
+            final boolean supported = index > 0
+                && algorithms.get(Math.min(index - 1, algorithms.size() - 1)).supportsParallel();
             parallelCheck.setEnabled(supported);
-            if (!supported) {
-                if (parallelCheck.isSelected()) {
-                    parallelCheck.setSelected(false);
-                }
-                System.getProperties().put(PARALLEL_KEY, "false");
+            if (!supported && parallelCheck.isSelected()) {
+                parallelCheck.setSelected(false);
+                publishSelection.run();
             }
         };
         syncParallel.run();
 
         algorithmCombo.addActionListener(event -> {
-            final int selected = algorithmCombo.getSelectedIndex();
-            final TextureAtlasLayoutAlgorithm algorithm =
-                algorithms.get(Math.min(selected, algorithms.size() - 1));
-            System.getProperties().put(ALGORITHM_KEY, algorithm.id());
             syncParallel.run();
+            publishSelection.run();
         });
-        parallelCheck.addActionListener(event -> System.getProperties().put(
-            PARALLEL_KEY, String.valueOf(parallelCheck.isSelected())
-        ));
+        parallelCheck.addActionListener(event -> publishSelection.run());
 
         final GridBagConstraints comboConstraints = new GridBagConstraints();
         comboConstraints.gridx = 1;
