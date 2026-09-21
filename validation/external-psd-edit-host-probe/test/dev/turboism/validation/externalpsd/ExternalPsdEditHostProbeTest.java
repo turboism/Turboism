@@ -3795,24 +3795,46 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static void testAutoImportEvidence() {
+        final var stableA = new ExternalPsdEditHostProbe.TargetIdentity(
+            "document-a", "model-a", "binding-a", 7L, "model-image-a", "art-mesh-a", "raw-a");
+        final var stableB = new ExternalPsdEditHostProbe.TargetIdentity(
+            "document-a", "model-a", "binding-a", 7L, "model-image-a", "art-mesh-a", "raw-b");
         final var before = new ExternalPsdEditHostProbe.GuiTargetState(
-            true, "binding-a", 7L, "raw-a", false, "");
-        final var applied = new ExternalPsdEditHostProbe.GuiTargetState(
-            true, "binding-a", 7L, "raw-a", true, "");
-        assertTrue(ExternalPsdEditHostProbe.acceptsAutoImport(before, applied, "raw-a"),
-            "same target false-to-true replacement is accepted");
-        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(before,
-            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-b", 7L, "raw-a", true, ""),
-            "raw-a"), "binding change is not replacement evidence");
-        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(before,
-            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-a", 8L, "raw-a", true, ""),
-            "raw-a"), "generation change is not replacement evidence");
-        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(before,
-            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-a", 7L, "raw-b", true, ""),
-            "raw-a"), "raw target change is not replacement evidence");
+            true, stableA, false, "");
+        final var wrapperAppliedSameRaw = new ExternalPsdEditHostProbe.GuiTargetState(
+            true, stableA, true, "");
+        final var written = new PsdValidationContent.Fingerprint(
+            "b".repeat(64), new PsdValidationContent.Bounds(450, 450, 550, 550),
+            100, 100, List.of(0, 1, 2));
+        final var different = new PsdValidationContent.Fingerprint(
+            "c".repeat(64), new PsdValidationContent.Bounds(450, 450, 550, 550),
+            100, 100, List.of(0, 1, 2));
+
         assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(
-            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding-a", 7L, "raw-a", true, ""),
-            applied, "raw-a"), "initial isReplaced=true is not new replacement evidence");
+            before, wrapperAppliedSameRaw, "raw-a"),
+            "legacy wrapper false-to-true flag is never native application evidence");
+        assertTrue(ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
+            before, wrapperAppliedSameRaw, stableA, written, written),
+            "same raw is accepted only when fresh native RGB matches the written mutation");
+        assertTrue(!ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
+            before, wrapperAppliedSameRaw, stableA, written, different),
+            "wrapper transition with a mismatched fresh RGB is rejected");
+        assertTrue(ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
+            before, new ExternalPsdEditHostProbe.GuiTargetState(true, stableB, false, ""),
+            stableA, written, written),
+            "incoming current raw with matching fresh RGB is accepted independently of wrapper flag");
+        assertTrue(!ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
+            before, new ExternalPsdEditHostProbe.GuiTargetState(true,
+                new ExternalPsdEditHostProbe.TargetIdentity(
+                    "document-b", "model-a", "binding-a", 7L,
+                    "model-image-a", "art-mesh-a", "raw-b"), false, ""),
+            stableA, written, written),
+            "document switch is rejected even when current RGB matches");
+        assertTrue(!ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
+            new ExternalPsdEditHostProbe.GuiTargetState(true, stableA, true, ""),
+            new ExternalPsdEditHostProbe.GuiTargetState(true, stableB, false, ""),
+            stableA, written, written),
+            "an initially replaced target is not a new GUI application");
     }
 
     private static String slice(final byte[] psd, final int[] range) {
