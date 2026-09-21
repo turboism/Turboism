@@ -99,6 +99,7 @@
     "cubism.editor-model.warp-deformer.parameter-bindings.write",
     "cubism.editor-model.warp-deformer.write",
     "cubism.editor-model.write",
+    "cubism.integration.edit-api-bridge.dispatch",
     "cubism.texture-atlas.auto-layout-hook",
     "cubism.texture-atlas.data-model-hook",
     "cubism.texture-atlas.dialog-injection",
@@ -9140,6 +9141,171 @@
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC",
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.scene_handler_basic_undo"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.class.l_class",
+      "alias": "cubism.integration.websocket.dispatch.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.l_a",
+      "alias": "cubism.integration.websocket.dispatch.on-message",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+      "memberName": "a",
+      "descriptor": "(Ljava/lang/String;Lorg/java_websocket/WebSocket;)V",
+      "requiredAccessFlags": 18,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.field.l_field_d",
+      "alias": "cubism.integration.websocket.dispatch.registry",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+      "memberName": "d",
+      "descriptor": "Ljava/util/ArrayList;",
+      "requiredAccessFlags": 18,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.l_b",
+      "alias": "cubism.integration.websocket.dispatch.session-lookup",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+      "memberName": "b",
+      "descriptor": "(Lorg/java_websocket/WebSocket;)Lcom/live2d/cubism/doc/webSocket/ab;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.class.ab_class",
+      "alias": "cubism.integration.websocket.session.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/ab",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.ab_c",
+      "alias": "cubism.integration.websocket.session.socket",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/ab",
+      "memberName": "c",
+      "descriptor": "()Lorg/java_websocket/WebSocket;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.ab_g",
+      "alias": "cubism.integration.websocket.session.approved",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/ab",
+      "memberName": "g",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.ab_h",
+      "alias": "cubism.integration.websocket.session.registered",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/ab",
+      "memberName": "h",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.ab_i",
+      "alias": "cubism.integration.websocket.session.key",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/ab",
+      "memberName": "i",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.class.k_class",
+      "alias": "cubism.integration.websocket.responder.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/k",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.k_a",
+      "alias": "cubism.integration.websocket.responder.send-error",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/k",
+      "memberName": "a",
+      "descriptor": "(Lcom/live2d/cubism/doc/webSocket/a;Lcom/live2d/cubism/doc/webSocket/j$e;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.class.U_class",
+      "alias": "cubism.integration.websocket.server.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/U",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.class.x_class",
+      "alias": "cubism.integration.websocket.dispatch.holder",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.field.x_field_a",
+      "alias": "cubism.integration.websocket.dispatch.holder-instance",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
+      "memberName": "a",
+      "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.integration_websocket.method.x_a",
+      "alias": "cubism.integration.websocket.dispatch.instance",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
+      "memberName": "a",
+      "descriptor": "()Lcom/live2d/cubism/doc/webSocket/l;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
     }
   ]
 }
