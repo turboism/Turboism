@@ -168,15 +168,6 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private void cycleArmedAxis() {
         applyArmedAxis((armedAxis + 1) % 3);
     }
-
-    private String axisText(final int axis) {
-        return switch (axis) {
-            case 1 -> context.localization().text("warp-alt-symmetry.axis.vertical");
-            case 2 -> context.localization().text("warp-alt-symmetry.axis.horizontal");
-            default -> context.localization().text("warp-alt-symmetry.axis.off");
-        };
-    }
-
     /**
      * Shows/clears the armed-axis hint as the host's native canvas hint —
      * the same drawing-area, lower-right surface Turboism's update check
