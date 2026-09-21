@@ -35,18 +35,22 @@ final class PreviewPluginLoadCoordinator {
         final PreviewPluginContextFactory contextFactory,
         final PreviewLog log,
         final List<LocalPluginRuntime.LoadedPlugin> loaded,
-        final PreviewPluginShutdown shutdown,
         final ParameterHookRegistry parameterHookRegistry,
         final PartHookRegistry partHookRegistry,
         final EditorObjectHookRegistry editorObjectHookRegistry,
-        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry
+        final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
+        final PluginLifecycleLane lifecycleLane,
+        final PluginLifecyclePolicy lifecyclePolicy,
+        final RetainedPluginGenerations retention,
+        final PreviewPluginShutdown shutdown
     ) {
         this.pluginDirectory = pluginDirectory;
         this.home = home.toAbsolutePath().normalize();
         this.discovery = new PreviewPluginDiscovery(pluginDirectory, log);
         this.loader = new PreviewPluginLoader(
             contextFactory, log, loaded, parameterHookRegistry, partHookRegistry,
-            editorObjectHookRegistry, projectLifecycleHookRegistry
+            editorObjectHookRegistry, projectLifecycleHookRegistry,
+            lifecycleLane, lifecyclePolicy, retention
         );
         this.shutdown = java.util.Objects.requireNonNull(shutdown, "shutdown");
         this.loaded = loaded;

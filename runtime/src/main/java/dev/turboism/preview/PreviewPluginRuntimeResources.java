@@ -30,7 +30,10 @@ record PreviewPluginRuntimeResources(
     PreviewPluginContextFactory contextFactory,
     dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
     dev.turboism.plugin.core.CubismJvmSettingsService cubismJvmSettings,
-    dev.turboism.plugin.core.CoreUpdateService updateService
+    dev.turboism.plugin.core.CoreUpdateService updateService,
+    PluginLifecyclePolicy lifecyclePolicy,
+    PluginLifecycleLane lifecycleLane,
+    RetainedPluginGenerations retention
 ) {
     static PreviewPluginRuntimeResources create(
         final Path home,
@@ -50,7 +53,7 @@ record PreviewPluginRuntimeResources(
         return create(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
             parameterLifecycle, partLifecycle, editorObjectLifecycle, projectFileLifecycle,
-            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve()
+            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve(), null
         );
     }
 
@@ -68,7 +71,8 @@ record PreviewPluginRuntimeResources(
         final ProjectFileLifecycleCoordinator projectFileLifecycle,
         final EditorLifecycleCoordinator editorLifecycleEvents,
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
-        final Locale effectiveLocale
+        final Locale effectiveLocale,
+        final PluginLifecyclePolicy lifecyclePolicy
     ) {
         final Path normalizedHome = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(32);
@@ -100,7 +104,8 @@ record PreviewPluginRuntimeResources(
             normalizedHome, runtimeScheduler, runtimeHostAccess, lane, runtimeLog, collector,
             pluginCloseHook, loaded, parameterHookRegistry, partHookRegistry,
             editorObjectHookRegistry, projectLifecycleHookRegistry, fileChooserHistory,
-            Objects.requireNonNull(effectiveLocale, "effectiveLocale")
+            Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
+            lifecyclePolicy == null ? PluginLifecyclePolicy.production() : lifecyclePolicy
         );
     }
 
@@ -118,7 +123,8 @@ record PreviewPluginRuntimeResources(
         final EditorObjectHookRegistry editorObjectHookRegistry,
         final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
-        final Locale effectiveLocale
+        final Locale effectiveLocale,
+        final PluginLifecyclePolicy lifecyclePolicy
     ) {
         final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement =
             dev.turboism.pluginmanagement.RuntimePluginManagementService.withMetadataLocale(home, () -> loaded.stream()
@@ -188,25 +194,34 @@ record PreviewPluginRuntimeResources(
                 // (unavailable), so the reason belongs in the log rather than nowhere at all.
                 message -> log.warn("updates", message)
             );
+        final PluginLifecycleLane lifecycleLane = new PluginLifecycleLane(lifecyclePolicy);
+        final RetainedPluginGenerations retention =
+            new RetainedPluginGenerations(lifecycleLane, lifecyclePolicy, log);
+        // The shutdown is assembled before the coordinator so dependency rollback can reach it.
         final PreviewPluginShutdown shutdown = new PreviewPluginShutdown(
             log,
             Objects.requireNonNull(pluginCloseHook, "pluginCloseHook"),
             parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
-            projectLifecycleHookRegistry
+            projectLifecycleHookRegistry,
+            lifecycleLane, lifecyclePolicy, retention
         );
         return new PreviewPluginRuntimeResources(
             lane, failureCollector,
             new PreviewPluginLoadCoordinator(
-                home, home.resolve("plugins"), contextFactory, log, loaded, shutdown,
+                home, home.resolve("plugins"), contextFactory, log, loaded,
                 parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
-                projectLifecycleHookRegistry
+                projectLifecycleHookRegistry, lifecycleLane, lifecyclePolicy, retention,
+                shutdown
             ),
             shutdown,
             pluginManagement,
             contextFactory,
             runtimeSettings,
             cubismJvmSettings,
-            updateService
+            updateService,
+            lifecyclePolicy,
+            lifecycleLane,
+            retention
         );
     }
 

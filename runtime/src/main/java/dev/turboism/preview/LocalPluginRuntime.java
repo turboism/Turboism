@@ -38,13 +38,19 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle;
     private final ProjectFileLifecycleCoordinator projectFileLifecycle;
     private final EditorLifecycleCoordinator editorLifecycleEvents;
-    private final List<LoadedPlugin> loaded = new ArrayList<>();
+    // Live management view: the core is appended before external plugins while the management
+    // service streams this list on other threads, so publication must be concurrency-safe.
+    private final List<LoadedPlugin> loaded =
+        new java.util.concurrent.CopyOnWriteArrayList<>();
     private final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement;
     private final PreviewPluginContextFactory contextFactory;
     private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     private final dev.turboism.plugin.core.CubismJvmSettingsService cubismJvmSettings;
     private final dev.turboism.plugin.core.CoreUpdateService updateService;
     private final PreviewLog log;
+    private final PluginLifecyclePolicy lifecyclePolicy;
+    private final PluginLifecycleLane lifecycleLane;
+    private final RetainedPluginGenerations retention;
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -134,7 +140,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
             home, scheduler, hostAccess, log, new RuntimeFailureCollector(),
             (pluginId, phase) -> { }, parameterLifecycle, hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(), hostAccess.projectFileLifecycle(),
-            hostAccess.editorLifecycleEvents(), fileChooserHistory, effectiveLocale
+            hostAccess.editorLifecycleEvents(), fileChooserHistory, effectiveLocale, null
         );
     }
 
@@ -203,7 +209,37 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook,
             parameterLifecycle, partLifecycle, editorObjectLifecycle, projectFileLifecycle,
-            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve()
+            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve(), null
+        );
+    }
+
+    /**
+     * Package-private lifecycle-policy seam retained for lifecycle tests: short deadlines keep
+     * bounded-load/close assertions fast without touching production defaults.
+     */
+    LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final PluginCloseHook pluginCloseHook,
+        final PluginLifecyclePolicy lifecyclePolicy
+    ) {
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            new RuntimeFailureCollector(),
+            pluginCloseHook,
+            hostAccess.parameterLifecycle(),
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            null,
+            CubismHostLocale.resolve(),
+            lifecyclePolicy
         );
     }
 
@@ -220,7 +256,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final ProjectFileLifecycleCoordinator projectFileLifecycle,
         final EditorLifecycleCoordinator editorLifecycleEvents,
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
-        final Locale effectiveLocale
+        final Locale effectiveLocale,
+        final PluginLifecyclePolicy lifecyclePolicy
     ) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService resolvedFileChooserHistory =
@@ -240,7 +277,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook, loaded,
             parameterLifecycle, partLifecycle, editorObjectLifecycle,
             projectFileLifecycle, editorLifecycleEvents, resolvedFileChooserHistory,
-            effectiveLocale
+            effectiveLocale, lifecyclePolicy
         );
         this.hostReadLane = resources.hostReadLane();
         this.failureCollector = resources.failureCollector();
@@ -251,6 +288,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.runtimeSettings = resources.runtimeSettings();
         this.cubismJvmSettings = resources.cubismJvmSettings();
         this.updateService = resources.updateService();
+        this.lifecyclePolicy = resources.lifecyclePolicy();
+        this.lifecycleLane = resources.lifecycleLane();
+        this.retention = resources.retention();
         this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
@@ -272,10 +312,14 @@ public final class LocalPluginRuntime implements AutoCloseable {
     }
 
     /**
-     * Loads every discovered plugin, then the runtime-owned core plugin, exactly once per runtime
-     * instance.
+     * Loads the runtime-owned core plugin first, then every discovered external plugin, exactly
+     * once per runtime instance.
      *
-     * <p>External plugin failures are reported in the returned {@link LoadReport} and do not stop
+     * <p>The core initializes before any external plugin so a blocking or non-returning plugin
+     * cannot prevent management and diagnostic surfaces from coming up. External plugins load
+     * sequentially in resolved dependency order on the bounded lifecycle lane; a plugin that
+     * exceeds its deadline is fenced and reported rather than stalling the rest of the load.
+     * External plugin failures are reported in the returned {@link LoadReport} and do not stop
      * the load. A failure of the runtime-owned core is different in kind: the whole runtime is
      * closed before the exception propagates, so no half-initialized runtime is left behind.</p>
      *
@@ -285,9 +329,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
      */
     public synchronized LoadReport loadAll() {
         ensureCanStart();
-        final LoadReport external = loadCoordinator.loadAll();
+        final LoadedPlugin core;
         try {
-            loaded.add(BuiltinCorePlugin.load(
+            core = BuiltinCorePlugin.load(
                 contextFactory,
                 new dev.turboism.plugin.core.CorePluginServices(
                     runtimeSettings,
@@ -300,8 +344,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     log,
                     updateService
                 ),
-                log
-            ));
+                log,
+                lifecycleLane,
+                lifecyclePolicy,
+                retention
+            );
+            loaded.add(core);
         } catch (Exception failure) {
             log.error(
                 dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
@@ -311,8 +359,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             close();
             throw new IllegalStateException("Runtime-owned core failed to load", failure);
         }
+        final LoadReport external = loadCoordinator.loadAll();
         final List<LoadedPluginSummary> summaries = new ArrayList<>(external.loaded());
-        summaries.add(PreviewPluginSummaryFactory.active(loaded.get(loaded.size() - 1)));
+        summaries.add(PreviewPluginSummaryFactory.active(core));
         return new LoadReport(summaries, external.failures(), external.dependencyCycles());
     }
 
@@ -357,6 +406,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            // No new lifecycle admissions, then the retention watcher finishes reclaiming
+            // fenced generations on the lane; only when that set drains does the lane shut
+            // down, so cleanup that can still complete is not abandoned while the JVM lives.
+            lifecycleLane.stopAdmission();
+            retention.retire(lifecycleLane::shutdown);
             updateService.close();
             if (cubismJvmSettings instanceof AutoCloseable closeable) {
                 try {
@@ -430,7 +484,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         RuntimePluginLocalization localization,
         CleanupEvidenceCollector cleanupEvidence,
         dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner,
-        dev.turboism.core.plugin.context.CorePluginContext context
+        dev.turboism.core.plugin.context.CorePluginContext context,
+        PluginGenerationGuard guard
     ) {
         LoadedPlugin {
             entrypoints = List.copyOf(entrypoints);
