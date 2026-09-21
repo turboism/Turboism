@@ -41,6 +41,7 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
     private static final String LATE_ENABLE = "dev.turboism.test.blocking.late-enable";
     private static final String FENCED = "dev.turboism.test.failing.fenced";
     private static final String SCOPE_CLOSED = "dev.turboism.test.failing.scope-closed";
+    private static final String SCOPE_ATTEMPTS = "dev.turboism.test.failing-scope.attempts";
 
     private static final PluginLifecyclePolicy SHORT_POLICY = new PluginLifecyclePolicy(
         2,
@@ -173,9 +174,66 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
         }
     }
 
+    @Test
+    void failedScopeCloseKeepsLoaderRetainedAndNeverReinvokesCloser() throws Exception {
+        final Path home = temporary.resolve("home");
+        writePlugin(home.resolve("plugins"), "scope-fail.jar", "dev.example.scope-fail",
+            "dev/example/scopefail/ScopeFailEntrypoint.java",
+            "dev.example.scopefail.ScopeFailEntrypoint", scopeFailSource());
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        clearMarkers();
+
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                home,
+                scheduler,
+                host.adapterAccess(),
+                log,
+                (pluginId, phase) -> { },
+                SHORT_POLICY
+            );
+            try {
+                final LocalPluginRuntime.LoadReport report = runtime.loadAll();
+                assertTrue(report.failures().stream().anyMatch(failure ->
+                    failure.pluginId().equals("dev.example.scope-fail")));
+                assertTrue(
+                    awaitMarker(SCOPE_ATTEMPTS, 5),
+                    "the failed generation's scope close must have been attempted"
+                );
+                // Several retention intervals pass: the failed closer must never be re-invoked
+                // (a second DisposableScope.close() would be an empty success) and the
+                // generation stays retained because scope disposal is unproven.
+                Thread.sleep(300);
+                assertEquals(
+                    "1",
+                    System.getProperty(SCOPE_ATTEMPTS),
+                    "failed one-shot scope cleanup must not be retried into empty success"
+                );
+                assertTrue(
+                    retainedCount(runtime) >= 1,
+                    "the generation stays retained while quiescence is unproven"
+                );
+            } finally {
+                runtime.close();
+            }
+        } finally {
+            clearMarkers();
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private static int retainedCount(final LocalPluginRuntime runtime) throws Exception {
+        final java.lang.reflect.Field field =
+            LocalPluginRuntime.class.getDeclaredField("retention");
+        field.setAccessible(true);
+        return ((RetainedPluginGenerations) field.get(runtime)).retainedCount();
+    }
+
     private static void clearMarkers() {
         for (String key : new String[]{
-            ENTERED, RELEASE, RESUMED, LATE_ENABLE, FENCED, SCOPE_CLOSED
+            ENTERED, RELEASE, RESUMED, LATE_ENABLE, FENCED, SCOPE_CLOSED, SCOPE_ATTEMPTS
         }) {
             System.clearProperty(key);
         }
@@ -264,6 +322,27 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
                 }
             }
             """.formatted(SCOPE_CLOSED, FENCED, FENCED, FENCED);
+    }
+
+    private static String scopeFailSource() {
+        return """
+            package dev.example.scopefail;
+
+            import dev.turboism.sdk.plugin.PluginContext;
+            import dev.turboism.sdk.plugin.TurboismPlugin;
+
+            public final class ScopeFailEntrypoint implements TurboismPlugin {
+                @Override public void init(PluginContext context) {
+                    context.disposableScope().register(() -> {
+                        int attempts =
+                            Integer.parseInt(System.getProperty("%s", "0")) + 1;
+                        System.setProperty("%s", String.valueOf(attempts));
+                        throw new IllegalStateException("scope closer failed");
+                    });
+                    throw new IllegalStateException("init failed deliberately");
+                }
+            }
+            """.formatted(SCOPE_ATTEMPTS, SCOPE_ATTEMPTS);
     }
 
     private void writePlugin(
