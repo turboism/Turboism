@@ -34,6 +34,7 @@ import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -43,7 +44,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.time.Duration;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -324,8 +325,18 @@ final class ExternalPsdEditSessionManager {
             sessions.put(target.key(), session);
         }
         ensureRefreshScheduled();
-        textures.exportRawImagePsd(target.rawImageId()).whenComplete((result, failure) ->
-            onExportComplete(session, result, failure));
+        try {
+            final CompletionStage<PsdExportResult> export =
+                textures.exportRawImagePsd(target.rawImageId());
+            if (export == null) {
+                throw new IllegalStateException("export returned no completion");
+            }
+            export.whenComplete((result, failure) ->
+                onExportComplete(session, result, failure));
+        } catch (RuntimeException exportFailure) {
+            failSession(session, format(
+                "external-psd-edit.error.export-failed", target.rawImageId().value()));
+        }
     }
 
     /**
@@ -615,25 +626,67 @@ final class ExternalPsdEditSessionManager {
                     + (result == null ? "" : " (" + result.status() + ")")));
             return;
         }
+        final PsdEditFile exportedFile = result.file().orElse(null);
+        if (exportedFile == null) {
+            failSession(session, format(
+                "external-psd-edit.error.export-failed",
+                session.rawImageId().value() + " (file unavailable)"));
+            return;
+        }
+        final boolean retainedForSubscription;
         synchronized (session) {
             if (!session.isLive()) {
-                stopFileQuietly(result.file().orElse(null));
-                return;
+                retainedForSubscription = false;
+            } else {
+                session.file = exportedFile;
+                retainedForSubscription = true;
             }
-            session.file = result.file().orElseThrow();
-            try {
-                session.saveRegistration =
-                    session.file.observeSaves(revision -> onSave(session, revision));
-            } catch (RuntimeException subscribeFailure) {
-                failSession(session, format(
-                    "external-psd-edit.error.export-failed",
-                    session.rawImageId().value() + " (subscribe failed)"));
-                return;
-            }
-            session.state = State.OPENING;
         }
-        session.file.openInDefaultApplication().whenComplete((openResult, openFailure) ->
-            onOpenComplete(session, openResult, openFailure));
+        if (!retainedForSubscription) {
+            stopFileQuietly(exportedFile);
+            return;
+        }
+
+        final Registration registration;
+        try {
+            registration = exportedFile.observeSaves(revision -> onSave(session, revision));
+            if (registration == null) {
+                throw new IllegalStateException("save observation returned no registration");
+            }
+        } catch (RuntimeException subscribeFailure) {
+            failSession(session, format(
+                "external-psd-edit.error.export-failed",
+                session.rawImageId().value() + " (subscribe failed)"));
+            return;
+        }
+
+        final boolean retainedForOpen;
+        synchronized (session) {
+            retainedForOpen = session.isLive() && session.file == exportedFile
+                && session.state == State.EXPORTING;
+            if (retainedForOpen) {
+                session.saveRegistration = registration;
+                session.state = State.OPENING;
+            }
+        }
+        if (!retainedForOpen) {
+            closeRegistrationQuietly(registration);
+            stopFileQuietly(exportedFile);
+            return;
+        }
+
+        try {
+            final CompletionStage<PsdFileOperationResult> open =
+                exportedFile.openInDefaultApplication();
+            if (open == null) {
+                throw new IllegalStateException("open returned no completion");
+            }
+            open.whenComplete((openResult, openFailure) ->
+                onOpenComplete(session, openResult, openFailure));
+        } catch (RuntimeException openFailure) {
+            failSession(session, format(
+                "external-psd-edit.error.open-failed", session.rawImageId().value()));
+        }
     }
 
     private void onOpenComplete(
@@ -664,6 +717,7 @@ final class ExternalPsdEditSessionManager {
         }
         notifyStatus("external-psd-edit.status.editing", "INFO",
             format("external-psd-edit.status.editing", session.rawImageId().value()));
+        ensureRefreshScheduled();
     }
 
     private void onSave(final Session session, final PsdFileRevision revision) {
@@ -1224,7 +1278,7 @@ final class ExternalPsdEditSessionManager {
         return imageMatches.get(0).currentRawImageId();
     }
 
-    private void stopFileQuietly(final PsdEditFile file) {
+    private static void stopFileQuietly(final PsdEditFile file) {
         if (file == null) {
             return;
         }
@@ -1232,6 +1286,17 @@ final class ExternalPsdEditSessionManager {
             file.stop();
         } catch (RuntimeException ignored) {
             // best effort: the session is already gone
+        }
+    }
+
+    private static void closeRegistrationQuietly(final Registration registration) {
+        if (registration == null) {
+            return;
+        }
+        try {
+            registration.close();
+        } catch (RuntimeException ignored) {
+            // A failed startup path must not retain a save callback.
         }
     }
 
@@ -1390,7 +1455,7 @@ final class ExternalPsdEditSessionManager {
         }
 
         private synchronized boolean isRefreshCandidate() {
-            return state != State.STOPPED && state != State.PAUSED;
+            return state == State.ACTIVE;
         }
 
         private synchronized boolean hasNativeInFlight() {
@@ -1450,34 +1515,27 @@ final class ExternalPsdEditSessionManager {
             return isReopenable() ? file : null;
         }
 
-        private synchronized void stop() {
-            if (state == State.STOPPED) {
-                return;
-            }
-            state = State.STOPPED;
-            transitionVersion++;
-            inFlightRevision = null;
-            final RevisionTask task = inFlightTask;
-            inFlightTask = null;
-            pendingRevision = null;
-            final Registration registration = saveRegistration;
-            saveRegistration = null;
-            if (registration != null) {
-                try {
-                    registration.close();
-                } catch (RuntimeException ignored) {
-                    // best effort: the handle stop below still runs
+        private void stop() {
+            final RevisionTask task;
+            final Registration registration;
+            final PsdEditFile editFile;
+            synchronized (this) {
+                if (state == State.STOPPED) {
+                    return;
                 }
+                state = State.STOPPED;
+                transitionVersion++;
+                inFlightRevision = null;
+                task = inFlightTask;
+                inFlightTask = null;
+                pendingRevision = null;
+                registration = saveRegistration;
+                saveRegistration = null;
+                editFile = file;
+                file = null;
             }
-            final PsdEditFile editFile = file;
-            file = null;
-            if (editFile != null) {
-                try {
-                    editFile.stop();
-                } catch (RuntimeException ignored) {
-                    // best effort: temporary file is retained by contract
-                }
-            }
+            closeRegistrationQuietly(registration);
+            stopFileQuietly(editFile);
             if (task != null) {
                 closeTaskHandle(task.handle());
             }
