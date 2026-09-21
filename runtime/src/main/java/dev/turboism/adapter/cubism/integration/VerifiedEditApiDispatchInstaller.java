@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.mapping.verification.selector.EditorIntegrationWebSocketSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -40,9 +41,10 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
     /** Kill switch honored by both {@link #install} and {@link EditProtocolBridge}. */
     public static final String ENABLED_PROPERTY = EditProtocolBridge.ENABLED_PROPERTY;
 
-    private static final String ADAPTER_SLICE_ID = "adapter.integration.edit-api-bridge";
+    private static final String ADAPTER_SLICE_ID =
+        EditorIntegrationWebSocketSelectorContract.ADAPTER_SLICE_ID;
     private static final String CAPABILITY_ID =
-        "cubism.integration.edit-api-bridge.dispatch";
+        EditorIntegrationWebSocketSelectorContract.DISPATCH_CAPABILITY_ID;
     private static final String DISPATCH_ENTRY_ALIAS =
         "cubism.integration.websocket.dispatch.on-message";
 
