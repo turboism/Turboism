@@ -15,7 +15,6 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
 
     public static final String CAPABILITY_ID = "cubism.texture-atlas.auto-layout-hook";
     public static final String CALLBACK_KEY = "dev.turboism.texture-atlas.auto-layout.runtime-ingress";
-    public static final String PLUGIN_CALLBACK_KEY = "dev.turboism.texture-atlas.auto-layout.callback";
     static final String AUTO_LAYOUT_ALIAS = "cubism.texture-atlas.auto-layout.invoke";
     static final String DIALOG_INIT_ALIAS = "cubism.texture-atlas.dialog.init";
     static final String DIALOG_INGRESS_KEY = "dev.turboism.texture-atlas.auto-layout.dialog-ingress";
@@ -35,7 +34,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     private final RuntimeTextureAtlasEditorUi editorUi;
     private final AtomicBoolean installed = new AtomicBoolean(false);
     private final TextureAtlasNativeInvocationCoordinator nativeInvocations;
-    private final BooleanSupplier pluginCallback;
+    private final BooleanSupplier dispatch;
     private final java.util.function.Predicate<Object> ingress;
     private volatile Class<?> transformedClass;
     private volatile Class<?> transformedDialogClass;
@@ -48,7 +47,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final ClassLoader hostClassLoader,
         final VerifiedMemberResolver resolverForConstructor,
         final TextureAtlasNativeInvocationCoordinator nativeInvocations,
-        final BooleanSupplier pluginCallback,
+        final BooleanSupplier dispatch,
         final RuntimeTextureAtlasEditorUi editorUi,
         final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
         final Locale effectiveLocale
@@ -60,9 +59,9 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.resolver = Objects.requireNonNull(resolverForConstructor, "resolver");
         this.nativeInvocations = Objects.requireNonNull(nativeInvocations, "nativeInvocations");
-        this.pluginCallback = Objects.requireNonNull(pluginCallback, "pluginCallback");
+        this.dispatch = Objects.requireNonNull(dispatch, "dispatch");
         this.editorUi = Objects.requireNonNull(editorUi, "editorUi");
-        this.ingress = nativeInvocations.ingress(pluginCallback);
+        this.ingress = nativeInvocations.ingress(dispatch);
         this.transformer = new TextureAtlasAutoLayoutTransformer(
             entry.ownerInternalName(),
             entry.memberName(),
@@ -99,11 +98,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     }
 
     /**
-     * Builds an installer with runtime-default collaborators, taking the plugin callback from the
-     * {@link #PLUGIN_CALLBACK_KEY} system property.
-     *
-     * <p>If nothing usable is registered under that key the callback defaults to one that always
-     * declines, so the hook installs but never diverts the host's automatic layout.
+     * Builds an installer with runtime-default collaborators and no dispatch, so the hook
+     * installs but never diverts the host's automatic layout.
      *
      * @param instrumentation the JVM instrumentation used to retransform the host class
      * @param resolver the verified member resolver for the running Cubism version
@@ -119,13 +115,9 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final VerifiedMemberResolver resolver,
         final ClassLoader hostClassLoader
     ) {
-        final Object registered = System.getProperties().get(PLUGIN_CALLBACK_KEY);
-        final BooleanSupplier callback = registered instanceof BooleanSupplier supplier
-            ? supplier
-            : () -> false;
         return fromVerifiedResolver(
             instrumentation, resolver, hostClassLoader,
-            new TextureAtlasNativeInvocationCoordinator(), callback,
+            new TextureAtlasNativeInvocationCoordinator(), () -> false,
             new RuntimeTextureAtlasEditorUi(),
             new RuntimeTextureAtlasLayoutAlgorithmRegistry()
         );
@@ -139,8 +131,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      * @param resolver the verified member resolver for the running Cubism version
      * @param hostClassLoader the loader that owns the host classes to transform
      * @param nativeInvocations the coordinator scoping each native packing invocation
-     * @param pluginCallback invoked inside that scope; returning false lets the host's own
-     *                       layout proceed
+     * @param dispatch runtime-owned dispatch invoked inside that scope; returning false lets
+     *                 the host's own layout proceed
      * @param editorUi receives the statistics-view ingress and exposes the editor session
      * @param algorithmRegistry supplies the layout algorithms offered in the injected dialog
      * @return a configured, not-yet-installed hook installer
@@ -152,12 +144,12 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final VerifiedMemberResolver resolver,
         final ClassLoader hostClassLoader,
         final TextureAtlasNativeInvocationCoordinator nativeInvocations,
-        final BooleanSupplier pluginCallback,
+        final BooleanSupplier dispatch,
         final RuntimeTextureAtlasEditorUi editorUi,
         final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry
     ) {
         return fromVerifiedResolver(
-            instrumentation, resolver, hostClassLoader, nativeInvocations, pluginCallback,
+            instrumentation, resolver, hostClassLoader, nativeInvocations, dispatch,
             editorUi, algorithmRegistry, dev.turboism.i18n.CubismHostLocale.resolve()
         );
     }
@@ -175,8 +167,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      * @param resolver the verified member resolver for the running Cubism version; must not be null
      * @param hostClassLoader the loader that owns the host classes to transform
      * @param nativeInvocations the coordinator scoping each native packing invocation
-     * @param pluginCallback invoked inside that scope; returning false lets the host's own
-     *                       layout proceed
+     * @param dispatch runtime-owned dispatch invoked inside that scope; returning false lets
+     *                 the host's own layout proceed
      * @param editorUi receives the statistics-view ingress and exposes the editor session
      * @param algorithmRegistry supplies the layout algorithms offered in the injected dialog
      * @param effectiveLocale the locale the injected dialog labels use; must not be null
@@ -192,7 +184,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final VerifiedMemberResolver resolver,
         final ClassLoader hostClassLoader,
         final TextureAtlasNativeInvocationCoordinator nativeInvocations,
-        final BooleanSupplier pluginCallback,
+        final BooleanSupplier dispatch,
         final RuntimeTextureAtlasEditorUi editorUi,
         final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithmRegistry,
         final Locale effectiveLocale
@@ -251,7 +243,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             hostClassLoader,
             verified,
             nativeInvocations,
-            pluginCallback,
+            dispatch,
             editorUi,
             algorithmRegistry,
             effectiveLocale

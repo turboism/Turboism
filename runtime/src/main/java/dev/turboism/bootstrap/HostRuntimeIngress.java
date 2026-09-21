@@ -34,6 +34,22 @@ public final class HostRuntimeIngress implements AutoCloseable {
         this(source -> new HostSession(source, Objects.requireNonNull(effectiveLocale, "effectiveLocale")));
     }
 
+    /**
+     * Production composition with the locale and the persistent store for the
+     * runtime-owned texture-atlas automatic-layout selection.
+     */
+    public HostRuntimeIngress(
+        final Locale effectiveLocale,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+            textureAtlasSelectionPersistence
+    ) {
+        this(source -> new HostSession(
+            source,
+            Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
+            textureAtlasSelectionPersistence
+        ));
+    }
+
     HostRuntimeIngress(final Function<HostInstanceSource, HostSession> sessionFactory) {
         session = Objects.requireNonNull(sessionFactory, "sessionFactory")
             .apply(() -> closeRequested.get()

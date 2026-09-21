@@ -75,11 +75,12 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
     }
 
     private static TextureAtlasAutoLayoutDialogContributor contributor() {
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
-            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
-        registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
-            "native", "Native", false, null
-        ));
+        return contributor(new RuntimeTextureAtlasLayoutAlgorithmRegistry());
+    }
+
+    private static TextureAtlasAutoLayoutDialogContributor contributor(
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry
+    ) {
         registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
             "maxrects", "MaxRects-BSSF", true,
             (items, constraints) -> new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan(
@@ -152,12 +153,15 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
         final GridBagConstraints spacerConstraints = new GridBagConstraints();
         spacerConstraints.gridy = 5;
         center.add(spacer, spacerConstraints);
-        System.getProperties().put(
-            TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY,
-            TextureAtlasAutoLayoutDialogContributor.ALGO_MAXRECTS
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        registry.selectionState().select(
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection(
+                TextureAtlasAutoLayoutDialogContributor.ALGO_MAXRECTS, false
+            )
         );
         try {
-            contributor().injectInto(center);
+            contributor(registry).injectInto(center);
             assertEquals(8, grid.getConstraints(spacer).gridy);
 
             JComboBox<?> combo = null;
@@ -169,6 +173,12 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             assertEquals("MaxRects-BSSF", combo.getItemAt(combo.getSelectedIndex()));
 
             combo.setSelectedIndex(0);
+            // The synthetic native entry selects the "native" id through the runtime
+            // selection and mirrors it onto the bridge property.
+            assertEquals(
+                TextureAtlasAutoLayoutDialogContributor.ALGO_NATIVE,
+                registry.selectionState().selection().algorithmId()
+            );
             assertEquals(
                 TextureAtlasAutoLayoutDialogContributor.ALGO_NATIVE,
                 System.getProperty(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY)
@@ -197,7 +207,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             assertEquals(2, observation.algorithmCombo().getItemCount());
             assertEquals("Parallel search", observation.parallelLabel().getText());
             assertNotNull(observation.parallelCheck());
-            assertEquals(2, observation.algorithms().size());
+            assertEquals(1, observation.algorithms().size());
         } finally {
             System.getProperties().remove(
                 TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY
@@ -242,10 +252,14 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
     @Test
     void parallelCheckboxDisabledForNonParallelAlgorithm() {
         final JPanel center = new JPanel(new GridBagLayout());
-        System.getProperties().put(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY, "native");
-        System.getProperties().put(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY, "true");
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        // Explicit native selection is stored under the "native" id, distinct from unset.
+        registry.selectionState().select(
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection("native", true)
+        );
         try {
-            contributor().injectInto(center);
+            contributor(registry).injectInto(center);
             javax.swing.JCheckBox check = null;
             javax.swing.JComboBox<?> combo = null;
             for (java.awt.Component component : center.getComponents()) {
@@ -258,6 +272,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             assertFalse(check.isEnabled());
             assertFalse(check.isSelected());
             assertEquals("false", System.getProperty(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY));
+            assertFalse(registry.selectionState().selection().parallel());
 
             combo.setSelectedIndex(1);
             assertTrue(check.isEnabled());

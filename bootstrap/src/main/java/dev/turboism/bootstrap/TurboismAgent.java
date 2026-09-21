@@ -1343,13 +1343,7 @@ public final class TurboismAgent {
                 runtime.editorModelResolver(),
                 host.classLoader(),
                 runtime.hostAccess().textureAtlasNativeInvocations(),
-                () -> {
-                    final Object callback = System.getProperties().get(
-                        VerifiedTextureAtlasAutoLayoutHookInstaller.PLUGIN_CALLBACK_KEY
-                    );
-                    return callback instanceof java.util.function.BooleanSupplier supplier
-                        && supplier.getAsBoolean();
-                },
+                runtime.hostAccess().textureAtlasAutoLayoutDispatch(),
                 editorUi,
                 runtime.hostAccess().textureAtlasAlgorithms(),
                 runtime.effectiveLocale()

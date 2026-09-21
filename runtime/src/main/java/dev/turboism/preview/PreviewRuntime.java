@@ -306,7 +306,13 @@ public final class PreviewRuntime implements AutoCloseable {
             ).start();
             scheduler = createScheduler(log);
             RecentPreviewDiagnostics.install(message -> log.warn("recent-preview", message));
-            ingress = new HostRuntimeIngress(effectiveLocale);
+            ingress = new HostRuntimeIngress(
+                effectiveLocale,
+                new dev.turboism.config.ConfigTextureAtlasSelectionStore(
+                    home,
+                    diagnostic -> log.warn("config", diagnostic)
+                )
+            );
             startupTimer.completed("appearance-and-services", message -> log.info("startup", message));
 
             final Path normalizedVerificationRecord = Objects.requireNonNull(

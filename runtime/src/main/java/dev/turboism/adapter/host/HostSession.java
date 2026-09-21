@@ -62,6 +62,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         );
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms =
         new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection textureAtlasSelection;
+    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutDispatcher
+        textureAtlasAutoLayoutDispatch;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
     private final ProjectFileLifecycleCoordinator projectFileLifecycle =
@@ -129,6 +132,30 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         final HostInstanceSource source,
         final java.util.Locale effectiveLocale
     ) {
+        this(source, effectiveLocale, null);
+    }
+
+    /**
+     * Production session with a persistent store for the runtime-owned texture-atlas
+     * automatic-layout selection; a null persistence keeps selection in memory.
+     */
+    public HostSession(
+        final HostInstanceSource source,
+        final java.util.Locale effectiveLocale,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+            textureAtlasSelectionPersistence
+    ) {
+        this.textureAtlasSelection =
+            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection(
+                textureAtlasSelectionPersistence
+            );
+        this.textureAtlasAlgorithms.bindSelection(textureAtlasSelection);
+        this.textureAtlasAutoLayoutDispatch =
+            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutDispatcher(
+                textureAtlasAlgorithms,
+                textureAtlasSelection,
+                runtimeTextureAtlasLayouts()
+            );
         this.source = Objects.requireNonNull(source, "source");
         this.connector = new VerifiedHostAdapterConnector(
             new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
@@ -174,10 +201,62 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         final HostInstanceSource source,
         final HostAdapterConnector connector
     ) {
+        this.textureAtlasSelection =
+            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection();
+        this.textureAtlasAlgorithms.bindSelection(textureAtlasSelection);
+        this.textureAtlasAutoLayoutDispatch =
+            new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutDispatcher(
+                textureAtlasAlgorithms,
+                textureAtlasSelection,
+                runtimeTextureAtlasLayouts()
+            );
         this.source = Objects.requireNonNull(source, "source");
         this.connector = Objects.requireNonNull(connector, "connector");
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
         registerProjectContentCleanup();
+    }
+
+    /**
+     * Runtime-privileged texture-atlas layout service for the native-entry dispatcher.
+     * It shares this session's coordinator and native-invocation scope so dispatch takes
+     * exactly the plugin-facing snapshot/apply path (validation, handled flag, Undo),
+     * gated by a fixed runtime grant rather than any plugin's permissions.
+     */
+    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService
+        runtimeTextureAtlasLayouts() {
+        final java.util.List<dev.turboism.sdk.permission.PluginPermission> grants =
+            java.util.List.of(
+                runtimeAtlasPermission(
+                    dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService
+                        .READ_PERMISSION
+                ),
+                runtimeAtlasPermission(
+                    dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService
+                        .WRITE_PERMISSION
+                )
+            );
+        return new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService(
+            textureAtlasLayouts,
+            new dev.turboism.permissions.CubismPermissionGate(
+                "dev.turboism.runtime",
+                grants,
+                ignored -> { },
+                java.time.Clock.systemUTC()
+            ),
+            textureAtlasNativeInvocations
+        );
+    }
+
+    private static dev.turboism.sdk.permission.PluginPermission runtimeAtlasPermission(
+        final String id
+    ) {
+        return new dev.turboism.sdk.permission.PluginPermission() {
+            @Override public String id() { return id; }
+            @Override public String scope() { return "runtime"; }
+            @Override public String reason() {
+                return "Runtime-owned texture-atlas automatic-layout dispatch.";
+            }
+        };
     }
 
     private void registerProjectContentCleanup() {
@@ -586,6 +665,20 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     /**
+     * @return the runtime-owned native automatic-layout dispatch callback; the verified
+     *     host hook wraps it in the native-invocation scope, and a {@code false} result
+     *     defers to the host's own packing
+     */
+    public java.util.function.BooleanSupplier textureAtlasAutoLayoutDispatch() {
+        return textureAtlasAutoLayoutDispatch.callback();
+    }
+
+    /** @return the runtime-owned texture-atlas automatic-layout selection state. */
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection textureAtlasSelection() {
+        return textureAtlasSelection;
+    }
+
+    /**
      * @return the verified member resolver for the Editor model of the active connection
      * @throws IllegalStateException if no host connection is active, so no verified resolver exists
      */
@@ -688,7 +781,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             workspaceLayoutCoordinator,
             textureAtlasEditorUi(),
             textureAtlasEditorSession(),
-            textureAtlasAlgorithms()
+            textureAtlasAlgorithms(),
+            textureAtlasAutoLayoutDispatch()
         );
     }
 

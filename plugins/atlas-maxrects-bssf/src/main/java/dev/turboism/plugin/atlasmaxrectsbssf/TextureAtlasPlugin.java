@@ -1,38 +1,41 @@
 package dev.turboism.plugin.atlasmaxrectsbssf;
 
 import dev.turboism.plugin.atlasmaxrectsbssf.layout.CurrentPageTextureAtlasPlanner;
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
+import dev.turboism.plugin.atlasmaxrectsbssf.layout.MaxRectsBssfTextureAtlasPlanner;
+import dev.turboism.plugin.atlasmaxrectsbssf.layout.PartBucketTextureAtlasPlanner;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
+import java.util.List;
 import java.util.Objects;
-import java.util.function.BooleanSupplier;
 
-/** Composes plugin-owned layout policy with the SDK authoring seam and native automatic-layout entry. */
+/**
+ * Registers the MaxRects-BSSF packing algorithm with the runtime-owned texture-atlas
+ * algorithm registry. The runtime owns algorithm selection, the native automatic-layout
+ * entry, and plan application; this plugin only contributes planners and its own
+ * layout-mode configuration.
+ */
 public final class TextureAtlasPlugin implements TurboismPlugin {
 
-    static final String NATIVE_AUTO_LAYOUT_CALLBACK_KEY =
-        "dev.turboism.texture-atlas.auto-layout.callback";
-    static final String DIALOG_ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
-    static final String DIALOG_PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
-    static final String ALGORITHM_NATIVE = "native";
     static final String ALGORITHM_MAXRECTS = "maxrects";
+    static final String ALGORITHM_NATIVE = "native";
 
     private PluginContext context;
     private boolean enabled;
-    private TextureAtlasAutoLayoutService autoLayoutService;
-    private TextureAtlasAutoLayoutService.LifecycleLease lifecycle;
     private final TextureAtlasSettingsBinding settings = new TextureAtlasSettingsBinding();
-    private final BooleanSupplier nativeAutoLayoutCallback = this::applyFromNativeEntry;
 
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
-        this.lifecycle = new TextureAtlasAutoLayoutService.LifecycleLease();
         if (!settings.init(context.config()).toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration schema registration failed.");
         }
-        context.logger().info("Texture Atlas migration shell initialized");
+        context.logger().info("Texture Atlas plugin initialized");
     }
 
     @Override
@@ -41,83 +44,115 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         if (!settings.enable().toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration could not be loaded.");
         }
-        lifecycle.activate();
         enabled = true;
-        System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
         registerAlgorithms();
-        if (autoLayoutService == null) {
-            composeAutoLayoutService();
-        }
-        publishDialogState();
-        context.logger().info("Texture Atlas automatic layout uses current-page scope; legacy layout-mode="
+        applyLegacySelection();
+        context.logger().info("Texture Atlas automatic layout uses current-page scope; layout-mode="
             + settings.confirmed().layoutMode() + " applies only to explicit complete-atlas SDK requests.");
     }
 
-    /** Registers this plugin's algorithms with the framework registry. */
+    /** Registers this plugin's planner with the framework registry. */
     private void registerAlgorithms() {
         try {
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
                 context.cubism().textureAtlasAlgorithms();
-            context.disposableScope().register(registry.register(
-                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+            // The facade binds the registration to this plugin's disposable scope and
+            // waits for in-flight dispatches during teardown, so no explicit scope tie
+            // (or close) is required here.
+            registry.register(
+                new TextureAtlasLayoutAlgorithm(
                     ALGORITHM_MAXRECTS,
                     context.localization().text("texture-atlas.algorithm.maxrects"),
                     true,
-                    (items, constraints) -> {
-                        final TextureAtlasSettings policy = settings.confirmed();
-                        if (constraints.singlePageOptions() != null) {
-                            return new CurrentPageTextureAtlasPlanner().plan(items, constraints, policy.parallel());
+                    new TextureAtlasLayoutPlanner() {
+                        @Override
+                        public TextureAtlasLayoutPlan plan(
+                            final List<TextureAtlasLayoutItem> items,
+                            final TextureAtlasLayoutConstraints constraints
+                        ) {
+                            return plan(items, constraints, parallelPreference());
                         }
-                        // Keep explicit complete-atlas SDK consumers separate from native current-page layout.
-                        return policy.layoutMode() == TextureAtlasLayoutMode.PART_BUCKET
-                            ? new dev.turboism.plugin.atlasmaxrectsbssf.layout.PartBucketTextureAtlasPlanner().plan(items, constraints)
-                            : new dev.turboism.plugin.atlasmaxrectsbssf.layout.MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, policy.parallel());
+
+                        @Override
+                        public TextureAtlasLayoutPlan plan(
+                            final List<TextureAtlasLayoutItem> items,
+                            final TextureAtlasLayoutConstraints constraints,
+                            final boolean parallel
+                        ) {
+                            if (constraints.singlePageOptions() != null) {
+                                return new CurrentPageTextureAtlasPlanner()
+                                    .plan(items, constraints, parallel);
+                            }
+                            // Keep explicit complete-atlas SDK consumers separate from native current-page layout.
+                            return settings.confirmed().layoutMode() == TextureAtlasLayoutMode.PART_BUCKET
+                                ? new PartBucketTextureAtlasPlanner().plan(items, constraints)
+                                : new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel);
+                        }
                     }
                 )
-            ));
-            context.disposableScope().register(registry.register(
-                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
-                    ALGORITHM_NATIVE,
-                    context.localization().text("texture-atlas.algorithm.native"),
-                    false,
-                    null
-                )
-            ));
+            );
         } catch (Throwable failure) {
             context.logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
         }
     }
 
+    /**
+     * Hands a pre-v4 persisted algorithm/parallel preference to the runtime-owned
+     * selection exactly once. An explicitly chosen runtime selection (including an
+     * explicit native choice, which is stored under the {@code "native"} id) is never
+     * overridden; only an unset/native-default selection receives the migrated value.
+     */
+    private void applyLegacySelection() {
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection legacy =
+            settings.consumeLegacySelection();
+        if (legacy == null) {
+            return;
+        }
+        try {
+            final var registry = context.cubism().textureAtlasAlgorithms();
+            if (registry.selection().isNative()) {
+                registry.select(legacy);
+                context.logger().info(
+                    "Texture Atlas migrated the persisted layout selection to runtime state: "
+                        + legacy.algorithmId()
+                );
+            }
+        } catch (RuntimeException failure) {
+            context.logger().warn(
+                "Texture Atlas legacy selection migration skipped safely: " + failure
+            );
+        }
+    }
 
-
+    /**
+     * The runtime-owned parallel preference for explicit two-argument planner calls;
+     * native dispatch supplies the flag directly through the three-argument overload.
+     */
+    private boolean parallelPreference() {
+        try {
+            final PluginContext current = context;
+            return current != null
+                && current.cubism().textureAtlasAlgorithms().selection().parallel();
+        } catch (RuntimeException failure) {
+            return false;
+        }
+    }
 
     @Override
     public void disable() {
-        removeNativeCallback();
         enabled = false;
         settings.disable();
-        if (lifecycle != null) lifecycle.deactivate();
     }
 
     @Override
     public void shutdown() {
-        removeNativeCallback();
         enabled = false;
         settings.shutdown();
-        if (lifecycle != null) lifecycle.close();
         context = null;
-        autoLayoutService = null;
-        lifecycle = null;
     }
 
     boolean isEnabled() {
         return enabled;
-    }
-
-    TextureAtlasAutoLayoutService autoLayoutService() {
-        requireContext();
-        if (!enabled) throw new IllegalStateException("Texture Atlas plugin must be enabled before use.");
-        return autoLayoutService;
     }
 
     TextureAtlasSettings settings() {
@@ -127,88 +162,12 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
 
     boolean updateSettings(final TextureAtlasSettings value) {
         requireContext();
-        final boolean written = settings.update(value).toCompletableFuture().join();
-        if (written) composeAutoLayoutService();
-        return written;
-    }
-
-    private void composeAutoLayoutService() {
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner planner =
-            context.cubism().textureAtlasAlgorithms()
-                .find(settings.confirmed().algorithmId())
-                .map(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm::planner)
-                .orElse(null);
-        if (planner == null) {
-            // pass-through (native) or unregistered algorithm: delegate to Cubism
-            autoLayoutService = null;
-            return;
-        }
-        autoLayoutService = new TextureAtlasAutoLayoutService(
-            context.cubism().textureAtlasLayouts(),
-            planner,
-            lifecycle,
-            message -> context.logger().info(message)
-        );
-    }
-
-    private boolean applyFromNativeEntry() {
-        try {
-            syncDialogState();
-            if (TextureAtlasPlugin.ALGORITHM_NATIVE.equals(settings.confirmed().algorithmId())
-                || autoLayoutService == null) {
-                context.logger().info("Texture Atlas automatic layout delegated to Cubism native algorithm");
-                return false;
-            }
-            final TextureAtlasLayoutApplyResult result = autoLayoutService().applyAutomaticLayout();
-            if (result.status().isPresent()) {
-                context.logger().info(
-                    "Texture Atlas native automatic-layout result status=" + result.status().orElseThrow()
-                );
-                return true;
-            }
-            context.logger().warn(
-                "Texture Atlas native automatic-layout result failureCode="
-                    + result.failureCode().orElseThrow()
-            );
-            return false;
-        } catch (RuntimeException | Error failure) {
-            if (context != null) {
-                context.logger().error("Texture Atlas native automatic-layout entry failed safely.", failure);
-            }
-            return false;
-        }
-    }
-
-    /** Publishes the persisted policy to the runtime dialog ingress so the dialog restores it. */
-    private void publishDialogState() {
-        final TextureAtlasSettings confirmed = settings.confirmed();
-        System.getProperties().put(DIALOG_ALGORITHM_KEY, confirmed.algorithmId());
-        System.getProperties().put(DIALOG_PARALLEL_KEY, String.valueOf(confirmed.parallel()));
-    }
-
-    /** Bridges a dialog change back into the persisted global Turboism configuration. */
-    private void syncDialogState() {
-        final String algorithm = System.getProperty(DIALOG_ALGORITHM_KEY, "maxrects");
-        final boolean parallel = "true".equals(System.getProperty(DIALOG_PARALLEL_KEY, "false"));
-        final TextureAtlasSettings confirmed = settings.confirmed();
-        if (confirmed.algorithmId().equals(algorithm) && confirmed.parallel() == parallel) {
-            return;
-        }
-        updateSettings(new TextureAtlasSettings(
-            confirmed.layoutMode(), algorithm, parallel
-        ));
-    }
-
-    private void removeNativeCallback() {
-        final Object value = System.getProperties().get(NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
-        if (value == nativeAutoLayoutCallback) {
-            System.getProperties().remove(NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
-        }
+        return settings.update(value).toCompletableFuture().join();
     }
 
     private void requireContext() {
         if (context == null) {
-            throw new IllegalStateException("Texture Atlas migration shell must be initialized before enable.");
+            throw new IllegalStateException("Texture Atlas plugin must be initialized before enable.");
         }
     }
 }

@@ -93,6 +93,13 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator();
 
     dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator();
+
+    /**
+     * @return the runtime-owned native texture-atlas automatic-layout dispatch callback;
+     *     the verified host hook wraps it in the native-invocation scope, and a
+     *     {@code false} result defers to the host's own packing
+     */
+    java.util.function.BooleanSupplier textureAtlasAutoLayoutDispatch();
 }
 
 /** Non-closeable adapter view used when lifecycle ownership remains with bootstrap ingress. */
@@ -134,6 +141,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
+    private final java.util.function.BooleanSupplier textureAtlasAutoLayoutDispatch;
 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
@@ -171,7 +179,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator,
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
-        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms
+        final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final java.util.function.BooleanSupplier textureAtlasAutoLayoutDispatch
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
         this.cubismEditorVersion = java.util.Objects.requireNonNull(
@@ -269,6 +278,8 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             textureAtlasEditorSession, "textureAtlasEditorSession");
         this.textureAtlasAlgorithms = java.util.Objects.requireNonNull(
             textureAtlasAlgorithms, "textureAtlasAlgorithms");
+        this.textureAtlasAutoLayoutDispatch = java.util.Objects.requireNonNull(
+            textureAtlasAutoLayoutDispatch, "textureAtlasAutoLayoutDispatch");
     }
 
     @Override
@@ -453,5 +464,10 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     /** @return the registry of texture-atlas layout algorithms available to plugins. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         return textureAtlasAlgorithms;
+    }
+
+    @Override
+    public java.util.function.BooleanSupplier textureAtlasAutoLayoutDispatch() {
+        return textureAtlasAutoLayoutDispatch;
     }
 }

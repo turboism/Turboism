@@ -89,6 +89,9 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
+    /** Plugin scope auto-tied to atlas registrations; null outside the production composition. */
+    private dev.turboism.sdk.plugin.DisposableScope pluginScope;
+    private volatile BooleanSupplier pluginSealed = () -> false;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -329,6 +332,51 @@ public final class CubismFacadeImpl implements CubismFacade {
             activeScope,
             textureAtlasEditorUi,
             textureAtlasEditorSession,
+            textureAtlasAlgorithms,
+            history,
+            authoringTransactions,
+            null,
+            () -> false
+        );
+    }
+
+    /**
+     * Production seam that additionally binds texture-atlas algorithm registrations to the
+     * plugin's {@link DisposableScope}, so a plugin that forgets to close a registration is
+     * still detached — after waiting for its in-flight dispatches — when the scope closes.
+     */
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final CubismHistory history,
+        final AuthoringTransactionService authoringTransactions,
+        final dev.turboism.sdk.plugin.DisposableScope pluginScope,
+        final BooleanSupplier pluginSealed
+    ) {
+        this(
+            source,
+            permissionGate,
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            nativeInvocations,
+            editorObjectLifecycle,
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
             textureAtlasAlgorithms
         );
         this.history = Objects.requireNonNull(history, "history");
@@ -336,6 +384,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             authoringTransactions,
             "authoringTransactions"
         );
+        this.pluginScope = pluginScope;
+        this.pluginSealed = Objects.requireNonNull(pluginSealed, "pluginSealed");
     }
 
     public CubismFacadeImpl(
@@ -943,15 +993,28 @@ public final class CubismFacadeImpl implements CubismFacade {
     @Override
     public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         requireActiveScope();
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry delegate =
-            textureAtlasAlgorithms;
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry delegate = textureAtlasAlgorithms;
         return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry() {
             @Override
             public dev.turboism.sdk.plugin.Registration register(
                 final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm algorithm
             ) {
                 requireActiveScope();
-                final dev.turboism.sdk.plugin.Registration registration = delegate.register(algorithm);
+                // Owner lease: once this plugin's scope dies or is sealed for
+                // teardown the registration stops resolving and can never be
+                // dispatched, even if the plugin forgets to close the returned
+                // Registration.
+                final dev.turboism.sdk.plugin.Registration registration =
+                    delegate.register(algorithm, CubismFacadeImpl.this::textureAtlasOwnerLive);
+                final dev.turboism.sdk.plugin.DisposableScope scope = pluginScope;
+                if (scope != null) {
+                    try {
+                        scope.register(registration);
+                    } catch (IllegalStateException scopeClosed) {
+                        registration.close();
+                        throw scopeClosed;
+                    }
+                }
                 return () -> {
                     requireActiveScope();
                     registration.close();
@@ -971,7 +1034,33 @@ public final class CubismFacadeImpl implements CubismFacade {
                 requireActiveScope();
                 return delegate.algorithms();
             }
+
+            @Override
+            public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection selection() {
+                requireActiveScope();
+                return delegate.selection();
+            }
+
+            @Override
+            public void select(
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection selection
+            ) {
+                requireActiveScope();
+                delegate.select(selection);
+            }
         };
+    }
+
+    /**
+     * Owner liveness for texture-atlas algorithm registrations: the facade scope must be
+     * active AND the plugin scope must not be sealed for teardown. The seal observation
+     * is wired by the services factory; once the lifecycle exposes {@code
+     * DisposableScope.isSealed()} it is passed as the {@code pluginSealed} supplier so
+     * dispatch cannot start or commit after the admission seal while disable/shutdown
+     * is still running.
+     */
+    private boolean textureAtlasOwnerLive() {
+        return activeScope.getAsBoolean() && !pluginSealed.getAsBoolean();
     }
 
     private Optional<HostSnapshotSource.HostProject> runtimeProjectSnapshot() {
