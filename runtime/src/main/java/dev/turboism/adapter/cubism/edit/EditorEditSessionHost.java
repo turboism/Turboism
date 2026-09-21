@@ -71,6 +71,33 @@ public interface EditorEditSessionHost {
     void undoEditGroup(EditorAuthoringTransactionCoordinator.Binding binding, Object edit);
 
     /**
+     * The edit mode's current undo group ({@code ACEditMode.getCurrentUndo}), or {@code null}
+     * when no edit is open. A host-side {@code beginEdit} replaces the current group without
+     * closing the session's — recoveries compare the returned token against the session's own
+     * to detect the displacement before deciding how to close.
+     */
+    Object currentEditGroup(EditorAuthoringTransactionCoordinator.Binding binding);
+
+    /**
+     * Undoes an arbitrary {@code GroupUndo} in place ({@code GroupUndo.undo()}) — the
+     * recovery-only variant of {@link #undoEditGroup} that also accepts a foreign group which
+     * displaced the session's token, so its model mutations are restored before the group is
+     * discarded.
+     */
+    void undoGroup(EditorAuthoringTransactionCoordinator.Binding binding, Object group);
+
+    /**
+     * Moves the native Undo history cursor to {@code position} ({@code
+     * CUndoManager.undoRedoTo}), undoing or redoing every entry between the current position
+     * and the target. The cursor-level reconciler for entries a displaced host edit already
+     * committed during the session.
+     */
+    void undoRedoTo(
+        EditorAuthoringTransactionCoordinator.Binding binding,
+        int position
+    );
+
+    /**
      * Returns whether the {@code cubism.editor-model.undo.revert} capability row is verified on
      * this host — the precondition for the official {@code CUndoManager.revert()} cancel path.
      */

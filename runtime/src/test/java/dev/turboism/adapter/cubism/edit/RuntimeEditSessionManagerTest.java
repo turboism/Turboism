@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.edit.EditSessionListener;
 import dev.turboism.sdk.cubism.edit.EditSessionOptions;
 import dev.turboism.sdk.cubism.edit.EditSessionState;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import org.junit.jupiter.api.Test;
@@ -118,7 +119,7 @@ final class RuntimeEditSessionManagerTest {
     @Test
     void refusesOpenWhenHistoryIsUnavailable() {
         final Fixture fixture = new Fixture();
-        fixture.host.history = HistorySnapshot.unavailable();
+        fixture.host.historyOverride = HistorySnapshot.unavailable();
 
         assertThrows(
             EditUnavailableException.class,
@@ -540,9 +541,12 @@ final class RuntimeEditSessionManagerTest {
         final List<String> calls = new ArrayList<>();
         final List<String> dispatchLabels = new ArrayList<>();
         final List<Boolean> endEditCancelFlags = new ArrayList<>();
+        final List<Integer> cursorMoves = new ArrayList<>();
+        final List<Object> committedEntries = new ArrayList<>();
         final Object editToken = new Object();
-        HistorySnapshot history = new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE, 1, 7, 0, List.of(), false, false);
+        Object currentGroup;
+        int position;
+        HistorySnapshot historyOverride;
         boolean current = true;
         boolean admitted = true;
         boolean revertVerified;
@@ -585,7 +589,21 @@ final class RuntimeEditSessionManagerTest {
                 return new HistorySnapshot(
                     HistorySnapshot.Availability.AVAILABLE, 1, 9, 0, List.of(), false, false);
             }
-            return history;
+            if (historyOverride != null) {
+                return historyOverride;
+            }
+            final List<HistoryEntry> rows = new ArrayList<>();
+            for (int i = 0; i < committedEntries.size(); i++) {
+                rows.add(new HistoryEntry(i, "entry-" + i, true));
+            }
+            return new HistorySnapshot(
+                HistorySnapshot.Availability.AVAILABLE,
+                1,
+                7,
+                position,
+                rows,
+                position > 0,
+                position < committedEntries.size());
         }
 
         @Override
@@ -595,6 +613,7 @@ final class RuntimeEditSessionManagerTest {
         ) {
             onHost("beginEdit:" + label);
             beginCount++;
+            currentGroup = editToken;
             return editToken;
         }
 
@@ -610,6 +629,38 @@ final class RuntimeEditSessionManagerTest {
                 failNextEndEdit = false;
                 throw new IllegalStateException("endEdit failed");
             }
+            if (!cancel && currentGroup != null) {
+                committedEntries.add(currentGroup);
+                position = committedEntries.size();
+            }
+            currentGroup = null;
+        }
+
+        @Override
+        public Object currentEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected
+        ) {
+            onHost("currentEditGroup");
+            return currentGroup;
+        }
+
+        @Override
+        public void undoGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object group
+        ) {
+            onHost("undoGroup");
+            undoGroupCount++;
+        }
+
+        @Override
+        public void undoRedoTo(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final int target
+        ) {
+            onHost("undoRedoTo:" + target);
+            cursorMoves.add(target);
+            position = Math.min(target, committedEntries.size());
         }
 
         @Override
@@ -637,6 +688,11 @@ final class RuntimeEditSessionManagerTest {
             revertCount++;
             if (failRevert) {
                 throw new IllegalStateException("revert failed");
+            }
+            if (position > 0) {
+                // CUndoManager.revert pops the entry at the cursor and truncates the tail.
+                committedEntries.subList(position - 1, committedEntries.size()).clear();
+                position--;
             }
         }
 
