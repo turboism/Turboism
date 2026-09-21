@@ -55,10 +55,12 @@ class EditorTextureReplacementDiagnosticTest {
         CallSiteFilterEnv.hasReads = 0;
         CallSiteFilterEnv.throwOnHasRead = 0;
         CallSiteFilterEnv.throwOnHasReadLinkageError = 0;
-        CallSiteLayeredImage.failNextIncomingGuidRead = false;
+        CallSiteLayeredImage.failIncomingGuidReadAt = 0;
+        CallSiteLayeredImage.incomingGuidReads = 0;
         CallSiteLayeredImage.saveCalls = 0;
         CallSiteNativeProcess.calls = 0;
         CallSiteNativeProcess.fail = false;
+        CallSiteNativeProcess.mutation = CallSiteNativeProcess.NativeMutation.CORRECT_INCOMING;
         CallSiteNativeProcess.active = null;
     }
 
@@ -243,6 +245,75 @@ class EditorTextureReplacementDiagnosticTest {
         assertEquals(1, CallSiteNativeProcess.calls);
         assertEquals(2, CallSiteFilterEnv.hasReads, "only the ordinary before/after projection reads");
         assertFalse(Files.exists(diagnosticArtifact()));
+    }
+
+    @Test
+    void replacementCallSiteRequiresTheExactIncomingRawForApplicationEvidence() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        final List<CallSiteNativeProcess.NativeMutation> rejected = List.of(
+            CallSiteNativeProcess.NativeMutation.OLD_UNCHANGED,
+            CallSiteNativeProcess.NativeMutation.REGISTER_INCOMING_ONLY,
+            CallSiteNativeProcess.NativeMutation.WRONG_RAW,
+            CallSiteNativeProcess.NativeMutation.INCOMING_NOT_REGISTERED
+        );
+
+        for (final CallSiteNativeProcess.NativeMutation mutation : rejected) {
+            final CallSiteFixture fixture = callSiteFixture();
+            CallSiteNativeProcess.mutation = mutation;
+
+            final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
+
+            assertEquals("NATIVE_RETURNED", result.nativeStatus(), mutation.name());
+            assertTrue(result.nativeReturned(), mutation.name());
+            assertTrue(result.relationsAvailable(), mutation.name());
+            assertTrue(result.afterRawImageId().isEmpty(), mutation.name());
+            assertEquals(1, CallSiteNativeProcess.calls, mutation.name());
+            CallSiteNativeProcess.calls = 0;
+            CallSiteNativeProcess.active = null;
+        }
+    }
+
+    @Test
+    void replacementCallSiteReportsTheExactIncomingRawOnlyAfterAffectedImagesSwitch() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        final CallSiteFixture fixture = callSiteFixture();
+
+        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
+
+        assertEquals("NATIVE_RETURNED", result.nativeStatus());
+        assertTrue(result.nativeReturned());
+        assertEquals(Optional.of(new RawImageId("incoming")), result.afterRawImageId());
+        assertEquals(1, CallSiteNativeProcess.calls);
+    }
+
+    @Test
+    void productionIncomingIdentityFailureStopsBeforeNativeWhileDiagnosticFailureStaysIsolated()
+        throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        final CallSiteFixture productionFailure = callSiteFixture();
+        CallSiteLayeredImage.failIncomingGuidReadAt = 1;
+
+        final PsdReplaceHost.Replacement rejected = replaceAtCallSite(productionFailure);
+
+        assertEquals(1, CallSiteLayeredImage.incomingGuidReads);
+        assertEquals("UNAVAILABLE", rejected.nativeStatus());
+        assertFalse(rejected.nativeReturned());
+        assertEquals(0, CallSiteNativeProcess.calls);
+
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture diagnosticFailure = callSiteFixture();
+        CallSiteLayeredImage.failIncomingGuidReadAt = 2;
+
+        final PsdReplaceHost.Replacement accepted = replaceAtCallSite(diagnosticFailure);
+
+        assertEquals("NATIVE_RETURNED", accepted.nativeStatus());
+        assertTrue(accepted.nativeReturned());
+        assertEquals(1, CallSiteNativeProcess.calls);
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).contains("incomingRawStatus=UNAVAILABLE"));
+        assertTrue(lines.get(0).contains("incoming-guid-unavailable"));
     }
 
     @Test
@@ -479,7 +550,9 @@ class EditorTextureReplacementDiagnosticTest {
         System.setProperty("turboism.editorObjectValidation.trace", "true");
         System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
         final CallSiteFixture fixture = callSiteFixture();
-        CallSiteLayeredImage.failNextIncomingGuidRead = true;
+        // The first incoming GUID read is the production application-evidence read. Fail the
+        // second one so this test remains specifically diagnostic-only.
+        CallSiteLayeredImage.failIncomingGuidReadAt = 2;
 
         final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
 
@@ -1147,6 +1220,9 @@ class EditorTextureReplacementDiagnosticTest {
     ) { }
 
     private CallSiteFixture callSiteFixture() throws Exception {
+        // Callers arm a failure after construction so fixture seeding cannot consume it.
+        CallSiteLayeredImage.failIncomingGuidReadAt = 0;
+        CallSiteLayeredImage.incomingGuidReads = 0;
         final List<CallSiteWrapper> wrappers = new ArrayList<>();
         final CallSiteLayeredImage old = new CallSiteLayeredImage("old", "Old");
         final CallSiteLayeredImage incoming = new CallSiteLayeredImage("incoming", "Incoming");
@@ -1181,6 +1257,9 @@ class EditorTextureReplacementDiagnosticTest {
         Files.writeString(fixture.stage, "synthetic-stage");
         CallSiteNativeProcess.active = fixture;
         CallSiteAppController.currentDocument = fixture.document;
+        // Fixture construction uses the same reviewed GUID accessor to seed linked IDs; start
+        // the counter after setup so failures below target production/diagnostic call-site reads.
+        CallSiteLayeredImage.incomingGuidReads = 0;
         return fixture;
     }
 
@@ -1467,7 +1546,8 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     private static final class CallSiteLayeredImage {
-        static boolean failNextIncomingGuidRead;
+        static int failIncomingGuidReadAt;
+        static int incomingGuidReads;
         static int saveCalls;
         private final CallSiteId guid;
         private final String name;
@@ -1494,8 +1574,7 @@ class EditorTextureReplacementDiagnosticTest {
         }
 
         public CallSiteId getGuid() {
-            if (failNextIncomingGuidRead && "incoming".equals(guid.value)) {
-                failNextIncomingGuidRead = false;
+            if ("incoming".equals(guid.value) && ++incomingGuidReads == failIncomingGuidReadAt) {
                 throw new IllegalStateException("incoming diagnostic identity failure");
             }
             return guid;
@@ -1799,10 +1878,19 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     public static final class CallSiteNativeProcess {
+        enum NativeMutation {
+            CORRECT_INCOMING,
+            OLD_UNCHANGED,
+            REGISTER_INCOMING_ONLY,
+            WRONG_RAW,
+            INCOMING_NOT_REGISTERED
+        }
+
         public static final CallSiteNativeProcess INSTANCE = new CallSiteNativeProcess();
         static CallSiteFixture active;
         static int calls;
         static boolean fail;
+        static NativeMutation mutation = NativeMutation.CORRECT_INCOMING;
 
         public void replace(
             final CallSiteAppController app,
@@ -1814,10 +1902,28 @@ class EditorTextureReplacementDiagnosticTest {
             calls++;
             if (fail) throw new IllegalStateException("native call root cause");
             if (active == null) throw new IllegalStateException("missing call-site fixture");
-            active.wrappers.add(new CallSiteWrapper(
-                incoming, "import-incoming", "modified-incoming", true
-            ));
-            active.modelImage.replace(incoming.getGuid());
+            if (mutation != NativeMutation.OLD_UNCHANGED
+                && mutation != NativeMutation.INCOMING_NOT_REGISTERED) {
+                active.wrappers.add(new CallSiteWrapper(
+                    incoming, "import-incoming", "modified-incoming", true
+                ));
+            }
+            switch (mutation) {
+                case CORRECT_INCOMING, REGISTER_INCOMING_ONLY -> {
+                    if (mutation == NativeMutation.CORRECT_INCOMING) {
+                        active.modelImage.replace(incoming.getGuid());
+                    }
+                }
+                case OLD_UNCHANGED -> { }
+                case INCOMING_NOT_REGISTERED -> active.modelImage.replace(incoming.getGuid());
+                case WRONG_RAW -> {
+                    final CallSiteLayeredImage third = new CallSiteLayeredImage("third", "Third");
+                    active.wrappers.add(new CallSiteWrapper(
+                        third, "import-third", "modified-third", true
+                    ));
+                    active.modelImage.replace(third.getGuid());
+                }
+            }
         }
     }
 
