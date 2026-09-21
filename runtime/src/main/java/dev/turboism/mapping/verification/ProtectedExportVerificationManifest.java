@@ -19,7 +19,7 @@ public final class ProtectedExportVerificationManifest {
 
     public static final String VERIFICATION_ID_53 = "cubism-5.3.02.protected-export.static";
     public static final String RECORD_SHA256_53 =
-        "d43ff5aee6d32aa32e8273c98128593041ea669fa8e0f2512ded5b3f306caaf2";
+        "e90d0d0cceab0b307e55a9b21c473ea528dd97995230d9ae73e64a48c6666fe9";
     public static final String CUBISM_VERSION_53 = "5.3.02";
     public static final String PROFILE_ID_53 = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE_53 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
@@ -37,9 +37,14 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.art-mesh.class",
         "cubism.protected-export.art-mesh-form.class",
         "cubism.protected-export.art-mesh-form.positions",
+        "cubism.protected-export.art-mesh-form.set-positions",
         "cubism.protected-export.art-mesh-instance.calculated-form",
         "cubism.protected-export.art-mesh-instance.class",
         "cubism.protected-export.art-mesh-instance.source",
+        "cubism.protected-export.art-mesh-source.keyforms",
+        "cubism.protected-export.art-mesh-source.positions",
+        "cubism.protected-export.art-mesh-source.set-positions",
+        "cubism.protected-export.deformer-source.children",
         "cubism.protected-export.deformer-source.class",
         "cubism.protected-export.deformer.guid",
         "cubism.protected-export.deformer.target-guid",
@@ -119,6 +124,7 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.model-source.root-part",
         "cubism.protected-export.model.class",
         "cubism.protected-export.model.all-art-meshes",
+        "cubism.protected-export.model.deformer-transform",
         "cubism.protected-export.model.parameter-set",
         "cubism.protected-export.model.reinit-instance-exe",
         "cubism.protected-export.morph-target-set.class",
@@ -158,6 +164,8 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.source.keyform-grid",
         "cubism.protected-export.source.local-name",
         "cubism.protected-export.source.set-local-name",
+        "cubism.protected-export.transform.apply-array",
+        "cubism.protected-export.transform.create-local-to-canvas",
         "cubism.protected-export.undo-manager.can-undo",
         "cubism.protected-export.undo-manager.class",
         "cubism.protected-export.undo-manager.edit-count",

@@ -273,6 +273,24 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
+    void bakesUnboundDeformerConstantBeforeApply() throws Exception {
+        // A deformer with no keyform bindings still contributes a constant
+        // deformation on the real host; the native apply command only preserves
+        // deformation at bound keys, so the orchestrator pre-bakes it into the
+        // children's authored shapes. If the bake were skipped the fake's
+        // apply would drop the constant and the behavior oracle would reject.
+        final Fixture fixture = new Fixture();
+        fixture.host.unboundDeformerConstant = 7f;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertTrue(report.published(),
+            "expected publish, failed with " + report.failureKey());
+        orchestrator.close();
+    }
+
+    @Test
     void restoresSampledParametersAfterCapture() throws Exception {
         // Sampling writes live parameter values on the copy; a document saved
         // with non-default values must get them back — the real export has to
@@ -429,8 +447,8 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
         assertFalse(report.published());
-        // The copy mutation never ran: both deformers survive on the copy model.
-        assertEquals(2, fixture.host.copy.model.deformers.size());
+        // The copy mutation never ran: all deformers survive on the copy model.
+        assertEquals(3, fixture.host.copy.model.deformers.size());
         orchestrator.close();
     }
 
@@ -1073,6 +1091,9 @@ class ProtectedExportOrchestratorTest {
                     exported.artMeshes.forEach(mesh -> {
                         final float[] positions =
                             evalPositions(mesh.bindings, liveValues);
+                        for (int i = 0; i < positions.length; i++) {
+                            positions[i] += mesh.basePositions[i];
+                        }
                         if (host.exportDriftsGeometry) {
                             // The exporter's bake diverges from live evaluation —
                             // contracts still match, only the behavior oracle can
@@ -1162,6 +1183,15 @@ class ProtectedExportOrchestratorTest {
         final String guid;
         final String targetGuid;
         final List<FakeBinding> bindings;
+        /**
+         * Constant deformation this deformer contributes to every mesh it
+         * contains — the fake's stand-in for a deformer-local transform. A
+         * bound deformer carries it into the meshes' keyform shapes when the
+         * host apply runs; an unbound deformer's constant is silently dropped
+         * by apply, mirroring the real host gap that requires the
+         * orchestrator's pre-bake.
+         */
+        final float constant;
 
         FakeDeformer(final String guid, final String targetGuid) {
             this(guid, targetGuid, List.of());
@@ -1172,9 +1202,37 @@ class ProtectedExportOrchestratorTest {
             final String targetGuid,
             final List<FakeBinding> bindings
         ) {
+            this(guid, targetGuid, bindings, 0f);
+        }
+
+        FakeDeformer(
+            final String guid,
+            final String targetGuid,
+            final List<FakeBinding> bindings,
+            final float constant
+        ) {
             this.guid = guid;
             this.targetGuid = targetGuid;
             this.bindings = new ArrayList<>(bindings);
+            this.constant = constant;
+        }
+    }
+
+    /** One baked keyform shape: just the position array the bake rewrites. */
+    private static final class FakeArtMeshForm {
+        float[] positions;
+
+        FakeArtMeshForm(final float[] positions) {
+            this.positions = positions.clone();
+        }
+    }
+
+    /** Marker transform carrying the deformer's constant deformation. */
+    private static final class FakeTransform {
+        final float constant;
+
+        FakeTransform(final float constant) {
+            this.constant = constant;
         }
     }
 
@@ -1183,6 +1241,10 @@ class ProtectedExportOrchestratorTest {
         String name;
         String drawableId;
         final List<FakeBinding> bindings;
+        /** Authored base shape; the constant-deformation bake rewrites it. */
+        float[] basePositions = new float[4];
+        /** Authored keyform shapes; the bake rewrites every entry. */
+        final List<FakeArtMeshForm> keyforms = new ArrayList<>();
         /** Post-evaluation vertex positions, filled by {@code evaluateModelInstance}. */
         float[] evaluatedPositions;
 
@@ -1353,6 +1415,13 @@ class ProtectedExportOrchestratorTest {
         volatile boolean bumpGenerationOnNativeExport;
         volatile boolean flattenCorruptsGeometry;
         volatile boolean copyParameterStartsOffDefault;
+        /**
+         * Constant deformation carried by the unbound fixture deformer —
+         * nonzero exercises the orchestrator's constant-deformation bake for
+         * real: without the bake the apply step silently drops it and the
+         * behavior oracle must reject.
+         */
+        volatile float unboundDeformerConstant;
         volatile boolean removeOriginalOnNativeExport;
         volatile boolean removeCopyOnNativeExport;
         final AtomicInteger applyCalls = new AtomicInteger();
@@ -1364,6 +1433,8 @@ class ProtectedExportOrchestratorTest {
                 List.of(new FakeBinding("param-1", List.of(0f, 0.5f, 1f)))));
             original.model.deformers.add(new FakeDeformer("g-root", null,
                 List.of(new FakeBinding("param-1", List.of(0f, 1f)))));
+            original.model.deformers.add(new FakeDeformer("g-unbound", null,
+                List.of(), unboundDeformerConstant));
             original.model.artMeshes.add(
                 new FakeArtMesh("m-a-guid", "meshA", "id-a",
                     List.of(new FakeBinding("param-1", List.of(0f)))));
@@ -1372,7 +1443,7 @@ class ProtectedExportOrchestratorTest {
             original.model.parameters.add(new FakeParameter("param-1"));
             final FakePart part = new FakePart("part-1-guid", "part-1");
             part.childGuids.addAll(
-                List.of("m-a-guid", "m-b-guid", "g-leaf", "g-root"));
+                List.of("m-a-guid", "m-b-guid", "g-leaf", "g-root", "g-unbound"));
             original.model.parts.add(part);
             otherDoc.file = new File("other.cmo3");
         }
@@ -1456,14 +1527,21 @@ class ProtectedExportOrchestratorTest {
             final FakeDoc fresh = new FakeDoc();
             fresh.file = file;
             for (FakeDeformer deformer : original.model.deformers) {
+                // Knobs are assigned after fixture construction; the copy is
+                // where evaluation/bake actually consume the constant.
+                final float constant = "g-unbound".equals(deformer.guid)
+                    ? unboundDeformerConstant : deformer.constant;
                 fresh.model.deformers.add(
                     new FakeDeformer(deformer.guid, deformer.targetGuid,
-                        deformer.bindings));
+                        deformer.bindings, constant));
             }
             for (FakeArtMesh mesh : original.model.artMeshes) {
-                fresh.model.artMeshes.add(
-                    new FakeArtMesh(mesh.guid, mesh.name, mesh.drawableId,
-                        mesh.bindings));
+                final FakeArtMesh copyMesh = new FakeArtMesh(
+                    mesh.guid, mesh.name, mesh.drawableId, mesh.bindings);
+                copyMesh.basePositions = mesh.basePositions.clone();
+                mesh.keyforms.forEach(form ->
+                    copyMesh.keyforms.add(new FakeArtMeshForm(form.positions)));
+                fresh.model.artMeshes.add(copyMesh);
             }
             for (FakeParameter parameter : original.model.parameters) {
                 fresh.model.parameters.add(new FakeParameter(parameter.id,
@@ -1648,6 +1726,16 @@ class ProtectedExportOrchestratorTest {
                                 binding.parameterId,
                                 new ArrayList<>(binding.keys)));
                         }
+                        if (!deformer.bindings.isEmpty()) {
+                            // The host bakes the evaluated child shape at the
+                            // bound key positions, so a bound deformer's
+                            // constant deformation survives apply. An unbound
+                            // deformer's constant is silently dropped — the
+                            // real-host gap the orchestrator's pre-bake covers.
+                            for (int i = 0; i < mesh.basePositions.length; i++) {
+                                mesh.basePositions[i] += deformer.constant;
+                            }
+                        }
                     }
                     for (FakePart part : doc.model.parts) {
                         part.childGuids.remove(deformer.guid);
@@ -1793,6 +1881,12 @@ class ProtectedExportOrchestratorTest {
                     effective.addAll(deformer.bindings);
                 }
                 mesh.evaluatedPositions = evalPositions(effective, values);
+                for (int i = 0; i < mesh.evaluatedPositions.length; i++) {
+                    mesh.evaluatedPositions[i] += mesh.basePositions[i];
+                    for (FakeDeformer deformer : model.deformers) {
+                        mesh.evaluatedPositions[i] += deformer.constant;
+                    }
+                }
                 if (flattenCorruptsGeometry && model.deformers.isEmpty()) {
                     // A flatten bake that damaged geometry: evaluated positions
                     // diverge from the pre-flatten snapshot even though the
@@ -1824,6 +1918,66 @@ class ProtectedExportOrchestratorTest {
             }
             return mesh.source.evaluatedPositions == null
                 ? null : mesh.source.evaluatedPositions.clone();
+        }
+
+        @Override
+        public List<?> deformerChildren(final Object deformerSource) {
+            // The fake models the worst case: every deformer contains every
+            // mesh, so an unbound deformer's constant reaches all of them.
+            // Flatten operates on the bound copy, which is the active doc.
+            return List.copyOf(((FakeDoc) activeDoc).model.artMeshes);
+        }
+
+        @Override
+        public Object deformerLocalToCanvasTransform(
+            final Object modelInstance,
+            final Object deformerSource
+        ) {
+            return new FakeTransform(((FakeDeformer) deformerSource).constant);
+        }
+
+        @Override
+        public float[] transformPositions(
+            final Object transform,
+            final float[] positions
+        ) {
+            final float[] transformed = positions.clone();
+            final float constant = ((FakeTransform) transform).constant;
+            for (int i = 0; i < transformed.length; i++) {
+                transformed[i] += constant;
+            }
+            return transformed;
+        }
+
+        @Override
+        public float[] artMeshSourcePositions(final Object artMeshSource) {
+            return ((FakeArtMesh) artMeshSource).basePositions.clone();
+        }
+
+        @Override
+        public void setArtMeshSourcePositions(
+            final Object artMeshSource,
+            final float[] positions
+        ) {
+            ((FakeArtMesh) artMeshSource).basePositions = positions.clone();
+        }
+
+        @Override
+        public List<?> artMeshSourceKeyforms(final Object artMeshSource) {
+            return List.copyOf(((FakeArtMesh) artMeshSource).keyforms);
+        }
+
+        @Override
+        public float[] artMeshFormPositions(final Object keyform) {
+            return ((FakeArtMeshForm) keyform).positions.clone();
+        }
+
+        @Override
+        public void setArtMeshFormPositions(
+            final Object keyform,
+            final float[] positions
+        ) {
+            ((FakeArtMeshForm) keyform).positions = positions.clone();
         }
 
         @Override
