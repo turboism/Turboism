@@ -174,6 +174,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static final String GUI_WAIT_DIAGNOSTIC_FILE_PREFIX =
         "external-psd-gui-thread-dump-";
     private static final String PERSISTED_DOCUMENT_BASENAME = "persisted-document.cmo3";
+    private static final String CONTENT_PROFILE_PROPERTY =
+        "turboism.validation.externalpsd.contentProfile";
+    private static final String CONTROL_CONTENT_PROFILE = "control7";
+    private static final String F1_CONTENT_PROFILE = "f1";
     private static final String UNUSED_RAW_MESSAGE_KEY = "CUB3-3054";
     private static final String OFFICIAL_LOCALIZER_CLASS = "b.c";
     private static final String OFFICIAL_OPTION_CLASS = "com.live2d.util.UUOption";
@@ -196,6 +200,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private PluginContext context;
     private volatile boolean stopped;
+    private volatile PsdValidationContent.Profile contentProfile =
+        PsdValidationContent.Profile.SEVEN_LAYER_CONTROL;
+    private volatile List<String> stableSharedModelImageUsers = List.of();
     private Thread worker;
     private volatile GuiWaitDiagnostics guiWaitDiagnostics;
     /** GUI-only cache: an off-EDT verified context is reused by all tables from one loader. */
@@ -236,7 +243,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final String phase = System.getProperty(
             "turboism.validation.externalpsd.phase", "pipeline");
         result.setProperty("phase", phase);
+        final String requestedContentProfile = System.getProperty(
+            CONTENT_PROFILE_PROPERTY, CONTROL_CONTENT_PROFILE);
+        result.setProperty("contentProfile", requestedContentProfile);
         try {
+            stableSharedModelImageUsers = List.of();
+            contentProfile = parseContentProfile(requestedContentProfile);
+            result.setProperty("contentProfile", contentProfileName(contentProfile));
+            result.setProperty("contentValidation",
+                Boolean.toString(contentValidationRequired(contentProfile, "1".equals(
+                    System.getProperty("turboism.validation.externalpsd.persist")))));
             if (isPrepareFixturePhase(phase)) {
                 runPrepareFixture(result);
             } else {
@@ -299,6 +315,30 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     static boolean isPrepareFixturePhase(final String phase) {
         return "prepare-fixture".equals(phase);
+    }
+
+    /** Resolves the namespaced content profile before readiness, export, or mutation begins. */
+    static PsdValidationContent.Profile parseContentProfile(final String requested) {
+        final String value = requested == null || requested.isBlank()
+            ? CONTROL_CONTENT_PROFILE : requested.trim().toLowerCase(Locale.ROOT);
+        return switch (value) {
+            case CONTROL_CONTENT_PROFILE -> PsdValidationContent.Profile.SEVEN_LAYER_CONTROL;
+            case F1_CONTENT_PROFILE -> PsdValidationContent.Profile.F1_2048_20;
+            default -> throw new IllegalArgumentException(
+                "unknown content profile '" + requested + "'; expected control7 or f1");
+        };
+    }
+
+    static String contentProfileName(final PsdValidationContent.Profile profile) {
+        Objects.requireNonNull(profile, "profile");
+        return profile == PsdValidationContent.Profile.F1_2048_20
+            ? F1_CONTENT_PROFILE : CONTROL_CONTENT_PROFILE;
+    }
+
+    static boolean contentValidationRequired(final PsdValidationContent.Profile profile,
+        final boolean persistValidation) {
+        Objects.requireNonNull(profile, "profile");
+        return persistValidation || profile == PsdValidationContent.Profile.F1_2048_20;
     }
 
     /**
@@ -1067,6 +1107,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Target initialTarget = resolveTarget(result);
         final boolean persistValidation = "1".equals(
             System.getProperty("turboism.validation.externalpsd.persist"));
+        final boolean validateContent = contentValidationRequired(contentProfile,
+            persistValidation);
         final TempTracker tracker = new TempTracker();
         Throwable pipelineFailure = null;
         try {
@@ -1082,13 +1124,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     "export.baseline.targetBinding.after", 0L);
             }
             final byte[] baselineBytes = Files.readAllBytes(tempFile);
-            final PsdValidationContent.Fingerprint baselineFingerprint = persistValidation
-                ? targetFingerprint(baselineBytes, "pipeline baseline") : null;
+            final PsdValidationContent.Fingerprint baselineFingerprint = validateContent
+                ? targetFingerprint(baselineBytes, "pipeline baseline", contentProfile) : null;
             result.setProperty("tempFile.discovered", Boolean.toString(tempFile.getFileName()
                 .toString().equals("external-edit.psd")));
             result.setProperty("baseline.bytes", Integer.toString(baselineBytes.length));
             result.setProperty("baseline.sha256", sha256(baselineBytes));
             result.setProperty("baseline.revisionIssued", "true");
+            if (validateContent) {
+                recordTargetFingerprint(result, "content.baselineTargetRgb", baselineFingerprint);
+                result.setProperty("content.baselineTargetRgbSha256", baselineFingerprint.sha256());
+            }
             if (persistValidation) {
                 recordTargetFingerprint(result, "persist.baselineTargetRgb", baselineFingerprint);
                 result.setProperty("persist.baselineTargetRgbSha256", baselineFingerprint.sha256());
@@ -1118,7 +1164,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     requireTargetBinding(result, initialTarget,
                         "export.baselineSecond.targetBinding.after", 0L);
                     final PsdValidationContent.Fingerprint secondFingerprint = targetFingerprint(
-                        Files.readAllBytes(second.path()), "pipeline second baseline");
+                        Files.readAllBytes(second.path()), "pipeline second baseline",
+                        contentProfile);
                     recordTargetFingerprint(
                         result, "persist.baselineSecondTargetRgb", secondFingerprint);
                     result.setProperty("persist.baselineSecondTargetRgbSha256",
@@ -1164,13 +1211,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
                 final SaveCyclesResult cyclesResult = runSaveCycles(
                     result, file, initialTarget, tempFile, revisions, tracker, cycles,
-                    persistValidation);
+                    validateContent);
                 final Target currentTarget = cyclesResult.currentTarget();
                 final Target lastBeforeTarget = cyclesResult.lastBeforeTarget();
                 final Mutation marker = cyclesResult.lastMutation();
-                final PsdValidationContent.Fingerprint postBeforeUndo = persistValidation
+                final PsdValidationContent.Fingerprint postBeforeUndo = validateContent
                     ? exportTargetFingerprint(result, currentTarget, tracker, "postBeforeUndo")
                     : null;
+                if (validateContent) {
+                    result.setProperty("content.postBeforeUndoTargetRgbSha256",
+                        postBeforeUndo.sha256());
+                }
                 if (persistValidation) {
                     result.setProperty("persist.postBeforeUndoTargetRgbSha256",
                         postBeforeUndo.sha256());
@@ -1237,7 +1288,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             requireTargetBinding(result, target, "export.reopen.targetBinding.after", 0L);
             final byte[] bytes = Files.readAllBytes(exported.path());
             final PsdValidationContent.Fingerprint actual = targetFingerprint(
-                bytes, "reopen target layer");
+                bytes, "reopen target layer", contentProfile);
             result.setProperty("reopen.layerCount",
                 Integer.toString(layerNameRanges(bytes).size()));
             result.setProperty("reopen.bytes", Integer.toString(bytes.length));
@@ -1327,12 +1378,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             }
             final byte[] baselineBytes = writeSnapshot.bytes();
             final PsdValidationContent.Fingerprint sessionBaseline = targetFingerprint(
-                baselineBytes, "GUI session baseline");
+                baselineBytes, "GUI session baseline", contentProfile);
             recordTargetFingerprint(result, "gui.session.baselineTargetRgb", sessionBaseline);
             result.setProperty("gui.session.baselineTargetRgbSha256", sessionBaseline.sha256());
-            final byte[] mutated = PsdValidationContent.invertTargetLayerRgb(baselineBytes);
+            final byte[] mutated = PsdValidationContent.invertTargetLayerRgb(
+                baselineBytes, contentProfile);
             final PsdValidationContent.Fingerprint written = targetFingerprint(
-                mutated, "GUI session RGB mutation");
+                mutated, "GUI session RGB mutation", contentProfile);
             if (sessionBaseline.equals(written)) {
                 throw new IllegalStateException(
                     "GUI session RGB mutation did not change the decoded target content");
@@ -2001,7 +2053,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 result.setProperty("artMeshCount", Integer.toString(relations.artMeshInputs().size()));
                 final Target picked = pickTarget(relations).orElseThrow(() ->
                     new IllegalStateException("No ArtMesh resolves to a current raw image"));
-                found.set(new Target(
+                final Target resolved = new Target(
                     picked.artMesh(),
                     picked.modelImage(),
                     picked.raw(),
@@ -2014,7 +2066,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         picked.modelImage().value(),
                         picked.artMesh().id().value(),
                         picked.raw().value())
-                ));
+                );
+                requireSharedModelImageRelation(
+                    result, "relation.modelImage", resolved.identity(), relations, contentProfile);
+                stableSharedModelImageUsers = sharedModelImageUserIds(
+                    resolved.identity(), relations);
+                result.setProperty("relation.modelImage.stableUsingArtMeshIds",
+                    stableSharedModelImageUsers.toString());
+                found.set(resolved);
             } catch (Throwable error) { failure.set(error); }
         });
         if (failure.get() != null) throw new IllegalStateException("Target resolution failed", failure.get());
@@ -2257,6 +2316,95 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return Optional.empty();
     }
 
+    /**
+     * Records the live users of the selected model image and, for F1, requires the reviewed
+     * shared-model-image relation before any PSD export or mutation is attempted.
+     */
+    static int requireSharedModelImageRelation(final Properties result, final String prefix,
+        final TargetIdentity target, final TextureRelationsSnapshot relations,
+        final PsdValidationContent.Profile profile) {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(relations, "relations");
+        Objects.requireNonNull(profile, "profile");
+        final String normalizedPrefix = normalizePrefix(prefix);
+        if (!relations.isAvailable()) {
+            result.setProperty(normalizedPrefix + ".status", "UNAVAILABLE");
+            throw new IllegalStateException("model-image sharing relation is unavailable");
+        }
+        if (UNAVAILABLE_VALUE.equals(target.modelImageId())) {
+            result.setProperty(normalizedPrefix + ".status", "UNAVAILABLE");
+            throw new IllegalStateException("model-image identity is unavailable");
+        }
+        final List<String> users;
+        try {
+            users = sharedModelImageUserIds(target, relations);
+        } catch (IllegalStateException failure) {
+            result.setProperty(normalizedPrefix + ".status", "REJECTED");
+            throw failure;
+        }
+        final boolean containsTarget = !UNAVAILABLE_VALUE.equals(target.artMeshId())
+            && users.contains(target.artMeshId());
+        result.setProperty(normalizedPrefix + ".status", "AVAILABLE");
+        result.setProperty(normalizedPrefix + ".modelImageId", target.modelImageId());
+        result.setProperty(normalizedPrefix + ".usingArtMeshIds", users.toString());
+        result.setProperty(normalizedPrefix + ".usingArtMeshCount",
+            Integer.toString(users.size()));
+        result.setProperty(normalizedPrefix + ".containsTargetArtMesh",
+            Boolean.toString(containsTarget));
+        if (profile == PsdValidationContent.Profile.F1_2048_20
+            && (users.size() < 2 || !containsTarget)) {
+            result.setProperty(normalizedPrefix + ".status", "REJECTED");
+            throw new IllegalStateException(
+                "F1 requires the target model image to be shared by at least two ArtMeshes: "
+                    + users);
+        }
+        return users.size();
+    }
+
+    private static List<String> sharedModelImageUserIds(final TargetIdentity target,
+        final TextureRelationsSnapshot relations) {
+        if (!relations.isAvailable()) {
+            throw new IllegalStateException("model-image sharing relation is unavailable");
+        }
+        if (UNAVAILABLE_VALUE.equals(target.modelImageId())) {
+            throw new IllegalStateException("model-image identity is unavailable");
+        }
+        final List<ModelImageRelation> matches = relations.modelImages().stream()
+            .filter(relation -> relation != null
+                && target.modelImageId().equals(relation.id().value()))
+            .toList();
+        if (matches.size() != 1) {
+            throw new IllegalStateException("target model-image relation occurrence count="
+                + matches.size() + " (expected exactly one)");
+        }
+        return matches.get(0).usingArtMeshIds().stream()
+            .map(ArtMeshId::value).distinct().toList();
+    }
+
+    static void requireStableSharedModelImageRelation(final Properties result,
+        final String prefix, final TargetIdentity target, final TextureRelationsSnapshot relations,
+        final PsdValidationContent.Profile profile, final List<String> expectedUsers) {
+        Objects.requireNonNull(expectedUsers, "expectedUsers");
+        requireSharedModelImageRelation(result, prefix, target, relations, profile);
+        if (profile != PsdValidationContent.Profile.F1_2048_20) return;
+        final List<String> actualUsers = sharedModelImageUserIds(target, relations);
+        final Set<String> expectedSet = new HashSet<>(expectedUsers);
+        final Set<String> actualSet = new HashSet<>(actualUsers);
+        result.setProperty(normalizePrefix(prefix) + ".expectedUsingArtMeshIds",
+            expectedUsers.toString());
+        result.setProperty(normalizePrefix(prefix) + ".actualUsingArtMeshIds",
+            actualUsers.toString());
+        if (!expectedSet.equals(actualSet) || expectedSet.size() != expectedUsers.size()
+            || actualSet.size() != actualUsers.size()) {
+            result.setProperty(normalizePrefix(prefix) + ".status", "REJECTED");
+            throw new IllegalStateException(
+                "F1 shared model-image users changed expected=" + expectedUsers
+                    + " actual=" + actualUsers);
+        }
+        result.setProperty(normalizePrefix(prefix) + ".stable", "true");
+    }
+
     private static final String TEMP_DIRECTORY_PREFIX = "turboism-psd-";
     private static final String TEMP_FILE_NAME = "external-edit.psd";
 
@@ -2464,7 +2612,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         Throwable primary = null;
         try {
             requireTargetBinding(result, target, "export." + label + ".targetBinding.after", 0L);
-            return targetFingerprint(Files.readAllBytes(exported.path()), label);
+            return targetFingerprint(Files.readAllBytes(exported.path()), label, contentProfile);
         } catch (Exception failure) {
             primary = failure;
             throw failure;
@@ -2478,8 +2626,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private static PsdValidationContent.Fingerprint targetFingerprint(final byte[] bytes,
         final String label) {
+        return targetFingerprint(bytes, label,
+            PsdValidationContent.Profile.SEVEN_LAYER_CONTROL);
+    }
+
+    private static PsdValidationContent.Fingerprint targetFingerprint(final byte[] bytes,
+        final String label, final PsdValidationContent.Profile profile) {
         try {
-            return PsdValidationContent.targetLayerRgbFingerprint(bytes);
+            return PsdValidationContent.targetLayerRgbFingerprint(bytes, profile);
         } catch (PsdValidationContent.ValidationException invalid) {
             throw new IllegalStateException(label + " is not a supported validation PSD: "
                 + invalid.getMessage(), invalid);
@@ -2549,7 +2703,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         try {
             requireBudgetAvailable(started, budgetMillis, "fresh diagnostic export");
             final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
-                Files.readAllBytes(exported.path()), normalizedPrefix);
+                Files.readAllBytes(exported.path()), normalizedPrefix, contentProfile);
             requireBudgetAvailable(started, budgetMillis, "fresh diagnostic metadata");
             final DiagnosticObservation observation = captureDiagnosticObservation(
                 result,
@@ -3425,9 +3579,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     static PsdValidationContent.Fingerprint inspectUniqueNewRaw(final Properties result,
         final String prefix, final RawImageId oldRaw, final RawImageRelationDelta delta,
         final RawImageExportSupplier exporter) throws Exception {
+        return inspectUniqueNewRaw(result, prefix, oldRaw, delta,
+            PsdValidationContent.Profile.SEVEN_LAYER_CONTROL, exporter);
+    }
+
+    static PsdValidationContent.Fingerprint inspectUniqueNewRaw(final Properties result,
+        final String prefix, final RawImageId oldRaw, final RawImageRelationDelta delta,
+        final PsdValidationContent.Profile profile, final RawImageExportSupplier exporter)
+        throws Exception {
         Objects.requireNonNull(result, "result");
         Objects.requireNonNull(oldRaw, "oldRaw");
         Objects.requireNonNull(delta, "delta");
+        Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(exporter, "exporter");
         final String normalizedPrefix = normalizePrefix(prefix);
         if (delta.status() != RawImageDeltaStatus.UNIQUE
@@ -3462,7 +3625,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty(normalizedPrefix + ".bytes", Integer.toString(bytes.length));
             result.setProperty(normalizedPrefix + ".sha256", sha256(bytes));
             final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
-                bytes, normalizedPrefix + " new raw");
+                bytes, normalizedPrefix + " new raw", profile);
             result.setProperty(normalizedPrefix + ".rgb.status", "AVAILABLE");
             result.setProperty(normalizedPrefix + ".rgb.source",
                 "fresh public export of the unique newly-added raw image");
@@ -4269,14 +4432,21 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     static void recordCycleWrittenPsd(final Properties result, final String prefix,
         final byte[] bytes) throws Exception {
+        recordCycleWrittenPsd(result, prefix, bytes,
+            PsdValidationContent.Profile.SEVEN_LAYER_CONTROL);
+    }
+
+    static void recordCycleWrittenPsd(final Properties result, final String prefix,
+        final byte[] bytes, final PsdValidationContent.Profile profile) throws Exception {
         Objects.requireNonNull(result, "result");
         Objects.requireNonNull(bytes, "bytes");
+        Objects.requireNonNull(profile, "profile");
         final String normalizedPrefix = normalizePrefix(prefix) + ".write";
         result.setProperty(normalizedPrefix + ".bytes", Integer.toString(bytes.length));
         result.setProperty(normalizedPrefix + ".sha256", sha256(bytes));
         try {
             final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
-                bytes, normalizedPrefix);
+                bytes, normalizedPrefix, profile);
             result.setProperty(normalizedPrefix + ".targetRgb.status", "AVAILABLE");
             result.setProperty(normalizedPrefix + ".targetRgb.source",
                 "decoded bytes written by this validation cycle");
@@ -4444,7 +4614,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             }
             try {
                 final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
-                    Files.readAllBytes(exported.path()), normalizedPrefix + " old raw");
+                    Files.readAllBytes(exported.path()), normalizedPrefix + " old raw",
+                    contentProfile);
                 result.setProperty(normalizedPrefix + ".rgb.status", "AVAILABLE");
                 result.setProperty(normalizedPrefix + ".rgb.source",
                     "fresh native export of the old raw resource");
@@ -4678,7 +4849,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             final Target beforeTarget = currentTarget;
             final byte[] current = Files.readAllBytes(tempFile);
             final CycleWritePlan plan = prepareSaveCycleBytes(
-                current, i, cycles, validateTargetContent);
+                current, i, cycles, validateTargetContent, contentProfile);
             final Mutation mutation = plan.mutation();
             final byte[] mutated = plan.firstWrite();
             result.setProperty(prefix + "lineage.beforeRaw", beforeTarget.raw().value());
@@ -4689,7 +4860,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (validateTargetContent) {
                 final byte[] finalWrite = i == 3
                     ? plan.overlapFinalWrite() : plan.firstWrite();
-                recordCycleWrittenPsd(result, prefix, finalWrite);
+                recordCycleWrittenPsd(result, prefix, finalWrite, contentProfile);
             }
             lastMutation = mutation;
             final long writeStart = System.nanoTime();
@@ -4717,6 +4888,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     throw new IllegalStateException("current lineage raw is absent before import: "
                         + beforeTarget.raw().value());
                 }
+                requireStableSharedModelImageRelation(result,
+                    prefix + "rawRelation.before.sharedModelImage",
+                    beforeTarget.identity(), relationsBefore, contentProfile,
+                    stableSharedModelImageUsers);
             } catch (Exception failure) {
                 recordRawRelationImportFailure(result, prefix, failure);
                 throw failure;
@@ -4768,6 +4943,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 throw failure;
             }
 
+            requireStableSharedModelImageRelation(result,
+                prefix + "rawRelation.after.sharedModelImage",
+                beforeTarget.identity(), relationsAfter, contentProfile,
+                stableSharedModelImageUsers);
+
             final TargetIdentity acceptedIdentity;
             try {
                 acceptedIdentity = acceptAppliedTargetLineage(
@@ -4795,7 +4975,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 result, prefix, delta, appliedTarget.raw());
             if (newCandidate.isPresent()) {
                 inspectUniqueNewRaw(
-                    result, prefix + "raw.new", beforeTarget.raw(), delta,
+                    result, prefix + "raw.new", beforeTarget.raw(), delta, contentProfile,
                     candidate -> trackedRawExportHandle(
                         result, appliedTarget, tracker, prefix + "raw.new", candidate));
             }
@@ -4872,7 +5052,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      */
     static CycleWritePlan prepareSaveCycleBytes(final byte[] current, final int cycle,
         final int cycles, final boolean validateTargetContent) {
+        return prepareSaveCycleBytes(current, cycle, cycles, validateTargetContent,
+            PsdValidationContent.Profile.SEVEN_LAYER_CONTROL);
+    }
+
+    static CycleWritePlan prepareSaveCycleBytes(final byte[] current, final int cycle,
+        final int cycles, final boolean validateTargetContent,
+        final PsdValidationContent.Profile profile) {
         if (current == null) throw new IllegalArgumentException("current PSD bytes are required");
+        Objects.requireNonNull(profile, "profile");
         isFinalRgbMutationCycle(cycle, cycles);
         final Mutation mutation = mutationFor(current, cycle)
             .orElseThrow(() -> new IllegalStateException("PSD layer-name mutation failed"));
@@ -4881,7 +5069,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (finalCycle) {
             // Apply the decoded RGB mutation once. The overlap write below changes only a layer
             // name on this same byte array, so it retains exactly one content inversion.
-            mutated = PsdValidationContent.invertTargetLayerRgb(mutated);
+            mutated = PsdValidationContent.invertTargetLayerRgb(mutated, profile);
         }
         byte[] overlapFinal = mutated;
         if (cycle == 3) {
@@ -6214,7 +6402,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     "export.postAfterSave.targetBinding.after", 0L);
                 final byte[] postBytes = Files.readAllBytes(postExport.path());
                 final PsdValidationContent.Fingerprint post = targetFingerprint(
-                    postBytes, "persist post-save target");
+                    postBytes, "persist post-save target", contentProfile);
                 recordTargetFingerprint(result, "persist.postEditTargetRgb", post);
                 result.setProperty("persist.postEditTargetRgbSha256", post.sha256());
                 result.setProperty("persist.postEditBytes", Integer.toString(postBytes.length));

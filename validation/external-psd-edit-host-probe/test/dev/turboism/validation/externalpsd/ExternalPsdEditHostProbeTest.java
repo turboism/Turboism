@@ -105,6 +105,8 @@ public final class ExternalPsdEditHostProbeTest {
         testAutoImportEvidence();
         testPersistEvidenceGate();
         testPersistSaveLifecycleGate();
+        testContentProfileSelection();
+        testSharedModelImageRelationGate();
         testSaveAsAdmissionGate();
         testSaveDialogGate();
         testDialogButtonShapeOnEdt();
@@ -178,6 +180,93 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(marker.letter(), (char) mutated[markedRange[0] + marker.nameOffset()],
             "persisted byte equals the recorded marker letter");
         System.out.println("PASS: ExternalPsdEditHostProbeTest");
+    }
+
+    private static void testContentProfileSelection() {
+        assertEquals(PsdValidationContent.Profile.SEVEN_LAYER_CONTROL,
+            ExternalPsdEditHostProbe.parseContentProfile(null),
+            "missing content profile defaults to control7");
+        assertEquals(PsdValidationContent.Profile.SEVEN_LAYER_CONTROL,
+            ExternalPsdEditHostProbe.parseContentProfile("control7"),
+            "control7 selects the seven-layer profile");
+        assertEquals(PsdValidationContent.Profile.F1_2048_20,
+            ExternalPsdEditHostProbe.parseContentProfile("f1"),
+            "f1 selects the 2048/20 profile");
+        assertEquals("f1", ExternalPsdEditHostProbe.contentProfileName(
+            PsdValidationContent.Profile.F1_2048_20),
+            "F1 result evidence uses the namespaced profile name");
+        assertTrue(!ExternalPsdEditHostProbe.contentValidationRequired(
+            PsdValidationContent.Profile.SEVEN_LAYER_CONTROL, false),
+            "control7 keeps the non-persist diagnostic path unchanged");
+        assertTrue(ExternalPsdEditHostProbe.contentValidationRequired(
+            PsdValidationContent.Profile.F1_2048_20, false),
+            "F1 requires RGB shape/content validation before mutation");
+        expectIllegalArgument(() -> ExternalPsdEditHostProbe.parseContentProfile("unknown"),
+            "unknown content profile is rejected before any export or mutation");
+    }
+
+    private static void testSharedModelImageRelationGate() {
+        final ExternalPsdEditHostProbe.TargetIdentity target =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-f1", "model-f1", "binding-f1", 12L,
+                "model-image-f1", "ArtMesh4", "raw-f1");
+        final TextureRelationsSnapshot shared = lineageRelationSnapshotWithUsers(
+            "binding-f1", 12L, "model-image-f1", "ArtMesh4", new RawImageId("raw-f1"),
+            List.of("ArtMesh4", "ArtMesh5"));
+        final Properties accepted = new Properties();
+        assertEquals(2, ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+            accepted, "relation.modelImage", target, shared,
+            PsdValidationContent.Profile.F1_2048_20),
+            "F1 records both users of the shared model image");
+        assertEquals("2", accepted.getProperty("relation.modelImage.usingArtMeshCount"),
+            "F1 shared model-image user count is explicit");
+        assertEquals("true", accepted.getProperty(
+            "relation.modelImage.containsTargetArtMesh"),
+            "F1 shared relation includes the selected ArtMesh");
+        final Properties stable = new Properties();
+        ExternalPsdEditHostProbe.requireStableSharedModelImageRelation(
+            stable, "relation.modelImage", target, shared,
+            PsdValidationContent.Profile.F1_2048_20,
+            List.of("ArtMesh4", "ArtMesh5"));
+        assertEquals("true", stable.getProperty("relation.modelImage.stable"),
+            "F1 records the unchanged shared model-image user set");
+
+        final Properties changedUsers = new Properties();
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireStableSharedModelImageRelation(
+            changedUsers, "relation.modelImage", target,
+            lineageRelationSnapshotWithUsers("binding-f1", 12L, "model-image-f1",
+                "ArtMesh4", new RawImageId("raw-f1"), List.of("ArtMesh4", "ArtMesh6")),
+            PsdValidationContent.Profile.F1_2048_20,
+            List.of("ArtMesh4", "ArtMesh5")),
+            "F1 rejects a changed shared model-image user set");
+        assertEquals("REJECTED", changedUsers.getProperty("relation.modelImage.status"),
+            "changed F1 shared relation records rejection");
+
+        final Properties control = new Properties();
+        assertEquals(1, ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+            control, "relation.modelImage", target,
+            lineageRelationSnapshot("binding-f1", 12L, "model-image-f1", "ArtMesh4",
+                new RawImageId("raw-f1")), PsdValidationContent.Profile.SEVEN_LAYER_CONTROL),
+            "control7 records but does not require a shared model image");
+
+        final Properties single = new Properties();
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+            single, "relation.modelImage", target,
+            lineageRelationSnapshot("binding-f1", 12L, "model-image-f1", "ArtMesh4",
+                new RawImageId("raw-f1")), PsdValidationContent.Profile.F1_2048_20),
+            "F1 rejects an unshared model image");
+        assertEquals("REJECTED", single.getProperty("relation.modelImage.status"),
+            "unshared F1 relation records rejection");
+
+        final Properties wrongTarget = new Properties();
+        final ExternalPsdEditHostProbe.TargetIdentity absentMesh =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-f1", "model-f1", "binding-f1", 12L,
+                "model-image-f1", "ArtMesh9", "raw-f1");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+            wrongTarget, "relation.modelImage", absentMesh, shared,
+            PsdValidationContent.Profile.F1_2048_20),
+            "F1 rejects a shared relation that omits the stable target ArtMesh");
     }
 
     private static void testPersistEvidenceGate() {
@@ -1753,8 +1842,31 @@ public final class ExternalPsdEditHostProbeTest {
     private static TextureRelationsSnapshot lineageRelationSnapshotWithRaws(
         final String binding, final long generation, final String modelImageValue,
         final String artMeshValue, final RawImageId currentRaw, final List<RawImageId> raws) {
+        return lineageRelationSnapshotWithUsers(binding, generation, modelImageValue,
+            artMeshValue, currentRaw, raws, List.of(artMeshValue));
+    }
+
+    private static TextureRelationsSnapshot lineageRelationSnapshotWithUsers(
+        final String binding, final long generation, final String modelImageValue,
+        final String targetArtMeshValue, final RawImageId currentRaw,
+        final List<String> userArtMeshValues) {
+        return lineageRelationSnapshotWithUsers(binding, generation, modelImageValue,
+            targetArtMeshValue, currentRaw,
+            List.of(new RawImageId("lineage-A"), new RawImageId("lineage-B"),
+                new RawImageId("lineage-C")), userArtMeshValues);
+    }
+
+    private static TextureRelationsSnapshot lineageRelationSnapshotWithUsers(
+        final String binding, final long generation, final String modelImageValue,
+        final String targetArtMeshValue, final RawImageId currentRaw,
+        final List<RawImageId> raws, final List<String> userArtMeshValues) {
         final ModelImageId modelImageId = new ModelImageId(modelImageValue);
-        final ArtMeshId artMeshId = new ArtMeshId(artMeshValue);
+        final List<ArtMeshId> userArtMeshes = userArtMeshValues.stream()
+            .map(ArtMeshId::new).toList();
+        final ArtMeshId targetArtMeshId = new ArtMeshId(targetArtMeshValue);
+        if (!userArtMeshes.contains(targetArtMeshId)) {
+            throw new IllegalArgumentException("test relation users must contain target ArtMesh");
+        }
         final ModelImageEntry entry = new ModelImageEntry() {
             @Override public ModelImageId id() { return modelImageId; }
             @Override public String name() { return modelImageValue; }
@@ -1772,11 +1884,14 @@ public final class ExternalPsdEditHostProbeTest {
                 List.of(), false, Optional.empty(), Optional.empty(), Optional.empty());
         }).toList();
         final ModelImageRelation relation = new ModelImageRelation(
-            modelImageId, entry, raws, Optional.of(currentRaw), Map.of(), List.of(artMeshId));
-        final ArtMeshTextureInputs mesh = new ArtMeshTextureInputs(
-            artMeshId, List.of(TextureInputBinding.modelImage(modelImageId)), OptionalInt.of(0));
+            modelImageId, entry, raws, Optional.of(currentRaw), Map.of(), userArtMeshes);
+        final List<ArtMeshTextureInputs> meshes = userArtMeshes.stream()
+            .map(artMeshId -> new ArtMeshTextureInputs(
+                artMeshId, List.of(TextureInputBinding.modelImage(modelImageId)),
+                OptionalInt.of(0)))
+            .toList();
         return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
-            binding, generation, 1L, details, List.of(relation), List.of(), List.of(mesh));
+            binding, generation, 1L, details, List.of(relation), List.of(), meshes);
     }
 
     private static PsdValidationContent.Fingerprint inspectWithCoordinatedExport(
