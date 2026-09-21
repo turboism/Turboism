@@ -1,6 +1,6 @@
 package dev.turboism.plugin.core.service;
 
-import dev.turboism.plugin.core.CorePluginManagement;
+import dev.turboism.internal.core.CorePluginManagement;
 
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;

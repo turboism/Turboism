@@ -45,12 +45,13 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement;
     private final PreviewPluginContextFactory contextFactory;
     private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
-    private final dev.turboism.plugin.core.CubismJvmSettingsService cubismJvmSettings;
-    private final dev.turboism.plugin.core.CoreUpdateService updateService;
+    private final dev.turboism.internal.core.CubismJvmSettingsService cubismJvmSettings;
+    private final dev.turboism.internal.core.CoreUpdateService updateService;
     private final PreviewLog log;
     private final PluginLifecyclePolicy lifecyclePolicy;
     private final PluginLifecycleLane lifecycleLane;
     private final RetainedPluginGenerations retention;
+    private final dev.turboism.internal.core.CorePluginEntrypoint coreEntrypoint;
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -126,7 +127,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
         );
     }
 
-    /** Production composition seam with the locale resolved once at startup. */
+    /**
+     * Production composition seam with the locale resolved once at startup. The
+     * {@code corePluginEntrypoint} is supplied by bootstrap composition; {@code null} runs the
+     * runtime headless — external plugins still load, the built-in core is skipped.
+     */
     LocalPluginRuntime(
         final Path home,
         final RuntimeScheduler scheduler,
@@ -134,13 +139,15 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final PreviewLog log,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
-        final Locale effectiveLocale
+        final Locale effectiveLocale,
+        final dev.turboism.internal.core.CorePluginEntrypoint corePluginEntrypoint
     ) {
         this(
             home, scheduler, hostAccess, log, new RuntimeFailureCollector(),
             (pluginId, phase) -> { }, parameterLifecycle, hostAccess.partLifecycle(),
             hostAccess.editorObjectLifecycle(), hostAccess.projectFileLifecycle(),
-            hostAccess.editorLifecycleEvents(), fileChooserHistory, effectiveLocale, null
+            hostAccess.editorLifecycleEvents(), fileChooserHistory, effectiveLocale, null,
+            corePluginEntrypoint
         );
     }
 
@@ -209,7 +216,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this(
             home, scheduler, hostAccess, log, failureCollector, pluginCloseHook,
             parameterLifecycle, partLifecycle, editorObjectLifecycle, projectFileLifecycle,
-            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve(), null
+            editorLifecycleEvents, fileChooserHistory, CubismHostLocale.resolve(), null, null
         );
     }
 
@@ -239,7 +246,38 @@ public final class LocalPluginRuntime implements AutoCloseable {
             hostAccess.editorLifecycleEvents(),
             null,
             CubismHostLocale.resolve(),
-            lifecyclePolicy
+            lifecyclePolicy,
+            null
+        );
+    }
+
+    /**
+     * Composition seam for consumers that wire the built-in core entrypoint directly
+     * (bootstrap does this via {@code PreviewRuntime.start}; tests may do the same).
+     */
+    public LocalPluginRuntime(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PreviewLog log,
+        final dev.turboism.internal.core.CorePluginEntrypoint corePluginEntrypoint
+    ) {
+        this(
+            home,
+            scheduler,
+            hostAccess,
+            log,
+            new RuntimeFailureCollector(),
+            (pluginId, phase) -> { },
+            hostAccess.parameterLifecycle(),
+            hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle(),
+            hostAccess.projectFileLifecycle(),
+            hostAccess.editorLifecycleEvents(),
+            null,
+            CubismHostLocale.resolve(),
+            null,
+            corePluginEntrypoint
         );
     }
 
@@ -257,7 +295,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final EditorLifecycleCoordinator editorLifecycleEvents,
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
         final Locale effectiveLocale,
-        final PluginLifecyclePolicy lifecyclePolicy
+        final PluginLifecyclePolicy lifecyclePolicy,
+        final dev.turboism.internal.core.CorePluginEntrypoint corePluginEntrypoint
     ) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService resolvedFileChooserHistory =
@@ -291,6 +330,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.lifecyclePolicy = resources.lifecyclePolicy();
         this.lifecycleLane = resources.lifecycleLane();
         this.retention = resources.retention();
+        this.coreEntrypoint = corePluginEntrypoint;
         this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
@@ -312,8 +352,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
     }
 
     /**
-     * Loads the runtime-owned core plugin first, then every discovered external plugin, exactly
-     * once per runtime instance.
+     * Loads the runtime-owned core plugin first — when a {@code CorePluginEntrypoint} was wired
+     * by composition — then every discovered external plugin, exactly once per runtime instance.
+     * Without an entrypoint the runtime runs headless: external plugins still load.
      *
      * <p>The core initializes before any external plugin so a blocking or non-returning plugin
      * cannot prevent management and diagnostic surfaces from coming up. External plugins load
@@ -329,39 +370,49 @@ public final class LocalPluginRuntime implements AutoCloseable {
      */
     public synchronized LoadReport loadAll() {
         ensureCanStart();
-        final LoadedPlugin core;
-        try {
-            core = BuiltinCorePlugin.load(
-                contextFactory,
-                new dev.turboism.plugin.core.CorePluginServices(
-                    runtimeSettings,
-                    cubismJvmSettings,
-                    dev.turboism.ui.settings.ProcessSettingsContributions.forHost(
-                        contextFactory.hostAccessIdentity()
+        LoadedPlugin core = null;
+        if (coreEntrypoint != null) {
+            try {
+                core = BuiltinCorePlugin.load(
+                    contextFactory,
+                    coreEntrypoint,
+                    new dev.turboism.internal.core.CorePluginServices(
+                        runtimeSettings,
+                        cubismJvmSettings,
+                        dev.turboism.ui.settings.ProcessSettingsContributions.forHost(
+                            contextFactory.hostAccessIdentity()
+                        ),
+                        pluginManagement,
+                        dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
+                        log,
+                        updateService
                     ),
-                    pluginManagement,
-                    dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
                     log,
-                    updateService
-                ),
-                log,
-                lifecycleLane,
-                lifecyclePolicy,
-                retention
+                    lifecycleLane,
+                    lifecyclePolicy,
+                    retention
+                );
+                loaded.add(core);
+            } catch (Exception failure) {
+                log.error(
+                    dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID,
+                    "Plugin lifecycle: built-in load failed",
+                    failure
+                );
+                close();
+                throw new IllegalStateException("Runtime-owned core failed to load", failure);
+            }
+        } else {
+            log.info(
+                "plugins",
+                "Plugin lifecycle: no built-in core entrypoint wired; running headless"
             );
-            loaded.add(core);
-        } catch (Exception failure) {
-            log.error(
-                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
-                "Plugin lifecycle: built-in load failed",
-                failure
-            );
-            close();
-            throw new IllegalStateException("Runtime-owned core failed to load", failure);
         }
         final LoadReport external = loadCoordinator.loadAll();
         final List<LoadedPluginSummary> summaries = new ArrayList<>(external.loaded());
-        summaries.add(PreviewPluginSummaryFactory.active(core));
+        if (core != null) {
+            summaries.add(PreviewPluginSummaryFactory.active(core));
+        }
         return new LoadReport(summaries, external.failures(), external.dependencyCycles());
     }
 

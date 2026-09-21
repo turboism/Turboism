@@ -68,7 +68,10 @@ class PreviewPluginReservedIdentityIntegrationTest {
         final HostSession host = new HostSession(Optional::empty);
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                home, scheduler, host.adapterAccess(), log,
+                new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
+            );
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
                 assertTrue(report.loaded().stream().anyMatch(plugin ->

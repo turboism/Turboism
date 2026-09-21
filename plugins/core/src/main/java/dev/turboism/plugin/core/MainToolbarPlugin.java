@@ -1,5 +1,8 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.internal.core.CorePluginServices;
+import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.plugin.core.service.MainToolbarHomeEntryService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -39,8 +42,12 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     /** Identity the user dismissed, so acknowledging a build does not make it reappear. */
     private String dismissedHintIdentity;
 
-    public MainToolbarPlugin() {
-        services = CorePluginServices.consume();
+    /**
+     * Composition seam: only {@link MainToolbarPluginEntrypoint} constructs the built-in core,
+     * passing the runtime-owned service handoff directly.
+     */
+    MainToolbarPlugin(final CorePluginServices services) {
+        this.services = java.util.Objects.requireNonNull(services, "services");
     }
 
     @Override

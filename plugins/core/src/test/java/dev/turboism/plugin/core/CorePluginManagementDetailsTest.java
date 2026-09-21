@@ -1,5 +1,6 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.internal.core.CorePluginManagement;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

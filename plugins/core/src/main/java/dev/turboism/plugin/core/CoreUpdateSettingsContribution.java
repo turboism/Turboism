@@ -1,5 +1,6 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsBinding;
 import dev.turboism.sdk.ui.settings.SettingsContribution;

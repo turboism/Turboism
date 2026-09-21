@@ -3,7 +3,7 @@ package dev.turboism.pluginmanagement;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.i18n.RuntimePluginLocalization;
-import dev.turboism.plugin.core.CorePluginManagement;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.io.ByteArrayOutputStream;

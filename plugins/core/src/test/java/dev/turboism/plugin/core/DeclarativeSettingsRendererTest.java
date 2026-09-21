@@ -1,5 +1,7 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.internal.core.CubismJvmSettingsService;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;

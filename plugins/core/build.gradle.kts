@@ -4,8 +4,13 @@ plugins {
 
 dependencies {
     compileOnly(project(":sdk"))
+    // Deliberate built-in application exception: core consumes the internal
+    // management contracts to receive the runtime's service handoff; the
+    // runtime supplies the classes, so the edge stays compile-time only.
+    compileOnly(project(":core-contract"))
     annotationProcessor(project(":event-processor"))
     testImplementation(project(":sdk"))
+    testImplementation(project(":core-contract"))
 }
 
 @Suppress("UNCHECKED_CAST")
