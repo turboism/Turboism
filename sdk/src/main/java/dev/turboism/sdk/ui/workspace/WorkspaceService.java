@@ -40,6 +40,8 @@ public interface WorkspaceService {
 
     /**
      * Stores the current layout as the default for the active workspace.
+     * Preset workspaces are refused with {@code FAILED}. Custom workspaces use the native
+     * confirmation dialog; cancelling or saving unchanged bytes returns {@code NO_CHANGE}.
      *
      * @return a stage completing with the outcome of the save
      */

@@ -138,7 +138,9 @@ agent_tmp="$(mktemp -d "$repo_root/build/.workspace-agent.XXXXXX")"
 mkdir -p "$agent_tmp/$agent_class_dir_rel"
 find "$test_classes/$agent_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WorkspaceValidationAgent.class' \
-     -o -name 'WorkspaceValidationAgent$*.class' \) \
+     -o -name 'WorkspaceValidationAgent$*.class' \
+     -o -name 'WorkspaceValidationUi.class' \
+     -o -name 'WorkspaceValidationUi$*.class' \) \
   -exec cp {} "$agent_tmp/$agent_class_dir_rel/" \;
 (
   cd "$agent_tmp"
