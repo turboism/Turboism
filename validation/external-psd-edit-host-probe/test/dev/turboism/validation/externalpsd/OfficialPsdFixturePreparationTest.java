@@ -36,6 +36,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Offline focused checks for the official PSD preparation gates. */
@@ -47,6 +48,7 @@ public final class OfficialPsdFixturePreparationTest {
 
     public static void main(final String[] args) {
         testInputBindingAndPsdPolicy();
+        testPreparationNamespaceIsolation();
         testRelationGate();
         testWindowBindingAndChooserGate();
         testChooserCandidateRenderer();
@@ -113,6 +115,71 @@ public final class OfficialPsdFixturePreparationTest {
         expectReject("fixture traversal", () -> OfficialPsdFixturePreparation.validateInputForTest(
             "C:\\task\\..\\outside.psd", PSD_SHA, "outside.psd", input.runId(), input.taskId(),
             input.savedCopyPath(), RGB_SHA, "5.3.02", 30_000L));
+    }
+
+    private static void testPreparationNamespaceIsolation() {
+        final Properties values = validNormalPreparationProperties();
+        values.setProperty("profile", "025-external-edit-pipeline-v1");
+        values.setProperty("fixture", "C:\\wrong\\pipeline.psd");
+        values.setProperty("runId", "wrong-run");
+        assertEquals("normal", OfficialPsdFixturePreparation.configuredProfileForTest(values),
+            "generic result profile cannot mask namespaced normal profile");
+        final OfficialPsdFixturePreparation.InputIdentity namespaced =
+            OfficialPsdFixturePreparation.readInputForTest(values);
+        assertEquals("queue-namespace", namespaced.runId(),
+            "generic result runId cannot mask namespaced runId");
+        assertEquals("C:\\task\\native-seven-layer.psd", namespaced.fixturePath(),
+            "generic result fixture cannot mask namespaced fixture");
+
+        final Properties defaultValues = validNormalPreparationProperties();
+        defaultValues.remove(OfficialPsdFixturePreparation.PROFILE_PROPERTY);
+        defaultValues.setProperty("profile", "025-external-edit-pipeline-v1");
+        assertEquals("normal", OfficialPsdFixturePreparation.configuredProfileForTest(
+            defaultValues), "missing namespaced profile uses the normal default");
+
+        final String profileProperty = OfficialPsdFixturePreparation.PROFILE_PROPERTY;
+        final String previous = System.getProperty(profileProperty);
+        try {
+            System.setProperty(profileProperty, "legacy");
+            final Properties legacyValues = validLegacyPreparationProperties();
+            legacyValues.setProperty("profile", "025-external-edit-pipeline-v1");
+            legacyValues.remove(profileProperty);
+            assertEquals("legacy", OfficialPsdFixturePreparation.configuredProfileForTest(
+                legacyValues), "namespaced system profile wins over generic result profile");
+        } finally {
+            if (previous == null) System.clearProperty(profileProperty);
+            else System.setProperty(profileProperty, previous);
+        }
+
+        final Properties unknown = validNormalPreparationProperties();
+        unknown.setProperty(profileProperty, "unsupported");
+        expectReject("unknown namespaced preparation profile", () ->
+            OfficialPsdFixturePreparation.configuredProfileForTest(unknown));
+    }
+
+    private static Properties validNormalPreparationProperties() {
+        final Properties values = new Properties();
+        values.setProperty(OfficialPsdFixturePreparation.FIXTURE_PROPERTY,
+            "C:\\task\\native-seven-layer.psd");
+        values.setProperty(OfficialPsdFixturePreparation.FIXTURE_SHA256_PROPERTY, PSD_SHA);
+        values.setProperty(OfficialPsdFixturePreparation.FIXTURE_NAME_PROPERTY,
+            "native-seven-layer.psd");
+        values.setProperty(OfficialPsdFixturePreparation.RUN_ID_PROPERTY, "queue-namespace");
+        values.setProperty(OfficialPsdFixturePreparation.TASK_ID_PROPERTY, "queue-namespace");
+        values.setProperty(OfficialPsdFixturePreparation.SAVED_COPY_PROPERTY,
+            "C:\\task\\home\\prepared-control.cmo3");
+        values.setProperty(OfficialPsdFixturePreparation.TARGET_RGB_SHA256_PROPERTY, RGB_SHA);
+        values.setProperty(OfficialPsdFixturePreparation.HOST_VERSION_PROPERTY, "5.3.02");
+        values.setProperty(OfficialPsdFixturePreparation.TIMEOUT_MILLIS_PROPERTY, "30000");
+        values.setProperty(OfficialPsdFixturePreparation.PROFILE_PROPERTY, "normal");
+        return values;
+    }
+
+    private static Properties validLegacyPreparationProperties() {
+        final Properties values = validNormalPreparationProperties();
+        values.setProperty(OfficialPsdFixturePreparation.SAVED_COPY_PROPERTY,
+            "C:\\task\\home\\prepared-control-legacy.cmo3");
+        return values;
     }
 
     private static void testRelationGate() {
