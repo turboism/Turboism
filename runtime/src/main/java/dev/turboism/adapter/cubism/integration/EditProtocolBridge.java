@@ -28,9 +28,11 @@ import java.util.function.BiFunction;
  * disabled bridge, unparseable payload, missing or unknown method, unwritable socket — resolves
  * to {@code false} or, once the message is claimed, to an official-shaped error envelope.</p>
  *
- * <p>Phase 1 does not dispatch: recognized, well-formed, version-sufficient requests are
- * answered with {@code InvalidEditOperation} as the not-implemented marker. The 046 engine is
- * wired in Phase 2.</p>
+ * <p>Claimed requests are routed by {@link EditApiRouter}: the official gate order
+ * (registration → version → type → edit approval → session ownership) runs inside the
+ * dispatcher, and handlers delegate to the Phase-046 session engine behind the injectable
+ * {@link EditBridgeEnvironment}. A bridge built without an environment stays fail-closed —
+ * every editing request is answered {@code PluginNotRegistered}.</p>
  */
 public final class EditProtocolBridge {
 
@@ -53,27 +55,41 @@ public final class EditProtocolBridge {
         PASSTHROUGH_NOT_OBJECT,
         PASSTHROUGH_NO_METHOD,
         PASSTHROUGH_UNKNOWN_METHOD,
+        INTERCEPTED_UNREGISTERED,
         INTERCEPTED_UNSUPPORTED_VERSION,
         INTERCEPTED_INVALID_TYPE,
-        INTERCEPTED_PLACEHOLDER,
+        INTERCEPTED_RESPONDED,
+        INTERCEPTED_ERROR,
         INTERCEPTED_SEND_FAILED
     }
-
-    private static final String TYPE_REQUEST = "Request";
 
     private static final ObjectMapper JSON = JsonMapper.builder().build();
 
     private final EditSocketWriter writer;
+    private final EditApiRouter router;
     private final AtomicReference<Outcome> lastOutcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicLong intercepted = new AtomicLong();
     private final AtomicLong passedThrough = new AtomicLong();
 
+    /**
+     * A bridge with no runtime environment: editing requests are claimed but answered
+     * {@code PluginNotRegistered} — fail closed, never engine-touching.
+     */
     public EditProtocolBridge() {
         this(EditSocketWriter.reflective());
     }
 
     public EditProtocolBridge(final EditSocketWriter writer) {
+        this(writer, EditBridgeEnvironment.unavailable());
+    }
+
+    public EditProtocolBridge(
+        final EditSocketWriter writer,
+        final EditBridgeEnvironment environment
+    ) {
         this.writer = Objects.requireNonNull(writer, "writer");
+        this.router = new EditApiRouter(
+            Objects.requireNonNull(environment, "environment"), writer);
     }
 
     /**
@@ -124,19 +140,14 @@ public final class EditProtocolBridge {
             return pass(Outcome.PASSTHROUGH_UNKNOWN_METHOD);
         }
 
-        // Recognition is committed: from here the message is answered by Turboism, in the
-        // host's validation order (version resolution precedes the Type check).
-        final EditApiVersion version = EditApiVersion.parse(envelope.version());
-        if (version == null || !version.atLeast(EditApiVersion.EDIT_API_MINIMUM)) {
-            return answer(envelope, socket, EditApiErrorCode.UNSUPPORTED_VERSION,
-                Outcome.INTERCEPTED_UNSUPPORTED_VERSION);
+        // Recognition is committed: the router runs the official gate order
+        // (registration → version → type → approval → ownership) and answers or fails typed.
+        try {
+            final JsonNode data = router.dispatch(envelope, socket);
+            return respond(envelope, socket, data.toString());
+        } catch (EditApiFailure failure) {
+            return answer(envelope, socket, failure.code(), outcomeFor(failure.code()));
         }
-        if (!TYPE_REQUEST.equals(envelope.type())) {
-            return answer(envelope, socket, EditApiErrorCode.INVALID_TYPE,
-                Outcome.INTERCEPTED_INVALID_TYPE);
-        }
-        return answer(envelope, socket, EditApiErrorCode.INVALID_EDIT_OPERATION,
-            Outcome.INTERCEPTED_PLACEHOLDER);
     }
 
     /** {@return the outcome of the most recent call, or {@link Outcome#NONE}} */
@@ -162,6 +173,38 @@ public final class EditProtocolBridge {
             return true;
         }
         return !"false".equalsIgnoreCase(flag);
+    }
+
+    /** {@return the router view; tests and diagnostics only} */
+    EditApiRouter router() {
+        return router;
+    }
+
+    private static Outcome outcomeFor(final EditApiErrorCode code) {
+        return switch (code) {
+            case UNSUPPORTED_VERSION -> Outcome.INTERCEPTED_UNSUPPORTED_VERSION;
+            case INVALID_TYPE -> Outcome.INTERCEPTED_INVALID_TYPE;
+            case PLUGIN_NOT_REGISTERED -> Outcome.INTERCEPTED_UNREGISTERED;
+            default -> Outcome.INTERCEPTED_ERROR;
+        };
+    }
+
+    private boolean respond(
+        final EditApiEnvelope envelope,
+        final Object socket,
+        final String dataJson
+    ) {
+        final String frame = EditApiResponses.response(
+            envelope.version(), envelope.requestId(), envelope.method(), dataJson,
+            System.currentTimeMillis());
+        try {
+            writer.send(socket, frame);
+            lastOutcome.set(Outcome.INTERCEPTED_RESPONDED);
+        } catch (Throwable failure) {
+            lastOutcome.set(Outcome.INTERCEPTED_SEND_FAILED);
+        }
+        intercepted.incrementAndGet();
+        return true;
     }
 
     private boolean answer(

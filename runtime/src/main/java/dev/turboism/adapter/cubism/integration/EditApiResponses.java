@@ -65,6 +65,19 @@ final class EditApiResponses {
         return envelope(version, requestId, "Response", method, dataJson, timestamp);
     }
 
+    /**
+     * Builds a {@code Type="Event"} push frame (e.g. the {@code NotifyUndoCancel} broadcast).
+     * Events are unsolicited and carry no {@code RequestId}.
+     */
+    static String event(
+        final String version,
+        final String method,
+        final String dataJson,
+        final long timestamp
+    ) {
+        return envelope(version, null, "Event", method, dataJson, timestamp);
+    }
+
     private static String envelope(
         final String version,
         final JsonNode requestId,
