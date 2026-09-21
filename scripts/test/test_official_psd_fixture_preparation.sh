@@ -70,20 +70,25 @@ printf '%s  %s\\n' '{fixture_sha}' "${{2:-$1}}"
         "TURBOISM_ENV_FILE": str(sandbox / "empty.env"),
     })
     (sandbox / "empty.env").write_text("", encoding="utf-8")
-    completed = subprocess.run(
-        ["/bin/bash", str(preview / wrapper_source.name), "--dry-run"],
-        cwd=sandbox,
-        env=environment,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    assert completed.returncode == 0, (
-        f"wrapper failed: rc={completed.returncode}\n"
-        f"stdout={completed.stdout}\nstderr={completed.stderr}"
-    )
-    argv = capture.read_text(encoding="utf-8").splitlines()
+    def run_wrapper(*arguments):
+        if capture.exists():
+            capture.unlink()
+        completed = subprocess.run(
+            ["/bin/bash", str(preview / wrapper_source.name), *arguments],
+            cwd=sandbox,
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        assert completed.returncode == 0, (
+            f"wrapper failed: rc={completed.returncode}\n"
+            f"stdout={completed.stdout}\nstderr={completed.stderr}"
+        )
+        return capture.read_text(encoding="utf-8").splitlines()
+
+    argv = run_wrapper("--dry-run")
 
     assert option_values(argv, "--name") == ["external-psd-fixture-preparation"], argv
     assert option_values(argv, "--run-label") == ["025-t021"], argv
@@ -103,6 +108,7 @@ printf '%s  %s\\n' '{fixture_sha}' "${{2:-$1}}"
         "-Dturboism.validation.externalpsd.prepare.fixtureName={FIXTURE_NAME}",
         "-Dturboism.validation.externalpsd.prepare.runId={TASK_ID}",
         "-Dturboism.validation.externalpsd.prepare.taskId={TASK_ID}",
+        "-Dturboism.validation.externalpsd.prepare.profile=normal",
         "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/prepared-control.cmo3",
         f"-Dturboism.validation.externalpsd.prepare.targetRgbSha256={rgb_sha}",
         "-Dturboism.validation.externalpsd.prepare.hostVersion=5.3.02",
@@ -117,6 +123,25 @@ printf '%s  %s\\n' '{fixture_sha}' "${{2:-$1}}"
     assert option_values(argv, "--result-fail-line") == ["status=FAIL"], argv
     assert "--plugin" in argv and "--home-file" not in argv, argv
     assert all("external-psd.jar" not in value for value in plugins), plugins
+
+    legacy = run_wrapper("--profile", "legacy", "--dry-run")
+    legacy_jvm = option_values(legacy, "--jvm-option")
+    assert "-Dturboism.validation.externalpsd.prepare.profile=legacy" in legacy_jvm, legacy_jvm
+    assert "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/prepared-control-legacy.cmo3" in legacy_jvm, legacy_jvm
+    assert "-Dturboism.preview.userFileFixedGrant={HOME}/prepared-control-legacy.cmo3" in legacy_jvm, legacy_jvm
+    assert "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/prepared-control.cmo3" not in legacy_jvm, legacy_jvm
+
+    invalid = subprocess.run(
+        ["/bin/bash", str(preview / wrapper_source.name), "--profile", "unknown"],
+        cwd=sandbox,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert invalid.returncode == 2, (invalid.returncode, invalid.stdout, invalid.stderr)
+    assert "unknown profile" in invalid.stderr, invalid.stderr
 
 print("PASS: official PSD fixture preparation wrapper argv")
 PY

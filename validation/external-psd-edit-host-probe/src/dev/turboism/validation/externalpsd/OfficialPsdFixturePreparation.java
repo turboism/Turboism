@@ -87,6 +87,7 @@ public final class OfficialPsdFixturePreparation {
     public static final String TARGET_RGB_SHA256_PROPERTY = CONFIG_PREFIX + "targetRgbSha256";
     public static final String HOST_VERSION_PROPERTY = CONFIG_PREFIX + "hostVersion";
     public static final String TIMEOUT_MILLIS_PROPERTY = CONFIG_PREFIX + "timeoutMillis";
+    public static final String PROFILE_PROPERTY = CONFIG_PREFIX + "profile";
 
     private static final String APP_CONTROLLER = "com.live2d.cubism.CEAppCtrl";
     private static final String MAIN_FRAME_CONTROLLER =
@@ -111,6 +112,7 @@ public final class OfficialPsdFixturePreparation {
     private static final long SAVE_AS_EDT_CALL_TIMEOUT_MILLIS = 60_000L;
     private static final long POLL_MILLIS = 150L;
     private static final String UNAVAILABLE = "unavailable";
+    private static final String MODE_UNAVAILABLE = "UNAVAILABLE";
 
     private final PluginContext context;
     private final BooleanSupplier stopped;
@@ -132,13 +134,17 @@ public final class OfficialPsdFixturePreparation {
     /** Instance form kept explicit so the caller can retain the returned Window identity. */
     public PreparationResult prepare() throws Exception {
         InputIdentity input = null;
+        PreparationProfile profile = null;
         EventRecorder events = null;
         final List<Registration> registrations = new ArrayList<>();
         try {
-            input = readInput(properties);
-            recordInput(input);
+            final PreparedInput prepared = readInput(properties);
+            input = prepared.identity();
+            profile = prepared.profile();
+            recordInput(input, profile);
             final HostAccess host = preflightHostAccess();
             recordHost(host);
+            recordProfile(profile);
 
             // These subscriptions intentionally happen before the chooser is touched.  OPEN is
             // not assumed for a new document; model/relation identity is the required gate.
@@ -150,7 +156,7 @@ public final class OfficialPsdFixturePreparation {
             registrations.add(context.eventBus().subscribe(
                 ProjectFileLifecycleEvent.After.class, events::after));
 
-            final Window window = chooseNewModel(host, input, input.timeoutMillis());
+            final Window window = chooseNewModel(host, input, profile, input.timeoutMillis());
             recordWindow(window);
             final ModelState state = awaitInitialModel(input, input.timeoutMillis());
             recordModelState("model.beforeSave", state);
@@ -189,7 +195,7 @@ public final class OfficialPsdFixturePreparation {
         return prepare();
     }
 
-    private InputIdentity readInput(final Properties values) {
+    private PreparedInput readInput(final Properties values) {
         final String fixture = configured(values, FIXTURE_PROPERTY, "fixture");
         final String fixtureSha = configured(values, FIXTURE_SHA256_PROPERTY, "fixtureSha256");
         final String fixtureName = configured(values, FIXTURE_NAME_PROPERTY, "fixtureName");
@@ -198,10 +204,12 @@ public final class OfficialPsdFixturePreparation {
         final String savedCopy = configured(values, SAVED_COPY_PROPERTY, "savedCopy");
         final String targetRgb = configured(values, TARGET_RGB_SHA256_PROPERTY, "targetRgbSha256");
         final String hostVersion = configured(values, HOST_VERSION_PROPERTY, "hostVersion");
+        final PreparationProfile profile = parseProfile(
+            configured(values, PROFILE_PROPERTY, "profile"));
         final long timeout = timeoutMillis(configured(values, TIMEOUT_MILLIS_PROPERTY,
             "timeoutMillis"));
-        return validateInput(fixture, fixtureSha, fixtureName, runId, taskId, savedCopy,
-            targetRgb, hostVersion, timeout);
+        return new PreparedInput(validateInput(fixture, fixtureSha, fixtureName, runId, taskId,
+            savedCopy, targetRgb, hostVersion, timeout, profile), profile);
     }
 
     private static String configured(final Properties values, final String key,
@@ -230,6 +238,14 @@ public final class OfficialPsdFixturePreparation {
         final String fixtureName, final String runId, final String taskId,
         final String savedCopy, final String targetRgb, final String hostVersion,
         final long timeoutMillis) {
+        return validateInput(fixture, fixtureSha, fixtureName, runId, taskId, savedCopy,
+            targetRgb, hostVersion, timeoutMillis, PreparationProfile.NORMAL);
+    }
+
+    private static InputIdentity validateInput(final String fixture, final String fixtureSha,
+        final String fixtureName, final String runId, final String taskId,
+        final String savedCopy, final String targetRgb, final String hostVersion,
+        final long timeoutMillis, final PreparationProfile profile) {
         requireSafeId(runId, "runId");
         requireSafeId(taskId, "taskId");
         if (!runId.equals(taskId)) throw new IllegalArgumentException(
@@ -246,8 +262,8 @@ public final class OfficialPsdFixturePreparation {
             throw new IllegalArgumentException("fixtureSha256 is not the reviewed seven-layer PSD");
         }
         requireWindowsPath(savedCopy, "savedCopy");
-        if (!lastPathPart(savedCopy).equals("prepared-control.cmo3")) {
-            throw new IllegalArgumentException("savedCopy must be prepared-control.cmo3");
+        if (!lastPathPart(savedCopy).equals(profile.savedCopyBasename())) {
+            throw new IllegalArgumentException("savedCopy must be " + profile.savedCopyBasename());
         }
         if (!targetRgb.isBlank()) requireSha(targetRgb, "targetRgbSha256");
         if (!hostVersion.isBlank() && !hostVersion.equals("5.3.02")) {
@@ -264,6 +280,36 @@ public final class OfficialPsdFixturePreparation {
         final long timeoutMillis) {
         return validateInput(fixture, fixtureSha, fixtureName, runId, taskId, savedCopy,
             targetRgb, hostVersion, timeoutMillis);
+    }
+
+    /** Package-private profile seam for the offline focused test. */
+    static InputIdentity validateInputForProfileForTest(final String fixture,
+        final String fixtureSha, final String fixtureName, final String runId,
+        final String taskId, final String savedCopy, final String targetRgb,
+        final String hostVersion, final long timeoutMillis, final String profile) {
+        return validateInput(fixture, fixtureSha, fixtureName, runId, taskId, savedCopy,
+            targetRgb, hostVersion, timeoutMillis, parseProfile(profile));
+    }
+
+    /** Package-private chooser/output profile seam for the offline focused test. */
+    static String profileKeyForTest(final String profile) {
+        return parseProfile(profile).chooserKey();
+    }
+
+    static int profileChooserIndexForTest(final String profile) {
+        return parseProfile(profile).chooserIndex();
+    }
+
+    static String profileSavedCopyBasenameForTest(final String profile) {
+        return parseProfile(profile).savedCopyBasename();
+    }
+
+    private static PreparationProfile parseProfile(final String value) {
+        if (value == null || value.isBlank() || "normal".equalsIgnoreCase(value.trim())) {
+            return PreparationProfile.NORMAL;
+        }
+        if ("legacy".equalsIgnoreCase(value.trim())) return PreparationProfile.LEGACY;
+        throw new IllegalArgumentException("unknown official PSD preparation profile: " + value);
     }
 
     private static void requireWindowsPath(final String value, final String name) {
@@ -295,7 +341,7 @@ public final class OfficialPsdFixturePreparation {
         return value.substring(slash + 1);
     }
 
-    private void recordInput(final InputIdentity input) {
+    private void recordInput(final InputIdentity input, final PreparationProfile profile) {
         properties.setProperty("prepare.fixture.path", input.fixturePath());
         properties.setProperty("prepare.fixture.name", lastPathPart(input.fixturePath()));
         properties.setProperty("prepare.fixture.expectedName", input.fixtureName());
@@ -308,6 +354,16 @@ public final class OfficialPsdFixturePreparation {
         properties.setProperty("prepare.savedCopy.sha256", UNAVAILABLE);
         properties.setProperty("prepare.savedCopy.hashStatus",
             "UNAVAILABLE: write-only UserFileHandle does not expose a path/read capability");
+        properties.setProperty("prepare.profile", profile.profileName());
+        properties.setProperty("prepare.savedCopy.expectedBasename", profile.savedCopyBasename());
+    }
+
+    private void recordProfile(final PreparationProfile profile) {
+        properties.setProperty("prepare.profile", profile.profileName());
+        properties.setProperty("prepare.chooser.expectedSelectedIndex",
+            Integer.toString(profile.chooserIndex()));
+        properties.setProperty("prepare.chooser.expectedSelectedKey", profile.chooserKey());
+        properties.setProperty("prepare.savedCopy.expectedBasename", profile.savedCopyBasename());
     }
 
     private HostAccess preflightHostAccess() throws Exception {
@@ -405,7 +461,7 @@ public final class OfficialPsdFixturePreparation {
     }
 
     private Window chooseNewModel(final HostAccess host, final InputIdentity input,
-        final long timeoutMillis) throws Exception {
+        final PreparationProfile profile, final long timeoutMillis) throws Exception {
         final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         final AtomicReference<Window> owner = new AtomicReference<>();
         while (System.nanoTime() < deadline) {
@@ -418,7 +474,7 @@ public final class OfficialPsdFixturePreparation {
                 TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()));
             final EdtCall<ChoiceObservation> call = invokeEdtBounded(() -> {
                 properties.setProperty("prepare.chooser.edtState", "RUNNING");
-                final ChoiceObservation choice = inspectAndChooseOnEdt(host, input, owner);
+                final ChoiceObservation choice = inspectAndChooseOnEdt(host, input, profile, owner);
                 properties.setProperty("prepare.chooser.edtState", "RETURNED");
                 return choice;
             }, remainingMillis);
@@ -452,6 +508,7 @@ public final class OfficialPsdFixturePreparation {
 
     private ChoiceObservation inspectAndChooseOnEdt(final HostAccess host,
         final InputIdentity input,
+        final PreparationProfile profile,
         final AtomicReference<Window> owner) throws Exception {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
             "chooser inspection must run on EDT");
@@ -542,11 +599,21 @@ public final class OfficialPsdFixturePreparation {
         final ChooserGateResult gate = verifyAndExecuteChooser(binding, observation,
             new ChooserGateExpectation(host.hostList(), host.renderer(), host.option(),
                 host.hostButton(), host.hostButtonSubclass(), host.action(),
-                host.firstLabel(), host.secondLabel()),
+                host.firstLabel(), host.secondLabel()), profile.chooserIndex(),
             stopped, () -> isTaskBound(input), new ChooserGateActions() {
                 @Override public boolean selectFirst() {
-                    list.setSelectedIndex(0);
-                    return list.getSelectedValue() == first;
+                    return selectIndex(0);
+                }
+
+                @Override public boolean select(final int index) {
+                    return selectIndex(index);
+                }
+
+                private boolean selectIndex(final int index) {
+                    final Object expected = index == 0 ? first : index == 1 ? second : null;
+                    if (expected == null) return false;
+                    list.setSelectedIndex(index);
+                    return list.getSelectedIndex() == index && list.getSelectedValue() == expected;
                 }
 
                 @Override public void clickConfirm() {
@@ -557,7 +624,8 @@ public final class OfficialPsdFixturePreparation {
             });
         if (!gate.accepted()) throw new IllegalStateException(gate.diagnostic());
         return new ChoiceObservation(currentOwner, dialog, list.getClass().getName(),
-            confirmation.getClass().getName(), firstText, secondText, true);
+            confirmation.getClass().getName(), profile.chooserIndex(), profile.chooserKey(),
+            firstText, secondText, true);
     }
 
     private static String optionLabel(final HostAccess host, final Object option) throws Exception {
@@ -662,6 +730,9 @@ public final class OfficialPsdFixturePreparation {
 
     interface ChooserGateActions {
         boolean selectFirst();
+        default boolean select(final int index) {
+            return index == 0 && selectFirst();
+        }
         void clickConfirm();
     }
 
@@ -683,21 +754,40 @@ public final class OfficialPsdFixturePreparation {
         final ChooserGateObservation observation, final ChooserGateExpectation expected,
         final BooleanSupplier stopped, final BooleanSupplier taskBound,
         final ChooserGateActions actions) {
+        return verifyAndExecuteChooser(binding, observation, expected, 0, stopped, taskBound,
+            actions);
+    }
+
+    static ChooserGateResult verifyAndExecuteChooser(final WindowBindingDecision binding,
+        final ChooserGateObservation observation, final ChooserGateExpectation expected,
+        final int selectedIndex, final BooleanSupplier stopped, final BooleanSupplier taskBound,
+        final ChooserGateActions actions) {
         if (binding == null || !binding.ready() || binding.owner() == null
             || observation == null || binding.owner() != observation.currentOwner()) {
             return ChooserGateResult.rejected("official main-frame window binding is not exact");
         }
-        return verifyAndExecuteChooser(observation, expected, stopped, taskBound, actions);
+        return verifyAndExecuteChooser(observation, expected, selectedIndex, stopped, taskBound,
+            actions);
     }
 
     static ChooserGateResult verifyAndExecuteChooser(final ChooserGateObservation observation,
         final ChooserGateExpectation expected, final BooleanSupplier stopped,
         final BooleanSupplier taskBound, final ChooserGateActions actions) {
+        return verifyAndExecuteChooser(observation, expected, 0, stopped, taskBound, actions);
+    }
+
+    static ChooserGateResult verifyAndExecuteChooser(final ChooserGateObservation observation,
+        final ChooserGateExpectation expected, final int selectedIndex,
+        final BooleanSupplier stopped, final BooleanSupplier taskBound,
+        final ChooserGateActions actions) {
         Objects.requireNonNull(observation, "observation");
         Objects.requireNonNull(expected, "expected");
         Objects.requireNonNull(stopped, "stopped");
         Objects.requireNonNull(taskBound, "taskBound");
         Objects.requireNonNull(actions, "actions");
+        if (selectedIndex < 0 || selectedIndex >= observation.optionCount()) {
+            return ChooserGateResult.rejected("official chooser selection index is unknown");
+        }
         final String shapeFailure = chooserShapeFailure(observation, expected);
         if (!shapeFailure.isEmpty()) return ChooserGateResult.rejected(shapeFailure);
         if (!chooserGateOpen(stopped, taskBound)) {
@@ -707,9 +797,8 @@ public final class OfficialPsdFixturePreparation {
             if (!chooserGateOpen(stopped, taskBound)) {
                 return ChooserGateResult.rejected("chooser selection was stopped or task-unbound");
             }
-            if (!actions.selectFirst()) {
-                return ChooserGateResult.rejected(
-                    "official chooser did not select the first new-model option");
+            if (!actions.select(selectedIndex)) {
+                return ChooserGateResult.rejected("official chooser did not select the reviewed option");
             }
             if (!chooserGateOpen(stopped, taskBound)) {
                 return ChooserGateResult.rejected("chooser confirmation was stopped or task-unbound");
@@ -781,7 +870,7 @@ public final class OfficialPsdFixturePreparation {
 
     private ModelState awaitInitialModel(final InputIdentity input, final long timeoutMillis)
         throws Exception {
-        final ModelState state = awaitModel(timeoutMillis);
+        final ModelState state = awaitModel(timeoutMillis, "model.beforeSave");
         final EdtCall<InitialSourceObservation> call = invokeEdtBounded(
             () -> verifyInitialSourceOnEdt(input, state),
             Math.min(EDT_CALL_TIMEOUT_MILLIS, timeoutMillis));
@@ -796,13 +885,21 @@ public final class OfficialPsdFixturePreparation {
     }
 
     private ModelState awaitModel(final long timeoutMillis) throws Exception {
+        return awaitModel(timeoutMillis, null);
+    }
+
+    private ModelState awaitModel(final long timeoutMillis, final String modePrefix)
+        throws Exception {
         final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         final AtomicReference<String> last = new AtomicReference<>("no model yet");
         while (System.nanoTime() < deadline) {
             checkStopped();
-            final EdtCall<ModelState> call = invokeEdtBounded(() -> {
+            final EdtCall<CurrentModelObservation> call = invokeEdtBounded(() -> {
                 try {
-                    return currentModelOnEdt();
+                    final CurrentModelObservation observation = currentModelObservationOnEdt();
+                    if (modePrefix != null) recordModelBlendVersionMode(modePrefix,
+                        observation.model());
+                    return observation;
                 } catch (RuntimeException unavailable) {
                     last.set(unavailable.getMessage() == null ? unavailable.toString()
                         : unavailable.getMessage());
@@ -812,7 +909,7 @@ public final class OfficialPsdFixturePreparation {
             if (!call.completed()) throw new IllegalStateException("model readiness EDT timed out");
             if (call.failure() != null) throw asException(call.failure());
             if (call.value() != null) {
-                return call.value();
+                return call.value().state();
             }
             sleepPoll(deadline);
         }
@@ -886,7 +983,7 @@ public final class OfficialPsdFixturePreparation {
                 "SAVE_AS did not execute: " + saved.status());
             final ProjectFileLifecycleEvent.After after = events.awaitSave(
                 expectedContentId, execution.afterSequence(), 60_000L, stopped);
-            final ModelState current = awaitModel(30_000L);
+            final ModelState current = awaitModel(30_000L, "model.afterSave");
             recordModelState("model.afterSave", current);
             if (!savedModelMatches(before, current, lastPathPart(input.savedCopyPath()))) {
                 throw new IllegalStateException(
@@ -1014,8 +1111,26 @@ public final class OfficialPsdFixturePreparation {
         properties.setProperty("prepare.chooser.optionCount", "2");
         properties.setProperty("prepare.chooser.optionLabel.0", choice.firstLabel());
         properties.setProperty("prepare.chooser.optionLabel.1", choice.secondLabel());
-        properties.setProperty("prepare.chooser.selectedKey", FIRST_LABEL_KEY);
+        properties.setProperty("prepare.chooser.selectedIndex",
+            Integer.toString(choice.selectedIndex()));
+        properties.setProperty("prepare.chooser.selectedKey", choice.selectedKey());
         properties.setProperty("prepare.chooser.confirmAction", "OK");
+    }
+
+    private void recordModelBlendVersionMode(final String prefix, final CubismModel model) {
+        final String base = prefix + ".blendVersionMode";
+        if (model == null) {
+            properties.setProperty(base, MODE_UNAVAILABLE);
+            properties.setProperty(base + ".reason", "active model object is unavailable");
+            return;
+        }
+        // CubismModel and its public texture/PSD projections do not expose a reviewed
+        // blend/version-mode getter.  The exact JAR has internal version methods, but no
+        // verified relation from those methods to this model's imported PSD was established;
+        // record the honest observation rather than inferring mode from the chooser index.
+        properties.setProperty(base, MODE_UNAVAILABLE);
+        properties.setProperty(base + ".reason",
+            "public SDK exposes no reliable blend/version-mode getter for this model");
     }
 
     private void recordWindow(final Window window) {
@@ -1508,8 +1623,34 @@ public final class OfficialPsdFixturePreparation {
         Class<?> hostButtonSubclass, Class<?> action, String firstLabel, String secondLabel,
         String title, String message) { }
 
+    private record PreparedInput(InputIdentity identity, PreparationProfile profile) { }
+
+    private enum PreparationProfile {
+        NORMAL("normal", 0, FIRST_LABEL_KEY, "prepared-control.cmo3"),
+        LEGACY("legacy", 1, SECOND_LABEL_KEY, "prepared-control-legacy.cmo3");
+
+        private final String name;
+        private final int chooserIndex;
+        private final String chooserKey;
+        private final String savedCopyBasename;
+
+        PreparationProfile(final String name, final int chooserIndex, final String chooserKey,
+            final String savedCopyBasename) {
+            this.name = name;
+            this.chooserIndex = chooserIndex;
+            this.chooserKey = chooserKey;
+            this.savedCopyBasename = savedCopyBasename;
+        }
+
+        String profileName() { return name; }
+        int chooserIndex() { return chooserIndex; }
+        String chooserKey() { return chooserKey; }
+        String savedCopyBasename() { return savedCopyBasename; }
+    }
+
     private record ChoiceObservation(Window owner, Dialog dialog, String listClass,
-        String confirmClass, String firstLabel, String secondLabel, boolean chosen) { }
+        String confirmClass, int selectedIndex, String selectedKey, String firstLabel,
+        String secondLabel, boolean chosen) { }
 
     private record CurrentModelObservation(CubismModel model,
         TextureRelationsSnapshot relations, ModelState state) { }

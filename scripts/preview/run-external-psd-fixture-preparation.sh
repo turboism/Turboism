@@ -6,6 +6,35 @@
 # fixed-grant SAVE_AS; no production product plugin is part of this run.
 set -euo pipefail
 
+profile=normal
+runner_args=()
+while (($# > 0)); do
+  case "$1" in
+    --profile)
+      [ "$#" -ge 2 ] || { echo 'official PSD preparation: --profile requires normal or legacy' >&2; exit 2; }
+      profile="$2"
+      shift 2
+      ;;
+    --profile=*)
+      profile="${1#--profile=}"
+      shift
+      ;;
+    *)
+      runner_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+case "$profile" in
+  normal) saved_copy_basename=prepared-control.cmo3 ;;
+  legacy) saved_copy_basename=prepared-control-legacy.cmo3 ;;
+  *)
+    echo "official PSD preparation: unknown profile: $profile" >&2
+    exit 2
+    ;;
+esac
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export TURBOISM_ENV_FILE="${TURBOISM_ENV_FILE:-/opt/dev/projects/turboism/.env}"
 # shellcheck source=host-validation-env.sh
@@ -39,12 +68,13 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --jvm-option '-Dturboism.validation.externalpsd.prepare.fixtureName={FIXTURE_NAME}' \
   --jvm-option '-Dturboism.validation.externalpsd.prepare.runId={TASK_ID}' \
   --jvm-option '-Dturboism.validation.externalpsd.prepare.taskId={TASK_ID}' \
-  --jvm-option '-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/prepared-control.cmo3' \
+  --jvm-option "-Dturboism.validation.externalpsd.prepare.profile=$profile" \
+  --jvm-option "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/$saved_copy_basename" \
   --jvm-option "-Dturboism.validation.externalpsd.prepare.targetRgbSha256=$target_rgb_sha256" \
   --jvm-option '-Dturboism.validation.externalpsd.prepare.hostVersion=5.3.02' \
   --jvm-option '-Dturboism.validation.externalpsd.prepare.timeoutMillis=180000' \
-  --jvm-option '-Dturboism.preview.userFileFixedGrant={HOME}/prepared-control.cmo3' \
+  --jvm-option "-Dturboism.preview.userFileFixedGrant={HOME}/$saved_copy_basename" \
   --failure-marker 'EXTERNAL_PSD_EDIT_RESULT status=BLOCKED' \
   --result-file state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties \
   --result-pass-line 'status=PASS' --result-fail-line 'status=FAIL' \
-  --result-timeout 480 --exit-timeout 90 "$@"
+  --result-timeout 480 --exit-timeout 90 "${runner_args[@]}"

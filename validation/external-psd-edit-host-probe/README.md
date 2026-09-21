@@ -339,6 +339,24 @@ copies the source into a task temporary directory and runs the production candid
 and write-confirmation helpers against that copy. It prints `REAL_SESSION_SAMPLE=NOT_RUN` when
 the property is absent; a configured source must parse completely and the helper check must pass.
 
+## Official PSD fixture preparation
+
+The preparation wrapper drives only the reviewed Cubism 5.3.02 chooser and the fixed-grant
+`SAVE_AS`; it does not load the production external-PSD plugin. The default `normal` profile
+keeps the existing `prepared-control.cmo3` output and selects `CUB3-0418`. The explicit `legacy`
+profile selects `CUB3-4408` and uses the independent `prepared-control-legacy.cmo3` output/grant.
+Unknown profiles fail before the shared runner is invoked.
+
+```bash
+bash scripts/preview/run-external-psd-fixture-preparation.sh --dry-run
+bash scripts/preview/run-external-psd-fixture-preparation.sh --profile legacy --dry-run
+```
+
+Both profiles retain the exact source, chooser shape, source-layer/raw relation, window/stop,
+code-source SHA, and SAVE identity gates. The helper records the model blend/version-mode
+observation; when no reliable public SDK getter is available it records `UNAVAILABLE` rather
+than inferring the mode from the selected chooser option.
+
 ## Exact-host run (queued, serialized)
 
 ```bash
