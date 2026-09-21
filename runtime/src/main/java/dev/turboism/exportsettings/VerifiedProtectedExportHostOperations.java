@@ -130,6 +130,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String MODEL_DEFORMER_TRANSFORM = PREFIX + "model.deformer-transform";
     private static final String TRANSFORM_LOCAL_TO_CANVAS =
         PREFIX + "transform.create-local-to-canvas";
+    private static final String TRANSFORM_CANVAS_TO_LOCAL =
+        PREFIX + "transform.create-canvas-to-local";
     private static final String TRANSFORM_APPLY = PREFIX + "transform.apply-array";
     private static final String ART_MESH_SOURCE_POSITIONS =
         PREFIX + "art-mesh-source.positions";
@@ -235,7 +237,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
         BINDING_PARAMETER_ID, BINDING_KEYS, PART_CHILD_GUIDS,
         DEFORMER_GUID, DEFORMER_TARGET, DEFORMER_CHILDREN,
-        MODEL_DEFORMER_TRANSFORM, TRANSFORM_LOCAL_TO_CANVAS, TRANSFORM_APPLY,
+        MODEL_DEFORMER_TRANSFORM, TRANSFORM_LOCAL_TO_CANVAS,
+        TRANSFORM_CANVAS_TO_LOCAL, TRANSFORM_APPLY,
         ART_MESH_SOURCE_POSITIONS, ART_MESH_SOURCE_SET_POSITIONS,
         ART_MESH_SOURCE_KEYFORMS, ART_MESH_FORM_SET_POSITIONS,
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
@@ -704,6 +707,33 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
             resolver.invoke(MODEL_DEFORMER_TRANSFORM, modelInstance, guid);
         return transform == null
             ? null : resolver.invoke(TRANSFORM_LOCAL_TO_CANVAS, transform);
+    }
+
+    /**
+     * {@code CModel.getDeformerTransform(parentGuid).createCanvasToLocalTransform()}
+     * — the parent deformer's canvas-to-local transform on the live instance,
+     * or null when the deformer has no parent. Child positions authored in the
+     * deleted deformer's local space must be re-expressed in the parent's local
+     * space so the surviving parent chain does not apply twice.
+     */
+    @Override
+    public Object deformerParentCanvasToLocalTransform(
+        final Object modelInstance,
+        final Object deformerSource
+    ) {
+        if (!resolver.isInstance(MODEL_CLASS, modelInstance)
+            || !resolver.isInstance(DEFORMER_CLASS, deformerSource)) {
+            return null;
+        }
+        final Object parentGuid =
+            resolver.invoke(DEFORMER_TARGET, deformerSource);
+        if (parentGuid == null) {
+            return null;
+        }
+        final Object transform = resolver.invoke(
+            MODEL_DEFORMER_TRANSFORM, modelInstance, parentGuid);
+        return transform == null
+            ? null : resolver.invoke(TRANSFORM_CANVAS_TO_LOCAL, transform);
     }
 
     @Override

@@ -19,7 +19,7 @@ public final class ProtectedExportVerificationManifest {
 
     public static final String VERIFICATION_ID_53 = "cubism-5.3.02.protected-export.static";
     public static final String RECORD_SHA256_53 =
-        "e90d0d0cceab0b307e55a9b21c473ea528dd97995230d9ae73e64a48c6666fe9";
+        "d8c04be6758bca93bff5488c90767f28f4a4e2281cb5e3f2d59cccb9d10c2e2f";
     public static final String CUBISM_VERSION_53 = "5.3.02";
     public static final String PROFILE_ID_53 = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE_53 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
@@ -165,6 +165,7 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.source.local-name",
         "cubism.protected-export.source.set-local-name",
         "cubism.protected-export.transform.apply-array",
+        "cubism.protected-export.transform.create-canvas-to-local",
         "cubism.protected-export.transform.create-local-to-canvas",
         "cubism.protected-export.undo-manager.can-undo",
         "cubism.protected-export.undo-manager.class",

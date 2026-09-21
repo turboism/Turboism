@@ -1551,6 +1551,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.transform_create_canvas_to_local",
+      "alias": "cubism.protected-export.transform.create-canvas-to-local",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/doc/selection/ITransformBetweenLocalAndCanvas",
+      "memberName": "createCanvasToLocalTransform",
+      "descriptor": "()Lcom/live2d/doc/selection/d;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.protected_export.method.undo_manager_can_undo",
       "alias": "cubism.protected-export.undo-manager.can-undo",
       "kind": "method",

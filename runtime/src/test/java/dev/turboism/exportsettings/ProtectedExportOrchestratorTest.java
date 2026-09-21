@@ -1433,7 +1433,9 @@ class ProtectedExportOrchestratorTest {
                 List.of(new FakeBinding("param-1", List.of(0f, 0.5f, 1f)))));
             original.model.deformers.add(new FakeDeformer("g-root", null,
                 List.of(new FakeBinding("param-1", List.of(0f, 1f)))));
-            original.model.deformers.add(new FakeDeformer("g-unbound", null,
+            // Nested under g-root so the bake exercises the parent
+            // canvas-to-local re-expression, not just the root identity path.
+            original.model.deformers.add(new FakeDeformer("g-unbound", "g-root",
                 List.of(), unboundDeformerConstant));
             original.model.artMeshes.add(
                 new FakeArtMesh("m-a-guid", "meshA", "id-a",
@@ -1933,7 +1935,37 @@ class ProtectedExportOrchestratorTest {
             final Object modelInstance,
             final Object deformerSource
         ) {
-            return new FakeTransform(((FakeDeformer) deformerSource).constant);
+            // A deformer's local-to-canvas transform carries its own constant
+            // plus every surviving ancestor's — the full path to canvas.
+            return new FakeTransform(
+                chainConstant((FakeDeformer) deformerSource));
+        }
+
+        @Override
+        public Object deformerParentCanvasToLocalTransform(
+            final Object modelInstance,
+            final Object deformerSource
+        ) {
+            final FakeDeformer deformer = (FakeDeformer) deformerSource;
+            if (deformer.targetGuid == null) {
+                return null;
+            }
+            return new FakeTransform(-chainConstant(parentOf(deformer)));
+        }
+
+        private FakeDeformer parentOf(final FakeDeformer deformer) {
+            final FakeModel model = ((FakeDoc) activeDoc).model;
+            return model.deformers.stream()
+                .filter(d -> d.guid.equals(deformer.targetGuid))
+                .findFirst().orElse(null);
+        }
+
+        private float chainConstant(final FakeDeformer deformer) {
+            float sum = 0f;
+            for (FakeDeformer d = deformer; d != null; d = parentOf(d)) {
+                sum += d.constant;
+            }
+            return sum;
         }
 
         @Override
