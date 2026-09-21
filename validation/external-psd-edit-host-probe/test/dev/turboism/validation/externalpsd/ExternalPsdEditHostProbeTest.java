@@ -94,6 +94,9 @@ public final class ExternalPsdEditHostProbeTest {
         testPopupAttemptAssociation();
         testAutoImportEvidence();
         testPersistEvidenceGate();
+        testPersistSaveLifecycleGate();
+        testSaveAsAdmissionGate();
+        testSaveDialogGate();
         testNativeFingerprintGates();
         testHistoryMovesRequireMoved();
         testTempCandidateBinding();
@@ -195,6 +198,161 @@ public final class ExternalPsdEditHostProbeTest {
         uppercase.setProperty("persist.baselineTargetRgbSha256", "A".repeat(64));
         expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(uppercase),
             "non-canonical hash evidence is rejected");
+    }
+
+    private static void testPersistSaveLifecycleGate() {
+        final var identity = new ExternalPsdEditHostProbe.TargetIdentity(
+            "persist-document", "persist-model", "persist-binding", 7L,
+            "persist-model-image", "persist-art-mesh", "persist-raw");
+        final var beforeFirstSave = new ExternalPsdEditHostProbe.PersistDocumentState(
+            identity, Optional.empty(), "untitled", "persist-window", true, true);
+        final var afterFirstSave = new ExternalPsdEditHostProbe.PersistDocumentState(
+            identity, Optional.of("content-after-first-save"), "persisted-document.cmo3",
+            "persist-window", true, true);
+        final var oldSameName = new ExternalPsdEditHostProbe.PersistSaveEvent(
+            4L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
+            Optional.empty(), Optional.of("content-after-first-save"),
+            Optional.of("persisted-document.cmo3"));
+        final var firstSave = new ExternalPsdEditHostProbe.PersistSaveEvent(
+            8L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
+            Optional.empty(), Optional.of("content-after-first-save"), Optional.empty());
+        final var first = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+            5L, beforeFirstSave, afterFirstSave, List.of(oldSameName, firstSave),
+            "persisted-document.cmo3");
+        assertTrue(first.accepted(), "first save with no request filename is accepted");
+        assertEquals(Optional.empty(), first.event().requestFileName(),
+            "first save request filename remains absent diagnostic data");
+
+        final var beforeSaveAs = new ExternalPsdEditHostProbe.PersistDocumentState(
+            identity, Optional.of("content-existing"), "old-model.cmo3", "persist-window", true,
+            true);
+        final var afterSaveAs = new ExternalPsdEditHostProbe.PersistDocumentState(
+            identity, Optional.of("content-existing"), "persisted-document.cmo3",
+            "persist-window", true, true);
+        final var oldRequestSaveAs = new ExternalPsdEditHostProbe.PersistSaveEvent(
+            11L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
+            Optional.of("content-existing"), Optional.of("content-existing"),
+            Optional.of("old-model.cmo3"));
+        final var saveAs = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+            10L, beforeSaveAs, afterSaveAs, List.of(oldRequestSaveAs),
+            "persisted-document.cmo3");
+        assertTrue(saveAs.accepted(), "SAVE_AS old request filename is not saved-file evidence");
+        assertEquals(Optional.of("old-model.cmo3"), saveAs.event().requestFileName(),
+            "old SAVE_AS request filename is retained only for diagnostics");
+
+        final var oldOnly = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+            5L, beforeFirstSave, afterFirstSave, List.of(oldSameName),
+            "persisted-document.cmo3");
+        assertTrue(!oldOnly.accepted(), "same-name event before execute is rejected");
+        assertContains(oldOnly.diagnostic(), "post-execute",
+            "old event rejection names the execute sequence boundary");
+
+        final var wrongContent = new ExternalPsdEditHostProbe.PersistSaveEvent(
+            12L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
+            Optional.of("wrong-content"), Optional.of("content-existing"),
+            Optional.of("old-model.cmo3"));
+        final var wrong = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+            10L, beforeSaveAs, afterSaveAs, List.of(wrongContent),
+            "persisted-document.cmo3");
+        assertTrue(!wrong.accepted(), "wrong content SAVE event is rejected");
+        assertContains(wrong.diagnostic(), "request contentId",
+            "wrong content rejection names the request content identity");
+
+        final var changedDocument = new ExternalPsdEditHostProbe.PersistDocumentState(
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "other-document", "persist-model", "persist-binding", 7L,
+                "persist-model-image", "persist-art-mesh", "persist-raw"),
+            Optional.of("content-existing"), "persisted-document.cmo3", "persist-window",
+            true, true);
+        final var changed = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+            10L, beforeSaveAs, changedDocument, List.of(oldRequestSaveAs),
+            "persisted-document.cmo3");
+        assertTrue(!changed.accepted(), "changed document after SAVE is rejected");
+        assertContains(changed.diagnostic(), "target identity",
+            "changed document rejection names the stable target identity");
+    }
+
+    private static void testSaveAsAdmissionGate() throws Exception {
+        final var identity = new ExternalPsdEditHostProbe.TargetIdentity(
+            "admission-document", "admission-model", "admission-binding", 9L,
+            "admission-model-image", "admission-art-mesh", "admission-raw");
+        final var current = new ExternalPsdEditHostProbe.PersistDocumentState(
+            identity, Optional.empty(), "untitled", "admission-window", true, true);
+        final AtomicInteger commandCalls = new AtomicInteger();
+        final var valid = onEdt(() ->
+            ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+                identity, "admission-window", current, false, commandCalls::incrementAndGet));
+        assertTrue(valid.admitted(), "same-EDT stable document/window admission executes");
+        assertEquals(1, commandCalls.get(), "valid admission executes one command");
+
+        final var changed = new ExternalPsdEditHostProbe.PersistDocumentState(
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "changed-document", "admission-model", "admission-binding", 9L,
+                "admission-model-image", "admission-art-mesh", "admission-raw"),
+            Optional.empty(), "untitled", "admission-window", true, true);
+        final var changedResult = onEdt(() ->
+            ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+                identity, "admission-window", changed, false, commandCalls::incrementAndGet));
+        assertTrue(!changedResult.admitted(), "changed document is rejected before command");
+        assertEquals(1, commandCalls.get(), "changed document performs zero commands");
+
+        final var stoppedResult = onEdt(() ->
+            ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+                identity, "admission-window", current, true, commandCalls::incrementAndGet));
+        assertTrue(!stoppedResult.admitted(), "stopped task is rejected before command");
+        assertEquals(1, commandCalls.get(), "stopped task performs zero commands");
+    }
+
+    private static void testSaveDialogGate() {
+        final var genericNo = saveDialogSnapshot(
+            List.of("dialog", "bound-window"), true, 1, "", false, "", false,
+            List.of("No"), List.of("No"), false, false);
+        final var genericDecision = ExternalPsdEditHostProbe.classifySaveDialogForTest(genericNo);
+        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.OBSERVE_ONLY,
+            genericDecision.outcome(), "generic No label cannot infer unused-raw keep semantics");
+        assertContains(genericDecision.diagnostic(), "CUB3-3054",
+            "generic dialog records the exact official message proof still missing");
+
+        final var wrongOwner = saveDialogSnapshot(
+            List.of("dialog", "other-window"), false, 1, "", false, "", false,
+            List.of("No"), List.of("No"), false, false);
+        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.REJECTED,
+            ExternalPsdEditHostProbe.classifySaveDialogForTest(wrongOwner).outcome(),
+            "wrong owner chain receives no action");
+
+        final var multiple = saveDialogSnapshot(
+            List.of("dialog", "bound-window"), true, 2, "", false, "", false,
+            List.of("No"), List.of("No"), false, false);
+        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.REJECTED,
+            ExternalPsdEditHostProbe.classifySaveDialogForTest(multiple).outcome(),
+            "multiple matching dialogs receive no action");
+
+        final var closed = saveDialogSnapshot(
+            List.of("dialog", "bound-window"), true, 1, "", false, "", false,
+            List.of("No"), List.of("No"), false, true);
+        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.REJECTED,
+            ExternalPsdEditHostProbe.classifySaveDialogForTest(closed).outcome(),
+            "delayed callback after close receives no action");
+
+        final var staticProof = saveDialogSnapshot(
+            List.of("dialog", "bound-window"), true, 1, "CUB3-3054", true, "aM.b", true,
+            List.of("No"), List.of("aM.b"), false, false);
+        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.KEEP,
+            ExternalPsdEditHostProbe.classifySaveDialogForTest(staticProof).outcome(),
+            "only exact message and aM.b keep-action evidence can authorize a future click");
+    }
+
+    private static ExternalPsdEditHostProbe.SaveDialogSnapshot saveDialogSnapshot(
+        final List<String> ownerChain, final boolean ownerMatches, final int candidateCount,
+        final String messageKey, final boolean messageTemplateProven,
+        final String keepActionCommand, final boolean keepActionProven,
+        final List<String> buttons, final List<String> actionCommands,
+        final boolean stopped, final boolean closed) {
+        return new ExternalPsdEditHostProbe.SaveDialogSnapshot(
+            "dialog", "bound-window", ownerChain, ownerMatches, true, true,
+            "persist-document", "persist-document", 7L, 7L, true, messageKey,
+            messageTemplateProven, keepActionCommand, keepActionProven, List.of("message"),
+            buttons, actionCommands, candidateCount, stopped, closed);
     }
 
     private static void testNativeFingerprintGates() {
