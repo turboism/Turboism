@@ -52,6 +52,8 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Locale effectiveLocale;
     private final RuntimePerformanceProbeService performanceProbe;
     private final RuntimePerformanceEventPublisher performanceEvents;
+    private final dev.turboism.adapter.cubism.HostSnapshotSource sessionSnapshotSource;
+    private final dev.turboism.adapter.cubism.SelectionObservationPublisher selectionObserver;
     private final dev.turboism.mcp.McpConnectionRegistry mcpConnections =
         new dev.turboism.mcp.McpConnectionRegistry();
 
@@ -159,6 +161,22 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         this.log = log;
         this.failureCollector = failureCollector;
         this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        // One session snapshot source shared by every plugin query facade and the
+        // selection observer: a single invalidation-token domain lets the shared
+        // observation baseline order query results against sampler results.
+        this.sessionSnapshotSource = dev.turboism.adapter.host.HostSessionSnapshotSource
+            .forSession(hostAccess.adapters().projectWorkspace());
+        // Session-scoped selection observation on the bounded host-read lane.
+        this.selectionObserver = new dev.turboism.adapter.cubism.SelectionObservationPublisher(
+            sessionSnapshotSource,
+            hostReadLane,
+            scheduler,
+            eventBroker,
+            eventBroker.observationBaseline(
+                dev.turboism.adapter.cubism.SelectionObservation.class
+            )
+        );
+        this.selectionObserver.signalDemand();
     }
 
     RuntimeEventBroker.Owner admitEventOwner(final PluginDescriptor descriptor) {
@@ -179,6 +197,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
 
     @Override
     public void close() {
+        selectionObserver.close();
         performanceEvents.close();
         performanceProbe.close();
         mcpConnections.close();
@@ -238,7 +257,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
             new PreviewDiagnosticReport(), scope,
-            EmptyHostSnapshotSource.INSTANCE,
+            sessionSnapshotSource,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector,
             eventBroker, Objects.requireNonNull(eventOwner, "eventOwner").key(),

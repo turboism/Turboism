@@ -61,6 +61,35 @@ public final class EventSubscriptionPermissionCatalog {
         }
     }
 
+    /**
+     * Non-throwing per-delivery permission probe: evaluates the permissions the
+     * <em>concrete</em> event type requires against the owner's checker. A broad
+     * (root/supertype) subscription is therefore authorized per delivered event,
+     * not per subscription type — it receives exactly the subset its owner is
+     * allowed to observe.
+     *
+     * @return true when every required domain permission is granted
+     */
+    public static boolean isPermitted(
+        final Class<? extends EventBus.TurboismEvent> concreteType,
+        final PermissionChecker permissionChecker
+    ) {
+        final PermissionChecker checker = Objects.requireNonNull(
+            permissionChecker,
+            "permissionChecker"
+        );
+        for (String permission : requiredPermissions(
+            Objects.requireNonNull(concreteType, "concreteType")
+        )) {
+            try {
+                checker.check(permission, "event.deliver." + concreteType.getName());
+            } catch (dev.turboism.sdk.permission.CubismPermissionException denied) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Validates that a descriptor declares permissions required by its subscribers. */
     public static void requireDeclared(
         final PluginDescriptor descriptor,
