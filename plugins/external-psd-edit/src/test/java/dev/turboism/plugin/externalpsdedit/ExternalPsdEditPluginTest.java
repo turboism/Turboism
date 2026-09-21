@@ -78,8 +78,11 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -327,6 +330,191 @@ class ExternalPsdEditPluginTest {
 
         assertEquals(1, file.observeCalls.get());
         assertEquals(1, file.openCalls.get());
+    }
+
+    @Test
+    void synchronousExportFailureCleansSessionAndAllowsRetry() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        context.cubism().textures().exportFailure =
+            new IllegalStateException("synchronous export failure");
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(0, plugin.liveSessions(), "a synchronous export failure must remove the session");
+        assertTrue(context.taskScheduler.refreshClosed(),
+            "startup cleanup must close the refresh task as well");
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.error.session-failed")));
+
+        context.cubism().textures().exportFailure = null;
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(List.of("export:raw-a", "export:raw-a"), context.cubism().textures().calls());
+        assertEquals(1, plugin.liveSessions(), "the same target must be retryable after cleanup");
+        assertEquals(1, context.cubism().textures().issued().get(RAW_A).openCalls.get());
+    }
+
+    @Test
+    void refreshDoesNotPauseExportingSessionBeforeExportCompletes() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final CompletableFuture<PsdExportResult> exportCompletion = new CompletableFuture<>();
+        context.cubism().textures().exportCompletion = exportCompletion;
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        context.cubism().relations(TextureRelationsSnapshot.unavailable());
+        context.taskScheduler.runRefreshTick();
+
+        assertTrue(context.uiHost().notifications().stream()
+            .noneMatch(n -> n.id().equals("external-psd-edit.status.paused-reason")));
+
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final FakePsdEditFile file = new FakePsdEditFile();
+        exportCompletion.complete(new PsdExportResult(
+            PsdExportResult.Status.EXPORTED,
+            "test",
+            RAW_A,
+            Optional.of(file),
+            Optional.of(new TestRevision("baseline"))
+        ));
+
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.editing")));
+    }
+
+    @Test
+    void refreshDoesNotPauseOpeningSessionBeforeOpenCompletes() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final CompletableFuture<PsdFileOperationResult> openCompletion = new CompletableFuture<>();
+        context.cubism().textures().openCompletion = openCompletion;
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        context.cubism().relations(TextureRelationsSnapshot.unavailable());
+        context.taskScheduler.runRefreshTick();
+
+        assertTrue(context.uiHost().notifications().stream()
+            .noneMatch(n -> n.id().equals("external-psd-edit.status.paused-reason")));
+
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        openCompletion.complete(new PsdFileOperationResult(
+            PsdFileOperationResult.Status.OPENED, "test"));
+
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.editing")));
+    }
+
+    @Test
+    void subscriptionFailureDoesNotDeadlockReopenOrStop() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final CompletableFuture<PsdExportResult> exportCompletion = new CompletableFuture<>();
+        context.cubism().textures().exportCompletion = exportCompletion;
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        final FakePsdEditFile file = new FakePsdEditFile();
+        file.observeEntered = new CountDownLatch(1);
+        file.observeRelease = new CountDownLatch(1);
+        file.observeFailure = new IllegalStateException("observe failed");
+        final AtomicReference<Throwable> threadFailure = new AtomicReference<>();
+        final Thread exportThread = new Thread(() -> {
+            try {
+                exportCompletion.complete(new PsdExportResult(
+                    PsdExportResult.Status.EXPORTED,
+                    "test",
+                    RAW_A,
+                    Optional.of(file),
+                    Optional.of(new TestRevision("baseline"))
+                ));
+            } catch (Throwable failure) {
+                threadFailure.set(failure);
+            }
+        }, "external-psd-test-export");
+        exportThread.start();
+        assertTrue(file.observeEntered.await(1, TimeUnit.SECONDS),
+            "observeSaves must be entered before the lock-order check");
+
+        final Thread reopenThread = new Thread(() -> {
+            try {
+                context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+            } catch (Throwable failure) {
+                threadFailure.set(failure);
+            }
+        }, "external-psd-test-reopen");
+        reopenThread.start();
+        final Thread tickThread = new Thread(() -> {
+            try {
+                context.taskScheduler.runRefreshTick();
+            } catch (Throwable failure) {
+                threadFailure.set(failure);
+            }
+        }, "external-psd-test-refresh");
+        tickThread.start();
+        final Thread stopThread = new Thread(() -> {
+            try {
+                plugin.disable();
+            } catch (Throwable failure) {
+                threadFailure.set(failure);
+            }
+        }, "external-psd-test-stop");
+        stopThread.start();
+
+        try {
+            reopenThread.join(1000);
+            assertFalse(reopenThread.isAlive(),
+                "reopen must not wait behind an external subscription call");
+            tickThread.join(1000);
+            assertFalse(tickThread.isAlive(),
+                "refresh tick must not wait behind an external subscription call");
+            stopThread.join(1000);
+            assertFalse(stopThread.isAlive(),
+                "stop must remain bounded while subscription fails");
+        } finally {
+            file.observeRelease.countDown();
+            exportThread.join(1000);
+            reopenThread.join(1000);
+            tickThread.join(1000);
+            stopThread.join(1000);
+        }
+
+        assertNull(threadFailure.get());
+        assertFalse(exportThread.isAlive());
+        assertFalse(reopenThread.isAlive());
+        assertFalse(tickThread.isAlive());
+        assertFalse(stopThread.isAlive());
+        assertEquals(0, plugin.liveSessions());
+        assertTrue(file.stopped.get());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.error.session-failed")));
     }
 
     @Test
@@ -1259,6 +1447,39 @@ class ExternalPsdEditPluginTest {
     }
 
     @Test
+    void synchronousOpenFailureStopsSubscriptionAndAllowsRetry() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        context.cubism().textures().openFailure =
+            new IllegalStateException("synchronous open failure");
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        final FakePsdEditFile failedFile = context.cubism().textures().issued().get(RAW_A);
+        assertEquals(0, plugin.liveSessions(), "a synchronous open failure must remove the session");
+        assertTrue(failedFile.stopped.get());
+        assertTrue(failedFile.subscriptionClosed.get());
+        assertTrue(context.taskScheduler.refreshClosed(),
+            "open failure cleanup must close the startup refresh task");
+
+        context.cubism().textures().openFailure = null;
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(List.of("export:raw-a", "export:raw-a"), context.cubism().textures().calls());
+        assertEquals(1, plugin.liveSessions(), "the same target must be retryable after cleanup");
+        final FakePsdEditFile recoveredFile = context.cubism().textures().issued().get(RAW_A);
+        assertEquals(1, recoveredFile.openCalls.get());
+        assertFalse(recoveredFile.stopped.get());
+    }
+
+    @Test
     void noContextMenuSelectionFailsVisibly() {
         final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
@@ -1480,6 +1701,10 @@ class ExternalPsdEditPluginTest {
         private volatile String externalContent = "baseline";
         private volatile Consumer<PsdFileRevision> saveListener = ignored -> { };
         private volatile CompletionStage<PsdFileOperationResult> openCompletion;
+        private volatile RuntimeException openFailure;
+        private volatile RuntimeException observeFailure;
+        private volatile CountDownLatch observeEntered;
+        private volatile CountDownLatch observeRelease;
         private volatile PsdFileOperationResult.Status openStatus =
             PsdFileOperationResult.Status.OPENED;
 
@@ -1487,6 +1712,9 @@ class ExternalPsdEditPluginTest {
         public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
             subscribedBeforeOpen = observed && !subscriptionClosed.get();
             openCalls.incrementAndGet();
+            if (openFailure != null) {
+                throw openFailure;
+            }
             if (openCompletion != null) {
                 return openCompletion;
             }
@@ -1497,6 +1725,24 @@ class ExternalPsdEditPluginTest {
         @Override
         public Registration observeSaves(final Consumer<PsdFileRevision> listener) {
             observeCalls.incrementAndGet();
+            final CountDownLatch entered = observeEntered;
+            if (entered != null) {
+                entered.countDown();
+            }
+            final CountDownLatch release = observeRelease;
+            if (release != null) {
+                try {
+                    if (!release.await(2, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("observe release timed out");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(interrupted);
+                }
+            }
+            if (observeFailure != null) {
+                throw observeFailure;
+            }
             saveListener = listener;
             observed = true;
             return () -> subscriptionClosed.set(true);
@@ -1520,9 +1766,11 @@ class ExternalPsdEditPluginTest {
         private final AtomicInteger relationReads = new AtomicInteger();
         private volatile Runnable relationReadHook;
         private volatile PsdExportResult.Status exportStatus = PsdExportResult.Status.EXPORTED;
+        private volatile RuntimeException exportFailure;
         private volatile PsdReplaceResult.Status replaceStatus = PsdReplaceResult.Status.APPLIED;
         private volatile CompletableFuture<PsdExportResult> exportCompletion;
         private volatile CompletableFuture<PsdFileOperationResult> openCompletion;
+        private volatile RuntimeException openFailure;
         private volatile PsdFileOperationResult.Status openStatus =
             PsdFileOperationResult.Status.OPENED;
 
@@ -1549,6 +1797,9 @@ class ExternalPsdEditPluginTest {
         @Override
         public CompletionStage<PsdExportResult> exportRawImagePsd(final RawImageId source) {
             calls.add("export:" + source.value());
+            if (exportFailure != null) {
+                throw exportFailure;
+            }
             if (exportCompletion != null) {
                 return exportCompletion;
             }
@@ -1559,6 +1810,7 @@ class ExternalPsdEditPluginTest {
             final FakePsdEditFile file = new FakePsdEditFile();
             file.openStatus = openStatus;
             file.openCompletion = openCompletion;
+            file.openFailure = openFailure;
             issued.put(source, file);
             return CompletableFuture.completedFuture(new PsdExportResult(
                 PsdExportResult.Status.EXPORTED, "test", source,
