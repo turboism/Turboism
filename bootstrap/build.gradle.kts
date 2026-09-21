@@ -100,6 +100,17 @@ val relocatedAgentJar by tasks.named<ShadowJar>("shadowJar") {
     archiveFileName.set("turboism-agent-relocated.jar")
     destinationDirectory.set(layout.buildDirectory.dir("agent-relocation"))
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes(
+            "Premain-Class" to "dev.turboism.bootstrap.TurboismAgent",
+            "Agent-Class" to "dev.turboism.bootstrap.TurboismAgent",
+            "Can-Redefine-Classes" to "false",
+            "Can-Retransform-Classes" to "true",
+            "Boot-Class-Path" to "turboism-agent.jar",
+            "Implementation-Title" to "Turboism Developer Preview Agent",
+            "Implementation-Version" to project.version
+        )
+    }
     relocatePrivateRuntimeLibraries()
 }
 
@@ -125,25 +136,21 @@ val performanceProbeAgentJar by tasks.registering(ShadowJar::class) {
 }
 
 tasks.jar {
-    dependsOn(relocatedAgentJar, performanceProbeCarrierJar)
+    dependsOn(relocatedAgentJar)
     archiveBaseName.set("turboism-agent")
     archiveFileName.set("turboism-agent.jar")
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    manifest {
-        attributes(
-            "Premain-Class" to "dev.turboism.bootstrap.TurboismAgent",
-            "Agent-Class" to "dev.turboism.bootstrap.TurboismAgent",
-            "Can-Redefine-Classes" to "false",
-            "Can-Retransform-Classes" to "true",
-            "Boot-Class-Path" to "turboism-agent.jar",
-            "Implementation-Title" to "Turboism Developer Preview Agent",
-            "Implementation-Version" to project.version
+    // The canonical artifact is a byte copy of the shaded producer: no raw
+    // sourceSets.main.output can bypass relocation (Jar keeps its task type so
+    // tasks.named<Jar>("jar") consumers and archiveFile resolution are intact).
+    inputs.file(relocatedAgentJar.archiveFile)
+    val canonicalArchive = archiveFile
+    setActions(emptyList())
+    doLast {
+        relocatedAgentJar.archiveFile.get().asFile.copyTo(
+            canonicalArchive.get().asFile,
+            overwrite = true
         )
     }
-    from(zipTree(relocatedAgentJar.archiveFile)) {
-        exclude("META-INF/MANIFEST.MF")
-    }
-    exclude("META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class")
 }
 
 // Executable gate on the built bootstrap fat JAR: every component in the
@@ -231,7 +238,8 @@ val checkBootstrapJarDependencyIsolation by tasks.registering(JavaExec::class) {
             agent.absolutePath,
             isolationFixturePluginJar.get().archiveFile.get().asFile.absolutePath,
             home.absolutePath,
-            performanceProbeAgentJar.get().archiveFile.get().asFile.absolutePath
+            performanceProbeAgentJar.get().archiveFile.get().asFile.absolutePath,
+            relocatedAgentJar.archiveFile.get().asFile.absolutePath
         )
     }
 }

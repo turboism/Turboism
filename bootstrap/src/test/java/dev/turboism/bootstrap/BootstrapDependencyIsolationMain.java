@@ -40,8 +40,10 @@ public final class BootstrapDependencyIsolationMain {
         final Path pluginJar = Path.of(args[1]);
         final Path home = Path.of(args[2]);
         final Path probeAgentJar = Path.of(args[3]);
+        final Path relocatedJar = Path.of(args[4]);
         checkJarNamespaces(agentJar);
         checkJarNamespaces(probeAgentJar);
+        checkCanonicalSourcesOnlyShadowOutput(agentJar, relocatedJar);
         checkHostFixture();
         checkPluginFixture(pluginJar);
         checkSharedSdkIdentity();
@@ -79,6 +81,24 @@ public final class BootstrapDependencyIsolationMain {
             if (jar.getJarEntry("module-info.class") != null) {
                 throw new IllegalStateException("Agent JAR carries a root module-info.class");
             }
+        }
+    }
+
+    /**
+     * Regression for the packaging invariant: the canonical JAR is a byte copy of
+     * the shaded producer, so a future {@code from(sourceSets.main.output)}-style
+     * leak — raw, unrelocated class bytes — can never enter the shipped artifact.
+     */
+    private static void checkCanonicalSourcesOnlyShadowOutput(
+        final Path agentJar,
+        final Path relocatedJar
+    ) throws Exception {
+        final long offset = java.nio.file.Files.mismatch(agentJar, relocatedJar);
+        if (offset != -1L) {
+            throw new IllegalStateException(
+                "Canonical agent JAR is not byte-identical to the shaded producer "
+                    + "(first difference at byte offset " + offset + ")"
+            );
         }
     }
 
