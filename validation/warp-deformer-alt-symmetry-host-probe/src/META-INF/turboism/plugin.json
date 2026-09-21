@@ -1,0 +1,50 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.warp-alt-symmetry",
+  "name": "Warp Deformer Alt Symmetry Host Validation Probe",
+  "version": "0.0.0",
+  "description": "Task-local reconnaissance probe for Warp deformer control points on an exact Cubism host: reads every Warp grid, proves the SDK grid write/hook/native-Undo round-trip, and (opt-in) records what a real Alt-drag in the modeling viewport does to the grid.",
+  "entrypoints": [
+    "dev.turboism.validation.warpaltsymmetry.WarpDeformerAltSymmetryHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads every Warp deformer grid and the active model identity to record the probe baseline."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Performs one bounded Warp grid replacement on the task-scoped fixture copy to prove the read/write/hook/native-Undo path the feature depends on."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Receives the on/after Warp-grid hook callbacks that the Alt-symmetry feature must observe; without it the runtime registers no Deformer observer and the hook family cannot be verified."
+    },
+    {
+      "id": "turboism.cubism.model.intercept",
+      "scope": "application",
+      "reason": "Receives the before Warp-grid hook so the probe can verify the rewrite-capable interception point the Alt-symmetry feature would return a mirrored grid from. The probe never rewrites the grid; it returns the value it was given."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
