@@ -157,6 +157,79 @@ class ProtectedExportStagingTest {
         assertScratchGone();
     }
 
+    /**
+     * The second supervisor counterexample: the second place-move fails AND the
+     * rollback of the first target fails. The publish must still report an
+     * IOException with the rollback failure suppressed, must NOT claim the
+     * destination is untouched, and must retain the scratch backup holding the
+     * only surviving copy of the original bytes — its path is reported through
+     * the suppressed recovery note.
+     */
+    @Test
+    void rollbackFailureRetainsRecoveryMaterial() throws IOException {
+        layout(List.of("model.moc3", "model.json"));
+        Files.writeString(destinationDir.resolve("model.moc3"), "ORIGINAL-UNIQUE-BYTES");
+        Files.writeString(destinationDir.resolve("model.json"), "ORIGINAL-JSON");
+
+        final ProtectedExportStaging.MoveOp mover = (source, target) -> {
+            if (source.toString().contains("incoming")
+                && target.getFileName().toString().equals("model.json")) {
+                throw new IOException("publish failure");
+            }
+            if (source.toString().contains("backups")
+                && target.getFileName().toString().equals("model.moc3")) {
+                throw new IOException("rollback failure");
+            }
+            Files.move(source, target,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        };
+
+        final IOException thrown = assertThrows(IOException.class, () -> staging().publish(
+            stagedPick.toFile(), List.of(
+                stagedDir.resolve("model.moc3"),
+                stagedDir.resolve("model.json")),
+            realPick, mover));
+        assertTrue(thrown.getSuppressed().length >= 1,
+            "rollback failure must surface as suppressed evidence");
+
+        // The original bytes must still exist somewhere under the destination —
+        // inside the retained scratch backup tree.
+        boolean retained;
+        try (var walk = Files.walk(destinationDir)) {
+            retained = walk.filter(Files::isRegularFile).anyMatch(path -> {
+                try {
+                    return Files.readString(path).equals("ORIGINAL-UNIQUE-BYTES");
+                } catch (IOException failure) {
+                    throw new RuntimeException(failure);
+                }
+            });
+        }
+        assertTrue(retained,
+            "failed rollback must not destroy the only surviving original bytes");
+        assertScratchRetained();
+    }
+
+    /**
+     * When rollback completes, the scratch is removed as before — retention is
+     * reserved for the incomplete-rollback case only.
+     */
+    @Test
+    void successfulRollbackStillRemovesScratch() throws IOException {
+        layout(List.of("model.moc3", "model.json"));
+        Files.writeString(destinationDir.resolve("model.moc3"), "EXISTING-MOC");
+        Files.writeString(destinationDir.resolve("model.json"), "EXISTING-JSON");
+
+        assertThrows(IOException.class, () -> staging().publish(
+            stagedPick.toFile(), List.of(
+                stagedDir.resolve("model.moc3"),
+                stagedDir.resolve("model.json")),
+            realPick, placingFailureOn("model.json")));
+
+        assertEquals("EXISTING-MOC",
+            Files.readString(destinationDir.resolve("model.moc3")));
+        assertScratchGone();
+    }
+
     @Test
     void rejectsUnwritableDestinationParent() throws IOException {
         layout(List.of("model.moc3"));
@@ -190,6 +263,14 @@ class ProtectedExportStagingTest {
             destinationDir, ".turboism-publish-*")) {
             assertFalse(entries.iterator().hasNext(),
                 "publish scratch must be removed");
+        }
+    }
+
+    private void assertScratchRetained() throws IOException {
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(
+            destinationDir, ".turboism-publish-*")) {
+            assertTrue(entries.iterator().hasNext(),
+                "incomplete rollback must retain the recovery directory");
         }
     }
 }

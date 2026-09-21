@@ -162,6 +162,33 @@ public interface ProtectedExportHostOperations {
     /** Current value of a live parameter instance, or {@code Float.NaN} when unreadable. */
     float parameterInstanceValue(Object parameter);
 
+    /**
+     * Writes a live parameter instance's value ({@code CParameter.setValue}).
+     * Behavior sampling only — used on the disposable copy's model instance,
+     * never the authoring document.
+     */
+    void setParameterInstanceValue(Object parameterInstance, float value);
+
+    /**
+     * Re-evaluates a model instance's calculated forms
+     * ({@code CModel.reinitModelInstance_exe} — the self-contained "update
+     * model" path that tolerates null view context). Behavior sampling only.
+     */
+    void evaluateModelInstance(Object modelInstance);
+
+    /** Instance ArtMeshes of a live model instance (empty when unreadable). */
+    List<?> modelInstanceArtMeshes(Object modelInstance);
+
+    /** The source object an instance ArtMesh evaluates, or {@code null}. */
+    Object artMeshInstanceSource(Object artMeshInstance);
+
+    /**
+     * Evaluated vertex positions of an instance ArtMesh's calculated form —
+     * post-deformation geometry in model space — or {@code null} when the form
+     * cannot be read.
+     */
+    float[] evaluatedArtMeshPositions(Object artMeshInstance);
+
     // ------------------------------------------------------------------
     // Object identity
     // ------------------------------------------------------------------
@@ -253,6 +280,26 @@ public interface ProtectedExportHostOperations {
      * returns {@code true} (or cannot be proven {@code false}) the export rejects.</p>
      */
     boolean usesExtendedInterpolation(Object modelSource);
+
+    /**
+     * Unsupported feature families the host reports for a model source via its
+     * own {@code contain*} gates — the authoritative semantic checks for
+     * content the object census cannot see (blend/multiply/screen color,
+     * morph-target parameters and enhancements, aliases, art paths, inverted
+     * clipping, quad transforms, offscreen rendering, motion sync). The
+     * returned tokens are stable family names for reporting only; empty means
+     * the host detects none of them.
+     */
+    List<String> unsupportedModelFeatures(Object modelSource);
+
+    /**
+     * Unsupported structures embedded inside an otherwise-allowed controllable
+     * source — invisible to the {@link #allObjects} census because they live in
+     * members, not the object list: keyform morph-target sets, extended morph
+     * target sets and any attached extension objects. Empty means the source
+     * carries none of them.
+     */
+    List<String> embeddedUnsupportedFamilies(Object controllableSource);
 
     // ------------------------------------------------------------------
     // Export dialog identity + native re-drive

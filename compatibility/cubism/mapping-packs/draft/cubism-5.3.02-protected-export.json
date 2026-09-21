@@ -2044,6 +2044,686 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.class.art_mesh_form_class",
+      "kind": "class",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-form.class",
+      "runtime": "CArtMeshForm",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.art_mesh_form_positions",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-form.positions",
+      "runtime": "getPositions",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()[F",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.art_mesh_instance_calculated_form",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-instance.calculated-form",
+      "runtime": "getCalculatedForm",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.class.art_mesh_instance_class",
+      "kind": "class",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-instance.class",
+      "runtime": "CArtMesh",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.art_mesh_instance_source",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-instance.source",
+      "runtime": "getSource",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.keyform_binding_keys",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.keyform-binding.keys",
+      "runtime": "getKeys",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.keyform_binding_parameter_id",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.keyform-binding.parameter-id",
+      "runtime": "getParameterId",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_all_motion_sync_settings",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.all-motion-sync-settings",
+      "runtime": "getAllMotionSyncSettings",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_all_physics_settings",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.all-physics-settings",
+      "runtime": "getAllPhysicsSettings",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_advanced_blend",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-advanced-blend",
+      "runtime": "containAdvancedBlend",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_alias",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-alias",
+      "runtime": "containAlias",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_art_path",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-art-path",
+      "runtime": "containArtPath",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_invert_clipping",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-invert-clipping",
+      "runtime": "containInvertClippingObject",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_morph_target",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-morph-target",
+      "runtime": "containMorphTarget",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_morph_target_enhancement",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-morph-target-enhancement",
+      "runtime": "containMorphTargetEnhancement",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_motion_sync",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-motion-sync",
+      "runtime": "containMotionSyncSetting",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_motion_sync_correction",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-motion-sync-correction",
+      "runtime": "containMotionSyncSettingNeedCorrection",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_multiply_color",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-multiply-color",
+      "runtime": "containMultiplyColor",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_offscreen_rendering",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-offscreen-rendering",
+      "runtime": "containOffscreenRendering",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_quad_transform",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-quad-transform",
+      "runtime": "containQuadTransformObject",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_screen_color",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.contain-screen-color",
+      "runtime": "containScreenColor",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_all_art_meshes",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model.all-art-meshes",
+      "runtime": "getAllArtMeshes",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_reinit_instance_exe",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model.reinit-instance-exe",
+      "runtime": "reinitModelInstance_exe",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.class.morph_target_set_class",
+      "kind": "class",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.morph-target-set.class",
+      "runtime": "KeyFormMorphTargetSet",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.morph_target_set_morph_targets",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.morph-target-set.morph-targets",
+      "runtime": "getMorphTargets",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.parameter_instance_set_value",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.parameter-instance.set-value",
+      "runtime": "setValue",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "(F)V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_default_value",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.parameter-source.default-value",
+      "runtime": "getDefaultValue",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()F",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_max_value",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.parameter-source.max-value",
+      "runtime": "getMaxValue",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()F",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_min_value",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.parameter-source.min-value",
+      "runtime": "getMinValue",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()F",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_repeat",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.parameter-source.repeat",
+      "runtime": "isRepeat",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.part_child_guids",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.part.child-guids",
+      "runtime": "getChildGuids",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source_extended_morph_target_set",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.source.extended-morph-target-set",
+      "runtime": "getExtendedKeyformMorphTargetSetIfAvailable",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source_extensions",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.source.extensions",
+      "runtime": "getExtensions",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source_keyform_morph_target_set",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.source.keyform-morph-target-set",
+      "runtime": "getKeyformMorphTargetSet",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
     }
   ]
 }

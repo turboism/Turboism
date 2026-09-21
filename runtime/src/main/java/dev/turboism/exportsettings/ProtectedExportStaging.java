@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocLoader;
 import dev.turboism.sdk.cubism.core.OwnedMoc;
+import dev.turboism.sdk.cubism.core.OwnedModel;
 
 import java.io.File;
 import java.io.IOException;
@@ -60,6 +61,53 @@ public final class ProtectedExportStaging {
         void move(Path source, Path target) throws IOException;
     }
 
+    /**
+     * Runtime-private parameter write seam on an owned Core model. Production
+     * wires the adapter's owned-Moc runtime; the public SDK projection stays
+     * read-only. Implementations must throw when the model is foreign, closed,
+     * or the parameter is absent.
+     */
+    public interface CoreParameterWriter {
+        void writeParameterValue(OwnedModel model, String parameterId, float value);
+    }
+
+    /** One deterministic sample step: set {@code parameterId} to {@code value}. */
+    public record BehaviorSample(String parameterId, float value) {
+        public BehaviorSample {
+            parameterId = Objects.requireNonNull(parameterId, "parameterId");
+            if (parameterId.isBlank()) {
+                throw new IllegalArgumentException("parameterId must not be blank");
+            }
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException("value must be finite");
+            }
+        }
+    }
+
+    /**
+     * Host-side evaluated geometry captured on the disposable copy AFTER flatten
+     * (the exact state the native exporter serializes). {@code baseline} holds
+     * post-flatten positions at parameter defaults; {@code frames} holds, per
+     * sample step in {@code samples}, drawable-token → evaluated vertex
+     * positions. Validation replays the identical sequence on the staged
+     * {@code .moc3} through the owned Core runtime and compares element-wise.
+     */
+    public record BehaviorSnapshot(
+        List<BehaviorSample> samples,
+        Map<String, float[]> baseline,
+        List<Map<String, float[]>> frames
+    ) {
+        public BehaviorSnapshot {
+            samples = samples == null ? List.of() : List.copyOf(samples);
+            baseline = baseline == null ? Map.of() : Map.copyOf(baseline);
+            frames = frames == null ? List.of() : List.copyOf(frames);
+            if (frames.size() != samples.size()) {
+                throw new IllegalArgumentException(
+                    "frames must align with samples");
+            }
+        }
+    }
+
     /** Outcome of a staged-output validation. */
     public record Validation(
         boolean valid,
@@ -82,11 +130,23 @@ public final class ProtectedExportStaging {
         }
     }
 
+    /** Per-element absolute tolerance for evaluated-geometry comparison. */
+    private static final float BEHAVIOR_TOLERANCE = 1e-3f;
+
     private final MocLoader mocLoader;
+    private final CoreParameterWriter parameterWriter;
     private final ObjectMapper json = new ObjectMapper();
 
     public ProtectedExportStaging(final MocLoader mocLoader) {
+        this(mocLoader, null);
+    }
+
+    public ProtectedExportStaging(
+        final MocLoader mocLoader,
+        final CoreParameterWriter parameterWriter
+    ) {
         this.mocLoader = mocLoader; // may be null; validated lazily when a moc3 is staged
+        this.parameterWriter = parameterWriter; // null disables the behavior oracle
     }
 
     /**
@@ -104,13 +164,17 @@ public final class ProtectedExportStaging {
      * @param expectedParameters parameter ID → expected contract (range, default,
      *     repeat, baked key positions); staged parameters must match every field
      * @param expectedPartIds the copy's part ID set; staged must equal it
+     * @param behavior host-side evaluated-geometry oracle captured post-flatten;
+     *     when non-null the staged model must reproduce it under the identical
+     *     parameter-sample replay, or validation fails closed
      */
     public Validation validate(
         final File stagedPick,
         final List<String> reportedPaths,
         final Set<String> expectedDrawableIds,
         final Map<String, ParameterExpectation> expectedParameters,
-        final Set<String> expectedPartIds
+        final Set<String> expectedPartIds,
+        final BehaviorSnapshot behavior
     ) {
         if (stagedPick == null || reportedPaths == null || reportedPaths.isEmpty()) {
             return Validation.rejected("protected-export.staging-empty");
@@ -148,7 +212,8 @@ public final class ProtectedExportStaging {
             if (name.endsWith(".moc3")) {
                 sawMoc = true;
                 final MocFailure failure = validateMoc(
-                    path, expectedDrawableIds, expectedParameters, expectedPartIds);
+                    path, expectedDrawableIds, expectedParameters, expectedPartIds,
+                    behavior);
                 if (failure != null) {
                     return Validation.rejected(failure.key(), failure.detail());
                 }
@@ -175,7 +240,8 @@ public final class ProtectedExportStaging {
         final Path path,
         final Set<String> expectedDrawableIds,
         final Map<String, ParameterExpectation> expectedParameters,
-        final Set<String> expectedPartIds
+        final Set<String> expectedPartIds,
+        final BehaviorSnapshot behavior
     ) {
         if (mocLoader == null) {
             return new MocFailure("protected-export.moc3-loader-absent", null);
@@ -208,10 +274,15 @@ public final class ProtectedExportStaging {
                             "protected-export.moc3-parameter-ids",
                             setDiffDetail(parameterIds, expectedParameters.keySet()));
                     }
-                    final MocFailure behavior = validateParameterContracts(
+                    final MocFailure contract = validateParameterContracts(
                         model.parameters(), expectedParameters);
-                    if (behavior != null) {
-                        return behavior;
+                    if (contract != null) {
+                        return contract;
+                    }
+                    final MocFailure behaviorDrift =
+                        validateBehavior(model, behavior);
+                    if (behaviorDrift != null) {
+                        return behaviorDrift;
                     }
                     final Set<String> partIds = model.parts().stream()
                         .map(p -> p.id())
@@ -298,6 +369,131 @@ public final class ProtectedExportStaging {
                     "protected-export.moc3-parameter-contract",
                     detail.length() > 160 ? detail.substring(0, 160) : detail);
             }
+        }
+        return null;
+    }
+
+    /**
+     * Behavior oracle: replays the exact sample sequence the host captured on
+     * the disposable copy (post-flatten) against the staged model and compares
+     * evaluated vertex positions element-wise within {@link #BEHAVIOR_TOLERANCE}.
+     * This is the sampled-behavior proof AC08 requires beyond the structural
+     * parameter contract — a flattened/baked binding that changed geometry shows
+     * up as positional drift. Fail-closed: no writable parameter seam or zero
+     * comparable drawables is a rejection, not a skip.
+     */
+    private MocFailure validateBehavior(
+        final OwnedModel model,
+        final BehaviorSnapshot snapshot
+    ) {
+        if (snapshot == null) {
+            return null;
+        }
+        if (parameterWriter == null) {
+            return new MocFailure(
+                "protected-export.moc3-behavior-oracle-absent", null);
+        }
+        // Baseline: reset every parameter to its (contract-verified) default.
+        final Map<String, Float> defaults = new java.util.LinkedHashMap<>();
+        for (var parameter : model.parameters()) {
+            defaults.put(parameter.id(), parameter.defaultValue());
+        }
+        try {
+            for (Map.Entry<String, Float> entry : defaults.entrySet()) {
+                parameterWriter.writeParameterValue(
+                    model, entry.getKey(), entry.getValue());
+            }
+            model.update();
+            final int[] compared = {0};
+            MocFailure failure = compareFrame(
+                "baseline", snapshot.baseline(), model, compared);
+            if (failure != null) {
+                return failure;
+            }
+            for (int index = 0; index < snapshot.samples().size(); index++) {
+                final BehaviorSample sample = snapshot.samples().get(index);
+                if (!defaults.containsKey(sample.parameterId())) {
+                    return new MocFailure(
+                        "protected-export.moc3-behavior-parameter-absent",
+                        "id=" + sample.parameterId());
+                }
+                parameterWriter.writeParameterValue(
+                    model, sample.parameterId(), sample.value());
+                model.update();
+                failure = compareFrame(
+                    "sample=" + index + " param=" + sample.parameterId()
+                        + " value=" + sample.value(),
+                    snapshot.frames().get(index), model, compared);
+                if (failure != null) {
+                    return failure;
+                }
+                // Isolate the next sample: return this parameter to default.
+                parameterWriter.writeParameterValue(
+                    model, sample.parameterId(), defaults.get(sample.parameterId()));
+            }
+            if (compared[0] == 0) {
+                return new MocFailure(
+                    "protected-export.moc3-behavior-unverifiable",
+                    "no snapshot drawable present in output");
+            }
+            return null;
+        } catch (RuntimeException failure) {
+            final String message = failure.getMessage();
+            return new MocFailure(
+                "protected-export.moc3-behavior-eval-failed",
+                failure.getClass().getSimpleName() + ": " + (message == null
+                    ? "" : message.substring(0, Math.min(160, message.length()))));
+        }
+    }
+
+    /**
+     * Compares one captured frame against the model's freshly re-projected
+     * drawable positions. Drawables absent from the output were legitimately
+     * dropped by the exporter and are skipped; {@code compared} accumulates the
+     * number of drawables actually compared across all frames.
+     */
+    private MocFailure compareFrame(
+        final String label,
+        final Map<String, float[]> expected,
+        final OwnedModel model,
+        final int[] compared
+    ) {
+        if (expected == null || expected.isEmpty()) {
+            return null;
+        }
+        final Map<String, List<Float>> positions = new java.util.LinkedHashMap<>();
+        for (var drawable : model.drawables()) {
+            positions.put(drawable.id(), drawable.vertexPositions());
+        }
+        float worst = 0f;
+        String worstDrawable = null;
+        for (Map.Entry<String, float[]> entry : expected.entrySet()) {
+            final List<Float> actual = positions.get(entry.getKey());
+            if (actual == null) {
+                continue;
+            }
+            compared[0]++;
+            final float[] expectedPositions = entry.getValue();
+            if (actual.size() != expectedPositions.length) {
+                return new MocFailure(
+                    "protected-export.moc3-behavior-drift",
+                    label + " drawable=" + entry.getKey()
+                        + " vertex-count " + actual.size()
+                        + "!=" + expectedPositions.length);
+            }
+            for (int i = 0; i < expectedPositions.length; i++) {
+                final float delta =
+                    Math.abs(actual.get(i) - expectedPositions[i]);
+                if (delta > worst) {
+                    worst = delta;
+                    worstDrawable = entry.getKey();
+                }
+            }
+        }
+        if (worst > BEHAVIOR_TOLERANCE) {
+            return new MocFailure(
+                "protected-export.moc3-behavior-drift",
+                label + " drawable=" + worstDrawable + " maxDelta=" + worst);
         }
         return null;
     }
@@ -395,9 +591,12 @@ public final class ProtectedExportStaging {
      * every touched target back to its prior state — an existing target keeps its
      * old bytes, a previously-absent target is removed again, and directories the
      * publish itself created are removed when they end up empty. The scratch
-     * directory is removed on success and on failure; a scratch-cleanup failure on
-     * the failure path is recorded as suppressed on the publish exception rather
-     * than silently masked.</p>
+     * directory is removed on success and after a complete rollback. When rollback
+     * itself fails the scratch directory is retained instead — its {@code backups}
+     * tree may hold the only surviving copy of the user's original bytes — and the
+     * publish exception carries a suppressed {@link IOException} naming the
+     * retained recovery path. A scratch-cleanup failure on the failure path is
+     * likewise recorded as suppressed rather than silently masked.</p>
      *
      * @param stagedPick the staged pick (basename carried to the real destination)
      * @param stagedFiles validated staged files
@@ -438,6 +637,7 @@ public final class ProtectedExportStaging {
         final List<Path> placed = new ArrayList<>();
         final List<Path> restore = new ArrayList<>();
         final List<Path> createdDirs = new ArrayList<>();
+        final boolean[] rollbackComplete = {true};
         Throwable failure = null;
         try {
             final List<Path> copies = new ArrayList<>();
@@ -473,7 +673,9 @@ public final class ProtectedExportStaging {
                 try {
                     moveOp.move(copy, target);
                 } catch (IOException | RuntimeException | Error moveFailure) {
-                    restoreTarget(moveOp, target, backup, moveFailure);
+                    if (!restoreTarget(moveOp, target, backup, moveFailure)) {
+                        rollbackComplete[0] = false;
+                    }
                     throw moveFailure;
                 }
                 placed.add(target);
@@ -484,15 +686,28 @@ public final class ProtectedExportStaging {
             }
         } catch (Throwable publishFailure) {
             failure = publishFailure;
-            rollback(moveOp, placed, restore, createdDirs, failure);
-        }
-        try {
-            deleteRecursively(scratch);
-        } catch (Throwable cleanup) {
-            if (failure == null) {
-                throw cleanup;
+            if (!rollback(moveOp, placed, restore, createdDirs, failure)) {
+                rollbackComplete[0] = false;
             }
-            failure.addSuppressed(cleanup);
+        }
+        if (!rollbackComplete[0]) {
+            // Rollback could not prove every target returned to its prior bytes.
+            // The scratch backups may now hold the only surviving originals, so the
+            // directory is retained and its path reported instead of deleted.
+            if (failure != null) {
+                failure.addSuppressed(new IOException(
+                    "protected-export rollback incomplete; recovery material retained at "
+                        + scratch));
+            }
+        } else {
+            try {
+                deleteRecursively(scratch);
+            } catch (Throwable cleanup) {
+                if (failure == null) {
+                    throw cleanup;
+                }
+                failure.addSuppressed(cleanup);
+            }
         }
         if (failure != null) {
             if (failure instanceof IOException io) {
@@ -543,25 +758,33 @@ public final class ProtectedExportStaging {
     /**
      * Restores one target after its new file failed to land: when the prior entry was
      * moved aside, move it back; when the new file partially appeared, remove it.
+     *
+     * @return {@code true} only when every step succeeded — a {@code false} result
+     *     means the destination may hold mixed state and the backup tree must be
+     *     retained for recovery.
      */
-    private static void restoreTarget(
+    private static boolean restoreTarget(
         final MoveOp moveOp,
         final Path target,
         final Path backup,
         final Throwable failure
     ) {
+        boolean complete = true;
         try {
             deleteIfExists(target);
         } catch (Throwable cleanup) {
             failure.addSuppressed(cleanup);
+            complete = false;
         }
         if (backup != null) {
             try {
                 moveOp.move(backup, target);
             } catch (Throwable cleanup) {
                 failure.addSuppressed(cleanup);
+                complete = false;
             }
         }
+        return complete;
     }
 
     /**
@@ -569,19 +792,24 @@ public final class ProtectedExportStaging {
      * every moved-aside original comes back, and directories this publish created are
      * removed while they are empty. Rollback failures are suppressed onto the primary
      * failure so a damaged destination is never reported as cleanly untouched.
+     *
+     * @return {@code true} only when every unwind step succeeded; {@code false}
+     *     means recovery material must be retained rather than deleted.
      */
-    private static void rollback(
+    private static boolean rollback(
         final MoveOp moveOp,
         final List<Path> placed,
         final List<Path> restore,
         final List<Path> createdDirs,
         final Throwable failure
     ) {
+        boolean complete = true;
         for (int i = placed.size() - 1; i >= 0; i--) {
             try {
                 deleteIfExists(placed.get(i));
             } catch (Throwable cleanup) {
                 failure.addSuppressed(cleanup);
+                complete = false;
             }
         }
         for (int i = restore.size() - 2; i >= 0; i -= 2) {
@@ -591,6 +819,7 @@ public final class ProtectedExportStaging {
                 moveOp.move(backup, target);
             } catch (Throwable cleanup) {
                 failure.addSuppressed(cleanup);
+                complete = false;
             }
         }
         for (int i = createdDirs.size() - 1; i >= 0; i--) {
@@ -600,8 +829,10 @@ public final class ProtectedExportStaging {
                 // Another writer put content there — not publish-owned residue.
             } catch (Throwable cleanup) {
                 failure.addSuppressed(cleanup);
+                complete = false;
             }
         }
+        return complete;
     }
 
     /** Best-effort recursive delete used for staging and publish scratch cleanup. */
