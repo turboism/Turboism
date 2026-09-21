@@ -7,10 +7,10 @@ public final class WorkspaceControlVerificationManifest {
     public static final String CAPABILITY_ID = "cubism.workspace.control";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "workspace.app.class", "workspace.app.instance", "workspace.app.main-frame",
-        "workspace.main-frame.dock", "workspace.dock.current", "workspace.dock.preset",
+        "workspace.main-frame.dock", "workspace.dock.palette-manager", "workspace.palette-manager.current", "workspace.dock.preset",
         "workspace.dock.custom", "workspace.workspace.id", "workspace.workspace.name",
         "workspace.id.value", "workspace.dock.change", "workspace.dock.update-default",
-        "workspace.dock.reset-default"
+        "workspace.dock.reset-default", "workspace.workspace.default-layout"
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
