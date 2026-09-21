@@ -12,8 +12,8 @@ import java.util.Set;
  *
  * <p>Members are drawn from the verified parameter-structure, parameter-group, and
  * parameter-definition surfaces of the exact Cubism 5.2.03, 5.3.02, and 5.3.03 host artifacts.
- * The capability ids are declared ahead of their verification records; {@code authorizesFeature}
- * rejects every row until then.</p>
+ * The capability ids are bound on all three reviewed records; any member a record drops still
+ * fails the affected row closed.</p>
  */
 public final class EditorEditParameterStructureSelectorContract {
 

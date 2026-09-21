@@ -9,8 +9,12 @@ import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorCont
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditDeformerSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditParameterKeySelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorEditPartObjectSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
@@ -174,7 +178,39 @@ public final class EditorModelVerificationManifest {
         EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
         EditorEditSelectionSelectorContract.ADD_SELECTED_OBJECTS_CAPABILITY_ID,
         EditorEditSelectionSelectorContract.CLEAR_SELECTED_OBJECTS_CAPABILITY_ID,
-        EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID
+        EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.GET_IS_EDIT_APPROVAL_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_END_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_SEND_LOG_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_SEND_PROGRESS_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.NOTIFY_UNDO_CANCEL_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.ADD_PARAMETER_KEY_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.DELETE_PARAMETER_KEY_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.MOVE_PARAMETER_KEY_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.GET_PARAMETER_KEYS_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.GET_OBJECTS_BY_PARAMETER_KEYS_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.GET_PARAMETER_STRUCTURE_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.ADD_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.ADD_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.EDIT_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.EDIT_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.DELETE_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.DELETE_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.MOVE_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.MOVE_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.GET_PART_STRUCTURE_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.DELETE_OBJECT_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.MOVE_OBJECT_ON_PARTS_PALETTE_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.ADD_PART_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.EDIT_PART_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.EDIT_ART_MESH_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.EDIT_GLUE_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.GET_DEFORMER_STRUCTURE_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.ADD_ROTATION_DEFORMER_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.ADD_WARP_DEFORMER_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.EDIT_ROTATION_DEFORMER_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.EDIT_WARP_DEFORMER_CAPABILITY_ID
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
@@ -321,6 +357,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.app-controller.complete-pack",
         "cubism.editor-model.main-frame.class",
         "cubism.editor-model.app-controller.main-frame",
+        "cubism.editor-model.main-frame.main-window",
+        "cubism.editor-model.main-frame.jframe",
         "cubism.editor-model.main-frame.parameter-palette",
         "cubism.editor-model.parameter-palette.class",
         "cubism.editor-model.parameter-palette.view",
