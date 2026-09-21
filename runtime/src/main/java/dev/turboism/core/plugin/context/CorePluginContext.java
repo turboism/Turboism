@@ -115,6 +115,8 @@ public final class CorePluginContext implements PluginContext {
     private final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterpartsService;
     private final dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibilityService;
     private final dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipationService;
+    private final dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation warpAltMirrorParticipationService;
+    private final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenuRegistry;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
     private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
     private final dev.turboism.adapter.cubism.backup.AutoBackupCoordinator backupCoordinator;
@@ -660,6 +662,17 @@ public final class CorePluginContext implements PluginContext {
                 meshPermissionChecker,
                 this.dependencies.disposableScope()
             );
+        this.warpAltMirrorParticipationService =
+            new dev.turboism.adapter.cubism.warpalt.AuthorizedWarpAltMirrorParticipation(
+                dev.turboism.adapter.cubism.warpalt.NativeWarpAltMirrorBridge.moveParticipation(),
+                meshPermissionChecker,
+                this.dependencies.disposableScope()
+            );
+        this.viewContextMenuRegistry =
+            new dev.turboism.adapter.cubism.warpalt.AuthorizedViewContextMenuRegistry(
+                dev.turboism.adapter.cubism.warpalt.RuntimeViewContextMenuRegistry.getInstance(),
+                meshPermissionChecker
+            );
         this.sceneTableService = hostAccess == null
             ? SceneTableService.unavailable()
             : hostAccess.sceneTable();
@@ -948,6 +961,16 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
         return meshMirrorMoveParticipationService;
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation warpAltMirrorParticipation() {
+        return warpAltMirrorParticipationService;
+    }
+
+    @Override
+    public dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenu() {
+        return viewContextMenuRegistry;
     }
 
     @Override
