@@ -311,12 +311,10 @@ public final class OfficialPsdFixturePreparation {
         if (SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("official host preflight must run off EDT");
         }
-        final ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
-        if (contextLoader == null) throw new IllegalStateException(
-            "host context classloader unavailable");
-        // TCCL is only the lookup root.  Parent delegation may legitimately return the official
-        // classes from a defining loader above it, so identity is rooted at CEAppCtrl's loader.
-        final Class<?> app = loadFromContext(contextLoader, APP_CONTROLLER);
+        // The reviewed official BAT puts Cubism on the JVM application classpath. Plugin
+        // workers inherit an isolated plugin TCCL, which cannot see host classes. Load through
+        // the application loader, then verify the defining loader, code source and exact SHA.
+        final Class<?> app = loadHostApplication();
         final ClassLoader loader = app.getClassLoader();
         if (loader == null) throw new IllegalStateException(
             "official host defining classloader is unavailable");
@@ -1076,13 +1074,8 @@ public final class OfficialPsdFixturePreparation {
         return cause instanceof Exception exception ? exception : new IllegalStateException(cause);
     }
 
-    private static Class<?> loadFromContext(final ClassLoader contextLoader, final String name)
-        throws ClassNotFoundException {
-        final Class<?> type = Class.forName(name, false, contextLoader);
-        if (!name.equals(type.getName())) {
-            throw new ClassNotFoundException("class identity mismatch for " + name);
-        }
-        return type;
+    static Class<?> loadHostApplication() throws ClassNotFoundException {
+        return Class.forName(APP_CONTROLLER, false, ClassLoader.getSystemClassLoader());
     }
 
     private static Class<?> loadExact(final ClassLoader loader, final String name)

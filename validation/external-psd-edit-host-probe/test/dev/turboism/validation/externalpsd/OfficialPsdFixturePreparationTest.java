@@ -185,6 +185,22 @@ public final class OfficialPsdFixturePreparationTest {
 
             final ClassLoader loader = ClassLoader.getSystemClassLoader();
             final Class<?> app = load(loader, "com.live2d.cubism.CEAppCtrl");
+            final Thread thread = Thread.currentThread();
+            final ClassLoader originalContext = thread.getContextClassLoader();
+            try {
+                final ClassLoader isolatedPlugin = new ClassLoader(null) { };
+                thread.setContextClassLoader(isolatedPlugin);
+                try {
+                    Class.forName("com.live2d.cubism.CEAppCtrl", false, isolatedPlugin);
+                    throw new AssertionError("isolated plugin loader unexpectedly sees Cubism");
+                } catch (ClassNotFoundException expected) {
+                    // Reproduce the real plugin worker's inability to resolve host classes.
+                }
+                assertSame(app, OfficialPsdFixturePreparation.loadHostApplication(),
+                    "host bootstrap ignores the isolated plugin context loader");
+            } finally {
+                thread.setContextClassLoader(originalContext);
+            }
             final Class<?> mainFrameController = load(loader,
                 "com.live2d.cubism.view.CEMainFrameCtrl");
             final Class<?> cFrame = load(loader, "com.live2d.ui.window.CFrame");
