@@ -105,11 +105,10 @@ import java.util.stream.Stream;
  *
  * <p>Drives the SDK seam end to end: relation resolution → native export → runtime-issued
  * handle → observed stable saves → explicit-target native replacement → native Undo/Redo
- * → handle stop → same-binding recovery. The probe never inspects pixels and never guesses
- * file paths from plugin input; it locates the runtime allocation only for simulated
- * external writes, exactly as an external editor would see it. In the explicit persistence
- * phase only, the validation-only fixture helper decodes the target RGB fingerprint; the
- * ordinary GUI phase does not parse PSD pixels.</p>
+ * → handle stop → same-binding recovery. The probe never guesses file paths from plugin input;
+ * it locates the runtime allocation only for simulated external writes, exactly as an external
+ * editor would see it. Persistence and GUI validation use the validation-only fixture helper to
+ * correlate decoded target RGB fingerprints; no production pixel API is involved.</p>
  *
  * <p>Phases ({@code -Dturboism.validation.externalpsd.phase}): {@code pipeline} (default)
  * runs the full save/replace/undo/stop pipeline and, with {@code .persist=1}, appends a
@@ -127,6 +126,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static final long GUI_READY_TRIGGER_TIMEOUT_MILLIS = 300_000L;
     private static final long GUI_READY_TRIGGER_POLL_MILLIS = 250L;
     private static final long GUI_SESSION_FILE_POLL_MILLIS = 250L;
+    private static final long GUI_CURRENT_RAW_EXPORT_POLL_MILLIS = 1000L;
     private static final int GUI_SESSION_FILE_STABLE_READS = 3;
     private static final long HOST_CLOSE_TIMEOUT_MILLIS = 30_000L;
     private static final long HOST_CLOSE_POLL_MILLIS = 100L;
@@ -1092,76 +1092,120 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * file and auto-imports a written save.
      */
     private void runGui(final Properties result) throws Exception {
-        final Target target = resolveTarget(result);
-        result.setProperty("gui.menuLabel", System.getProperty(
-            "turboism.validation.externalpsd.menuLabel", "Edit PSD Externally"));
-        final GuiTargetState before = observeGuiTarget(target);
-        recordGuiTargetState(result, "before", before);
-        result.setProperty("gui.generationBefore", Long.toString(before.generation()));
-        recordGuiTargetState(result, "after",
-            GuiTargetState.unobserved("auto-import not attempted"));
-        if (!before.observed()) {
-            throw new Blocked("target-specific GUI replacement observation is available",
-                "gui.before unavailable: " + before.diagnostic());
-        }
-        if (before.binding().isBlank() || before.generation() < 0 || before.raw().isBlank()
-            || !target.raw().value().equals(before.raw())) {
-            throw new Blocked("GUI target remains bound to the resolved document and raw image",
-                "gui.before target identity is unavailable or stale: " + before);
-        }
-        if (before.rawReplaced()) {
-            throw new Blocked("fixture target starts with isReplaced=false",
-                "gui.before.rawReplaced=true; no available new replacement observation");
-        }
-        final TempCandidateSnapshot sessionCandidatesBefore = snapshotTempCandidates();
-
-        final Set<String> labels = new LinkedHashSet<>(List.of(result.getProperty("gui.menuLabel"),
-            "Edit PSD Externally",
-            "外部编辑 PSD", "外部編輯 PSD",
-            "外部でPSDを編集", "외부에서 PSD 편집"));
-        final GuiClick click = clickContributedItem(labels, 64, result, target);
-        if (!click.clicked()) {
-            throw new Blocked("context menu with the contributed item was reachable",
-                click.diagnostic());
-        }
-        result.setProperty("gui.menuPresent", "true");
-        result.setProperty("gui.itemClicked", "true");
-
-        final StablePsdSnapshot sessionSnapshot;
+        final TempTracker tracker = new TempTracker();
+        Throwable guiFailure = null;
         try {
-            sessionSnapshot = awaitSessionTempFile(sessionCandidatesBefore, 90, result);
-        } catch (SessionFileReadinessException failure) {
-            throw new Blocked("a unique, complete and stable new session PSD",
-                failure.getMessage());
-        }
-        result.setProperty("gui.sessionFile",
-            sessionSnapshot.path().getParent().getFileName().toString());
-        final StablePsdSnapshot writeSnapshot;
-        try {
-            writeSnapshot = confirmSessionFileForWrite(sessionSnapshot, result);
-        } catch (SessionFileReadinessException failure) {
-            throw new Blocked("the validated session PSD remains unchanged before mutation",
-                failure.getMessage());
-        }
-        final byte[] mutated = mutateLayerName(writeSnapshot.bytes(), 900)
-            .orElseThrow(() -> new IllegalStateException("session PSD has no mutable layer name"));
-        writeSessionFile(writeSnapshot, mutated);
-
-        final AutoImportObservation observation = awaitAutoImport(target, before, 90);
-        result.setProperty("gui.autoImportApplied", Boolean.toString(observation.applied()));
-        recordGuiTargetState(result, "after", observation.after());
-        result.setProperty("gui.generationAfter", Long.toString(observation.after().generation()));
-        if (!observation.applied()) {
-            if (observation.stale()) {
-                throw new Blocked("GUI target binding, generation and raw image remain stable",
-                    observation.diagnostic());
+            final Target target = resolveTarget(result);
+            result.setProperty("gui.menuLabel", System.getProperty(
+                "turboism.validation.externalpsd.menuLabel", "Edit PSD Externally"));
+            final GuiTargetState before = observeGuiTarget(target);
+            recordGuiTargetState(result, "before", before);
+            result.setProperty("gui.generationBefore", Long.toString(before.generation()));
+            recordGuiTargetState(result, "after",
+                GuiTargetState.unobserved("native RGB application not attempted"));
+            if (!before.observed()) {
+                throw new Blocked("target-specific GUI replacement observation is available",
+                    "gui.before unavailable: " + before.diagnostic());
             }
-            throw new IllegalStateException(
-                "plugin session did not auto-import the written save: "
-                    + observation.diagnostic());
+            if (!targetIdentityMatches(target.identity(), before.identity())) {
+                throw new Blocked(
+                    "GUI target remains bound to the resolved document/model/image/ArtMesh/raw",
+                    "gui.before identity is unavailable or stale: " + before);
+            }
+            if (before.rawReplaced()) {
+                throw new Blocked("fixture target starts with isReplaced=false",
+                    "gui.before.rawReplaced=true; no available new replacement observation");
+            }
+            final TempCandidateSnapshot sessionCandidatesBefore = snapshotTempCandidates();
+
+            final Set<String> labels = new LinkedHashSet<>(List.of(result.getProperty("gui.menuLabel"),
+                "Edit PSD Externally",
+                "外部编辑 PSD", "外部編輯 PSD",
+                "外部でPSDを編集", "외부에서 PSD 편집"));
+            final GuiClick click = clickContributedItem(labels, 64, result, target);
+            if (!click.clicked()) {
+                throw new Blocked("context menu with the contributed item was reachable",
+                    click.diagnostic());
+            }
+            result.setProperty("gui.menuPresent", "true");
+            result.setProperty("gui.itemClicked", "true");
+
+            final StablePsdSnapshot sessionSnapshot;
+            try {
+                sessionSnapshot = awaitSessionTempFile(sessionCandidatesBefore, 90, result);
+            } catch (SessionFileReadinessException failure) {
+                throw new Blocked("a unique, complete and stable new session PSD",
+                    failure.getMessage());
+            }
+            result.setProperty("gui.sessionFile",
+                sessionSnapshot.path().getParent().getFileName().toString());
+            final StablePsdSnapshot writeSnapshot;
+            try {
+                writeSnapshot = confirmSessionFileForWrite(sessionSnapshot, result);
+            } catch (SessionFileReadinessException failure) {
+                throw new Blocked("the validated session PSD remains unchanged before mutation",
+                    failure.getMessage());
+            }
+            final byte[] baselineBytes = writeSnapshot.bytes();
+            final PsdValidationContent.Fingerprint sessionBaseline = targetFingerprint(
+                baselineBytes, "GUI session baseline");
+            recordTargetFingerprint(result, "gui.session.baselineTargetRgb", sessionBaseline);
+            result.setProperty("gui.session.baselineTargetRgbSha256", sessionBaseline.sha256());
+            final byte[] mutated = PsdValidationContent.invertTargetLayerRgb(baselineBytes);
+            final PsdValidationContent.Fingerprint written = targetFingerprint(
+                mutated, "GUI session RGB mutation");
+            if (sessionBaseline.equals(written)) {
+                throw new IllegalStateException(
+                    "GUI session RGB mutation did not change the decoded target content");
+            }
+            recordTargetFingerprint(result, "gui.session.mutation.targetRgb", written);
+            result.setProperty("gui.session.mutation.targetRgbSha256", written.sha256());
+            result.setProperty("gui.session.mutation.bytes", Integer.toString(mutated.length));
+            result.setProperty("gui.session.mutation.sha256", sha256(mutated));
+            result.setProperty("gui.session.mutation.status", "PREPARED");
+            writeSessionFile(writeSnapshot, mutated);
+            result.setProperty("gui.session.mutation.status", "WRITTEN");
+
+            final GuiNativeApplicationObservation observation = awaitGuiNativeApplication(
+                result, target, before, written, tracker, 90);
+            result.setProperty("gui.autoImportApplied", Boolean.toString(observation.applied()));
+            result.setProperty("gui.nativeRgbMatchedWritten",
+                Boolean.toString(observation.freshCurrentRgb() != null
+                    && written.equals(observation.freshCurrentRgb())));
+            recordGuiTargetState(result, "after", observation.after());
+            result.setProperty("gui.generationAfter", Long.toString(observation.after().generation()));
+            result.setProperty("gui.wrapperReplaced.before", Boolean.toString(before.rawReplaced()));
+            result.setProperty("gui.wrapperReplaced.after",
+                Boolean.toString(observation.after().rawReplaced()));
+            if (observation.freshCurrentRgb() != null) {
+                recordTargetFingerprint(result, "gui.currentRaw.targetRgb",
+                    observation.freshCurrentRgb());
+                result.setProperty("gui.currentRaw.targetRgbSha256",
+                    observation.freshCurrentRgb().sha256());
+            }
+            if (!observation.applied()) {
+                if (observation.stale()) {
+                    throw new Blocked(
+                        "GUI target document/model/image/generation/ArtMesh remains stable",
+                        observation.diagnostic());
+                }
+                throw new IllegalStateException(
+                    "plugin session did not apply the written RGB mutation to the current raw: "
+                        + observation.diagnostic());
+            }
+            result.setProperty("expected",
+                "context-menu session file RGB mutation matches a fresh native current-raw export");
+            result.setProperty("actual",
+                "menu click → issued session file RGB write → fresh current-raw native RGB match");
+        } catch (Exception failure) {
+            guiFailure = failure;
+            throw failure;
+        } catch (Error failure) {
+            guiFailure = failure;
+            throw failure;
+        } finally {
+            stopAllPreservingPrimary(tracker, result, guiFailure);
         }
-        result.setProperty("expected", "context-menu item starts a session and auto-imports saves");
-        result.setProperty("actual", "menu click → session file → written save auto-applied");
     }
 
     /** Blocked signal: the evidence condition could not be reached, distinct from a failure. */
@@ -6072,19 +6116,21 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         try {
             SwingUtilities.invokeAndWait(() -> {
                 try {
-                    final var relations = context.cubism().model().active().textures().relations();
-                    if (!relations.isAvailable()) throw new IllegalStateException(
-                        "relations unavailable");
-                    final RawImageId currentRaw = relations.modelImage(target.modelImage())
-                        .flatMap(image -> image.currentRawImageId())
-                        .orElseThrow(() -> new IllegalStateException(
-                            "target model image has no current raw image"));
+                    if (!SwingUtilities.isEventDispatchThread()) {
+                        throw new IllegalStateException("GUI target observation must run on EDT");
+                    }
+                    final var document = context.cubism().activeDocument().orElseThrow(
+                        () -> new IllegalStateException("active document unavailable"));
+                    final var model = context.cubism().model().active();
+                    final var relations = model.textures().relations();
+                    final TargetIdentity identity = targetIdentityFromRelationsOnEdt(
+                        target.identity(), document.documentId(), model, relations);
+                    final RawImageId currentRaw = new RawImageId(identity.rawId());
                     final boolean rawReplaced = relations.rawImage(currentRaw)
                         .map(dev.turboism.sdk.cubism.model.RawImageDetails::isReplaced)
                         .orElseThrow(() -> new IllegalStateException(
                             "target raw image details unavailable"));
-                    observed.set(new GuiTargetState(true, relations.binding(),
-                        relations.generation(), currentRaw.value(), rawReplaced, ""));
+                    observed.set(new GuiTargetState(true, identity, rawReplaced, ""));
                 } catch (RuntimeException unavailable) {
                     observed.set(GuiTargetState.unobserved(unavailable.toString()));
                 }
@@ -6102,8 +6148,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final GuiTargetState state) {
         final String prefix = "gui." + phase + ".";
         result.setProperty(prefix + "observed", Boolean.toString(state.observed()));
+        result.setProperty(prefix + "documentId", state.documentId());
+        result.setProperty(prefix + "modelId", state.modelId());
         result.setProperty(prefix + "binding", state.binding());
         result.setProperty(prefix + "generation", Long.toString(state.generation()));
+        result.setProperty(prefix + "modelImageId", state.modelImageId());
+        result.setProperty(prefix + "artMeshId", state.artMeshId());
         result.setProperty(prefix + "raw", state.raw());
         result.setProperty(prefix + "rawReplaced", Boolean.toString(state.rawReplaced()));
         result.remove(prefix + "diagnostic");
@@ -6114,21 +6164,34 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     static boolean acceptsAutoImport(final GuiTargetState before,
         final GuiTargetState after, final String expectedRaw) {
-        return before.observed() && after.observed()
-            && !before.rawReplaced() && after.rawReplaced()
-            && before.binding().equals(after.binding())
-            && before.generation() == after.generation()
-            && expectedRaw.equals(before.raw())
-            && expectedRaw.equals(after.raw());
+        // Kept as a named negative seam for old result consumers. The wrapper's replaced flag is
+        // not native application evidence, even when the raw ID happens to remain unchanged.
+        return false;
+    }
+
+    /**
+     * Accepts GUI application only when the stable target anchor survives and a fresh native
+     * export of the observed current raw has the exact RGB fingerprint written to the issued
+     * session file. The wrapper's replaced bit is intentionally not part of this proof.
+     */
+    static boolean acceptsNativeGuiApplication(final GuiTargetState before,
+        final GuiTargetState after, final TargetIdentity expectedStable,
+        final PsdValidationContent.Fingerprint written,
+        final PsdValidationContent.Fingerprint freshCurrent) {
+        return before != null && after != null && before.observed() && after.observed()
+            && !before.rawReplaced()
+            && targetIdentityMatches(expectedStable, before.identity())
+            && stableTargetIdentityMatches(expectedStable, after.identity())
+            && !UNAVAILABLE_VALUE.equals(after.raw())
+            && written != null && freshCurrent != null && written.equals(freshCurrent);
     }
 
     private static boolean sameGuiTarget(final GuiTargetState before,
-        final GuiTargetState after, final String expectedRaw) {
+        final GuiTargetState after, final TargetIdentity expectedStable) {
         return before.observed() && after.observed()
-            && before.binding().equals(after.binding())
-            && before.generation() == after.generation()
-            && expectedRaw.equals(before.raw())
-            && expectedRaw.equals(after.raw());
+            && stableTargetIdentityMatches(expectedStable, before.identity())
+            && stableTargetIdentityMatches(expectedStable, after.identity())
+            && !UNAVAILABLE_VALUE.equals(after.raw());
     }
 
     /**
@@ -8665,28 +8728,89 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             ? singleLine : singleLine.substring(0, SESSION_DIAGNOSTIC_LIMIT) + "…";
     }
 
-    /** Waits for a target-specific false-to-true replacement without accepting stale state. */
-    private AutoImportObservation awaitAutoImport(final Target target,
-        final GuiTargetState before,
+    /**
+     * Waits for GUI import evidence. The wrapper flag and current raw are observed separately;
+     * only a fresh native export of that current raw matching the bytes written to the issued
+     * session file can complete the phase.
+     */
+    private GuiNativeApplicationObservation awaitGuiNativeApplication(final Properties result,
+        final Target target, final GuiTargetState before,
+        final PsdValidationContent.Fingerprint written, final TempTracker tracker,
         final int timeoutSeconds) throws Exception {
         final long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
         GuiTargetState last = GuiTargetState.unobserved("no post-click target observation");
+        PsdValidationContent.Fingerprint lastFreshCurrent = null;
+        String lastDiagnostic = "no stable current-raw RGB observation";
+        long nextExportAt = 0L;
+        int attempt = 0;
         while (System.currentTimeMillis() < deadline && !stopped) {
+            attempt++;
             last = observeGuiTarget(target);
             if (last.observed()) {
-                if (!sameGuiTarget(before, last, target.raw().value())) {
-                    return new AutoImportObservation(false, true, last,
+                if (!sameGuiTarget(before, last, target.identity())) {
+                    return new GuiNativeApplicationObservation(false, true, last,
+                        lastFreshCurrent,
                         "GUI target became stale: before=" + before + " after=" + last);
                 }
-                if (acceptsAutoImport(before, last, target.raw().value())) {
-                    return new AutoImportObservation(true, false, last,
-                        "target raw isReplaced changed false-to-true");
+                final long now = System.currentTimeMillis();
+                if (now >= nextExportAt) {
+                    nextExportAt = now + GUI_CURRENT_RAW_EXPORT_POLL_MILLIS;
+                    final String attemptPrefix = "gui.currentRaw.attempt." + attempt;
+                    result.setProperty(attemptPrefix + ".rawId", last.raw());
+                    result.setProperty(attemptPrefix + ".wrapperReplaced",
+                        Boolean.toString(last.rawReplaced()));
+                    try {
+                        final Target currentTarget = targetAtGuiIdentity(
+                            target, last.identity(), last.rawReplaced());
+                        lastFreshCurrent = exportTargetFingerprint(
+                            result, currentTarget, tracker, attemptPrefix);
+                        result.setProperty(attemptPrefix + ".status", "OBSERVED");
+                        result.setProperty(attemptPrefix + ".targetRgbSha256",
+                            lastFreshCurrent.sha256());
+                        if (acceptsNativeGuiApplication(
+                            before, last, target.identity(), written, lastFreshCurrent)) {
+                            return new GuiNativeApplicationObservation(true, false, last,
+                                lastFreshCurrent,
+                                "fresh native current-raw RGB matches the issued session mutation;"
+                                    + " wrapperReplaced=" + last.rawReplaced());
+                        }
+                        lastDiagnostic = "fresh current-raw RGB did not match the issued session"
+                            + " mutation: raw=" + last.raw()
+                            + " wrapperReplaced=" + last.rawReplaced()
+                            + " expected=" + written.sha256()
+                            + " actual=" + lastFreshCurrent.sha256();
+                    } catch (Exception failure) {
+                        result.setProperty(attemptPrefix + ".status", "UNAVAILABLE");
+                        result.setProperty(attemptPrefix + ".diagnostic",
+                            safeDiagnostic(failure.toString()));
+                        lastDiagnostic = "fresh current-raw export unavailable: " + failure;
+                    }
                 }
             }
-            Thread.sleep(500);
+            final long remaining = deadline - System.currentTimeMillis();
+            if (remaining <= 0L) break;
+            Thread.sleep(Math.min(500L, remaining));
         }
-        return new AutoImportObservation(false, false, last,
-            "no target-specific false-to-true replacement observed before timeout");
+        final String diagnostic = stopped
+            ? "GUI current-raw RGB wait stopped"
+            : "no fresh current-raw RGB export matched the issued session mutation before timeout; "
+                + lastDiagnostic;
+        return new GuiNativeApplicationObservation(false, false, last, lastFreshCurrent, diagnostic);
+    }
+
+    private static Target targetAtGuiIdentity(final Target previous,
+        final TargetIdentity identity, final boolean rawReplaced) {
+        Objects.requireNonNull(previous, "previous GUI target");
+        Objects.requireNonNull(identity, "observed GUI identity");
+        if (!stableTargetIdentityMatches(previous.identity(), identity)) {
+            throw new IllegalStateException("GUI stable target identity changed expected="
+                + previous.identity() + " actual=" + identity);
+        }
+        if (identity.rawId().isBlank() || UNAVAILABLE_VALUE.equals(identity.rawId())) {
+            throw new IllegalStateException("GUI current raw identity is unavailable");
+        }
+        final RawImageId raw = new RawImageId(identity.rawId());
+        return new Target(previous.artMesh(), previous.modelImage(), raw, rawReplaced, identity);
     }
 
     private record PopupAttempt(List<JPopupMenu> visibleBefore,
@@ -9072,21 +9196,43 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             failure.error());
     }
 
-    static record GuiTargetState(boolean observed, String binding, long generation, String raw,
+    static record GuiTargetState(boolean observed, TargetIdentity identity,
         boolean rawReplaced, String diagnostic) {
         GuiTargetState {
-            binding = binding == null ? "" : binding;
-            raw = raw == null ? "" : raw;
+            identity = identity == null ? TargetIdentity.unavailable() : identity;
             diagnostic = diagnostic == null ? "" : diagnostic;
         }
 
+        /** Compact unavailable/negative seam retained for old offline Swing fixtures. */
+        GuiTargetState(final boolean observed, final String binding, final long generation,
+            final String raw, final boolean rawReplaced, final String diagnostic) {
+            this(observed, new TargetIdentity(
+                UNAVAILABLE_VALUE, UNAVAILABLE_VALUE, binding, generation,
+                UNAVAILABLE_VALUE, UNAVAILABLE_VALUE, raw), rawReplaced, diagnostic);
+        }
+
+        String documentId() { return identity.documentId(); }
+        String modelId() { return identity.modelId(); }
+        String binding() { return identity.binding(); }
+        long generation() { return identity.generation(); }
+        String modelImageId() { return identity.modelImageId(); }
+        String artMeshId() { return identity.artMeshId(); }
+        String raw() { return identity.rawId(); }
+
         static GuiTargetState unobserved(final String diagnostic) {
-            return new GuiTargetState(false, "", -1L, "", false, diagnostic);
+            return new GuiTargetState(false, TargetIdentity.unavailable(), false, diagnostic);
         }
     }
 
-    private record AutoImportObservation(boolean applied, boolean stale,
-        GuiTargetState after, String diagnostic) {}
+    private record GuiNativeApplicationObservation(boolean applied, boolean stale,
+        GuiTargetState after, PsdValidationContent.Fingerprint freshCurrentRgb,
+        String diagnostic) {
+        GuiNativeApplicationObservation {
+            after = after == null
+                ? GuiTargetState.unobserved("GUI target observation unavailable") : after;
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+    }
 
     enum DiagnosticStatus {
         AVAILABLE,
