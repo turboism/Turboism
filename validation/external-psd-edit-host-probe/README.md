@@ -2,8 +2,8 @@
 
 Drives the external PSD edit pipeline on the exact Cubism 5.3.02 host through the public
 SDK only. Three phases, selected by `-Dturboism.validation.externalpsd.phase=`. The
-fixture-specific decoder is used only by the persistence/reopen validation; the ordinary
-GUI phase has no pixel-parser dependency.
+fixture-specific decoder is used only as validation evidence: persistence/reopen and GUI
+checks decode target RGB, while no production pixel API is involved.
 
 ## pipeline (default)
 
@@ -230,11 +230,14 @@ restore it. Diagnostics include complete capture/selection/after-left widget, wi
 row, identity, state, and coordinate fields. Popup association remains limited to a new or
 successfully dismissed popup from that attempt, with exactly one platform popup trigger.
 
-After the menu click, GUI success is limited to this fixture's first replacement observation:
-the target must start with `isReplaced=false`, and the same binding, generation, and raw image
-must remain unchanged while `isReplaced` changes `false→true`. A binding/generation/raw change,
-or initial `isReplaced=true`, is stale/blocked evidence rather than success. This does not claim
-content-difference or repeated-save persistence coverage.
+After the menu click, GUI success requires the same bound document/model/model-image/binding/
+generation/ArtMesh stable anchor, a real RGB mutation written to that exact issued session file,
+and a fresh native export of the observed current raw whose decoded target RGB exactly matches
+the written mutation. The current raw is recorded independently from the wrapper's
+`isReplaced` bit; a same-raw `false→true` flag alone is never PASS, and an incoming raw is
+accepted only through the current-raw export/RGB gate. An anchor change or initially
+`isReplaced=true` is stale/blocked evidence. This does not claim repeated-save persistence
+coverage.
 
 Before the GUI mutation, the probe records `gui.session.read.attempt.N.*` for every bounded
 candidate/file-read state. Each readable attempt records the authenticated real path, file size,
@@ -258,8 +261,7 @@ portable path/content protocol cannot distinguish a same-path replacement with i
 content and metadata; task-owned directory binding is the scope of this validation and it does
 not claim a native file-object identity under a null-key filesystem. This is only an export-file
 readiness gate and does not claim that the production session has subscribed to save
-notifications; the later strict `false -> true` target observation remains the GUI pass
-condition.
+notifications; the later fresh current-raw RGB match remains the GUI pass condition.
 
 ## Validation-only decoder
 
@@ -366,7 +368,7 @@ count. The T021 close-race evidence recorded by the authoritative 025 plan for r
 modeless, zero-pane window and the after `JDialog@4b1fd017` as the same-owner
 `APPLICATION_MODAL` three-option save dialog; the minimal classifier change correlates those
 full snapshots instead of rejecting the harmless pre-existing tool window. The same evidence
-still requires the later real-run checks and does not weaken the GUI `false→true` or Supervisor
-gates. The authoritative record is `/opt/dev/projects/turboism/specs/025-external-psd-edit/plan.md`
+still requires the later real-run checks and does not weaken the GUI current-raw RGB evidence or
+Supervisor gates. The authoritative record is `/opt/dev/projects/turboism/specs/025-external-psd-edit/plan.md`
 under T021; this README records the validation-only interpretation because that specification is
 read-only for this worktree.
