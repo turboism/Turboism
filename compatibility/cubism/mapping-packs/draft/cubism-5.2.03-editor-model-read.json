@@ -15723,7 +15723,7 @@
       "main": "b8c09b5a",
       "entryUnionCount": 384
     },
-    "selectorCount": 773,
+    "selectorCount": 775,
     "capabilityCount": 101,
     "capabilityIds": [
       "cubism.editor-history.move",
@@ -15828,6 +15828,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "08f90ebfb2443590ecff2dd52ea92963592bc490dca38035bf06c19adf285f6e"
+    "verificationRecordSha256": "fc7eb41b7ca24ea37b40ad59b126a4a36cdb606b18c69dbfa975445e6dbf7e3d"
   }
 }
