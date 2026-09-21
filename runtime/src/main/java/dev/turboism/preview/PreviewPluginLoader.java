@@ -506,12 +506,26 @@ final class PreviewPluginLoader {
             resources.shutdownCalled = true;
             shutdownConstructedAfterFailure(resources, pluginId);
         }
-        if (!resources.scopeClosed) {
+        // One-shot disposal: DisposableScope.close() marks itself closed before running closers,
+        // so retrying after a failure would be an empty success that erases the recorded failure
+        // and frees the classloader early. Attempted and outcome stay separate; a failed step
+        // keeps its outcome and the generation stays retained.
+        if (!resources.scopeAttempted) {
+            resources.scopeAttempted = true;
             resources.scopeClosed = closeScopeAfterFailure(resources.scope, pluginId);
         }
-        if (!resources.loaderClosed) {
+        if (resources.scopeClosed && !resources.loaderAttempted) {
+            resources.loaderAttempted = true;
             resources.loaderClosed = closeLoaderAfterFailure(
-                resources.classLoader, resources.scopeClosed, pluginId
+                resources.classLoader, pluginId
+            );
+        }
+        if (!(resources.scopeClosed && resources.loaderClosed) && !resources.retentionLogged) {
+            resources.retentionLogged = true;
+            log.error(
+                pluginId,
+                "Plugin classloader retained after load failure because cleanup did not quiesce",
+                new IllegalStateException("Plugin scope or classloader cleanup is incomplete")
             );
         }
         return resources.scopeClosed && resources.loaderClosed;
@@ -584,19 +598,10 @@ final class PreviewPluginLoader {
 
     private boolean closeLoaderAfterFailure(
         final URLClassLoader classLoader,
-        final boolean scopeClosed,
         final String pluginId
     ) {
         if (classLoader == null) {
             return true;
-        }
-        if (!scopeClosed) {
-            log.error(
-                pluginId,
-                "Plugin classloader retained after load failure because cleanup did not quiesce",
-                new IllegalStateException("Plugin scope cleanup is incomplete")
-            );
-            return false;
         }
         try {
             classLoader.close();
@@ -633,8 +638,11 @@ final class PreviewPluginLoader {
         volatile PluginGenerationGuard guard;
         volatile boolean cleanupComplete;
         volatile boolean eventOwnerClosed;
+        volatile boolean scopeAttempted;
         volatile boolean scopeClosed;
+        volatile boolean loaderAttempted;
         volatile boolean loaderClosed;
+        volatile boolean retentionLogged;
         volatile boolean rolledBack;
         volatile boolean shutdownCalled;
         List<dev.turboism.sdk.plugin.Registration> eventRegistrations = List.of();
