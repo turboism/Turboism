@@ -35,15 +35,18 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 import javax.swing.JTree;
+import javax.swing.KeyStroke;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.UIManager;
 import javax.swing.table.TableCellRenderer;
 import java.awt.Component;
 import java.awt.Container;
@@ -56,10 +59,15 @@ import java.awt.PointerInfo;
 import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -68,6 +76,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.CodeSource;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -87,6 +96,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -98,6 +108,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.LongConsumer;
 import java.util.stream.Stream;
@@ -164,6 +175,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         "external-psd-gui-thread-dump-";
     private static final String PERSISTED_DOCUMENT_BASENAME = "persisted-document.cmo3";
     private static final String UNUSED_RAW_MESSAGE_KEY = "CUB3-3054";
+    private static final String OFFICIAL_LOCALIZER_CLASS = "b.c";
+    private static final String OFFICIAL_OPTION_CLASS = "com.live2d.util.UUOption";
+    private static final String OFFICIAL_ACTION_RESULT_CLASS = "com.live2d.util.aM";
+    private static final String OFFICIAL_WINDOW_CLASS = "com.live2d.ui.window.V";
+    private static final String OFFICIAL_MODELING_DOCUMENT_CLASS =
+        "com.live2d.cubism.doc.modeling.CModelingDocument";
+    private static final String OFFICIAL_ACTION_CLASS = "com.live2d.util.Q";
+    private static final String OFFICIAL_KEEP_ACTION_TOKEN =
+        "JOptionPane.options[1].WHEN_IN_FOCUSED_WINDOW[N]->Click:" + OFFICIAL_ACTION_CLASS;
     private static final GuiDiagnosticClock SYSTEM_GUI_DIAGNOSTIC_CLOCK =
         new GuiDiagnosticClock() {
             @Override public long nanoTime() { return System.nanoTime(); }
@@ -183,6 +203,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         new IdentityHashMap<>();
     /** The first exact host window containing the verified fixture target; never re-bound. */
     private volatile Window guiBoundWindow;
+    /** Worker-prepared reflection handles for the official CEAppCtrl→main-frame window chain. */
+    private volatile HostWindowAccess hostWindowAccess;
 
     @Override public void init(final PluginContext context) { this.context = context; }
 
@@ -3546,20 +3568,55 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             "same EDT document/model/relation anchor and bound window verified");
     }
 
+    /**
+     * The single admission-plus-command seam used by production and focused tests.  The state
+     * supplier is read again immediately before the command so an EDT-queued SAVE_AS cannot use
+     * a document/window snapshot that became stale while it was waiting in the queue.
+     */
+    private static SaveAsAdmission admitAndExecuteSaveAsOnEdt(
+        final TargetIdentity expectedTarget, final String expectedWindowIdentity,
+        final Supplier<PersistDocumentState> currentState, final BooleanSupplier stopped,
+        final Runnable command) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            return SaveAsAdmission.rejected("SAVE_AS admission must run on EDT");
+        }
+        Objects.requireNonNull(currentState, "currentState");
+        Objects.requireNonNull(stopped, "stopped");
+        if (stopped.getAsBoolean()) return SaveAsAdmission.rejected("probe is stopped");
+        final PersistDocumentState first = currentState.get();
+        final SaveAsAdmission initial = saveAsAdmission(
+            expectedTarget, expectedWindowIdentity, first, false);
+        if (!initial.admitted()) return initial;
+
+        // This second read is intentional.  A caller may have queued this exact seam while the
+        // document or task stop state changed before the EDT callback reached this point.
+        if (stopped.getAsBoolean()) return SaveAsAdmission.rejected("probe is stopped");
+        final PersistDocumentState finalState = currentState.get();
+        final SaveAsAdmission finalAdmission = saveAsAdmission(
+            expectedTarget, expectedWindowIdentity, finalState, false);
+        if (!finalAdmission.admitted()) return SaveAsAdmission.rejected(
+            "SAVE_AS state changed while queued: " + finalAdmission.diagnostic());
+        if (stopped.getAsBoolean()) return SaveAsAdmission.rejected("probe is stopped");
+        if (command == null) return SaveAsAdmission.rejected("SAVE_AS command is unavailable");
+        command.run();
+        return finalAdmission;
+    }
+
     /** Focused seam proving that rejected states execute no SAVE_AS command. */
     static SaveAsAdmission executeSaveAsIfAdmittedOnEdtForTest(
         final TargetIdentity expectedTarget, final String expectedWindowIdentity,
         final PersistDocumentState current, final boolean stopped, final Runnable command) {
-        if (!SwingUtilities.isEventDispatchThread()) {
-            return SaveAsAdmission.rejected("SAVE_AS admission test must run on EDT");
-        }
-        final SaveAsAdmission admission = saveAsAdmission(
-            expectedTarget, expectedWindowIdentity, current, stopped);
-        if (admission.admitted()) {
-            if (command == null) return SaveAsAdmission.rejected("SAVE_AS command is unavailable");
-            command.run();
-        }
-        return admission;
+        return executeSaveAsIfAdmittedOnEdtForTest(expectedTarget, expectedWindowIdentity,
+            () -> current, () -> stopped, command);
+    }
+
+    /** Same production seam with a mutable state/stop supplier for queued-callback regressions. */
+    static SaveAsAdmission executeSaveAsIfAdmittedOnEdtForTest(
+        final TargetIdentity expectedTarget, final String expectedWindowIdentity,
+        final Supplier<PersistDocumentState> currentState, final BooleanSupplier stopped,
+        final Runnable command) {
+        return admitAndExecuteSaveAsOnEdt(expectedTarget, expectedWindowIdentity, currentState,
+            stopped, command);
     }
 
     /**
@@ -3587,6 +3644,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             }
             if (after.contentId().isEmpty()) {
                 reasons.add("fresh after document contentId is unavailable");
+            }
+            if (before.contentId().isEmpty()) {
+                reasons.add("fresh before document contentId is unavailable");
             }
             if (!Objects.equals(pathBasename(after.relativePath()), expectedBasename)) {
                 reasons.add("fresh after document basename is not " + expectedBasename
@@ -5391,23 +5451,31 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 if (!SwingUtilities.isEventDispatchThread()) {
                     throw new IllegalStateException("SAVE_AS admission must run on EDT");
                 }
-                if (stopped) throw new IllegalStateException("SAVE_AS rejected after probe stop");
-                final PersistDocumentState before = currentPersistDocumentStateOnEdt(
-                    target.identity());
-                final SaveAsAdmission admission = saveAsAdmission(
-                    target.identity(), componentIdentity(guiBoundWindow), before, stopped);
+                final AtomicReference<PersistDocumentState> before = new AtomicReference<>();
+                final SaveAsAdmission admission = admitAndExecuteSaveAsOnEdt(
+                    target.identity(), componentIdentity(guiBoundWindow),
+                    () -> {
+                        final PersistDocumentState state = currentPersistDocumentStateOnEdt(
+                            target.identity());
+                        before.set(state);
+                        return state;
+                    },
+                    () -> stopped,
+                    () -> {
+                        // No await or callback is allowed between this sequence capture and the
+                        // native command.  The shared seam has just rechecked all task state.
+                        final long executeBeforeSequence = lifecycleSequence.get();
+                        final EditorCommandResult saved = context.editorCommands().execute(
+                            new EditorFileCommandRequest(
+                                EditorFileCommand.SAVE_AS, handle,
+                                EditorOverwritePolicy.REPLACE_EXISTING));
+                        execution.set(new SaveAsExecution(saved, before.get(),
+                            executeBeforeSequence));
+                    });
                 if (!admission.admitted()) {
                     throw new IllegalStateException("SAVE_AS admission rejected: "
                         + admission.diagnostic());
                 }
-                // Recheck the volatile stop bit immediately before the native command.  No
-                // await or callback is allowed between this check and execute().
-                if (stopped) throw new IllegalStateException("SAVE_AS rejected after probe stop");
-                final long executeBeforeSequence = lifecycleSequence.get();
-                final EditorCommandResult saved = context.editorCommands().execute(
-                    new EditorFileCommandRequest(
-                        EditorFileCommand.SAVE_AS, handle, EditorOverwritePolicy.REPLACE_EXISTING));
-                execution.set(new SaveAsExecution(saved, before, executeBeforeSequence));
             } catch (Throwable error) {
                 failure.set(error);
             }
@@ -5461,7 +5529,65 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return Objects.requireNonNull(observed.get(), "SAVE_AS post-state observation");
     }
 
-    /** Reads only public SDK state and the already-bound Window; all reads happen on the EDT. */
+    /**
+     * Re-checks the already-bound task window on the same EDT as the SDK document/relation read.
+     * The CEAppCtrl→main-frame chain proves the current document host window. The live reviewed
+     * tree-table is only supplemental row-domain evidence; an ArtMesh domain ID is not a unique
+     * document/window owner identity across documents.
+     */
+    private BoundTaskWindowEvidence verifyCurrentBoundTaskWindowOnEdt(
+        final TargetIdentity expected) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("task window verification must run on EDT");
+        }
+        final Window bound = guiBoundWindow;
+        if (bound == null) throw new IllegalStateException("bound task window is unavailable");
+        final Window chainWindow = officialCurrentHostWindowOnEdt();
+        if (chainWindow != bound) {
+            throw new IllegalStateException("official current document window changed from the "
+                + "bound task window: expected=" + componentIdentity(bound)
+                + " actual=" + componentIdentity(chainWindow));
+        }
+        if (!bound.isShowing() || !bound.isDisplayable()) {
+            throw new IllegalStateException("bound task window is not showing/displayable");
+        }
+        if (expected == null || expected.artMeshId().isBlank()
+            || UNAVAILABLE_VALUE.equals(expected.artMeshId())) {
+            throw new IllegalStateException("bound task ArtMesh identity is unavailable");
+        }
+        final List<ExactTableRef> tables = new ArrayList<>();
+        collectReviewedTables(bound, bound, tables);
+        if (tables.isEmpty()) {
+            throw new IllegalStateException(
+                "bound task window has no live reviewed host tree-table");
+        }
+        int exactMatches = 0;
+        for (final ExactTableRef table : tables) {
+            final ExactHostRowTarget.HostAccessPreparation preparation =
+                hostAccessByLoader.get(table.modelClass().getClassLoader());
+            if (preparation == null || !preparation.available()) continue;
+            final Object currentModel = table.table().getModel();
+            if (currentModel == null || currentModel.getClass() != table.modelClass()
+                || !isLiveComponent(table.table())) {
+                continue;
+            }
+            for (int row = 0; row < table.table().getRowCount(); row++) {
+                final ExactHostRowTarget.Resolution resolution = ExactHostRowTarget.resolve(
+                    table.table(), row, preparation.context());
+                if (resolution.available() && expected.artMeshId().equals(
+                    resolution.target().domainId())) {
+                    exactMatches++;
+                }
+            }
+        }
+        if (exactMatches == 0) {
+            throw new IllegalStateException(
+                "bound current host window no longer exposes the task ArtMesh row domain");
+        }
+        return new BoundTaskWindowEvidence(chainWindow, componentIdentity(chainWindow), exactMatches);
+    }
+
+    /** Reads public SDK state plus freshly verified task-window evidence; all reads are on EDT. */
     private PersistDocumentState currentPersistDocumentStateOnEdt(
         final TargetIdentity expected) {
         if (!SwingUtilities.isEventDispatchThread()) {
@@ -5473,14 +5599,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final TextureRelationsSnapshot relations = model.textures().relations();
         final TargetIdentity identity = targetIdentityFromRelationsOnEdt(
             expected, document.documentId(), model, relations);
-        final Window bound = guiBoundWindow;
+        final BoundTaskWindowEvidence bound = verifyCurrentBoundTaskWindowOnEdt(expected);
         return new PersistDocumentState(
             identity,
             document.contentId(),
             document.relativePath(),
-            componentIdentity(bound),
-            bound != null && bound.isShowing(),
-            bound != null && bound.isDisplayable());
+            bound.identity(),
+            bound.window().isShowing(),
+            bound.window().isDisplayable());
     }
 
     private void awaitSaveAfterSequence(final List<PersistSaveEvent> saves,
@@ -5525,6 +5651,297 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
+     * Performs the dialog proof on the worker before SAVE_AS can be issued.  No dialog is opened
+     * here: the exact 5.3.02 classes, code source, JAR digest, localizer template, and the
+     * UUOption/aM result shape are checked without invoking the native confirmation method.
+     */
+    private UnusedRawDialogProof prepareUnusedRawDialogProof() {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return UnusedRawDialogProof.unavailable("dialog proof must run off EDT");
+        }
+        try {
+            final VerifiedHostArtifact verifiedArtifact = exactHostArtifactForDialog();
+            final Path expectedArtifact = verifiedArtifact.artifact();
+            final ClassLoader loader = verifiedArtifact.loader();
+            final Class<?> localizer = loadExactClass(loader, OFFICIAL_LOCALIZER_CLASS);
+            final Class<?> option = loadExactClass(loader, OFFICIAL_OPTION_CLASS);
+            final Class<?> actionResult = loadExactClass(loader, OFFICIAL_ACTION_RESULT_CLASS);
+            final Class<?> window = loadExactClass(loader, OFFICIAL_WINDOW_CLASS);
+            final Class<?> document = loadExactClass(loader, OFFICIAL_MODELING_DOCUMENT_CLASS);
+            final Class<?> action = loadExactClass(loader, OFFICIAL_ACTION_CLASS);
+            final List<Class<?>> officialClasses = List.of(
+                localizer, option, actionResult, window, document, action);
+            for (final Class<?> type : officialClasses) {
+                if (type.getClassLoader() != loader) {
+                    throw new IllegalStateException("official class loader mismatch: "
+                        + type.getName());
+                }
+                if (!expectedArtifact.equals(codeSourcePath(type))) {
+                    throw new IllegalStateException("official class code source mismatch: "
+                        + type.getName());
+                }
+            }
+            final String digest = sha256(expectedArtifact);
+            if (!ExactHostRowTarget.HOST_JAR_SHA256.equals(digest)) {
+                throw new IllegalStateException("official 5.3.02 JAR SHA-256 mismatch: " + digest);
+            }
+
+            final Field localizerField = exactField(localizer, "a", localizer,
+                true, true, true);
+            final Object localizerInstance = localizerField.get(null);
+            final Method localize = exactMethod(localizer, "a", String.class,
+                false, true, String.class, String[].class);
+            if (!Modifier.isPublic(localize.getModifiers())) {
+                throw new IllegalStateException("localizer method is not public");
+            }
+            final Object templateValue = localize.invoke(localizerInstance,
+                UNUSED_RAW_MESSAGE_KEY, new String[0]);
+            if (!(templateValue instanceof String template) || template.isBlank()
+                || template.equals(UNUSED_RAW_MESSAGE_KEY)) {
+                throw new IllegalStateException("CUB3-3054 localizer template is unavailable");
+            }
+            // This is the exact TextureManagerHandler call shape: two format arguments are
+            // required before the message can be considered the full unused-raw template.
+            if (!template.contains("%d") || !template.contains("%s")) {
+                throw new IllegalStateException(
+                    "CUB3-3054 template does not expose count and names placeholders: "
+                        + template);
+            }
+            final String formatted = String.format(Locale.ROOT, template, 1,
+                "unused source image");
+            if (formatted.isBlank() || formatted.equals(template)) {
+                throw new IllegalStateException("CUB3-3054 template did not format");
+            }
+
+            final Method optionResult = exactMethod(option, "d", actionResult,
+                false, true, String.class, String.class, boolean.class);
+            final Method optionResultDefault = exactMethod(option, "d", actionResult,
+                true, false, option, String.class, String.class, boolean.class,
+                int.class, Object.class);
+            final Method threeButton = exactMethod(option, "f", actionResult,
+                false, true, String.class, String.class, boolean.class, window);
+            final Method buttonHelper = exactMethod(option, "b", JButton.class,
+                false, true, String.class, int.class);
+            if (!Modifier.isPrivate(threeButton.getModifiers())
+                || !Modifier.isPrivate(buttonHelper.getModifiers())) {
+                throw new IllegalStateException("UUOption button helpers are not private");
+            }
+            if (!Modifier.isPublic(optionResult.getModifiers())
+                || !Modifier.isPublic(optionResultDefault.getModifiers())) {
+                throw new IllegalStateException("UUOption.d is not public");
+            }
+            exactActionResultField(actionResult, "a", "YES");
+            exactActionResultField(actionResult, "b", "NO");
+            exactActionResultField(actionResult, "c", "CANCEL");
+            final Method saveDocument = exactMethod(document, "saveDocument", boolean.class,
+                false, true, java.io.File.class, boolean.class);
+            if (!Modifier.isPublic(saveDocument.getModifiers())
+                || !Modifier.isFinal(saveDocument.getModifiers())) {
+                throw new IllegalStateException("CModelingDocument.saveDocument shape changed");
+            }
+            // Keep these locals visible to the proof review: the method shapes above are the
+            // non-modal, validation-only evidence for UUOption.d -> aM.b at option index 1.
+            if (optionResult.getReturnType() != optionResultDefault.getReturnType()
+                || threeButton.getReturnType() != actionResult
+                || buttonHelper.getReturnType() != JButton.class) {
+                throw new IllegalStateException("UUOption/aM method return shape changed");
+            }
+            return UnusedRawDialogProof.proven(expectedArtifact, loader, template,
+                "exact JAR/classloader/code-source; CUB3-3054 formatted with two arguments; "
+                    + "UUOption.f creates three JButton options; index 1 returns aM.b=NO; "
+                    + "N->Click is checked on the live JOptionPane");
+        } catch (Throwable failure) {
+            return UnusedRawDialogProof.unavailable(
+                "official CUB3-3054 dialog proof unavailable: " + failure);
+        }
+    }
+
+    private VerifiedHostArtifact exactHostArtifactForDialog() throws Exception {
+        final List<VerifiedHostArtifact> candidates = new ArrayList<>();
+        for (final Map.Entry<ClassLoader, ExactHostRowTarget.HostAccessPreparation> entry
+            : hostAccessByLoader.entrySet()) {
+            final ClassLoader loader = entry.getKey();
+            if (loader == null) continue;
+            final ExactHostRowTarget.HostAccessPreparation preparation = entry.getValue();
+            if (preparation == null || !preparation.available()) continue;
+
+            // Take the artifact from the live verified class code source, never from an offline
+            // javap path or a host-independent configuration value. The row resolver's context
+            // is the first proof of the loader/artifact pair; this re-check prevents the modal
+            // dialog proof from drifting to another JAR.
+            final Class<?> tableModel = loadExactClass(loader, "com.live2d.ui.treeTable.j");
+            final Path artifact = codeSourcePath(tableModel);
+            final ExactHostRowTarget.HostAccessContext context = preparation.context();
+            if (!artifact.equals(context.artifact())) {
+                throw new IllegalStateException(
+                    "live tree-table code source differs from the verified row context: "
+                        + artifact + " != " + context.artifact());
+            }
+            if (!Files.isRegularFile(artifact)) {
+                throw new IllegalStateException("live host code source is not a regular artifact: "
+                    + artifact);
+            }
+            final String digest = sha256(artifact);
+            if (!ExactHostRowTarget.HOST_JAR_SHA256.equals(context.artifactSha256())
+                || !ExactHostRowTarget.HOST_JAR_SHA256.equals(digest)) {
+                throw new IllegalStateException("verified host artifact SHA-256 mismatch: context="
+                    + context.artifactSha256() + " live=" + digest);
+            }
+            candidates.add(new VerifiedHostArtifact(loader, artifact));
+        }
+        if (candidates.size() != 1) {
+            throw new IllegalStateException("expected one exact host classloader, found "
+                + candidates.size());
+        }
+        return candidates.get(0);
+    }
+
+    private static Class<?> loadExactClass(final ClassLoader loader, final String name)
+        throws ClassNotFoundException {
+        final Class<?> type = Class.forName(name, false, loader);
+        if (!name.equals(type.getName())) {
+            throw new ClassNotFoundException("class name mismatch for " + name);
+        }
+        return type;
+    }
+
+    private static Method exactMethod(final Class<?> owner, final String name,
+        final Class<?> returnType, final boolean staticRequired, final boolean finalRequired,
+        final Class<?>... parameters) throws ReflectiveOperationException {
+        final Method method = owner.getDeclaredMethod(name, parameters);
+        final int modifiers = method.getModifiers();
+        if (method.getReturnType() != returnType
+            || Modifier.isStatic(modifiers) != staticRequired
+            || Modifier.isFinal(modifiers) != finalRequired) {
+            throw new IllegalArgumentException("official method shape is not exact: "
+                + owner.getName() + '.' + name);
+        }
+        return method;
+    }
+
+    private static Field exactField(final Class<?> owner, final String name,
+        final Class<?> type, final boolean staticRequired, final boolean finalRequired,
+        final boolean publicRequired) throws ReflectiveOperationException {
+        final Field field = owner.getDeclaredField(name);
+        final int modifiers = field.getModifiers();
+        if (field.getType() != type || Modifier.isStatic(modifiers) != staticRequired
+            || Modifier.isFinal(modifiers) != finalRequired
+            || (publicRequired && !Modifier.isPublic(modifiers))) {
+            throw new IllegalArgumentException("official field shape is not exact: "
+                + owner.getName() + '.' + name);
+        }
+        return field;
+    }
+
+    private static void exactActionResultField(final Class<?> actionResult, final String name,
+        final String expectedName) throws ReflectiveOperationException {
+        final Field field = exactField(actionResult, name, actionResult, true, true, true);
+        final Object value = field.get(null);
+        if (!(value instanceof Enum<?> enumValue) || !expectedName.equals(enumValue.name())) {
+            throw new IllegalStateException("official aM." + name + " is not " + expectedName);
+        }
+    }
+
+    private static Path codeSourcePath(final Class<?> type) throws Exception {
+        final CodeSource source = type.getProtectionDomain() == null
+            ? null : type.getProtectionDomain().getCodeSource();
+        if (source == null || source.getLocation() == null) {
+            throw new IllegalStateException("official class has no code source: " + type.getName());
+        }
+        try {
+            return Path.of(source.getLocation().toURI()).toRealPath();
+        } catch (URISyntaxException | IllegalArgumentException failure) {
+            throw new IllegalStateException("official class code source is not a file: "
+                + type.getName(), failure);
+        }
+    }
+
+    private static String sha256(final Path path) throws Exception {
+        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (var input = Files.newInputStream(path)) {
+            final byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) >= 0) {
+                if (count > 0) digest.update(buffer, 0, count);
+            }
+        }
+        return java.util.HexFormat.of().formatHex(digest.digest());
+    }
+
+    /** Prepares the same official main-frame identity chain used by the fixture helper. */
+    private HostWindowAccess prepareHostWindowAccess() throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("host window access preflight must run off EDT");
+        }
+        final VerifiedHostArtifact artifact = exactHostArtifactForDialog();
+        final ClassLoader loader = artifact.loader();
+        final Class<?> app = loadExactClass(loader, "com.live2d.cubism.CEAppCtrl");
+        final Class<?> frameController = loadExactClass(loader,
+            "com.live2d.cubism.view.CEMainFrameCtrl");
+        final Class<?> cFrame = loadExactClass(loader, "com.live2d.ui.window.CFrame");
+        final Class<?> windowBase = loadExactClass(loader, OFFICIAL_WINDOW_CLASS);
+        for (final Class<?> type : List.of(app, frameController, cFrame, windowBase)) {
+            if (!artifact.artifact().equals(codeSourcePath(type))) {
+                throw new IllegalStateException("official window-chain code source mismatch: "
+                    + type.getName());
+            }
+        }
+        final Method appInstance = exactMethod(app, "access$get_instance$cp", app,
+            true, true);
+        final Method mainFrameController = exactMethod(app, "getMainFrameCtrl",
+            frameController, false, true);
+        final Method mainFrame = exactMethod(frameController, "getMainFrame", cFrame,
+            false, true);
+        final Method swingWindow = cFrame.getMethod("getJWindow");
+        if (!Modifier.isPublic(swingWindow.getModifiers())
+            || Modifier.isStatic(swingWindow.getModifiers())
+            || swingWindow.getReturnType() != Window.class
+            || swingWindow.getDeclaringClass() != windowBase) {
+            throw new IllegalStateException("official getJWindow shape is not exact");
+        }
+        final Method swingFrame = cFrame.getMethod("getJFrame");
+        if (!Modifier.isPublic(swingFrame.getModifiers())
+            || Modifier.isStatic(swingFrame.getModifiers())
+            || swingFrame.getReturnType() != javax.swing.JFrame.class
+            || swingFrame.getDeclaringClass() != cFrame) {
+            throw new IllegalStateException("official getJFrame shape is not exact");
+        }
+        return new HostWindowAccess(artifact.artifact(), appInstance, mainFrameController,
+            mainFrame, swingWindow, swingFrame);
+    }
+
+    private Window officialCurrentHostWindowOnEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("official host window chain must run on EDT");
+        }
+        final HostWindowAccess access = hostWindowAccess;
+        if (access == null) throw new IllegalStateException("official host window access unavailable");
+        try {
+            final Object controller = access.appInstance().invoke(null);
+            if (controller == null) throw new IllegalStateException(
+                "official application controller is not ready");
+            final Object frameController = access.mainFrameController().invoke(controller);
+            if (frameController == null) throw new IllegalStateException(
+                "official main-frame controller is not ready");
+            final Object cFrame = access.mainFrame().invoke(frameController);
+            if (cFrame == null) throw new IllegalStateException("official CFrame is not ready");
+            final Object window = access.swingWindow().invoke(cFrame);
+            final Object frame = access.swingFrame().invoke(cFrame);
+            if (!(window instanceof Window current) || !(frame instanceof Window frameWindow)
+                || current != frameWindow || !current.isShowing() || !current.isDisplayable()) {
+                throw new IllegalStateException(
+                    "official main-frame Swing window is not showing/displayable or mismatched");
+            }
+            return current;
+        } catch (InvocationTargetException failure) {
+            throw new IllegalStateException("official host window chain failed",
+                failure.getCause());
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("official host window chain failed", failure);
+        }
+    }
+
+    /**
      * Mediated persistence: a fixed-grant write handle → typed SAVE_AS → the native
      * {@code saveDocument} hook must surface a {@link ProjectFileOperationType#SAVE} After
      * event. The granted target lives outside the task fixture copy, so the runner's
@@ -5539,6 +5956,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("persist.tempQuarantine.taskOwned", "false");
         result.setProperty("persist.tempQuarantine.sourceMissing", "false");
 
+        // Prepare the exact CEAppCtrl→main-frame→Swing window chain off the EDT.  Every later
+        // current-document/window observation invokes only these verified handles on the EDT.
+        hostWindowAccess = prepareHostWindowAccess();
+        result.setProperty("persist.windowProof.status", "PROVEN");
+        result.setProperty("persist.windowProof.artifact",
+            hostWindowAccess.artifact().toString());
+
         // Undo/Redo must leave the same native post state that will be saved. Re-export it once
         // immediately before SAVE_AS, so the persistence gate does not trust staged PSD bytes or
         // a history/raw identity alone.
@@ -5551,6 +5975,22 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "fresh post-edit target RGB fingerprint changed before SAVE_AS");
         }
         requireChangedPost(baselineFingerprint, preSavePost);
+
+        final UnusedRawDialogProof dialogProof = prepareUnusedRawDialogProof();
+        result.setProperty("persist.dialogProof.status",
+            dialogProof.available() ? "PROVEN" : "UNAVAILABLE");
+        result.setProperty("persist.dialogProof.diagnostic", dialogProof.diagnostic());
+        if (dialogProof.artifact() != null) {
+            result.setProperty("persist.dialogProof.artifact",
+                dialogProof.artifact().toString());
+        }
+        if (!dialogProof.messageTemplate().isBlank()) {
+            result.setProperty("persist.dialogProof.template", dialogProof.messageTemplate());
+        }
+        if (!dialogProof.available()) {
+            throw new Blocked("exact 5.3.02 CUB3-3054 keep/no dialog proof",
+                dialogProof.diagnostic());
+        }
 
         final List<PersistSaveEvent> saves = new CopyOnWriteArrayList<>();
         final AtomicLong lifecycleSequence = new AtomicLong();
@@ -5582,7 +6022,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("persist.grant.status", granted.status().name());
             final UserFileHandle handle = granted.handle().orElseThrow(() ->
                 new IllegalStateException("No write grant issued: " + granted.status()));
-            final DialogAnswerWatcher watcher = new DialogAnswerWatcher(guiBoundWindow, target);
+            final DialogAnswerWatcher watcher = new DialogAnswerWatcher(guiBoundWindow, target,
+                dialogProof);
             final SaveAsExecution execution;
             try {
                 watcher.start();
@@ -6358,6 +6799,170 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
+    /** Worker-issued proof consumed only by the EDT dialog observer. */
+    static record UnusedRawDialogProof(boolean available, Path artifact, ClassLoader loader,
+        String messageTemplate, int keepOptionIndex, String keepResultName,
+        String actionClassName, String diagnostic) {
+        UnusedRawDialogProof {
+            messageTemplate = messageTemplate == null ? "" : messageTemplate;
+            keepResultName = keepResultName == null ? "" : keepResultName;
+            actionClassName = actionClassName == null ? "" : actionClassName;
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static UnusedRawDialogProof unavailable(final String diagnostic) {
+            return new UnusedRawDialogProof(false, null, null, "", -1, "", "",
+                diagnostic);
+        }
+
+        static UnusedRawDialogProof proven(final Path artifact, final ClassLoader loader,
+            final String messageTemplate, final String diagnostic) {
+            return new UnusedRawDialogProof(true, Objects.requireNonNull(artifact, "artifact"),
+                Objects.requireNonNull(loader, "loader"), messageTemplate, 1, "NO",
+                OFFICIAL_ACTION_CLASS, diagnostic);
+        }
+
+        /** Test-only constructor seam; it still exercises the production EDT shape checker. */
+        static UnusedRawDialogProof forTest(final String messageTemplate,
+            final String actionClassName) {
+            return new UnusedRawDialogProof(true, null, null, messageTemplate, 1, "NO",
+                actionClassName, "test proof");
+        }
+
+        boolean messageMatchesOnEdt(final String message) {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                throw new IllegalStateException("dialog message proof must run on EDT");
+            }
+            return available && formattedMessageMatches(messageTemplate, message);
+        }
+
+        DialogButtonEvidence buttonsOnEdt(final JOptionPane pane) {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                throw new IllegalStateException("dialog button proof must run on EDT");
+            }
+            if (!available || pane == null) {
+                return DialogButtonEvidence.unavailable("official dialog proof is unavailable");
+            }
+            final Object[] options = pane.getOptions();
+            if (options == null || options.length != 3) {
+                return DialogButtonEvidence.unavailable(
+                    "official dialog does not expose exactly three JOptionPane options");
+            }
+            final List<String> expectedLabels = officialOptionButtonLabelsOnEdt();
+            final List<String> actualLabels = new ArrayList<>();
+            for (final Object option : options) {
+                if (!(option instanceof JButton button)) {
+                    return DialogButtonEvidence.unavailable(
+                        "official dialog option is not a JButton: " + option);
+                }
+                actualLabels.add(button.getText() == null ? "" : button.getText());
+            }
+            if (!actualLabels.equals(expectedLabels)) {
+                return DialogButtonEvidence.unavailable("official option labels differ expected="
+                    + expectedLabels + " actual=" + actualLabels);
+            }
+            if (keepOptionIndex < 0 || keepOptionIndex >= options.length
+                || !(options[keepOptionIndex] instanceof JButton keep)) {
+                return DialogButtonEvidence.unavailable(
+                    "official aM." + keepResultName + " option index is unavailable");
+            }
+            final javax.swing.InputMap inputMap = keep.getInputMap(
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+            final Object clickKey = inputMap == null ? null
+                : inputMap.get(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0));
+            final javax.swing.Action clickAction = keep.getActionMap().get("Click");
+            if (!"Click".equals(clickKey) || clickAction == null
+                || !actionClassName.equals(clickAction.getClass().getName())) {
+                return DialogButtonEvidence.unavailable(
+                    "official aM." + keepResultName
+                        + " N->Click/action proof is unavailable key=" + clickKey
+                        + " action=" + (clickAction == null ? "null"
+                            : clickAction.getClass().getName()));
+            }
+            return DialogButtonEvidence.proven(keep, OFFICIAL_KEEP_ACTION_TOKEN,
+                "JOptionPane options[1] label/action shape proven; aM." + keepResultName
+                    + " maps to the live N->Click action " + actionClassName);
+        }
+    }
+
+    static record DialogButtonEvidence(boolean proven, JButton keepButton, String actionToken,
+        String diagnostic) {
+        DialogButtonEvidence {
+            actionToken = actionToken == null ? "" : actionToken;
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static DialogButtonEvidence unavailable(final String diagnostic) {
+            return new DialogButtonEvidence(false, null, "", diagnostic);
+        }
+
+        static DialogButtonEvidence proven(final JButton keepButton, final String actionToken,
+            final String diagnostic) {
+            return new DialogButtonEvidence(true, Objects.requireNonNull(keepButton,
+                "keepButton"), actionToken, diagnostic);
+        }
+    }
+
+    private record VerifiedHostArtifact(ClassLoader loader, Path artifact) {
+        VerifiedHostArtifact {
+            Objects.requireNonNull(loader, "loader");
+            Objects.requireNonNull(artifact, "artifact");
+        }
+    }
+
+    static List<String> officialOptionButtonLabelsOnEdtForTest() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("official option labels must be read on EDT");
+        }
+        return officialOptionButtonLabelsOnEdt();
+    }
+
+    private static List<String> officialOptionButtonLabelsOnEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("official option labels must be read on EDT");
+        }
+        final String yes = UIManager.getString("OptionPane.yesButtonText");
+        final String no = UIManager.getString("OptionPane.noButtonText");
+        final String cancel = UIManager.getString("OptionPane.cancelButtonText");
+        if (yes == null || no == null || cancel == null) return List.of("", "", "");
+        return List.of(yes.replace("(Y)", "") + "(Y)",
+            no.replace("(N)", "") + "(N)", cancel + "(C)");
+    }
+
+    private static boolean formattedMessageMatches(final String template,
+        final String actual) {
+        if (template == null || template.isBlank() || actual == null || actual.isBlank()) {
+            return false;
+        }
+        final String normalizedTemplate = normalizeDialogText(template);
+        final String normalizedActual = normalizeDialogText(actual);
+        final StringBuilder regex = new StringBuilder("^");
+        int literalStart = 0;
+        for (int index = 0; index < normalizedTemplate.length(); index++) {
+            if (normalizedTemplate.charAt(index) != '%') continue;
+            int conversion = index + 1;
+            while (conversion < normalizedTemplate.length()
+                && (Character.isDigit(normalizedTemplate.charAt(conversion))
+                    || normalizedTemplate.charAt(conversion) == '$')) {
+                conversion++;
+            }
+            if (conversion >= normalizedTemplate.length()
+                || (normalizedTemplate.charAt(conversion) != 'd'
+                    && normalizedTemplate.charAt(conversion) != 's')) continue;
+            regex.append(Pattern.quote(normalizedTemplate.substring(literalStart, index)));
+            regex.append(normalizedTemplate.charAt(conversion) == 'd' ? "\\d+" : ".+?");
+            index = conversion;
+            literalStart = conversion + 1;
+        }
+        regex.append(Pattern.quote(normalizedTemplate.substring(literalStart))).append('$');
+        return Pattern.compile(regex.toString(), Pattern.DOTALL)
+            .matcher(normalizedActual).matches();
+    }
+
+    private static String normalizeDialogText(final String value) {
+        return value == null ? "" : value.replaceAll("\\s+", " ").trim();
+    }
+
     enum SaveDialogOutcome {
         KEEP,
         OBSERVE_ONLY,
@@ -6453,13 +7058,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     /**
      * Observes only the task-bound SAVE dialog.  The timer and every Swing read/action run on the
-     * EDT; no worker thread enumerates windows.  Current 5.3.02 message/action proof is not
-     * available from Swing alone, so production snapshots remain OBSERVE_ONLY and never click a
-     * generic No/Keep label.
+     * EDT; no worker thread enumerates windows.  Only the exact CUB3-3054 JOptionPane shape
+     * proven off-EDT and rechecked live on the EDT can authorize the index-1 keep/no button.
      */
     private final class DialogAnswerWatcher implements AutoCloseable {
         private final Window boundWindow;
         private final Target target;
+        private final UnusedRawDialogProof dialogProof;
         private final Set<Window> baseline = Collections.newSetFromMap(new IdentityHashMap<>());
         private final Set<Window> observed = Collections.newSetFromMap(new IdentityHashMap<>());
         final List<String> actions = new CopyOnWriteArrayList<>();
@@ -6467,9 +7072,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         private final Timer timer;
         private volatile String diagnostic = "";
 
-        DialogAnswerWatcher(final Window boundWindow, final Target target) {
+        DialogAnswerWatcher(final Window boundWindow, final Target target,
+            final UnusedRawDialogProof dialogProof) {
             this.boundWindow = boundWindow;
             this.target = Objects.requireNonNull(target, "target");
+            this.dialogProof = Objects.requireNonNull(dialogProof, "dialogProof");
             timer = new Timer(250, ignored -> inspectOnEdt());
             timer.setRepeats(true);
         }
@@ -6513,6 +7120,19 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 final List<String> actionCommands = new ArrayList<>();
                 collectDialogText(dialog, buttons, messages, 0);
                 collectDialogActionCommands(dialog, actionCommands, 0);
+                final List<JOptionPane> panes = findOptionPanes(dialog, 0);
+                final JOptionPane pane = panes.size() == 1 ? panes.get(0) : null;
+                final String fullMessage = pane == null ? "" : optionPaneMessageOnEdt(pane);
+                if (!fullMessage.isBlank()) messages.add(0, fullMessage);
+                final boolean messageProven = panes.size() == 1
+                    && dialogProof.messageMatchesOnEdt(fullMessage);
+                final DialogButtonEvidence buttonEvidence = panes.size() == 1
+                    ? dialogProof.buttonsOnEdt(pane)
+                    : DialogButtonEvidence.unavailable(
+                        "dialog does not contain exactly one JOptionPane");
+                if (buttonEvidence.proven()) {
+                    actionCommands.add(buttonEvidence.actionToken());
+                }
                 final List<String> ownerChain = ownerChain(dialog);
                 final String documentId = state == null ? "" : state.targetIdentity().documentId();
                 final long generation = state == null ? -1L : state.targetIdentity().generation();
@@ -6521,25 +7141,21 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     boundWindow != null && ownerChain.contains(boundIdentity),
                     dialog.isShowing(), dialog.isDisplayable(), documentId,
                     target.identity().documentId(), generation, target.identity().generation(),
-                    admission.admitted(), "", false, "", false, messages, buttons,
+                    admission.admitted(), messageProven ? UNUSED_RAW_MESSAGE_KEY : "",
+                    messageProven, buttonEvidence.actionToken(), buttonEvidence.proven(), messages,
+                    buttons,
                     actionCommands, candidateCount, stopped, closed.get());
                 final SaveDialogDecision decision = classifySaveDialogForTest(snapshot);
                 diagnostic = decision.diagnostic();
                 actions.add("observed outcome=" + decision.outcome() + " " + snapshot.diagnostic());
                 if (decision.outcome() == SaveDialogOutcome.KEEP) {
-                    final javax.swing.AbstractButton action = findButtonByActionCommand(
-                        dialog, snapshot.keepActionCommand(), 0);
-                    if (action == null) {
-                        actions.add("keep action not found; no click");
-                    } else {
-                        queueProvenKeepAction(dialog, action, snapshot);
-                    }
+                    queueProvenKeepAction(dialog, pane, snapshot);
                 }
             }
         }
 
-        private void queueProvenKeepAction(final Dialog dialog,
-            final javax.swing.AbstractButton action, final SaveDialogSnapshot snapshot) {
+        private void queueProvenKeepAction(final Dialog dialog, final JOptionPane pane,
+            final SaveDialogSnapshot snapshot) {
             if (!SwingUtilities.isEventDispatchThread()) {
                 throw new IllegalStateException("save dialog action must be queued on EDT");
             }
@@ -6567,7 +7183,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         target.identity(), componentIdentity(boundWindow), state, stopped);
                     if (!admission.admitted()) {
                         actions.add("keep action skipped after task identity change: "
-                            + admission.diagnostic());
+                        + admission.diagnostic());
                         return;
                     }
                 } catch (RuntimeException unavailable) {
@@ -6575,8 +7191,19 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         + unavailable);
                     return;
                 }
-                final javax.swing.AbstractButton currentAction = findButtonByActionCommand(
-                    dialog, snapshot.keepActionCommand(), 0);
+                final List<JOptionPane> currentPanes = findOptionPanes(dialog, 0);
+                if (currentPanes.size() != 1 || currentPanes.get(0) != pane) {
+                    actions.add("keep action skipped because JOptionPane owner changed");
+                    return;
+                }
+                final String fullMessage = optionPaneMessageOnEdt(pane);
+                final DialogButtonEvidence currentEvidence = dialogProof.buttonsOnEdt(pane);
+                if (!dialogProof.messageMatchesOnEdt(fullMessage)
+                    || !currentEvidence.proven()) {
+                    actions.add("keep action skipped because exact CUB3-3054 evidence changed");
+                    return;
+                }
+                final JButton currentAction = currentEvidence.keepButton();
                 if (currentAction == null || !currentAction.isShowing()
                     || !currentAction.isDisplayable() || !currentAction.isEnabled()) {
                     actions.add("keep action skipped because exact action is no longer operable");
@@ -6596,6 +7223,29 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 diagnostic = "save dialog watcher close dispatch failed: " + failure;
             }
         }
+    }
+
+    private static List<JOptionPane> findOptionPanes(final Component component, final int depth) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("JOptionPane lookup must run on EDT");
+        }
+        if (component == null || depth > 8) return List.of();
+        final List<JOptionPane> panes = new ArrayList<>();
+        if (component instanceof JOptionPane pane) panes.add(pane);
+        if (component instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                panes.addAll(findOptionPanes(child, depth + 1));
+            }
+        }
+        return panes;
+    }
+
+    private static String optionPaneMessageOnEdt(final JOptionPane pane) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("JOptionPane message lookup must run on EDT");
+        }
+        final Object message = pane == null ? null : pane.getMessage();
+        return message instanceof String value ? value : "";
     }
 
     private static List<String> ownerChain(final Dialog dialog) {
@@ -9940,6 +10590,26 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             contentId = Objects.requireNonNull(contentId, "contentId");
             relativePath = relativePath == null ? "" : relativePath;
             windowIdentity = windowIdentity == null ? "" : windowIdentity;
+        }
+    }
+
+    private record BoundTaskWindowEvidence(Window window, String identity, int exactMatches) {
+        BoundTaskWindowEvidence {
+            Objects.requireNonNull(window, "window");
+            identity = identity == null ? "" : identity;
+            if (exactMatches < 1) throw new IllegalArgumentException("exactMatches must be positive");
+        }
+    }
+
+    private record HostWindowAccess(Path artifact, Method appInstance,
+        Method mainFrameController, Method mainFrame, Method swingWindow, Method swingFrame) {
+        HostWindowAccess {
+            Objects.requireNonNull(artifact, "artifact");
+            Objects.requireNonNull(appInstance, "appInstance");
+            Objects.requireNonNull(mainFrameController, "mainFrameController");
+            Objects.requireNonNull(mainFrame, "mainFrame");
+            Objects.requireNonNull(swingWindow, "swingWindow");
+            Objects.requireNonNull(swingFrame, "swingFrame");
         }
     }
 

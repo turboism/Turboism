@@ -6,6 +6,7 @@ import java.awt.Container;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
+import java.awt.event.KeyEvent;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -38,8 +39,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import javax.swing.JPopupMenu;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.InputMap;
+import javax.swing.JOptionPane;
+import javax.swing.KeyStroke;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
+import javax.swing.AbstractAction;
+import javax.swing.ComponentInputMap;
 import javax.swing.table.DefaultTableModel;
 
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
@@ -97,6 +105,7 @@ public final class ExternalPsdEditHostProbeTest {
         testPersistSaveLifecycleGate();
         testSaveAsAdmissionGate();
         testSaveDialogGate();
+        testDialogButtonShapeOnEdt();
         testNativeFingerprintGates();
         testHistoryMovesRequireMoved();
         testTempCandidateBinding();
@@ -205,23 +214,34 @@ public final class ExternalPsdEditHostProbeTest {
             "persist-document", "persist-model", "persist-binding", 7L,
             "persist-model-image", "persist-art-mesh", "persist-raw");
         final var beforeFirstSave = new ExternalPsdEditHostProbe.PersistDocumentState(
-            identity, Optional.empty(), "untitled", "persist-window", true, true);
+            identity, Optional.of("content-before-first-save"), "untitled", "persist-window",
+            true, true);
         final var afterFirstSave = new ExternalPsdEditHostProbe.PersistDocumentState(
             identity, Optional.of("content-after-first-save"), "persisted-document.cmo3",
             "persist-window", true, true);
         final var oldSameName = new ExternalPsdEditHostProbe.PersistSaveEvent(
             4L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
-            Optional.empty(), Optional.of("content-after-first-save"),
+            Optional.of("content-before-first-save"), Optional.of("content-after-first-save"),
             Optional.of("persisted-document.cmo3"));
         final var firstSave = new ExternalPsdEditHostProbe.PersistSaveEvent(
             8L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
-            Optional.empty(), Optional.of("content-after-first-save"), Optional.empty());
+            Optional.of("content-before-first-save"), Optional.of("content-after-first-save"),
+            Optional.empty());
         final var first = ExternalPsdEditHostProbe.validatePersistSaveAfter(
             5L, beforeFirstSave, afterFirstSave, List.of(oldSameName, firstSave),
             "persisted-document.cmo3");
         assertTrue(first.accepted(), "first save with no request filename is accepted");
         assertEquals(Optional.empty(), first.event().requestFileName(),
             "first save request filename remains absent diagnostic data");
+
+        final var missingBeforeContentId = new ExternalPsdEditHostProbe.PersistDocumentState(
+            identity, Optional.empty(), "untitled", "persist-window", true, true);
+        final var missingBefore = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+            5L, missingBeforeContentId, afterFirstSave, List.of(firstSave),
+            "persisted-document.cmo3");
+        assertTrue(!missingBefore.accepted(), "missing before contentId is rejected");
+        assertContains(missingBefore.diagnostic(), "before document contentId",
+            "missing before contentId rejection names the missing identity");
 
         final var beforeSaveAs = new ExternalPsdEditHostProbe.PersistDocumentState(
             identity, Optional.of("content-existing"), "old-model.cmo3", "persist-window", true,
@@ -301,6 +321,79 @@ public final class ExternalPsdEditHostProbeTest {
                 identity, "admission-window", current, true, commandCalls::incrementAndGet));
         assertTrue(!stoppedResult.admitted(), "stopped task is rejected before command");
         assertEquals(1, commandCalls.get(), "stopped task performs zero commands");
+
+        final AtomicReference<ExternalPsdEditHostProbe.PersistDocumentState> queuedState =
+            new AtomicReference<>(current);
+        final AtomicBoolean queuedStopped = new AtomicBoolean(false);
+        final CountDownLatch blockerEntered = new CountDownLatch(1);
+        final CountDownLatch releaseBlocker = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            blockerEntered.countDown();
+            try {
+                releaseBlocker.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(blockerEntered.await(5, TimeUnit.SECONDS),
+            "EDT queue blocker started for changed-document admission");
+        final AtomicReference<ExternalPsdEditHostProbe.SaveAsAdmission> queuedChangedResult =
+            new AtomicReference<>();
+        final CountDownLatch changedDone = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            try {
+                queuedChangedResult.set(
+                    ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+                        identity, "admission-window", queuedState::get,
+                        queuedStopped::get, commandCalls::incrementAndGet));
+            } finally {
+                changedDone.countDown();
+            }
+        });
+        queuedState.set(changed);
+        releaseBlocker.countDown();
+        assertTrue(changedDone.await(5, TimeUnit.SECONDS),
+            "queued changed-document admission completed");
+        assertTrue(!queuedChangedResult.get().admitted(),
+            "document changed while SAVE_AS callback was queued is rejected");
+        assertEquals(1, commandCalls.get(),
+            "queued changed-document admission performs zero commands");
+
+        final CountDownLatch stopBlockerEntered = new CountDownLatch(1);
+        final CountDownLatch releaseStopBlocker = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            stopBlockerEntered.countDown();
+            try {
+                releaseStopBlocker.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(stopBlockerEntered.await(5, TimeUnit.SECONDS),
+            "EDT queue blocker started for stopped admission");
+        queuedState.set(current);
+        queuedStopped.set(false);
+        final AtomicReference<ExternalPsdEditHostProbe.SaveAsAdmission> queuedStoppedResult =
+            new AtomicReference<>();
+        final CountDownLatch stoppedDone = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            try {
+                queuedStoppedResult.set(
+                    ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+                        identity, "admission-window", queuedState::get,
+                        queuedStopped::get, commandCalls::incrementAndGet));
+            } finally {
+                stoppedDone.countDown();
+            }
+        });
+        queuedStopped.set(true);
+        releaseStopBlocker.countDown();
+        assertTrue(stoppedDone.await(5, TimeUnit.SECONDS),
+            "queued stopped admission completed");
+        assertTrue(!queuedStoppedResult.get().admitted(),
+            "task stopped while SAVE_AS callback was queued is rejected");
+        assertEquals(1, commandCalls.get(),
+            "queued stopped admission performs zero commands");
     }
 
     private static void testSaveDialogGate() {
@@ -340,6 +433,44 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.KEEP,
             ExternalPsdEditHostProbe.classifySaveDialogForTest(staticProof).outcome(),
             "only exact message and aM.b keep-action evidence can authorize a future click");
+    }
+
+    private static void testDialogButtonShapeOnEdt() throws Exception {
+        final List<ExternalPsdEditHostProbe.DialogButtonEvidence> evidence = onEdt(() -> {
+            final List<String> labels =
+                ExternalPsdEditHostProbe.officialOptionButtonLabelsOnEdtForTest();
+            final JButton yes = new JButton(labels.get(0));
+            final JButton no = new JButton(labels.get(1));
+            final JButton cancel = new JButton(labels.get(2));
+            final InputMap inputMap = new ComponentInputMap(no);
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), "Click");
+            no.setInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW, inputMap);
+            final var actionMap = new javax.swing.ActionMap();
+            actionMap.put("Click", new TestKeepAction());
+            no.setActionMap(actionMap);
+            final JOptionPane pane = new JOptionPane();
+            pane.setOptions(new Object[] {yes, no, cancel});
+            final var proof = ExternalPsdEditHostProbe.UnusedRawDialogProof.forTest(
+                "CUB3-3054: %d unused raw images: %s",
+                TestKeepAction.class.getName());
+            final var proven = proof.buttonsOnEdt(pane);
+            inputMap.remove(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0));
+            final var missingKey = proof.buttonsOnEdt(pane);
+            pane.setOptions(new Object[] {yes, no});
+            final var wrongShape = proof.buttonsOnEdt(pane);
+            return List.of(proven, missingKey, wrongShape);
+        });
+        assertTrue(evidence.get(0).proven(),
+            "three exact JButton options with N->Click ActionMap evidence are proven");
+        assertContains(evidence.get(0).actionToken(),
+            "JOptionPane.options[1].WHEN_IN_FOCUSED_WINDOW[N]->Click",
+            "keep evidence records the exact input/action route");
+        assertContains(evidence.get(0).diagnostic(), TestKeepAction.class.getName(),
+            "keep evidence records the concrete action type");
+        assertTrue(!evidence.get(1).proven(),
+            "missing N->Click input mapping is observe-only");
+        assertTrue(!evidence.get(2).proven(),
+            "non-three-button option shape is observe-only");
     }
 
     private static ExternalPsdEditHostProbe.SaveDialogSnapshot saveDialogSnapshot(
@@ -4173,6 +4304,10 @@ public final class ExternalPsdEditHostProbeTest {
             throw new java.lang.reflect.InvocationTargetException(error);
         }
         return value.get();
+    }
+
+    private static final class TestKeepAction extends AbstractAction {
+        @Override public void actionPerformed(final java.awt.event.ActionEvent event) { }
     }
 
     private static final class RecordingComponent extends Component {
