@@ -687,7 +687,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         ? "deadline or unavailable" : stackTrace(preparation.beforeCall().failure())));
         }
         while (active.get() && !stopped.getAsBoolean() && System.nanoTime() < deadline
-            && !preparation.dispatchStarted().get()) {
+            && dispatchDone.getCount() != 0L) {
             final long remaining = deadline - System.nanoTime();
             if (remaining <= 0L) break;
             dispatchDone.await(Math.min(remaining,
