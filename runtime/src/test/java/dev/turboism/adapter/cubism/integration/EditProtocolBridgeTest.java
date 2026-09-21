@@ -41,7 +41,8 @@ class EditProtocolBridgeTest {
             socket);
 
         assertTrue(claimed, "an editing method must be intercepted");
-        assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_PLACEHOLDER, bridge.lastOutcome());
+        assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_UNREGISTERED,
+            bridge.lastOutcome());
         assertEquals(1, sent.size());
 
         final JsonNode frame = JSON.readTree(sent.get(0));
@@ -50,7 +51,8 @@ class EditProtocolBridgeTest {
         assertEquals("r-1", frame.get("RequestId").asText());
         assertEquals("Error", frame.get("Type").asText());
         assertEquals("EditBegin", frame.get("Method").asText());
-        assertEquals("InvalidEditOperation", frame.get("Data").get("ErrorType").asText());
+        assertEquals("PluginNotRegistered", frame.get("Data").get("ErrorType").asText(),
+            "the unwired bridge fails closed on the registration gate");
     }
 
     @Test
@@ -103,12 +105,17 @@ class EditProtocolBridgeTest {
     @Test
     void aSufficientlyRecognizedMethodWithAnInsufficientVersionGetsTheVersionError()
         throws Exception {
-        final boolean claimed = bridge.onMessage(
+        final EditProtocolBridge registered = FakeEditEngine.bridge(sent,
+            FakeEditEngine.env(FakeEditEngine.registered(),
+                new FakeEditEngine.Service(),
+                () -> java.util.Optional.of(EditFixtures.DOCUMENT),
+                FakeEditEngine.denyAll()));
+        final boolean claimed = registered.onMessage(
             "{\"Version\":\"1.0.0\",\"Type\":\"Request\",\"Method\":\"EditBegin\"}", socket);
 
         assertTrue(claimed);
         assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_UNSUPPORTED_VERSION,
-            bridge.lastOutcome());
+            registered.lastOutcome());
         final JsonNode frame = JSON.readTree(sent.get(0));
         assertEquals("1.0.0", frame.get("Version").asText(),
             "the offending version is echoed like the host responder does");
@@ -119,27 +126,39 @@ class EditProtocolBridgeTest {
 
     @Test
     void aMissingOrMalformedVersionIsInsufficientToo() throws Exception {
-        assertTrue(bridge.onMessage(
+        final EditProtocolBridge registered = FakeEditEngine.bridge(sent,
+            FakeEditEngine.env(FakeEditEngine.registered(),
+                new FakeEditEngine.Service(),
+                () -> java.util.Optional.of(EditFixtures.DOCUMENT),
+                FakeEditEngine.denyAll()));
+        assertTrue(registered.onMessage(
             "{\"Type\":\"Request\",\"Method\":\"EditBegin\"}", socket));
         assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_UNSUPPORTED_VERSION,
-            bridge.lastOutcome());
-        assertTrue(bridge.onMessage(
+            registered.lastOutcome());
+        assertTrue(registered.onMessage(
             "{\"Version\":\"abc\",\"Type\":\"Request\",\"Method\":\"EditBegin\"}", socket));
         assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_UNSUPPORTED_VERSION,
-            bridge.lastOutcome());
-        // A two-component version parses as 1.1.0 -> sufficient, placeholder path.
-        assertTrue(bridge.onMessage(
+            registered.lastOutcome());
+        // A two-component version parses as 1.1.0 -> sufficient, routed into the gate chain:
+        // with a denying approval gate EditBegin ends on the edit-approval error.
+        assertTrue(registered.onMessage(
             "{\"Version\":\"1.1\",\"Type\":\"Request\",\"Method\":\"EditBegin\"}", socket));
-        assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_PLACEHOLDER,
-            bridge.lastOutcome());
+        assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_ERROR,
+            registered.lastOutcome());
         assertEquals(3, sent.size());
     }
 
     @Test
     void aNonRequestTypeIsAnsweredWithInvalidType() throws Exception {
-        assertTrue(bridge.onMessage(
+        final EditProtocolBridge registered = FakeEditEngine.bridge(sent,
+            FakeEditEngine.env(FakeEditEngine.registered(),
+                new FakeEditEngine.Service(),
+                () -> java.util.Optional.of(EditFixtures.DOCUMENT),
+                FakeEditEngine.denyAll()));
+        assertTrue(registered.onMessage(
             "{\"Version\":\"1.1.0\",\"Type\":\"Event\",\"Method\":\"EditBegin\"}", socket));
-        assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_INVALID_TYPE, bridge.lastOutcome());
+        assertEquals(EditProtocolBridge.Outcome.INTERCEPTED_INVALID_TYPE,
+            registered.lastOutcome());
         final JsonNode frame = JSON.readTree(sent.get(0));
         assertEquals("InvalidType", frame.get("Data").get("ErrorType").asText());
     }
@@ -200,7 +219,7 @@ class EditProtocolBridgeTest {
             "field order and spacing follow the host concat recipe: " + frame);
         assertTrue(frame.contains(", \"RequestId\" : 7, \"Type\" : \"Error\", "
             + "\"Method\" : \"GetPartStructure\", \"Data\" : { \"ErrorType\" : "
-            + "\"InvalidEditOperation\"}}"), "raw Data fragment and closing brace: " + frame);
+            + "\"PluginNotRegistered\"}}"), "raw Data fragment and closing brace: " + frame);
         assertTrue(frame.endsWith("}"));
     }
 
