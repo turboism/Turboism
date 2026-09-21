@@ -219,6 +219,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private volatile HostWindowAccess hostWindowAccess;
     /** Validation-only sampler; disable closes it before interrupting the worker. */
     private volatile ExternalPsdPerformanceSampler performanceSampler;
+    private OfficialPsdReplacementBaseline.CompositionReader compositionReader;
+    private OfficialPsdReplacementBaseline.CompositionObservation baselineComposition;
 
     @Override public void init(final PluginContext context) { this.context = context; }
 
@@ -264,6 +266,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         try {
             try {
                 stableSharedModelImageUsers = List.of();
+                compositionReader = null;
+                baselineComposition = null;
                 contentProfile = parseContentProfile(requestedContentProfile);
                 result.setProperty("contentProfile", contentProfileName(contentProfile));
                 result.setProperty("contentValidation",
@@ -1325,6 +1329,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("realEditorApplication",
             "default-application launch recorded; OPENED requires the task .psd association");
         final Target initialTarget = resolveTarget(result);
+        final String compositionProfile = System.getProperty(
+            "turboism.validation.externalpsd.compositionProfile", "");
+        if (!compositionProfile.isEmpty()) {
+            if (!Set.of("normal", "legacy").contains(compositionProfile)) {
+                throw new IllegalArgumentException("unknown composition profile " + compositionProfile);
+            }
+            hostWindowAccess = prepareHostWindowAccess();
+            compositionReader = OfficialPsdReplacementBaseline.prepareCompositionReader(context);
+            baselineComposition = readComposition(result, "composition.baseline", initialTarget);
+            requireCompositionProfile(baselineComposition, compositionProfile);
+            result.setProperty("composition.profile", compositionProfile);
+        }
         final boolean persistValidation = "1".equals(
             System.getProperty("turboism.validation.externalpsd.persist"));
         final boolean validateContent = contentValidationRequired(contentProfile,
@@ -5233,6 +5249,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty(prefix + "lineage.afterRaw", appliedTarget.raw().value());
             result.setProperty(prefix + "lineage.afterGeneration",
                 Long.toString(appliedTarget.identity().generation()));
+            verifyCompositionPreserved(result, prefix + "composition", appliedTarget);
 
             final RawImageRelationDelta delta = rawImageRelationDelta(
                 relationsBefore, relationsAfter);
@@ -5572,6 +5589,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("undo.outcome", undo.get().outcome().name());
         requireHistoryMoved(undo.get(), "undo");
         requireTargetBinding(result, lastBeforeTarget, "undo.targetBinding", 0L);
+        verifyCompositionPreserved(result, "undo.composition", lastBeforeTarget);
         final String afterUndo = currentRawOnEdt(lastBeforeTarget.modelImage().value());
         result.setProperty("undo.currentRaw", afterUndo);
         if (!lastBeforeTarget.raw().value().equals(afterUndo)) {
@@ -5599,6 +5617,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("redo.outcome", redo.get().outcome().name());
         requireHistoryMoved(redo.get(), "redo");
         requireTargetBinding(result, appliedTarget, "redo.targetBinding", 0L);
+        verifyCompositionPreserved(result, "redo.composition", appliedTarget);
         final String afterRedo = currentRawOnEdt(appliedTarget.modelImage().value());
         result.setProperty("redo.currentRaw", afterRedo);
         if (!appliedRaw.equals(afterRedo)) {
@@ -5618,6 +5637,71 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 throw new IllegalStateException(
                     "Redo did not restore the post-edit target RGB fingerprint");
             }
+        }
+    }
+
+    private OfficialPsdReplacementBaseline.CompositionObservation readComposition(
+        final Properties result, final String prefix, final Target target) throws Exception {
+        requireTargetBinding(result, target, prefix + ".targetBinding", 0L);
+        final AtomicReference<OfficialPsdReplacementBaseline.CompositionObservation> observed =
+            new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                if (stopped || officialCurrentHostWindowOnEdt() != guiBoundWindow) {
+                    throw new IllegalStateException("composition task stopped or changed window");
+                }
+                final var value = compositionReader.observe();
+                if (!target.identity().documentId().equals(value.documentId())
+                    || !target.identity().modelId().equals(value.modelId())) {
+                    throw new IllegalStateException("composition belongs to another document/model");
+                }
+                observed.set(value);
+            } catch (Throwable error) { failure.set(error); }
+        });
+        if (failure.get() != null) throw new IllegalStateException(
+            "live native composition observation failed", failure.get());
+        final var value = observed.get();
+        result.setProperty(prefix + ".documentId", value.documentId());
+        result.setProperty(prefix + ".modelId", value.modelId());
+        result.setProperty(prefix + ".targetVersion", Integer.toString(value.targetVersion()));
+        result.setProperty(prefix + ".meshCount", Integer.toString(value.meshes().size()));
+        for (final var entry : new java.util.TreeMap<>(value.meshes()).entrySet()) {
+            final String key = prefix + ".mesh." + entry.getKey();
+            result.setProperty(key + ".guid", entry.getValue().guid());
+            result.setProperty(key + ".color", entry.getValue().color());
+            result.setProperty(key + ".alpha", entry.getValue().alpha());
+        }
+        return value;
+    }
+
+    private void verifyCompositionPreserved(final Properties result, final String prefix,
+        final Target target) throws Exception {
+        if (compositionReader == null) return;
+        requireSameComposition(baselineComposition, readComposition(result, prefix, target));
+        result.setProperty(prefix + ".preserved", "true");
+    }
+
+    static void requireCompositionProfile(
+        final OfficialPsdReplacementBaseline.CompositionObservation value, final String profile) {
+        final Set<String> colors = value.meshes().values().stream()
+            .map(OfficialPsdReplacementBaseline.Composition::color)
+            .collect(java.util.stream.Collectors.toSet());
+        final boolean legacy = colors.contains("ADD") || colors.contains("MULTIPLY");
+        final boolean modern = colors.contains("ADD_R2_TSL") || colors.contains("ADD_R2")
+            || colors.contains("MULTIPLY_R2");
+        if (!("legacy".equals(profile) && legacy && !modern)
+            && !("normal".equals(profile) && modern && !legacy)) {
+            throw new IllegalStateException("native composition does not prove profile "
+                + profile + ": " + colors);
+        }
+    }
+
+    static void requireSameComposition(
+        final OfficialPsdReplacementBaseline.CompositionObservation before,
+        final OfficialPsdReplacementBaseline.CompositionObservation after) {
+        if (before == null || after == null || before.meshes().isEmpty() || !before.equals(after)) {
+            throw new IllegalStateException("native target version/ArtMesh composition changed");
         }
     }
 
