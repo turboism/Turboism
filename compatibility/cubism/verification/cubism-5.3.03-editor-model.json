@@ -95,6 +95,7 @@
     "cubism.editor-model.statistics.read",
     "cubism.editor-model.texture.read",
     "cubism.editor-model.texture.write",
+    "cubism.editor-model.undo.revert",
     "cubism.editor-model.warp-deformer.parameter-bindings.write",
     "cubism.editor-model.warp-deformer.write",
     "cubism.editor-model.write",
@@ -227,6 +228,17 @@
       "memberName": "getCurrentPos",
       "descriptor": "()I",
       "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_history.method.revert",
+      "alias": "cubism.editor-history.manager.revert",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/CUndoManager",
+      "memberName": "revert",
+      "descriptor": "()V",
+      "requiredAccessFlags": 49,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
