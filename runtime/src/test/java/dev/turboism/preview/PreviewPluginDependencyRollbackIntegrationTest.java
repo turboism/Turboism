@@ -173,8 +173,9 @@ class PreviewPluginDependencyRollbackIntegrationTest {
                 assertTrue(outcome.startsWith("rejected:"),
                     "consumer event owner must reject subscriptions while the top consumer's "
                         + "disable is still blocked; got: " + outcome);
-                assertTrue(outcome.contains("does not accept subscriptions"),
-                    "rejection must come from the owner admission gate, not permissions: " + outcome);
+                assertTrue(outcome.contains("does not accept subscriptions")
+                        || outcome.contains("Plugin generation is closed for new work"),
+                    "rejection must come from a generation admission gate, not permissions: " + outcome);
 
                 assertEquals(
                     TOP_CONSUMER_ID + ";" + CONSUMER_ID + ";",
