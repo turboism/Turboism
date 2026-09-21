@@ -59,6 +59,23 @@ final class PreviewPluginShutdown {
         return summaries;
     }
 
+    /**
+     * Unloads one already-loaded plugin mid-load through the same shutdown path used at runtime
+     * close. The load coordinator calls this when a required dependency fails after the dependent
+     * was already loaded under a {@code before}/{@code none} ordering, so the dependent is not
+     * left running against a dependency that never came up. The caller removes the plugin from
+     * the shared {@code loaded} list afterwards.
+     *
+     * @return the teardown summary for reporting; the plugin is not re-added to any live list
+     */
+    LocalPluginRuntime.LoadedPluginSummary unloadOne(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin
+    ) {
+        final List<LocalPluginRuntime.LoadedPluginSummary> summaries = new ArrayList<>();
+        closeOne(loadedPlugin, summaries);
+        return summaries.get(0);
+    }
+
     private void closeOne(
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries
