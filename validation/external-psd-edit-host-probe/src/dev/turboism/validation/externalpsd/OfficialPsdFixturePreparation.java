@@ -1,6 +1,5 @@
 package dev.turboism.validation.externalpsd;
 
-import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
@@ -55,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 
 /**
  * Validation-only preparation for the official Cubism 5.3.02 PSD new-model path.
@@ -104,6 +104,7 @@ public final class OfficialPsdFixturePreparation {
     private static final String DIALOG_MESSAGE_KEY = "CUB3-0420";
     private static final long DEFAULT_TIMEOUT_MILLIS = 180_000L;
     private static final long EDT_CALL_TIMEOUT_MILLIS = 2_000L;
+    private static final long SAVE_AS_EDT_CALL_TIMEOUT_MILLIS = 60_000L;
     private static final long POLL_MILLIS = 150L;
     private static final String UNAVAILABLE = "unavailable";
 
@@ -432,12 +433,12 @@ public final class OfficialPsdFixturePreparation {
         // stop signal and the task binding at execution time, immediately before any click.
         checkStoppedAndTask(input);
         final Window currentOwner = currentWindowOnEdt(host, owner.get() == null);
-        if (currentOwner == null) return null;
-        final Window previousOwner = owner.get();
-        if (previousOwner != null && previousOwner != currentOwner) {
-            throw new IllegalStateException("official main-frame identity changed while chooser was open");
+        final WindowBindingDecision binding = bindWindow(owner.get(), currentOwner);
+        if (!binding.ready()) {
+            if (binding.waiting()) return null;
+            throw new IllegalStateException(binding.diagnostic());
         }
-        owner.compareAndSet(null, currentOwner);
+        if (owner.get() == null) owner.set((Window) binding.owner());
 
         final List<Dialog> candidates = new ArrayList<>();
         for (final Window window : Window.getWindows()) {
@@ -492,15 +493,29 @@ public final class OfficialPsdFixturePreparation {
         if (confirmations.size() != 1) throw new IllegalStateException(
             "official chooser confirmation action is unknown or ambiguous");
         final AbstractButton confirmation = confirmations.get(0);
-        if (!confirmation.isEnabled() || !confirmation.isShowing() || !confirmation.isDisplayable()) {
-            throw new IllegalStateException("official chooser confirmation is not operable");
-        }
-        checkStoppedAndTask(input);
-        list.setSelectedIndex(0);
-        if (list.getSelectedValue() != first) throw new IllegalStateException(
-            "official chooser did not select FOLLOW_TARGET_VERSION");
-        checkStoppedAndTask(input);
-        confirmation.doClick();
+        final ChooserGateObservation observation = new ChooserGateObservation(
+            currentOwner, dialog.getOwner(), candidates.size(), list.getClass(),
+            list.getCellRenderer().getClass(), list.getModel().getSize(), first.getClass(),
+            host.optionModel().invoke(first), firstText, second.getClass(),
+            host.optionModel().invoke(second), secondText, confirmations.size(),
+            confirmation.getClass(), confirmation.getAction().getClass(),
+            String.valueOf(confirmation.getAction().getValue(Action.NAME)),
+            confirmation.isEnabled(), confirmation.isShowing(), confirmation.isDisplayable());
+        final ChooserGateResult gate = verifyAndExecuteChooser(binding, observation,
+            new ChooserGateExpectation(host.hostList(), host.renderer(), host.option(),
+                host.hostButton(), host.hostButtonSubclass(), host.action(),
+                host.firstLabel(), host.secondLabel()),
+            stopped, () -> isTaskBound(input), new ChooserGateActions() {
+                @Override public boolean selectFirst() {
+                    list.setSelectedIndex(0);
+                    return list.getSelectedValue() == first;
+                }
+
+                @Override public void clickConfirm() {
+                    confirmation.doClick();
+                }
+            });
+        if (!gate.accepted()) throw new IllegalStateException(gate.diagnostic());
         return new ChoiceObservation(currentOwner, dialog, list.getClass().getName(),
             confirmation.getClass().getName(), firstText, secondText, true);
     }
@@ -560,6 +575,151 @@ public final class OfficialPsdFixturePreparation {
         return false;
     }
 
+    /**
+     * Binds the chooser to one exact owner.  A null observation is a startup wait only before
+     * the first owner has been bound; after binding it is a terminal identity failure.
+     */
+    static WindowBindingDecision bindWindow(final Object boundOwner, final Object observedOwner) {
+        if (observedOwner == null) {
+            return boundOwner == null
+                ? new WindowBindingDecision(false, true, null, "main frame is not ready")
+                : new WindowBindingDecision(false, false, boundOwner,
+                    "bound main-frame window disappeared");
+        }
+        if (boundOwner == null) {
+            return new WindowBindingDecision(true, false, observedOwner,
+                "main-frame window bound");
+        }
+        if (boundOwner != observedOwner) {
+            return new WindowBindingDecision(false, false, boundOwner,
+                "bound main-frame window identity changed");
+        }
+        return new WindowBindingDecision(true, false, boundOwner,
+            "bound main-frame window retained");
+    }
+
+    static record WindowBindingDecision(boolean ready, boolean waiting, Object owner,
+        String diagnostic) { }
+
+    /** Exact, side-effect-free observation consumed by the chooser action gate. */
+    static record ChooserGateObservation(Object currentOwner, Object dialogOwner,
+        int candidateCount, Class<?> listClass, Class<?> rendererClass, int optionCount,
+        Class<?> firstOptionClass, Object firstOptionModel, String firstLabel,
+        Class<?> secondOptionClass, Object secondOptionModel, String secondLabel,
+        int confirmationCount, Class<?> confirmationClass, Class<?> actionClass,
+        String actionName, boolean enabled, boolean showing, boolean displayable) { }
+
+    /** Expected official classes/text captured by the off-EDT shape preflight. */
+    static record ChooserGateExpectation(Class<?> listClass, Class<?> rendererClass,
+        Class<?> optionClass, Class<?> exactButtonClass, Class<?> buttonSubclass,
+        Class<?> actionClass, String firstLabel, String secondLabel) { }
+
+    interface ChooserGateActions {
+        boolean selectFirst();
+        void clickConfirm();
+    }
+
+    static record ChooserGateResult(boolean accepted, String diagnostic) {
+        static ChooserGateResult acceptedResult() {
+            return new ChooserGateResult(true, "official chooser action accepted");
+        }
+        static ChooserGateResult rejected(final String diagnostic) {
+            return new ChooserGateResult(false, diagnostic);
+        }
+    }
+
+    /**
+     * Production chooser gate and action boundary.  Every shape/identity/stop check completes
+     * before either injected action; the production caller supplies the real Swing actions and
+     * focused tests supply counters, never a fallback UI implementation.
+     */
+    static ChooserGateResult verifyAndExecuteChooser(final WindowBindingDecision binding,
+        final ChooserGateObservation observation, final ChooserGateExpectation expected,
+        final BooleanSupplier stopped, final BooleanSupplier taskBound,
+        final ChooserGateActions actions) {
+        if (binding == null || !binding.ready() || binding.owner() == null
+            || observation == null || binding.owner() != observation.currentOwner()) {
+            return ChooserGateResult.rejected("official main-frame window binding is not exact");
+        }
+        return verifyAndExecuteChooser(observation, expected, stopped, taskBound, actions);
+    }
+
+    static ChooserGateResult verifyAndExecuteChooser(final ChooserGateObservation observation,
+        final ChooserGateExpectation expected, final BooleanSupplier stopped,
+        final BooleanSupplier taskBound, final ChooserGateActions actions) {
+        Objects.requireNonNull(observation, "observation");
+        Objects.requireNonNull(expected, "expected");
+        Objects.requireNonNull(stopped, "stopped");
+        Objects.requireNonNull(taskBound, "taskBound");
+        Objects.requireNonNull(actions, "actions");
+        final String shapeFailure = chooserShapeFailure(observation, expected);
+        if (!shapeFailure.isEmpty()) return ChooserGateResult.rejected(shapeFailure);
+        if (!chooserGateOpen(stopped, taskBound)) {
+            return ChooserGateResult.rejected("chooser action was stopped or task-unbound");
+        }
+        try {
+            if (!chooserGateOpen(stopped, taskBound)) {
+                return ChooserGateResult.rejected("chooser selection was stopped or task-unbound");
+            }
+            if (!actions.selectFirst()) {
+                return ChooserGateResult.rejected(
+                    "official chooser did not select the first new-model option");
+            }
+            if (!chooserGateOpen(stopped, taskBound)) {
+                return ChooserGateResult.rejected("chooser confirmation was stopped or task-unbound");
+            }
+            actions.clickConfirm();
+            return ChooserGateResult.acceptedResult();
+        } catch (RuntimeException failure) {
+            return ChooserGateResult.rejected("official chooser action failed: " + failure);
+        }
+    }
+
+    private static boolean chooserGateOpen(final BooleanSupplier stopped,
+        final BooleanSupplier taskBound) {
+        try {
+            return !stopped.getAsBoolean() && taskBound.getAsBoolean();
+        } catch (RuntimeException failure) {
+            return false;
+        }
+    }
+
+    private static String chooserShapeFailure(final ChooserGateObservation actual,
+        final ChooserGateExpectation expected) {
+        if (actual.currentOwner() == null || actual.dialogOwner() != actual.currentOwner()) {
+            return "official chooser owner is unknown or changed";
+        }
+        if (actual.candidateCount() != 1) return "official chooser candidate count is not one";
+        if (actual.listClass() != expected.listClass()) return "official chooser list class is not exact";
+        if (actual.rendererClass() != expected.rendererClass()) {
+            return "official chooser renderer class is not exact";
+        }
+        if (actual.optionCount() != 2) return "official new-model chooser option count is not two";
+        if (actual.firstOptionClass() != expected.optionClass()
+            || actual.secondOptionClass() != expected.optionClass()
+            || actual.firstOptionModel() != null || actual.secondOptionModel() != null) {
+            return "official chooser options are not the two new-model entries";
+        }
+        if (!Objects.equals(actual.firstLabel(), expected.firstLabel())
+            || !Objects.equals(actual.secondLabel(), expected.secondLabel())) {
+            return "official chooser option labels are not exact";
+        }
+        final boolean buttonClass = actual.confirmationClass() == expected.exactButtonClass()
+            || (expected.buttonSubclass() != null
+                && expected.buttonSubclass().isAssignableFrom(actual.confirmationClass()));
+        if (actual.confirmationCount() != 1 || !buttonClass) {
+            return "official chooser confirmation button is unknown or ambiguous";
+        }
+        if (actual.actionClass() != expected.actionClass()
+            || !"OK".equals(actual.actionName())) {
+            return "official chooser confirmation action is not exact OK";
+        }
+        if (!actual.enabled() || !actual.showing() || !actual.displayable()) {
+            return "official chooser confirmation is not operable";
+        }
+        return "";
+    }
+
     private void waitForDialogGone(final Dialog dialog, final long deadline) throws Exception {
         while (System.nanoTime() < deadline) {
             checkStopped();
@@ -594,14 +754,7 @@ public final class OfficialPsdFixturePreparation {
             checkStopped();
             final EdtCall<ModelState> call = invokeEdtBounded(() -> {
                 try {
-                    final var document = context.cubism().activeDocument().orElse(null);
-                    if (document == null || !document.isModelDocument()) return null;
-                    final CubismModel model = context.cubism().model().active();
-                    final TextureRelationsSnapshot relations = model.textures().relations();
-                    final RelationIdentity identity = validateRelationSnapshot(
-                        document.documentId(), model.id().value(), relations);
-                    return new ModelState(document.documentId(), document.contentId(),
-                        document.relativePath(), model.id().value(), identity);
+                    return currentModelOnEdt();
                 } catch (RuntimeException unavailable) {
                     last.set(unavailable.getMessage() == null ? unavailable.toString()
                         : unavailable.getMessage());
@@ -618,6 +771,25 @@ public final class OfficialPsdFixturePreparation {
         throw new IllegalStateException("new PSD model relation readiness timed out: " + last.get());
     }
 
+    private ModelState currentModelOnEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "model identity observation must run on EDT");
+        final var document = context.cubism().activeDocument().orElse(null);
+        if (document == null || !document.isModelDocument()) {
+            throw new IllegalStateException("active model document is unavailable");
+        }
+        final CubismModel model = context.cubism().model().active();
+        if (model == null || model.id() == null || model.id().value() == null
+            || model.id().value().isBlank()) {
+            throw new IllegalStateException("active model identity is unavailable");
+        }
+        final TextureRelationsSnapshot relations = model.textures().relations();
+        final RelationIdentity identity = validateRelationSnapshot(
+            document.documentId(), model.id().value(), relations);
+        return new ModelState(document.documentId(), document.contentId(),
+            document.relativePath(), model.id().value(), identity);
+    }
+
     private SavedCopyIdentity saveAsAndConfirm(final InputIdentity input, final ModelState before,
         final Window window, final HostAccess host, final EventRecorder events) throws Exception {
         checkStopped();
@@ -629,25 +801,25 @@ public final class OfficialPsdFixturePreparation {
         final UserFileHandle handle = granted.handle().orElseThrow(() ->
             new IllegalStateException("fixed WRITE grant was not granted: " + granted.status()));
         try {
-            // SAVE_AS must be bound to the same task window and relation graph immediately
-            // before the command.  The post-event checks below are intentionally not the only
-            // guard: a late queued stop or a changed active document must not be clicked through.
-            final ModelState beforeCommand = awaitModel(30_000L);
-            if (!sameModelIdentity(before, beforeCommand)) throw new IllegalStateException(
-                "active model identity changed before SAVE_AS");
-            final Window beforeWindow = currentWindow(host);
-            if (beforeWindow != window) throw new IllegalStateException(
-                "official main-frame window changed before SAVE_AS");
-            checkStopped();
-            final EditorCommandResult saved = context.editorCommands().execute(
-                new EditorFileCommandRequest(EditorFileCommand.SAVE_AS, handle,
-                    EditorOverwritePolicy.REPLACE_EXISTING));
+            // The final stop/task, model/relation, and bound-window checks and the command itself
+            // are one EDT operation. The WRITE grant was acquired on the worker above; this
+            // dispatch never waits for a grant or lifecycle event.
+            final EdtCall<SaveExecution> executionCall = invokeEdtBounded(
+                () -> executeSaveAsOnEdt(input, before, window, host, handle, events),
+                SAVE_AS_EDT_CALL_TIMEOUT_MILLIS);
+            if (!executionCall.completed()) throw new IllegalStateException(
+                "SAVE_AS EDT dispatch timed out");
+            if (executionCall.failure() != null) throw asException(executionCall.failure());
+            final SaveExecution execution = executionCall.value();
+            if (execution == null || execution.result() == null) throw new IllegalStateException(
+                "SAVE_AS EDT dispatch returned no result");
+            final EditorCommandResult saved = execution.result();
             properties.setProperty("prepare.saveAs.status", saved.status().name());
             properties.setProperty("prepare.saveAs.executed", Boolean.toString(saved.executed()));
             if (!saved.executed()) throw new IllegalStateException(
                 "SAVE_AS did not execute: " + saved.status());
             final ProjectFileLifecycleEvent.After after = events.awaitSave(
-                lastPathPart(input.savedCopyPath()), 60_000L, stopped);
+                lastPathPart(input.savedCopyPath()), execution.afterSequence(), 60_000L, stopped);
             final ModelState current = awaitModel(30_000L);
             recordModelState("model.afterSave", current);
             if (!savedModelMatches(before, current, lastPathPart(input.savedCopyPath()))) {
@@ -656,7 +828,7 @@ public final class OfficialPsdFixturePreparation {
             }
             final Window currentWindow = currentWindow(host);
             final SaveAfterIdentity event = SaveAfterIdentity.from(after);
-            if (!saveAfterMatches(event, before.identity(), current.identity(),
+            if (!saveAfterMatches(event, before, current,
                 lastPathPart(input.savedCopyPath()), windowIdentity(window),
                 windowIdentity(currentWindow))) {
                 throw new IllegalStateException(
@@ -674,6 +846,27 @@ public final class OfficialPsdFixturePreparation {
         } finally {
             handle.close();
         }
+    }
+
+    private SaveExecution executeSaveAsOnEdt(final InputIdentity input, final ModelState before,
+        final Window window, final HostAccess host, final UserFileHandle handle,
+        final EventRecorder events) throws Exception {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "SAVE_AS execution must run on EDT");
+        checkStoppedAndTask(input);
+        final Window currentWindow = currentWindowOnEdt(host, false);
+        if (currentWindow != window) throw new IllegalStateException(
+            "official main-frame window changed before SAVE_AS");
+        final ModelState currentModel = currentModelOnEdt();
+        if (!sameModelIdentity(before, currentModel)) throw new IllegalStateException(
+            "active model/document/relation identity changed before SAVE_AS");
+        checkStoppedAndTask(input);
+        final int afterSequence = events.captureBeforeExecute();
+        checkStoppedAndTask(input);
+        final EditorCommandResult result = context.editorCommands().execute(
+            new EditorFileCommandRequest(EditorFileCommand.SAVE_AS, handle,
+                EditorOverwritePolicy.REPLACE_EXISTING));
+        return new SaveExecution(result, afterSequence, currentModel);
     }
 
     private Window currentWindow(final HostAccess host) throws Exception {
@@ -775,10 +968,14 @@ public final class OfficialPsdFixturePreparation {
 
     private void checkStoppedAndTask(final InputIdentity input) {
         checkStopped();
-        if (!input.runId().equals(properties.getProperty("prepare.runId", ""))
-            || !input.taskId().equals(properties.getProperty("prepare.taskId", ""))) {
+        if (!isTaskBound(input)) {
             throw new IllegalStateException("official PSD preparation task binding changed");
         }
+    }
+
+    private boolean isTaskBound(final InputIdentity input) {
+        return input.runId().equals(properties.getProperty("prepare.runId", ""))
+            && input.taskId().equals(properties.getProperty("prepare.taskId", ""));
     }
 
     private static boolean sameModelIdentity(final ModelState before, final ModelState after) {
@@ -1005,14 +1202,25 @@ public final class OfficialPsdFixturePreparation {
             bindings.toString());
     }
 
-    /** Pure save-event identity gate, shared by the focused test and the live path. */
+    static boolean saveEventMatches(final SaveAfterIdentity event, final String expectedFileName) {
+        return event != null && "SAVE".equals(event.operation()) && expectedFileName != null
+            && expectedFileName.equals(event.fileName());
+    }
+
+    /** SAVE identity gate: event, target CMO, model/relation state, content ID, and window. */
     public static boolean saveAfterMatches(final SaveAfterIdentity event,
-        final RelationIdentity before, final RelationIdentity after,
-        final String expectedFileName, final String beforeWindow, final String afterWindow) {
-        return event != null && "SAVE".equals(event.operation()) && event.succeeded()
-            && expectedFileName != null && expectedFileName.equals(event.fileName())
-            && before != null && before.equals(after)
-            && beforeWindow != null && beforeWindow.equals(afterWindow);
+        final ModelState before, final ModelState after, final String expectedFileName,
+        final String beforeWindow, final String afterWindow) {
+        if (!saveEventMatches(event, expectedFileName) || !event.succeeded()
+            || before == null || after == null || !sameModelIdentity(before, after)
+            || !savedModelMatches(before, after, expectedFileName)
+            || event.contentId() == null || event.contentId().isBlank()
+            || UNAVAILABLE.equals(event.contentId()) || after.contentId() == null
+            || after.contentId().isEmpty() || after.contentId().get() == null
+            || after.contentId().get().isBlank()
+            || !event.contentId().equals(after.contentId().get())
+            || beforeWindow == null || !beforeWindow.equals(afterWindow)) return false;
+        return true;
     }
 
     private static String windowIdentity(final Window window, final boolean ignored) {
@@ -1082,6 +1290,9 @@ public final class OfficialPsdFixturePreparation {
     public record PreparationResult(Window window, SavedCopyIdentity savedCopy,
         RelationIdentity relation) { }
 
+    private record SaveExecution(EditorCommandResult result, int afterSequence,
+        ModelState currentModel) { }
+
     private static final class EventRecorder {
         private final Properties properties;
         private final List<ProjectFileLifecycleEvent.After> after =
@@ -1095,19 +1306,26 @@ public final class OfficialPsdFixturePreparation {
         void after(final ProjectFileLifecycleEvent.After event) { after.add(event); synchronized (this) {
             properties.setProperty("prepare.lifecycle.after.count", Integer.toString(after.size()));
         } }
-        ProjectFileLifecycleEvent.After awaitSave(final String fileName, final long timeout,
-            final BooleanSupplier stopped) throws InterruptedException {
+        int captureBeforeExecute() {
+            synchronized (after) {
+                final int sequence = after.size();
+                properties.setProperty("prepare.lifecycle.beforeExecute.afterSequence",
+                    Integer.toString(sequence));
+                return sequence;
+            }
+        }
+        ProjectFileLifecycleEvent.After awaitSave(final String fileName, final int afterSequence,
+            final long timeout, final BooleanSupplier stopped) throws InterruptedException {
             final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
             while (System.nanoTime() < deadline) {
                 if (stopped.getAsBoolean()) throw new IllegalStateException("stopped while waiting SAVE After");
+                final List<ProjectFileLifecycleEvent.After> snapshot;
                 synchronized (after) {
-                    for (final ProjectFileLifecycleEvent.After event : after) {
-                        if (event.operation().operation() == ProjectFileOperationType.SAVE
-                            && event.result().request().fileName().filter(fileName::equals).isPresent()) {
-                            return event;
-                        }
-                    }
+                    snapshot = List.copyOf(after);
                 }
+                final Optional<ProjectFileLifecycleEvent.After> match = firstAfterSequence(snapshot,
+                    afterSequence, event -> saveEventMatches(SaveAfterIdentity.from(event), fileName));
+                if (match.isPresent()) return match.get();
                 Thread.sleep(100L);
             }
             throw new IllegalStateException("SAVE After event was not observed");
@@ -1117,5 +1335,23 @@ public final class OfficialPsdFixturePreparation {
             properties.setProperty("prepare.lifecycle.on.count", Integer.toString(on));
             properties.setProperty("prepare.lifecycle.openAfter", "NOT_ASSUMED");
         } }
+    }
+
+    private static <T> Optional<T> firstAfterSequence(final List<T> values,
+        final int afterSequence, final Predicate<T> matches) {
+        final int start = Math.max(0, Math.min(afterSequence, values.size()));
+        for (int index = start; index < values.size(); index++) {
+            final T value = values.get(index);
+            if (matches.test(value)) return Optional.of(value);
+        }
+        return Optional.empty();
+    }
+
+    /** Package-private sequence seam keeps the old same-name SAVE regression deterministic. */
+    static Optional<SaveAfterIdentity> firstSaveAfterAfterSequenceForTest(
+        final List<SaveAfterIdentity> events, final int afterSequence,
+        final String expectedFileName) {
+        return firstAfterSequence(events, afterSequence,
+            event -> saveEventMatches(event, expectedFileName));
     }
 }

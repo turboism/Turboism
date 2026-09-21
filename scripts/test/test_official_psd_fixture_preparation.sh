@@ -120,3 +120,19 @@ printf '%s  %s\\n' '{fixture_sha}' "${{2:-$1}}"
 
 print("PASS: official PSD fixture preparation wrapper argv")
 PY
+
+bash "$root/validation/external-psd-edit-host-probe/build.sh"
+id="$(bash "$root/scripts/dev/worktree-id.sh")"
+shopt -s nullglob
+sdk=("$root/build/worktree/$id/sdk/libs/"sdk-*.jar)
+[[ ${#sdk[@]} -eq 1 ]] || { echo 'Focused helper test requires exactly one SDK JAR' >&2; exit 2; }
+shape_jar="${TURBOISM_EXTERNAL_PSD_SHAPE_JAR:-/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar}"
+test_out="$(mktemp -d)"
+trap 'rm -rf "$test_out"' EXIT
+javac --release 17 -Xlint:all -cp "${sdk[0]}:$root/build/external-psd-edit-host-probe.jar" \
+  -d "$test_out" \
+  "$root/validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/OfficialPsdFixturePreparationTest.java"
+shape_dir="$(dirname "$shape_jar")"
+TURBOISM_EXTERNAL_PSD_SHAPE_JAR="$shape_jar" java -Djava.awt.headless=true \
+  -cp "$test_out:${sdk[0]}:$root/build/external-psd-edit-host-probe.jar:$shape_jar:$shape_dir/*" \
+  dev.turboism.validation.externalpsd.OfficialPsdFixturePreparationTest
