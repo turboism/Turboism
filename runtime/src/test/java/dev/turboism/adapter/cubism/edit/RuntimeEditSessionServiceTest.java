@@ -192,6 +192,13 @@ final class RuntimeEditSessionServiceTest {
         }
 
         @Override
+        public void undoEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit
+        ) {
+        }
+
+        @Override
         public boolean undoRevertVerified(
             final EditorAuthoringTransactionCoordinator.Binding expected
         ) {

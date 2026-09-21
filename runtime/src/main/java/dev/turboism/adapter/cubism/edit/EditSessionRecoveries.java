@@ -33,10 +33,10 @@ public final class EditSessionRecoveries {
     }
 
     /**
-     * Returns the compensating recovery: abort the native session edit (the existing
-     * {@code endEdit} cancel semantics of {@code EditorAuthoringTransactionCoordinator}) and
-     * verify the native Undo history is exactly the pre-session snapshot — no new entry may
-     * remain.
+     * Returns the compensating recovery: undo the session's active {@code GroupUndo} in place
+     * so every captured mutation is restored, then abort the native session edit ({@code
+     * endEdit(true)} discards the group without pushing it) and verify the native Undo
+     * history is exactly the pre-session snapshot — no new entry may remain.
      */
     public static EditSessionRecovery compensating() {
         return Compensating.INSTANCE;
@@ -65,7 +65,25 @@ public final class EditSessionRecoveries {
         ) throws EditSessionException {
             Objects.requireNonNull(host, "host");
             Objects.requireNonNull(request, "request");
-            host.endEdit(request.binding(), request.editToken(), true);
+            // The native edit bracket must close even when the group undo fails — otherwise
+            // the host stays inside the session's edit mode and no later edit can begin.
+            RuntimeException undoFailure = null;
+            try {
+                host.undoEditGroup(request.binding(), request.editToken());
+            } catch (RuntimeException failure) {
+                undoFailure = failure;
+            }
+            try {
+                host.endEdit(request.binding(), request.editToken(), true);
+            } catch (RuntimeException endFailure) {
+                if (undoFailure != null) {
+                    endFailure.addSuppressed(undoFailure);
+                }
+                throw endFailure;
+            }
+            if (undoFailure != null) {
+                throw undoFailure;
+            }
             verifyHistoryRestored(host, request);
             host.refreshAfterSession(request.binding());
         }

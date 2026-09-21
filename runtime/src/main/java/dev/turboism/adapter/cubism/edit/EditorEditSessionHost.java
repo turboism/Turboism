@@ -63,6 +63,14 @@ public interface EditorEditSessionHost {
     void endEdit(EditorAuthoringTransactionCoordinator.Binding binding, Object edit, boolean cancel);
 
     /**
+     * Undoes the session's active {@code GroupUndo} in place ({@code GroupUndo.undo()}),
+     * restoring every model mutation captured on the session token without touching history.
+     * The compensating recovery runs this before {@code endEdit(true)} discards the group —
+     * discarding alone abandons the undoables without applying them.
+     */
+    void undoEditGroup(EditorAuthoringTransactionCoordinator.Binding binding, Object edit);
+
+    /**
      * Returns whether the {@code cubism.editor-model.undo.revert} capability row is verified on
      * this host — the precondition for the official {@code CUndoManager.revert()} cancel path.
      */

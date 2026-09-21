@@ -152,7 +152,9 @@ final class RuntimeEditSessionManagerTest {
         assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
         assertEquals(EditSessionState.CANCELLED, session.state());
         assertEquals(Optional.of(CancelSource.PLUGIN), session.cancelledBy());
-        // Compensating path: abort the native edit, verify history, refresh — no revert call.
+        // Compensating path: undo the session group, abort the native edit, verify history,
+        // refresh — no revert call.
+        assertEquals(1, fixture.host.undoGroupCount);
         assertEquals(List.of(Boolean.TRUE), fixture.host.endEditCancelFlags);
         assertEquals(0, fixture.host.revertCount);
         assertEquals(1, fixture.host.refreshCount);
@@ -170,7 +172,8 @@ final class RuntimeEditSessionManagerTest {
 
         assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
         // Reverting path: the group undo lands as one entry (endEdit cancel=false), then the
-        // host revert removes it.
+        // host revert removes it — the group is never undone in place.
+        assertEquals(0, fixture.host.undoGroupCount);
         assertEquals(List.of(Boolean.FALSE), fixture.host.endEditCancelFlags);
         assertEquals(1, fixture.host.revertCount);
         assertEquals(1, fixture.host.refreshCount);
@@ -191,6 +194,7 @@ final class RuntimeEditSessionManagerTest {
 
         session.cancel();
 
+        assertEquals(1, fixture.host.undoGroupCount);
         assertEquals(List.of(Boolean.TRUE), fixture.host.endEditCancelFlags);
         assertEquals(0, fixture.host.revertCount);
     }
@@ -219,6 +223,23 @@ final class RuntimeEditSessionManagerTest {
         final EditSessionCloseResult result = session.cancel();
 
         assertEquals(EditSessionCloseOutcome.FAILED, result.outcome());
+        assertEquals(EditSessionState.CANCELLED, session.state());
+    }
+
+    @Test
+    void reportsAFailedCloseWhenTheGroupUndoThrows() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.failUndoGroup = true;
+        final EditSession session = fixture.open();
+
+        final EditSessionCloseResult result = session.cancel();
+
+        // The failed restore still reaches the terminal state, and the native edit bracket is
+        // still aborted so the host does not stay inside the session's edit mode.
+        assertEquals(EditSessionCloseOutcome.FAILED, result.outcome());
+        assertEquals(EditSessionState.CANCELLED, session.state());
+        assertEquals(List.of(Boolean.TRUE), fixture.host.endEditCancelFlags);
+        assertFalse(fixture.editScopeGate.get());
     }
 
     @Test
@@ -527,10 +548,12 @@ final class RuntimeEditSessionManagerTest {
         boolean revertVerified;
         boolean failOutsideDispatch;
         boolean failRevert;
+        boolean failUndoGroup;
         boolean failNextEndEdit;
         boolean historyChangedOnRecovery;
         int beginCount;
         int revertCount;
+        int undoGroupCount;
         int refreshCount;
         private int dispatchDepth;
 
@@ -586,6 +609,18 @@ final class RuntimeEditSessionManagerTest {
             if (failNextEndEdit) {
                 failNextEndEdit = false;
                 throw new IllegalStateException("endEdit failed");
+            }
+        }
+
+        @Override
+        public void undoEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit
+        ) {
+            onHost("undoEditGroup");
+            undoGroupCount++;
+            if (failUndoGroup) {
+                throw new IllegalStateException("group undo failed");
             }
         }
 

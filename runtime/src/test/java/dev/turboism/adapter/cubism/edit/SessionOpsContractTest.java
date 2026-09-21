@@ -153,6 +153,74 @@ final class SessionOpsContractTest {
     }
 
     @Test
+    void editParameterSnapshotsThenAppliesDirectSettersInsideTheSessionBracket()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        assertTrue(session.parameterStructure().editParameter(
+            new ParameterStructureOps.EditParameter(
+                new ParameterId("AngleZ"),
+                Optional.empty(),
+                Optional.of("Renamed"),
+                Optional.of(0.1),
+                Optional.of(0.2),
+                Optional.of(5.0),
+                Optional.of(true))));
+
+        // The write snapshots the source into a session-owned SimpleUndo before mutating —
+        // the property-editor path that opened its own history entry is never reached.
+        assertTrue(fixture.access.constructed("cubism.editor-model.simple-undo.create"));
+        assertTrue(
+            fixture.access.indexOf("cubism.editor-model.simple-undo.create")
+                < fixture.access.indexOf("cubism.editor-model.parameter-source.set-name"));
+        assertTrue(fixture.access.called("cubism.editor-model.parameter-source.set-minimum"));
+        assertTrue(fixture.access.called("cubism.editor-model.parameter-source.set-maximum"));
+        assertTrue(fixture.access.called("cubism.editor-model.parameter-source.set-default"));
+        assertTrue(fixture.access.called("cubism.editor-model.parameter-source.set-repeat"));
+        assertFalse(fixture.access.called(
+            "cubism.editor-model.parameter-property-editor.update-definition"));
+        assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
+        assertRefreshRan(fixture.access, true);
+    }
+
+    @Test
+    void editParameterNewIdValidatesThenRenamesThroughTheVerifiedSetter()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        assertTrue(session.parameterStructure().editParameter(
+            new ParameterStructureOps.EditParameter(
+                new ParameterId("AngleZ"),
+                Optional.of(new ParameterId("AngleZ2")),
+                Optional.empty(), Optional.empty(), Optional.empty(),
+                Optional.empty(), Optional.empty())));
+
+        assertTrue(fixture.access.called("cubism.editor-model.parameter-validator.valid-id"));
+        assertTrue(
+            fixture.access.indexOf("cubism.editor-model.parameter-validator.valid-id")
+                < fixture.access.indexOf("cubism.editor-model.parameter-source.set-id"));
+        assertTrue(fixture.access.called("cubism.editor-model.parameter-source.set-id"));
+        assertTrue(fixture.access.constructed("cubism.editor-model.parameter-id.create"));
+    }
+
+    @Test
+    void editParameterWithNoFieldsSkipsTheUndoCapture() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        assertTrue(session.parameterStructure().editParameter(
+            new ParameterStructureOps.EditParameter(
+                new ParameterId("AngleZ"),
+                Optional.empty(), Optional.empty(), Optional.empty(),
+                Optional.empty(), Optional.empty(), Optional.empty())));
+
+        assertFalse(fixture.access.constructed("cubism.editor-model.simple-undo.create"));
+        assertFalse(fixture.access.called("cubism.editor-model.undo.add"));
+    }
+
+    @Test
     void moveParameterGroupFailsClosedWithoutDispatch() throws EditSessionException {
         final Fixture fixture = new Fixture();
         final EditSession session = fixture.open();
@@ -1287,6 +1355,11 @@ final class SessionOpsContractTest {
         final Object modelSource = new Object();
         final Object model = new Object();
         final Object app = new Object();
+        final Object mainFrame = new Object();
+        final Object palette = new Object();
+        final Object paletteView = new Object();
+        final Object operation = new Object();
+        final Object validator = new Object();
         final Object updateManager = new Object();
         final Object pack = new Object();
         final Object modelHandler = new Object();
@@ -1518,8 +1591,27 @@ final class SessionOpsContractTest {
             on("cubism.editor-model.model-handler.add-source-undo", (t, a) -> undo);
             on("cubism.editor-model.parameter-group-handler.add-parameter-child",
                 (t, a) -> undo);
+            on("cubism.editor-model.app-controller.main-frame", (t, a) -> mainFrame);
+            on("cubism.editor-model.main-frame.parameter-palette", (t, a) -> palette);
+            on("cubism.editor-model.parameter-palette.view", (t, a) -> paletteView);
+            on("cubism.editor-model.parameter-palette-view.operation",
+                (t, a) -> operation);
+            on("cubism.editor-model.parameter-validator.valid-id", (t, a) -> Boolean.TRUE);
+            on("cubism.editor-model.parameter-validator.keys-outside-range",
+                (t, a) -> Boolean.FALSE);
+            on("cubism.editor-model.parameter-validator.allow-repeat",
+                (t, a) -> Boolean.TRUE);
+            on("cubism.editor-model.parameter-validator.default-change-affects-morph-target",
+                (t, a) -> Boolean.FALSE);
+            on("cubism.editor-model.parameter-source.set-name", (t, a) -> null);
+            on("cubism.editor-model.parameter-source.set-minimum", (t, a) -> null);
+            on("cubism.editor-model.parameter-source.set-maximum", (t, a) -> null);
+            on("cubism.editor-model.parameter-source.set-default", (t, a) -> null);
+            on("cubism.editor-model.parameter-source.set-repeat", (t, a) -> null);
+            on("cubism.editor-model.parameter-source.set-id", (t, a) -> null);
 
             onStatic("cubism.editor-model.app-controller.instance", a -> app);
+            onStatic("cubism.editor-model.parameter-operation.validator", a -> validator);
             onStatic("cubism.editor-model.model-handler.create-free-id-default",
                 a -> a[1]);
             onStatic("cubism.editor-model.model-source.verify", a -> null);
@@ -1537,6 +1629,7 @@ final class SessionOpsContractTest {
                 a -> new HostGuid("g-new"));
             onConstruct("cubism.editor-model.part-id.create", a -> new HostId((String) a[0]));
             onConstruct("cubism.editor-model.part-guid.create", a -> new HostGuid("g-new"));
+            onConstruct("cubism.editor-model.simple-undo.create", a -> undo);
 
             isInstanceOf("cubism.editor-model.part-source.class", PartSource.class);
             isInstanceOf("cubism.editor-model.art-mesh-source.class", MeshSource.class);
@@ -1664,6 +1757,15 @@ final class SessionOpsContractTest {
                 .toList();
         }
 
+        int indexOf(final String alias) {
+            for (int i = 0; i < calls.size(); i++) {
+                if (calls.get(i).alias().equals(alias)) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         List<String> memberCalls() {
             return calls.stream().map(Call::alias).toList();
         }
@@ -1730,6 +1832,13 @@ final class SessionOpsContractTest {
             final EditorAuthoringTransactionCoordinator.Binding expected,
             final Object edit,
             final boolean cancel
+        ) {
+        }
+
+        @Override
+        public void undoEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit
         ) {
         }
 

@@ -4687,6 +4687,61 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_source_set_default",
+      "alias": "cubism.editor-model.parameter-source.set-default",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "setDefaultValue",
+      "descriptor": "(F)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_source_set_maximum",
+      "alias": "cubism.editor-model.parameter-source.set-maximum",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "setMaxValue",
+      "descriptor": "(F)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_source_set_id",
+      "alias": "cubism.editor-model.parameter-source.set-id",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "setId",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/id/CParameterId;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_source_set_minimum",
+      "alias": "cubism.editor-model.parameter-source.set-minimum",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "setMinValue",
+      "descriptor": "(F)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_source_set_name",
+      "alias": "cubism.editor-model.parameter-source.set-name",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "setName",
+      "descriptor": "(Ljava/lang/String;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_source_set_repeat",
       "alias": "cubism.editor-model.parameter-source.set-repeat",
       "kind": "method",
@@ -6068,6 +6123,17 @@
       "ownerInternalName": "com/live2d/undo/ACUndoable",
       "memberName": "addUndoRedoListener",
       "descriptor": "(Ljp/noids/ui/l/p;)Z",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.undo_group_undo",
+      "alias": "cubism.editor-model.undo.group-undo",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/GroupUndo",
+      "memberName": "undo",
+      "descriptor": "()V",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
