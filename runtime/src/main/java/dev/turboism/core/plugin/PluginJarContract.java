@@ -57,6 +57,7 @@ public final class PluginJarContract {
         final Set<String> content = Set.copyOf(entryNames);
         validateEntrypoints(descriptor, content, logicalPath);
         validatePublicEventTypes(descriptor, content, logicalPath);
+        validateEventContracts(descriptor, content, logicalPath);
         validateResourceRoots(descriptor, content, logicalPath);
         validateI18n(descriptor, content, logicalPath);
         rejectUndeclaredResources(descriptor, content, logicalPath);
@@ -104,6 +105,32 @@ public final class PluginJarContract {
                 "PLUGIN_PUBLIC_EVENT_API_EMBEDDED",
                 logicalPath + "!/" + classPath
             );
+        }
+    }
+
+    private static void validateEventContracts(
+        final PluginDescriptor descriptor,
+        final Set<String> content,
+        final String logicalPath
+    ) throws PluginJarContractException {
+        final Set<String> declared = new LinkedHashSet<>();
+        for (PluginDescriptor.EventContract contract : descriptor.eventContracts()) {
+            declared.add(contract.artifact());
+            require(
+                content.contains(contract.artifact()),
+                "PLUGIN_CONTRACT_ARTIFACT_MISSING",
+                logicalPath + "!/" + contract.artifact()
+            );
+        }
+        for (String path : content) {
+            if (path.startsWith("META-INF/turboism/contracts/")
+                && !path.equals("META-INF/turboism/contracts/")
+                && !declared.contains(path)) {
+                throw problem(
+                    "PLUGIN_CONTRACT_ARTIFACT_UNDECLARED",
+                    logicalPath + "!/" + path
+                );
+            }
         }
     }
 
