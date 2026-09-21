@@ -1756,9 +1756,10 @@ public final class OfficialPsdFixturePreparation {
         final AtomicReference<T> value = new AtomicReference<>();
         final AtomicReference<Throwable> failure = new AtomicReference<>();
         final CountDownLatch done = new CountDownLatch(1);
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         try {
             SwingUtilities.invokeLater(() -> {
-                if (!active.get()) {
+                if (!active.get() || System.nanoTime() >= deadline) {
                     done.countDown();
                     return;
                 }
@@ -1774,11 +1775,17 @@ public final class OfficialPsdFixturePreparation {
             active.set(false);
             return EdtCall.failed(error);
         }
-        if (!done.await(timeoutMillis, TimeUnit.MILLISECONDS)) {
+        try {
+            if (!done.await(timeoutMillis, TimeUnit.MILLISECONDS)
+                || System.nanoTime() >= deadline) {
+                return EdtCall.timeout();
+            }
+            return failure.get() == null
+                ? EdtCall.completed(value.get()) : EdtCall.failed(failure.get());
+        } finally {
+            // Interruption also revokes a queued operation; it must not run after its waiter left.
             active.set(false);
-            return EdtCall.timeout();
         }
-        return failure.get() == null ? EdtCall.completed(value.get()) : EdtCall.failed(failure.get());
     }
 
     private static String windowIdentity(final Window window) {

@@ -65,6 +65,7 @@ public final class OfficialPsdFixturePreparationTest {
         testPostSaveModelGate();
         testSaveCommandAdmission();
         testAwaitEdtObservationBudget();
+        testInterruptedEdtObservationDoesNotReadLate();
         testSaveAfterIdentityGate();
         testOfficialJarAccessorShape();
         System.out.println("PASS: OfficialPsdFixturePreparationTest");
@@ -601,6 +602,49 @@ public final class OfficialPsdFixturePreparationTest {
         }
         assertEquals(0, lateObservations.get(),
             "total-budget timeout cancels the queued observation with no late read");
+    }
+
+    private static void testInterruptedEdtObservationDoesNotReadLate() {
+        final java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch admitted = new java.util.concurrent.CountDownLatch(1);
+        final AtomicInteger lateReads = new AtomicInteger();
+        final java.util.concurrent.atomic.AtomicReference<Throwable> outcome =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        SwingUtilities.invokeLater(() -> {
+            entered.countDown();
+            try {
+                release.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        final Thread waiter = new Thread(() -> {
+            try {
+                OfficialPsdFixturePreparation.awaitEdtObservationForTest(5_000L,
+                    () -> false, () -> { admitted.countDown(); return true; },
+                    () -> { lateReads.incrementAndGet(); return "late"; });
+            } catch (Throwable failure) {
+                outcome.set(failure);
+            }
+        }, "interrupted-preparation-observer");
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS), "EDT blocker entered");
+            waiter.start();
+            assertTrue(admitted.await(5, TimeUnit.SECONDS), "observer admitted before interruption");
+            waiter.interrupt();
+            waiter.join(2_000L);
+            assertFalse(waiter.isAlive(), "interrupted waiter exits within its bound");
+            assertTrue(outcome.get() instanceof InterruptedException,
+                "waiter preserves interruption instead of reporting readiness");
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("interruption regression was interrupted", failure);
+        } finally {
+            release.countDown();
+        }
+        onEdt(() -> { });
+        assertEquals(0, lateReads.get(), "interrupted observer cannot read host after cancellation");
     }
 
     private static void expectSaveRejected(final Runnable action) {
