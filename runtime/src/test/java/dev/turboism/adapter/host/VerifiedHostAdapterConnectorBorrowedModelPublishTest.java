@@ -11,8 +11,6 @@ import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.core.MocInfo;
-import dev.turboism.sdk.cubism.core.MocVersion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,21 +20,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Editor→Core borrowed-model publish wiring at connect time.
- *
- * <p>The Core backend is fixture-backed and installed through the injectable
- * {@code CoreBackendFactory} seam: admission runs against the synthetic Core surface (no native
- * library), so the full publish → Core read chain is exercisable on a pure JVM. The Editor
- * resolver is a fixture carrying the publish chain's eight existing aliases plus the two class
- * selectors. Connect must publish the resolved current document model exactly once, skip
- * publish whenever the resolver chain yields nothing, and never reject connect because of it.
- */
+/** Verifies that an Editor CModel is never installed as a Core CubismModel. */
 class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
 
     private static final Path PROJECT_ROOT = locateProjectRoot();
@@ -53,7 +40,7 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
     }
 
     @Test
-    void connectPublishesTheCurrentEditorDocumentModelToTheAdmittedCoreBackend() throws Exception {
+    void connectKeepsEditorAccessWithoutPublishingTheEditorObjectToCore() throws Exception {
         EditorFixture.Host.currentDocument = new EditorFixture.Document();
         final HostVerificationEvidence evidence = evidence();
         try (HostAdapterConnection connection = connector(PRODUCTION_ACCESS, coreBackendFactory())
@@ -62,11 +49,11 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
             final var model = connection.modelAccess().active();
             assertEquals("model-1", model.id().value());
 
-            // The fixture-backed Core backend admitted at connect and the publish chain
-            // installed the resolved Editor document model: the Core MOC read chain works
-            // end to end on a pure JVM (no native library involved).
-            final MocInfo mocInfo = model.mocInfo();
-            assertNotEquals(MocVersion.UNKNOWN, mocInfo.version());
+            final IllegalStateException unavailable = assertThrows(
+                IllegalStateException.class, model::mocInfo
+            );
+            assertTrue(unavailable.getMessage().contains("No verified active Core model"),
+                unavailable.getMessage());
         }
     }
 
@@ -134,55 +121,6 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
         }
     }
 
-    @Test
-    void resolveBorrowedModelIsStableForTheSameResolverStateAndFormatsSessionAndModelId() {
-        EditorFixture.Host.currentDocument = new EditorFixture.Document();
-        final VerifiedMemberResolver resolver = editorResolver();
-
-        final VerifiedHostAdapterConnector.BorrowedModel first =
-            VerifiedHostAdapterConnector.resolveBorrowedModel(resolver, "session-t4").orElseThrow();
-        final VerifiedHostAdapterConnector.BorrowedModel second =
-            VerifiedHostAdapterConnector.resolveBorrowedModel(resolver, "session-t4").orElseThrow();
-
-        assertEquals("session-t4:model-1", first.identity());
-        assertEquals(first.identity(), second.identity());
-        assertSame(first.model(), second.model());
-    }
-
-    @Test
-    void resolveBorrowedModelIdentityChangesWithTheDocumentGuid() {
-        EditorFixture.Host.currentDocument = new EditorFixture.Document();
-        final VerifiedMemberResolver resolver = editorResolver();
-
-        final String before = VerifiedHostAdapterConnector
-            .resolveBorrowedModel(resolver, "session-t4").orElseThrow().identity();
-        EditorFixture.ModelSource.guidValue = "model-2";
-        final String after = VerifiedHostAdapterConnector
-            .resolveBorrowedModel(resolver, "session-t4").orElseThrow().identity();
-
-        assertEquals("session-t4:model-1", before);
-        assertEquals("session-t4:model-2", after);
-        assertNotEquals(before, after);
-    }
-
-    @Test
-    void resolveBorrowedModelFailsClosedForMissingResolvedValues() {
-        // No current document: the chain yields null before the model.
-        final VerifiedMemberResolver resolver = editorResolver();
-        assertTrue(VerifiedHostAdapterConnector.resolveBorrowedModel(resolver, "session-t4").isEmpty());
-
-        // Non-modeling document: the class guard rejects it.
-        EditorFixture.Host.currentDocument = new Object() {
-            @Override public String toString() { return "not a modeling document"; }
-        };
-        assertTrue(VerifiedHostAdapterConnector.resolveBorrowedModel(resolver, "session-t4").isEmpty());
-
-        // Blank model id: the identity guard rejects it.
-        EditorFixture.Host.currentDocument = new EditorFixture.Document();
-        EditorFixture.ModelSource.guidValue = "  ";
-        assertTrue(VerifiedHostAdapterConnector.resolveBorrowedModel(resolver, "session-t4").isEmpty());
-    }
-
     private static VerifiedHostAdapterConnector connector(
         final VerifiedHostAdapterConnector.EditorAccessFactory accessFactory
     ) {
@@ -219,12 +157,7 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
         return HostVerificationEvidence.withEditorModel(project, editor).addingCoreRuntime(core);
     }
 
-    /**
-     * Fixture-backed Core backend: admission runs against the synthetic Core surface (no native
-     * library), so the connector's publish wiring is fully exercisable on the pure JVM. The MOC
-     * selectors point at the Editor fixture's model because that is the object the publish chain
-     * resolves and the Core read chain must read it back directly.
-     */
+    /** Admits real Core fixture types, distinct from the Editor fixture. */
     private static VerifiedHostAdapterConnector.CoreBackendFactory coreBackendFactory() {
         return evidence -> {
         final CoreProviderResult<RuntimeCoreModelBackend> admission = RuntimeCoreModelBackend.admitForTesting(
@@ -248,18 +181,18 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
         return List.of(
             StaticSelector.method(
                 CoreMocInfoSelectorContract.MODEL_GET_MOC,
-                internal(EditorFixture.Model.class),
+                internal(TestCoreApiFixture.Model.class),
                 "getMoc",
-                "()L" + internal(EditorFixture.Moc.class) + ";",
+                "()L" + internal(TestCoreApiFixture.Moc.class) + ";",
                 StaticSelector.ACCESS_PUBLIC
             ),
             StaticSelector.classSelector(
                 CoreMocInfoSelectorContract.MOC_CLASS,
-                internal(EditorFixture.Moc.class)
+                internal(TestCoreApiFixture.Moc.class)
             ),
             StaticSelector.method(
                 CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
-                internal(EditorFixture.Moc.class),
+                internal(TestCoreApiFixture.Moc.class),
                 "getMocVersion",
                 "()I",
                 StaticSelector.ACCESS_PUBLIC

@@ -69,7 +69,7 @@ final class EditorObjectReadAccess {
         final EditorMorphTargetAccess morphTargetAccess,
         final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin
     ) {
-        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null, null, null, null);
+        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null, null, null);
     }
 
     EditorObjectReadAccess(
@@ -77,37 +77,6 @@ final class EditorObjectReadAccess {
         final CurrentGuard currentGuard,
         final EditorMorphTargetAccess morphTargetAccess,
         final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
-        final java.util.function.Function<String, Boolean> lazyPublish
-    ) {
-        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, lazyPublish, null, null, null);
-    }
-
-    EditorObjectReadAccess(
-        final VerifiedMemberResolver resolver,
-        final CurrentGuard currentGuard,
-        final EditorMorphTargetAccess morphTargetAccess,
-        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
-        final java.util.function.Function<String, Boolean> lazyPublish,
-        final EditorObjectHierarchyEditAccess hierarchyEditAccess
-    ) {
-        this(
-            resolver,
-            currentGuard,
-            morphTargetAccess,
-            evaluatedJoin,
-            lazyPublish,
-            hierarchyEditAccess,
-            null,
-            null
-        );
-    }
-
-    EditorObjectReadAccess(
-        final VerifiedMemberResolver resolver,
-        final CurrentGuard currentGuard,
-        final EditorMorphTargetAccess morphTargetAccess,
-        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
-        final java.util.function.Function<String, Boolean> lazyPublish,
         final EditorObjectHierarchyEditAccess hierarchyEditAccess,
         final EditorAuthoringTransactionCoordinator authoringCoordinator,
         final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding
@@ -115,7 +84,7 @@ final class EditorObjectReadAccess {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
-        this.core = new EditorObjectReadCore(resolver, currentGuard, evaluatedJoin, lazyPublish);
+        this.core = new EditorObjectReadCore(resolver, currentGuard, evaluatedJoin);
         this.writes = new EditorObjectWriteAccess(resolver, core, hierarchyEditAccess, authoringCoordinator, authoringBinding);
         this.inspector = new EditorObjectInspectorAccess(resolver, currentGuard, core, hierarchyEditAccess, authoringCoordinator, authoringBinding);
         this.clipMasks = new EditorObjectClipMaskAccess(resolver, currentGuard, core, writes);

@@ -459,11 +459,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             final VerifiedMemberResolver resolver = editorResolverFactory.create(
                 evidence.editorModel().orElseThrow()
             );
-            if (core != null) {
-                resolveBorrowedModel(resolver, descriptor.sessionId()).ifPresent(binding ->
-                    core.publishBorrowedModel(binding.model(), binding.identity())
-                );
-            }
+            // Editor CModel is not Core CubismModel. Keep the Core source empty until a
+            // separately verified acquisition path supplies an actual Core model.
             final dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission =
                 editorAdmission(evidence.editorModel().orElseThrow(), resolver);
             final CubismModelAccess modelAccess = editorAccessFactory.create(
@@ -572,51 +569,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         }
         return admission.value().orElseThrow();
     }
-
-    /**
-     * Best-effort resolution of the current Editor document model through existing verified
-     * selectors. Any missing value or failed resolution (including a resolver without the
-     * publish-chain aliases) silently yields {@link Optional#empty()} so connect() never rejects
-     * a host because no current document could be published.
-     */
-    static Optional<BorrowedModel> resolveBorrowedModel(
-        final VerifiedMemberResolver resolver,
-        final String sessionId
-    ) {
-        try {
-            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-            if (app == null) return Optional.empty();
-            final Object document = resolver.invoke(
-                "cubism.editor-model.app-controller.current-document", app
-            );
-            if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
-                return Optional.empty();
-            }
-            final Object source = resolver.invoke(
-                "cubism.editor-model.modeling-document.model-source", document
-            );
-            if (source == null) return Optional.empty();
-            final Object model = resolver.invoke(
-                "cubism.editor-model.model-source.current-instance", source
-            );
-            if (!resolver.isInstance("cubism.editor-model.model.class", model)) {
-                return Optional.empty();
-            }
-            final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
-            if (guid == null) return Optional.empty();
-            final Object rawModelId = resolver.invoke("cubism.editor-model.guid.value", guid);
-            if (!(rawModelId instanceof String modelId) || modelId.isBlank()) {
-                return Optional.empty();
-            }
-            return Optional.of(new BorrowedModel(model, sessionId + ":" + modelId));
-        } catch (RuntimeException unavailable) {
-            return Optional.empty();
-        }
-    }
-
-    /** Resolved Editor document model paired with its stable borrowed-model identity. */
-    record BorrowedModel(Object model, String identity) { }
-
 
     private OverlayMaterial optionalOverlayMaterial(final HostVerificationEvidence evidence) {
         try {
