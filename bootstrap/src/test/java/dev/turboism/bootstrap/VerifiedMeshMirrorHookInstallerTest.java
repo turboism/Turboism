@@ -287,7 +287,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         MeshMirrorHookContributor.CURRENT.set(candidate);
         try {
             assertThrows(IllegalStateException.class, () -> PreviewRuntimeLauncher.startPreviewRuntime(
-                candidate, () -> { throw new IllegalStateException("preview start failed"); }
+                candidate, null, () -> { throw new IllegalStateException("preview start failed"); }
             ));
             assertFalse(candidate.isInstalled());
             assertNull(MeshMirrorHookContributor.CURRENT.get());
@@ -305,7 +305,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
             MeshMirrorHookContributor.CURRENT.set(prior);
             try {
                 assertThrows(IllegalStateException.class, () -> PreviewRuntimeLauncher.startPreviewRuntime(
-                    different, () -> { throw new IllegalStateException("preview start failed"); }
+                    different, null, () -> { throw new IllegalStateException("preview start failed"); }
                 ));
                 assertTrue(prior.isInstalled());
                 assertTrue(different.isInstalled());
@@ -332,9 +332,10 @@ final class VerifiedMeshMirrorHookInstallerTest {
         MeshMirrorHookContributor.CURRENT.set(candidate);
         final boolean[] runtimeClosed = {false};
 
-        PreviewRuntimeLauncher.closeDuplicateRuntimeAndMeshMirrorHook(
+        PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(
             () -> runtimeClosed[0] = true,
-            candidate
+            candidate,
+            null
         );
 
         assertTrue(runtimeClosed[0]);
@@ -353,8 +354,8 @@ final class VerifiedMeshMirrorHookInstallerTest {
         MeshMirrorHookContributor.CURRENT.set(candidate);
         try {
             assertThrows(IllegalStateException.class, () ->
-                PreviewRuntimeLauncher.closeDuplicateRuntimeAndMeshMirrorHook(
-                    () -> { throw new IllegalStateException("runtime close failed"); }, candidate
+                PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(
+                    () -> { throw new IllegalStateException("runtime close failed"); }, candidate, null
                 )
             );
             assertFalse(candidate.isInstalled());

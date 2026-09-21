@@ -718,6 +718,27 @@ registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5203", "
 registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5302", "5302", "5.3.02")
 registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5303", "5303", "5.3.03")
 
+val buildWarpAltSymmetryHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds and self-checks the validation-only Warp deformer Alt-symmetry reconnaissance probe."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/warp-deformer-alt-symmetry-host-probe/build.sh")
+}
+
+fun registerWarpAltSymmetryHostValidation(name: String, version: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the exact-host Cubism $version Warp deformer Alt-symmetry reconnaissance probe."
+        dependsOn("previewBundle", ":sdk:jar", ":plugins:warp-deformer-alt-symmetry:jar", buildWarpAltSymmetryHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-warp-deformer-alt-symmetry-host-validation.sh", version)
+    }
+}
+
+registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5303", "5303")
+
 val buildFpsHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Builds the test-only SDK FPS counting host exerciser."

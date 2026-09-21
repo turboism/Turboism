@@ -161,14 +161,18 @@ public final class TurboismAgent {
             ));
             final VerifiedMeshMirrorHookInstaller meshMirrorHook =
                 MeshMirrorHookContributor.CURRENT.get();
+            final VerifiedWarpAltMirrorHookInstaller warpAltMirrorHook =
+                WarpAltMirrorHookContributor.CURRENT.get();
             final PreviewRuntime runtime = PreviewRuntimeLauncher.startPreviewRuntime(
                 meshMirrorHook,
+                warpAltMirrorHook,
                 () -> PreviewRuntimeLauncher.start(options, resolved)
             );
             if (!RUNTIME.compareAndSet(null, runtime)) {
-                PreviewRuntimeLauncher.closeDuplicateRuntimeAndMeshMirrorHook(
+                PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(
                     runtime::close,
-                    meshMirrorHook
+                    meshMirrorHook,
+                    warpAltMirrorHook
                 );
                 return;
             }

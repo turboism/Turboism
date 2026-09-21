@@ -77,28 +77,32 @@ final class PreviewRuntimeLauncher {
     }
 
     /**
-     * Runs {@code starter}; on failure the currently installed mesh-mirror
-     * hook is closed if it is still {@code candidate}.
+     * Runs {@code starter}; on failure the currently installed premain
+     * transformer hooks are closed if they are still the given candidates.
      */
     static PreviewRuntime startPreviewRuntime(
         final VerifiedMeshMirrorHookInstaller candidate,
+        final VerifiedWarpAltMirrorHookInstaller warpAltCandidate,
         final PreviewRuntimeStarter starter
     ) throws Throwable {
         try {
             return starter.start();
         } catch (Throwable failure) {
+            WarpAltMirrorHookContributor.closeCurrent(warpAltCandidate);
             MeshMirrorHookContributor.closeCurrent(candidate);
             throw failure;
         }
     }
 
-    static void closeDuplicateRuntimeAndMeshMirrorHook(
+    static void closeDuplicateRuntimeAndHooks(
         final Runnable runtimeClose,
-        final VerifiedMeshMirrorHookInstaller candidate
+        final VerifiedMeshMirrorHookInstaller candidate,
+        final VerifiedWarpAltMirrorHookInstaller warpAltCandidate
     ) {
         try {
             runtimeClose.run();
         } finally {
+            WarpAltMirrorHookContributor.closeCurrent(warpAltCandidate);
             MeshMirrorHookContributor.closeCurrent(candidate);
         }
     }
