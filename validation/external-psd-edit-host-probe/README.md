@@ -1,9 +1,27 @@
 # External PSD Edit Host Probe (025, test-only)
 
 Drives the external PSD edit pipeline on the exact Cubism 5.3.02 host through the public
-SDK only. Three phases, selected by `-Dturboism.validation.externalpsd.phase=`. The
+SDK only. Four phases, selected by `-Dturboism.validation.externalpsd.phase=`. The
 fixture-specific decoder is used only as validation evidence: persistence/reopen and GUI
 checks decode target RGB, while no production pixel API is involved.
+
+## prepare-fixture
+
+This preparation-only phase must run before the ordinary model-readiness wait:
+
+```text
+-Dturboism.validation.externalpsd.phase=prepare-fixture
+```
+
+The probe calls `OfficialPsdFixturePreparation.prepareFixture(context, () -> stopped, result)`
+before `awaitReady()`. The helper drives the official Cubism 5.3.02 PSD startup chooser through
+the reviewed new-model option, waits for the resulting model and relation graph, and performs
+the task-scoped `SAVE_AS` control copy. The returned `PreparationResult.window()` is adopted as
+`guiBoundWindow`, so the existing result write and exact-window normal close path are reused.
+This phase does not call `resolveTarget()` by the old CMO fixture name, does not run pipeline
+mutation/Undo/Redo/persistence, and does not itself claim FR-011 or external-edit functionality.
+The helper records `prepare.*` input, chooser, relation, SAVE_AS, and failure evidence in the
+same result properties file.
 
 ## pipeline (default)
 
@@ -198,14 +216,16 @@ handshake would need an explicitly reviewed, task-local client protocol that ver
 readiness/failure markers and creates a separate probe trigger; until that dependency is
 admitted, no pre-trigger hook-success claim is made.
 
-Before every phase operation, `resolveTarget` binds the task fixture/document to the first AWT
+Before every pipeline, reopen, or GUI operation, `resolveTarget` binds the task fixture/document to the first AWT
 active, showing, displayable window that contains a reviewed table row for the exact resolved
 ArtMesh domain ID. It uses the same exact `j.a`/`j.b` host accessor chain and window-local family
 selection as the GUI path. This binding is required for `pipeline`, `reopen`, and `gui`; an
 unproven or unavailable binding ends the phase `BLOCKED` after a bounded wait. The bound `Window`
 object is retained through the phase, including a persistence `SAVE_AS`, so shutdown does not
 re-resolve by an old filename, title, or arbitrary visible window. The probe records
-`exit.targetWindow.*` evidence for the fixture/document/model/domain binding.
+`exit.targetWindow.*` evidence for the fixture/document/model/domain binding. The
+`prepare-fixture` exception receives its exact window from `PreparationResult.window()` instead;
+it does not use the CMO-name target resolver.
 
 The GUI path then requires an AWT active, showing, displayable target window and scans reviewed
 tables in that window only; a window that cannot be proven active is rejected, and another
