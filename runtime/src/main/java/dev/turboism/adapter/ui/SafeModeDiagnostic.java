@@ -134,14 +134,23 @@ public record SafeModeDiagnostic(
         return value;
     }
 
+    /** Machine-readable reason a capability degraded to safe mode. */
     public enum Code {
+        /** The backing host adapter is not connected at all. */
         ADAPTER_UNAVAILABLE,
+        /** The host version is outside the reviewed scope of the capability. */
         HOST_VERSION_UNSUPPORTED,
+        /** The connected host does not provide the capability. */
         CAPABILITY_UNAVAILABLE,
+        /** Required mapping/profile evidence has not been verified. */
         MAPPING_NOT_VERIFIED,
+        /** Required hook evidence has not been verified. */
         HOOK_NOT_VERIFIED,
+        /** The caller is not permitted to use the capability. */
         PERMISSION_DENIED,
+        /** The host call exceeded its budget and did not return in time. */
         TIMEOUT,
+        /** The host refused the request as invalid, or the call failed safely. */
         VALIDATION_FAILURE
     }
 }

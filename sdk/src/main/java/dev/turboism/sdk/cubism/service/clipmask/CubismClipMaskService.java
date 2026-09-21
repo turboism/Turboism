@@ -32,10 +32,16 @@ public interface CubismClipMaskService {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static CubismClipMaskService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
     enum Unavailable implements CubismClipMaskService {
         INSTANCE;
 

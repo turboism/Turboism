@@ -171,16 +171,12 @@ private fun checkAsmDependencies(project: Project, state: BoundaryState) {
 }
 
 private fun scanProductionSources(root: Project, project: Project, state: BoundaryState) {
-    val sourceDirs = listOf(project.file("src/main/java")) +
-        project.file("src").listFiles()
-            .orEmpty()
-            .filter { it.isDirectory && it.name.startsWith("cubism") }
-            .map { it.resolve("java") }
-            .filter { it.exists() }
-    sourceDirs.forEach { sourceDir ->
-        sourceDir.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
-            checkSourceFile(root, project, file, state)
-        }
+    val sourceDir = project.file("src/main/java")
+    if (!sourceDir.exists()) {
+        return
+    }
+    sourceDir.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
+        checkSourceFile(root, project, file, state)
     }
 }
 

@@ -24,12 +24,17 @@ class HostSessionCompositionApiTest {
         assertEquals(
             Set.of(
                 signature(HostInstanceSource.class),
-                signature(HostInstanceSource.class, java.util.Locale.class)
+                signature(HostInstanceSource.class, java.util.Locale.class),
+                signature(HostInstanceSource.class, java.util.function.Supplier.class)
             ),
             publicConstructorSignatures(HostSession.class)
         );
         assertEquals(
-            Set.of(signature(), signature(java.util.Locale.class)),
+            Set.of(
+                signature(),
+                signature(java.util.Locale.class),
+                signature(java.util.function.Supplier.class)
+            ),
             publicConstructorSignatures(HostRuntimeIngress.class)
         );
         assertConstructorIsNonPublic(

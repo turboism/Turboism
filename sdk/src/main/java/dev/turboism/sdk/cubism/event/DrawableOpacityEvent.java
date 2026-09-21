@@ -9,8 +9,10 @@ import java.util.Objects;
 public sealed interface DrawableOpacityEvent extends TurboismEvent
     permits DrawableOpacityEvent.Before, DrawableOpacityEvent.On, DrawableOpacityEvent.After {
 
+    /** Returns the detached ArtMesh projection participating in the operation. */
     Drawable drawable();
 
+    /** Synchronous state published before the host opacity write. */
     final class Before implements DrawableOpacityEvent {
         private final Drawable drawable;
         private final float requestedOpacity;
@@ -47,6 +49,7 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
         }
 
         @Override public Drawable drawable() { return drawable; }
+        /** Returns the opacity value originally requested by the write call. */
         public float requestedOpacity() { return requestedOpacity; }
         /** Returns the candidate opacity value that will be applied. */
         public float opacity() { return opacity; }
@@ -57,6 +60,7 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
             this.opacity = opacity;
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -99,11 +103,13 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful opacity write that changed the value. */
     record On(Drawable drawable, float oldOpacity, float newOpacity)
         implements DrawableOpacityEvent {
         public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
+    /** State published after every successful opacity write. */
     record After(Drawable drawable, float finalOpacity) implements DrawableOpacityEvent {
         public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }

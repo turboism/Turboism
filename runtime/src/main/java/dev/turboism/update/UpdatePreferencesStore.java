@@ -2,7 +2,7 @@ package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.turboism.plugin.core.CoreUpdateService;
+import dev.turboism.shell.CoreUpdateService;
 
 import java.io.IOException;
 import java.nio.file.Path;

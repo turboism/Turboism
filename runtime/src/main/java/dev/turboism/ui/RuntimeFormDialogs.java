@@ -4,6 +4,7 @@ import dev.turboism.sdk.ui.ChoiceDialogAction;
 import dev.turboism.sdk.ui.FormDialogField;
 import dev.turboism.sdk.ui.FormDialogRequest;
 import dev.turboism.sdk.ui.FormDialogResultListener;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -16,7 +17,6 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
@@ -54,11 +54,11 @@ final class RuntimeFormDialogs {
         final FormDialogResultListener listener
     ) {
         final Window owner = activeOwner();
-        final JDialog dialog = owner instanceof Frame frame
-            ? new JDialog(frame, request.title(), true)
-            : owner instanceof Dialog parent
-                ? new JDialog(parent, request.title(), true)
-                : new JDialog((Frame) null, request.title(), true);
+        final JDialog dialog = TurboismWindowFactory.dialog(owner, request.title(), true);
+        if (dialog == null) {
+            listener.onResult(false, null, Map.of());
+            return;
+        }
 
         final JPanel content = new JPanel(new BorderLayout(0, 10));
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));

@@ -18,36 +18,10 @@ public final class WorkspaceHostProviderFactory {
      * @throws IllegalArgumentException if the resolver is admitted for neither
      */
     public static WorkspaceHostProvider create(final VerifiedMemberResolver resolver) {
-        if (WorkspaceControlAdmission.authorizes5203(resolver)) {
-            return versioned5203Provider(resolver);
+        if (!WorkspaceControlAdmission.authorizes(resolver)) {
+            throw new IllegalArgumentException("resolver is not admitted for workspace control");
         }
-        if (WorkspaceControlAdmission.authorizes5302(resolver)
-            || WorkspaceControlAdmission.authorizes5303(resolver)) {
-            return new Cubism53WorkspaceHostProvider(resolver);
-        }
-        throw new IllegalArgumentException("resolver is not admitted for workspace control");
-    }
-
-    /*
-     * The 5.2.03 provider compiles in the cubism5203 source set, so the factory
-     * reaches it by name rather than importing it. Resolution still happens
-     * only after the 5.2.03 admission check above.
-     */
-    private static WorkspaceHostProvider versioned5203Provider(
-        final VerifiedMemberResolver resolver
-    ) {
-        try {
-            final var constructor = Class
-                .forName("dev.turboism.ui.workspace.Cubism52WorkspaceHostProvider")
-                .getDeclaredConstructor(VerifiedMemberResolver.class);
-            constructor.setAccessible(true);
-            return (WorkspaceHostProvider) constructor.newInstance(resolver);
-        } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException(
-                "Cubism 5.2.03 workspace provider is unavailable",
-                failure
-            );
-        }
+        return new VerifiedWorkspaceHostProvider(resolver);
     }
 
     private WorkspaceHostProviderFactory() { }

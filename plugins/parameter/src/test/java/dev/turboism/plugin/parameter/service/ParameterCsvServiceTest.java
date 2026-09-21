@@ -309,6 +309,126 @@ class ParameterCsvServiceTest {
     }
 
     @Test
+    void importCsvRunsAllWritesInsideOneAuthoringTransaction() {
+        RecordingUiHost uiHost = new RecordingUiHost();
+        uiHost.chosenFile = Optional.of("import.csv");
+        RecordingFacade facade = new RecordingFacade();
+        RecordingTransactions transactions = new RecordingTransactions();
+        facade.transactions = transactions;
+        ParameterCsvService service = new ParameterCsvService(
+            facade,
+            new MinimalPluginContext(),
+            uiHost,
+            ignored -> Optional.of("id,value\np1,0.75\np2,0.125\n")
+        );
+
+        service.importCsv();
+
+        assertEquals(1, transactions.executeCount);
+        assertEquals(List.of("p1=0.75", "p2=0.125"), facade.parameterWrites());
+        assertEquals(ParameterCsvService.IMPORT_COMPLETED, uiHost.notifications().get(0).id());
+    }
+
+    @Test
+    void importCsvFallsBackToSequentialWritesWhenTransactionsUnavailable() {
+        RecordingUiHost uiHost = new RecordingUiHost();
+        uiHost.chosenFile = Optional.of("import.csv");
+        RecordingFacade facade = new RecordingFacade();
+        ParameterCsvService service = new ParameterCsvService(
+            facade,
+            new MinimalPluginContext(),
+            uiHost,
+            ignored -> Optional.of("id,value\np1,0.75\n")
+        );
+
+        service.importCsv();
+
+        assertEquals(List.of("p1=0.75"), facade.parameterWrites());
+        assertEquals(ParameterCsvService.IMPORT_COMPLETED, uiHost.notifications().get(0).id());
+    }
+
+    @Test
+    void importCsvFallsBackToSequentialWritesWhenScopeRejected() {
+        RecordingUiHost uiHost = new RecordingUiHost();
+        uiHost.chosenFile = Optional.of("import.csv");
+        RecordingFacade facade = new RecordingFacade();
+        RecordingTransactions transactions = new RecordingTransactions();
+        transactions.rejectScope = true;
+        facade.transactions = transactions;
+        ParameterCsvService service = new ParameterCsvService(
+            facade,
+            new MinimalPluginContext(),
+            uiHost,
+            ignored -> Optional.of("id,value\np1,0.75\n")
+        );
+
+        service.importCsv();
+
+        assertEquals(List.of("p1=0.75"), facade.parameterWrites());
+        assertEquals(ParameterCsvService.IMPORT_COMPLETED, uiHost.notifications().get(0).id());
+    }
+
+    @Test
+    void importCsvReportsFailureWhenTransactionAborts() {
+        RecordingUiHost uiHost = new RecordingUiHost();
+        uiHost.chosenFile = Optional.of("import.csv");
+        RecordingFacade facade = new RecordingFacade();
+        RecordingTransactions transactions = new RecordingTransactions();
+        transactions.abortNext = true;
+        facade.transactions = transactions;
+        ParameterCsvService service = new ParameterCsvService(
+            facade,
+            new MinimalPluginContext(),
+            uiHost,
+            ignored -> Optional.of("id,value\np1,0.75\n")
+        );
+
+        service.importCsv();
+
+        assertEquals(ParameterCsvService.IMPORT_FAILED, uiHost.notifications().get(0).id());
+    }
+
+    private static final class RecordingTransactions
+        implements dev.turboism.sdk.cubism.transaction.AuthoringTransactionService {
+        private int executeCount;
+        private boolean abortNext;
+        private boolean rejectScope;
+
+        @Override
+        public <T> dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<T> execute(
+            final dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions options,
+            final dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork<T> work
+        ) {
+            executeCount++;
+            if (abortNext) {
+                return dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult
+                    .rolledBack(receipt(), "aborted");
+            }
+            if (rejectScope) {
+                return dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult
+                    .rejectedScope(Optional.empty(), "ambient-scope");
+            }
+            try {
+                final T value = work.run();
+                return dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult
+                    .committed(value, receipt());
+            } catch (Exception failure) {
+                throw new AssertionError("work failed", failure);
+            }
+        }
+
+        private static dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt receipt() {
+            return new dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt(
+                "tx-test",
+                "test",
+                dev.turboism.sdk.cubism.history.HistorySnapshot.unavailable(),
+                dev.turboism.sdk.cubism.history.HistorySnapshot.unavailable(),
+                Optional.of("entry-1")
+            );
+        }
+    }
+
+    @Test
     void parseCsvStrictSkipsHeaderAndComments() {
         ParameterCsvService.ParseResult parsed = ParameterCsvService.parseCsvStrict(
             "# comment\nid,value\np1,1.0\n\np2,2.5\n"
@@ -324,6 +444,8 @@ class ParameterCsvServiceTest {
         private boolean modelAvailable = true;
         private String failOnParameterId;
         private int transactionOpenCount;
+        private dev.turboism.sdk.cubism.transaction.AuthoringTransactionService transactions =
+            dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.unavailable();
 
         List<String> parameterWrites() { return model.parameterWrites(); }
         int transactionOpenCount() { return transactionOpenCount; }
@@ -349,6 +471,11 @@ class ParameterCsvServiceTest {
                 transactionOpenCount++;
                 throw new AssertionError("legacy transaction manager must not be used");
             };
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.transaction.AuthoringTransactionService authoringTransactions() {
+            return transactions;
         }
     }
 

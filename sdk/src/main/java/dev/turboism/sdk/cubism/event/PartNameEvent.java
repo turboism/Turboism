@@ -9,6 +9,7 @@ import java.util.Objects;
 public sealed interface PartNameEvent extends TurboismEvent
     permits PartNameEvent.Before, PartNameEvent.On, PartNameEvent.After {
 
+    /** Returns the detached Part projection participating in the operation. */
     Part part();
 
     /** Synchronous state published before the host rename. */
@@ -44,6 +45,7 @@ public sealed interface PartNameEvent extends TurboismEvent
         }
 
         @Override public Part part() { return part; }
+        /** Returns the name value originally requested by the write call. */
         public String requestedName() { return requestedName; }
         /** Returns the candidate name value that will be applied. */
         public String name() { return name; }

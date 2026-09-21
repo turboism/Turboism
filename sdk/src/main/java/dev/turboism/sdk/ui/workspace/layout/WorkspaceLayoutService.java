@@ -9,11 +9,20 @@ import java.util.concurrent.CompletionStage;
  * Read-only query for the current workspace dock layout tree.
  *
  * <p>{@link #current()} resolves the whole host chain on every call and returns an immutable
- * snapshot; the service never throws host exceptions to the plugin. After the owning plugin
- * scope is closed the service returns typed {@code UNAVAILABLE} snapshots.</p>
+ * snapshot; host read failures surface as typed {@code UNAVAILABLE} snapshots, but synchronous
+ * admission failures such as permission denial may still be thrown before a stage is returned.
+ * After the owning plugin scope is closed the service returns typed {@code UNAVAILABLE}
+ * snapshots.</p>
  */
 public interface WorkspaceLayoutService {
 
+    /**
+     * Resolves the current workspace dock layout, completing with an immutable snapshot.
+     *
+     * <p>Host read failures resolve as a typed {@code UNAVAILABLE} snapshot rather than an
+     * exceptional completion; permission denial or a scheduling failure may still be thrown
+     * synchronously before the stage is returned.</p>
+     */
     CompletionStage<WorkspaceLayoutSnapshot> current();
 
     /**
@@ -25,10 +34,13 @@ public interface WorkspaceLayoutService {
         return true;
     }
 
+
+    /** Returns a fail-closed service that always resolves a {@code UNAVAILABLE} snapshot. */
     static WorkspaceLayoutService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: calls that report outcomes complete with the structured unavailability result; and queries report empty results. */
     enum Unavailable implements WorkspaceLayoutService {
         INSTANCE;
 

@@ -141,6 +141,7 @@ public final class TurboismAgent {
         final List<HookContributor> premainInstalled,
         final List<HookContributor> contributors
     ) {
+        final List<HookContributor> bound = new ArrayList<>(premainInstalled);
         try {
             RuntimeDiagnostics.debug(
                 "bootstrap",
@@ -153,11 +154,11 @@ public final class TurboismAgent {
                 return;
             }
             final ResolvedHost resolved = located.orElseThrow();
-            installPhase(
+            bound.addAll(installPhase(
                 contributors,
                 HookContributor.Phase.HOST_RESOLVED,
                 environment(instrumentation, options, resolved, null)
-            );
+            ));
             final VerifiedMeshMirrorHookInstaller meshMirrorHook =
                 MeshMirrorHookContributor.CURRENT.get();
             final PreviewRuntime runtime = PreviewRuntimeLauncher.startPreviewRuntime(
@@ -173,7 +174,7 @@ public final class TurboismAgent {
             }
             final HookEnvironment runtimeEnvironment =
                 environment(instrumentation, options, resolved, runtime);
-            for (HookContributor contributor : premainInstalled) {
+            for (HookContributor contributor : bound) {
                 try {
                     contributor.bind(runtimeEnvironment);
                 } catch (Throwable failure) {
@@ -190,6 +191,15 @@ public final class TurboismAgent {
             Thread.currentThread().interrupt();
             runtimeWarn("Turboism bootstrap interrupted");
         } catch (Throwable failure) {
+            // A failed runtime start must not leave the runtime-dependent hooks
+            // installed: close everything this attempt enrolled after the host was
+            // admitted. Premain host fixes stay until process exit, matching the
+            // hand-wired agent's startup-failure teardown.
+            HOOKS.get().closePhase(
+                HookContributor.Phase.HOST_RESOLVED,
+                TurboismAgent::runtimeWarn,
+                TurboismAgent::runtimeInfo
+            );
             final PreviewRuntime runtime = RUNTIME.get();
             if (runtime == null) {
                 System.err.println(
@@ -202,16 +212,18 @@ public final class TurboismAgent {
         }
     }
 
-    private static void installPhase(
+    private static List<HookContributor> installPhase(
         final List<HookContributor> contributors,
         final HookContributor.Phase phase,
         final HookEnvironment environment
     ) {
+        final List<HookContributor> installed = new ArrayList<>();
         for (HookContributor contributor : contributors) {
-            if (contributor.phase() == phase) {
-                installPhaseHook(contributor, environment);
+            if (contributor.phase() == phase && installPhaseHook(contributor, environment)) {
+                installed.add(contributor);
             }
         }
+        return installed;
     }
 
     private static boolean installPhaseHook(

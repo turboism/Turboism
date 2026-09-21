@@ -29,10 +29,16 @@ public interface AsyncHostReadService {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static AsyncHostReadService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: queries report empty results. */
     enum Unavailable implements AsyncHostReadService {
         INSTANCE;
 

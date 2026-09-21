@@ -145,10 +145,16 @@ public interface PluginStorage {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static PluginStorage unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: calls that report outcomes complete with the structured unavailability result; and queries report empty results. */
     enum Unavailable implements PluginStorage {
         INSTANCE;
 

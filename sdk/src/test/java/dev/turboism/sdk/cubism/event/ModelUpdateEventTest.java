@@ -26,7 +26,8 @@ class ModelUpdateEventTest {
             1L,
             operation,
             CubismOperationOrigin.TURBOISM_API,
-            Optional.of("ModelA")
+            Optional.of("ModelA"),
+            Optional.empty()
         );
     }
 }

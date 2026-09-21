@@ -5,6 +5,8 @@ import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -436,25 +438,18 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
                 && currentModelGeneration.getAsLong() != modelGeneration) {
                 return Optional.empty();
             }
-            if (!source.isHostPresent()) return deactivate();
-            final Optional<HostSnapshotSource.HostDocument> document = source.activeDocument();
-            final Optional<HostSnapshotSource.HostModel> model = source.activeModel();
-            if (document.isEmpty() || model.isEmpty()) return deactivate();
-            final HostSnapshotSource.HostDocument currentDocument = document.orElseThrow();
-            final HostSnapshotSource.HostModel currentModel = model.orElseThrow();
-            if (currentDocument.kind() != DocumentKind.MODEL
-                || currentDocument.model().isEmpty()
-                || !currentDocument.model().orElseThrow().modelId().equals(currentModel.modelId())) {
-                return deactivate();
-            }
-            if (expectedModelId != null && !expectedModelId.equals(currentModel.modelId())) {
+            final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+            final ScopeInput input = observed.host() != null
+                ? hostScopeInput(observed.host())
+                : sdkScopeInput(observed);
+            if (input == null) return deactivate();
+            if (expectedModelId != null && !expectedModelId.equals(input.modelId())) {
                 return Optional.empty();
             }
-            final String contentId = currentDocument.contentId().orElse(currentDocument.documentId());
             final PaletteAppearanceCoordinator.Scope scope = new PaletteAppearanceCoordinator.Scope(
-                contentId,
-                source.invalidationToken(),
-                currentModel.modelId(),
+                input.contentId(),
+                source.versionOfSdkRuntime(observed),
+                input.modelId(),
                 modelGeneration,
                 hostGeneration.getAsLong(),
                 providerGeneration.getAsLong()
@@ -470,6 +465,41 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
     private Optional<PaletteAppearanceCoordinator.Scope> deactivate() {
         coordinator.deactivate();
         return Optional.empty();
+    }
+
+    /** The document/model fields {@link #captureScope} needs, or null when the scope is gone. */
+    private record ScopeInput(String contentId, String modelId) {
+    }
+
+    private ScopeInput hostScopeInput(final HostSnapshotSource.Observation observation) {
+        if (observation.project().isEmpty() && observation.document().isEmpty()) return null;
+        final Optional<HostSnapshotSource.HostDocument> document = observation.document();
+        final Optional<HostSnapshotSource.HostModel> model = observation.model();
+        if (document.isEmpty() || model.isEmpty()) return null;
+        final HostSnapshotSource.HostDocument currentDocument = document.orElseThrow();
+        final HostSnapshotSource.HostModel currentModel = model.orElseThrow();
+        if (currentDocument.kind() != DocumentKind.MODEL
+            || currentDocument.model().isEmpty()
+            || !currentDocument.model().orElseThrow().modelId().equals(currentModel.modelId())) {
+            return null;
+        }
+        return new ScopeInput(
+            currentDocument.contentId().orElse(currentDocument.documentId()),
+            currentModel.modelId()
+        );
+    }
+
+    private ScopeInput sdkScopeInput(final HostSnapshotSource.SdkRuntimeObservation observed) {
+        final Optional<DocumentSnapshot> document = Optional.ofNullable(observed.document());
+        if (observed.project() == null && document.isEmpty()) return null;
+        if (document.isEmpty()) return null;
+        final DocumentSnapshot currentDocument = document.orElseThrow();
+        final Optional<ModelSnapshot> model = currentDocument.model();
+        if (currentDocument.kind() != DocumentKind.MODEL || model.isEmpty()) return null;
+        return new ScopeInput(
+            currentDocument.contentId().orElse(currentDocument.documentId()),
+            model.orElseThrow().modelId()
+        );
     }
 
     private PaletteAppearanceCoordinator.Scope requireScope(

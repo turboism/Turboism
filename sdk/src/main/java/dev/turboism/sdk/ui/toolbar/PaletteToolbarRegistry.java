@@ -28,10 +28,16 @@ public interface PaletteToolbarRegistry {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static PaletteToolbarRegistry unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
     enum Unavailable implements PaletteToolbarRegistry {
         INSTANCE;
 

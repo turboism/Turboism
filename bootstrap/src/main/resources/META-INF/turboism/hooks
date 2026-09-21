@@ -3,10 +3,22 @@
 # forwards install/uninstall through the shared protocol. Adding a hook means
 # adding a contributor class plus one line here — TurboismAgent stays unchanged.
 dev.turboism.bootstrap.MeshMirrorHookContributor
+dev.turboism.bootstrap.MeshTriangulationHashHookContributor
+dev.turboism.bootstrap.AtlasTileBboxHookContributor
+dev.turboism.bootstrap.AtlasCacheReuseHookContributor
 dev.turboism.bootstrap.FpsHookContributor
 dev.turboism.bootstrap.ParameterHookContributor
 dev.turboism.bootstrap.ProjectLifecycleHookContributor
 dev.turboism.bootstrap.FileChooserHistoryHookContributor
+dev.turboism.bootstrap.ImageArchiveReuseHookContributor
+dev.turboism.bootstrap.FloatArrayParseCacheHookContributor
+dev.turboism.bootstrap.TextureUploadPreparationHookContributor
+dev.turboism.bootstrap.WarpPositionProjectionHookContributor
+dev.turboism.bootstrap.ModelUpdateSkipHookContributor
+dev.turboism.bootstrap.IncrementalUpdateHookContributor
+dev.turboism.bootstrap.UniformLocationCacheHookContributor
+dev.turboism.bootstrap.MatrixScratchHookContributor
+dev.turboism.bootstrap.NativeEditBeginHookContributor
 dev.turboism.bootstrap.TextureAtlasDataModelHookContributor
 dev.turboism.bootstrap.TextureAtlasAutoLayoutHookContributor
 dev.turboism.bootstrap.PerformanceProbeHookContributor
