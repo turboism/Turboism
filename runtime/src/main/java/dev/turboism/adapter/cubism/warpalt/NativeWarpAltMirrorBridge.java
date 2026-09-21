@@ -455,23 +455,30 @@ public final class NativeWarpAltMirrorBridge {
             if (bezierCol < 0 || bezierRow < 0) return;
             final int counterpartCol = vertical ? column : bezierCol - column;
             final int counterpartRow = vertical ? bezierRow - row : row;
-            if (counterpartCol == column && counterpartRow == row) {
-                return;
+            final boolean selfMirrored = counterpartCol == column && counterpartRow == row;
+            final Object counterpart;
+            if (selfMirrored) {
+                // Odd bezier divisions put this point on the axis: it is its
+                // own counterpart. The two opposing handles mirror each other
+                // within the same point, so the mirrored move targets the
+                // opposite handle of the dragged point itself.
+                counterpart = point;
+            } else {
+                final Object table = invoke(grid, "getBezierPtRef", new Class<?>[0]);
+                if (!(table instanceof Object[][] columns)
+                    || counterpartCol < 0 || counterpartCol >= columns.length) {
+                    return;
+                }
+                if (!(columns[counterpartCol] instanceof Object[])) {
+                    return;
+                }
+                final Object[] counterpartColumnList = (Object[]) columns[counterpartCol];
+                if (counterpartRow < 0 || counterpartRow >= counterpartColumnList.length) {
+                    return;
+                }
+                counterpart = counterpartColumnList[counterpartRow];
+                if (counterpart == null) return;
             }
-            final Object table = invoke(grid, "getBezierPtRef", new Class<?>[0]);
-            if (!(table instanceof Object[][] columns)
-                || counterpartCol < 0 || counterpartCol >= columns.length) {
-                return;
-            }
-            if (!(columns[counterpartCol] instanceof Object[])) {
-                return;
-            }
-            final Object[] counterpartColumnList = (Object[]) columns[counterpartCol];
-            if (counterpartRow < 0 || counterpartRow >= counterpartColumnList.length) {
-                return;
-            }
-            final Object counterpart = counterpartColumnList[counterpartRow];
-            if (counterpart == null) return;
             final Object delta = invoke(event, "aH", new Class<?>[0]);
             if (delta == null) return;
             final float dx = invokeFloat(delta, "getX");
@@ -482,6 +489,11 @@ public final class NativeWarpAltMirrorBridge {
             }
             final Object draggedHandle = handleOf(point, type);
             final String counterType = counterpartHandleType(type, vertical);
+            if (selfMirrored && counterType.equals(type)) {
+                // The handle offset lies along the axis: its mirror is itself
+                // and the native drag already moved it — nothing to mirror.
+                return;
+            }
             final Object counterHandle = handleOf(counterpart, counterType);
             if (draggedHandle == null || counterHandle == null) return;
             final float curX = invokeFloat(counterHandle, "getX");
