@@ -43,6 +43,7 @@ import javax.swing.JTree;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.table.TableCellRenderer;
 import java.awt.Component;
 import java.awt.Container;
@@ -73,6 +74,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -160,6 +162,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static final String GUI_WAIT_DIAGNOSTIC_STAGE = "armed-waiting-for-trigger";
     private static final String GUI_WAIT_DIAGNOSTIC_FILE_PREFIX =
         "external-psd-gui-thread-dump-";
+    private static final String PERSISTED_DOCUMENT_BASENAME = "persisted-document.cmo3";
+    private static final String UNUSED_RAW_MESSAGE_KEY = "CUB3-3054";
     private static final GuiDiagnosticClock SYSTEM_GUI_DIAGNOSTIC_CLOCK =
         new GuiDiagnosticClock() {
             @Override public long nanoTime() { return System.nanoTime(); }
@@ -3513,6 +3517,114 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
+     * Final same-EDT SAVE_AS admission. A document or window change is a hard rejection and the
+     * caller must not invoke the command after this result is rejected.
+     */
+    static SaveAsAdmission saveAsAdmission(final TargetIdentity expectedTarget,
+        final String expectedWindowIdentity, final PersistDocumentState current,
+        final boolean stopped) {
+        if (stopped) return SaveAsAdmission.rejected("probe is stopped");
+        if (current == null) {
+            return SaveAsAdmission.rejected("current document state is unavailable");
+        }
+        if (!targetIdentityMatches(expectedTarget, current.targetIdentity())) {
+            return SaveAsAdmission.rejected(
+                "document/model/binding/generation/model-image/ArtMesh/raw changed before SAVE_AS");
+        }
+        if (expectedWindowIdentity == null || expectedWindowIdentity.isBlank()
+            || "null".equals(expectedWindowIdentity)) {
+            return SaveAsAdmission.rejected("bound task window identity is unavailable");
+        }
+        if (!expectedWindowIdentity.equals(current.windowIdentity())) {
+            return SaveAsAdmission.rejected("bound task window changed before SAVE_AS");
+        }
+        if (!current.windowShowing() || !current.windowDisplayable()) {
+            return SaveAsAdmission.rejected(
+                "bound task window is not showing/displayable before SAVE_AS");
+        }
+        return SaveAsAdmission.admitted(
+            "same EDT document/model/relation anchor and bound window verified");
+    }
+
+    /** Focused seam proving that rejected states execute no SAVE_AS command. */
+    static SaveAsAdmission executeSaveAsIfAdmittedOnEdtForTest(
+        final TargetIdentity expectedTarget, final String expectedWindowIdentity,
+        final PersistDocumentState current, final boolean stopped, final Runnable command) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            return SaveAsAdmission.rejected("SAVE_AS admission test must run on EDT");
+        }
+        final SaveAsAdmission admission = saveAsAdmission(
+            expectedTarget, expectedWindowIdentity, current, stopped);
+        if (admission.admitted()) {
+            if (command == null) return SaveAsAdmission.rejected("SAVE_AS command is unavailable");
+            command.run();
+        }
+        return admission;
+    }
+
+    /**
+     * Validates one post-command SAVE event against the sequence captured immediately before the
+     * EDT command and two fresh document projections. Request filename is deliberately absent
+     * from this gate: SAVE_AS may report the old filename, or no filename for a first save.
+     */
+    static PersistSaveValidation validatePersistSaveAfter(final long executeBeforeSequence,
+        final PersistDocumentState before, final PersistDocumentState after,
+        final List<PersistSaveEvent> observedEvents, final String expectedBasename) {
+        final List<String> reasons = new ArrayList<>();
+        if (executeBeforeSequence < 0L) reasons.add("execute-before sequence is negative");
+        if (before == null) reasons.add("fresh before document state is unavailable");
+        if (after == null) reasons.add("fresh after document state is unavailable");
+        if (before != null && after != null) {
+            if (!targetIdentityMatches(before.targetIdentity(), after.targetIdentity())) {
+                reasons.add("fresh before/after target identity changed");
+            }
+            if (before.windowIdentity().isBlank()
+                || !before.windowIdentity().equals(after.windowIdentity())) {
+                reasons.add("fresh before/after bound window changed");
+            }
+            if (!after.windowShowing() || !after.windowDisplayable()) {
+                reasons.add("fresh after bound window is not showing/displayable");
+            }
+            if (after.contentId().isEmpty()) {
+                reasons.add("fresh after document contentId is unavailable");
+            }
+            if (!Objects.equals(pathBasename(after.relativePath()), expectedBasename)) {
+                reasons.add("fresh after document basename is not " + expectedBasename
+                    + ": " + after.relativePath());
+            }
+        }
+        final List<PersistSaveEvent> events = observedEvents == null
+            ? List.of() : List.copyOf(observedEvents);
+        final List<PersistSaveEvent> afterEvents = events.stream()
+            .filter(event -> event != null && event.sequence() > executeBeforeSequence)
+            .toList();
+        if (afterEvents.size() != 1) {
+            reasons.add("expected exactly one post-execute SAVE After, observed "
+                + afterEvents.size());
+        }
+        final PersistSaveEvent event = afterEvents.size() == 1 ? afterEvents.get(0) : null;
+        if (event != null) {
+            if (event.operation() != ProjectFileOperationType.SAVE) {
+                reasons.add("post-execute event is not SAVE: " + event.operation());
+            }
+            if (!event.succeeded()) reasons.add("post-execute SAVE did not succeed");
+            if (before != null && !Objects.equals(event.requestContentId(), before.contentId())) {
+                reasons.add("SAVE request contentId does not match fresh before document");
+            }
+            if (after != null && (!Objects.equals(event.resultContentId(), after.contentId())
+                || event.resultContentId().isEmpty())) {
+                reasons.add("SAVE result contentId does not match fresh after document");
+            }
+        }
+        if (!reasons.isEmpty()) {
+            return PersistSaveValidation.rejected(String.join("; ", reasons));
+        }
+        return PersistSaveValidation.accepted(event,
+            "post-execute SAVE sequence/contentId and fresh persisted-document.cmo3 state match; "
+                + "request filename retained for diagnostics only");
+    }
+
+    /**
      * Accepts one public APPLIED completion only when the fresh relation snapshot proves the
      * explicit {@code after} raw is now the current raw of the same stable model image.  This is
      * the sole production helper that advances a target's raw lineage; a raw-set difference or a
@@ -5263,6 +5375,156 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /**
+     * Captures the final SAVE_AS admission and invokes the command in the same EDT dispatch as
+     * the document/model/relation/window checks.  The worker owns the grant and all event waits;
+     * this method never waits for a lifecycle event while running on the EDT.
+     */
+    private SaveAsExecution executeSaveAsIfAdmittedOnEdt(final Target target,
+        final UserFileHandle handle, final AtomicLong lifecycleSequence) throws Exception {
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(handle, "handle");
+        Objects.requireNonNull(lifecycleSequence, "lifecycleSequence");
+        final AtomicReference<SaveAsExecution> execution = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final Runnable invoke = () -> {
+            try {
+                if (!SwingUtilities.isEventDispatchThread()) {
+                    throw new IllegalStateException("SAVE_AS admission must run on EDT");
+                }
+                if (stopped) throw new IllegalStateException("SAVE_AS rejected after probe stop");
+                final PersistDocumentState before = currentPersistDocumentStateOnEdt(
+                    target.identity());
+                final SaveAsAdmission admission = saveAsAdmission(
+                    target.identity(), componentIdentity(guiBoundWindow), before, stopped);
+                if (!admission.admitted()) {
+                    throw new IllegalStateException("SAVE_AS admission rejected: "
+                        + admission.diagnostic());
+                }
+                // Recheck the volatile stop bit immediately before the native command.  No
+                // await or callback is allowed between this check and execute().
+                if (stopped) throw new IllegalStateException("SAVE_AS rejected after probe stop");
+                final long executeBeforeSequence = lifecycleSequence.get();
+                final EditorCommandResult saved = context.editorCommands().execute(
+                    new EditorFileCommandRequest(
+                        EditorFileCommand.SAVE_AS, handle, EditorOverwritePolicy.REPLACE_EXISTING));
+                execution.set(new SaveAsExecution(saved, before, executeBeforeSequence));
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        };
+        try {
+            if (SwingUtilities.isEventDispatchThread()) invoke.run();
+            else SwingUtilities.invokeAndWait(invoke);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (InvocationTargetException dispatchFailure) {
+            final Throwable cause = dispatchFailure.getCause();
+            if (cause instanceof Error error) throw error;
+            throw new IllegalStateException("SAVE_AS admission dispatch failed", cause);
+        }
+        if (failure.get() != null) {
+            final Throwable error = failure.get();
+            if (error instanceof Error fatal) throw fatal;
+            throw new IllegalStateException("SAVE_AS admission failed", error);
+        }
+        return Objects.requireNonNull(execution.get(), "SAVE_AS execution result");
+    }
+
+    private PersistDocumentState observePersistDocumentState(final TargetIdentity expected)
+        throws Exception {
+        final AtomicReference<PersistDocumentState> observed = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final Runnable read = () -> {
+            try {
+                observed.set(currentPersistDocumentStateOnEdt(expected));
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        };
+        try {
+            if (SwingUtilities.isEventDispatchThread()) read.run();
+            else SwingUtilities.invokeAndWait(read);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (InvocationTargetException dispatchFailure) {
+            final Throwable cause = dispatchFailure.getCause();
+            if (cause instanceof Error error) throw error;
+            throw new IllegalStateException("SAVE_AS post-state dispatch failed", cause);
+        }
+        if (failure.get() != null) {
+            final Throwable error = failure.get();
+            if (error instanceof Error fatal) throw fatal;
+            throw new IllegalStateException("SAVE_AS post-state observation failed", error);
+        }
+        return Objects.requireNonNull(observed.get(), "SAVE_AS post-state observation");
+    }
+
+    /** Reads only public SDK state and the already-bound Window; all reads happen on the EDT. */
+    private PersistDocumentState currentPersistDocumentStateOnEdt(
+        final TargetIdentity expected) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("SAVE_AS document state must be read on EDT");
+        }
+        final var document = context.cubism().activeDocument().orElseThrow(
+            () -> new IllegalStateException("active document unavailable before SAVE_AS"));
+        final CubismModel model = context.cubism().model().active();
+        final TextureRelationsSnapshot relations = model.textures().relations();
+        final TargetIdentity identity = targetIdentityFromRelationsOnEdt(
+            expected, document.documentId(), model, relations);
+        final Window bound = guiBoundWindow;
+        return new PersistDocumentState(
+            identity,
+            document.contentId(),
+            document.relativePath(),
+            componentIdentity(bound),
+            bound != null && bound.isShowing(),
+            bound != null && bound.isDisplayable());
+    }
+
+    private void awaitSaveAfterSequence(final List<PersistSaveEvent> saves,
+        final long executeBeforeSequence, final long timeoutMillis) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (System.nanoTime() < deadline) {
+            if (stopped) throw new IllegalStateException("stopped while waiting for SAVE After");
+            if (saves.stream().anyMatch(event -> event != null
+                && event.sequence() > executeBeforeSequence)) return;
+            Thread.sleep(100L);
+        }
+        if (saves.stream().noneMatch(event -> event != null
+            && event.sequence() > executeBeforeSequence)) {
+            throw new IllegalStateException("SAVE lifecycle After event was not observed after "
+                + "execute sequence " + executeBeforeSequence);
+        }
+    }
+
+    private static void recordPersistDocumentState(final Properties result, final String prefix,
+        final PersistDocumentState state) {
+        result.setProperty(prefix + ".documentId", state.targetIdentity().documentId());
+        result.setProperty(prefix + ".modelId", state.targetIdentity().modelId());
+        result.setProperty(prefix + ".binding", state.targetIdentity().binding());
+        result.setProperty(prefix + ".generation",
+            Long.toString(state.targetIdentity().generation()));
+        result.setProperty(prefix + ".modelImageId", state.targetIdentity().modelImageId());
+        result.setProperty(prefix + ".artMeshId", state.targetIdentity().artMeshId());
+        result.setProperty(prefix + ".rawId", state.targetIdentity().rawId());
+        result.setProperty(prefix + ".contentId", state.contentId().orElse(UNAVAILABLE_VALUE));
+        result.setProperty(prefix + ".relativePath", state.relativePath());
+        result.setProperty(prefix + ".window", state.windowIdentity());
+        result.setProperty(prefix + ".windowShowing", Boolean.toString(state.windowShowing()));
+        result.setProperty(prefix + ".windowDisplayable",
+            Boolean.toString(state.windowDisplayable()));
+    }
+
+    private static String pathBasename(final String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) return "";
+        final String normalized = relativePath.replace('\\', '/');
+        final int slash = normalized.lastIndexOf('/');
+        return normalized.substring(slash + 1);
+    }
+
+    /**
      * Mediated persistence: a fixed-grant write handle → typed SAVE_AS → the native
      * {@code saveDocument} hook must surface a {@link ProjectFileOperationType#SAVE} After
      * event. The granted target lives outside the task fixture copy, so the runner's
@@ -5290,14 +5552,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         requireChangedPost(baselineFingerprint, preSavePost);
 
-        final List<ProjectFileLifecycleEvent.After> saves = new CopyOnWriteArrayList<>();
+        final List<PersistSaveEvent> saves = new CopyOnWriteArrayList<>();
+        final AtomicLong lifecycleSequence = new AtomicLong();
         final AtomicInteger beforeEvents = new AtomicInteger();
         final AtomicInteger onEvents = new AtomicInteger();
         final Registration subscription = context.eventBus().subscribe(
             ProjectFileLifecycleEvent.After.class,
             event -> {
+                final long sequence = lifecycleSequence.incrementAndGet();
                 if (event.operation().operation() == ProjectFileOperationType.SAVE) {
-                    saves.add(event);
+                    saves.add(PersistSaveEvent.from(sequence, event));
                 }
             });
         final Registration beforeSub = context.eventBus().subscribe(
@@ -5318,20 +5582,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("persist.grant.status", granted.status().name());
             final UserFileHandle handle = granted.handle().orElseThrow(() ->
                 new IllegalStateException("No write grant issued: " + granted.status()));
-            final Set<java.awt.Window> baselineWindows = Set.of(java.awt.Window.getWindows());
-            final DialogAnswerWatcher watcher = new DialogAnswerWatcher(baselineWindows);
-            final EditorCommandResult saved;
+            final DialogAnswerWatcher watcher = new DialogAnswerWatcher(guiBoundWindow, target);
+            final SaveAsExecution execution;
             try {
-                saved = context.editorCommands().execute(
-                    new EditorFileCommandRequest(
-                        EditorFileCommand.SAVE_AS, handle, EditorOverwritePolicy.REPLACE_EXISTING));
+                watcher.start();
+                execution = executeSaveAsIfAdmittedOnEdt(
+                    target, handle, lifecycleSequence);
             } finally {
                 watcher.close();
             }
+            final EditorCommandResult saved = execution.result();
             result.setProperty("persist.saveAs.status", saved.status().name());
             result.setProperty("persist.saveAs.executed", Boolean.toString(saved.executed()));
             if (!watcher.actions.isEmpty()) {
                 result.setProperty("persist.dialogActions", watcher.actions.toString());
+            }
+            if (!watcher.diagnostic().isBlank()) {
+                result.setProperty("persist.dialogHandling", watcher.diagnostic());
             }
             if (!saved.executed()) {
                 // A blocked native save leaves its modal dialog open; record which windows
@@ -5339,25 +5606,37 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 result.setProperty("persist.openWindows", describeWindows());
                 throw new IllegalStateException("SAVE_AS did not execute: " + saved.status());
             }
-            final long deadline = System.currentTimeMillis() + 15_000;
-            while (saves.isEmpty() && System.currentTimeMillis() < deadline) {
-                Thread.sleep(200);
-            }
+            result.setProperty("persist.save.executeBeforeSequence",
+                Long.toString(execution.executeBeforeSequence()));
+            awaitSaveAfterSequence(saves,
+                execution.executeBeforeSequence(), 15_000L);
             result.setProperty("persist.saveEvents", Integer.toString(saves.size()));
             result.setProperty("persist.beforeEvents", Integer.toString(beforeEvents.get()));
             result.setProperty("persist.onEvents", Integer.toString(onEvents.get()));
-            if (saves.isEmpty()) {
-                throw new IllegalStateException("SAVE lifecycle event not observed");
+            final PersistDocumentState afterSave = observePersistDocumentState(target.identity());
+            recordPersistDocumentState(result, "persist.save.after", afterSave);
+            final PersistSaveValidation saveValidation = validatePersistSaveAfter(
+                execution.executeBeforeSequence(), execution.before(), afterSave, saves,
+                PERSISTED_DOCUMENT_BASENAME);
+            result.setProperty("persist.save.validation", saveValidation.diagnostic());
+            if (!saveValidation.accepted()) {
+                throw new IllegalStateException("SAVE lifecycle identity rejected: "
+                    + saveValidation.diagnostic());
             }
-            final var saveResult = saves.get(0).result();
-            result.setProperty("persist.saveSucceeded",
-                Boolean.toString(saveResult.succeeded()));
-            result.setProperty("persist.savedFile",
-                saveResult.request().fileName().orElse(""));
-            if (!saveResult.succeeded()) {
-                throw new IllegalStateException("SAVE lifecycle completed without success");
-            }
+            final PersistSaveEvent saveEvent = saveValidation.event();
             result.setProperty("persist.saveSucceeded", "true");
+            result.setProperty("persist.saveEventSequence",
+                Long.toString(saveEvent.sequence()));
+            result.setProperty("persist.saveRequestFileName",
+                saveEvent.requestFileName().orElse(""));
+            result.setProperty("persist.saveRequestContentId",
+                saveEvent.requestContentId().orElse(UNAVAILABLE_VALUE));
+            result.setProperty("persist.saveResultContentId",
+                saveEvent.resultContentId().orElse(UNAVAILABLE_VALUE));
+            // The request filename is the pre-SAVE_AS event field and is diagnostic only.  The
+            // fresh document projection is the sole saved-file evidence.
+            result.setProperty("persist.savedFile",
+                pathBasename(afterSave.relativePath()));
             result.setProperty("documentPersistence", "SAVE_AS executed + SAVE event confirmed");
 
             // A second fresh native export after SAVE_AS is the durable post fingerprint. The
@@ -5999,36 +6278,39 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    /**
-     * Snapshot of currently showing top-level windows taken from a non-EDT thread: class,
-     * title, and for dialogs the visible button labels and text so a blocking modal can be
-     * identified from evidence alone.
-     */
+    /** Snapshot of visible top-level windows; all Swing reads are performed on the EDT. */
     private static String describeWindows() {
+        if (SwingUtilities.isEventDispatchThread()) return describeWindowsOnEdt();
+        final AtomicReference<String> captured = new AtomicReference<>("none");
+        try {
+            SwingUtilities.invokeAndWait(() -> captured.set(describeWindowsOnEdt()));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return "EDT window inspection interrupted";
+        } catch (InvocationTargetException failure) {
+            return "EDT window inspection failed: " + failure.getCause();
+        }
+        return captured.get();
+    }
+
+    private static String describeWindowsOnEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("window description must run on EDT");
+        }
         final StringBuilder text = new StringBuilder();
         for (final java.awt.Window window : java.awt.Window.getWindows()) {
-            if (!window.isShowing()) {
-                continue;
-            }
-            if (text.length() > 0) {
-                text.append(" | ");
-            }
+            if (!window.isShowing()) continue;
+            if (text.length() > 0) text.append(" | ");
             text.append(window.getClass().getSimpleName());
             final String title = window instanceof java.awt.Dialog dialog ? dialog.getTitle()
                 : window instanceof java.awt.Frame frame ? frame.getTitle() : null;
-            if (title != null && !title.isBlank()) {
-                text.append('\'').append(title).append('\'');
-            }
+            if (title != null && !title.isBlank()) text.append('\'').append(title).append('\'');
             if (window instanceof java.awt.Dialog) {
                 final List<String> buttons = new ArrayList<>();
                 final List<String> labels = new ArrayList<>();
                 collectDialogText(window, buttons, labels, 0);
-                if (!buttons.isEmpty()) {
-                    text.append(" buttons=").append(buttons);
-                }
-                if (!labels.isEmpty()) {
-                    text.append(" text=").append(labels);
-                }
+                if (!buttons.isEmpty()) text.append(" buttons=").append(buttons);
+                if (!labels.isEmpty()) text.append(" text=").append(labels);
             }
         }
         return text.length() == 0 ? "none" : text.toString();
@@ -6036,9 +6318,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private static void collectDialogText(final java.awt.Component component,
         final List<String> buttons, final List<String> labels, final int depth) {
-        if (depth > 6) {
-            return;
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("dialog collection must run on EDT");
         }
+        if (depth > 6) return;
         if (component instanceof javax.swing.AbstractButton button
             && button.getText() != null && !button.getText().isBlank()) {
             buttons.add(button.getText().trim());
@@ -6058,87 +6341,300 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    /**
-     * Polls for JDialogs that appear while a mediated save runs on the EDT. Native save flows
-     * can open a modal confirmation (e.g. unused raw images); without an answer the EDT task
-     * times out. Each new dialog's content is recorded; a button is clicked only when its
-     * label unambiguously means "keep / do not remove" so the save proceeds untouched.
-     */
-    private static final class DialogAnswerWatcher implements AutoCloseable {
-        private static final List<String> KEEP_LABELS = List.of(
-            "いいえ", "不删除", "保留", "否", "No(N)", "No", "Keep", "Keep all");
-        private final Set<java.awt.Window> baseline;
-        final List<String> actions = new CopyOnWriteArrayList<>();
-        private final AtomicBoolean stopped = new AtomicBoolean();
-        private final Thread thread;
+    private static void collectDialogActionCommands(final java.awt.Component component,
+        final List<String> actionCommands, final int depth) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("dialog action collection must run on EDT");
+        }
+        if (depth > 6) return;
+        if (component instanceof javax.swing.AbstractButton button
+            && button.getActionCommand() != null && !button.getActionCommand().isBlank()) {
+            actionCommands.add(button.getActionCommand().trim());
+        }
+        if (component instanceof java.awt.Container container) {
+            for (final java.awt.Component child : container.getComponents()) {
+                collectDialogActionCommands(child, actionCommands, depth + 1);
+            }
+        }
+    }
 
-        DialogAnswerWatcher(final Set<java.awt.Window> baseline) {
-            this.baseline = baseline;
-            thread = new Thread(this::poll, "external-psd-dialog-watcher");
-            thread.setDaemon(true);
-            thread.start();
+    enum SaveDialogOutcome {
+        KEEP,
+        OBSERVE_ONLY,
+        REJECTED
+    }
+
+    static record SaveDialogSnapshot(String dialogIdentity, String boundWindowIdentity,
+        List<String> ownerChain, boolean ownerChainMatches, boolean showing, boolean displayable,
+        String documentId, String expectedDocumentId, long generation, long expectedGeneration,
+        boolean taskIdentityMatches, String messageKey, boolean messageTemplateProven,
+        String keepActionCommand, boolean keepActionProven, List<String> messages,
+        List<String> buttonLabels, List<String> actionCommands, int candidateCount,
+        boolean stopped, boolean closed) {
+        SaveDialogSnapshot {
+            dialogIdentity = dialogIdentity == null ? "" : dialogIdentity;
+            boundWindowIdentity = boundWindowIdentity == null ? "" : boundWindowIdentity;
+            ownerChain = ownerChain == null ? List.of() : List.copyOf(ownerChain);
+            documentId = documentId == null ? "" : documentId;
+            expectedDocumentId = expectedDocumentId == null ? "" : expectedDocumentId;
+            messageKey = messageKey == null ? "" : messageKey;
+            keepActionCommand = keepActionCommand == null ? "" : keepActionCommand;
+            messages = messages == null ? List.of() : List.copyOf(messages);
+            buttonLabels = buttonLabels == null ? List.of() : List.copyOf(buttonLabels);
+            actionCommands = actionCommands == null ? List.of() : List.copyOf(actionCommands);
         }
 
-        private void poll() {
-            final Set<java.awt.Window> answered = new HashSet<>();
-            while (!stopped.get()) {
-                for (final java.awt.Window window : java.awt.Window.getWindows()) {
-                    if (!(window instanceof java.awt.Dialog dialog)
-                        || baseline.contains(window) || !dialog.isShowing()
-                        || answered.contains(window)) {
-                        continue;
-                    }
-                    answered.add(window);
-                    final List<String> buttons = new ArrayList<>();
-                    final List<String> labels = new ArrayList<>();
-                    collectDialogText(dialog, buttons, labels, 0);
-                    actions.add("dialog title='" + dialog.getTitle()
-                        + "' buttons=" + buttons + " text=" + labels);
-                    final javax.swing.AbstractButton keep =
-                        findButton(dialog, KEEP_LABELS, 0);
-                    if (keep != null) {
-                        // Modal dialogs run a nested event pump, so a queued click still runs.
-                        SwingUtilities.invokeLater(() -> keep.doClick());
-                        actions.add("clicked '" + keep.getText().trim() + "'");
+        String diagnostic() {
+            return "dialog=" + dialogIdentity + " bound=" + boundWindowIdentity
+                + " ownerChain=" + ownerChain + " ownerChainMatches=" + ownerChainMatches
+                + " showing=" + showing + " displayable=" + displayable
+                + " document=" + documentId + "/" + expectedDocumentId
+                + " generation=" + generation + "/" + expectedGeneration
+                + " taskIdentityMatches=" + taskIdentityMatches
+                + " messageKey=" + messageKey + " messageTemplateProven="
+                + messageTemplateProven + " keepActionCommand=" + keepActionCommand
+                + " keepActionProven=" + keepActionProven + " messages=" + messages
+                + " buttons=" + buttonLabels + " actionCommands=" + actionCommands
+                + " candidates=" + candidateCount + " stopped=" + stopped
+                + " closed=" + closed;
+        }
+    }
+
+    static record SaveDialogDecision(SaveDialogOutcome outcome, String diagnostic) {
+        SaveDialogDecision {
+            outcome = Objects.requireNonNull(outcome, "outcome");
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+    }
+
+    static SaveDialogDecision classifySaveDialogForTest(final SaveDialogSnapshot snapshot) {
+        if (snapshot == null) return new SaveDialogDecision(
+            SaveDialogOutcome.REJECTED, "save dialog snapshot is unavailable");
+        if (snapshot.stopped() || snapshot.closed()) return new SaveDialogDecision(
+            SaveDialogOutcome.REJECTED, "save dialog action is cancelled after stop/close: "
+                + snapshot.diagnostic());
+        if (snapshot.candidateCount() != 1) return new SaveDialogDecision(
+            SaveDialogOutcome.REJECTED, "save dialog candidate count is not one: "
+                + snapshot.diagnostic());
+        if (snapshot.dialogIdentity().isBlank() || snapshot.boundWindowIdentity().isBlank()
+            || !snapshot.ownerChainMatches()
+            || !snapshot.ownerChain().contains(snapshot.boundWindowIdentity())) {
+            return new SaveDialogDecision(SaveDialogOutcome.REJECTED,
+                "save dialog owner chain is not the exact task window: " + snapshot.diagnostic());
+        }
+        if (!snapshot.showing() || !snapshot.displayable()) return new SaveDialogDecision(
+            SaveDialogOutcome.REJECTED, "save dialog is not showing/displayable: "
+                + snapshot.diagnostic());
+        if (!snapshot.taskIdentityMatches()
+            || snapshot.documentId().isBlank()
+            || !snapshot.documentId().equals(snapshot.expectedDocumentId())
+            || snapshot.generation() < 0L
+            || snapshot.generation() != snapshot.expectedGeneration()) {
+            return new SaveDialogDecision(SaveDialogOutcome.REJECTED,
+                "save dialog task document/generation is stale: " + snapshot.diagnostic());
+        }
+        if (!snapshot.messageTemplateProven()
+            || !UNUSED_RAW_MESSAGE_KEY.equals(snapshot.messageKey())) {
+            return new SaveDialogDecision(SaveDialogOutcome.OBSERVE_ONLY,
+                "official " + UNUSED_RAW_MESSAGE_KEY
+                    + " formatted unused-raw message is not proven; no generic label action: "
+                    + snapshot.diagnostic());
+        }
+        if (!snapshot.keepActionProven() || snapshot.keepActionCommand().isBlank()
+            || !snapshot.actionCommands().contains(snapshot.keepActionCommand())) {
+            return new SaveDialogDecision(SaveDialogOutcome.OBSERVE_ONLY,
+                "official keep/no action is not proven from UUOption/aM.b evidence; "
+                    + "no action: " + snapshot.diagnostic());
+        }
+        return new SaveDialogDecision(SaveDialogOutcome.KEEP,
+            "proven CUB3-3054 keep action for the exact task dialog: "
+                + snapshot.diagnostic());
+    }
+
+    /**
+     * Observes only the task-bound SAVE dialog.  The timer and every Swing read/action run on the
+     * EDT; no worker thread enumerates windows.  Current 5.3.02 message/action proof is not
+     * available from Swing alone, so production snapshots remain OBSERVE_ONLY and never click a
+     * generic No/Keep label.
+     */
+    private final class DialogAnswerWatcher implements AutoCloseable {
+        private final Window boundWindow;
+        private final Target target;
+        private final Set<Window> baseline = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Window> observed = Collections.newSetFromMap(new IdentityHashMap<>());
+        final List<String> actions = new CopyOnWriteArrayList<>();
+        private final AtomicBoolean closed = new AtomicBoolean();
+        private final Timer timer;
+        private volatile String diagnostic = "";
+
+        DialogAnswerWatcher(final Window boundWindow, final Target target) {
+            this.boundWindow = boundWindow;
+            this.target = Objects.requireNonNull(target, "target");
+            timer = new Timer(250, ignored -> inspectOnEdt());
+            timer.setRepeats(true);
+        }
+
+        void start() throws Exception {
+            runOnEdt(() -> {
+                baseline.addAll(Arrays.asList(Window.getWindows()));
+                timer.start();
+            });
+        }
+
+        String diagnostic() { return diagnostic == null ? "" : diagnostic; }
+
+        private void inspectOnEdt() {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                throw new IllegalStateException("save dialog inspection must run on EDT");
+            }
+            if (closed.get() || stopped) return;
+            final String boundIdentity = componentIdentity(boundWindow);
+            PersistDocumentState state = null;
+            SaveAsAdmission admission = SaveAsAdmission.rejected("task state unavailable");
+            try {
+                state = currentPersistDocumentStateOnEdt(target.identity());
+                admission = saveAsAdmission(target.identity(), boundIdentity, state, stopped);
+            } catch (RuntimeException unavailable) {
+                diagnostic = "save dialog task state unavailable: " + unavailable;
+            }
+            final List<Dialog> candidates = new ArrayList<>();
+            for (final Window window : Window.getWindows()) {
+                if (window instanceof Dialog dialog && dialog.isShowing()
+                    && dialog.isDisplayable() && !baseline.contains(window)
+                    && !observed.contains(window)) {
+                    candidates.add(dialog);
+                }
+            }
+            final int candidateCount = candidates.size();
+            for (final Dialog dialog : candidates) {
+                observed.add(dialog);
+                final List<String> buttons = new ArrayList<>();
+                final List<String> messages = new ArrayList<>();
+                final List<String> actionCommands = new ArrayList<>();
+                collectDialogText(dialog, buttons, messages, 0);
+                collectDialogActionCommands(dialog, actionCommands, 0);
+                final List<String> ownerChain = ownerChain(dialog);
+                final String documentId = state == null ? "" : state.targetIdentity().documentId();
+                final long generation = state == null ? -1L : state.targetIdentity().generation();
+                final SaveDialogSnapshot snapshot = new SaveDialogSnapshot(
+                    componentIdentity(dialog), boundIdentity, ownerChain,
+                    boundWindow != null && ownerChain.contains(boundIdentity),
+                    dialog.isShowing(), dialog.isDisplayable(), documentId,
+                    target.identity().documentId(), generation, target.identity().generation(),
+                    admission.admitted(), "", false, "", false, messages, buttons,
+                    actionCommands, candidateCount, stopped, closed.get());
+                final SaveDialogDecision decision = classifySaveDialogForTest(snapshot);
+                diagnostic = decision.diagnostic();
+                actions.add("observed outcome=" + decision.outcome() + " " + snapshot.diagnostic());
+                if (decision.outcome() == SaveDialogOutcome.KEEP) {
+                    final javax.swing.AbstractButton action = findButtonByActionCommand(
+                        dialog, snapshot.keepActionCommand(), 0);
+                    if (action == null) {
+                        actions.add("keep action not found; no click");
+                    } else {
+                        queueProvenKeepAction(dialog, action, snapshot);
                     }
                 }
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
+            }
+        }
+
+        private void queueProvenKeepAction(final Dialog dialog,
+            final javax.swing.AbstractButton action, final SaveDialogSnapshot snapshot) {
+            if (!SwingUtilities.isEventDispatchThread()) {
+                throw new IllegalStateException("save dialog action must be queued on EDT");
+            }
+            SwingUtilities.invokeLater(() -> {
+                if (closed.get() || stopped || !dialog.isShowing() || !dialog.isDisplayable()) {
+                    actions.add("keep action skipped after close/stop/dialog change");
                     return;
                 }
-            }
-        }
-
-        private static javax.swing.AbstractButton findButton(final java.awt.Component component,
-            final List<String> wanted, final int depth) {
-            if (depth > 6 || !(component instanceof java.awt.Container container)) {
-                return null;
-            }
-            for (final java.awt.Component child : container.getComponents()) {
-                if (child instanceof javax.swing.AbstractButton button
-                    && button.getText() != null
-                    && wanted.stream().anyMatch(w -> button.getText().trim().equals(w))) {
-                    return button;
+                final List<Dialog> current = new ArrayList<>();
+                for (final Window window : Window.getWindows()) {
+                    if (window instanceof Dialog currentDialog && currentDialog.isShowing()
+                        && currentDialog.isDisplayable() && !baseline.contains(window)) {
+                        current.add(currentDialog);
+                    }
                 }
-                final javax.swing.AbstractButton nested = findButton(child, wanted, depth + 1);
-                if (nested != null) {
-                    return nested;
+                if (current.size() != 1 || current.get(0) != dialog
+                    || !ownerChain(dialog).contains(componentIdentity(boundWindow))) {
+                    actions.add("keep action skipped after owner/candidate change");
+                    return;
                 }
-            }
-            return null;
+                try {
+                    final PersistDocumentState state = currentPersistDocumentStateOnEdt(
+                        target.identity());
+                    final SaveAsAdmission admission = saveAsAdmission(
+                        target.identity(), componentIdentity(boundWindow), state, stopped);
+                    if (!admission.admitted()) {
+                        actions.add("keep action skipped after task identity change: "
+                            + admission.diagnostic());
+                        return;
+                    }
+                } catch (RuntimeException unavailable) {
+                    actions.add("keep action skipped because task identity is unavailable: "
+                        + unavailable);
+                    return;
+                }
+                final javax.swing.AbstractButton currentAction = findButtonByActionCommand(
+                    dialog, snapshot.keepActionCommand(), 0);
+                if (currentAction == null || !currentAction.isShowing()
+                    || !currentAction.isDisplayable() || !currentAction.isEnabled()) {
+                    actions.add("keep action skipped because exact action is no longer operable");
+                    return;
+                }
+                currentAction.doClick();
+                actions.add("clicked proven CUB3-3054 keep action");
+            });
         }
 
         @Override
         public void close() {
-            stopped.set(true);
+            if (!closed.compareAndSet(false, true)) return;
             try {
-                thread.join(2000);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
+                runOnEdt(timer::stop);
+            } catch (Exception failure) {
+                diagnostic = "save dialog watcher close dispatch failed: " + failure;
             }
         }
+    }
+
+    private static List<String> ownerChain(final Dialog dialog) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("dialog owner-chain inspection must run on EDT");
+        }
+        final List<String> chain = new ArrayList<>();
+        final Set<Window> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        Window current = dialog;
+        while (current != null && seen.add(current)) {
+            chain.add(objectIdentity(current));
+            current = current.getOwner();
+        }
+        return List.copyOf(chain);
+    }
+
+    private static javax.swing.AbstractButton findButtonByActionCommand(
+        final java.awt.Component component, final String actionCommand, final int depth) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("dialog action lookup must run on EDT");
+        }
+        if (actionCommand == null || actionCommand.isBlank() || depth > 6
+            || !(component instanceof java.awt.Container container)) return null;
+        for (final java.awt.Component child : container.getComponents()) {
+            if (child instanceof javax.swing.AbstractButton button
+                && actionCommand.equals(button.getActionCommand())) return button;
+            final javax.swing.AbstractButton nested = findButtonByActionCommand(
+                child, actionCommand, depth + 1);
+            if (nested != null) return nested;
+        }
+        return null;
+    }
+
+    private void runOnEdt(final Runnable action) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) {
+            action.run();
+            return;
+        }
+        SwingUtilities.invokeAndWait(action);
     }
 
     private GuiTargetState observeGuiTarget(final Target target) throws Exception {
@@ -9433,6 +9929,82 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 UNAVAILABLE_VALUE,
                 UNAVAILABLE_VALUE
             );
+        }
+    }
+
+    static record PersistDocumentState(TargetIdentity targetIdentity, Optional<String> contentId,
+        String relativePath, String windowIdentity, boolean windowShowing,
+        boolean windowDisplayable) {
+        PersistDocumentState {
+            targetIdentity = Objects.requireNonNull(targetIdentity, "targetIdentity");
+            contentId = Objects.requireNonNull(contentId, "contentId");
+            relativePath = relativePath == null ? "" : relativePath;
+            windowIdentity = windowIdentity == null ? "" : windowIdentity;
+        }
+    }
+
+    static record PersistSaveEvent(long sequence, ProjectFileOperationType operation,
+        boolean succeeded, Optional<String> requestContentId, Optional<String> resultContentId,
+        Optional<String> requestFileName) {
+        PersistSaveEvent {
+            if (sequence < 0L) throw new IllegalArgumentException("sequence must not be negative");
+            operation = Objects.requireNonNull(operation, "operation");
+            requestContentId = Objects.requireNonNull(requestContentId, "requestContentId");
+            resultContentId = Objects.requireNonNull(resultContentId, "resultContentId");
+            requestFileName = Objects.requireNonNull(requestFileName, "requestFileName");
+        }
+
+        static PersistSaveEvent from(final long sequence,
+            final ProjectFileLifecycleEvent.After event) {
+            final var result = event.result();
+            return new PersistSaveEvent(
+                sequence,
+                event.operation().operation(),
+                result.succeeded(),
+                result.request().contentId(),
+                result.content().map(content -> content.contentId()),
+                result.request().fileName());
+        }
+    }
+
+    static record PersistSaveValidation(boolean accepted, String diagnostic,
+        PersistSaveEvent event) {
+        PersistSaveValidation {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static PersistSaveValidation accepted(final PersistSaveEvent event,
+            final String diagnostic) {
+            return new PersistSaveValidation(true, diagnostic, Objects.requireNonNull(event));
+        }
+
+        static PersistSaveValidation rejected(final String diagnostic) {
+            return new PersistSaveValidation(false, diagnostic, null);
+        }
+    }
+
+    static record SaveAsAdmission(boolean admitted, String diagnostic) {
+        SaveAsAdmission {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static SaveAsAdmission admitted(final String diagnostic) {
+            return new SaveAsAdmission(true, diagnostic);
+        }
+
+        static SaveAsAdmission rejected(final String diagnostic) {
+            return new SaveAsAdmission(false, diagnostic);
+        }
+    }
+
+    private record SaveAsExecution(EditorCommandResult result, PersistDocumentState before,
+        long executeBeforeSequence) {
+        SaveAsExecution {
+            Objects.requireNonNull(result, "result");
+            Objects.requireNonNull(before, "before");
+            if (executeBeforeSequence < 0L) {
+                throw new IllegalArgumentException("executeBeforeSequence must not be negative");
+            }
         }
     }
 
