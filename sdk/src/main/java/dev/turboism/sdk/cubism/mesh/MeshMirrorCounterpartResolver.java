@@ -15,5 +15,13 @@ import java.util.Optional;
 @FunctionalInterface
 public interface MeshMirrorCounterpartResolver {
 
+    /**
+     * Resolves the mirror counterpart of one source point.
+     *
+     * @param source the point being mirrored
+     * @param mesh the mesh snapshot materialised for this resolution pass
+     * @param axis the current mirror axis
+     * @return the counterpart point, or empty when {@code source} has none
+     */
     Optional<MeshPointRef> counterpart(MeshPointRef source, MeshSnapshot mesh, MirrorAxisState axis);
 }

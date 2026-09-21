@@ -1,0 +1,51 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.example.hello",
+  "name": "Hello Plugin",
+  "version": "0.1.0",
+  "description": "Minimal Turboism plugin template: one action, one event.",
+  "entrypoints": [
+    "dev.example.hello.HelloPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Your Name"
+    }
+  ],
+  "license": "Apache-2.0",
+  "website": "https://example.com/hello-turboism-plugin",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the hello action."
+    },
+    {
+      "id": "turboism.event.subscribe",
+      "scope": "application",
+      "reason": "Subscribes to hello events."
+    },
+    {
+      "id": "turboism.event.publish",
+      "scope": "application",
+      "reason": "Publishes hello events."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  },
+  "tags": [
+    "example"
+  ],
+  "category": "development"
+}

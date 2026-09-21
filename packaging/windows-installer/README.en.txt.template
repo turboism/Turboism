@@ -6,6 +6,19 @@ uses Turboism-owned shortcuts. The NSIS installer can optionally back up and
 modify selected official Cubism startup BAT files so existing shortcuts load
 Turboism; this is explicit, hash-guarded, idempotent, and restored on uninstall.
 
+Optional JavaScript engine
+--------------------------
+The ordinary EXE does not embed the two large GraalJS engine libraries. Select
+"JavaScript engine" in the wizard to download their pinned versions, or run:
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\install-script-engine.ps1
+The helper downloads and verifies byte counts and SHA-256 without executing Java.
+For offline installation, pass -OfflineSource "<unpacked Full ZIP>\graal\lib".
+The Full and Lite ZIPs and Java installer keep the full offline engine closure.
+Script execution also needs a compatible GraalVM; downloading the engine is
+separate from provisioning that JVM. Missing or damaged optional libraries
+disable scripting with a diagnostic; basic framework/Java plugins remain usable.
+Unchecking the option does not remove an engine installed earlier.
+
 1. Directory layout
 -------------------
   turboism-agent.jar             Runtime (Java agent)
@@ -32,8 +45,11 @@ Turboism; this is explicit, hash-guarded, idempotent, and restored on uninstall.
    installations start selected; later runs preserve your choices. Invalid or
    unsupported entries are visible and removable. Saving zero installations
    leaves a valid framework-only install and creates no ambiguous launch entry.
-   NSIS installs open this setup automatically after payload installation;
-   canceling that window is safe.
+   NSIS reuses the verified results from its middle discovery page; final
+   configuration does not rescan drives or rerun version probes. A failed scan
+   leaves a framework-only install for later setup. Silent installs run one
+   bounded scan before payload installation; they do not download the optional
+   script engine unless the helper is run separately.
 4. The configurator creates one clearly named Start Menu entry per selected
    root, plus a separate - D3D entry when that official D3D BAT exists. Each
    entry carries its exact root and version. The generic launcher never picks

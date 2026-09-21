@@ -17,23 +17,40 @@ import java.util.concurrent.CompletionStage;
  */
 public interface UserFileAccessService {
 
+    /**
+     * Shows the user chooser for {@code request} and completes with the granted handle or the
+     * reason none was granted.
+     */
     CompletionStage<UserFileRequestResult> request(UserFileRequest request);
 
+    /**
+     * Reads up to {@code maxBytes} of the handle's file as UTF-8 text, asynchronously.
+     */
     CompletionStage<UserFileReadResult<String>> readUtf8(
         UserFileHandle handle,
         int maxBytes
     );
 
+    /**
+     * Reads up to {@code maxBytes} of the handle's file as raw bytes, asynchronously.
+     */
     CompletionStage<UserFileReadResult<byte[]>> readBytes(
         UserFileHandle handle,
         int maxBytes
     );
 
+    /**
+     * Atomically replaces the handle's file content with {@code content} as UTF-8,
+     * asynchronously.
+     */
     CompletionStage<UserFileWriteResult> writeUtf8Atomic(
         UserFileHandle handle,
         String content
     );
 
+    /**
+     * Atomically replaces the handle's file content with {@code content}, asynchronously.
+     */
     CompletionStage<UserFileWriteResult> writeBytesAtomic(
         UserFileHandle handle,
         byte[] content
@@ -48,10 +65,16 @@ public interface UserFileAccessService {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static UserFileAccessService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: calls that report outcomes complete with the structured unavailability result; and queries report empty results. */
     enum Unavailable implements UserFileAccessService {
         INSTANCE;
 

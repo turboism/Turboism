@@ -11,8 +11,10 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
             RotationDeformerBaseAngleEvent.On,
             RotationDeformerBaseAngleEvent.After {
 
+    /** Returns the detached Rotation Deformer projection participating in the operation. */
     RotationDeformer deformer();
 
+    /** Synchronous state published before the host base-angle write. */
     final class Before implements RotationDeformerBaseAngleEvent {
         private final RotationDeformer deformer;
         private final float requestedAngle;
@@ -49,6 +51,7 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
         }
 
         @Override public RotationDeformer deformer() { return deformer; }
+        /** Returns the base-angle value, in degrees, originally requested by the write call. */
         public float requestedAngle() { return requestedAngle; }
         /** Returns the candidate base-angle value that will be applied. */
         public float angle() { return angle; }
@@ -59,6 +62,7 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
             this.angle = angle;
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -101,11 +105,13 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful base-angle write that changed the value. */
     record On(RotationDeformer deformer, float oldAngle, float newAngle)
         implements RotationDeformerBaseAngleEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
+    /** State published after every successful base-angle write. */
     record After(RotationDeformer deformer, float finalAngle)
         implements RotationDeformerBaseAngleEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }

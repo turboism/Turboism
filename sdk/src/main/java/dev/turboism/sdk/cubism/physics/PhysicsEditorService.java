@@ -6,6 +6,10 @@ import dev.turboism.sdk.plugin.Registration;
 @FunctionalInterface
 public interface PhysicsEditorService {
 
+    /**
+     * Registers a Physics Settings contribution. Closing the returned {@link Registration}
+     * withdraws the contribution.
+     */
     Registration contribute(PhysicsEditorContribution contribution);
 
     /**
@@ -17,10 +21,13 @@ public interface PhysicsEditorService {
         return true;
     }
 
+
+    /** Safe-mode instance: every contribution is refused (fail closed). */
     static PhysicsEditorService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
     enum Unavailable implements PhysicsEditorService {
         INSTANCE;
 

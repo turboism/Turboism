@@ -8,6 +8,12 @@ import java.util.function.Consumer;
 /** Declarative contributions for Cubism's native mesh-edit tool area. */
 public interface MeshEditUiService {
 
+    /**
+     * Contributes an angle control for the mesh mirror axis to the native mesh-edit tool area.
+     *
+     * @param contribution the control definition
+     * @return the registration; closing it removes the contribution
+     */
     Registration contributeMirrorAxisAngleControl(MirrorAxisAngleControl contribution);
 
     /**
@@ -19,10 +25,16 @@ public interface MeshEditUiService {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static MeshEditUiService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
     enum Unavailable implements MeshEditUiService {
         INSTANCE;
 
@@ -39,6 +51,8 @@ public interface MeshEditUiService {
         }
     }
 
+
+    /** Definition of one contributed mirror-axis angle control; degrees bound the range. */
     record MirrorAxisAngleControl(
         String contributionId,
         String label,

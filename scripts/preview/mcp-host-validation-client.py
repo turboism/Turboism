@@ -13,7 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 PROTOCOL_VERSION = "2025-11-25"
 EXPECTED_TOOLS = {
@@ -22,6 +22,8 @@ EXPECTED_TOOLS = {
     "turboism.parameter_bindings.apply",
     "turboism.glues.read",
     "turboism.glues.write",
+    "turboism.textures.read",
+    "turboism.textures.write",
     "turboism.history.read",
     "turboism.history.undo",
     "turboism.history.redo",
@@ -66,10 +68,22 @@ class ValidationFailure(RuntimeError):
     pass
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str,
+                         headers: Any, newurl: str) -> None:
+        raise ValidationFailure("MCP validation must not follow HTTP redirects")
+
+
 class McpClient:
     def __init__(self, endpoint: str, advertised_version: str) -> None:
-        if not endpoint.startswith("http://127.0.0.1:") or not endpoint.endswith("/mcp"):
+        parsed = urllib.parse.urlsplit(endpoint)
+        if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1"
+                or parsed.username is not None or parsed.password is not None
+                or parsed.path != "/mcp" or parsed.query or parsed.fragment
+                or parsed.port is None or not 1 <= parsed.port <= 65535):
             raise ValidationFailure("connection endpoint is not numeric loopback /mcp")
+        # Never send local model data through an inherited HTTP proxy or redirect.
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         if advertised_version != PROTOCOL_VERSION:
             raise ValidationFailure("connection protocol version is unexpected")
         self.endpoint = endpoint
@@ -123,7 +137,7 @@ class McpClient:
         request = urllib.request.Request(self.endpoint, method="DELETE")
         request.add_header("MCP-Session-Id", self.session_id)
         try:
-            with urllib.request.urlopen(request, timeout=15) as response:
+            with self.opener.open(request, timeout=15) as response:
                 require(response.status == 200, f"DELETE session HTTP status={response.status}")
         except urllib.error.HTTPError as failure:
             raise ValidationFailure(f"DELETE session HTTP status={failure.code}") from failure
@@ -154,7 +168,7 @@ class McpClient:
         if include_session and self.session_id is not None:
             request.add_header("MCP-Session-Id", self.session_id)
         try:
-            with urllib.request.urlopen(request, timeout=45) as response:
+            with self.opener.open(request, timeout=45) as response:
                 return response.status, lower_headers(response.headers.items()), response.read()
         except urllib.error.HTTPError as failure:
             return failure.code, lower_headers(failure.headers.items()), failure.read()
@@ -1017,6 +1031,22 @@ def main() -> int:
         assert_no_absolute_paths(model_textures)
         report.append("assertion.modelTextures.status=PASS")
 
+        parameters = await_resource(
+            client, "turboism://active/model/parameters",
+            lambda value: isinstance(value.get("parameters"), list) and bool(value.get("parameters")),
+            "active model parameters",
+        )
+        parameter_values = array_value(parameters.get("parameters"), "parameters")
+        # Establish native texture evidence before any authoring or history operation.
+        validate_native_texture_roundtrip(state_root, task_id)
+        report.append("assertion.textureNativeLayersAndPixels.status=PASS")
+        report.append("assertion.textureSaveReopen.status=PASS")
+        report.append("texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED")
+        rejected_count = validate_audit_input_guards(client, parameter_values)
+        report.append(f"auditRejectedRequestCount={rejected_count}")
+        report.append("assertion.auditPreflightNoMutation.status=PASS")
+        # Glue's original-history invariant requires the untouched history tip. Run it before
+        # other reversible matrices, whose final Undo intentionally leaves a Redo tail.
         glue_mutation, glue_version = validate_reversible_glue_authoring(client, task_id)
         mutations.append(glue_mutation)
         report.append(f"glueProviderVersion={sanitize(glue_version)}")
@@ -1027,6 +1057,11 @@ def main() -> int:
         report.append("assertion.glueTransaction.status=PASS")
         report.append("assertion.glueRollback.status=PASS")
         report.append("assertion.glueFinalRestoration.status=PASS")
+
+        inversion = validate_reversible_binding_inversion(client, parameter_values)
+        mutations.append(inversion)
+        report.append("assertion.explicitBindingScope.status=PASS")
+        report.append("assertion.bindingUndoRedoRestoration.status=PASS")
 
         parameters = await_resource(
             client,
@@ -1043,6 +1078,13 @@ def main() -> int:
         mutations.append(parameter_mutation)
         report.append("assertion.parameterWriteReadback.status=PASS")
         report.append("assertion.parameterWriteCleanup.status=PASS")
+
+        texture_operations = validate_reversible_texture_authoring(client, task_id)
+        mutations.append("TEXTURE_LIBRARY_CHANGED_UNDONE_REDONE_AND_RESTORED")
+        report.append(f"textureAuthoringOperationCount={texture_operations}")
+        report.append("assertion.textureWriteReadback.status=PASS")
+        report.append("assertion.textureUndoRedoRestoration.status=PASS")
+        report.append("assertion.textureDeletionScope.status=PASS")
 
         hierarchy = await_resource(
             client,
@@ -1117,6 +1159,295 @@ def main() -> int:
     return 0 if status == "PASS" else 1
 
 
+def validate_native_texture_roundtrip(
+    state_root: Path, task_id: str, *, timeout_seconds: float = 420,
+) -> dict[str, str]:
+    """Require exact-run native layer/pixel and save/reopen evidence before final PASS."""
+    require(bool(task_id) and sanitize(task_id) == task_id, "invalid native round-trip run ID")
+    request = state_root / "mcp-texture-roundtrip-request.properties"
+    result = state_root / "mcp-texture-roundtrip-result.properties"
+    publish_atomic(request, f"runId={task_id}\nstatus=REQUESTED\n")
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if result.is_file():
+            require(result.stat().st_size <= 65536, "native round-trip evidence exceeds its bound")
+            values: dict[str, str] = {}
+            for line in result.read_text(encoding="utf-8").splitlines():
+                if not line or line.startswith("#"):
+                    continue
+                key, separator, value = line.partition("=")
+                require(bool(separator) and key not in values, "invalid native round-trip evidence")
+                values[key] = value
+            require(values.get("runId") == task_id, "native round-trip belongs to another task")
+            require(values.get("status") == "PASS",
+                    "native texture round-trip failed: " + values.get("error", "missing terminal result"))
+            for key in ("nativeLayerPixelUndoRedo", "saveReopen"):
+                require(values.get(key) == "PASS", f"native round-trip lacks {key} evidence")
+            for key in ("fixtureUnchanged", "originalReopened"):
+                require(values.get(key) == "true", f"native round-trip lacks {key} evidence")
+            require(values.get("persistenceOperationKinds") == "5", "not all texture operations were persisted")
+            for before, after in (("savedFingerprint", "reopenedFingerprint"),
+                                  ("rawPixelsBefore", "rawPixelsRestored")):
+                digest = values.get(before, "")
+                require(len(digest) == 64 and all(char in "0123456789abcdef" for char in digest)
+                        and digest == values.get(after), "native round-trip fingerprint mismatch")
+            return values
+        time.sleep(min(0.25, max(0, deadline - time.monotonic())))
+    raise ValidationFailure("native texture round-trip timed out without complete evidence")
+
+
+def texture_content(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Compare actual library metadata independently from advancing state tokens."""
+    return {key: array_value(snapshot.get(key), f"textures.{key}")
+            for key in ("rawImages", "modelImageGroups", "textureAtlases")}
+
+
+def texture_snapshot(client: McpClient) -> dict[str, Any]:
+    snapshot = tool_call(client, "turboism.textures.read", {"operation": "list"})
+    text_value(snapshot.get("stateToken"), "texture read correlation token")
+    object_value(snapshot.get("state"), "texture expected state")
+    texture_content(snapshot)
+    assert_no_absolute_paths(snapshot)
+    return snapshot
+
+
+def texture_write_cycle(
+    client: McpClient,
+    arguments: dict[str, Any],
+    check: Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], None],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Prove one native write, one Undo, one Redo and complete metadata restoration."""
+    before = texture_snapshot(client)
+    original = texture_content(before)
+    position = integer_value(history_snapshot(client).get("position"), "texture history position")
+    after: dict[str, Any] = {}
+    receipt: dict[str, Any] = {}
+    try:
+        receipt = tool_call(client, "turboism.textures.write", {
+            **arguments, "expectedState": before["state"],
+        })
+        require(receipt.get("outcome") == "APPLIED" and receipt.get("retryable") is False,
+                "texture write did not return a confirmed non-retryable receipt")
+        after = texture_content(texture_snapshot(client))
+        changed = history_snapshot(client)
+        require(integer_value(changed.get("position"), "texture changed position") == position + 1,
+                "texture write did not create exactly one native Undo entry")
+        require(after != original, "texture write made no observable library change")
+        check(original, after, receipt)
+        for undo, expected, expected_position in ((True, original, position),
+                                                   (False, after, position + 1),
+                                                   (True, original, position)):
+            moved = tool_call(client, "turboism.history.undo" if undo else "turboism.history.redo",
+                              history_guard_arguments(history_snapshot(client), undo=undo))
+            require(moved.get("outcome") == "MOVED", "texture native history did not move")
+            require(integer_value(history_snapshot(client).get("position"), "texture restored position")
+                    == expected_position, "texture native history position mismatch")
+            require(texture_content(texture_snapshot(client)) == expected,
+                    "texture native Undo/Redo did not restore the actual library metadata")
+    finally:
+        current = history_snapshot(client)
+        current_position = integer_value(current.get("position"), "texture cleanup position")
+        if current_position == position + 1:
+            tool_call(client, "turboism.history.undo", history_guard_arguments(current, undo=True))
+        require(integer_value(history_snapshot(client).get("position"), "texture final position") == position,
+                "texture cleanup cannot safely resolve an unexpected history position")
+        require(texture_content(texture_snapshot(client)) == original,
+                "texture cleanup left changed library metadata")
+    return original, after, receipt
+
+
+def validate_reversible_texture_authoring(client: McpClient, task_id: str) -> int:
+    baseline = texture_snapshot(client)
+    original = texture_content(baseline)
+    before_history = history_snapshot(client)
+    raw_images = original["rawImages"]
+    images = [image for group in original["modelImageGroups"]
+              for image in array_value(object_value(group, "texture group").get("modelImages"), "model images")]
+    require(bool(raw_images) and bool(images), "texture authoring fixture needs raw and model images")
+    raw_id = text_value(object_value(raw_images[0], "raw image").get("id"), "raw id")
+    image_id = text_value(object_value(images[0], "model image").get("id"), "model image id")
+    name = "TurboismTexture-" + task_id[-16:]
+    token = object_value(baseline["state"], "texture expected state")
+    stale = dict(token)
+    stale["historyRevision"] = integer_value(token.get("historyRevision"), "texture revision") + 1
+    invalids = [
+        {"operation": "add_model_image_group", "name": name, "expectedState": stale},
+        {"operation": "remove_raw_image", "id": raw_id, "confirmDelete": False, "expectedState": token},
+        {"operation": "remove_model_image", "id": image_id, "expectedState": token},
+        {"operation": "add_texture_atlas", "name": name, "widthPixels": 0, "heightPixels": 64,
+         "expectedState": token},
+        {"operation": "remove_texture_atlas", "id": "missing-" + task_id[-16:], "confirmDelete": True,
+         "expectedState": token},
+    ]
+    for arguments in invalids:
+        _, _, body = client._post({"jsonrpc": "2.0", "id": client._id(), "method": "tools/call",
+                                 "params": {"name": "turboism.textures.write", "arguments": arguments}})
+        envelope = object_value(json.loads(body), "texture rejection envelope")
+        result = envelope.get("result")
+        rejected = isinstance(envelope.get("error"), dict) or (
+            isinstance(result, dict) and result.get("isError") is True)
+        require(rejected, "unsafe texture request was not rejected")
+        require(texture_content(texture_snapshot(client)) == original, "rejected texture request changed state")
+        require_history_unchanged(before_history, history_snapshot(client), "rejected texture request changed history")
+
+    def group_created(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        require(len(after["modelImageGroups"]) == len(before["modelImageGroups"]) + 1,
+                "model image group was not created")
+        require(sum(group.get("groupName") == name for group in after["modelImageGroups"]) == 1,
+                "new model image group name is not unambiguous")
+
+    texture_write_cycle(client, {"operation": "add_model_image_group", "name": name}, group_created)
+
+    def atlas_created(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        old_ids = {value["id"] for value in before["textureAtlases"]}
+        added = [value for value in after["textureAtlases"] if value["id"] not in old_ids]
+        require(len(added) == 1 and added[0].get("name") == name,
+                "new atlas has no unambiguous native identity")
+        require(added[0].get("width") == 64 and added[0].get("height") == 64, "atlas size mismatch")
+        # The native ID must be retained in the receipt, independently of a later metadata read.
+        text_value(receipt.get("receipt"), "texture write receipt")
+        require(receipt.get("id") == added[0]["id"], "atlas receipt omitted its generated native ID")
+
+    texture_write_cycle(client, {"operation": "add_texture_atlas", "name": name,
+                                 "widthPixels": 64, "heightPixels": 64}, atlas_created)
+
+    def removed_id(key: str, target: str) -> Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], None]:
+        def check(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+            require({value["id"] for value in after[key]} == {value["id"] for value in before[key]} - {target},
+                    "texture removal affected a different identity set")
+        return check
+
+    # A fixture without an atlas gets one reversible task-local setup edit, never a silent skip.
+    atlas_setup = not bool(original["textureAtlases"])
+    setup_position = integer_value(history_snapshot(client).get("position"), "atlas setup position")
+    try:
+        if atlas_setup:
+            state = texture_snapshot(client)
+            tool_call(client, "turboism.textures.write", {"operation": "add_texture_atlas", "name": name,
+                      "widthPixels": 64, "heightPixels": 64, "expectedState": state["state"]})
+        atlases = texture_content(texture_snapshot(client))["textureAtlases"]
+        require(bool(atlases), "atlas setup produced no atlas")
+        atlas_id = text_value(atlases[0].get("id"), "atlas deletion id")
+        texture_write_cycle(client, {"operation": "remove_texture_atlas", "id": atlas_id,
+                                     "confirmDelete": True}, removed_id("textureAtlases", atlas_id))
+    finally:
+        if atlas_setup:
+            current = history_snapshot(client)
+            if integer_value(current.get("position"), "atlas setup cleanup") == setup_position + 1:
+                tool_call(client, "turboism.history.undo", history_guard_arguments(current, undo=True))
+            require(texture_content(texture_snapshot(client)) == original, "atlas setup was not restored")
+
+    def model_image_removed(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        def ids(value: dict[str, Any]) -> set[str]:
+            return {image["id"] for group in value["modelImageGroups"] for image in group["modelImages"]}
+        require(ids(after) == ids(before) - {image_id}, "model-image removal changed the wrong images")
+
+    texture_write_cycle(client, {"operation": "remove_model_image", "id": image_id,
+                                 "confirmDelete": True}, model_image_removed)
+    original_hierarchy = resource_json(client, "turboism://active/model/hierarchy")
+
+    def raw_image_removed(before: dict[str, Any], after: dict[str, Any], receipt: dict[str, Any]) -> None:
+        removed_id("rawImages", raw_id)(before, after, receipt)
+        require(after["modelImageGroups"] == before["modelImageGroups"], "raw removal deleted model images")
+        require(after["textureAtlases"] == before["textureAtlases"], "raw removal modified texture atlases")
+        require(resource_json(client, "turboism://active/model/hierarchy") == original_hierarchy,
+                "raw removal changed model object hierarchy")
+
+    texture_write_cycle(client, {"operation": "remove_raw_image", "id": raw_id,
+                                 "confirmDelete": True}, raw_image_removed)
+    require(texture_content(texture_snapshot(client)) == original, "texture matrix did not restore its baseline")
+    return 5
+
+
+def validate_audit_input_guards(client: McpClient, parameters: list[Any]) -> int:
+    parameter = object_value(parameters[0], "guard parameter")
+    parameter_id = text_value(parameter.get("id"), "guard parameter id")
+    original = finite_number(parameter.get("value"), "guard original value")
+    minimum = finite_number(parameter.get("minimumValue"), "guard minimum")
+    maximum = finite_number(parameter.get("maximumValue"), "guard maximum")
+    candidate = minimum if not math.isclose(original, minimum) else maximum
+    operation = {"operation": "set_value", "parameterId": parameter_id, "value": candidate}
+    parameter_uri = "turboism://active/model/parameters/" + urllib.parse.quote(parameter_id, safe="")
+    initial_history = history_snapshot(client)
+    hierarchy = resource_json(client, "turboism://active/model/hierarchy")
+    count = 0
+    invalid_calls = [
+        ("turboism.parameters.apply", {"operations": [operation, 7]}),
+        ("turboism.parameters.apply", {"operations": []}),
+        ("turboism.parameter_bindings.apply", {"operations": []}),
+        ("turboism.parameter_bindings.apply", {"operations": [{
+            "operation": "invert", "parameterId": "McpMissingParameter",
+            "targets": [{"type": "art_mesh", "id": "McpMissingTarget"}]}]}),
+        ("turboism.parameter_bindings.apply", {"operations": [{
+            "operation": "unbind", "parameterId": parameter_id,
+            "target": {"type": "art_mesh", "id": "McpMissingTarget"}}, 7]}),
+        ("turboism.model_objects.apply", {"operations": [{
+            "operation": "create", "kind": "part", "name": "McpMustNotBeCreated"}, 7]}),
+    ]
+    for name, arguments in invalid_calls:
+        error = rpc_error(client, "tools/call", {"name": name, "arguments": arguments})
+        require(error.get("code") == -32602, "malformed MCP arguments were not rejected")
+        count += 1
+    for invalid_id in (None, [], {}, True, 1.5):
+        status, _, body = client._post({"jsonrpc": "2.0", "id": invalid_id,
+            "method": "tools/call", "params": {"name": "turboism.parameters.apply",
+                "arguments": {"operations": [operation]}}})
+        response = object_value(json.loads(body), "invalid-id response")
+        require(status == 200 and object_value(response.get("error"), "invalid-id error").get("code") == -32600,
+                "invalid RPC ID was not rejected before dispatch")
+        count += 1
+    require_history_unchanged(initial_history, history_snapshot(client), "invalid requests changed history")
+    require(resource_json(client, "turboism://active/model/hierarchy") == hierarchy,
+            "invalid requests changed the model hierarchy")
+    require(math.isclose(finite_number(resource_json(client, parameter_uri).get("value"), "guard value"),
+                         original, rel_tol=0.0, abs_tol=1.0e-6), "invalid requests changed a parameter")
+    return count
+
+
+def validate_reversible_binding_inversion(client: McpClient, parameters: list[Any]) -> str:
+    normal_ids = {item["id"] for item in parameters if item.get("type") == "normal"}
+    uri = "turboism://active/model/parameter-bindings"
+    before = resource_json(client, uri)
+    bindings = [binding for group in array_value(before.get("parameterBindings"), "binding groups")
+                for binding in array_value(group.get("bindings"), "bindings")
+                if group.get("parameterId") in normal_ids and binding.get("family") == "keyform_grid"]
+    candidate = next((binding for binding in bindings if len(binding.get("points", [])) > 1), None)
+    require(candidate is not None, "fixture has no invertible normal keyform binding")
+    target = object_value(candidate.get("target"), "inversion target")
+    affected = {binding["parameterId"] for binding in bindings if binding.get("target") == target}
+    history_before = history_snapshot(client)
+    position = integer_value(history_before.get("position"), "inversion initial position")
+    restored = False
+    try:
+        output = tool_call(client, "turboism.parameter_bindings.apply", {"operations": [{
+            "operation": "invert_all_bindings", "scope": "all_target_bindings", "targets": [target]}]})
+        item = object_value(array_value(output.get("results"), "inversion results")[0], "inversion receipt")
+        receipt = object_value(item.get("result"), "inversion write result")
+        require(item.get("ok") is True and receipt.get("outcome") == "APPLIED"
+                and receipt.get("retryable") is False, "inversion receipt is not confirmed")
+        require(receipt.get("scope") == "all_target_bindings"
+                and set(receipt.get("affectedParameterIds", [])) == affected,
+                "inversion receipt does not identify the complete affected scope")
+        require({binding["parameterId"] for binding in receipt.get("affectedBindings", [])} == affected,
+                "inversion readback omits affected parameter bindings")
+        changed = history_snapshot(client)
+        require(integer_value(changed.get("position"), "inversion changed position") == position + 1,
+                "inversion did not produce exactly one native Undo entry")
+        for tool, undo in (("turboism.history.undo", True), ("turboism.history.redo", False),
+                           ("turboism.history.undo", True)):
+            moved = tool_call(client, tool, history_guard_arguments(history_snapshot(client), undo=undo))
+            require(moved.get("outcome") == "MOVED", "binding history movement failed")
+        require(resource_json(client, uri) == before, "binding metadata did not restore after final Undo")
+        require(history_snapshot(client).get("position") == position, "binding history position did not restore")
+        restored = True
+        return "ALL_BINDINGS_CHANGED_UNDONE_REDONE_AND_RESTORED"
+    finally:
+        if not restored:
+            current = history_snapshot(client)
+            if current.get("position") == position + 1:
+                tool_call(client, "turboism.history.undo", history_guard_arguments(current, undo=True))
+
+
 def validate_reversible_parameter_write(
     client: McpClient,
     parameters: list[Any],
@@ -1162,6 +1493,10 @@ def validate_reversible_parameter_write(
             "stopOnError": True,
         })
         require(changed.get("ok") is True, "parameter mutation batch failed")
+        receipt = object_value(array_value(changed.get("results"), "parameter results")[0], "parameter receipt")
+        write = object_value(receipt.get("result"), "parameter write result")
+        require(receipt.get("ok") is True and write.get("outcome") == "APPLIED"
+                and write.get("retryable") is False, "parameter confirmed receipt is incomplete")
         changed_state = resource_json(client, resource_uri)
         changed_value = finite_number(changed_state.get("value"), "changed parameter.value")
         require(
@@ -1185,8 +1520,18 @@ def validate_reversible_parameter_write(
             math.isclose(restored_value, original, rel_tol=0.0, abs_tol=1.0e-5),
             "history cleanup value was not visible on resource readback",
         )
+        redone = tool_call(client, "turboism.history.redo",
+                           history_guard_arguments(history_snapshot(client), undo=False))
+        require(redone.get("outcome") == "MOVED", "parameter Redo did not move")
+        require(math.isclose(finite_number(resource_json(client, resource_uri).get("value"), "redo value"),
+                             mutation_value, rel_tol=0.0, abs_tol=1.0e-5), "parameter Redo value mismatch")
+        final_undo = tool_call(client, "turboism.history.undo",
+                              history_guard_arguments(history_snapshot(client), undo=True))
+        require(final_undo.get("outcome") == "MOVED", "parameter final Undo did not move")
+        require(math.isclose(finite_number(resource_json(client, resource_uri).get("value"), "final value"),
+                             original, rel_tol=0.0, abs_tol=1.0e-5), "parameter final restoration mismatch")
         restored = True
-        return "PARAMETER_CHANGED_AND_UNDONE"
+        return "PARAMETER_CHANGED_UNDONE_REDONE_AND_RESTORED"
     except Exception as failure:
         primary_failure = failure
         raise
@@ -1269,7 +1614,26 @@ def tool_result(client: McpClient, name: str, arguments: dict[str, Any]) -> dict
 
 def tool_call(client: McpClient, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     structured = tool_result(client, name, arguments)
-    require(structured.get("ok") is not False, f"tool {name} failed")
+    if structured.get("ok") is False:
+        details = {key: structured[key] for key in ("outcome", "diagnosticId", "code")
+                   if key in structured}
+        if isinstance(structured.get("error"), dict):
+            details["errorCode"] = structured["error"].get("code")
+        steps = []
+        for step in structured.get("steps", []):
+            if not isinstance(step, dict):
+                continue
+            output = step.get("output")
+            output = output if isinstance(output, dict) else {}
+            error = output.get("error")
+            if output.get("ok") is not False and not step.get("diagnosticId"):
+                continue
+            steps.append({"id": step.get("id"), "diagnosticId": step.get("diagnosticId"),
+                          "outcome": output.get("outcome"),
+                          "errorCode": error.get("code") if isinstance(error, dict) else output.get("code")})
+        details["failedSteps"] = steps
+        details["completedStepCount"] = len(structured.get("steps", [])) - len(steps)
+        raise ValidationFailure(f"tool {name} failed: {sanitize(json.dumps(details))}")
     return structured
 
 

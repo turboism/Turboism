@@ -26,12 +26,13 @@ The authoritative project list is `settings.gradle.kts`.
 
 :runtime
   Plugin runtime, policies, Cubism/Editor adapters, providers, mapping,
-  hook infrastructure, transactions, diagnostics, and shared services.
-  Per-version adapter implementations are split into `src/cubism5203`,
-  `src/cubism5302`, and `src/cubism5303` source sets inside the same module:
-  they compile against main's shared engines and contracts, are packaged
-  into the same JAR, and are reached by name at admission-gated dispatch
-  points so no Gradle module is added.
+  hook infrastructure, transactions, diagnostics, shared services, and the
+  framework shell (`dev.turboism.shell`): the built-in Turboism menu,
+  main-toolbar home entry, embedded panel, settings, logs, About, plugin
+  management, and update hints. The shell is runtime-owned framework code,
+  not a plugin; it consumes the same PluginContext surfaces plugins use
+  under the reserved `turboism.core` identity, which external packages
+  remain forbidden from declaring.
 
 :plugins:*
   First-party plugins. They are treated like external consumers and depend
@@ -53,10 +54,15 @@ dev.turboism.sdk.cubism.hook
   Override-based plugin lifecycle hooks; no registration bus.
 
 dev.turboism.sdk.cubism.event
-  Immutable Cubism and Editor semantic event values.
+  Operation-envelope types: CubismOperation, CubismOperationEvent,
+  CubismOperationOrigin and SelectionChangedEvent.
 
 dev.turboism.sdk.event
   Generic event transport and EventBus contracts.
+
+dev.turboism.sdk.event.cubism
+  Immutable per-object semantic lifecycle event payloads (ParameterValueEvent,
+  PartOpacityEvent and peers) published on the before/on/after lifecycle.
 
 dev.turboism.sdk.cubism.id
   Shared identities used across reads, queries, events and transactions.
@@ -71,9 +77,20 @@ dev.turboism.core.runtime.sidecar
   Isolated heavy-work dispatch and supervision.
 ```
 
-Deprecated package shapes such as `sdk.cubism.callback`, `sdk.event.cubism`,
-feature-local `DocumentId`, and callback-named plugin work executors are not
-compatibility surfaces and must not be reintroduced.
+Deprecated package shapes such as `sdk.cubism.callback`, feature-local
+`DocumentId`, and callback-named plugin work executors are not compatibility
+surfaces and must not be reintroduced.
+
+Several plugins also keep a `b1/` package tree (`b1/domain`, sometimes
+`b1/application`). `b1` marks a legacy-plugin migration wave, not a
+host-adaptation or compatibility surface: `b1/domain` holds pure, deterministic
+behavior and state declarations salvaged from the pre-SDK codebase (value
+objects, enums, reducers), while `b1/application` is reserved for typed config
+and lifecycle orchestration. B1 code may depend only on the JDK,
+`dev.turboism.sdk.*`, and same-plugin classes — never on
+runtime/core/hook/mapping/adapter/preview packages, `com.live2d.*`, or host
+I/O. When a behavior graduates out of the migration wave, move it to a stable
+plugin-owned package name rather than treating `b1` as permanent structure.
 
 ## 3. Public API model
 
@@ -88,6 +105,8 @@ SDK APIs use Turboism-owned types only. They must not expose:
 - mutable arrays whose ownership belongs to Cubism.
 
 Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs.
+
+Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
 
 Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract. No other package may expose JDK UI types.
 

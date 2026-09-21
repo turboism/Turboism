@@ -166,6 +166,8 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         return invocation;
     }
 
+    // Token currency is identity: only the exact invocation instance may complete the lifecycle.
+    @SuppressWarnings("ReferenceEquality")
     void completeNative(final NativeInvocation invocation, final boolean succeeded) {
         if (nativeInvocation.get() != invocation) {
             throw new IllegalStateException("Native parameter lifecycle token is not current.");

@@ -93,12 +93,20 @@ public final class PipeImplLoopbackInstaller {
         }
     }
 
+    /** Why one {@link #install} attempt did or did not install the shim transformer. */
     public enum Status {
+        /** {@code sun.nio.ch.PipeImpl} was already loaded; transformation would come too late. */
         TARGET_ALREADY_LOADED,
+        /** The transformer was registered; it removes itself after the target class is seen. */
         INSTALLED,
+        /** The transformer could not be registered. */
         INSTALL_FAILED
     }
 
+    /**
+     * The outcome of {@link #install}. {@link #close()} removes the transformer when the
+     * status is {@code INSTALLED} and is a no-op otherwise; closing more than once is safe.
+     */
     public static final class Installation implements AutoCloseable {
         private final Status status;
         private final Instrumentation instrumentation;

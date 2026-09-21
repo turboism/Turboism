@@ -1,0 +1,12 @@
+# Install only after review; the matching service defaults to report-only.
+[Unit]
+Description=Inspect Turboism validation retention daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=turboism-host-validation-gc.service
+
+[Install]
+WantedBy=timers.target

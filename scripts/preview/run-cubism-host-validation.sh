@@ -23,6 +23,7 @@ Usage:
     --home-config <local-config.json> \
     --plugin <local.jar[:task-name.jar]> [--plugin ...] \
     --aux-agent <local.jar[:task-name.jar]> [--aux-agent ...] \
+    [--aux-agent-before-main <task-name.jar> ...] \
     --home-file <local-file:relative-home-path> [--home-file ...] \
     --home-dir <local-directory:relative-home-path> [--home-dir ...] \
     (--fixture-host|--fixture-remote <local-path> | --fixture-local <local-path>) \
@@ -65,6 +66,8 @@ Common options:
   --failure-marker <runtime-log marker>      repeatable
   --trigger <Turboism-home-relative path>
   --client-script <local-script[:task-name]>
+  --client-python <absolute-interpreter>      run the reviewed Python client with -I
+  --focus-editor-window                     opt-in task-local niri focus tracking
   --jvm-option <JVM option>                  repeatable
   --windows-env <NAME=value>                 repeatable task-local launch environment
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
@@ -314,6 +317,7 @@ agent=''
 home_config=''
 plugins=()
 aux_agents=()
+aux_agents_before_main=()
 home_files=()
 home_dirs=()
 remote_pre_launch=''
@@ -338,6 +342,8 @@ result_fail_line='status=FAIL'
 trigger_path=''
 client_script=''
 client_script_remote_name=''
+client_python=''
+focus_editor_window=0
 jvm_options=()
 windows_environment=()
 cubism_java=''
@@ -369,6 +375,7 @@ while [ "$#" -gt 0 ]; do
     --home-config) require_value "$@"; home_config="$2"; shift 2 ;;
     --plugin) require_value "$@"; plugins+=("$2"); shift 2 ;;
     --aux-agent) require_value "$@"; aux_agents+=("$2"); shift 2 ;;
+    --aux-agent-before-main) require_value "$@"; aux_agents_before_main+=("$2"); shift 2 ;;
     --home-file) require_value "$@"; home_files+=("$2"); shift 2 ;;
     --home-dir) require_value "$@"; home_dirs+=("$2"); shift 2 ;;
     --remote-pre-launch) require_value "$@"; remote_pre_launch="$2"; shift 2 ;;
@@ -390,6 +397,8 @@ while [ "$#" -gt 0 ]; do
     --result-fail-line) require_value "$@"; result_fail_line="$2"; shift 2 ;;
     --trigger) require_value "$@"; trigger_path="$2"; shift 2 ;;
     --client-script) require_value "$@"; client_script="$2"; shift 2 ;;
+    --client-python) require_value "$@"; client_python="$2"; shift 2 ;;
+    --focus-editor-window) focus_editor_window=1; shift ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
     --windows-env) require_value "$@"; windows_environment+=("$2"); shift 2 ;;
     --cubism-java) require_value "$@"; cubism_java="$2"; shift 2 ;;
@@ -529,6 +538,12 @@ fi
 [ -z "$result_file" ] || require_relative_path "$result_file" "result file"
 [ -z "$trigger_path" ] || require_relative_path "$trigger_path" "trigger path"
 
+if [ -n "$client_python" ]; then
+  [ -n "$client_script" ] || fail "--client-python requires --client-script"
+  require_safe_text "$client_python" "client Python interpreter"
+  [[ "$client_python" == /* ]] && [ -f "$client_python" ] && [ -x "$client_python" ] \
+    || fail "client Python interpreter must be an absolute executable file"
+fi
 if [ -n "$client_script" ]; then
   local_path="$client_script"
   if [[ "$client_script" == *:* ]]; then
@@ -680,6 +695,15 @@ for spec in "${aux_agents[@]}"; do
   resolved_aux_agents+=("$local_path:$remote_name")
 done
 
+for before_name in "${aux_agents_before_main[@]}"; do
+  before_found=0
+  for existing_name in "${aux_agent_remote_names[@]}"; do
+    [ "$existing_name" = "$before_name" ] && before_found=1 && break
+  done
+  [ "$before_found" = 1 ] \
+    || fail "--aux-agent-before-main must name a resolved aux-agent remote name: $before_name"
+done
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 queue_admission_json=''
 supervisor_cleanup=0
@@ -778,6 +802,7 @@ normalized_argv=(
 if [ -n "$home_config" ]; then normalized_argv+=(--home-config "$home_config"); fi
 for spec in "${resolved_plugins[@]}"; do normalized_argv+=(--plugin "$spec"); done
 for spec in "${resolved_aux_agents[@]}"; do normalized_argv+=(--aux-agent "$spec"); done
+for before_name in "${aux_agents_before_main[@]}"; do normalized_argv+=(--aux-agent-before-main "$before_name"); done
 for spec in "${resolved_home_files[@]}"; do normalized_argv+=(--home-file "$spec"); done
 for spec in "${resolved_home_dirs[@]}"; do normalized_argv+=(--home-dir "$spec"); done
 if [ -n "$fixture_host" ]; then normalized_argv+=(--fixture-host "$fixture_host"); else normalized_argv+=(--fixture-local "$fixture_local"); fi
@@ -797,6 +822,8 @@ else
 fi
 [ -n "$trigger_path" ] && normalized_argv+=(--trigger "$trigger_path")
 [ -n "$client_script" ] && normalized_argv+=(--client-script "$client_script:$client_script_remote_name")
+[ -n "$client_python" ] && normalized_argv+=(--client-python "$client_python")
+[ "$focus_editor_window" = 1 ] && normalized_argv+=(--focus-editor-window)
 for option in "${jvm_options[@]}"; do normalized_argv+=(--jvm-option "$option"); done
 for assignment in "${windows_environment[@]}"; do normalized_argv+=(--windows-env "$assignment"); done
 [ -n "$cubism_java" ] && normalized_argv+=(--cubism-java "$cubism_java")
@@ -1027,7 +1054,7 @@ remote_normal_exit_evidence_seen() {
 }
 
 remote_record_wrapper_cleanup() {
-  printf '%s\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' \
+  printf 'reason=%s\ncleanupOwner=supervisor\n' "$1" \
     > "$evidence_dir/wrapper.cleanup"
 }
 
@@ -1528,19 +1555,19 @@ run_remote_hook() {
   hook_log="$(safe_label "$(basename "$hook")")"
   if [ "$hook" = "$remote_pre_launch" ] && [ "$remote_pre_launch_background" = 1 ]; then
     if [ "$remote_pre_launch_args_only" = 1 ]; then
-      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}" \
+      DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}" \
         > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
     else
-      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}" \
+      DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}" \
         > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
     fi
     background_hook_started=1
     printf '%s\n' "$!" > "$evidence_dir/background-hook.pid"
     record_owned_process_identity "$!" background-hook
   elif [ "$remote_pre_launch_args_only" = 1 ] && [ "$hook" = "$remote_pre_launch" ]; then
-    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}"
+    DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}"
   else
-    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"
+    DISPLAY="$display" TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"
   fi
   if [ "$hook" = "$remote_pre_cleanup" ]; then
     pre_cleanup_hook_done=1
@@ -1825,9 +1852,26 @@ all_jvm_options=(
   "-Dturboism.validation.hostVersion=$version"
   "-Dturboism.validation.fixtureName=$fixture_name"
 )
+# Aux agents named via --aux-agent-before-main premain before the production agent, so a
+# co-patching instrument (e.g. the T039 shadow weave) sees the class bytes first.
+for spec in "${resolved_aux_agents[@]}"; do
+  remote_name="${spec#*:}"
+  before=0
+  for before_name in "${aux_agents_before_main[@]}"; do
+    [ "$remote_name" = "$before_name" ] && before=1 && break
+  done
+  [ "$before" = 1 ] || continue
+  win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"
+  all_jvm_options+=("-javaagent:$win_aux_agent")
+done
 all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout;hostClass=$agent_host_class")
 for spec in "${resolved_aux_agents[@]}"; do
   remote_name="${spec#*:}"
+  before=0
+  for before_name in "${aux_agents_before_main[@]}"; do
+    [ "$remote_name" = "$before_name" ] && before=1 && break
+  done
+  [ "$before" = 0 ] || continue
   win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"
   all_jvm_options+=("-javaagent:$win_aux_agent")
 done
@@ -1879,7 +1923,47 @@ set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
 cd "$task_dir" || exit 1
-"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" --debug "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
+focus_pid=''
+cleanup_focus() {
+  if [ -n "\$focus_pid" ]; then
+    kill "\$focus_pid" 2>/dev/null || true
+    wait "\$focus_pid" 2>/dev/null || true
+  fi
+}
+trap cleanup_focus EXIT
+# Focus tracking is opt-in for Robot workflows, never for ordinary HTTP validation.
+# Under the niri scrolling compositor the launcher's own cmd.exe console becomes a
+# column beside the editor. Columns tile across the viewport, so the editor's AWT
+# coordinates (origin 0,0) only line up with real screen pixels when the editor is the
+# leftmost visible column — otherwise every Robot press lands on the console window.
+# Keep only this task's editor focused and reap our helper when the launcher exits.
+if [ "$focus_editor_window" = 1 ]; then
+(
+  for _ in \$(seq 1 600); do
+    niri msg -j windows 2>/dev/null | python3 -c '
+import json, subprocess, sys
+task = sys.argv[1]
+try:
+    windows = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for w in windows:
+    title = w.get("title") or ""
+    if task + ".cmo3" in title:
+        if not w.get("is_focused"):
+            subprocess.run(
+                ["niri", "msg", "action", "focus-window", "--id", str(w["id"])],
+                capture_output=True)
+        subprocess.run(
+            ["niri", "msg", "action", "move-column-to-first"],
+            capture_output=True)
+' "$task_id"
+    sleep 2
+  done
+) &
+focus_pid=\$!
+fi
+"$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
 rc=\$?
 printf '%s\\n' "\$rc" > "$evidence_dir/wrapper.exit"
 exit "\$rc"
@@ -1924,7 +2008,11 @@ if [ -n "$trigger_path" ]; then
 fi
 if [ -n "$client_script" ]; then
   log "running task-local validation client $client_script_remote_name"
-  if ! "$task_dir/$client_script_remote_name" "$home_dir" "$task_id" \
+  client_command=("$task_dir/$client_script_remote_name")
+  if [ -n "$client_python" ]; then
+    client_command=("$client_python" -I "$task_dir/$client_script_remote_name")
+  fi
+  if ! "${client_command[@]}" "$home_dir" "$task_id" \
     > "$evidence_dir/client.out" 2> "$evidence_dir/client.err"; then
     fail "task-local validation client failed"
   fi
@@ -1965,7 +2053,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   if remote_normal_exit_evidence_seen; then
     case "$version" in 5302|5303) normal_exit=1 ;; esac
     if remote_process_alive; then
-      remote_record_wrapper_cleanup
+      remote_record_wrapper_cleanup 'native-exit-evidence-observed'
       remote_stop_process_tree
       wrapper_cleanup_done=1
     fi
@@ -1976,7 +2064,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
 done
 if remote_process_alive; then
   log "launcher remained alive after terminal PASS; stopping the task-scoped process tree"
-  remote_record_wrapper_cleanup
+  remote_record_wrapper_cleanup 'launcher-exit-timeout'
   remote_stop_process_tree
   wrapper_cleanup_done=1
 fi

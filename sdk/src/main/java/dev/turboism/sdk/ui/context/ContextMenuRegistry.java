@@ -40,10 +40,16 @@ public interface ContextMenuRegistry {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static ContextMenuRegistry unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
     enum Unavailable implements ContextMenuRegistry {
         INSTANCE;
 
@@ -106,6 +112,7 @@ public interface ContextMenuRegistry {
         }
     }
 
+    /** Category of model object a context-menu selection can contain. */
     enum ObjectKind {
         WARP_DEFORMER,
         ROTATION_DEFORMER,
@@ -325,6 +332,7 @@ public interface ContextMenuRegistry {
         }
     }
 
+    /** One validated context-menu entry descriptor. */
     record ContextMenuContribution(
         String id,
         String actionId,
@@ -500,11 +508,13 @@ public interface ContextMenuRegistry {
         }
     }
 
+    /** What a contributed entry operates on: the current selection or the panel tab itself. */
     enum Target {
         SELECTION,
         PANEL_TAB
     }
 
+    /** What a contributed entry does: invoke a registered action or toggle the panel's floating state. */
     enum Operation {
         ACTION,
         TOGGLE_PANEL_FLOATING

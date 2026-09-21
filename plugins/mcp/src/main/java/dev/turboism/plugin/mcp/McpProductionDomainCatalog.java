@@ -22,9 +22,11 @@ final class McpProductionDomainCatalog {
     static final String CLIP_MASKS = "turboism://active/model/clip-masks";
 
     private final McpTools legacyTools;
+    private final Map<String, Object> inputSchema;
 
     McpProductionDomainCatalog(final McpTools legacyTools) {
         this.legacyTools = Objects.requireNonNull(legacyTools, "legacyTools");
+        this.inputSchema = stringMap((Map<?, ?>) applyDefinition().get("inputSchema"), "inputSchema");
     }
 
     McpToolCatalog tools() {
@@ -112,6 +114,9 @@ final class McpProductionDomainCatalog {
     }
 
     private Map<String, Object> apply(final Map<String, Object> arguments) {
+        if (!McpJsonSchema.validates(arguments, inputSchema)) {
+            throw new IllegalArgumentException("Model-object batch must match inputSchema before any operation is applied");
+        }
         only(arguments, "operations", "stopOnError");
         final List<Object> operations = array(arguments.get("operations"), "operations");
         if (operations.isEmpty()) {

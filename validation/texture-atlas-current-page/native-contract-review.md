@@ -91,7 +91,7 @@ native 在更新 LayerRef 前检查可逆且 `abs(det(M)) > 9.99999993922529e-9`
 
 ## 7. 映射/验证可用性与明确缺口
 
-- 三份 `compatibility/cubism/verification/cubism-{5.2.03,5.3.02,5.3.03}-editor-model.json` 都有 32 个 native selector，**没有 `native.item.scale` 的 selector**。A:37 定义字符串不代表 resolver 可用；`VerifiedCubism5303TextureAtlasSelectorContract.java:71–104` 也未要求它。正常 q=1 路径无须引入未知旧比例。
+- 三份 `compatibility/cubism/verification/cubism-{5.2.03,5.3.02,5.3.03}-editor-model.json` 都有 32 个 native selector，**没有 `native.item.scale` 的 selector**。A:37 定义字符串不代表 resolver 可用；`VerifiedTextureAtlasSelectorContract.java` 的 `NATIVE_INVOCATION_ALIASES` 也未要求它。正常 q=1 路径无须引入未知旧比例。
 - **模型图像类型陷阱**：5.3.03 JSON:6043–6063 中 `ITEM_MODEL_RECT` 返回 CRect，而 `ITEM_RECT` 返回 GRectF；JSON:6164–6206 的 RECT_* getter owner 全是 GRectF。不能把 CRect 传给 GRectF getter。完整图像模式已证实源原点固定 0，直接用现有 ITEM_WIDTH/HEIGHT 即可；若走 e().toGRect() 则需另有经核准映射，当前这 32 项并未提供转换。
 - 基线 T:26–81 覆盖 temporary state、不调用 persistent provider、失败回滚；T:84–151 覆盖连接切换、Throwable、嵌套。**不覆盖实际缩放、旋转、模型图像模式**：T:259–263 设置写死 false/false/1；T:280 源原点恒 0；T:283 把 e()/h() 伪装成同一种 Rect，无法捕获真实 CRect/GRectF 不匹配；T:304 setter 也未模拟 native 求逆/事件。
 - 应补的 focused 验收（交主 Agent，不在本任务改测试）：负/非零源原点；分数 rh 旋转补偿；旧 layer scale≠1 但新固定 s 为绝对值；固定 .5/1/>1 与 overflow；自动 s≤1；两种模式不同几何；partial/全 overflow；其他页不动；写回中途失败恢复全部输出；layer 求逆读回容差与 det 门槛。

@@ -62,6 +62,7 @@ public final class SchemaValidationError {
         return String.format("%s[%s] %s (path=%s, source=%s)", code, severity, message, path, source);
     }
 
+    /** How serious a finding is; only {@link #ERROR} blocks the validated artifact. */
     public enum Severity {
         ERROR, WARNING, INFO
     }

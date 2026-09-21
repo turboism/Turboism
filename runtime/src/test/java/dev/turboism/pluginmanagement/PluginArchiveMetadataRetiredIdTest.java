@@ -47,7 +47,7 @@ class PluginArchiveMetadataRetiredIdTest {
         );
         final List<String> listed = service.plugins().stream()
             .map(RuntimePluginManagementService.PluginInfo::id)
-            .filter(id -> !dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
+            .filter(id -> !dev.turboism.shell.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
             .toList();
         assertFalse(listed.contains(RETIRED_ID), "retired id must not be listed: " + listed);
         assertTrue(listed.contains(SUCCESSOR_ID), "retained successor id must be listed: " + listed);
@@ -75,7 +75,7 @@ class PluginArchiveMetadataRetiredIdTest {
         );
         final List<String> listed = service.plugins().stream()
             .map(RuntimePluginManagementService.PluginInfo::id)
-            .filter(id -> !dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
+            .filter(id -> !dev.turboism.shell.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
             .toList();
         assertFalse(listed.contains("dev.turboism.plugin.backup"),
             "the superseded id must not be listed: " + listed);

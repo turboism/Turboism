@@ -8,10 +8,13 @@ import java.util.function.Supplier;
 /** Plugin-owned read/write binding used by one declarative settings control. */
 public interface SettingsBinding<T> {
 
+    /** Returns the current value shown by the control. */
     T read();
 
+    /** Applies a value accepted by the control's validator. */
     void write(T value);
 
+    /** Creates a binding backed by {@code reader} and {@code writer}. */
     static <T> SettingsBinding<T> of(
         final Supplier<? extends T> reader,
         final Consumer<? super T> writer

@@ -9,8 +9,10 @@ import java.util.Objects;
 public sealed interface DrawableLockEvent extends TurboismEvent
     permits DrawableLockEvent.Before, DrawableLockEvent.On, DrawableLockEvent.After {
 
+    /** Returns the detached ArtMesh projection participating in the operation. */
     Drawable drawable();
 
+    /** Synchronous state published before the host lock-state write. */
     final class Before implements DrawableLockEvent {
         private final Drawable drawable;
         private final boolean requestedLocked;
@@ -47,6 +49,7 @@ public sealed interface DrawableLockEvent extends TurboismEvent
         }
 
         @Override public Drawable drawable() { return drawable; }
+        /** Returns the lock-state value originally requested by the write call. */
         public boolean requestedLocked() { return requestedLocked; }
         /** Returns the candidate lock-state value that will be applied. */
         public boolean locked() { return locked; }
@@ -57,6 +60,7 @@ public sealed interface DrawableLockEvent extends TurboismEvent
             this.locked = locked;
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -99,11 +103,13 @@ public sealed interface DrawableLockEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful lock-state write that changed the value. */
     record On(Drawable drawable, boolean oldLocked, boolean newLocked)
         implements DrawableLockEvent {
         public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
+    /** State published after every successful lock-state write. */
     record After(Drawable drawable, boolean finalLocked) implements DrawableLockEvent {
         public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }

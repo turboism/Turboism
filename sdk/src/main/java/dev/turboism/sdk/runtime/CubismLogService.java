@@ -34,6 +34,7 @@ public interface CubismLogService {
         return true;
     }
 
+    /** Severity levels reported by the Cubism log stream. */
     enum LogLevel {
         TRACE, DEBUG, INFO, WARN, ERROR, FATAL
     }
@@ -81,10 +82,15 @@ public interface CubismLogService {
         }
     }
 
+    /**
+     * Returns a fail-closed instance: subscriptions deliver nothing and the filter is kept
+     * locally without reaching the host.
+     */
     static CubismLogService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: calls refuse work without reaching the host. */
     enum Unavailable implements CubismLogService {
         INSTANCE;
 

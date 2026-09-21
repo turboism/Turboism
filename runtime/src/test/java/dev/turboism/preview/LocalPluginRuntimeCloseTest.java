@@ -2,6 +2,8 @@ package dev.turboism.preview;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.host.HostSession;
+import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
+import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
 import dev.turboism.core.descriptor.CorePluginDescriptor;
@@ -57,15 +59,58 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LocalPluginRuntimeCloseTest {
 
     @TempDir
     Path temporary;
+
+    @Test
+    void sharedPerformanceCloseFailureDoesNotSkipHostLaneAndCanBeRetried() throws Exception {
+        final AtomicBoolean allowRestore = new AtomicBoolean();
+        final AtomicInteger restoreAttempts = new AtomicInteger();
+        final PerformanceFpsHook hook = new PerformanceFpsHook() {
+            @Override public void install() { }
+            @Override public boolean isInstalled() { return !allowRestore.get(); }
+            @Override public long renderSceneCalls() { return 0; }
+            @Override public void close() {
+                restoreAttempts.incrementAndGet();
+                if (!allowRestore.get()) throw new IllegalStateException("injected restoration failure");
+            }
+        };
+        PerformanceFpsHookRegistry.publish(hook);
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession hostSession = new HostSession(Optional::empty);
+        try (PreviewLog log = new PreviewLog(temporary.resolve("failure-cleanup.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(temporary, scheduler, hostSession, log);
+            try {
+                final SharedAsyncHostReadLane lane = hostReadLane(runtime);
+                assertThrows(IllegalStateException.class, runtime::close);
+                assertTrue(lane.isClosed(), "earlier shared-service failure must not skip the final host read lane");
+                final int failedAttempts = restoreAttempts.get();
+                allowRestore.set(true);
+                runtime.close();
+                assertTrue(restoreAttempts.get() > failedAttempts, "incomplete cleanup must retain a retry route");
+                final int completedAttempts = restoreAttempts.get();
+                runtime.close();
+                assertEquals(completedAttempts, restoreAttempts.get(), "successful stages are not repeated");
+            } finally {
+                allowRestore.set(true);
+                runtime.close();
+            }
+        } finally {
+            PerformanceFpsHookRegistry.clear(hook);
+            hostSession.close();
+            scheduler.shutdown();
+        }
+    }
 
     @Test
     void closeAttemptsEveryStageRetainsUnsafeLoaderAndClosesSharedLaneLast() throws Exception {

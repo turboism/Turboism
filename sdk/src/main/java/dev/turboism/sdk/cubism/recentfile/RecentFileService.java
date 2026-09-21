@@ -27,6 +27,7 @@ public interface RecentFileService {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements RecentFileService {
         INSTANCE;
 

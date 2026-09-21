@@ -185,6 +185,9 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
 
     private static Object resolvePalette(final SceneTableHostProfile.Bound bound) {
         for (Window window : Window.getWindows()) {
+            // A window that is not showing cannot display a palette; skipping it
+            // prunes the host's many cached hidden dialogs from the idle poll.
+            if (!window.isShowing()) continue;
             final Object palette = findScenePalette(window, bound);
             if (palette != null) return palette;
         }
@@ -208,7 +211,7 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
                 }
             }
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && component.isVisible()) {
             for (Component child : container.getComponents()) {
                 final Object palette = findScenePalette(child, bound);
                 if (palette != null) return palette;
@@ -847,11 +850,17 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         void schedule(int delayMillis, Runnable operation);
     }
 
+    /** Connection state of the scene-table host binding. */
     public enum State {
+        /** No host connection is bound. */
         DISCONNECTED,
+        /** The connected host does not support scene-table operations. */
         UNSUPPORTED,
+        /** A host connection is being established. */
         CONNECTING,
+        /** The scene-table host is bound and live. */
         CONNECTED,
+        /** The binding failed; the failure is recorded for diagnostics. */
         FAILED
     }
 }

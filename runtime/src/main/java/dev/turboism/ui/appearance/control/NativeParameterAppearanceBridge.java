@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.core.reflect.MethodHandleCache;
+
 import java.awt.Component;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -35,6 +37,8 @@ public final class NativeParameterAppearanceBridge {
      */
     public static void afterParameterFolder(final Object row) { after(row, true); }
 
+    // INSTALLED holds the live bridge; a different instance means the binding was revoked.
+    @SuppressWarnings("ReferenceEquality")
     private static void after(final Object row, final boolean folder) {
         final Installed installed = INSTALLED.get();
         if (installed == null || row == null) return;
@@ -91,7 +95,9 @@ public final class NativeParameterAppearanceBridge {
 
     static void clearForTesting() { uninstall(); }
 
+    // INSTALLED holds the live bridge; a different instance means the binding was revoked.
     /** Replays exact host row widgets supplied by the verified palette-operation selector. */
+    @SuppressWarnings("ReferenceEquality")
     public static void replayExistingRows(final Iterable<?> rows) {
         Objects.requireNonNull(rows, "rows");
         final Runnable replay = () -> {
@@ -235,13 +241,13 @@ public final class NativeParameterAppearanceBridge {
     }
 
     private static Object invoke(final Object target, final String methodName) throws ReflectiveOperationException {
-        final Method method = target.getClass().getMethod(methodName);
+        final Method method = MethodHandleCache.method(target.getClass(), methodName);
         if (!method.canAccess(target) && !method.trySetAccessible()) return null;
         return method.invoke(target);
     }
 
     private static Object field(final Object target, final String fieldName) throws ReflectiveOperationException {
-        final Field field = target.getClass().getDeclaredField(fieldName);
+        final Field field = MethodHandleCache.declaredField(target.getClass(), fieldName);
         if (!field.canAccess(target) && !field.trySetAccessible()) return null;
         return field.get(target);
     }

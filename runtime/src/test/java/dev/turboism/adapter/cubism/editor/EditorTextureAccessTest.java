@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorTextureAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void readsTextureLibraryProjection(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -67,7 +67,7 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void addsModelImageGroupInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -92,7 +92,7 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void addsTextureAtlasInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -115,7 +115,7 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void removesModelImageInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -134,7 +134,7 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void removesTextureAtlasInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -150,7 +150,7 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void absentTextureIdsFailClosed(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -162,17 +162,12 @@ class EditorTextureAccessTest {
             () -> textures.removeModelImage(new ModelImageId("missing")));
         assertThrows(NoSuchElementException.class,
             () -> textures.removeTextureAtlas(new TextureAtlasId("missing")));
-        if (version.equals("5.3.02")) {
-            assertThrows(NoSuchElementException.class,
-                () -> textures.removeRawImage(new RawImageId("missing")));
-        } else {
-            assertThrows(UnsupportedOperationException.class,
-                () -> textures.removeRawImage(new RawImageId("missing")));
-        }
+        assertThrows(NoSuchElementException.class,
+            () -> textures.removeRawImage(new RawImageId("missing")));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void textureReadsFailClosedWithoutCapability(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -182,7 +177,7 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void textureWritesFailClosedWithoutWriteCapability(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -202,7 +197,7 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void rejectedUndoEntryRollsBackAndReportsFailure(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -218,10 +213,12 @@ class EditorTextureAccessTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"5.2.03"})
-    void removeRawImageFailsClosedOn52(final String version) {
+    void removeRawImageFailsClosedWithoutThe52NativeUndoSelectors(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final ModelTextures textures = access(version, true).textures(
+        final ModelTextures textures = new EditorTextureAccess(resolver(version, true,
+            java.util.Set.of(EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                EditorTextureSelectorContract.WRITE_CAPABILITY_ID), false), (identity, model) -> { }).textures(
             "session-a", fixture.source, fixture.model
         );
         assertThrows(UnsupportedOperationException.class,
@@ -229,8 +226,8 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.3.02"})
-    void removeRawImageUsesUndoEnvelopeOn5302(final String version) {
+    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    void removeRawImageUsesUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final ModelTextures textures = access(version, true).textures(
@@ -244,6 +241,60 @@ class EditorTextureAccessTest {
         fixture.editMode.undo();
         assertEquals(1, fixture.manager.rawImages.size());
         assertTrue(fixture.manager.rawImageRestored);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03"})
+    void rawRemoval52PreservesOtherInputsImagesAndAtlasesAndIsReversible(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final HostLayerSelectorMap inputs = fixture.manager.allModelImages.get(0).filterEnv.inputs;
+        inputs.entries.put("raw-1", List.of("layer-a", "layer-b"));
+        inputs.entries.put("other-raw", List.of("unrelated-layer"));
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
+        textures.removeRawImage(new RawImageId("raw-1"));
+        assertEquals(null, inputs.entries.get("raw-1"));
+        assertEquals(List.of("unrelated-layer"), inputs.entries.get("other-raw"));
+        assertEquals(1, fixture.manager.allModelImages.size());
+        assertEquals(1, fixture.manager.textureAtlases.size());
+        assertEquals(1, fixture.editMode.edits.size());
+        fixture.editMode.undo();
+        assertEquals(List.of("layer-a", "layer-b"), inputs.entries.get("raw-1"));
+        assertEquals(1, fixture.manager.rawImages.size());
+        fixture.editMode.redo();
+        assertEquals(null, inputs.entries.get("raw-1"));
+        assertTrue(fixture.manager.rawImages.isEmpty());
+        fixture.editMode.undo();
+        assertEquals(List.of("layer-a", "layer-b"), inputs.entries.get("raw-1"));
+        assertEquals(1, fixture.manager.rawImages.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03"})
+    void rawRemoval52DoesNotMutateWhenUndoAdmissionIsRejected(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.editMode.rejectUndo = true;
+        final HostLayerSelectorMap inputs = fixture.manager.allModelImages.get(0).filterEnv.inputs;
+        inputs.entries.put("raw-1", List.of("layer-a"));
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
+        assertThrows(IllegalStateException.class, () -> textures.removeRawImage(new RawImageId("raw-1")));
+        assertEquals(1, fixture.manager.rawImages.size());
+        assertEquals(List.of("layer-a"), inputs.entries.get("raw-1"));
+        assertTrue(fixture.editMode.edits.isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03"})
+    void missing52LayerInputMapRejectsBeforeRemoval(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.manager.allModelImages.get(0).filterEnv.inputs = null;
+        final ModelTextures textures = access(version, true).textures("session-a", fixture.source, fixture.model);
+        assertThrows(IllegalStateException.class, () -> textures.removeRawImage(new RawImageId("raw-1")));
+        assertEquals(1, fixture.manager.rawImages.size());
+        assertTrue(fixture.editMode.edits.isEmpty());
+        assertTrue(fixture.editMode.labels.isEmpty());
     }
 
     private static EditorTextureAccess access(final String version, final boolean includeCapability) {
@@ -276,6 +327,15 @@ class EditorTextureAccessTest {
         final boolean includeCapability,
         final java.util.Set<String> capabilities
     ) {
+        return resolver(version, includeCapability, capabilities, true);
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String version,
+        final boolean includeCapability,
+        final java.util.Set<String> capabilities,
+        final boolean include52Removal
+    ) {
         final List<StaticSelector> values = new ArrayList<>();
         values.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
         values.add(StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", internal(Host.class), "instance",
@@ -289,6 +349,7 @@ class EditorTextureAccessTest {
         values.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
         values.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
         values.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
+        values.add(method("cubism.editor-model.texture-undo.undo", Undo.class, "undo", "()V"));
         values.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
         values.add(method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
         values.add(method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
@@ -334,9 +395,24 @@ class EditorTextureAccessTest {
             "(" + type(HostTextureAtlas.class) + "I)" + type(Undo.class)));
         values.add(method("cubism.editor-model.texture-handler.remove-texture-atlas", HostTextureManagerHandler.class, "removeAtlas",
             "(" + type(HostTextureAtlas.class) + ")" + type(Undo.class)));
-        if (version.equals("5.3.02")) {
+        if (!version.equals("5.2.03")) {
             values.add(method("cubism.editor-model.texture-handler.remove-raw-image", HostTextureManagerHandler.class, "removeRawImage",
                 "(" + type(Id.class) + "Z)" + type(Undo.class)));
+        }
+        if (version.equals("5.2.03") && include52Removal) {
+            values.add(method("cubism.editor-model.model-image.input-filter-env", HostModelImage.class,
+                "inputFilterEnv", desc(HostFilterEnv.class)));
+            values.add(method("cubism.editor-model.model-image-filter-env.layer-input-data", HostFilterEnv.class,
+                "layerInputData", desc(HostLayerSelectorMap.class)));
+            values.add(method("cubism.editor-model.layer-selector-map.get", HostLayerSelectorMap.class,
+                "get", "(" + type(Id.class) + ")Ljava/util/List;"));
+            values.add(StaticSelector.constructor("cubism.editor-model.texture-undo.layer-input.create",
+                internal(PreparedLayerInputUndo.class), "(" + type(HostLayerSelectorMap.class)
+                    + type(Id.class) + "Ljava/util/List;Z)V", StaticSelector.ACCESS_PUBLIC));
+            values.add(StaticSelector.constructor("cubism.editor-model.texture-undo.raw-image.create",
+                internal(PreparedRawImageUndo.class), "(" + type(ModelSource.class)
+                    + type(HostLayeredImage.class) + "IZ)V", StaticSelector.ACCESS_PUBLIC));
+            values.add(method("cubism.editor-model.texture-undo.force-redo", Undo.class, "forceRedo", desc(Undo.class)));
         }
         return TestVerifiedResolvers.create(
             version, "adapter.editor-model.readwrite", capabilities, values, Host.class.getClassLoader()
@@ -464,6 +540,8 @@ class EditorTextureAccessTest {
     }
 
     public static final class HostModelImage {
+        final HostFilterEnv filterEnv = new HostFilterEnv();
+        public HostFilterEnv inputFilterEnv() { return filterEnv; }
         final Id guid;
         final String name;
         final int width;
@@ -478,6 +556,40 @@ class EditorTextureAccessTest {
         public String name() { return name; }
         public int width() { return width; }
         public int height() { return height; }
+    }
+
+    public static final class HostFilterEnv {
+        HostLayerSelectorMap inputs = new HostLayerSelectorMap();
+        public HostLayerSelectorMap layerInputData() { return inputs; }
+    }
+
+    public static final class HostLayerSelectorMap {
+        final java.util.Map<String, List<String>> entries = new java.util.LinkedHashMap<>();
+        public List<String> get(final Id id) { return entries.get(id.value()); }
+    }
+
+    public static final class PreparedLayerInputUndo extends Undo {
+        public PreparedLayerInputUndo(final HostLayerSelectorMap inputs, final Id id,
+                                      final List<?> ignored, final boolean add) {
+            this(inputs, id.value(), inputs.entries.get(id.value()));
+            if (add) throw new IllegalArgumentException("expected removal");
+        }
+        private PreparedLayerInputUndo(final HostLayerSelectorMap inputs, final String id, final List<String> previous) {
+            super(() -> inputs.entries.remove(id), () -> inputs.entries.put(id, previous));
+        }
+    }
+
+    public static final class PreparedRawImageUndo extends Undo {
+        public PreparedRawImageUndo(final ModelSource source, final HostLayeredImage image,
+                                    final int ignoredIndex, final boolean add) {
+            this(source.manager, source.manager.rawImages.stream()
+                .filter(wrapper -> wrapper.image == image).findFirst().orElseThrow());
+            if (add) throw new IllegalArgumentException("expected removal");
+        }
+        private PreparedRawImageUndo(final TextureManager manager, final HostLayeredImageWrapper wrapper) {
+            super(() -> { manager.rawImages.remove(wrapper); manager.rawImageRemoved = true; },
+                () -> { manager.rawImages.add(wrapper); manager.rawImageRestored = true; });
+        }
     }
 
     public static final class HostTextureAtlas {
@@ -546,25 +658,26 @@ class EditorTextureAccessTest {
         }
     }
 
-    public static final class GroupUndo {
+    public static final class GroupUndo extends Undo {
         final List<Undo> entries = new ArrayList<>();
         final boolean reject;
         boolean discarded;
         GroupUndo() { this(false); }
-        GroupUndo(final boolean reject) { this.reject = reject; }
-        public boolean add(final Undo undo, final boolean redo) {
+        GroupUndo(final boolean reject) { super(() -> { }, () -> { }); this.reject = reject; }
+        public boolean add(final Undo undo, final boolean force) {
+            if (undo == this) throw new IllegalArgumentException("a group cannot contain itself");
             if (discarded || reject) return false;
-            if (redo) undo.redo();
+            // Native GroupUndo.addEdit(..., true) registers; it does NOT execute redo.
             entries.add(undo);
             return true;
         }
-        void discard() { discarded = true; }
-        void undo() { for (int i = entries.size() - 1; i >= 0; i--) entries.get(i).undo(); }
-        void redo() { for (Undo entry : entries) entry.redo(); }
+        void discard() { undo(); discarded = true; }
+        @Override public void undo() { for (int i = entries.size() - 1; i >= 0; i--) entries.get(i).undo(); }
+        @Override public void redo() { for (Undo entry : entries) entry.redo(); }
     }
 
-    /** Construct-and-redo undoable: redo() applies, undo() reverts the host mutation. */
-    public static final class Undo {
+    /** Native factories explicitly forceRedo before returning; registration never replays it. */
+    public static class Undo {
         final Runnable apply;
         final Runnable revert;
         Undo(final Runnable apply, final Runnable revert) {
@@ -572,8 +685,9 @@ class EditorTextureAccessTest {
             this.revert = revert;
         }
         public boolean addListener(final Listener listener) { return true; }
-        void redo() { apply.run(); }
-        void undo() { revert.run(); }
+        public Undo forceRedo() { redo(); return this; }
+        public void redo() { apply.run(); }
+        public void undo() { revert.run(); }
     }
 
     @FunctionalInterface
@@ -589,7 +703,7 @@ class EditorTextureAccessTest {
             return new Undo(
                 () -> manager.modelImageGroups.add(index, group),
                 () -> manager.modelImageGroups.remove(group)
-            );
+            ).forceRedo();
         }
 
         public Undo removeImage(final Id guid) {
@@ -606,21 +720,21 @@ class EditorTextureAccessTest {
                         if (!group.modelImages.contains(target)) group.modelImages.add(target);
                     });
                 }
-            );
+            ).forceRedo();
         }
 
         public Undo addAtlas(final HostTextureAtlas atlas, final int index) {
             return new Undo(
                 () -> manager.textureAtlases.add(index, atlas),
                 () -> manager.textureAtlases.remove(atlas)
-            );
+            ).forceRedo();
         }
 
         public Undo removeAtlas(final HostTextureAtlas atlas) {
             return new Undo(
                 () -> manager.textureAtlases.remove(atlas),
                 () -> manager.textureAtlases.add(atlas)
-            );
+            ).forceRedo();
         }
 
         public Undo removeRawImage(final Id guid, final boolean flag) {
@@ -635,7 +749,7 @@ class EditorTextureAccessTest {
                     manager.rawImages.add(wrapper);
                     manager.rawImageRestored = true;
                 }
-            );
+            ).forceRedo();
         }
     }
 }

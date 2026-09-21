@@ -44,10 +44,16 @@ public interface ModelHierarchyQueryService {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static ModelHierarchyQueryService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: calls refuse work without reaching the host. */
     enum Unavailable implements ModelHierarchyQueryService {
         INSTANCE;
 

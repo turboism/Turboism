@@ -60,6 +60,42 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
     }
 }
 
+val generatedVerificationRoot = layout.buildDirectory.dir(
+    "generated/sources/verification/java/main"
+)
+
+val generateVerificationSources by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Renders verification manifests and selector contracts from byte-hashed records plus family authoring files."
+    inputs.files(
+        rootProject.file("scripts/generate_verification_sources.py"),
+        fileTree(rootProject.file("scripts/verification-sources")),
+        fileTree(rootProject.file("compatibility/cubism/verification")) {
+            include("*.json")
+        },
+        fileTree(rootProject.file("compatibility/cubism/mapping-packs/draft")) {
+            include("*.json")
+        },
+        fileTree(
+            rootProject.file("runtime/src/main/java/dev/turboism/adapter/cubism")
+        ) { include("**/*.java") },
+        fileTree(rootProject.file("runtime/src/main/java/dev/turboism/ui")) {
+            include("**/*.java")
+        }
+    )
+    outputs.dir(generatedVerificationRoot)
+    doFirst {
+        commandLine(
+            "python3",
+            rootProject.file("scripts/generate_verification_sources.py"),
+            rootProject.rootDir.absolutePath,
+            "render",
+            "--out",
+            generatedVerificationRoot.get().asFile
+        )
+    }
+}
+
 val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
     group = "build"
     description = "Generates the exact Cubism Core selector/profile contract."
@@ -116,47 +152,7 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
 
 sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
-}
-
-/*
- * Per-Cubism-version adapter implementations live in dedicated source sets so the
- * reviewed-host surface is reviewable one version at a time. Each versioned set
- * compiles against main's output (shared engines, contracts, resolvers); main
- * never statically references the versioned classes and reaches them by name at
- * the admission-gated dispatch points. No new Gradle module is introduced: every
- * versioned output is packaged into the same runtime JAR.
- */
-val versionedCubismSourceSets = listOf("cubism5203", "cubism5302", "cubism5303")
-    .map { name ->
-        sourceSets.create(name).also { versioned ->
-            versioned.java.srcDir("src/$name/java")
-            // classesDirs tracks compileJava only; the full main output would
-            // pull in the classes task and make classes -> cubism*Classes ->
-            // compileJava -> classes a cycle.
-            versioned.compileClasspath += sourceSets.main.get().output.classesDirs +
-                sourceSets.main.get().compileClasspath
-            versioned.runtimeClasspath += sourceSets.main.get().output +
-                sourceSets.main.get().runtimeClasspath
-        }
-    }
-
-sourceSets.named("test") {
-    versionedCubismSourceSets.forEach { versioned ->
-        compileClasspath += versioned.output
-        runtimeClasspath += versioned.output
-    }
-}
-
-tasks.named("classes") {
-    versionedCubismSourceSets.forEach { versioned ->
-        dependsOn("${versioned.name}Classes")
-    }
-}
-
-tasks.jar {
-    versionedCubismSourceSets.forEach { versioned ->
-        from(versioned.output)
-    }
+    java.srcDir(generatedVerificationRoot)
 }
 
 val frameworkVersionResource = layout.buildDirectory.file(
@@ -188,7 +184,8 @@ tasks.named<ProcessResources>("processResources") {
 tasks.named("compileJava") {
     dependsOn(
         generateCorePublicApiCatalog,
-        generateCorePublicApiSelectorContract
+        generateCorePublicApiSelectorContract,
+        generateVerificationSources
     )
 }
 
@@ -283,6 +280,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
 }
 
 tasks.named<Test>("test") {
+    @Suppress("UNCHECKED_CAST")
+    val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
+    systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
     filter {
         excludeTestsMatching(
             "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
@@ -336,7 +336,6 @@ tasks.named<ProcessResources>("processTestResources") {
 
 dependencies {
     implementation(project(":sdk"))
-    implementation(project(":plugins:core"))
 
     // JSON parsing implementation stays in runtime, not in SDK
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")

@@ -12,8 +12,10 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
             DrawableGeometryEvent.On,
             DrawableGeometryEvent.After {
 
+    /** Returns the detached ArtMesh projection participating in the operation. */
     Drawable drawable();
 
+    /** Synchronous state published before the host geometry replacement. */
     final class Before implements DrawableGeometryEvent {
         private final Drawable drawable;
         private final ArtMeshGeometry requestedGeometry;
@@ -53,6 +55,7 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
         }
 
         @Override public Drawable drawable() { return drawable; }
+        /** Returns the geometry value originally requested by the write call. */
         public ArtMeshGeometry requestedGeometry() { return requestedGeometry; }
         /** Returns the candidate geometry value that will be applied. */
         public ArtMeshGeometry geometry() { return geometry; }
@@ -63,6 +66,7 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
             this.geometry = Objects.requireNonNull(geometry, "geometry");
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -105,6 +109,7 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful geometry replacement that changed the value. */
     record On(
         Drawable drawable,
         ArtMeshGeometry oldGeometry,
@@ -117,6 +122,7 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
         }
     }
 
+    /** State published after every successful geometry replacement. */
     record After(Drawable drawable, ArtMeshGeometry finalGeometry)
         implements DrawableGeometryEvent {
         public After {

@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
@@ -22,8 +23,10 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /** Project/workspace HostOperations backed only by exact verified selectors and reviewed host types. */
 public final class VerifiedProjectWorkspaceHostOperations implements ProjectWorkspaceAdapter.HostOperations {
@@ -53,6 +56,10 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         "com.live2d.cubism.doc.gameData.CGameDataDocument";
     private static final String PHYSICS_SETTINGS_DOCUMENT_CLASS =
         "com.live2d.cubism.doc.gameData.physics.CPhysicsSettingsDocument";
+    private static final Pattern SEGMENT_DISALLOWED = Pattern.compile("[^A-Za-z0-9._-]");
+    private static final Pattern SEGMENT_DASHES = Pattern.compile("-+");
+    private static final Pattern SEGMENT_EDGES = Pattern.compile("^[-.]+|[-.]+$");
+
     private static final String IMAGE_DOCUMENT_CLASS = "com.live2d.cubism.doc.resources.g";
     private static final String IMAGE_PROJECT_ENTRY_CLASS =
         "com.live2d.cubism.doc.resources.CImageDocumentProjectEntry";
@@ -162,32 +169,8 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         try {
             final Object appController = resolver.invokeStatic(APP_INSTANCE);
             if (appController == null) return Optional.empty();
-            final Object project = resolver.invoke(CURRENT_PROJECT, appController);
-            if (project == null) return Optional.empty();
-            final String projectId = identities.idFor(project, "project");
             final Object currentDocument = resolver.invoke(CURRENT_DOCUMENT, appController);
-            final List<DocumentSnapshot> documents = new ArrayList<>(documents(
-                resolver.invoke(PROJECT_DOCUMENTS, project)
-            ));
-            if (currentDocument != null) {
-                final DocumentSnapshot active = document(currentDocument);
-                if (documents.stream().noneMatch(existing ->
-                    existing.documentId().equals(active.documentId()))) {
-                    documents.add(active);
-                }
-            }
-            final List<ProjectContentSnapshot> contents = contents(
-                invokePublic(project, "getChildren").orElse(List.of()),
-                documents
-            );
-            if (documents.isEmpty() && contents.isEmpty()) return Optional.empty();
-            return Optional.of(new ProjectSnapshot(
-                projectId,
-                projectDisplayName(currentDocument, documents),
-                Optional.empty(),
-                documents,
-                contents
-            ));
+            return projectSnapshot(appController, currentDocument);
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
                 throw mappingFailure(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID);
@@ -206,7 +189,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             final Object currentDocument = resolver.invoke(CURRENT_DOCUMENT, appController);
             return currentDocument == null
                 ? Optional.empty()
-                : Optional.of(document(currentDocument));
+                : Optional.of(document(currentDocument).snapshot());
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
                 throw mappingFailure(ProjectWorkspaceAdapter.DOCUMENT_CAPABILITY_ID);
@@ -215,6 +198,101 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         } catch (RuntimeException exception) {
             throw validationFailure(ProjectWorkspaceAdapter.DOCUMENT_CAPABILITY_ID);
         }
+    }
+
+    @Override
+    public ProjectWorkspaceAdapter.ActiveProjectDocument activeProjectAndDocument() {
+        final Object appController;
+        final Object currentDocument;
+        try {
+            appController = resolver.invokeStatic(APP_INSTANCE);
+            currentDocument = appController == null
+                ? null
+                : resolver.invoke(CURRENT_DOCUMENT, appController);
+        } catch (RuntimeException failure) {
+            return new ProjectWorkspaceAdapter.ActiveProjectDocument(
+                Optional.empty(), Optional.empty()
+            );
+        }
+        if (appController == null) {
+            return new ProjectWorkspaceAdapter.ActiveProjectDocument(
+                Optional.empty(), Optional.empty()
+            );
+        }
+        DocumentBuild activeBuild = null;
+        if (currentDocument != null) {
+            try {
+                activeBuild = document(currentDocument);
+            } catch (RuntimeException failure) {
+                activeBuild = null;
+            }
+        }
+        Optional<ProjectSnapshot> project;
+        try {
+            project = projectSnapshot(appController, currentDocument, activeBuild);
+        } catch (RuntimeException failure) {
+            project = Optional.empty();
+        }
+        return new ProjectWorkspaceAdapter.ActiveProjectDocument(
+            project,
+            Optional.ofNullable(activeBuild).map(DocumentBuild::snapshot)
+        );
+    }
+
+    private Optional<ProjectSnapshot> projectSnapshot(
+        final Object appController,
+        final Object currentDocument
+    ) {
+        return projectSnapshot(appController, currentDocument, null);
+    }
+
+    /**
+     * Builds the project snapshot from an already-resolved controller/current document. When the
+     * caller already built the current document's snapshot ({@code resolvedActive}) it is reused
+     * verbatim instead of resolving the same host document twice.
+     */
+    private Optional<ProjectSnapshot> projectSnapshot(
+        final Object appController,
+        final Object currentDocument,
+        final DocumentBuild resolvedActive
+    ) {
+        final Object project = resolver.invoke(CURRENT_PROJECT, appController);
+        if (project == null) return Optional.empty();
+        final String projectId = identities.idFor(project, "project");
+        final List<DocumentSnapshot> documents = new ArrayList<>();
+        DocumentBuild active = resolvedActive;
+        final Object rawDocuments = resolver.invoke(PROJECT_DOCUMENTS, project);
+        if (rawDocuments instanceof Iterable<?> iterable) {
+            for (Object document : iterable) {
+                if (document == null) continue;
+                final DocumentBuild build = document == currentDocument && resolvedActive != null
+                    ? resolvedActive
+                    : document(document);
+                documents.add(build.snapshot());
+                if (document == currentDocument) active = build;
+            }
+        }
+        if (currentDocument != null && active == null) {
+            active = document(currentDocument);
+        }
+        final DocumentBuild activeBuild = active;
+        if (activeBuild != null && documents.stream().noneMatch(existing ->
+            existing.documentId().equals(activeBuild.snapshot().documentId()))) {
+            documents.add(activeBuild.snapshot());
+        }
+        final List<ProjectContentSnapshot> contents = contents(
+            invokePublic(project, "getChildren").orElse(List.of()),
+            documents
+        );
+        if (documents.isEmpty() && contents.isEmpty()) return Optional.empty();
+        final File activeFile = activeBuild == null ? null : activeBuild.file();
+        return Optional.of(new ProjectSnapshot(
+            projectId,
+            projectDisplayName(activeFile, currentDocument != null, documents),
+            Optional.empty(),
+            documents,
+            contents
+        ));
     }
 
     @Override
@@ -254,11 +332,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     }
 
     private String projectDisplayName(
-        final Object currentDocument,
+        final File currentFile,
+        final boolean hasCurrentDocument,
         final List<DocumentSnapshot> documents
     ) {
-        if (currentDocument != null) {
-            final File currentFile = documentFile(currentDocument);
+        if (hasCurrentDocument) {
             return currentFile != null && !currentFile.getName().isBlank()
                 ? currentFile.getName()
                 : "Untitled";
@@ -266,16 +344,13 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         return documents.isEmpty() ? "Untitled" : documents.get(0).name();
     }
 
-    private List<DocumentSnapshot> documents(final Object rawDocuments) {
-        if (!(rawDocuments instanceof Iterable<?> iterable)) return List.of();
-        final List<DocumentSnapshot> documents = new ArrayList<>();
-        for (Object document : iterable) {
-            if (document != null) documents.add(document(document));
-        }
-        return List.copyOf(documents);
-    }
+    /**
+     * One document build result: the immutable snapshot plus the resolved backing file, carried
+     * so a caller that needs the file name does not resolve the document's file content twice.
+     */
+    private record DocumentBuild(DocumentSnapshot snapshot, File file) { }
 
-    private DocumentSnapshot document(final Object document) {
+    private DocumentBuild documentBuild(final Object document) {
         final DocumentKind kind = documentKind(document);
         final Object contentOwner;
         final File file;
@@ -312,7 +387,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             case IMAGE -> stringProperty(contentOwner, "getName").orElse(fallbackName);
             default -> fallbackName;
         };
-        return new DocumentSnapshot(
+        return new DocumentBuild(new DocumentSnapshot(
             documentId,
             displayName,
             "documents/" + documentId + "/" + safeSegment(fallbackName),
@@ -321,7 +396,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             kind,
             contentId,
             animation
-        );
+        ), file);
+    }
+
+    private DocumentBuild document(final Object document) {
+        return documentBuild(document);
     }
 
     private ModelSnapshot model(final Object modelingDocument, final String fallbackName) {
@@ -395,13 +474,28 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             new java.util.IdentityHashMap<>()
         );
         collectContents(iterable, contents, visited);
+        return joinDocumentIds(contents, documents);
+    }
+
+    /**
+     * Appends each document's id to the contents it belongs to, in document order, without
+     * duplicates — the same result the former per-content filter produced, in O(C+D).
+     */
+    static List<ProjectContentSnapshot> joinDocumentIds(
+        final List<ProjectContentSnapshot> contents,
+        final List<DocumentSnapshot> documents
+    ) {
+        final Map<String, List<String>> documentIdsByContentId = new java.util.HashMap<>();
+        for (DocumentSnapshot document : documents) {
+            document.contentId().ifPresent(contentId -> documentIdsByContentId
+                .computeIfAbsent(contentId, key -> new ArrayList<>())
+                .add(document.documentId()));
+        }
         return contents.stream().map(content -> {
             final List<String> documentIds = new ArrayList<>(content.documentIds());
-            documents.stream()
-                .filter(document -> document.contentId().filter(
-                    content.contentId()::equals
-                ).isPresent())
-                .map(DocumentSnapshot::documentId)
+            documentIdsByContentId
+                .getOrDefault(content.contentId(), List.of())
+                .stream()
                 .filter(id -> !documentIds.contains(id))
                 .forEach(documentIds::add);
             return new ProjectContentSnapshot(
@@ -529,15 +623,6 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         return ProjectContentKind.OTHER;
     }
 
-    private File documentFile(final Object document) {
-        if (document == null) return null;
-        if (documentKind(document) == DocumentKind.IMAGE) {
-            return imageSourceFile(invokePublic(document, "a").orElse(null));
-        }
-        final Object fileContent = resolver.invoke(DOCUMENT_FILE_CONTENT, document);
-        return fileContent == null ? null : asFile(resolver.invoke(FILE_CONTENT_FILE, fileContent));
-    }
-
     private File imageSourceFile(final Object source) {
         return invokePublic(source, "getPsdFile")
             .filter(File.class::isInstance)
@@ -560,7 +645,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     private Optional<Object> invokePublic(final Object target, final String methodName) {
         if (target == null) return Optional.empty();
         try {
-            final Method method = target.getClass().getMethod(methodName);
+            final Method method = MethodHandleCache.method(target.getClass(), methodName);
             return Optional.ofNullable(method.invoke(target));
         } catch (NoSuchMethodException | IllegalAccessException exception) {
             return Optional.empty();
@@ -595,9 +680,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     }
 
     private static String safeSegment(final String source) {
-        final String sanitized = source.replaceAll("[^A-Za-z0-9._-]", "-")
-            .replaceAll("-+", "-")
-            .replaceAll("^[-.]+|[-.]+$", "");
+        final String sanitized = SEGMENT_EDGES
+            .matcher(SEGMENT_DASHES
+                .matcher(SEGMENT_DISALLOWED.matcher(source).replaceAll("-"))
+                .replaceAll("-"))
+            .replaceAll("");
         return sanitized.isBlank() ? "unknown" : sanitized;
     }
 

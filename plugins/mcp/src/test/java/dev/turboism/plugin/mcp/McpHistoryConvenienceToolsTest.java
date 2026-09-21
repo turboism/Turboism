@@ -79,6 +79,30 @@ final class McpHistoryConvenienceToolsTest {
         final Map<String, Object> entryProperties = object(entrySchema.get("properties"));
         final Map<String, Object> detail = object(entryProperties.get("detail"));
         final Map<String, Object> detailProperties = object(detail.get("properties"));
+        final Map<String, Object> changes = object(detailProperties.get("changes"));
+        final Map<String, Object> changeSchema = object(changes.get("items"));
+        final Map<String, Object> changeProperties = object(changeSchema.get("properties"));
+        assertEquals(
+            java.util.Arrays.stream(dev.turboism.sdk.cubism.history.HistoryChange.Operation.values())
+                .map(operation -> operation.name())
+                .toList(),
+            object(changeProperties.get("operation")).get("enum")
+        );
+        assertTrue(((List<?>) changeSchema.get("required")).contains("relation"));
+        final Map<String, Object> relation = object(changeProperties.get("relation"));
+        assertEquals(List.of("object", "null"), relation.get("type"));
+        final Map<String, Object> relationProperties = object(relation.get("properties"));
+        assertEquals(
+            List.of("PART_MEMBERSHIP", "DEFORMER_PARENT"),
+            object(relationProperties.get("kind")).get("enum")
+        );
+        final Map<String, Object> endpointProperties =
+            object(object(relationProperties.get("before")).get("properties"));
+        assertEquals(
+            List.of("TARGET", "ROOT", "UNKNOWN"),
+            object(endpointProperties.get("state")).get("enum")
+        );
+        assertTrue(endpointProperties.containsKey("target"));
 
         assertEquals(false, detail.get("additionalProperties"));
         assertTrue(((List<?>) detail.get("required")).containsAll(List.of(

@@ -1,0 +1,16 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "ui-control-appearance",
+  "records": [
+    "cubism-5.2.03-ui-control-appearance.json",
+    "cubism-5.3.02-ui-control-appearance.json",
+    "cubism-5.3.03-ui-control-appearance.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/ControlAppearanceVerificationManifest.java"
+  ],
+  "coverage": true,
+  "packs": [],
+  "extraLiterals": [],
+  "coverageSources": []
+}

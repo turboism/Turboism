@@ -75,6 +75,7 @@ public interface WorkspaceService {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: calls that report outcomes complete with the structured unavailability result; and queries report empty results. */
     enum Unavailable implements WorkspaceService {
         INSTANCE;
 

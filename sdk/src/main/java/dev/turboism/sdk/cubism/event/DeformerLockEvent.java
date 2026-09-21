@@ -9,8 +9,10 @@ import java.util.Objects;
 public sealed interface DeformerLockEvent extends TurboismEvent
     permits DeformerLockEvent.Before, DeformerLockEvent.On, DeformerLockEvent.After {
 
+    /** Returns the detached Deformer projection participating in the operation. */
     Deformer deformer();
 
+    /** Synchronous state published before the host lock-state write. */
     final class Before implements DeformerLockEvent {
         private final Deformer deformer;
         private final boolean requestedLocked;
@@ -47,6 +49,7 @@ public sealed interface DeformerLockEvent extends TurboismEvent
         }
 
         @Override public Deformer deformer() { return deformer; }
+        /** Returns the lock-state value originally requested by the write call. */
         public boolean requestedLocked() { return requestedLocked; }
         /** Returns the candidate lock-state value that will be applied. */
         public boolean locked() { return locked; }
@@ -57,6 +60,7 @@ public sealed interface DeformerLockEvent extends TurboismEvent
             this.locked = locked;
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -99,11 +103,13 @@ public sealed interface DeformerLockEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful lock-state write that changed the value. */
     record On(Deformer deformer, boolean oldLocked, boolean newLocked)
         implements DeformerLockEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
+    /** State published after every successful lock-state write. */
     record After(Deformer deformer, boolean finalLocked) implements DeformerLockEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }

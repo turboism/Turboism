@@ -1,8 +1,8 @@
 package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.turboism.plugin.core.CubismJvmSettingsService.CubismJvm;
-import dev.turboism.plugin.core.CubismJvmSettingsService.ManagedRuntimeState;
+import dev.turboism.shell.CubismJvmSettingsService.CubismJvm;
+import dev.turboism.shell.CubismJvmSettingsService.ManagedRuntimeState;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -306,6 +306,9 @@ class RuntimeSettingsServiceTest {
         assertEquals("INFO", settings.logLevel());
         assertEquals(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB, settings.maxLogStorageMiB());
         assertFalse(settings.useTextIcon());
+        assertTrue(settings.skipStartupUpdateCheck());
+        assertTrue(settings.skipStartupSplash());
+        assertTrue(settings.skipStartupInformation());
     }
 
     @Test

@@ -13,12 +13,15 @@ public sealed interface ProjectFileLifecycleEvent extends TurboismEvent
             ProjectFileLifecycleEvent.On,
             ProjectFileLifecycleEvent.After {
 
+    /** Returns the project-file operation this lifecycle event describes. */
     ProjectFileOperation operation();
 
+    /** State published synchronously before the file operation proceeds. */
     record Before(ProjectFileOperation operation) implements ProjectFileLifecycleEvent {
         public Before { operation = Objects.requireNonNull(operation, "operation"); }
     }
 
+    /** State published when the operation completes with the affected project content. */
     record On(ProjectFileOperation operation, ProjectContentSnapshot content)
         implements ProjectFileLifecycleEvent {
         public On {
@@ -27,6 +30,7 @@ public sealed interface ProjectFileLifecycleEvent extends TurboismEvent
         }
     }
 
+    /** State published after the file operation resolved with {@code result}. */
     record After(ProjectFileOperationResult result) implements ProjectFileLifecycleEvent {
         public After { result = Objects.requireNonNull(result, "result"); }
         @Override public ProjectFileOperation operation() { return result.request(); }

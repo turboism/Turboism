@@ -5,7 +5,9 @@ import java.util.Objects;
 
 /** Immutable inspection output. Installation must revalidate package identity and extract link-aware. */
 public final class FrameworkInstallPlan {
+    /** The obligation an installer must honour before acting on this plan. */
     public enum Requirement {
+        /** The recorded bytes are an observation; package identity must be re-hashed at install time. */
         PREFLIGHT_REVALIDATION_REQUIRED
     }
 

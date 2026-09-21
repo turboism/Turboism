@@ -56,6 +56,7 @@ public interface PerformanceProbeService {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
     enum Unavailable implements PerformanceProbeService {
         INSTANCE;
 
