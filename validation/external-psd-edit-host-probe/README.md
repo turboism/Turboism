@@ -357,6 +357,22 @@ code-source SHA, and SAVE identity gates. The helper records the model blend/ver
 observation; when no reliable public SDK getter is available it records `UNAVAILABLE` rather
 than inferring the mode from the selected chooser option.
 
+The independent `f1` profile uses the reviewed `f1-2048-20layers.psd` source
+(2048×2048, 20 drawing layers; SHA-256
+`2473baeae7fc8942d8d2e0df72cf4567f57f8e3a9a37a924fc4d01034ababfeb`) and saves
+`prepared-f1.cmo3` under its own fixed WRITE grant. It selects the first chooser option, keeps
+the source snapshot/raw/document identity gate, then uses the exact reviewed ArtMesh row and
+public SDK `COPY`/`PASTE` commands. The F1 relation gate requires the old ModelImage/current
+raw/non-empty bindings to remain and requires both the original and one new ArtMesh to resolve
+to that old ModelImage; it deliberately does not require seven-layer leaf/binding equality or
+the seven-layer target-RGB hash. This is fixture preparation evidence only, not an F1 pipeline or
+performance PASS. If an exact row, SDK selection, command result, or relation cannot be proven,
+the helper returns `BLOCKED` without guessing.
+
+```bash
+bash scripts/preview/run-external-psd-fixture-preparation.sh --profile f1 --dry-run
+```
+
 ## Exact-host run (queued, serialized)
 
 ```bash
