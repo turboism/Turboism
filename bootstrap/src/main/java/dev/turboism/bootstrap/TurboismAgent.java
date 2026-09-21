@@ -26,7 +26,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
 import dev.turboism.adapter.cubism.editor.history.NativeEditBeginBridge;
 import dev.turboism.adapter.cubism.editor.history.VerifiedNativeEditBeginHookInstaller;
+import dev.turboism.adapter.cubism.integration.EditBridgeEnvironment;
 import dev.turboism.adapter.cubism.integration.EditProtocolBridge;
+import dev.turboism.adapter.cubism.integration.EditSocketWriter;
 import dev.turboism.adapter.cubism.integration.VerifiedEditApiDispatchInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
@@ -2029,10 +2031,10 @@ public final class TurboismAgent {
     /**
      * Installs the single edit-protocol interception point on the host dispatcher.
      *
-     * <p>Phase 1 of the 5.4-editing bridge is deliberately inert until a reviewed dispatch-entry
-     * selector lands in the verification record: {@code fromVerifiedResolver} throws then and the
-     * failure is absorbed, leaving every message on the native path. The injected prologue also
-     * degrades to native behaviour whenever the bridge is absent, disabled, or throws.</p>
+     * <p>The bridge answers the 36 official-1.1.0-compatible editing methods through the
+     * verified-selector environment (connection records, Phase-046 edit sessions, the approval
+     * dialog) while every other message keeps flowing through the native path — including when
+     * the reviewed selectors are absent, the bridge is disabled, or the receiver throws.</p>
      */
     private static void installEditApiDispatchHook(
         final PreviewRuntime runtime,
@@ -2046,7 +2048,20 @@ public final class TurboismAgent {
                 runtime.editorModelResolver(),
                 host.classLoader()
             );
-            final EditProtocolBridge bridge = new EditProtocolBridge();
+            final dev.turboism.sdk.cubism.edit.EditSessionService editSessions =
+                runtime.hostAccess().modelAccess()
+                    instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider provider
+                    ? provider.editSessions(
+                        "turboism.edit-api-bridge",
+                        () -> editApiActiveDocument(runtime))
+                    : dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
+            final EditProtocolBridge bridge = new EditProtocolBridge(
+                EditSocketWriter.reflective(),
+                EditBridgeEnvironment.production(
+                    runtime.editorModelResolver(),
+                    editSessions,
+                    () -> editApiActiveDocument(runtime),
+                    java.util.Optional::empty));
             if (!installer.install(bridge.receiver())) {
                 return;
             }
@@ -2070,6 +2085,24 @@ public final class TurboismAgent {
             runtimeWarn("Turboism edit-protocol dispatch hook disabled safely: "
                 + failure.getClass().getName());
         }
+    }
+
+    /**
+     * {@return the host's active-document identity for edit-session admission}
+     *
+     * <p>Mirrors {@code DefaultCubismServicesFactory.activeDocumentId}: empty whenever the
+     * workspace cannot report a document, which fails engine calls closed.</p>
+     */
+    private static java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId>
+        editApiActiveDocument(final PreviewRuntime runtime) {
+        final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter
+            .AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>> result =
+            runtime.hostAccess().adapters().projectWorkspace().activeDocument();
+        if (!result.isAvailable() || result.value().isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        return result.value().orElseThrow().map(
+            snapshot -> new dev.turboism.sdk.cubism.id.DocumentId(snapshot.documentId()));
     }
 
     /**
