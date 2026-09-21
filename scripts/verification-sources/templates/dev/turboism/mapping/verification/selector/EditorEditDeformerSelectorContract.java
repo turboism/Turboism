@@ -10,8 +10,8 @@ import java.util.Set;
  *
  * <p>Members are drawn from the verified object-hierarchy, object-write, and deformer-inspector
  * surfaces of the exact Cubism 5.2.03, 5.3.02, and 5.3.03 host artifacts. The capability ids are
- * declared ahead of their verification records; {@code authorizesFeature} rejects every row until
- * then.</p>
+ * bound on all three reviewed records; any member a record drops still fails the affected row
+ * closed.</p>
  *
  * <p>Open fields stay fail-closed: {@code AddWarpDeformer}'s {@code BezierDivH}/{@code
  * BezierDivV}, {@code ConsiderChildKeyforms}, and {@code SnapCenter}, and {@code

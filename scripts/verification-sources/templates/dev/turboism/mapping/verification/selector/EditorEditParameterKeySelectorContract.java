@@ -9,8 +9,8 @@ import java.util.Set;
  * {@code MoveParameterKey}, {@code GetParameterKeys}, and {@code GetObjectsByParameterKeys}.
  *
  * <p>Members are drawn from the verified keyform-grid and parameter-binding surface of the exact
- * Cubism 5.2.03, 5.3.02, and 5.3.03 host artifacts. The capability ids are declared ahead of
- * their verification records; {@code authorizesFeature} rejects every row until then.</p>
+ * Cubism 5.2.03, 5.3.02, and 5.3.03 host artifacts. The capability ids are bound on all three
+ * reviewed records; any member a record drops still fails the affected row closed.</p>
  */
 public final class EditorEditParameterKeySelectorContract {
 

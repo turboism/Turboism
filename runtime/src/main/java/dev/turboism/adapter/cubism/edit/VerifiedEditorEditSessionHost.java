@@ -228,11 +228,11 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
                 app
             );
             final Object window = resolver.invoke(
-                EditorEditSessionSelectorContract.SESSION_MAIN_WINDOW_ALIAS,
+                "cubism.editor-model.main-frame.main-window",
                 mainFrame
             );
             final Object jframe = resolver.invoke(
-                EditorEditSessionSelectorContract.SESSION_MAIN_WINDOW_JFRAME_ALIAS,
+                "cubism.editor-model.main-frame.jframe",
                 window
             );
             return Optional.ofNullable(jframe);

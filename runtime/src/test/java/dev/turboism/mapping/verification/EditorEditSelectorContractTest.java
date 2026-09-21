@@ -27,19 +27,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Admission guard for the ported external-application editing surface (spec 046, Phase 1).
  *
- * <p>Most of the thirty-six {@code cubism.editor-model.edit.*} capability rows are declared
- * ahead of their verification records, so {@link VerifiedMemberResolver#authorizesFeature} must
- * reject them on every supported host. The exceptions are the three selection rows (T5) and the
- * {@code GetObject} row (Phase 3b): their capability ids and members are bound on all three
- * exact artifacts, so resolvers admit them. This test pins both halves of that contract:</p>
+ * <p>All thirty-six {@code cubism.editor-model.edit.*} capability rows are bound on the three
+ * exact reviewed records: the selection rows (T5), the {@code GetObject} row (Phase 3b), and
+ * the remaining session, parameter-key, parameter-structure, part-object, and deformer rows
+ * (T7 record binding, including the {@code main-frame.main-window} / {@code main-frame.jframe}
+ * UI-lock chain). The {@code cubism.editor-model.undo.revert} row stays declared ahead of its
+ * records as the T6 placeholder. This test pins both halves of that contract:</p>
  *
  * <ul>
  *   <li>every declared member alias is bound by the committed records exactly where the
  *   feasibility matrix claims (READY rows are fully bound on all three versions; ADJACENT and
  *   field-restricted sets keep their documented unbound members), and</li>
- *   <li>real resolvers admitted against the exact 5.2.03 and 5.3.02 host artifacts reject the
- *   non-verified edit rows, admit the selection rows and {@code GetObject}, and still authorize
- *   a verified control capability.</li>
+ *   <li>real resolvers admitted against the exact 5.2.03 and 5.3.02 host artifacts admit every
+ *   bound edit row, still reject the unverified revert row, and authorize a verified control
+ *   capability.</li>
  * </ul>
  */
 final class EditorEditSelectorContractTest {
@@ -218,18 +219,14 @@ final class EditorEditSelectorContractTest {
     }
 
     /**
-     * The rows bound into every supported record: the three selection rows (T5) and the
-     * {@code GetObject} read row (Phase 3b bytecode verification).
+     * Every edit row is bound into every supported record: the three selection rows (T5), the
+     * {@code GetObject} read row (Phase 3b bytecode verification), and the remaining
+     * session/parameter-key/parameter-structure/part-object/deformer rows (T7 record binding).
      */
-    private static final Set<String> VERIFIED_ROWS = Set.of(
-        EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
-        EditorEditSelectionSelectorContract.ADD_SELECTED_OBJECTS_CAPABILITY_ID,
-        EditorEditSelectionSelectorContract.CLEAR_SELECTED_OBJECTS_CAPABILITY_ID,
-        EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID
-    );
+    private static final Set<String> VERIFIED_ROWS = EDIT_ROWS.keySet();
 
     @Test
-    void committedRecordsDeclareOnlyTheVerifiedEditRows() throws Exception {
+    void committedRecordsDeclareEveryEditRow() throws Exception {
         for (VersionCase version : VERSIONS) {
             final StaticVerificationRecord record = loadRecord(version);
             for (Map.Entry<String, Set<String>> row : EDIT_ROWS.entrySet()) {
@@ -239,6 +236,12 @@ final class EditorEditSelectorContractTest {
                     version.version() + " capability declaration mismatch for " + row.getKey()
                 );
             }
+            assertFalse(
+                record.capabilityIds().contains(
+                    EditorEditSessionSelectorContract.UNDO_REVERT_CAPABILITY_ID
+                ),
+                version.version() + " must keep the unverified revert row undeclared"
+            );
         }
     }
 
@@ -365,7 +368,7 @@ final class EditorEditSelectorContractTest {
     }
 
     @Test
-    void realResolversRejectUnverifiedRowsAndAdmitTheVerifiedOnes() throws Exception {
+    void realResolversAdmitEveryBoundRowAndRejectTheUnverifiedRevertRow() throws Exception {
         for (VersionCase version : VERSIONS) {
             if (version.artifactDir() == null) {
                 continue;
@@ -385,18 +388,19 @@ final class EditorEditSelectorContractTest {
                     row.getKey(),
                     row.getValue()
                 );
-                if (VERIFIED_ROWS.contains(row.getKey())) {
-                    assertTrue(
-                        admitted,
-                        version.version() + " must admit verified row " + row.getKey()
-                    );
-                } else {
-                    assertFalse(
-                        admitted,
-                        version.version() + " must reject unverified row " + row.getKey()
-                    );
-                }
+                assertTrue(
+                    admitted,
+                    version.version() + " must admit verified row " + row.getKey()
+                );
             }
+            assertFalse(
+                resolver.authorizesFeature(
+                    EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
+                    EditorEditSessionSelectorContract.UNDO_REVERT_CAPABILITY_ID,
+                    EditorEditSessionSelectorContract.UNDO_REVERT_REQUIRED_ALIASES
+                ),
+                version.version() + " must reject the unverified revert row"
+            );
             assertTrue(
                 resolver.authorizesFeature(
                     EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,

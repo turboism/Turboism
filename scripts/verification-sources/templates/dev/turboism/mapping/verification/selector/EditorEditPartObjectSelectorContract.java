@@ -11,8 +11,8 @@ import java.util.Set;
  *
  * <p>Members are drawn from the verified palette-structure, object read/write, inspector, and
  * object-hierarchy surfaces of the exact Cubism 5.2.03, 5.3.02, and 5.3.03 host artifacts. The
- * capability ids are declared ahead of their verification records; {@code authorizesFeature}
- * rejects every row until then.</p>
+ * capability ids are bound on all three reviewed records; any member a record drops still fails
+ * the affected row closed.</p>
  *
  * <p>Field-level restrictions from the feasibility matrix are expressed as separate sets:
  * members missing from the 5.2.03 record keep the extended set rejected on that version, and

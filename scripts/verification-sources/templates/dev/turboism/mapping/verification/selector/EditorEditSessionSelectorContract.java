@@ -11,9 +11,8 @@ import java.util.Set;
  *
  * <p>Every member below is declared with the precise owner internal name, member name, JVM
  * descriptor, and access flags observed on the exact Cubism 5.2.03, 5.3.02, and 5.3.03 host
- * artifacts. The capability ids in this contract are declared ahead of their verification
- * records: until a record lists them, {@code authorizesFeature} rejects every row and the edit
- * surface fails closed.</p>
+ * artifacts. The capability ids in this contract are bound on all three reviewed records; any
+ * member a record drops still fails the affected row closed.</p>
  */
 public final class EditorEditSessionSelectorContract {
 
@@ -76,9 +75,9 @@ public final class EditorEditSessionSelectorContract {
     /**
      * Main-window members the session UI lock needs to reach the {@code JFrame} it disables
      * while a session is open: {@code CEMainFrameCtrl.getMainFrame()} yields the {@code CFrame}
-     * wrapper and {@code CFrame.getJFrame()} the Swing window. Both members are declared ahead of
-     * their verification records — until they are bound on a host, admission keeps the session
-     * surface closed there.
+     * wrapper and {@code CFrame.getJFrame()} the Swing window. Both members are bound on all
+     * three reviewed records — a record that drops either keeps the session surface closed on
+     * that host.
      */
     public static final String SESSION_MAIN_WINDOW_ALIAS =
         "cubism.editor-model.main-frame.main-window";
