@@ -920,7 +920,7 @@ public final class OfficialPsdFixturePreparation {
 
     private ModelState awaitInitialModel(final InputIdentity input,
         final PreparationProfile profile, final long timeoutMillis) throws Exception {
-        final ModelState state = awaitModel(timeoutMillis, "model.beforeSave");
+        final ModelState state = awaitModel(input, timeoutMillis, "model.beforeSave");
         final EdtCall<InitialSourceObservation> call = invokeEdtBounded(
             () -> verifyInitialSourceOnEdt(input, state, profile),
             Math.min(EDT_CALL_TIMEOUT_MILLIS, timeoutMillis));
@@ -934,36 +934,65 @@ public final class OfficialPsdFixturePreparation {
         return source.state();
     }
 
-    private ModelState awaitModel(final long timeoutMillis) throws Exception {
-        return awaitModel(timeoutMillis, null);
-    }
-
-    private ModelState awaitModel(final long timeoutMillis, final String modePrefix)
-        throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+    private ModelState awaitModel(final InputIdentity input, final long timeoutMillis,
+        final String modePrefix) throws Exception {
         final AtomicReference<String> last = new AtomicReference<>("no model yet");
-        while (System.nanoTime() < deadline) {
-            checkStopped();
-            final EdtCall<CurrentModelObservation> call = invokeEdtBounded(() -> {
+        final CurrentModelObservation observation = awaitEdtObservation(timeoutMillis,
+            () -> checkStoppedAndTask(input), () -> {
+                checkStoppedAndTask(input);
                 try {
-                    final CurrentModelObservation observation = currentModelObservationOnEdt();
-                    if (modePrefix != null) recordModelBlendVersionMode(modePrefix,
-                        observation.model());
-                    return observation;
+                    final CurrentModelObservation current = currentModelObservationOnEdt();
+                    checkStoppedAndTask(input);
+                    return current;
                 } catch (RuntimeException unavailable) {
                     last.set(unavailable.getMessage() == null ? unavailable.toString()
                         : unavailable.getMessage());
                     return null;
                 }
-            }, EDT_CALL_TIMEOUT_MILLIS);
-            if (!call.completed()) throw new IllegalStateException("model readiness EDT timed out");
+            }, "new PSD model relation readiness timed out: ", last);
+        if (modePrefix != null) recordModelBlendVersionMode(modePrefix, observation.model());
+        return observation.state();
+    }
+
+    /** Shared total-budget coordinator for model readiness and its focused EDT regression seam. */
+    private static <T> T awaitEdtObservation(final long timeoutMillis,
+        final Runnable checkActive, final EdtOperation<T> operation,
+        final String timeoutPrefix, final AtomicReference<String> last) throws Exception {
+        if (timeoutMillis < 1L) throw new IllegalArgumentException(
+            "EDT observation timeout must be positive");
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (true) {
+            checkActive.run();
+            final long remainingNanos = deadline - System.nanoTime();
+            if (remainingNanos <= 0L) break;
+            final long remainingMillis = Math.max(1L,
+                TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+            final EdtCall<T> call = invokeEdtBounded(operation, remainingMillis);
+            if (!call.completed() || System.nanoTime() >= deadline) break;
             if (call.failure() != null) throw asException(call.failure());
-            if (call.value() != null) {
-                return call.value().state();
-            }
+            checkActive.run();
+            if (call.value() != null) return call.value();
             sleepPoll(deadline);
         }
-        throw new IllegalStateException("new PSD model relation readiness timed out: " + last.get());
+        throw new IllegalStateException(timeoutPrefix + last.get());
+    }
+
+    /** Package-private focused seam using the same total-budget EDT coordinator as awaitModel. */
+    static <T> T awaitEdtObservationForTest(final long timeoutMillis,
+        final BooleanSupplier stopped, final BooleanSupplier taskBound,
+        final Supplier<T> operation) throws Exception {
+        Objects.requireNonNull(stopped, "stopped");
+        Objects.requireNonNull(taskBound, "taskBound");
+        Objects.requireNonNull(operation, "operation");
+        final AtomicReference<String> last = new AtomicReference<>("no observation");
+        final Runnable checkActive = () -> {
+            if (stopped.getAsBoolean()) throw new IllegalStateException("stopped");
+            if (!taskBound.getAsBoolean()) throw new IllegalStateException("task-unbound");
+        };
+        return awaitEdtObservation(timeoutMillis, checkActive, () -> {
+            checkActive.run();
+            return operation.get();
+        }, "EDT observation timed out: ", last);
     }
 
     private ModelState currentModelOnEdt() {
@@ -1320,7 +1349,7 @@ public final class OfficialPsdFixturePreparation {
                 "SAVE_AS did not execute: " + saved.status());
             final ProjectFileLifecycleEvent.After after = events.awaitSave(
                 expectedContentId, execution.afterSequence(), 60_000L, stopped);
-            final ModelState current = awaitModel(30_000L, "model.afterSave");
+            final ModelState current = awaitModel(input, 30_000L, "model.afterSave");
             recordModelState("model.afterSave", current);
             if (!savedModelMatches(before, current, lastPathPart(input.savedCopyPath()))) {
                 throw new IllegalStateException(
@@ -1714,7 +1743,7 @@ public final class OfficialPsdFixturePreparation {
             Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining))));
     }
 
-    private <T> EdtCall<T> invokeEdtBounded(final EdtOperation<T> operation,
+    private static <T> EdtCall<T> invokeEdtBounded(final EdtOperation<T> operation,
         final long timeoutMillis) throws InterruptedException {
         if (SwingUtilities.isEventDispatchThread()) {
             try {
