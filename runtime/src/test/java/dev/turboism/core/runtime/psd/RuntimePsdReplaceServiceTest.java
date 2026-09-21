@@ -257,6 +257,35 @@ class RuntimePsdReplaceServiceTest {
     }
 
     @Test
+    void nativeReturnWithoutVerifiedIncomingRawLeavesRevisionAvailable() throws Exception {
+        final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
+        final AtomicInteger nativeCalls = new AtomicInteger();
+        final PsdReplaceHost host = (target, stage, admission) -> {
+            admission.run();
+            nativeCalls.incrementAndGet();
+            return new PsdReplaceHost.Replacement(
+                "NATIVE_RETURNED", true, true, false, false, true, Optional.empty(),
+                "Native returned but the affected model images did not prove the incoming raw."
+            );
+        };
+
+        final PsdReplaceResult first = await(fixture.service.replaceRawImagePsd(
+            host, TARGET, fixture.file, fixture.revision));
+        assertEquals(PsdReplaceResult.Status.PARTIAL_FAILURE, first.status());
+        assertTrue(first.consumedRevision().isEmpty());
+        assertTrue(first.diagnostic().contains("pause=automatic-import"));
+
+        // The same revision remains available for an explicitly controlled retry; the service
+        // must not turn a native return without incoming identity evidence into APPLIED.
+        final PsdReplaceResult retry = await(fixture.service.replaceRawImagePsd(
+            host, TARGET, fixture.file, fixture.revision));
+        assertEquals(PsdReplaceResult.Status.PARTIAL_FAILURE, retry.status());
+        assertTrue(retry.consumedRevision().isEmpty());
+        assertEquals(2, nativeCalls.get());
+        fixture.close();
+    }
+
+    @Test
     void aThrowingHostIsReportedAsPartialFailureNotAsSuccess() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final PsdReplaceResult result = await(fixture.service.replaceRawImagePsd(
