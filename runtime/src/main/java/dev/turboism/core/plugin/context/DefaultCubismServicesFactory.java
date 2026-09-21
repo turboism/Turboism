@@ -241,10 +241,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             history,
             authoringTransactions,
             dependencies.disposableScope(),
-            // Seal integration: once DisposableScope exposes isSealed() this becomes
-            // dependencies.disposableScope()::isSealed so atlas dispatch liveness also
-            // observes the lifecycle admission seal, not only scope disposal.
-            () -> false
+            dependencies.disposableScope()::isSealed
         );
         final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
             facade,
