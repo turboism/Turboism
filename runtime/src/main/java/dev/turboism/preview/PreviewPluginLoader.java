@@ -203,10 +203,21 @@ final class PreviewPluginLoader {
         final LoadResources resources,
         final PluginLifecycleLease lease
     ) throws Exception {
-        contextFactory.preflightEventContracts(candidate.descriptor());
-        resources.classLoader = new URLClassLoader(
+        // Contract visibility must exist before constructor/generated-subscriber
+        // inspection: bind the declared contract artifacts, preflight the declared event
+        // types against them, then create the plugin loader with contract delegation.
+        resources.contractLease = contextFactory.acquireEventContracts(
+            candidate.descriptor(),
+            candidate.jar()
+        );
+        contextFactory.preflightEventContracts(
+            candidate.descriptor(),
+            resources.contractLease
+        );
+        resources.classLoader = new PluginContractClassLoader(
             new URL[]{candidate.jar().toUri().toURL()},
-            resolvePluginParent(TurboismPlugin.class.getClassLoader())
+            resolvePluginParent(TurboismPlugin.class.getClassLoader()),
+            resources.contractLease
         );
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
 
@@ -217,7 +228,8 @@ final class PreviewPluginLoader {
         runtime.setEntrypoints(resources.entrypoints);
         resources.eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
             resources.entrypoints,
-            resources.classLoader
+            resources.classLoader,
+            resources.contractLease.delegates().values()
         );
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
@@ -524,6 +536,23 @@ final class PreviewPluginLoader {
             resources.loaderClosed = closeLoaderAfterFailure(
                 resources.classLoader, pluginId
             );
+            if (resources.loaderClosed && resources.contractLease != null) {
+                // When the plugin loader exists it owns the lease and released it on a
+                // successful close; this call only matters when construction never
+                // produced a loader, and the release is idempotent otherwise.
+                try {
+                    resources.contractLease.close();
+                } catch (java.io.IOException failure) {
+                    // Unproven contract release is unproven cleanup: retain the
+                    // generation rather than reporting a false successful disposal.
+                    resources.loaderClosed = false;
+                    log.error(
+                        pluginId,
+                        "Plugin event contract release after load failure failed safely",
+                        failure
+                    );
+                }
+            }
         }
         if (!(resources.scopeClosed && resources.loaderClosed) && !resources.retentionLogged) {
             resources.retentionLogged = true;
@@ -636,6 +665,7 @@ final class PreviewPluginLoader {
      */
     private static final class LoadResources {
         volatile URLClassLoader classLoader;
+        volatile dev.turboism.core.event.PublicEventContractCatalog.ContractLease contractLease;
         final List<TurboismPlugin> entrypoints = new ArrayList<>();
         List<EventSubscriberDescriptor> eventSubscribers = List.of();
         volatile DisposableScope scope;

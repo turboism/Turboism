@@ -740,6 +740,7 @@ tasks.register("checkIntegration") {
         "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
         ":bootstrap:checkBootstrapJarDependencyIsolation",
+        "contractParentAgentTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
 }

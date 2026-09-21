@@ -29,6 +29,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
     );
     private static final Set<String> V3_ALLOWED_FIELDS;
     private static final Set<String> V4_ALLOWED_FIELDS;
+    private static final Set<String> V5_ALLOWED_FIELDS;
     static {
         final Set<String> v3 = new java.util.HashSet<>(V2_ALLOWED_FIELDS);
         v3.add("category");
@@ -38,6 +39,9 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         v4.add("eventExports");
         v4.add("eventImports");
         V4_ALLOWED_FIELDS = Set.copyOf(v4);
+        final Set<String> v5 = new java.util.HashSet<>(V4_ALLOWED_FIELDS);
+        v5.add("eventContracts");
+        V5_ALLOWED_FIELDS = Set.copyOf(v5);
     }
     private static final int MAX_TAGS = 12;
     private static final int MIN_TOKEN_LENGTH = 2;
@@ -57,10 +61,17 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_EVENT_IMPORT_FIELDS = Set.of(
         "provider", "eventId", "contractVersion", "eventType", "abiSha256", "required"
     );
+    private static final Set<String> ALLOWED_EVENT_CONTRACT_FIELDS = Set.of(
+        "id", "version", "artifact", "sha256"
+    );
     private static final java.util.regex.Pattern EVENT_ID =
         java.util.regex.Pattern.compile("^[a-z][a-z0-9]*(?:[.-][a-z][a-z0-9-]*)*$");
     private static final java.util.regex.Pattern SHA256 =
         java.util.regex.Pattern.compile("^[0-9a-f]{64}$");
+    private static final java.util.regex.Pattern CONTRACT_ARTIFACT =
+        java.util.regex.Pattern.compile(
+            "^META-INF/turboism/contracts/[A-Za-z0-9][A-Za-z0-9._-]*\\.jar$"
+        );
     private static final Set<String> ALLOWED_DEPENDENCY_TYPES = Set.of("required", "optional");
     private static final Set<String> ALLOWED_DEPENDENCY_ORDERINGS = Set.of("none", "before", "after");
     private static final Set<String> ALLOWED_ENV_UI = Set.of("none", "swing", "embedded");
@@ -103,11 +114,17 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         return new PluginMetaValidator(4);
     }
 
-    /** Validator for the declared schema version; versions other than 2-4 fail closed. */
+    /** Schema v5 contract: v4 events plus embedded public event contract artifacts. */
+    public static PluginMetaValidator v5() {
+        return new PluginMetaValidator(5);
+    }
+
+    /** Validator for the declared schema version; versions other than 2-5 fail closed. */
     public static PluginMetaValidator forSchemaVersion(final int schemaVersion) {
         return switch (schemaVersion) {
             case 3 -> v3();
             case 4 -> v4();
+            case 5 -> v5();
             default -> new PluginMetaValidator();
         };
     }
@@ -118,6 +135,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
             "PLUGIN_META",
             schemaVersion,
             switch (schemaVersion) {
+                case 5 -> V5_ALLOWED_FIELDS;
                 case 4 -> V4_ALLOWED_FIELDS;
                 case 3 -> V3_ALLOWED_FIELDS;
                 default -> V2_ALLOWED_FIELDS;
@@ -162,8 +180,11 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         if (expectedSchemaVersion >= 3) {
             validateClassification(node, errors, source);
         }
-        if (expectedSchemaVersion == 4) {
+        if (expectedSchemaVersion >= 4) {
             validateEventContracts(node, errors, source);
+        }
+        if (expectedSchemaVersion >= 5) {
+            validateEventArtifacts(node, errors, source);
         }
         return errors;
     }
@@ -229,6 +250,89 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
     ) {
         validateEventExports(node, errors, source);
         validateEventImports(node, errors, source);
+    }
+
+    private void validateEventArtifacts(
+        final JsonNode node,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has("eventContracts")) {
+            return;
+        }
+        final JsonNode contracts = node.get("eventContracts");
+        if (!contracts.isArray()) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_CONTRACTS",
+                "eventContracts must be an array",
+                "eventContracts",
+                source
+            ));
+            return;
+        }
+        final Set<String> ids = new HashSet<>();
+        final Set<String> artifacts = new HashSet<>();
+        for (int index = 0; index < contracts.size(); index++) {
+            final JsonNode contract = contracts.get(index);
+            final String base = "eventContracts[" + index + "]";
+            if (!contract.isObject()) {
+                errors.add(error(
+                    "PLUGIN_META_BAD_EVENT_CONTRACT",
+                    "Event contract must be an object",
+                    base,
+                    source
+                ));
+                continue;
+            }
+            rejectUnknownFields(
+                contract,
+                ALLOWED_EVENT_CONTRACT_FIELDS,
+                "PLUGIN_META_UNKNOWN_EVENT_CONTRACT_FIELD",
+                base,
+                errors,
+                source
+            );
+            final String id = requiredEventId(contract, "id", base, errors, source);
+            requiredVersion(contract, "version", base, errors, source);
+            final String artifact = requiredArtifact(contract, "artifact", base, errors, source);
+            requiredSha256(contract, "sha256", base, errors, source);
+            if (id != null && !ids.add(id)) {
+                errors.add(error(
+                    "PLUGIN_META_DUPLICATE_EVENT_CONTRACT",
+                    "Event contract ids must be unique",
+                    base + ".id",
+                    source
+                ));
+            }
+            if (artifact != null && !artifacts.add(artifact)) {
+                errors.add(error(
+                    "PLUGIN_META_DUPLICATE_EVENT_CONTRACT",
+                    "Event contract artifact paths must be unique",
+                    base + ".artifact",
+                    source
+                ));
+            }
+        }
+    }
+
+    private String requiredArtifact(
+        final JsonNode node,
+        final String field,
+        final String base,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field) || !node.get(field).isTextual()
+            || !CONTRACT_ARTIFACT.matcher(node.get(field).asText()).matches()) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_CONTRACT_ARTIFACT",
+                field + " must be a JAR entry under META-INF/turboism/contracts/",
+                base + "." + field,
+                source
+            ));
+            return null;
+        }
+        return node.get(field).asText();
     }
 
     private void validateEventExports(
