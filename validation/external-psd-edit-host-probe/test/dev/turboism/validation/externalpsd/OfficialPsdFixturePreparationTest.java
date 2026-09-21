@@ -61,6 +61,7 @@ public final class OfficialPsdFixturePreparationTest {
         testF1CopyPasteAdmission();
         testWindowBindingAndChooserGate();
         testPreviewChooserGate();
+        testPreviewBeforeModelExists();
         testChooserCandidateRenderer();
         testInitialSourceGate();
         testPostSaveModelGate();
@@ -879,6 +880,21 @@ public final class OfficialPsdFixturePreparationTest {
             "wrong legacy label does not select");
         assertEquals(beforeLegacyClicked, legacyClicked.get(),
             "wrong legacy label does not click");
+    }
+
+    private static void testPreviewBeforeModelExists() {
+        final var facade = (dev.turboism.sdk.cubism.CubismFacade)
+            java.lang.reflect.Proxy.newProxyInstance(
+                OfficialPsdFixturePreparationTest.class.getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.CubismFacade.class},
+                (proxy, method, arguments) -> {
+                    if (method.getName().equals("activeDocument")
+                        || method.getName().equals("activeModel")) return java.util.Optional.empty();
+                    throw new AssertionError("preview must not ask for a required active model: "
+                        + method.getName());
+                });
+        assertFalse(OfficialPsdFixturePreparation.previewModelPresent(facade),
+            "absence before native model creation allows the preview chooser");
     }
 
     private static void testPreviewChooserGate() {

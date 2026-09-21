@@ -127,7 +127,6 @@ public final class OfficialPsdFixturePreparation {
     private static final long DEFAULT_TIMEOUT_MILLIS = 180_000L;
     private static final long EDT_CALL_TIMEOUT_MILLIS = 2_000L;
     private static final long SAVE_AS_EDT_CALL_TIMEOUT_MILLIS = 60_000L;
-    private static final long PREVIEW_OPTIONAL_PROBE_MILLIS = 2_000L;
     private static final long POLL_MILLIS = 150L;
     private static final String UNAVAILABLE = "unavailable";
     private static final String MODE_UNAVAILABLE = "UNAVAILABLE";
@@ -580,7 +579,9 @@ public final class OfficialPsdFixturePreparation {
      */
     private void chooseOptionalPreviewReduction(final HostAccess host,
         final InputIdentity input, final Window boundWindow, final long deadline) throws Exception {
-        final long probeDeadline = Math.min(deadline, deadlineAfter(PREVIEW_OPTIONAL_PROBE_MILLIS));
+        // The native importer runs asynchronously. An absent dialog at two seconds does
+        // not prove that it will not appear later; share the original chooser deadline.
+        final long probeDeadline = deadline;
         properties.setProperty("prepare.previewChooser.status", "WAITING_OPTIONAL");
         while (System.nanoTime() < probeDeadline) {
             checkStoppedAndTask(input);
@@ -588,7 +589,7 @@ public final class OfficialPsdFixturePreparation {
             final long remainingMillis = Math.max(1L,
                 TimeUnit.NANOSECONDS.toMillis(remainingNanos));
             final EdtCall<PreviewProbe> call = invokeEdtBounded(
-                () -> inspectAndChoosePreviewOnEdt(host, input, boundWindow, deadline,
+                () -> inspectAndChoosePreviewOnEdt(host, input, boundWindow,
                     probeDeadline), remainingMillis);
             if (!call.completed()) {
                 properties.setProperty("prepare.previewChooser.status", "TIMEOUT");
@@ -607,11 +608,11 @@ public final class OfficialPsdFixturePreparation {
             }
             sleepPoll(probeDeadline);
         }
-        recordPreviewAbsent("optional chooser was not visible");
+        throw new IllegalStateException("F1 model or optional preview chooser readiness timed out");
     }
 
     private PreviewProbe inspectAndChoosePreviewOnEdt(final HostAccess host,
-        final InputIdentity input, final Window boundWindow, final long deadline,
+        final InputIdentity input, final Window boundWindow,
         final long actionDeadline) throws Exception {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
             "preview chooser inspection must run on EDT");
@@ -688,8 +689,9 @@ public final class OfficialPsdFixturePreparation {
                 host.hostButton(), host.hostButtonSubclass(), host.action(), PREVIEW_RATIOS),
             targetIndex, targetOption,
             () -> previewWriteContextOpen(host, input, boundWindow, dialog, list,
-                confirmation, targetOption, targetIndex, actionDeadline, guardFailure),
-            () -> !stopped.getAsBoolean(), () -> isTaskBound(input),
+                confirmation, options, ratios, targetOption, targetIndex, actionDeadline,
+                guardFailure),
+            stopped, () -> isTaskBound(input),
             () -> System.nanoTime() < actionDeadline,
             new PreviewChooserGateActions() {
                 @Override public boolean select(final int index) {
@@ -721,7 +723,8 @@ public final class OfficialPsdFixturePreparation {
 
     private boolean previewWriteContextOpen(final HostAccess host, final InputIdentity input,
         final Window boundWindow, final Dialog dialog, final JList<?> list,
-        final AbstractButton confirmation, final Object targetOption, final int targetIndex,
+        final AbstractButton confirmation, final List<Object> options,
+        final List<Integer> ratios, final Object targetOption, final int targetIndex,
         final long deadline, final AtomicReference<String> guardFailure) {
         try {
             checkStoppedAndTask(input);
@@ -740,9 +743,15 @@ public final class OfficialPsdFixturePreparation {
             if (lists.size() != 1 || lists.get(0) != list
                 || list.getModel().getSize() != 4
                 || list.getModel().getElementAt(targetIndex) != targetOption) return false;
+            for (int index = 0; index < options.size(); index++) {
+                final Object option = list.getModel().getElementAt(index);
+                if (option != options.get(index) || option.getClass() != host.previewOption()
+                    || !ratios.get(index).equals(host.previewRatio().invoke(option))) return false;
+            }
             if (activeModelPresentOnEdt()) return false;
             final AbstractButton currentConfirmation = exactPreviewConfirmation(dialog, host);
-            if (currentConfirmation != confirmation) return false;
+            if (currentConfirmation != confirmation || !confirmation.isEnabled()
+                || !confirmation.isShowing() || !confirmation.isDisplayable()) return false;
             return true;
         } catch (Throwable failure) {
             guardFailure.set(summarize(failure));
@@ -753,8 +762,12 @@ public final class OfficialPsdFixturePreparation {
     private boolean activeModelPresentOnEdt() {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
             "active model observation must run on EDT");
-        return context.cubism().activeDocument().isPresent()
-            || context.cubism().model().active() != null;
+        return previewModelPresent(context.cubism());
+    }
+
+    static boolean previewModelPresent(final dev.turboism.sdk.cubism.CubismFacade facade) {
+        // model().active() throws when no model exists; absence is expected before this chooser.
+        return facade.activeDocument().isPresent() || facade.activeModel().isPresent();
     }
 
     private static String previewOptionLabel(final HostAccess host, final Object option)
@@ -804,12 +817,6 @@ public final class OfficialPsdFixturePreparation {
         properties.setProperty("prepare.previewChooser.selection", "NOT_ATTEMPTED");
         properties.setProperty("prepare.previewChooser.return", "NOT_PRESENT");
         properties.setProperty("prepare.previewChooser.reason", reason);
-    }
-
-    private static long deadlineAfter(final long millis) {
-        final long now = System.nanoTime();
-        final long nanos = TimeUnit.MILLISECONDS.toNanos(millis);
-        return Long.MAX_VALUE - now < nanos ? Long.MAX_VALUE : now + nanos;
     }
 
     private void recordChooserTimeout() {
