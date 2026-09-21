@@ -16,6 +16,7 @@ from pathlib import Path
 wrapper_source = Path(os.path.abspath(os.sys.argv[1]))
 env_source = Path(os.path.abspath(os.sys.argv[2]))
 fixture_sha = "8b760eb0b6ac5839271210aa0efc681f6a02a6537c1ab97d40a3a56879d8f02c"
+f1_fixture_sha = "2473baeae7fc8942d8d2e0df72cf4567f57f8e3a9a37a924fc4d01034ababfeb"
 rgb_sha = "12eca5a1c8d8b9096384c974d52e8f0310c4ad9ac4ea87a072684096cf2b808d"
 
 
@@ -34,11 +35,14 @@ with tempfile.TemporaryDirectory(prefix="official-psd-preparation-argv-") as tem
     dev = sandbox / "scripts" / "dev"
     stub_bin = sandbox / "stub-bin"
     fixture = sandbox / "build" / "host-validation" / "025-negative-source" / "queue-81a9c6c0640c4e39a4012fe5dd486b44" / "native-seven-layer.psd"
+    f1_fixture = sandbox / "build" / "host-validation" / "025-f1-source" / "native-writer-2048-20" / "f1-2048-20layers.psd"
     preview.mkdir(parents=True)
     dev.mkdir(parents=True)
     stub_bin.mkdir()
     fixture.parent.mkdir(parents=True)
+    f1_fixture.parent.mkdir(parents=True)
     fixture.write_bytes(b"offline argv fixture placeholder")
+    f1_fixture.write_bytes(b"offline f1 argv fixture placeholder")
 
     shutil.copy2(wrapper_source, preview / wrapper_source.name)
     shutil.copy2(env_source, preview / env_source.name)
@@ -58,7 +62,10 @@ exec /bin/bash "$@"
 """)
     executable(stub_bin / "sha256sum", f"""#!/bin/sh
 set -eu
-printf '%s  %s\\n' '{fixture_sha}' "${{2:-$1}}"
+case "${{2:-$1}}" in
+  *f1-2048-20layers.psd) printf '%s  %s\\n' '{f1_fixture_sha}' "${{2:-$1}}" ;;
+  *) printf '%s  %s\\n' '{fixture_sha}' "${{2:-$1}}" ;;
+esac
 """)
 
     capture = sandbox / "runner.argv"
@@ -130,6 +137,16 @@ printf '%s  %s\\n' '{fixture_sha}' "${{2:-$1}}"
     assert "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/prepared-control-legacy.cmo3" in legacy_jvm, legacy_jvm
     assert "-Dturboism.preview.userFileFixedGrant={HOME}/prepared-control-legacy.cmo3" in legacy_jvm, legacy_jvm
     assert "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/prepared-control.cmo3" not in legacy_jvm, legacy_jvm
+
+    f1 = run_wrapper("--profile", "f1", "--dry-run")
+    assert option_values(f1, "--fixture-name") == ["f1-2048-20layers.psd"], f1
+    assert option_values(f1, "--fixture-sha256") == [f1_fixture_sha], f1
+    f1_jvm = option_values(f1, "--jvm-option")
+    assert "-Dturboism.validation.externalpsd.prepare.profile=f1" in f1_jvm, f1_jvm
+    assert "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/prepared-f1.cmo3" in f1_jvm, f1_jvm
+    assert "-Dturboism.preview.userFileFixedGrant={HOME}/prepared-f1.cmo3" in f1_jvm, f1_jvm
+    assert all("targetRgbSha256" not in value for value in f1_jvm), f1_jvm
+    assert "--require-fixture-unchanged" in f1, f1
 
     invalid = subprocess.run(
         ["/bin/bash", str(preview / wrapper_source.name), "--profile", "unknown"],

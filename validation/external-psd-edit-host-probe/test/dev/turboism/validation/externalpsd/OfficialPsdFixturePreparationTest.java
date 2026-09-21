@@ -2,6 +2,7 @@ package dev.turboism.validation.externalpsd;
 
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
+import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
@@ -14,6 +15,8 @@ import dev.turboism.sdk.cubism.id.RawLayerId;
 import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageRelation;
 import dev.turboism.sdk.cubism.model.RawLayerBinding;
+import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
+import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 
@@ -50,6 +53,8 @@ public final class OfficialPsdFixturePreparationTest {
         testInputBindingAndPsdPolicy();
         testPreparationNamespaceIsolation();
         testRelationGate();
+        testF1SourceAndSharingGate();
+        testF1CopyPasteAdmission();
         testWindowBindingAndChooserGate();
         testChooserCandidateRenderer();
         testInitialSourceGate();
@@ -115,6 +120,32 @@ public final class OfficialPsdFixturePreparationTest {
         expectReject("fixture traversal", () -> OfficialPsdFixturePreparation.validateInputForTest(
             "C:\\task\\..\\outside.psd", PSD_SHA, "outside.psd", input.runId(), input.taskId(),
             input.savedCopyPath(), RGB_SHA, "5.3.02", 30_000L));
+
+        final OfficialPsdFixturePreparation.InputIdentity f1 =
+            OfficialPsdFixturePreparation.validateInputForProfileForTest(
+                "C:\\task\\f1-2048-20layers.psd",
+                OfficialPsdFixturePreparation.F1_FIXTURE_SHA256,
+                OfficialPsdFixturePreparation.F1_FIXTURE_NAME,
+                "queue-f1", "queue-f1", "C:\\task\\home\\prepared-f1.cmo3", "",
+                "5.3.02", 30_000L, "f1");
+        assertEquals(OfficialPsdFixturePreparation.F1_SAVED_COPY_BASENAME,
+            OfficialPsdFixturePreparation.profileSavedCopyBasenameForTest("f1"),
+            "F1 output basename is independent");
+        assertEquals("CUB3-0418", OfficialPsdFixturePreparation.profileKeyForTest("f1"),
+            "F1 initializes the official first chooser option");
+        assertEquals(0, OfficialPsdFixturePreparation.profileChooserIndexForTest("f1"),
+            "F1 chooser index is the first new-model option");
+        assertEquals("", f1.targetRgbSha256(), "F1 has no seven-layer RGB admission");
+        expectReject("F1 cannot accept seven-layer RGB target", () ->
+            OfficialPsdFixturePreparation.validateInputForProfileForTest(
+                f1.fixturePath(), OfficialPsdFixturePreparation.F1_FIXTURE_SHA256,
+                f1.fixtureName(), f1.runId(), f1.taskId(), f1.savedCopyPath(), RGB_SHA,
+                "5.3.02", 30_000L, "f1"));
+        expectReject("F1 wrong fixed source name", () ->
+            OfficialPsdFixturePreparation.validateInputForProfileForTest(
+                "C:\\task\\other.psd", OfficialPsdFixturePreparation.F1_FIXTURE_SHA256,
+                "other.psd", f1.runId(), f1.taskId(), f1.savedCopyPath(), "", "5.3.02",
+                30_000L, "f1"));
     }
 
     private static void testPreparationNamespaceIsolation() {
@@ -180,6 +211,188 @@ public final class OfficialPsdFixturePreparationTest {
         values.setProperty(OfficialPsdFixturePreparation.SAVED_COPY_PROPERTY,
             "C:\\task\\home\\prepared-control-legacy.cmo3");
         return values;
+    }
+
+    private static void testF1SourceAndSharingGate() {
+        final TextureRelationsSnapshot beforeRelations = f1Relations(false);
+        final var beforeIdentity = OfficialPsdFixturePreparation.validateRelationSnapshot(
+            "document-f1", "model-f1", beforeRelations);
+        final var before = new OfficialPsdFixturePreparation.ModelState(
+            "document-f1", Optional.empty(), "documents/document-session-1/untitled",
+            "model-f1", beforeIdentity);
+        final var fresh = new OfficialPsdFixturePreparation.ModelState(
+            "document-f1", Optional.empty(), "documents/document-session-1/untitled",
+            "model-f1", beforeIdentity);
+        final PsdClipMaskDocumentSnapshot source = new PsdClipMaskDocumentSnapshot(
+            "raw-f1", "imports/f1-2048-20layers.psd",
+            List.of(new PsdLayerSnapshot("layer-a", "Duplicate", true),
+                new PsdLayerSnapshot("layer-b", "Duplicate", false)));
+        final var sourceIdentity = OfficialPsdFixturePreparation.validateInitialSourceGate(
+            before, fresh, beforeRelations, List.of(source),
+            OfficialPsdFixturePreparation.F1_FIXTURE_NAME, false);
+        assertEquals("raw-f1", sourceIdentity.rawId(), "F1 source raw GUID is verified");
+        assertEquals(List.of("layer-a", "layer-b"), sourceIdentity.leafLayerIds(),
+            "F1 records source leaves without equating them to raw bindings");
+        expectReject("F1 wrong source basename", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, beforeRelations,
+                List.of(new PsdClipMaskDocumentSnapshot("raw-f1", "imports/other.psd",
+                    source.layers())), OfficialPsdFixturePreparation.F1_FIXTURE_NAME, false));
+        expectReject("F1 wrong source raw GUID", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, beforeRelations,
+                List.of(new PsdClipMaskDocumentSnapshot("raw-other",
+                    "imports/f1-2048-20layers.psd", source.layers())),
+                OfficialPsdFixturePreparation.F1_FIXTURE_NAME, false));
+        expectReject("F1 changed document/model/relation identity", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, new OfficialPsdFixturePreparation.ModelState(
+                    "document-f1", Optional.empty(), "documents/document-session-1/untitled",
+                    "model-f1", new OfficialPsdFixturePreparation.RelationIdentity(
+                        beforeIdentity.documentId(), beforeIdentity.modelId(), beforeIdentity.binding(),
+                        beforeIdentity.generation() + 1, beforeIdentity.modelImageIds(),
+                        beforeIdentity.currentRawIds(), beforeIdentity.linkedRawIds(),
+                        beforeIdentity.rawLayerBindings())), beforeRelations, List.of(source),
+                OfficialPsdFixturePreparation.F1_FIXTURE_NAME, false));
+        expectReject("seven-layer leaf equality remains explicit", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, beforeRelations, List.of(source),
+                OfficialPsdFixturePreparation.F1_FIXTURE_NAME, true));
+
+        final var sharing = OfficialPsdFixturePreparation.validateF1SharedRelation(
+            beforeRelations, f1Relations(true), "f1-model-image", "raw-f1", "mesh-old");
+        assertEquals("mesh-new", sharing.copiedArtMeshId(),
+            "F1 relation gate identifies the new pasted ArtMesh");
+        assertEquals(List.of("mesh-old", "mesh-new"), sharing.usingArtMeshIds(),
+            "F1 old ModelImage retains both old and new ArtMesh IDs");
+        expectReject("F1 no new ArtMesh", () -> OfficialPsdFixturePreparation
+            .validateF1SharedRelation(beforeRelations, beforeRelations,
+                "f1-model-image", "raw-f1", "mesh-old"));
+        expectReject("F1 wrong post-paste raw", () -> OfficialPsdFixturePreparation
+            .validateF1SharedRelation(beforeRelations, f1RelationsWithRaw("raw-other"),
+                "f1-model-image", "raw-f1", "mesh-old"));
+        expectReject("F1 missing new ArtMesh binding", () -> OfficialPsdFixturePreparation
+            .validateF1SharedRelation(beforeRelations, f1RelationsWithoutNewInput(),
+                "f1-model-image", "raw-f1", "mesh-old"));
+    }
+
+    private static void testF1CopyPasteAdmission() {
+        final var identity = OfficialPsdFixturePreparation.validateRelationSnapshot(
+            "document-f1", "model-f1", f1Relations(false));
+        final var expected = new OfficialPsdFixturePreparation.ModelState(
+            "document-f1", Optional.empty(), "documents/document-session-1/untitled",
+            "model-f1", identity);
+        final Object window = new Object();
+        final AtomicInteger leftClicks = new AtomicInteger();
+        final AtomicInteger copies = new AtomicInteger();
+        final AtomicInteger pastes = new AtomicInteger();
+        final var validActions = f1Actions(leftClicks, copies, pastes,
+            new OfficialPsdFixturePreparation.F1SelectionObservation(
+                List.of("mesh-old"), Optional.of("mesh-old")), false);
+        final java.util.concurrent.atomic.AtomicReference<OfficialPsdFixturePreparation.F1CopyPasteResult>
+            result = new java.util.concurrent.atomic.AtomicReference<>();
+        onEdt(() -> result.set(OfficialPsdFixturePreparation.executeF1CopyPasteOnEdt(
+            expected, "mesh-old", window, () -> window, () -> expected,
+            () -> false, () -> true, validActions)));
+        assertTrue(result.get().accepted(), "valid F1 COPY/PASTE admission succeeds");
+        assertEquals(1, leftClicks.get(), "valid F1 selection click occurs once");
+        assertEquals(1, copies.get(), "valid F1 COPY occurs once");
+        assertEquals(1, pastes.get(), "valid F1 PASTE occurs once");
+
+        assertF1AdmissionRejected("F1 stopped before selection", expected, window,
+            f1Actions(leftClicks, copies, pastes,
+                new OfficialPsdFixturePreparation.F1SelectionObservation(
+                    List.of("mesh-old"), Optional.of("mesh-old")), false),
+            () -> true, () -> true, leftClicks, copies, pastes);
+        assertF1AdmissionRejected("F1 changed window", expected, window,
+            f1Actions(leftClicks, copies, pastes,
+                new OfficialPsdFixturePreparation.F1SelectionObservation(
+                    List.of("mesh-old"), Optional.of("mesh-old")), false),
+            () -> false, () -> true, leftClicks, copies, pastes, new Object());
+        assertF1AdmissionRejected("F1 wrong SDK selection", expected, window,
+            f1Actions(leftClicks, copies, pastes,
+                new OfficialPsdFixturePreparation.F1SelectionObservation(
+                    List.of("mesh-other"), Optional.of("mesh-other")), false),
+            () -> false, () -> true, leftClicks, copies, pastes);
+        assertF1AdmissionRejected("F1 unknown PASTE dialog", expected, window,
+            f1Actions(leftClicks, copies, pastes,
+                new OfficialPsdFixturePreparation.F1SelectionObservation(
+                    List.of("mesh-old"), Optional.of("mesh-old")), true),
+            () -> false, () -> true, leftClicks, copies, pastes);
+    }
+
+    private static void assertF1AdmissionRejected(final String description,
+        final OfficialPsdFixturePreparation.ModelState expected, final Object window,
+        final OfficialPsdFixturePreparation.F1CopyPasteActions actions,
+        final java.util.function.BooleanSupplier stopped,
+        final java.util.function.BooleanSupplier taskBound,
+        final AtomicInteger leftClicks, final AtomicInteger copies, final AtomicInteger pastes) {
+        assertF1AdmissionRejected(description, expected, window, actions, stopped, taskBound,
+            leftClicks, copies, pastes, window);
+    }
+
+    private static void assertF1AdmissionRejected(final String description,
+        final OfficialPsdFixturePreparation.ModelState expected, final Object window,
+        final OfficialPsdFixturePreparation.F1CopyPasteActions actions,
+        final java.util.function.BooleanSupplier stopped,
+        final java.util.function.BooleanSupplier taskBound,
+        final AtomicInteger leftClicks, final AtomicInteger copies, final AtomicInteger pastes,
+        final Object observedWindow) {
+        final int leftBefore = leftClicks.get();
+        final int copyBefore = copies.get();
+        final int pasteBefore = pastes.get();
+        final var result = new java.util.concurrent.atomic.AtomicReference<
+            OfficialPsdFixturePreparation.F1CopyPasteResult>();
+        onEdt(() -> result.set(OfficialPsdFixturePreparation.executeF1CopyPasteOnEdt(
+            expected, "mesh-old", window, () -> observedWindow, () -> expected,
+            stopped, taskBound, actions)));
+        assertFalse(result.get().accepted(), description + " is rejected");
+        if (result.get().diagnostic().contains("unknown visible dialog")) {
+            assertEquals(leftBefore + 1, leftClicks.get(), description + " records its one UI selection");
+            assertEquals(copyBefore + 1, copies.get(), description + " reaches COPY before dialog rejection");
+            assertEquals(pasteBefore + 1, pastes.get(), description + " reaches PASTE before dialog rejection");
+        } else if (result.get().diagnostic().contains("selection")) {
+            assertEquals(leftBefore + 1, leftClicks.get(), description + " performs the reviewed left click");
+            assertEquals(copyBefore, copies.get(), description + " does not COPY");
+            assertEquals(pasteBefore, pastes.get(), description + " does not PASTE");
+        } else if (result.get().diagnostic().contains("post-PASTE")) {
+            assertEquals(leftBefore + 1, leftClicks.get(), description + " records its one UI selection");
+            assertEquals(copyBefore + 1, copies.get(), description + " reaches COPY");
+            assertEquals(pasteBefore + 1, pastes.get(), description + " reaches PASTE");
+        } else {
+            assertEquals(leftBefore, leftClicks.get(), description + " does not click on pre-action rejection");
+            assertEquals(copyBefore, copies.get(), description + " does not COPY");
+            assertEquals(pasteBefore, pastes.get(), description + " does not PASTE");
+        }
+    }
+
+    private static OfficialPsdFixturePreparation.F1CopyPasteActions f1Actions(
+        final AtomicInteger leftClicks, final AtomicInteger copies, final AtomicInteger pastes,
+        final OfficialPsdFixturePreparation.F1SelectionObservation selection,
+        final boolean unknownDialog) {
+        return new OfficialPsdFixturePreparation.F1CopyPasteActions() {
+            @Override public void leftClick() { leftClicks.incrementAndGet(); }
+            @Override public OfficialPsdFixturePreparation.F1SelectionObservation selection() {
+                return selection;
+            }
+            @Override public EditorCommandResult copy() {
+                copies.incrementAndGet();
+                return new EditorCommandResult(EditorCommandResult.Status.EXECUTED, "copy");
+            }
+            @Override public EditorCommandResult paste() {
+                pastes.incrementAndGet();
+                return new EditorCommandResult(EditorCommandResult.Status.EXECUTED, "paste");
+            }
+            @Override public boolean unknownVisibleDialog() { return unknownDialog; }
+        };
+    }
+
+    private static void onEdt(final Runnable operation) {
+        try {
+            SwingUtilities.invokeAndWait(operation);
+        } catch (Exception failure) {
+            throw new AssertionError("EDT focused seam failed", failure);
+        }
     }
 
     private static void testRelationGate() {
@@ -849,6 +1062,47 @@ public final class OfficialPsdFixturePreparationTest {
             bindings ? Map.of(raw, List.of(binding)) : Map.of(), List.of(new ArtMeshId("mesh")));
         return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
             "binding", 4L, 1L, List.of(), List.of(image), List.of(), List.of());
+    }
+
+    private static TextureRelationsSnapshot f1Relations(final boolean pasted) {
+        return f1RelationsWithRaw("raw-f1", pasted);
+    }
+
+    private static TextureRelationsSnapshot f1RelationsWithRaw(final String rawId) {
+        return f1RelationsWithRaw(rawId, true);
+    }
+
+    private static TextureRelationsSnapshot f1RelationsWithRaw(final String rawId,
+        final boolean pasted) {
+        final RawImageId raw = new RawImageId(rawId);
+        final RawLayerBinding binding = new RawLayerBinding(raw, new RawLayerId("raw-binding"), 0,
+            RawLayerBinding.DetailAvailability.AVAILABLE,
+            RawLayerBinding.DetailAvailability.AVAILABLE);
+        final ModelImageId modelImage = new ModelImageId("f1-model-image");
+        final List<ArtMeshId> meshes = pasted
+            ? List.of(new ArtMeshId("mesh-old"), new ArtMeshId("mesh-new"))
+            : List.of(new ArtMeshId("mesh-old"));
+        final ModelImageRelation image = new ModelImageRelation(
+            modelImage, new Entry(), List.of(raw), Optional.of(raw),
+            Map.of(raw, List.of(binding)), meshes);
+        final List<ArtMeshTextureInputs> inputs = new java.util.ArrayList<>();
+        inputs.add(new ArtMeshTextureInputs(new ArtMeshId("mesh-old"),
+            List.of(TextureInputBinding.modelImage(modelImage)), java.util.OptionalInt.of(0)));
+        if (pasted) {
+            inputs.add(new ArtMeshTextureInputs(new ArtMeshId("mesh-new"),
+                List.of(TextureInputBinding.modelImage(modelImage)), java.util.OptionalInt.of(0)));
+        }
+        return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
+            "f1-binding", pasted ? 8L : 7L, 1L, List.of(), List.of(image), List.of(), inputs);
+    }
+
+    private static TextureRelationsSnapshot f1RelationsWithoutNewInput() {
+        final TextureRelationsSnapshot valid = f1Relations(true);
+        final ModelImageRelation image = valid.modelImages().get(0);
+        final ArtMeshTextureInputs old = valid.artMeshInputs().get(0);
+        return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
+            valid.binding(), valid.generation(), valid.revision(), valid.rawImages(),
+            List.of(image), valid.modelImageGroups(), List.of(old));
     }
 
     private static TextureRelationsSnapshot multiRawRelations() {
