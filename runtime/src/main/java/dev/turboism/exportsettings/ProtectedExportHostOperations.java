@@ -268,6 +268,48 @@ public interface ProtectedExportHostOperations {
     String deformerTargetGuid(Object deformerSource);
 
     // ------------------------------------------------------------------
+    // Constant-deformation bake (unbound deformers)
+    // ------------------------------------------------------------------
+
+    /**
+     * Direct children of a deformer source — every controllable source whose
+     * target deformer is this one ({@code ACDeformerSource.getDeformerChildren}).
+     * Drawables and nested deformers alike; empty for a childless deformer.
+     */
+    List<?> deformerChildren(Object deformerSource);
+
+    /**
+     * The deformer's own local-to-canvas transform functor evaluated on the
+     * copy's live model instance
+     * ({@code CModel.getDeformerTransform(guid).createLocalToCanvasTransform()}).
+     * It carries only this deformer's evaluated form — parent-chain deformation
+     * is not composed in. {@code null} when the instance or deformer is missing.
+     */
+    Object deformerLocalToCanvasTransform(Object modelInstance, Object deformerSource);
+
+    /**
+     * Applies a transform functor to xy position pairs, writing into a fresh
+     * destination array ({@code transform.transform(src, dst)}). The receiver is
+     * the functor returned by {@link #deformerLocalToCanvasTransform}.
+     */
+    float[] transformPositions(Object localToCanvasTransform, float[] positions);
+
+    /** Authored base vertex positions (xy pairs) of an ArtMesh source. */
+    float[] artMeshSourcePositions(Object artMeshSource);
+
+    /** Rewrites an ArtMesh source's authored base vertex positions. */
+    void setArtMeshSourcePositions(Object artMeshSource, float[] positions);
+
+    /** Keyform list of an ArtMesh source (each entry a {@code CArtMeshForm}). */
+    List<?> artMeshSourceKeyforms(Object artMeshSource);
+
+    /** Vertex positions held by an ArtMesh keyform. */
+    float[] artMeshFormPositions(Object artMeshForm);
+
+    /** Rewrites an ArtMesh keyform's vertex positions. */
+    void setArtMeshFormPositions(Object artMeshForm, float[] positions);
+
+    // ------------------------------------------------------------------
     // Extended-interpolation eligibility gate
     // ------------------------------------------------------------------
 

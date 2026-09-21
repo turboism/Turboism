@@ -2724,6 +2724,166 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.art_mesh_form_set_positions",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-form.set-positions",
+      "runtime": "setPositions",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "([F)V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.art_mesh_source_keyforms",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-source.keyforms",
+      "runtime": "getKeyforms",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/type/CArrayList;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.art_mesh_source_positions",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-source.positions",
+      "runtime": "getPositions",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()[F",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.art_mesh_source_set_positions",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.art-mesh-source.set-positions",
+      "runtime": "setPositions",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "([F)V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.deformer_source_children",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.deformer-source.children",
+      "runtime": "getDeformerChildren",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_deformer_transform",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model.deformer-transform",
+      "runtime": "getDeformerTransform",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "(Lcom/live2d/type/CDeformerGuid;)Lcom/live2d/doc/selection/ITransformBetweenLocalAndCanvas;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.transform_apply_array",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.transform.apply-array",
+      "runtime": "transform",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "([F[F)[F",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/doc/selection/d",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.transform_create_local_to_canvas",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.transform.create-local-to-canvas",
+      "runtime": "createLocalToCanvasTransform",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/doc/selection/d;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/doc/selection/ITransformBetweenLocalAndCanvas",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
     }
   ]
 }

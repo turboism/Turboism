@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocLoader;
+import dev.turboism.sdk.cubism.core.OwnedCanvasInfo;
 import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.OwnedModel;
 
@@ -484,6 +485,10 @@ public final class ProtectedExportStaging {
         }
         float worst = 0f;
         String worstDrawable = null;
+        int worstIndex = -1;
+        float worstExpected = 0f;
+        float worstActual = 0f;
+        int driftedTotal = 0;
         for (Map.Entry<String, float[]> entry : expected.entrySet()) {
             final float[] expectedPositions = entry.getValue();
             // A corrupt snapshot frame is a rejection even when the drawable
@@ -526,13 +531,24 @@ public final class ProtectedExportStaging {
                 if (delta > worst) {
                     worst = delta;
                     worstDrawable = entry.getKey();
+                    worstIndex = i;
+                    worstExpected = expectedPositions[i];
+                    worstActual = actualValue;
+                    driftedTotal++;
                 }
             }
         }
         if (worst > BEHAVIOR_TOLERANCE) {
+            final OwnedCanvasInfo canvas = model.canvasInfo();
             return new MocFailure(
                 "protected-export.moc3-behavior-drift",
-                label + " drawable=" + worstDrawable + " maxDelta=" + worst);
+                label + " drawable=" + worstDrawable + " index=" + worstIndex
+                    + " expected=" + worstExpected + " actual=" + worstActual
+                    + " delta=" + worst + " drifted=" + driftedTotal
+                    + " canvas=" + canvas.widthPixels() + "x"
+                    + canvas.heightPixels() + " origin=("
+                    + canvas.originXPixels() + "," + canvas.originYPixels()
+                    + ") ppu=" + canvas.pixelsPerUnit());
         }
         return null;
     }
@@ -607,12 +623,32 @@ public final class ProtectedExportStaging {
                     + actual.length + "!=" + expected.length;
             }
             compared[0]++;
+            int drifted = 0;
+            int firstDrift = -1;
+            double sumDx = 0;
+            double sumDy = 0;
+            float worstDelta = 0;
             for (int i = 0; i < expected.length; i++) {
                 final float delta = Math.abs(actual[i] - expected[i]);
                 if (delta > BEHAVIOR_TOLERANCE) {
-                    return label + " drawable=" + token + " index=" + i
-                        + " delta=" + delta;
+                    drifted++;
+                    if (firstDrift < 0) {
+                        firstDrift = i;
+                    }
+                    if (delta > worstDelta) {
+                        worstDelta = delta;
+                    }
+                    final int pair = i & ~1;
+                    sumDx += actual[pair] - expected[pair];
+                    sumDy += actual[pair + 1] - expected[pair + 1];
                 }
+            }
+            if (drifted > 0) {
+                return label + " drawable=" + token + " index=" + firstDrift
+                    + " delta=" + worstDelta
+                    + " drifted=" + drifted + "/" + expected.length
+                    + " meanDelta=(" + (sumDx / drifted) + ","
+                    + (sumDy / drifted) + ")";
             }
         }
         for (String key : original.keySet()) {

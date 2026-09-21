@@ -126,6 +126,19 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String DEFORMER_CLASS = PREFIX + "deformer-source.class";
     private static final String DEFORMER_GUID = PREFIX + "deformer.guid";
     private static final String DEFORMER_TARGET = PREFIX + "deformer.target-guid";
+    private static final String DEFORMER_CHILDREN = PREFIX + "deformer-source.children";
+    private static final String MODEL_DEFORMER_TRANSFORM = PREFIX + "model.deformer-transform";
+    private static final String TRANSFORM_LOCAL_TO_CANVAS =
+        PREFIX + "transform.create-local-to-canvas";
+    private static final String TRANSFORM_APPLY = PREFIX + "transform.apply-array";
+    private static final String ART_MESH_SOURCE_POSITIONS =
+        PREFIX + "art-mesh-source.positions";
+    private static final String ART_MESH_SOURCE_SET_POSITIONS =
+        PREFIX + "art-mesh-source.set-positions";
+    private static final String ART_MESH_SOURCE_KEYFORMS =
+        PREFIX + "art-mesh-source.keyforms";
+    private static final String ART_MESH_FORM_SET_POSITIONS =
+        PREFIX + "art-mesh-form.set-positions";
     private static final String WARP_CLASS = PREFIX + "warp-deformer.class";
     private static final String ROTATION_CLASS = PREFIX + "rotation-deformer.class";
     private static final String ART_MESH_CLASS = PREFIX + "art-mesh.class";
@@ -221,7 +234,10 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SOURCE_GUID, SOURCE_ID, SOURCE_LOCAL_NAME, SOURCE_SET_LOCAL_NAME,
         SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
         BINDING_PARAMETER_ID, BINDING_KEYS, PART_CHILD_GUIDS,
-        DEFORMER_GUID, DEFORMER_TARGET,
+        DEFORMER_GUID, DEFORMER_TARGET, DEFORMER_CHILDREN,
+        MODEL_DEFORMER_TRANSFORM, TRANSFORM_LOCAL_TO_CANVAS, TRANSFORM_APPLY,
+        ART_MESH_SOURCE_POSITIONS, ART_MESH_SOURCE_SET_POSITIONS,
+        ART_MESH_SOURCE_KEYFORMS, ART_MESH_FORM_SET_POSITIONS,
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
         GUID_UUID, ID_STRING,
         PARAMETER_SET_PARAMETERS, PARAMETER_INSTANCE_VALUE, PARAMETER_INSTANCE_ID,
@@ -650,6 +666,111 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         }
         final Object positions = resolver.invoke(ART_MESH_FORM_POSITIONS, form);
         return positions instanceof float[] array ? array.clone() : null;
+    }
+
+    /**
+     * {@code ACDeformerSource.getDeformerChildren} — every controllable source
+     * whose target deformer is this one. Drawable children carry no keyform
+     * bindings of their own here; the caller filters by class.
+     */
+    @Override
+    public List<?> deformerChildren(final Object deformerSource) {
+        if (!resolver.isInstance(DEFORMER_CLASS, deformerSource)) {
+            return List.of();
+        }
+        return listOf(resolver.invoke(DEFORMER_CHILDREN, deformerSource));
+    }
+
+    /**
+     * {@code CModel.getDeformerTransform(guid).createLocalToCanvasTransform()} —
+     * the deformer's own evaluated local-to-canvas transform on the live
+     * instance. Used to bake an unbound deformer's constant deformation into
+     * child ArtMesh base and keyform positions before the deformer is deleted.
+     */
+    @Override
+    public Object deformerLocalToCanvasTransform(
+        final Object modelInstance,
+        final Object deformerSource
+    ) {
+        if (!resolver.isInstance(MODEL_CLASS, modelInstance)
+            || !resolver.isInstance(DEFORMER_CLASS, deformerSource)) {
+            return null;
+        }
+        final Object guid = resolver.invoke(DEFORMER_GUID, deformerSource);
+        if (guid == null) {
+            return null;
+        }
+        final Object transform =
+            resolver.invoke(MODEL_DEFORMER_TRANSFORM, modelInstance, guid);
+        return transform == null
+            ? null : resolver.invoke(TRANSFORM_LOCAL_TO_CANVAS, transform);
+    }
+
+    @Override
+    public float[] transformPositions(
+        final Object localToCanvasTransform,
+        final float[] positions
+    ) {
+        Objects.requireNonNull(localToCanvasTransform, "localToCanvasTransform");
+        Objects.requireNonNull(positions, "positions");
+        final Object result = resolver.invoke(TRANSFORM_APPLY,
+            localToCanvasTransform, positions, new float[positions.length]);
+        if (!(result instanceof float[] array) || array.length != positions.length) {
+            throw new IllegalStateException("transform produced no positions");
+        }
+        return array;
+    }
+
+    @Override
+    public float[] artMeshSourcePositions(final Object artMeshSource) {
+        if (!resolver.isInstance(ART_MESH_CLASS, artMeshSource)) {
+            return null;
+        }
+        final Object positions =
+            resolver.invoke(ART_MESH_SOURCE_POSITIONS, artMeshSource);
+        return positions instanceof float[] array ? array.clone() : null;
+    }
+
+    @Override
+    public void setArtMeshSourcePositions(
+        final Object artMeshSource,
+        final float[] positions
+    ) {
+        if (!resolver.isInstance(ART_MESH_CLASS, artMeshSource)) {
+            throw new IllegalStateException("object is not an ArtMesh source");
+        }
+        resolver.invoke(ART_MESH_SOURCE_SET_POSITIONS,
+            artMeshSource, Objects.requireNonNull(positions, "positions"));
+    }
+
+    @Override
+    public List<?> artMeshSourceKeyforms(final Object artMeshSource) {
+        if (!resolver.isInstance(ART_MESH_CLASS, artMeshSource)) {
+            return List.of();
+        }
+        return listOf(resolver.invoke(ART_MESH_SOURCE_KEYFORMS, artMeshSource));
+    }
+
+    @Override
+    public float[] artMeshFormPositions(final Object artMeshForm) {
+        if (!resolver.isInstance(ART_MESH_FORM_CLASS, artMeshForm)) {
+            return null;
+        }
+        final Object positions =
+            resolver.invoke(ART_MESH_FORM_POSITIONS, artMeshForm);
+        return positions instanceof float[] array ? array.clone() : null;
+    }
+
+    @Override
+    public void setArtMeshFormPositions(
+        final Object artMeshForm,
+        final float[] positions
+    ) {
+        if (!resolver.isInstance(ART_MESH_FORM_CLASS, artMeshForm)) {
+            throw new IllegalStateException("object is not an ArtMesh form");
+        }
+        resolver.invoke(ART_MESH_FORM_SET_POSITIONS,
+            artMeshForm, Objects.requireNonNull(positions, "positions"));
     }
 
     /**

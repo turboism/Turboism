@@ -432,6 +432,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     || host.selectedCount(context.selector()) != 1) {
                     throw new SessionRejection(FLATTEN_FAILED_KEY);
                 }
+                // A deformer with no keyform bindings contributes a constant
+                // deformation that the host's delete-and-reflect command does
+                // NOT preserve: it bakes keyforms only at bound parameter keys,
+                // so an empty binding list silently drops the deformation.
+                // Bake that constant into each child ArtMesh's base and keyform
+                // positions through the deformer's own local-to-canvas transform
+                // before the apply deletes it.
+                if (host.keyformBindings(source).isEmpty()) {
+                    bakeConstantDeformation(session, source);
+                }
                 host.applyDeformerToParameters(context.editMode());
                 return resolveDeformer(context.liveSource(), guid) == null
                     ? Boolean.TRUE : Boolean.FALSE;
@@ -453,6 +463,43 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             throw new SessionRejection(FLATTEN_FAILED_KEY);
         }
         session.phase = Phase.FLATTENED;
+    }
+
+    /**
+     * Bakes an unbound deformer's constant deformation into every ArtMesh child:
+     * each base position array and each keyform position array is rewritten to
+     * the deformer's own local-to-canvas image, so deleting the deformer leaves
+     * the rendered shape unchanged under whatever ancestors remain. Runs on the
+     * copy's live model instance; called only inside the flatten EDT block after
+     * the deformer's selection identity was verified.
+     */
+    private void bakeConstantDeformation(final Session session, final Object source) {
+        final Object instance = session.copyModelInstance;
+        final Object transform =
+            host.deformerLocalToCanvasTransform(instance, source);
+        if (transform == null) {
+            throw new SessionRejection(FLATTEN_FAILED_KEY);
+        }
+        for (Object child : host.deformerChildren(source)) {
+            if (!host.isArtMeshSource(child)) {
+                continue;
+            }
+            final float[] base = host.artMeshSourcePositions(child);
+            if (base == null) {
+                throw new SessionRejection(FLATTEN_FAILED_KEY);
+            }
+            host.setArtMeshSourcePositions(
+                child, host.transformPositions(transform, base));
+            for (Object keyform : host.artMeshSourceKeyforms(child)) {
+                final float[] positions = host.artMeshFormPositions(keyform);
+                if (positions == null) {
+                    throw new SessionRejection(FLATTEN_FAILED_KEY);
+                }
+                host.setArtMeshFormPositions(
+                    keyform, host.transformPositions(transform, positions));
+            }
+        }
+        host.evaluateModelInstance(instance);
     }
 
     /**
