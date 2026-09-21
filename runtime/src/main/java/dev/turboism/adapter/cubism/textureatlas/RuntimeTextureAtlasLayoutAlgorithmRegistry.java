@@ -76,8 +76,17 @@ public final class RuntimeTextureAtlasLayoutAlgorithmRegistry implements Texture
         final TextureAtlasLayoutAlgorithm algorithm,
         final BooleanSupplier ownerActive
     ) {
+        Objects.requireNonNull(algorithm, "algorithm");
+        // The native choice is reserved: it must always resolve to the host's
+        // own packing and can never be claimed by a plugin registration.
+        if (TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID.equals(algorithm.id())) {
+            throw new IllegalArgumentException(
+                "Texture-atlas algorithm id is reserved for the native layout: "
+                    + algorithm.id()
+            );
+        }
         final RegisteredAlgorithm registration = new RegisteredAlgorithm(
-            Objects.requireNonNull(algorithm, "algorithm"),
+            algorithm,
             ownerActive
         );
         final RegisteredAlgorithm previous;
@@ -128,6 +137,11 @@ public final class RuntimeTextureAtlasLayoutAlgorithmRegistry implements Texture
     @Override
     public void select(final TextureAtlasLayoutSelection selection) {
         this.selection.select(selection);
+    }
+
+    @Override
+    public boolean selectIfUnset(final TextureAtlasLayoutSelection selection) {
+        return this.selection.selectIfUnset(selection);
     }
 
     /**

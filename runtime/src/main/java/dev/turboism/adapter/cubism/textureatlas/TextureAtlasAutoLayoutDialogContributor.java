@@ -38,7 +38,8 @@ public final class TextureAtlasAutoLayoutDialogContributor {
     public static final String PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
     public static final String VALIDATION_OBSERVER_KEY =
         "dev.turboism.texture-atlas.dialog.validation-observer";
-    public static final String ALGO_NATIVE = "native";
+    public static final String ALGO_NATIVE =
+        dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID;
     public static final String ALGO_MAXRECTS = "maxrects";
 
     private static final int SPACER_ROW = 5;

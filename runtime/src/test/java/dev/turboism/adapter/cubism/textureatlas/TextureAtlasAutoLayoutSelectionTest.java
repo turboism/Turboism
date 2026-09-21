@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class TextureAtlasAutoLayoutSelectionTest {
@@ -114,5 +115,107 @@ final class TextureAtlasAutoLayoutSelectionTest {
             }
         );
         assertTrue(selection.selection().isNative());
+    }
+
+    @Test
+    void selectingNativeDefaultRecordsTheExplicitReservedChoice() {
+        final List<TextureAtlasLayoutSelection> saved = new java.util.ArrayList<>();
+        final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection(
+            new TextureAtlasAutoLayoutSelection.Persistence() {
+                @Override public TextureAtlasLayoutSelection load() {
+                    return TextureAtlasLayoutSelection.nativeDefault();
+                }
+                @Override public void save(final TextureAtlasLayoutSelection next) {
+                    saved.add(next);
+                }
+            }
+        );
+
+        selection.select(TextureAtlasLayoutSelection.nativeDefault());
+
+        assertEquals(
+            TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+            selection.selection().algorithmId()
+        );
+        assertTrue(selection.selection().isNative());
+        assertEquals(
+            TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+            saved.get(0).algorithmId()
+        );
+        // The explicit native choice counts as selected: a migration hand-off must
+        // never overwrite it.
+        assertFalse(selection.selectIfUnset(new TextureAtlasLayoutSelection("maxrects", true)));
+        assertEquals(
+            TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+            selection.selection().algorithmId()
+        );
+    }
+
+    @Test
+    void selectIfUnsetAppliesOnlyWhileNothingWasEverSelected() {
+        final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection(
+            new TextureAtlasAutoLayoutSelection.Persistence() {
+                @Override public TextureAtlasLayoutSelection load() {
+                    return TextureAtlasLayoutSelection.nativeDefault();
+                }
+                @Override public void save(final TextureAtlasLayoutSelection next) { }
+            }
+        );
+
+        assertTrue(selection.selectIfUnset(new TextureAtlasLayoutSelection("maxrects", true)));
+        assertEquals(new TextureAtlasLayoutSelection("maxrects", true), selection.selection());
+        assertFalse(selection.selectIfUnset(new TextureAtlasLayoutSelection("other", false)));
+        assertEquals("maxrects", selection.selection().algorithmId());
+    }
+
+    @Test
+    void persistedExplicitNativeSelectionIsNotOverriddenOnUpgrade() {
+        final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection(
+            new TextureAtlasAutoLayoutSelection.Persistence() {
+                @Override public TextureAtlasLayoutSelection load() {
+                    // The store encodes the user's explicit native choice.
+                    return new TextureAtlasLayoutSelection(
+                        TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+                        false
+                    );
+                }
+                @Override public void save(final TextureAtlasLayoutSelection next) { }
+            }
+        );
+
+        assertFalse(selection.selectIfUnset(new TextureAtlasLayoutSelection("maxrects", true)));
+        assertEquals(
+            TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+            selection.selection().algorithmId()
+        );
+    }
+
+    @Test
+    void concurrentExplicitSelectionAndMigrationHandoffSettleOnTheExplicitChoice()
+        throws Exception {
+        for (int iteration = 0; iteration < 64; iteration++) {
+            final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection(
+                new TextureAtlasAutoLayoutSelection.Persistence() {
+                    @Override public TextureAtlasLayoutSelection load() {
+                        return TextureAtlasLayoutSelection.nativeDefault();
+                    }
+                    @Override public void save(final TextureAtlasLayoutSelection next) { }
+                }
+            );
+            final TextureAtlasLayoutSelection explicit =
+                new TextureAtlasLayoutSelection("user-choice", false);
+            final TextureAtlasLayoutSelection legacy =
+                new TextureAtlasLayoutSelection("legacy", false);
+            final Thread explicitWriter = new Thread(() -> selection.select(explicit));
+            final Thread migrationWriter = new Thread(() -> selection.selectIfUnset(legacy));
+            explicitWriter.start();
+            migrationWriter.start();
+            explicitWriter.join(10_000);
+            migrationWriter.join(10_000);
+
+            // Whichever hand-off ran first, the unconditional explicit select always
+            // lands last or wins outright — the migrated value can never survive it.
+            assertEquals("user-choice", selection.selection().algorithmId());
+        }
     }
 }

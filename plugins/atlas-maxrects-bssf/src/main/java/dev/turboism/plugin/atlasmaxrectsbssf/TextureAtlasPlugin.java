@@ -27,7 +27,15 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
 
     private PluginContext context;
     private boolean enabled;
-    private final TextureAtlasSettingsBinding settings = new TextureAtlasSettingsBinding();
+    private final TextureAtlasSettingsBinding settings;
+
+    public TextureAtlasPlugin() {
+        this(new TextureAtlasSettingsBinding());
+    }
+
+    TextureAtlasPlugin(final TextureAtlasSettingsBinding settings) {
+        this.settings = settings;
+    }
 
     @Override
     public void init(final PluginContext context) {
@@ -98,9 +106,9 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
 
     /**
      * Hands a pre-v4 persisted algorithm/parallel preference to the runtime-owned
-     * selection exactly once. An explicitly chosen runtime selection (including an
-     * explicit native choice, which is stored under the {@code "native"} id) is never
-     * overridden; only an unset/native-default selection receives the migrated value.
+     * selection exactly once and atomically: any explicit selection already made —
+     * including the explicit native choice — wins over the migrated value, and a
+     * concurrent explicit select can never be overwritten by the hand-off.
      */
     private void applyLegacySelection() {
         final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection legacy =
@@ -110,8 +118,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         }
         try {
             final var registry = context.cubism().textureAtlasAlgorithms();
-            if (registry.selection().isNative()) {
-                registry.select(legacy);
+            if (registry.selectIfUnset(legacy)) {
                 context.logger().info(
                     "Texture Atlas migrated the persisted layout selection to runtime state: "
                         + legacy.algorithmId()

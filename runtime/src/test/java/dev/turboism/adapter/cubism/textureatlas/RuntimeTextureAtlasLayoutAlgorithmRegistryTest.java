@@ -33,4 +33,23 @@ final class RuntimeTextureAtlasLayoutAlgorithmRegistryTest {
         secondRegistration.close();
         assertTrue(registry.find("layout").isEmpty());
     }
+
+    @Test
+    void registeringTheReservedNativeIdIsRejected() {
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> registry.register(new TextureAtlasLayoutAlgorithm(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+                "Native Impersonator",
+                false,
+                null
+            ))
+        );
+        assertTrue(registry.find(
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID
+        ).isEmpty());
+    }
 }

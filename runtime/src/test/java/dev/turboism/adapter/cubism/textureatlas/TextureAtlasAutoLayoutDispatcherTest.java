@@ -123,6 +123,37 @@ final class TextureAtlasAutoLayoutDispatcherTest {
     }
 
     @Test
+    void theReservedNativeSelectionNeverDispatchesAPluginPlanner() {
+        final RecordingLayouts layouts = new RecordingLayouts();
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection();
+        registry.bindSelection(selection);
+        final TextureAtlasAutoLayoutDispatcher dispatcher =
+            new TextureAtlasAutoLayoutDispatcher(registry, selection, layouts);
+        final AtomicBoolean invoked = new AtomicBoolean();
+        registry.register(new TextureAtlasLayoutAlgorithm(
+            "algo", "Algo", false, (items, constraints) -> {
+                invoked.set(true);
+                return layouts.snapshotPlan;
+            }
+        ));
+
+        // The reserved explicit-native id must defer to the host even though a
+        // plugin algorithm exists; it can never route to a registered planner.
+        selection.select(new TextureAtlasLayoutSelection(
+            TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID, false));
+        assertFalse(dispatcher.dispatch());
+        assertFalse(invoked.get());
+        assertEquals(0, layouts.applied);
+
+        // Selecting the native default records the same explicit native choice.
+        selection.select(TextureAtlasLayoutSelection.nativeDefault());
+        assertFalse(dispatcher.dispatch());
+        assertFalse(invoked.get());
+    }
+
+    @Test
     void registrationDoesNotAutoSelectAndClosedRegistrationIsNotDispatched() {
         final RecordingLayouts layouts = new RecordingLayouts();
         final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =

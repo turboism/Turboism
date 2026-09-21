@@ -43,7 +43,14 @@ public final class ConfigTextureAtlasSelectionStore implements TextureAtlasAutoL
             return TextureAtlasLayoutSelection.nativeDefault();
         }
         final JsonNode algorithmNode = section.path("algorithmId");
-        final String algorithmId = algorithmNode.isTextual() ? algorithmNode.asText() : null;
+        // A present-but-null algorithmId was written by an explicit native choice,
+        // while an absent key means no selection was ever made (the unset state
+        // that one-time migrations may still fill).
+        final String algorithmId = algorithmNode.isTextual()
+            ? algorithmNode.asText()
+            : section.has("algorithmId")
+                ? TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID
+                : null;
         return new TextureAtlasLayoutSelection(
             algorithmId,
             section.path("parallel").asBoolean(false)
