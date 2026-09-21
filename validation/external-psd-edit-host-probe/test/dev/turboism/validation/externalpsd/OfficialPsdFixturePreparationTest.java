@@ -68,6 +68,35 @@ public final class OfficialPsdFixturePreparationTest {
         assertEquals("run-native-seven-layer.psd", input.fixtureName(),
             "task fixture basename is retained");
         assertEquals(30_000L, input.timeoutMillis(), "timeout is retained");
+        assertEquals("CUB3-0418", OfficialPsdFixturePreparation.profileKeyForTest("normal"),
+            "normal selects the follow-target chooser option");
+        assertEquals(0, OfficialPsdFixturePreparation.profileChooserIndexForTest("normal"),
+            "normal chooser index is reviewed");
+        assertEquals("prepared-control.cmo3",
+            OfficialPsdFixturePreparation.profileSavedCopyBasenameForTest("normal"),
+            "normal output basename is retained");
+
+        final OfficialPsdFixturePreparation.InputIdentity legacy =
+            OfficialPsdFixturePreparation.validateInputForProfileForTest(
+                input.fixturePath(), PSD_SHA, input.fixtureName(), input.runId(), input.taskId(),
+                "C:\\task\\home\\prepared-control-legacy.cmo3", RGB_SHA, "5.3.02", 30_000L,
+                "legacy");
+        assertEquals("C:\\task\\home\\prepared-control-legacy.cmo3", legacy.savedCopyPath(),
+            "legacy output is task-bound to its independent basename");
+        assertEquals("CUB3-4408", OfficialPsdFixturePreparation.profileKeyForTest("legacy"),
+            "legacy selects the older-mode chooser option");
+        assertEquals(1, OfficialPsdFixturePreparation.profileChooserIndexForTest("legacy"),
+            "legacy chooser index is reviewed");
+        assertEquals("prepared-control-legacy.cmo3",
+            OfficialPsdFixturePreparation.profileSavedCopyBasenameForTest("legacy"),
+            "legacy output basename is independent");
+
+        expectReject("unknown preparation profile", () -> OfficialPsdFixturePreparation
+            .profileKeyForTest("unsupported"));
+        expectReject("legacy output cannot use normal basename", () ->
+            OfficialPsdFixturePreparation.validateInputForProfileForTest(
+                input.fixturePath(), PSD_SHA, input.fixtureName(), input.runId(), input.taskId(),
+                input.savedCopyPath(), RGB_SHA, "5.3.02", 30_000L, "legacy"));
 
         expectReject("run/task mismatch", () -> OfficialPsdFixturePreparation.validateInputForTest(
             input.fixturePath(), PSD_SHA, input.fixtureName(), "queue-1", "task-2",
@@ -376,7 +405,9 @@ public final class OfficialPsdFixturePreparationTest {
         assertEquals(0, clicked.get(), "changed window does not click");
         final OfficialPsdFixturePreparation.ChooserGateResult accepted =
             OfficialPsdFixturePreparation.verifyAndExecuteChooser(
-                validChooserObservation(currentOwner), expected, () -> false, () -> true, actions);
+                validChooserObservation(currentOwner), expected,
+                OfficialPsdFixturePreparation.profileChooserIndexForTest("normal"),
+                () -> false, () -> true, actions);
         assertTrue(accepted.accepted(), "exact chooser is accepted");
         assertEquals(1, selected.get(), "exact chooser selects once");
         assertEquals(1, clicked.get(), "exact chooser confirms once");
@@ -392,6 +423,32 @@ public final class OfficialPsdFixturePreparationTest {
             expected, actions, selected, clicked, () -> true, () -> true);
         assertChooserRejected("unbound queued chooser", validChooserObservation(currentOwner),
             expected, actions, selected, clicked, () -> false, () -> false);
+
+        final AtomicInteger legacySelected = new AtomicInteger(-1);
+        final AtomicInteger legacyClicked = new AtomicInteger();
+        final OfficialPsdFixturePreparation.ChooserGateActions legacyActions = chooserActions(
+            legacySelected, legacyClicked, selected, clicked);
+        final OfficialPsdFixturePreparation.ChooserGateResult legacyAccepted =
+            OfficialPsdFixturePreparation.verifyAndExecuteChooser(
+                validChooserObservation(currentOwner), expected,
+                OfficialPsdFixturePreparation.profileChooserIndexForTest("legacy"),
+                () -> false, () -> true, legacyActions);
+        assertTrue(legacyAccepted.accepted(), "exact legacy chooser is accepted");
+        assertEquals(1, legacySelected.get(), "legacy selects the second reviewed option");
+        assertEquals(1, legacyClicked.get(), "legacy confirms once");
+
+        final int beforeLegacySelected = legacySelected.get();
+        final int beforeLegacyClicked = legacyClicked.get();
+        final OfficialPsdFixturePreparation.ChooserGateResult wrongLegacyOption =
+            OfficialPsdFixturePreparation.verifyAndExecuteChooser(
+                withSecondLabel(validChooserObservation(currentOwner), "wrong-mode"), expected,
+                OfficialPsdFixturePreparation.profileChooserIndexForTest("legacy"),
+                () -> false, () -> true, legacyActions);
+        assertFalse(wrongLegacyOption.accepted(), "wrong legacy label is rejected");
+        assertEquals(beforeLegacySelected, legacySelected.get(),
+            "wrong legacy label does not select");
+        assertEquals(beforeLegacyClicked, legacyClicked.get(),
+            "wrong legacy label does not click");
     }
 
     private static void testInitialSourceGate() {
@@ -509,6 +566,29 @@ public final class OfficialPsdFixturePreparationTest {
         };
     }
 
+    private static OfficialPsdFixturePreparation.ChooserGateActions chooserActions(
+        final AtomicInteger selectedIndex, final AtomicInteger profileClicked,
+        final AtomicInteger selected, final AtomicInteger clicked) {
+        return new OfficialPsdFixturePreparation.ChooserGateActions() {
+            @Override public boolean selectFirst() {
+                selectedIndex.set(0);
+                selected.incrementAndGet();
+                return true;
+            }
+
+            @Override public boolean select(final int index) {
+                selectedIndex.set(index);
+                selected.incrementAndGet();
+                return index == 0 || index == 1;
+            }
+
+            @Override public void clickConfirm() {
+                profileClicked.incrementAndGet();
+                clicked.incrementAndGet();
+            }
+        };
+    }
+
     private static OfficialPsdFixturePreparation.ChooserGateObservation withFirstOptionClass(
         final OfficialPsdFixturePreparation.ChooserGateObservation source,
         final Class<?> firstOptionClass) {
@@ -528,6 +608,18 @@ public final class OfficialPsdFixturePreparationTest {
             source.rendererClass(), source.optionCount(), source.firstOptionClass(),
             source.firstOptionModel(), source.firstLabel(), source.secondOptionClass(),
             source.secondOptionModel(), source.secondLabel(), source.confirmationCount(),
+            source.confirmationClass(), source.actionClass(), source.actionName(),
+            source.enabled(), source.showing(), source.displayable());
+    }
+
+    private static OfficialPsdFixturePreparation.ChooserGateObservation withSecondLabel(
+        final OfficialPsdFixturePreparation.ChooserGateObservation source,
+        final String secondLabel) {
+        return new OfficialPsdFixturePreparation.ChooserGateObservation(
+            source.currentOwner(), source.dialogOwner(), source.candidateCount(), source.listClass(),
+            source.rendererClass(), source.optionCount(), source.firstOptionClass(),
+            source.firstOptionModel(), source.firstLabel(), source.secondOptionClass(),
+            source.secondOptionModel(), secondLabel, source.confirmationCount(),
             source.confirmationClass(), source.actionClass(), source.actionName(),
             source.enabled(), source.showing(), source.displayable());
     }
