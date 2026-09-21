@@ -1,5 +1,12 @@
 package dev.turboism.validation.externalpsd;
 
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.ProjectFileOperation;
+import dev.turboism.sdk.cubism.ProjectFileOperationResult;
+import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -8,6 +15,7 @@ import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageRelation;
 import dev.turboism.sdk.cubism.model.RawLayerBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
+import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 
 import java.awt.Window;
 import javax.swing.AbstractButton;
@@ -42,6 +50,7 @@ public final class OfficialPsdFixturePreparationTest {
         testRelationGate();
         testWindowBindingAndChooserGate();
         testChooserCandidateRenderer();
+        testInitialSourceGate();
         testPostSaveModelGate();
         testSaveCommandAdmission();
         testSaveAfterIdentityGate();
@@ -385,6 +394,62 @@ public final class OfficialPsdFixturePreparationTest {
             expected, actions, selected, clicked, () -> false, () -> false);
     }
 
+    private static void testInitialSourceGate() {
+        final TextureRelationsSnapshot relations = relations(true, true, false);
+        final OfficialPsdFixturePreparation.RelationIdentity identity =
+            OfficialPsdFixturePreparation.validateRelationSnapshot(
+                "document", "model", relations);
+        final OfficialPsdFixturePreparation.ModelState before = new OfficialPsdFixturePreparation.ModelState(
+            "document", Optional.empty(), "documents/document-session-1/untitled", "model", identity);
+        final OfficialPsdFixturePreparation.ModelState fresh = new OfficialPsdFixturePreparation.ModelState(
+            "document", Optional.empty(), "documents/document-session-1/untitled", "model", identity);
+        final PsdClipMaskDocumentSnapshot source = psdSnapshot(
+            "raw-current", "native-seven-layer.psd", "raw-layer");
+        final OfficialPsdFixturePreparation.SourceSnapshotIdentity verified =
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, relations, List.of(source), "native-seven-layer.psd");
+        assertEquals("raw-current", verified.rawId(), "source raw GUID is verified");
+        assertEquals("native-seven-layer.psd", verified.fileName(),
+            "source snapshot basename is verified");
+        assertEquals(List.of("raw-layer"), verified.leafLayerIds(),
+            "source leaf layer IDs match raw bindings");
+
+        expectReject("wrong source filename", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, relations,
+                List.of(psdSnapshot("raw-current", "other.psd", "raw-layer")),
+                "native-seven-layer.psd"));
+        expectReject("wrong source raw", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, relations,
+                List.of(psdSnapshot("raw-other", "native-seven-layer.psd", "raw-layer")),
+                "native-seven-layer.psd"));
+        expectReject("multiple source raw IDs", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, multiRawRelations(),
+                List.of(source), "native-seven-layer.psd"));
+        expectReject("duplicate source snapshot", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, relations, List.of(source, source), "native-seven-layer.psd"));
+        expectReject("missing source snapshot", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, relations, List.of(), "native-seven-layer.psd"));
+        expectReject("source leaf binding mismatch", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, fresh, relations,
+                List.of(psdSnapshot("raw-current", "native-seven-layer.psd", "wrong-layer")),
+                "native-seven-layer.psd"));
+        final OfficialPsdFixturePreparation.ModelState changed = new OfficialPsdFixturePreparation.ModelState(
+            "document", Optional.empty(), "documents/document-session-1/untitled", "model",
+            new OfficialPsdFixturePreparation.RelationIdentity(
+                identity.documentId(), identity.modelId(), identity.binding(),
+                identity.generation() + 1, identity.modelImageIds(), identity.currentRawIds(),
+                identity.linkedRawIds(), identity.rawLayerBindings()));
+        expectReject("initial source identity changed", () ->
+            OfficialPsdFixturePreparation.validateInitialSourceGate(
+                before, changed, relations, List.of(source), "native-seven-layer.psd"));
+    }
+
     private static void assertChooserRejected(final String description,
         final OfficialPsdFixturePreparation.ChooserGateObservation observation,
         final OfficialPsdFixturePreparation.ChooserGateExpectation expected,
@@ -474,30 +539,51 @@ public final class OfficialPsdFixturePreparationTest {
         final OfficialPsdFixturePreparation.ModelState before = new OfficialPsdFixturePreparation.ModelState(
             "document", Optional.of("content-before"), "source.psd", "model", identity);
         final OfficialPsdFixturePreparation.ModelState after = new OfficialPsdFixturePreparation.ModelState(
-            "document", Optional.of("content-after"), "C:\\task\\prepared-control.cmo3",
+            "document", Optional.of("content-before"), "C:\\task\\prepared-control.cmo3",
             "model", identity);
-        final OfficialPsdFixturePreparation.SaveAfterIdentity success =
-            new OfficialPsdFixturePreparation.SaveAfterIdentity(
-                "SAVE", true, "prepared-control.cmo3", "content-after");
+
+        final OfficialPsdFixturePreparation.SaveAfterIdentity firstSave = lifecycleSave(
+            Optional.empty(), Optional.of("content-before"), "content-before");
+        assertEquals("", firstSave.fileName(),
+            "first SAVE request has no pre-existing filename");
+        assertEquals("content-before", firstSave.requestContentId(),
+            "first SAVE request content identity is retained");
         assertTrue(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, after, "prepared-control.cmo3", "window@1", "window@1"),
-            "SAVE After accepts the bound post-SAVE content identity");
+            firstSave, before, after, "prepared-control.cmo3", "window@1", "window@1"),
+            "first SAVE accepts the bound post-SAVE content identity");
+
+        final OfficialPsdFixturePreparation.SaveAfterIdentity oldCmoSave = lifecycleSave(
+            Optional.of("old-control.cmo3"), Optional.of("content-before"), "content-before");
+        assertTrue(OfficialPsdFixturePreparation.saveAfterMatches(
+            oldCmoSave, before, after, "prepared-control.cmo3", "window@1", "window@1"),
+            "SAVE_AS accepts a request carrying the old CMO filename");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
             new OfficialPsdFixturePreparation.SaveAfterIdentity(
-                "SAVE", false, "prepared-control.cmo3", "content-after"),
+                "SAVE", false, "", "content-before", "content-before"),
             before, after, "prepared-control.cmo3", "window@1", "window@1"),
             "failed SAVE is rejected");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, after, "other.cmo3", "window@1", "window@1"),
-            "wrong saved filename is rejected");
+            firstSave, before, after, "other.cmo3", "window@1", "window@1"),
+            "wrong post-SAVE filename is rejected");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
             new OfficialPsdFixturePreparation.SaveAfterIdentity(
-                "SAVE", true, "prepared-control.cmo3", "content-before"),
+                "SAVE", true, "", "content-before", "content-after"),
             before, after, "prepared-control.cmo3", "window@1", "window@1"),
-            "wrong SAVE After content ID is rejected");
+            "wrong SAVE result content ID is rejected");
+        assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
+            firstSave, before, new OfficialPsdFixturePreparation.ModelState(
+                "document", Optional.of("content-after"), "C:\\task\\prepared-control.cmo3",
+                "model", identity),
+            "prepared-control.cmo3", "window@1", "window@1"),
+            "post-SAVE model content ID must match SAVE result content ID");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
             new OfficialPsdFixturePreparation.SaveAfterIdentity(
-                "SAVE", true, "prepared-control.cmo3", "unavailable"),
+                "SAVE", true, "", "wrong-content", "content-before"),
+            before, after, "prepared-control.cmo3", "window@1", "window@1"),
+            "wrong SAVE request content ID is rejected");
+        assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
+            new OfficialPsdFixturePreparation.SaveAfterIdentity(
+                "SAVE", true, "", "content-before", "unavailable"),
             before, after, "prepared-control.cmo3", "window@1", "window@1"),
             "missing SAVE After content ID is rejected");
         final OfficialPsdFixturePreparation.ModelState missingContent =
@@ -505,10 +591,10 @@ public final class OfficialPsdFixturePreparationTest {
                 "document", Optional.empty(), "C:\\task\\prepared-control.cmo3",
                 "model", identity);
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, missingContent, "prepared-control.cmo3", "window@1", "window@1"),
+            firstSave, before, missingContent, "prepared-control.cmo3", "window@1", "window@1"),
             "missing post-SAVE model content ID is rejected");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, new OfficialPsdFixturePreparation.ModelState(
+            firstSave, before, new OfficialPsdFixturePreparation.ModelState(
                 "document", Optional.of("content-after"), "C:\\task\\prepared-control.cmo3",
                 "model", new OfficialPsdFixturePreparation.RelationIdentity(
                     identity.documentId(), identity.modelId(), identity.binding(),
@@ -517,18 +603,47 @@ public final class OfficialPsdFixturePreparationTest {
             "prepared-control.cmo3", "window@1", "window@1"),
             "changed relation generation is rejected");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, after, "prepared-control.cmo3", "window@1", "window@2"),
+            firstSave, before, after, "prepared-control.cmo3", "window@1", "window@2"),
             "changed window identity is rejected");
 
-        final OfficialPsdFixturePreparation.SaveAfterIdentity oldSameName =
+        final OfficialPsdFixturePreparation.SaveAfterIdentity stale =
             new OfficialPsdFixturePreparation.SaveAfterIdentity(
-                "SAVE", true, "prepared-control.cmo3", "old-content");
+                "SAVE", true, "prepared-control.cmo3", "content-before", "content-before");
         assertTrue(OfficialPsdFixturePreparation.firstSaveAfterAfterSequenceForTest(
-            List.of(oldSameName, success), 1, "prepared-control.cmo3").orElseThrow()
-            .equals(success), "SAVE search starts after the execute boundary");
+            List.of(stale, oldCmoSave), 1, "content-before").orElseThrow()
+            .equals(oldCmoSave), "SAVE search starts after the execute boundary");
         assertTrue(OfficialPsdFixturePreparation.firstSaveAfterAfterSequenceForTest(
-            List.of(oldSameName), 1, "prepared-control.cmo3").isEmpty(),
-            "old same-name SAVE is not reused");
+            List.of(stale), 1, "content-before").isEmpty(),
+            "old SAVE with the same content is not reused");
+        assertTrue(OfficialPsdFixturePreparation.firstSaveAfterAfterSequenceForTest(
+            List.of(oldCmoSave), 1, "content-before").isEmpty(),
+            "an over-large sequence boundary cannot reuse an earlier SAVE");
+        final OfficialPsdFixturePreparation.SaveAfterIdentity wrongContent =
+            new OfficialPsdFixturePreparation.SaveAfterIdentity(
+                "SAVE", true, "", "content-before", "wrong-content");
+        assertTrue(OfficialPsdFixturePreparation.firstSaveAfterAfterSequenceForTest(
+            List.of(wrongContent, oldCmoSave), 0, "content-before").orElseThrow()
+            .equals(oldCmoSave), "wrong result content is skipped while awaiting SAVE");
+        final OfficialPsdFixturePreparation.SaveAfterIdentity failed =
+            new OfficialPsdFixturePreparation.SaveAfterIdentity(
+                "SAVE", false, "", "content-before", "content-before");
+        assertTrue(OfficialPsdFixturePreparation.firstSaveAfterAfterSequenceForTest(
+            List.of(failed, oldCmoSave), 0, "content-before").orElseThrow()
+            .equals(oldCmoSave), "failed SAVE is skipped while awaiting a successful SAVE");
+    }
+
+    private static OfficialPsdFixturePreparation.SaveAfterIdentity lifecycleSave(
+        final Optional<String> requestFileName, final Optional<String> requestContentId,
+        final String resultContentId) {
+        final ProjectFileOperation request = new ProjectFileOperation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.SAVE, requestContentId,
+            "Control", requestFileName);
+        final ProjectContentSnapshot content = new ProjectContentSnapshot(
+            resultContentId, "Control", ProjectContentKind.MODEL, Optional.empty(),
+            List.of("document"));
+        final ProjectFileLifecycleEvent.After event = new ProjectFileLifecycleEvent.After(
+            ProjectFileOperationResult.succeeded(request, content));
+        return OfficialPsdFixturePreparation.SaveAfterIdentity.from(event);
     }
 
     private static void testPostSaveModelGate() {
@@ -575,6 +690,30 @@ public final class OfficialPsdFixturePreparationTest {
             bindings ? Map.of(raw, List.of(binding)) : Map.of(), List.of(new ArtMeshId("mesh")));
         return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
             "binding", 4L, 1L, List.of(), List.of(image), List.of(), List.of());
+    }
+
+    private static TextureRelationsSnapshot multiRawRelations() {
+        final RawImageId current = new RawImageId("raw-current");
+        final RawImageId other = new RawImageId("raw-other");
+        final RawLayerBinding currentBinding = new RawLayerBinding(current,
+            new RawLayerId("raw-layer"), 0, RawLayerBinding.DetailAvailability.AVAILABLE,
+            RawLayerBinding.DetailAvailability.AVAILABLE);
+        final RawLayerBinding otherBinding = new RawLayerBinding(other,
+            new RawLayerId("other-layer"), 1, RawLayerBinding.DetailAvailability.AVAILABLE,
+            RawLayerBinding.DetailAvailability.AVAILABLE);
+        final ModelImageRelation image = new ModelImageRelation(
+            new ModelImageId("model-image"), new Entry(), List.of(current, other),
+            Optional.of(current),
+            Map.of(current, List.of(currentBinding), other, List.of(otherBinding)),
+            List.of(new ArtMeshId("mesh")));
+        return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
+            "binding", 4L, 1L, List.of(), List.of(image), List.of(), List.of());
+    }
+
+    private static PsdClipMaskDocumentSnapshot psdSnapshot(final String rawId,
+        final String fileName, final String leafLayerId) {
+        return new PsdClipMaskDocumentSnapshot(rawId, "imports/" + fileName,
+            List.of(new PsdLayerSnapshot(leafLayerId, "layer", true)));
     }
 
     private static TextureRelationsSnapshot duplicateModelImages() {

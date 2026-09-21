@@ -4,10 +4,13 @@ import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
+import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ModelImageRelation;
 import dev.turboism.sdk.cubism.model.RawLayerBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
+import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
@@ -779,15 +782,17 @@ public final class OfficialPsdFixturePreparation {
     private ModelState awaitInitialModel(final InputIdentity input, final long timeoutMillis)
         throws Exception {
         final ModelState state = awaitModel(timeoutMillis);
-        final boolean fixtureNameMatched = !input.fixtureName().isBlank()
-            && input.fixtureName().equals(lastPathPart(state.relativePath()));
-        properties.setProperty("prepare.model.fixtureNameMatched",
-            Boolean.toString(fixtureNameMatched));
-        if (!fixtureNameMatched) throw new IllegalStateException(
-            "new model relative path is not the task PSD copy: " + state.relativePath());
-        properties.setProperty("prepare.model.sourceConfirmed", "true");
-        properties.setProperty("prepare.model.sourcePath", state.relativePath());
-        return state;
+        final EdtCall<InitialSourceObservation> call = invokeEdtBounded(
+            () -> verifyInitialSourceOnEdt(input, state),
+            Math.min(EDT_CALL_TIMEOUT_MILLIS, timeoutMillis));
+        if (!call.completed()) throw new IllegalStateException(
+            "initial PSD source verification EDT timed out");
+        if (call.failure() != null) throw asException(call.failure());
+        final InitialSourceObservation source = call.value();
+        if (source == null) throw new IllegalStateException(
+            "initial PSD source verification returned no result");
+        recordSourceIdentity(source.state(), source.source());
+        return source.state();
     }
 
     private ModelState awaitModel(final long timeoutMillis) throws Exception {
@@ -815,6 +820,10 @@ public final class OfficialPsdFixturePreparation {
     }
 
     private ModelState currentModelOnEdt() {
+        return currentModelObservationOnEdt().state();
+    }
+
+    private CurrentModelObservation currentModelObservationOnEdt() {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
             "model identity observation must run on EDT");
         final var document = context.cubism().activeDocument().orElse(null);
@@ -829,13 +838,27 @@ public final class OfficialPsdFixturePreparation {
         final TextureRelationsSnapshot relations = model.textures().relations();
         final RelationIdentity identity = validateRelationSnapshot(
             document.documentId(), model.id().value(), relations);
-        return new ModelState(document.documentId(), document.contentId(),
-            document.relativePath(), model.id().value(), identity);
+        return new CurrentModelObservation(model, relations,
+            new ModelState(document.documentId(), document.contentId(),
+                document.relativePath(), model.id().value(), identity));
+    }
+
+    private InitialSourceObservation verifyInitialSourceOnEdt(final InputIdentity input,
+        final ModelState before) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "initial PSD source verification must run on EDT");
+        checkStoppedAndTask(input);
+        final CurrentModelObservation current = currentModelObservationOnEdt();
+        final SourceSnapshotIdentity source = validateInitialSourceGate(before, current.state(),
+            current.relations(), current.model().psdDocuments(), input.fixtureName());
+        checkStoppedAndTask(input);
+        return new InitialSourceObservation(current.state(), source);
     }
 
     private SavedCopyIdentity saveAsAndConfirm(final InputIdentity input, final ModelState before,
         final Window window, final HostAccess host, final EventRecorder events) throws Exception {
         checkStopped();
+        final String expectedContentId = requiredSaveContentId(before);
         final UserFileRequestResult granted = context.userFiles().request(new UserFileRequest(
             "external-psd-fixture-preparation", "Save official PSD control document",
             List.of("cmo3"), UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION))
@@ -862,7 +885,7 @@ public final class OfficialPsdFixturePreparation {
             if (!saved.executed()) throw new IllegalStateException(
                 "SAVE_AS did not execute: " + saved.status());
             final ProjectFileLifecycleEvent.After after = events.awaitSave(
-                lastPathPart(input.savedCopyPath()), execution.afterSequence(), 60_000L, stopped);
+                expectedContentId, execution.afterSequence(), 60_000L, stopped);
             final ModelState current = awaitModel(30_000L);
             recordModelState("model.afterSave", current);
             if (!savedModelMatches(before, current, lastPathPart(input.savedCopyPath()))) {
@@ -880,7 +903,14 @@ public final class OfficialPsdFixturePreparation {
             properties.setProperty("prepare.saveAfter.observed", "true");
             properties.setProperty("prepare.saveAfter.succeeded", "true");
             properties.setProperty("prepare.saveAfter.operation", event.operation());
-            properties.setProperty("prepare.saveAfter.fileName", event.fileName());
+            properties.setProperty("prepare.saveAfter.fileName", eventRequestFileName(event.fileName()));
+            properties.setProperty("prepare.saveAfter.requestFileName",
+                eventRequestFileName(event.fileName()));
+            properties.setProperty("prepare.saveAfter.targetFileName",
+                lastPathPart(current.relativePath()));
+            properties.setProperty("prepare.saveAfter.expectedContentId", expectedContentId);
+            properties.setProperty("prepare.saveAfter.requestContentId",
+                eventContentId(event.requestContentId()));
             properties.setProperty("prepare.saveAfter.contentId", event.contentId());
             return new SavedCopyIdentity(input.savedCopyPath(), event.fileName(), event.contentId(),
                 current.identity().documentId(), current.identity().modelId(),
@@ -1005,8 +1035,28 @@ public final class OfficialPsdFixturePreparation {
         properties.setProperty(prefix + ".rawLayerBindings", state.identity().rawLayerBindings());
     }
 
+    private void recordSourceIdentity(final ModelState state,
+        final SourceSnapshotIdentity source) {
+        final String documentPath = state.relativePath();
+        properties.setProperty("prepare.model.documentMetadata.relativePath", documentPath);
+        properties.setProperty("prepare.model.documentMetadata.filename", lastPathPart(documentPath));
+        properties.setProperty("prepare.model.documentMetadata.isUntitled",
+            Boolean.toString("untitled".equalsIgnoreCase(lastPathPart(documentPath))));
+        properties.setProperty("prepare.model.documentMetadata.role", "metadata-only");
+        properties.setProperty("prepare.model.sourceConfirmed", "true");
+        properties.setProperty("prepare.model.fixtureNameMatched", "true");
+        properties.setProperty("prepare.model.sourcePath", source.relativePath());
+        properties.setProperty("prepare.model.sourceRawId", source.rawId());
+        properties.setProperty("prepare.model.sourceSnapshot.documentId", source.rawId());
+        properties.setProperty("prepare.model.sourceSnapshot.relativePath", source.relativePath());
+        properties.setProperty("prepare.model.sourceSnapshot.filename", source.fileName());
+        properties.setProperty("prepare.model.sourceSnapshot.leafLayerIds",
+            String.join(",", source.leafLayerIds()));
+    }
+
     private void recordSavedCopy(final SavedCopyIdentity saved) {
-        properties.setProperty("prepare.savedCopy.eventFileName", saved.eventFileName());
+        properties.setProperty("prepare.savedCopy.eventFileName",
+            eventRequestFileName(saved.eventFileName()));
         properties.setProperty("prepare.savedCopy.eventContentId", saved.eventContentId());
         properties.setProperty("prepare.savedCopy.documentId", saved.documentId());
         properties.setProperty("prepare.savedCopy.modelId", saved.modelId());
@@ -1256,22 +1306,150 @@ public final class OfficialPsdFixturePreparation {
             bindings.toString());
     }
 
-    static boolean saveEventMatches(final SaveAfterIdentity event, final String expectedFileName) {
-        return event != null && "SAVE".equals(event.operation()) && expectedFileName != null
-            && expectedFileName.equals(event.fileName());
+    /** Shared production source gate; tests supply captured SDK observations only. */
+    static SourceSnapshotIdentity validateInitialSourceGate(
+        final ModelState expected, final ModelState fresh,
+        final TextureRelationsSnapshot relations,
+        final List<PsdClipMaskDocumentSnapshot> documents, final String fixtureName) {
+        if (!sameModelIdentity(expected, fresh)) throw new IllegalArgumentException(
+            "initial model/document/relation identity changed");
+        if (fresh.documentId() == null || fresh.modelId() == null
+            || !fresh.documentId().equals(fresh.identity().documentId())
+            || !fresh.modelId().equals(fresh.identity().modelId())) {
+            throw new IllegalArgumentException("fresh model/document identity is inconsistent");
+        }
+        final RelationIdentity observed = validateRelationSnapshot(
+            fresh.documentId(), fresh.modelId(), relations);
+        if (!observed.equals(fresh.identity())) throw new IllegalArgumentException(
+            "fresh texture relation identity changed");
+        return validateSourceSnapshot(fresh.identity(), relations, documents, fixtureName);
     }
 
-    /** SAVE identity gate: event, target CMO, model/relation state, content ID, and window. */
+    /**
+     * The leaf/raw binding equality below is specific to this official seven-layer control input.
+     * It must not be generalized into a rule for unrelated multi-layer PSD imports.
+     */
+    private static SourceSnapshotIdentity validateSourceSnapshot(
+        final RelationIdentity identity, final TextureRelationsSnapshot relations,
+        final List<PsdClipMaskDocumentSnapshot> documents, final String fixtureName) {
+        if (identity == null || relations == null || fixtureName == null
+            || !isPsdName(fixtureName)) throw new IllegalArgumentException(
+            "initial PSD source identity is unavailable");
+        final Set<String> rawIds = new LinkedHashSet<>();
+        final Set<String> rawLayerIds = new LinkedHashSet<>();
+        int rawBindingCount = 0;
+        if (relations.modelImages() == null || relations.modelImages().isEmpty()) {
+            throw new IllegalArgumentException("initial PSD source has no model-image relations");
+        }
+        for (final ModelImageRelation image : relations.modelImages()) {
+            if (image == null || image.currentRawImageId() == null
+                || image.currentRawImageId().isEmpty()) throw new IllegalArgumentException(
+                "initial PSD source currentRaw identity is missing");
+            addRawId(rawIds, image.currentRawImageId().orElseThrow(), "currentRaw");
+            if (image.linkedRawImageIds() == null || image.linkedRawImageIds().isEmpty()) {
+                throw new IllegalArgumentException("initial PSD source linkedRaw identity is missing");
+            }
+            for (final RawImageId raw : image.linkedRawImageIds()) {
+                addRawId(rawIds, raw, "linkedRaw");
+            }
+            if (image.inputsByRawImage() == null || image.inputsByRawImage().isEmpty()) {
+                throw new IllegalArgumentException("initial PSD source raw bindings are missing");
+            }
+            for (final Map.Entry<RawImageId, List<RawLayerBinding>> entry
+                : image.inputsByRawImage().entrySet()) {
+                addRawId(rawIds, entry.getKey(), "raw binding");
+                if (entry.getValue() == null || entry.getValue().isEmpty()) {
+                    throw new IllegalArgumentException("initial PSD source raw bindings are empty");
+                }
+                for (final RawLayerBinding binding : entry.getValue()) {
+                    if (binding == null || binding.rawImageId() == null
+                        || !entry.getKey().equals(binding.rawImageId())
+                        || binding.rawLayerId() == null
+                        || binding.rawLayerId().value() == null
+                        || binding.rawLayerId().value().isBlank()
+                        || !rawLayerIds.add(binding.rawLayerId().value())) {
+                        throw new IllegalArgumentException(
+                            "initial PSD source raw layer binding is missing or duplicated");
+                    }
+                    rawBindingCount++;
+                }
+            }
+        }
+        if (rawIds.size() != 1) throw new IllegalArgumentException(
+            "initial PSD source has multiple raw identities: " + rawIds);
+        final Set<String> identityRawIds = new LinkedHashSet<>(identity.currentRawIds());
+        identityRawIds.addAll(identity.linkedRawIds());
+        if (!identityRawIds.equals(rawIds) || rawBindingCount == 0) throw new IllegalArgumentException(
+            "initial PSD source raw identity does not match verified relations");
+        if (documents == null || documents.size() != 1 || documents.get(0) == null) {
+            throw new IllegalArgumentException(
+                "initial PSD source must have exactly one snapshot");
+        }
+        final PsdClipMaskDocumentSnapshot document = documents.get(0);
+        final String rawId = rawIds.iterator().next();
+        if (!rawId.equals(document.documentId())) throw new IllegalArgumentException(
+            "initial PSD source snapshot raw identity does not match relations");
+        final String fileName = lastPathPart(document.relativePath());
+        if (!fixtureName.equals(fileName)) throw new IllegalArgumentException(
+            "initial PSD source snapshot filename does not match task fixture: " + fileName);
+        final Set<String> allLayerIds = new LinkedHashSet<>();
+        final Set<String> leafLayerIds = new LinkedHashSet<>();
+        if (document.layers() == null || document.layers().isEmpty()) throw new IllegalArgumentException(
+            "initial PSD source snapshot has no layers");
+        for (final PsdLayerSnapshot layer : document.layers()) {
+            collectPsdLayerIds(layer, allLayerIds, leafLayerIds);
+        }
+        if (!leafLayerIds.equals(rawLayerIds)) throw new IllegalArgumentException(
+            "initial PSD source leaf layers do not match raw bindings");
+        return new SourceSnapshotIdentity(rawId, document.relativePath(), fileName,
+            List.copyOf(leafLayerIds));
+    }
+
+    private static void addRawId(final Set<String> rawIds, final RawImageId raw,
+        final String source) {
+        if (raw == null || raw.value() == null || raw.value().isBlank()) {
+            throw new IllegalArgumentException("initial PSD source " + source + " identity is missing");
+        }
+        rawIds.add(raw.value());
+    }
+
+    private static void collectPsdLayerIds(final PsdLayerSnapshot layer,
+        final Set<String> allLayerIds, final Set<String> leafLayerIds) {
+        if (layer == null || layer.layerId() == null || layer.layerId().isBlank()
+            || !allLayerIds.add(layer.layerId())) throw new IllegalArgumentException(
+            "initial PSD source layer identity is missing or duplicated");
+        if (layer.children() == null || layer.children().isEmpty()) {
+            if (!leafLayerIds.add(layer.layerId())) throw new IllegalArgumentException(
+                "initial PSD source leaf layer identity is duplicated");
+            return;
+        }
+        for (final PsdLayerSnapshot child : layer.children()) {
+            collectPsdLayerIds(child, allLayerIds, leafLayerIds);
+        }
+    }
+
+    static boolean saveEventMatches(final SaveAfterIdentity event, final String expectedContentId) {
+        if (event == null || !event.succeeded() || !"SAVE".equals(event.operation())
+            || !usableContentId(expectedContentId)
+            || !usableContentId(event.contentId())
+            || !expectedContentId.equals(event.contentId())) return false;
+        return event.requestContentId() == null || event.requestContentId().isBlank()
+            || expectedContentId.equals(event.requestContentId());
+    }
+
+    /** SAVE identity gate: post-state target CMO, event content identity, relations, and window. */
     public static boolean saveAfterMatches(final SaveAfterIdentity event,
         final ModelState before, final ModelState after, final String expectedFileName,
         final String beforeWindow, final String afterWindow) {
-        if (!saveEventMatches(event, expectedFileName) || !event.succeeded()
-            || before == null || after == null || !sameModelIdentity(before, after)
+        if (before == null || after == null || before.contentId() == null
+            || before.contentId().isEmpty() || !usableContentId(before.contentId().get())
+            || !saveEventMatches(event, before.contentId().get()) || !event.succeeded()
+            || !sameModelIdentity(before, after)
             || !savedModelMatches(before, after, expectedFileName)
-            || event.contentId() == null || event.contentId().isBlank()
-            || UNAVAILABLE.equals(event.contentId()) || after.contentId() == null
+            || after.contentId() == null
             || after.contentId().isEmpty() || after.contentId().get() == null
             || after.contentId().get().isBlank()
+            || !before.contentId().get().equals(after.contentId().get())
             || !event.contentId().equals(after.contentId().get())
             || beforeWindow == null || !beforeWindow.equals(afterWindow)) return false;
         return true;
@@ -1287,6 +1465,29 @@ public final class OfficialPsdFixturePreparation {
 
     private static String windowIdentity(final Dialog dialog) {
         return windowIdentity((Window) dialog);
+    }
+
+    private static String requiredSaveContentId(final ModelState state) {
+        if (state == null || state.contentId() == null || state.contentId().isEmpty()) {
+            throw new IllegalStateException("SAVE source document content identity is unavailable");
+        }
+        final String contentId = state.contentId().get();
+        if (!usableContentId(contentId)) {
+            throw new IllegalStateException("SAVE source document content identity is unavailable");
+        }
+        return contentId;
+    }
+
+    private static boolean usableContentId(final String contentId) {
+        return contentId != null && !contentId.isBlank() && !UNAVAILABLE.equals(contentId);
+    }
+
+    private static String eventRequestFileName(final String fileName) {
+        return fileName == null || fileName.isBlank() ? "absent" : fileName;
+    }
+
+    private static String eventContentId(final String contentId) {
+        return usableContentId(contentId) ? contentId : "absent";
     }
 
     private record EdtCall<T>(boolean completed, T value, Throwable failure) {
@@ -1310,6 +1511,18 @@ public final class OfficialPsdFixturePreparation {
     private record ChoiceObservation(Window owner, Dialog dialog, String listClass,
         String confirmClass, String firstLabel, String secondLabel, boolean chosen) { }
 
+    private record CurrentModelObservation(CubismModel model,
+        TextureRelationsSnapshot relations, ModelState state) { }
+
+    private record InitialSourceObservation(ModelState state, SourceSnapshotIdentity source) { }
+
+    static record SourceSnapshotIdentity(String rawId, String relativePath, String fileName,
+        List<String> leafLayerIds) {
+        SourceSnapshotIdentity {
+            leafLayerIds = List.copyOf(leafLayerIds);
+        }
+    }
+
     public record InputIdentity(String fixturePath, String fixtureSha256, String fixtureName,
         String runId, String taskId, String savedCopyPath, String targetRgbSha256,
         String hostVersion, long timeoutMillis) { }
@@ -1328,12 +1541,22 @@ public final class OfficialPsdFixturePreparation {
         String modelId, RelationIdentity identity) { }
 
     public record SaveAfterIdentity(String operation, boolean succeeded, String fileName,
-        String contentId) {
+        String requestContentId, String contentId) {
+        public SaveAfterIdentity(final String operation, final boolean succeeded,
+            final String fileName, final String contentId) {
+            this(operation, succeeded, fileName, "", contentId);
+        }
+
+        /** The request file name is pre-SAVE evidence; it is never the SAVE_AS target proof. */
+        public String requestFileName() {
+            return fileName;
+        }
+
         static SaveAfterIdentity from(final ProjectFileLifecycleEvent.After event) {
             final var result = event.result();
             return new SaveAfterIdentity(result.request().operation().name(), result.succeeded(),
-                result.request().fileName().orElse(""), result.content().map(value -> value.contentId())
-                    .orElse(UNAVAILABLE));
+                result.request().fileName().orElse(""), result.request().contentId().orElse(""),
+                result.content().map(value -> value.contentId()).orElse(UNAVAILABLE));
         }
     }
 
@@ -1368,7 +1591,8 @@ public final class OfficialPsdFixturePreparation {
                 return sequence;
             }
         }
-        ProjectFileLifecycleEvent.After awaitSave(final String fileName, final int afterSequence,
+        ProjectFileLifecycleEvent.After awaitSave(final String expectedContentId,
+            final int afterSequence,
             final long timeout, final BooleanSupplier stopped) throws InterruptedException {
             final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
             while (System.nanoTime() < deadline) {
@@ -1378,7 +1602,8 @@ public final class OfficialPsdFixturePreparation {
                     snapshot = List.copyOf(after);
                 }
                 final Optional<ProjectFileLifecycleEvent.After> match = firstAfterSequence(snapshot,
-                    afterSequence, event -> saveEventMatches(SaveAfterIdentity.from(event), fileName));
+                    afterSequence, event -> saveEventMatches(
+                        SaveAfterIdentity.from(event), expectedContentId));
                 if (match.isPresent()) return match.get();
                 Thread.sleep(100L);
             }
@@ -1401,11 +1626,11 @@ public final class OfficialPsdFixturePreparation {
         return Optional.empty();
     }
 
-    /** Package-private sequence seam keeps the old same-name SAVE regression deterministic. */
+    /** Package-private sequence seam keeps stale SAVE events out of the identity gate. */
     static Optional<SaveAfterIdentity> firstSaveAfterAfterSequenceForTest(
         final List<SaveAfterIdentity> events, final int afterSequence,
-        final String expectedFileName) {
+        final String expectedContentId) {
         return firstAfterSequence(events, afterSequence,
-            event -> saveEventMatches(event, expectedFileName));
+            event -> saveEventMatches(event, expectedContentId));
     }
 }
