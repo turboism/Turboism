@@ -490,9 +490,21 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final AtomicBoolean noActionClaimed = new AtomicBoolean();
         final AtomicBoolean noActionSucceeded = new AtomicBoolean();
         final AtomicBoolean noActionFailed = new AtomicBoolean();
+        final long deadline = System.nanoTime()
+            + TimeUnit.MILLISECONDS.toNanos(HOST_CLOSE_TIMEOUT_MILLIS);
         try {
-            final EdtCall<List<CloseDialogSnapshot>> beforeCall = invokeEdtBounded(
-                () -> visibleDialogsOnEdt(target), HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
+            final AtomicReference<CloseDispatchResult> dispatch = new AtomicReference<>();
+            final ClosePreparation<List<CloseDialogSnapshot>> preparation =
+                prepareCloseAfterSnapshot(
+                    () -> visibleDialogsOnEdt(target),
+                    () -> {
+                        trace.recordDispatchAttempt();
+                        final CloseDispatchResult dispatched = dispatchBoundWindowClose(target);
+                        trace.recordDispatch(dispatched);
+                        dispatch.set(dispatched);
+                    },
+                    deadline, coordinatorActive);
+            final EdtCall<List<CloseDialogSnapshot>> beforeCall = preparation.beforeCall();
             if (!beforeCall.completed()) {
                 return withCloseTrace(trace, HostCloseResult.timeout(
                     "could not snapshot pre-close dialogs on EDT"));
@@ -507,40 +519,40 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     "pre-close dialog snapshot was unavailable"));
             }
             trace.recordBefore(beforeDialogs);
-
-            final AtomicReference<CloseDispatchResult> dispatch = new AtomicReference<>();
-            final AtomicBoolean closeStarted = new AtomicBoolean();
-            try {
-                SwingUtilities.invokeLater(() -> {
-                    if (!coordinatorActive.get()) return;
-                    closeStarted.set(true);
-                    trace.recordDispatchAttempt();
-                    final CloseDispatchResult dispatched = dispatchBoundWindowClose(target);
-                    trace.recordDispatch(dispatched);
-                    dispatch.set(dispatched);
-                });
-            } catch (RuntimeException failure) {
+            if (!preparation.dispatchPosted()) {
+                final Throwable dispatchFailure = preparation.dispatchFailure().get();
+                if (dispatchFailure == null) {
+                    return withCloseTrace(trace, HostCloseResult.timeout(
+                        "close deadline/stop reached before WINDOW_CLOSING dispatch"));
+                }
                 return withCloseTrace(trace, HostCloseResult.rejected(
-                    "WINDOW_CLOSING could not be posted: " + stackTrace(failure)));
+                    "WINDOW_CLOSING could not be posted: " + stackTrace(dispatchFailure)));
             }
-
-            final long deadline = System.nanoTime()
-                + TimeUnit.MILLISECONDS.toNanos(HOST_CLOSE_TIMEOUT_MILLIS);
             String lastDiagnostic = "WINDOW_CLOSING has not reached the EDT";
-            while (System.nanoTime() < deadline) {
+            while (coordinatorActive.get() && !Thread.currentThread().isInterrupted()
+                && System.nanoTime() < deadline) {
                 final CloseDispatchResult dispatched = dispatch.get();
                 if (dispatched != null && !dispatched.dispatched()) {
                     return withCloseTrace(trace,
                         HostCloseResult.rejected(dispatched.diagnostic()));
                 }
-                if (!closeStarted.get()) {
+                if (preparation.dispatchFailure().get() != null) {
+                    return withCloseTrace(trace, HostCloseResult.rejected(
+                        "WINDOW_CLOSING dispatch failed: "
+                            + stackTrace(preparation.dispatchFailure().get())));
+                }
+                if (!preparation.dispatchStarted().get()) {
                     lastDiagnostic = "WINDOW_CLOSING is queued on the EDT";
                 } else {
+                    final long observationMillis = Math.min(
+                        HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS,
+                        remainingCloseMillis(deadline));
+                    if (observationMillis <= 0) break;
                     final EdtCall<CloseDialogInspection> inspection = invokeEdtBounded(
                         () -> inspectAndMaybeDismissCloseDialog(target, beforeDialogs,
                             coordinatorActive, noActionClaimed, noActionSucceeded,
                             noActionFailed, trace),
-                        HOST_CLOSE_EDT_CALL_TIMEOUT_MILLIS);
+                        observationMillis);
                     if (!inspection.completed()) {
                         lastDiagnostic = "EDT close observation timed out";
                     } else if (inspection.failure() != null) {
@@ -578,6 +590,116 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             // ownership of the host.
             coordinatorActive.set(false);
         }
+    }
+
+    private static <T> ClosePreparation<T> prepareCloseAfterSnapshot(
+        final Callable<T> beforeOperation, final Runnable dispatchOperation,
+        final long deadline, final AtomicBoolean coordinatorActive) throws InterruptedException {
+        Objects.requireNonNull(beforeOperation, "beforeOperation");
+        Objects.requireNonNull(dispatchOperation, "dispatchOperation");
+        Objects.requireNonNull(coordinatorActive, "coordinatorActive");
+        final long beforeMillis = remainingCloseMillis(deadline);
+        if (!coordinatorActive.get() || beforeMillis <= 0) {
+            coordinatorActive.set(false);
+            return ClosePreparation.timeout();
+        }
+        final EdtCall<T> beforeCall = invokeEdtBounded(beforeOperation, beforeMillis);
+        if (!beforeCall.completed() || beforeCall.failure() != null
+            || !coordinatorActive.get() || System.nanoTime() >= deadline) {
+            coordinatorActive.set(false);
+            return new ClosePreparation<>(beforeCall, false, new AtomicBoolean(),
+                new AtomicReference<>());
+        }
+        final AtomicBoolean dispatchStarted = new AtomicBoolean();
+        final AtomicReference<Throwable> dispatchFailure = new AtomicReference<>();
+        try {
+            SwingUtilities.invokeLater(() -> {
+                if (!coordinatorActive.get() || System.nanoTime() >= deadline) return;
+                dispatchStarted.set(true);
+                try {
+                    dispatchOperation.run();
+                } catch (Throwable failure) {
+                    dispatchFailure.set(failure);
+                }
+            });
+            return new ClosePreparation<>(beforeCall, true, dispatchStarted, dispatchFailure);
+        } catch (RuntimeException failure) {
+            dispatchFailure.set(failure);
+            return new ClosePreparation<>(beforeCall, false, dispatchStarted, dispatchFailure);
+        }
+    }
+
+    private static long remainingCloseMillis(final long deadline) {
+        final long remaining = deadline - System.nanoTime();
+        if (remaining <= 0L) return 0L;
+        return Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining));
+    }
+
+    /** Focused seam over the production close preflight/dispatch deadline coordinator. */
+    static CloseTimingResult closeTimingForTest(final Callable<?> beforeOperation,
+        final Runnable dispatchOperation, final long timeoutMillis,
+        final BooleanSupplier stopped) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("close timing test must run off EDT");
+        }
+        Objects.requireNonNull(beforeOperation, "beforeOperation");
+        Objects.requireNonNull(dispatchOperation, "dispatchOperation");
+        Objects.requireNonNull(stopped, "stopped");
+        if (timeoutMillis <= 0L) {
+            return new CloseTimingResult(false, false, false, 0, true,
+                stopped.getAsBoolean(), "close timing timeout is not positive");
+        }
+        if (stopped.getAsBoolean()) {
+            return new CloseTimingResult(false, false, false, 0, false, true,
+                "close timing was stopped before preflight");
+        }
+        final long deadline = System.nanoTime()
+            + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final AtomicInteger dispatchCalls = new AtomicInteger();
+        final CountDownLatch dispatchDone = new CountDownLatch(1);
+        final ClosePreparation<?> preparation;
+        try {
+            preparation = prepareCloseAfterSnapshot(beforeOperation, () -> {
+                try {
+                    if (!stopped.getAsBoolean()) {
+                        dispatchCalls.incrementAndGet();
+                        dispatchOperation.run();
+                    }
+                } finally {
+                    dispatchDone.countDown();
+                }
+            }, deadline, active);
+        } catch (InterruptedException interrupted) {
+            active.set(false);
+            throw interrupted;
+        }
+        if (!preparation.beforeCall().completed() || preparation.beforeCall().failure() != null
+            || !preparation.dispatchPosted()) {
+            active.set(false);
+            final boolean deadlineReached = !preparation.beforeCall().completed()
+                || System.nanoTime() >= deadline;
+            return new CloseTimingResult(preparation.beforeCall().completed(),
+                preparation.dispatchPosted(), preparation.dispatchStarted().get(),
+                dispatchCalls.get(), deadlineReached, stopped.getAsBoolean(),
+                "close preflight did not post WINDOW_CLOSING: "
+                    + (preparation.beforeCall().failure() == null
+                        ? "deadline or unavailable" : stackTrace(preparation.beforeCall().failure())));
+        }
+        while (active.get() && !stopped.getAsBoolean() && System.nanoTime() < deadline
+            && !preparation.dispatchStarted().get()) {
+            final long remaining = deadline - System.nanoTime();
+            if (remaining <= 0L) break;
+            dispatchDone.await(Math.min(remaining,
+                TimeUnit.MILLISECONDS.toNanos(10L)), TimeUnit.NANOSECONDS);
+        }
+        final boolean deadlineReached = System.nanoTime() >= deadline;
+        final boolean stoppedNow = stopped.getAsBoolean();
+        active.set(false);
+        return new CloseTimingResult(preparation.beforeCall().completed(),
+            preparation.dispatchPosted(), preparation.dispatchStarted().get(),
+            dispatchCalls.get(), deadlineReached, stoppedNow,
+            deadlineReached ? "close deadline reached" : "close dispatch coordinator completed");
     }
 
     private static <T> EdtCall<T> invokeEdtBounded(final Callable<T> operation,
@@ -8873,6 +8995,28 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
         static <T> EdtCall<T> timeout() {
             return new EdtCall<>(false, null, null);
+        }
+    }
+
+    private record ClosePreparation<T>(EdtCall<T> beforeCall, boolean dispatchPosted,
+        AtomicBoolean dispatchStarted, AtomicReference<Throwable> dispatchFailure) {
+        ClosePreparation {
+            beforeCall = Objects.requireNonNull(beforeCall, "beforeCall");
+            dispatchStarted = Objects.requireNonNull(dispatchStarted, "dispatchStarted");
+            dispatchFailure = Objects.requireNonNull(dispatchFailure, "dispatchFailure");
+        }
+
+        static <T> ClosePreparation<T> timeout() {
+            return new ClosePreparation<>(EdtCall.timeout(), false,
+                new AtomicBoolean(), new AtomicReference<>());
+        }
+    }
+
+    static record CloseTimingResult(boolean beforeCompleted, boolean dispatchPosted,
+        boolean dispatchStarted, int dispatchCalls, boolean deadlineReached, boolean stopped,
+        String diagnostic) {
+        CloseTimingResult {
+            diagnostic = diagnostic == null ? "" : diagnostic;
         }
     }
 

@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 import javax.swing.JPopupMenu;
@@ -96,6 +97,7 @@ public final class ExternalPsdEditHostProbeTest {
         testGuiWindowBinding();
         testPrepareFixturePhaseDispatch();
         testNativeCloseDialogHandling();
+        testCloseTimingDeadlineCoordinator();
         testCloseDiagnosticBudgets();
         testBoundedRowDispatches();
         testPopupMarker();
@@ -3895,6 +3897,124 @@ public final class ExternalPsdEditHostProbeTest {
             new ExternalPsdEditHostProbe.GuiTargetState(true, "binding", 7L, "raw", true, ""));
         assertTrue(!state.containsKey("gui.after.diagnostic"),
             "a successful target observation clears the stale diagnostic placeholder");
+    }
+
+    private static void testCloseTimingDeadlineCoordinator() throws Exception {
+        final CountDownLatch withinBudgetEntered = new CountDownLatch(1);
+        final CountDownLatch releaseWithinBudget = new CountDownLatch(1);
+        final AtomicReference<Throwable> withinBudgetReleaseFailure = new AtomicReference<>();
+        final Thread withinBudgetReleaser = new Thread(() -> {
+            try {
+                if (!withinBudgetEntered.await(2, TimeUnit.SECONDS)) {
+                    withinBudgetReleaseFailure.set(
+                        new AssertionError("within-budget EDT snapshot did not start"));
+                    return;
+                }
+                // Deliberately exceed the old 500 ms EDT call budget while remaining inside
+                // the shared close deadline. The latch, rather than scheduler luck, controls
+                // the exact point at which the synthetic EDT stall ends.
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(750L));
+                releaseWithinBudget.countDown();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                withinBudgetReleaseFailure.set(interrupted);
+            }
+        }, "close-timing-within-budget-releaser");
+        withinBudgetReleaser.start();
+        final AtomicInteger withinBudgetDispatches = new AtomicInteger();
+        final ExternalPsdEditHostProbe.CloseTimingResult withinBudget;
+        try {
+            withinBudget = ExternalPsdEditHostProbe.closeTimingForTest(() -> {
+                withinBudgetEntered.countDown();
+                try {
+                    if (!releaseWithinBudget.await(2, TimeUnit.SECONDS)) {
+                        throw new AssertionError("within-budget EDT snapshot was not released");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw interrupted;
+                }
+                return null;
+            }, withinBudgetDispatches::incrementAndGet, 2_000L, () -> false);
+        } finally {
+            releaseWithinBudget.countDown();
+            withinBudgetReleaser.join(2_000L);
+        }
+        assertTrue(withinBudgetReleaseFailure.get() == null,
+            "within-budget EDT release completes without helper failure");
+        assertTrue(withinBudget.beforeCompleted(),
+            "an EDT snapshot over 500 ms but inside the close budget completes");
+        assertTrue(withinBudget.dispatchPosted(),
+            "a completed within-budget snapshot posts WINDOW_CLOSING");
+        assertTrue(withinBudget.dispatchStarted(),
+            "the within-budget WINDOW_CLOSING callback reaches the EDT");
+        assertEquals(1, withinBudget.dispatchCalls(),
+            "the within-budget close coordinator dispatches exactly once");
+        assertEquals(1, withinBudgetDispatches.get(),
+            "the within-budget native close seam is called exactly once");
+        assertTrue(!withinBudget.deadlineReached(),
+            "the within-budget snapshot does not consume the shared close deadline");
+
+        final CountDownLatch exhaustedEntered = new CountDownLatch(1);
+        final CountDownLatch releaseAfterExhaustion = new CountDownLatch(1);
+        final CountDownLatch exhaustedFinished = new CountDownLatch(1);
+        final AtomicReference<Throwable> exhaustedReleaseFailure = new AtomicReference<>();
+        final Thread exhaustedReleaser = new Thread(() -> {
+            try {
+                if (!exhaustedEntered.await(2, TimeUnit.SECONDS)) {
+                    exhaustedReleaseFailure.set(
+                        new AssertionError("exhausted EDT snapshot did not start"));
+                    return;
+                }
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(300L));
+                releaseAfterExhaustion.countDown();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                exhaustedReleaseFailure.set(interrupted);
+            }
+        }, "close-timing-exhausted-releaser");
+        exhaustedReleaser.start();
+        final AtomicInteger exhaustedDispatches = new AtomicInteger();
+        final ExternalPsdEditHostProbe.CloseTimingResult exhausted;
+        try {
+            exhausted = ExternalPsdEditHostProbe.closeTimingForTest(() -> {
+                exhaustedEntered.countDown();
+                try {
+                    if (!releaseAfterExhaustion.await(2, TimeUnit.SECONDS)) {
+                        throw new AssertionError("exhausted EDT snapshot was not released");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw interrupted;
+                } finally {
+                    exhaustedFinished.countDown();
+                }
+                return null;
+            }, exhaustedDispatches::incrementAndGet, 100L, () -> false);
+        } finally {
+            releaseAfterExhaustion.countDown();
+            exhaustedReleaser.join(2_000L);
+        }
+        assertTrue(exhaustedReleaseFailure.get() == null,
+            "exhausted EDT release completes without helper failure");
+        assertTrue(exhausted.deadlineReached(),
+            "the close coordinator reports the exhausted shared deadline");
+        assertTrue(!exhausted.beforeCompleted(),
+            "an EDT snapshot past the total close budget does not complete admission");
+        assertTrue(!exhausted.dispatchPosted(),
+            "an exhausted pre-close snapshot posts no WINDOW_CLOSING callback");
+        assertTrue(!exhausted.dispatchStarted(),
+            "an exhausted pre-close snapshot starts no late WINDOW_CLOSING callback");
+        assertEquals(0, exhausted.dispatchCalls(),
+            "an exhausted close coordinator performs zero dispatch calls");
+        assertEquals(0, exhaustedDispatches.get(),
+            "an exhausted close seam performs zero native close actions");
+        assertTrue(exhaustedFinished.await(2, TimeUnit.SECONDS),
+            "the timed-out EDT snapshot eventually drains after controlled release");
+        SwingUtilities.invokeAndWait(() -> { });
+        assertEquals(0, exhaustedDispatches.get(),
+            "flushing the EDT after the deadline cannot trigger a late close action");
+
     }
 
     private static void testCloseDiagnosticBudgets() {
