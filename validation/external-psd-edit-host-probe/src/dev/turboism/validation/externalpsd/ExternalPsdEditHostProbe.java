@@ -110,12 +110,15 @@ import java.util.stream.Stream;
  * editor would see it. Persistence and GUI validation use the validation-only fixture helper to
  * correlate decoded target RGB fingerprints; no production pixel API is involved.</p>
  *
- * <p>Phases ({@code -Dturboism.validation.externalpsd.phase}): {@code pipeline} (default)
+ * <p>Phases ({@code -Dturboism.validation.externalpsd.phase}): {@code pipeline} (default),
+ * {@code prepare-fixture}, {@code reopen}, and {@code gui}.
  * runs the full save/replace/undo/stop pipeline and, with {@code .persist=1}, appends a
  * mediated SAVE_AS plus lifecycle-event confirmation; {@code reopen} re-exports the validated
  * target layer from a previously saved fixture copy; {@code gui} right-clicks a real object row,
  * clicks the contributed menu item, and verifies the plugin's own session auto-imports a
- * written save.</p>
+ * written save. {@code prepare-fixture} is a preparation-only phase: it drives the official
+ * PSD chooser and SAVE_AS helper before ordinary model readiness, then binds the helper's exact
+ * returned host window for the shared close path.</p>
  *
  * <p>NOT covered (recorded honestly): multi-document isolation, F3/F4 fixture entities.</p>
  */
@@ -208,13 +211,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             "turboism.validation.externalpsd.phase", "pipeline");
         result.setProperty("phase", phase);
         try {
-            if ("gui".equals(phase)) awaitGuiReadyTrigger(result);
-            awaitReady();
-            switch (phase) {
-                case "reopen" -> runReopen(result);
-                case "gui" -> runGui(result);
-                case "pipeline" -> runPipeline(result, cycles);
-                default -> throw new IllegalStateException("unknown probe phase " + phase);
+            if (isPrepareFixturePhase(phase)) {
+                runPrepareFixture(result);
+            } else {
+                if ("gui".equals(phase)) awaitGuiReadyTrigger(result);
+                awaitReady();
+                switch (phase) {
+                    case "reopen" -> runReopen(result);
+                    case "gui" -> runGui(result);
+                    case "pipeline" -> runPipeline(result, cycles);
+                    default -> throw new IllegalStateException("unknown probe phase " + phase);
+                }
             }
             result.setProperty("status", "PASS");
         } catch (Blocked blocked) {
@@ -262,6 +269,30 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         } catch (Throwable error) {
             context.logger().error("EXTERNAL_PSD_EDIT_EXIT_FAILED", error);
         }
+    }
+
+    static boolean isPrepareFixturePhase(final String phase) {
+        return "prepare-fixture".equals(phase);
+    }
+
+    /**
+     * Runs the official PSD new-model preparation before ordinary readiness. The helper owns all
+     * chooser/model/SAVE_AS observations; this phase only adopts its returned exact host window
+     * so the existing result and native close paths remain the single lifecycle boundary.
+     */
+    private void runPrepareFixture(final Properties result) throws Exception {
+        final OfficialPsdFixturePreparation.PreparationResult preparation =
+            OfficialPsdFixturePreparation.prepareFixture(context, () -> stopped, result);
+        if (preparation == null || preparation.window() == null) {
+            throw new IllegalStateException(
+                "official PSD preparation returned no exact host window");
+        }
+        guiBoundWindow = preparation.window();
+        result.setProperty("prepare.boundWindow.identity", objectIdentity(guiBoundWindow));
+        result.setProperty("prepare.boundWindow.class", guiBoundWindow.getClass().getName());
+        result.setProperty("expected", "official PSD new-model import and SAVE_AS preparation");
+        result.setProperty("actual",
+            "official PSD chooser, relation graph, SAVE_AS, and exact close-window binding verified");
     }
 
     /**

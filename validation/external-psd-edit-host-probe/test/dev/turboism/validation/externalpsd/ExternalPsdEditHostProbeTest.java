@@ -86,6 +86,7 @@ public final class ExternalPsdEditHostProbeTest {
         testGuiReadyTriggerProductionPath();
         testGuiEnableAndEdtAreNonBlocking();
         testGuiWindowBinding();
+        testPrepareFixturePhaseDispatch();
         testNativeCloseDialogHandling();
         testCloseDiagnosticBudgets();
         testBoundedRowDispatches();
@@ -3253,6 +3254,19 @@ public final class ExternalPsdEditHostProbeTest {
             "", "", false, false);
         assertTrue(!hiddenBeforeBinding.bindNow() && !hiddenBeforeBinding.waitForBoundWindow(),
             "without an established target window no window is selected blindly");
+    }
+
+    private static void testPrepareFixturePhaseDispatch() {
+        assertTrue(ExternalPsdEditHostProbe.isPrepareFixturePhase("prepare-fixture"),
+            "prepare-fixture has its dedicated pre-readiness dispatch");
+        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase("pipeline"),
+            "pipeline remains on ordinary readiness");
+        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase("reopen"),
+            "reopen remains on ordinary readiness");
+        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase("gui"),
+            "gui remains on trigger and ordinary readiness");
+        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase(null),
+            "missing phase cannot enter preparation implicitly");
     }
 
     private static void testNativeCloseDialogHandling() throws Exception {
