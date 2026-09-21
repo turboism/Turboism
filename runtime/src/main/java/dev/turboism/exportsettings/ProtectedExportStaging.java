@@ -485,12 +485,27 @@ public final class ProtectedExportStaging {
         float worst = 0f;
         String worstDrawable = null;
         for (Map.Entry<String, float[]> entry : expected.entrySet()) {
+            final float[] expectedPositions = entry.getValue();
+            // A corrupt snapshot frame is a rejection even when the drawable
+            // was legitimately dropped from the output — corrupt evidence can
+            // never stand in for a comparison.
+            final String invalid = invalidPositions(expectedPositions);
+            if (invalid != null) {
+                return new MocFailure(
+                    "protected-export.moc3-behavior-drift",
+                    label + " drawable=" + entry.getKey()
+                        + " invalid-snapshot:" + invalid);
+            }
             final List<Float> actual = positions.get(entry.getKey());
             if (actual == null) {
                 continue;
             }
-            compared[0]++;
-            final float[] expectedPositions = entry.getValue();
+            if (actual.isEmpty() || (actual.size() & 1) != 0) {
+                return new MocFailure(
+                    "protected-export.moc3-behavior-drift",
+                    label + " drawable=" + entry.getKey()
+                        + " invalid-output-vertices=" + actual.size());
+            }
             if (actual.size() != expectedPositions.length) {
                 return new MocFailure(
                     "protected-export.moc3-behavior-drift",
@@ -498,9 +513,16 @@ public final class ProtectedExportStaging {
                         + " vertex-count " + actual.size()
                         + "!=" + expectedPositions.length);
             }
+            compared[0]++;
             for (int i = 0; i < expectedPositions.length; i++) {
-                final float delta =
-                    Math.abs(actual.get(i) - expectedPositions[i]);
+                final float actualValue = actual.get(i);
+                if (!Float.isFinite(actualValue)) {
+                    return new MocFailure(
+                        "protected-export.moc3-behavior-drift",
+                        label + " drawable=" + entry.getKey()
+                            + " non-finite-output-index=" + i);
+                }
+                final float delta = Math.abs(actualValue - expectedPositions[i]);
                 if (delta > worst) {
                     worst = delta;
                     worstDrawable = entry.getKey();
@@ -557,21 +579,34 @@ public final class ProtectedExportStaging {
         final Map<String, String> guidToToken,
         final int[] compared
     ) {
-        for (Map.Entry<String, float[]> entry : original.entrySet()) {
-            final String token = guidToToken.get(entry.getKey());
-            if (token == null) {
-                return label + " guid=" + entry.getKey() + " unmapped";
+        // Coverage is driven by the plan, not by either frame's key set: a mesh
+        // missing from BOTH snapshots must still reject, never be equivalent.
+        for (Map.Entry<String, String> entry : guidToToken.entrySet()) {
+            final String guid = entry.getKey();
+            final String token = entry.getValue();
+            final float[] expected = original.get(guid);
+            if (expected == null) {
+                return label + " guid=" + guid + " missing-original";
             }
             final float[] actual = transformed.get(token);
             if (actual == null) {
                 return label + " drawable=" + token + " missing-transformed";
             }
-            compared[0]++;
-            final float[] expected = entry.getValue();
+            String invalid = invalidPositions(expected);
+            if (invalid != null) {
+                return label + " guid=" + guid + " invalid-original:"
+                    + invalid;
+            }
+            invalid = invalidPositions(actual);
+            if (invalid != null) {
+                return label + " drawable=" + token + " invalid-transformed:"
+                    + invalid;
+            }
             if (actual.length != expected.length) {
                 return label + " drawable=" + token + " vertex-count "
                     + actual.length + "!=" + expected.length;
             }
+            compared[0]++;
             for (int i = 0; i < expected.length; i++) {
                 final float delta = Math.abs(actual[i] - expected[i]);
                 if (delta > BEHAVIOR_TOLERANCE) {
@@ -580,10 +615,36 @@ public final class ProtectedExportStaging {
                 }
             }
         }
+        for (String key : original.keySet()) {
+            if (!guidToToken.containsKey(key)) {
+                return label + " guid=" + key + " unmapped-original";
+            }
+        }
         final Set<String> mapped = new HashSet<>(guidToToken.values());
         for (String key : transformed.keySet()) {
             if (!mapped.contains(key)) {
                 return label + " drawable=" + key + " unexpected-transformed";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Frame coordinates are xy pairs: a drawable must contribute a non-empty,
+     * even-length, all-finite array. NaN or Infinity can never be equivalent —
+     * {@code Math.abs(NaN - x) > tolerance} is false, so finiteness is a hard
+     * precondition, not part of the delta check.
+     */
+    private static String invalidPositions(final float[] positions) {
+        if (positions.length == 0) {
+            return "empty";
+        }
+        if ((positions.length & 1) != 0) {
+            return "odd-length=" + positions.length;
+        }
+        for (int i = 0; i < positions.length; i++) {
+            if (!Float.isFinite(positions[i])) {
+                return "non-finite-index=" + i;
             }
         }
         return null;

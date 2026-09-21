@@ -204,6 +204,52 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
+    void rejectsWhenStagedGeometryIsNonFinite() throws Exception {
+        // A staged drawable emitting NaN vertices must reject: delta checks
+        // alone can never catch NaN because Math.abs(NaN - x) > tolerance
+        // is false.
+        final Fixture fixture = new Fixture();
+        fixture.host.exportWritesNonFinite = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().startsWith(
+                ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
+            "expected validation rejection, got " + report.failureKey());
+        assertNotNull(report.failureDetail());
+        assertTrue(report.failureDetail().contains("non-finite-output"),
+            "expected non-finite-output detail, got " + report.failureDetail());
+        assertFalse(report.published());
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanupErrors().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenStagedGeometryHasNoVertices() throws Exception {
+        // An empty vertex array must not count as compared coverage.
+        final Fixture fixture = new Fixture();
+        fixture.host.exportWritesEmptyGeometry = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().startsWith(
+                ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
+            "expected validation rejection, got " + report.failureKey());
+        assertNotNull(report.failureDetail());
+        assertTrue(report.failureDetail().contains("invalid-output-vertices"),
+            "expected invalid-output-vertices detail, got " + report.failureDetail());
+        assertFalse(report.published());
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanupErrors().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
     void rejectsWhenFlattenChangesEvaluatedGeometry() throws Exception {
         // The pre-flatten baseline is captured on the bound copy before any
         // mutation; a flatten bake that diverges from it must reject BEFORE the
@@ -1035,8 +1081,16 @@ class ProtectedExportOrchestratorTest {
                                 positions[i] *= 1.5f;
                             }
                         }
+                        if (host.exportWritesNonFinite && positions.length > 0) {
+                            // NaN output must never equal finite evidence —
+                            // Math.abs(NaN - x) > tolerance is false.
+                            positions[0] = Float.NaN;
+                        }
+                        final float[] stagedPositions = host.exportWritesEmptyGeometry
+                            ? new float[0]
+                            : positions;
                         final List<Float> vertexPositions = new ArrayList<>();
-                        for (float position : positions) {
+                        for (float position : stagedPositions) {
                             vertexPositions.add(position);
                         }
                         projected.add(new OwnedDrawable(
@@ -1284,6 +1338,8 @@ class ProtectedExportOrchestratorTest {
         volatile boolean exportKeepsOriginalDrawableIds;
         volatile boolean exportLeavesDeformer;
         volatile boolean exportDriftsGeometry;
+        volatile boolean exportWritesNonFinite;
+        volatile boolean exportWritesEmptyGeometry;
         volatile boolean exportAddsParameter;
         volatile boolean vanishArtMeshAfterCensus;
         volatile boolean copyFileMarkedReadOnlyOnOpen;

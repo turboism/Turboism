@@ -726,10 +726,26 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 continue;
             }
             final float[] positions = host.evaluatedArtMeshPositions(mesh);
-            if (positions == null) {
-                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
+            if (positions == null || positions.length == 0
+                || (positions.length & 1) != 0) {
+                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY,
+                    "invalid-positions:" + key);
+            }
+            for (float position : positions) {
+                if (!Float.isFinite(position)) {
+                    throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY,
+                        "non-finite-positions:" + key);
+                }
             }
             frame.put(key, positions);
+        }
+        // Full plan coverage: a planned mesh absent from the live evaluation
+        // is a capture failure, not a silently narrower comparison surface.
+        for (String key : guidToKey.values()) {
+            if (!frame.containsKey(key)) {
+                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY,
+                    "uncaptured-drawable:" + key);
+            }
         }
         return Map.copyOf(frame);
     }

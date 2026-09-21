@@ -23,6 +23,79 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProtectedExportStagingTest {
 
+    private static ProtectedExportStaging.BehaviorSnapshot snapshot(
+        final java.util.Map<String, float[]> baseline
+    ) {
+        return new ProtectedExportStaging.BehaviorSnapshot(
+            List.of(), baseline, List.of());
+    }
+
+    private static java.util.Map<String, String> mapping(final String... pairs) {
+        final java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
+        for (int i = 0; i + 1 < pairs.length; i += 2) {
+            map.put(pairs[i], pairs[i + 1]);
+        }
+        return map;
+    }
+
+    @Test
+    void behaviorDriftAcceptsEquivalentFrames() {
+        final String drift = ProtectedExportStaging.behaviorDrift(
+            snapshot(java.util.Map.of(
+                "g1", new float[] {0f, 1f, 2f, 3f},
+                "g2", new float[] {4f, 5f})),
+            snapshot(java.util.Map.of(
+                "t1", new float[] {0f, 1f, 2f, 3f},
+                "t2", new float[] {4f, 5f})),
+            mapping("g1", "t1", "g2", "t2"));
+        assertEquals(null, drift);
+    }
+
+    @Test
+    void behaviorDriftRejectsNonFiniteTransformed() {
+        final String drift = ProtectedExportStaging.behaviorDrift(
+            snapshot(java.util.Map.of("g1", new float[] {0f, 1f})),
+            snapshot(java.util.Map.of("t1", new float[] {0f, Float.NaN})),
+            mapping("g1", "t1"));
+        assertTrue(drift != null && drift.contains("non-finite"), drift);
+    }
+
+    @Test
+    void behaviorDriftRejectsEmptyFramesAsCoverage() {
+        final String drift = ProtectedExportStaging.behaviorDrift(
+            snapshot(java.util.Map.of("g1", new float[0])),
+            snapshot(java.util.Map.of("t1", new float[0])),
+            mapping("g1", "t1"));
+        assertTrue(drift != null && drift.contains("empty"), drift);
+    }
+
+    @Test
+    void behaviorDriftRejectsSymmetricMissingDrawable() {
+        final java.util.Map<String, float[]> partial =
+            java.util.Map.of("g1", new float[] {0f, 1f});
+        final String drift = ProtectedExportStaging.behaviorDrift(
+            snapshot(partial),
+            snapshot(java.util.Map.of("t1", new float[] {0f, 1f})),
+            mapping("g1", "t1", "g2", "t2"));
+        assertTrue(drift != null && drift.contains("missing-original"), drift);
+    }
+
+    @Test
+    void behaviorDriftRejectsOddLengthAndInfinity() {
+        final String odd = ProtectedExportStaging.behaviorDrift(
+            snapshot(java.util.Map.of("g1", new float[] {0f, 1f, 2f})),
+            snapshot(java.util.Map.of("t1", new float[] {0f, 1f, 2f})),
+            mapping("g1", "t1"));
+        assertTrue(odd != null && odd.contains("odd-length"), odd);
+        final String inf = ProtectedExportStaging.behaviorDrift(
+            snapshot(java.util.Map.of(
+                "g1", new float[] {0f, Float.POSITIVE_INFINITY})),
+            snapshot(java.util.Map.of(
+                "t1", new float[] {0f, Float.POSITIVE_INFINITY})),
+            mapping("g1", "t1"));
+        assertTrue(inf != null && inf.contains("non-finite"), inf);
+    }
+
     @TempDir
     Path tempDir;
 
