@@ -1085,6 +1085,23 @@ class Probe:
                         and not isinstance(row.get("Value"), bool)):
                     writable = row
                     break
+            if writable is None and rows and isinstance(rows[0], dict):
+                # Diagnose the real 1.0.x row shape once; SetParameterValues'
+                # wire shape is pinned by the official manual, only the row
+                # key used to pick the write target is version-flexible.
+                keys = sorted(str(k) for k in rows[0].keys())
+                self.observe("r.get-parameters.first-row-keys", ",".join(keys))
+                for row in rows:
+                    if not (isinstance(row, dict) and isinstance(row.get("Id"), str)):
+                        continue
+                    for key, value in row.items():
+                        if (key.lower() == "value"
+                                and isinstance(value, (int, float))
+                                and not isinstance(value, bool)):
+                            writable = row
+                            break
+                if writable is None:
+                    self.observe("r.get-parameters.rows", sanitize(rows)[:600])
         if writable is not None:
             write = self.call(
                 conn1, "SetParameterValues",
