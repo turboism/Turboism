@@ -348,10 +348,22 @@ bash scripts/preview/run-external-psd-edit-host-validation.sh
 # persistence: save-as → reopen two-stage evidence
 bash scripts/preview/run-external-psd-edit-persist-validation.sh
 
+# if A finished but its client wait failed, recover that exact job and run only B
+bash scripts/preview/run-external-psd-edit-persist-validation.sh --resume-stage-a <job-id>
+
 # GUI: stage the production plugin jar beside the probe
 EXTERNAL_PSD_PHASE=gui EXTERNAL_PSD_WITH_PLUGIN=<external-psd-edit.jar> \
   bash scripts/preview/run-external-psd-edit-host-validation.sh
 ```
+
+`--resume-stage-a` queries the existing job through the shared queue CLI. It requires exactly
+that job's complete successful Supervisor evidence and reruns the ordinary terminal SHA,
+pipeline phase, changed RGB, quarantine, and saved-file checks before submitting B. A failed,
+unfinished, missing, or ambiguous job starts no host task. It never submits A or changes the
+queue's bounded wait retries. Use it after confirming B was not already submitted; it submits
+a new independent B, so it is not an idempotent B recovery command. The option cannot be combined
+with `--dry-run`. Other arguments are passed to the host wrapper, including B; do not pass A's
+fixed `--fixture-sha256`, because B opens a different saved CMO file.
 
 Result file: `state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties`
 under the isolated Turboism home. Terminal status is `status=PASS|FAIL|BLOCKED`; the probe

@@ -2,6 +2,8 @@
 # Two-stage 025 persistence evidence: stage A runs the pipeline with the mediated
 # SAVE_AS persist tail; stage B reopens the saved copy and verifies the
 # external-edit image content survived the real native save.
+# --resume-stage-a JOB reads an existing completed A job, verifies all evidence,
+# and submits only B. It never resubmits A after a client wait failure.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -13,12 +15,27 @@ die() {
 }
 
 has_dry_run=0
-for argument in "$@"; do
-  if [ "$argument" = --dry-run ]; then
-    has_dry_run=1
-    break
-  fi
+resume_stage_a=''
+wrapper_args=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --resume-stage-a)
+      [ -z "$resume_stage_a" ] || die '--resume-stage-a may only be specified once'
+      [ "$#" -ge 2 ] || die '--resume-stage-a requires a job ID'
+      [[ "$2" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] \
+        || die '--resume-stage-a requires a safe bounded job ID'
+      resume_stage_a="$2"
+      shift 2
+      ;;
+    *)
+      [ "$1" != --dry-run ] || has_dry_run=1
+      wrapper_args+=("$1")
+      shift
+      ;;
+  esac
 done
+[ -z "$resume_stage_a" ] || [ "$has_dry_run" = 0 ] \
+  || die '--resume-stage-a cannot be combined with --dry-run; no job was queried or submitted'
 
 # A dry-run is an argument-validation operation only. The wrapper still gets to
 # render the generic Runner plan, but there is no queue result to consume and no
@@ -26,7 +43,7 @@ done
 if [ "$has_dry_run" = 1 ]; then
   echo '== dry-run: validate stage A only; no queue result or stage B'
   if EXTERNAL_PSD_PHASE=pipeline EXTERNAL_PSD_PERSIST=1 \
-    bash "$wrapper" "$@"; then
+    bash "$wrapper" "${wrapper_args[@]}"; then
     exit 0
   else
     exit $?
@@ -35,18 +52,49 @@ fi
 
 stage_a_log="$(mktemp "${TMPDIR:-/tmp}/external-psd-persist-stage-a.XXXXXX")"
 stage_b_log="$(mktemp "${TMPDIR:-/tmp}/external-psd-persist-stage-b.XXXXXX")"
-trap 'rm -f -- "$stage_a_log" "$stage_b_log"' EXIT
+stage_a_status_log="$(mktemp "${TMPDIR:-/tmp}/external-psd-persist-status-a.XXXXXX")"
+trap 'rm -f -- "$stage_a_log" "$stage_b_log" "$stage_a_status_log"' EXIT
 
-echo '== stage A: pipeline + SAVE_AS persist tail'
-if EXTERNAL_PSD_PHASE=pipeline EXTERNAL_PSD_PERSIST=1 \
-  bash "$wrapper" "$@" >"$stage_a_log" 2>&1; then
-  stage_a_status=0
+if [ -n "$resume_stage_a" ]; then
+  echo "== stage A: recover existing job $resume_stage_a; no stage A submission"
+  python3 "$root/scripts/preview/host_validation.py" status "$resume_stage_a" --json \
+    >"$stage_a_status_log" \
+    || die 'stage A status query failed; no stage was started'
+  if ! python3 - "$stage_a_status_log" "$resume_stage_a" >"$stage_a_log" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+status_path, expected_job = sys.argv[1:]
+status = json.loads(Path(status_path).read_text(encoding="utf-8"))
+if not isinstance(status, dict) or status.get("schemaVersion") != 1:
+    raise SystemExit("stage A status response has invalid schema")
+jobs = status.get("jobs")
+if not isinstance(jobs, list) or len(jobs) != 1:
+    raise SystemExit("stage A status response must contain exactly one job")
+job = jobs[0]
+if not isinstance(job, dict) or job.get("job_id") != expected_job:
+    raise SystemExit("stage A status response does not match the requested job")
+# Preserve the real job fields verbatim. All terminal and content checks below
+# are shared with the ordinary wait response; status success alone admits none.
+print(json.dumps({"schemaVersion": 1, "job": job}, separators=(",", ":")))
+PY
+  then
+    die 'stage A status response is not bound to the requested job; no stage was started'
+  fi
+  cat "$stage_a_log"
 else
-  stage_a_status=$?
+  echo '== stage A: pipeline + SAVE_AS persist tail'
+  if EXTERNAL_PSD_PHASE=pipeline EXTERNAL_PSD_PERSIST=1 \
+    bash "$wrapper" "${wrapper_args[@]}" >"$stage_a_log" 2>&1; then
+    stage_a_status=0
+  else
+    stage_a_status=$?
+  fi
+  cat "$stage_a_log"
+  [ "$stage_a_status" -eq 0 ] \
+    || die "stage A runner failed (exit $stage_a_status); stage B was not started"
 fi
-cat "$stage_a_log"
-[ "$stage_a_status" -eq 0 ] \
-  || die "stage A runner failed (exit $stage_a_status); stage B was not started"
 
 # The generic Runner's direct queue client prints the final wait response. Bind
 # every subsequent read to that response's terminal job/run and require the
@@ -240,7 +288,7 @@ if (
     EXTERNAL_PSD_POSTEDITSHA256="$post_file_sha256" \
     EXTERNAL_PSD_POSTEDITIMAGESHA256="$post_image_sha256" \
     EXTERNAL_PSD_POSTEDITTARGETRGBSHA256="$post_target_sha256" \
-    bash "$wrapper" "$@" >"$stage_b_log" 2>&1
+    bash "$wrapper" "${wrapper_args[@]}" >"$stage_b_log" 2>&1
 ); then
   stage_b_status=0
 else
