@@ -706,9 +706,11 @@ public final class OfficialPsdFixturePreparationTest {
             final Class<?> cButton = load(loader, "com.live2d.ui.control.CButton");
             final Class<?> action = load(loader, "com.live2d.ui.event.CAction");
             final Class<?> localizer = load(loader, "b.c");
+            final Class<?> home = load(loader, "com.live2d.cubism.appCtrlImpl.ui.e.a");
+            final Class<?> homeWindow = load(loader, "com.live2d.ui.window.m");
             for (final Class<?> type : List.of(app, mainFrameController, cFrame, windowBase,
                 option, previewOption, modelDocument, renderer, list, button, buttonSubclass,
-                cButton, action, localizer)) {
+                cButton, action, localizer, home, homeWindow)) {
                 assertSame(loader, type.getClassLoader(), "all shape classes use one loader");
                 assertEquals(configuredJar, codeSource(type),
                     "shape class code source is the reviewed JAR: " + type.getName());
@@ -726,6 +728,10 @@ public final class OfficialPsdFixturePreparationTest {
             exactMethod(option, "b", String.class, false);
             exactMethod(previewOption, "a", String.class, false);
             exactMethod(previewOption, "b", int.class, false);
+            exactMethod(home, "e", home, true);
+            exactMethod(home, "a", app, false);
+            exactMethod(home, "a", homeWindow, true, home);
+            exactMethod(homeWindow, "getJDialog", javax.swing.JDialog.class, false);
             assertTrue(AbstractButton.class.isAssignableFrom(button),
                 "exact j button is a Swing button");
             assertTrue(AbstractButton.class.isAssignableFrom(buttonSubclass),
