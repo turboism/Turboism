@@ -928,16 +928,27 @@ class Probe:
 
         mesh_id = self.first_art_mesh(conn1, uid)
         if mesh_id is not None:
-            obj = self.call(
-                conn1, "GetObject", {"ModelUID": uid, "Id": mesh_id},
-                expect="response")
-            obj_data = obj.data_object()
-            detail = obj_data.get("Data") if isinstance(obj_data.get("Data"), dict) else {}
-            self.check("s5.get-object",
-                       obj_data.get("Result") is True
-                       and obj_data.get("Type") in KNOWN_OBJECT_TYPES
-                       and detail.get("Id") == mesh_id,
-                       f"type={obj_data.get('Type')}")
+            # 5.2.03 host models lack the 5.3 visual fields, so the port
+            # refuses GetObject for Part/ArtMesh kinds there by design
+            # (spec 046 field-level fail-closed); mirror that expectation.
+            if self.host_version == "5203":
+                obj = self.call(
+                    conn1, "GetObject", {"ModelUID": uid, "Id": mesh_id},
+                    expect="error")
+                refused = "InvalidEditOperation" in str(obj.error or "")
+                self.check("s5.get-object", refused,
+                           f"typed-unavailable error={obj.error}")
+            else:
+                obj = self.call(
+                    conn1, "GetObject", {"ModelUID": uid, "Id": mesh_id},
+                    expect="response")
+                obj_data = obj.data_object()
+                detail = obj_data.get("Data") if isinstance(obj_data.get("Data"), dict) else {}
+                self.check("s5.get-object",
+                           obj_data.get("Result") is True
+                           and obj_data.get("Type") in KNOWN_OBJECT_TYPES
+                           and detail.get("Id") == mesh_id,
+                           f"type={obj_data.get('Type')}")
         else:
             self.check("s5.get-object", False, "no ArtMesh in fixture")
 
