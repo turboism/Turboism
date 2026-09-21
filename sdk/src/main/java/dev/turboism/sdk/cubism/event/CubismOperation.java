@@ -105,7 +105,19 @@ public enum CubismOperation {
     /** Executes a typed semantic Editor command identified by the event subject. */
     EXECUTE_EDITOR_COMMAND("cubism.editor.command.execute"),
     /** Opens a semantic object context menu. */
-    OPEN_CONTEXT_MENU("cubism.editor.context-menu.open");
+    OPEN_CONTEXT_MENU("cubism.editor.context-menu.open"),
+
+    /** Changes an object's part membership or deformer parent. */
+    SET_HIERARCHY_PARENT("cubism.model.hierarchy.set-parent"),
+    /** Removes an object's part membership or deformer parent. */
+    DETACH_HIERARCHY_PARENT("cubism.model.hierarchy.detach"),
+    /** Moves an ArtMesh in the canvas. */
+    MOVE_DRAWABLE("cubism.model.art-mesh.move"),
+
+    /** Moves a deformer's whole form to a new position. */
+    MOVE_DEFORMER("cubism.model.deformer.move"),
+    /** Changes an ArtMesh color. */
+    SET_DRAWABLE_COLOR("cubism.model.art-mesh.set-color");
 
     private final String id;
 

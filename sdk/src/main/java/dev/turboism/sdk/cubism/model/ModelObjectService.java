@@ -12,18 +12,45 @@ import java.util.Objects;
  */
 public interface ModelObjectService {
 
+    /** Returns every model object in the active authoring model, in host order. */
     List<ModelObjectDescriptor> list();
 
+    /**
+     * Renames one model object.
+     *
+     * @param target the object to rename
+     * @param name the new display name
+     * @return the descriptor observed after the rename
+     */
     ModelObjectDescriptor rename(ModelObjectReference target, String name);
 
+    /**
+     * Moves one model object under {@code parent} at {@code index}.
+     *
+     * @param target the object to move
+     * @param parent the new parent reference
+     * @param index position within the new parent's children; negative appends
+     * @return the descriptor observed after the move
+     */
     ModelObjectDescriptor reparent(
         ModelObjectReference target,
         ModelObjectReference parent,
         int index
     );
 
+    /**
+     * Creates one model object described by {@code request}.
+     *
+     * @return the descriptor observed after creation
+     */
     ModelObjectDescriptor create(ModelObjectCreateRequest request);
 
+    /**
+     * Deletes one model object under {@code policy}.
+     *
+     * @param target the object to delete
+     * @param policy how contained children are handled
+     */
     void delete(ModelObjectReference target, ModelObjectDeletePolicy policy);
 
     /**
@@ -35,10 +62,13 @@ public interface ModelObjectService {
         return true;
     }
 
+
+    /** Returns the fail-closed service whose calls all report {@code UNAVAILABLE}. */
     static ModelObjectService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements ModelObjectService {
         INSTANCE;
 

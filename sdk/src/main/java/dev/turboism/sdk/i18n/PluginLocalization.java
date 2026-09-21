@@ -11,12 +11,19 @@ import java.util.Locale;
  */
 public interface PluginLocalization {
 
+    /** Returns the locale this catalog resolved to. */
     Locale locale();
 
+    /**
+     * Returns the localized text for {@code key}, falling back according to the runtime's
+     * catalog fallback rules.
+     */
     String text(String key);
 
+    /** Returns the localized text for {@code key} with {@code arguments} applied. */
     String format(String key, Object... arguments);
 
+    /** Returns whether {@code key} is present in this catalog. */
     boolean contains(String key);
 
     /**
@@ -28,10 +35,16 @@ public interface PluginLocalization {
         return true;
     }
 
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
     static PluginLocalization unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
     enum Unavailable implements PluginLocalization {
         INSTANCE;
 

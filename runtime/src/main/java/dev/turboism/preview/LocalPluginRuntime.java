@@ -42,12 +42,20 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement;
     private final PreviewPluginContextFactory contextFactory;
     private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
-    private final dev.turboism.plugin.core.CubismJvmSettingsService cubismJvmSettings;
-    private final dev.turboism.plugin.core.CoreUpdateService updateService;
+    private final dev.turboism.shell.CubismJvmSettingsService cubismJvmSettings;
+    private final dev.turboism.shell.MeshTriangulationSettingsService
+        meshTriangulationSettings;
+    private final dev.turboism.shell.AtlasTileBboxSettingsService
+        atlasTileBboxSettings;
+    private final dev.turboism.shell.AtlasCacheReuseSettingsService
+        atlasCacheReuseSettings;
+    private final dev.turboism.shell.CoreUpdateService updateService;
     private final PreviewLog log;
+    private CoreShellRuntime coreShell;
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
 
     public LocalPluginRuntime(
         final Path home,
@@ -250,6 +258,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.contextFactory = resources.contextFactory();
         this.runtimeSettings = resources.runtimeSettings();
         this.cubismJvmSettings = resources.cubismJvmSettings();
+        this.meshTriangulationSettings = resources.meshTriangulationSettings();
+        this.atlasTileBboxSettings = resources.atlasTileBboxSettings();
+        this.atlasCacheReuseSettings = resources.atlasCacheReuseSettings();
         this.updateService = resources.updateService();
         this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(
@@ -272,26 +283,30 @@ public final class LocalPluginRuntime implements AutoCloseable {
     }
 
     /**
-     * Loads every discovered plugin, then the runtime-owned core plugin, exactly once per runtime
-     * instance.
+     * Loads every discovered plugin, then starts the runtime-owned framework shell, exactly
+     * once per runtime instance.
      *
      * <p>External plugin failures are reported in the returned {@link LoadReport} and do not stop
-     * the load. A failure of the runtime-owned core is different in kind: the whole runtime is
+     * the load. A failure of the runtime-owned shell is different in kind: the whole runtime is
      * closed before the exception propagates, so no half-initialized runtime is left behind.</p>
      *
-     * @return the load outcome, with the core plugin appended to the loaded summaries
+     * @return the load outcome for the discovered plugins
      * @throws IllegalStateException if the runtime has already been started or is closed, or if
-     *     the runtime-owned core plugin failed to load
+     *     the runtime-owned shell failed to start
      */
     public synchronized LoadReport loadAll() {
         ensureCanStart();
         final LoadReport external = loadCoordinator.loadAll();
         try {
-            loaded.add(BuiltinCorePlugin.load(
+            coreShell = CoreShellRuntime.start(
                 contextFactory,
-                new dev.turboism.plugin.core.CorePluginServices(
+                shutdown,
+                new dev.turboism.shell.ShellServices(
                     runtimeSettings,
                     cubismJvmSettings,
+                    meshTriangulationSettings,
+                    atlasTileBboxSettings,
+                    atlasCacheReuseSettings,
                     dev.turboism.ui.settings.ProcessSettingsContributions.forHost(
                         contextFactory.hostAccessIdentity()
                     ),
@@ -301,19 +316,17 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     updateService
                 ),
                 log
-            ));
+            );
         } catch (Exception failure) {
             log.error(
-                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
-                "Plugin lifecycle: built-in load failed",
+                dev.turboism.shell.CorePluginManagement.CORE_PLUGIN_ID,
+                "Shell startup failed",
                 failure
             );
             close();
-            throw new IllegalStateException("Runtime-owned core failed to load", failure);
+            throw new IllegalStateException("Runtime-owned shell failed to start", failure);
         }
-        final List<LoadedPluginSummary> summaries = new ArrayList<>(external.loaded());
-        summaries.add(PreviewPluginSummaryFactory.active(loaded.get(loaded.size() - 1)));
-        return new LoadReport(summaries, external.failures(), external.dependencyCycles());
+        return external;
     }
 
     /**
@@ -350,30 +363,44 @@ public final class LocalPluginRuntime implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (!closed.compareAndSet(false, true)) {
-            return;
+        // Stop admission immediately, but do not confuse it with completed cleanup.
+        closed.set(true);
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Local plugin runtime cleanup failed",
+                () -> {
+                    // The shell was admitted last, so it leaves first.
+                    if (coreShell != null) {
+                        coreShell.close();
+                        coreShell = null;
+                    }
+                },
+                () -> {
+                    closedSummaries = PreviewPluginSummaryFactory.sorted(shutdown.closeAll(loaded));
+                    loaded.clear();
+                },
+                updateService::close,
+                this::closeJvmSettings,
+                contextFactory::close,
+                editorLifecycleEvents::close,
+                projectFileLifecycle::close,
+                editorObjectLifecycle::close,
+                partLifecycle::close,
+                parameterLifecycle::close,
+                this::closeHostReadLane
+            );
         }
-        final List<LoadedPluginSummary> summaries = new ArrayList<>();
-        try {
-            summaries.addAll(shutdown.closeAll(loaded));
-        } finally {
-            updateService.close();
-            if (cubismJvmSettings instanceof AutoCloseable closeable) {
-                try {
-                    closeable.close();
-                } catch (Exception failure) {
-                    shutdown.tryLogStableFailure("runtime", "GRAAL_RUNTIME_CLOSE_FAILED");
-                }
+        cleanup.close();
+    }
+
+    private void closeJvmSettings() throws Exception {
+        if (cubismJvmSettings instanceof AutoCloseable closeable) {
+            try {
+                closeable.close();
+            } catch (Exception | Error failure) {
+                shutdown.tryLogStableFailure("runtime", "GRAAL_RUNTIME_CLOSE_FAILED");
+                throw failure;
             }
-            contextFactory.close();
-            editorLifecycleEvents.close();
-            projectFileLifecycle.close();
-            editorObjectLifecycle.close();
-            partLifecycle.close();
-            parameterLifecycle.close();
-            closeHostReadLane();
-            closedSummaries = PreviewPluginSummaryFactory.sorted(summaries);
-            loaded.clear();
         }
     }
 
@@ -395,8 +422,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private void closeHostReadLane() {
         try {
             hostReadLane.close();
-        } catch (Throwable failure) {
+        } catch (RuntimeException | Error failure) {
             shutdown.tryLogStableFailure("runtime", "HOST_READ_LANE_CLOSE_FAILED");
+            throw failure;
         }
     }
 

@@ -162,6 +162,41 @@ final class RuntimeMeshEditServiceTest {
     }
 
     @Test
+    void movePointsEnumeratesTheLivePointListOncePerDispatch() {
+        final Mesh mesh = new Mesh();
+        mesh.points.add(new Point(0, 0.0f, 0.0f));
+        mesh.points.add(new Point(1, 1.0f, 1.0f));
+        mesh.points.add(new Point(2, 2.0f, 2.0f));
+        final Fixture fixture = new Fixture(mesh);
+
+        final MeshEditResult result = fixture.service().movePoints(List.of(
+            new MeshPointRef(0, 5.0f, 5.0f),
+            new MeshPointRef(1, 6.0f, 6.0f),
+            new MeshPointRef(2, 7.0f, 7.0f)
+        ));
+
+        assertTrue(result.accepted());
+        assertEquals(1, mesh.allPointRefCalls);
+    }
+
+    @Test
+    void addEdgesEnumeratesTheLiveMeshOnceForEveryRefBatch() {
+        final Mesh mesh = new Mesh();
+        for (int id = 0; id < 4; id++) mesh.points.add(new Point(id, id, id));
+        final Fixture fixture = new Fixture(mesh);
+
+        final MeshEditResult result = fixture.service().addEdges(List.of(
+            new MeshEdgeRef(0, 1, MeshEdgeKind.INNER),
+            new MeshEdgeRef(1, 2, MeshEdgeKind.INNER),
+            new MeshEdgeRef(2, 3, MeshEdgeKind.INNER)
+        ));
+
+        assertTrue(result.accepted());
+        assertEquals(1, mesh.allPointRefCalls);
+        assertEquals(3, mesh.edges.size());
+    }
+
+    @Test
     void duplicateMovesAreRejectedBeforeOpeningUndo() {
         final Mesh mesh = new Mesh();
         mesh.points.add(new Point(0, 0.0f, 0.0f));
@@ -329,14 +364,17 @@ final class RuntimeMeshEditServiceTest {
         int nextPointUid;
         int addPointCalls;
         int failAddPointCall;
+        int allPointRefCalls;
+        int edgesCalls;
 
         public List<PointRef> getAllPointRef() {
+            allPointRefCalls++;
             final List<PointRef> refs = new ArrayList<>();
             for (Point point : points) refs.add(new PointRef(this, point.id));
             return refs;
         }
 
-        public List<Edge> getEdges() { return edges; }
+        public List<Edge> getEdges() { edgesCalls++; return edges; }
 
         public int addPoint(final float x, final float y, final PointType type, final long uid) {
             addPointCalls++;

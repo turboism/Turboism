@@ -49,9 +49,6 @@ FORBIDDEN_PRODUCTION_TEXT = (
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
-    "runtime/src/cubism5203/java",
-    "runtime/src/cubism5302/java",
-    "runtime/src/cubism5303/java",
 )
 
 PACKAGE_ONLY = re.compile(r"\A\s*package\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*;\s*\Z")

@@ -1033,10 +1033,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return registration;
     }
 
+    /** Decides how one contribution's callback reaches its plugin-facing invocation path. */
     @FunctionalInterface
     public interface CallbackDispatcher {
+        /**
+         * @param contributionId the contribution whose callback is being delivered
+         * @param callback the work to run
+         * @return whether the callback was accepted for dispatch; {@code false} means it was
+         *         not run and will not run
+         */
         boolean dispatch(String contributionId, Runnable callback);
 
+        /**
+         * @return a dispatcher that runs every callback inline on the calling thread
+         */
         static CallbackDispatcher direct() {
             return (ignored, callback) -> {
                 callback.run();

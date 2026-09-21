@@ -116,13 +116,25 @@ public final class VerifiedObjectContextMenuHostOperations
     }
 
 
+    /** Resolves the SDK-facing selection for one native menu source. */
     @FunctionalInterface
     public interface SelectionResolver {
+        /**
+         * @param location the menu location the host reported
+         * @param source the native selection source object
+         * @return the resolved selection, never null
+         */
         ContextMenuSelection resolve(Location location, Object source);
     }
 
+    /** Appends one contributed item to a transient (per-show) native menu. */
     @FunctionalInterface
     public interface NativeAppender {
+        /**
+         * @param menu the native menu being built
+         * @param contribution the contribution to append
+         * @param action receives the contribution's action id on activation
+         */
         void append(
             Object menu,
             ContextMenuContributionDescriptor contribution,
@@ -130,8 +142,15 @@ public final class VerifiedObjectContextMenuHostOperations
         );
     }
 
+    /** Appends one contributed item to a persistent host menu. */
     @FunctionalInterface
     public interface PersistentAppender {
+        /**
+         * @param menu the native menu to mutate
+         * @param contribution the contribution to append
+         * @param action receives the contribution's action id on activation
+         * @return a registration that removes the item when disposed
+         */
         Registration append(
             Object menu,
             ContextMenuContributionDescriptor contribution,

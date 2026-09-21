@@ -12,8 +12,10 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
             RotationDeformerFormEvent.On,
             RotationDeformerFormEvent.After {
 
+    /** Returns the detached Rotation Deformer projection participating in the operation. */
     RotationDeformer deformer();
 
+    /** Synchronous state published before the host form replacement. */
     final class Before implements RotationDeformerFormEvent {
         private final RotationDeformer deformer;
         private final RotationDeformerForm requestedForm;
@@ -50,6 +52,7 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
         }
 
         @Override public RotationDeformer deformer() { return deformer; }
+        /** Returns the form value originally requested by the write call. */
         public RotationDeformerForm requestedForm() { return requestedForm; }
         /** Returns the candidate form value that will be applied. */
         public RotationDeformerForm form() { return form; }
@@ -60,6 +63,7 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
             this.form = Objects.requireNonNull(form, "form");
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -102,6 +106,7 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful form replacement that changed the value. */
     record On(
         RotationDeformer deformer,
         RotationDeformerForm oldForm,
@@ -114,6 +119,7 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
         }
     }
 
+    /** State published after every successful form replacement. */
     record After(RotationDeformer deformer, RotationDeformerForm finalForm)
         implements RotationDeformerFormEvent {
         public After {

@@ -52,6 +52,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Locale effectiveLocale;
     private final RuntimePerformanceProbeService performanceProbe;
     private final RuntimePerformanceEventPublisher performanceEvents;
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
     private final dev.turboism.mcp.McpConnectionRegistry mcpConnections =
         new dev.turboism.mcp.McpConnectionRegistry();
 
@@ -178,13 +179,19 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        performanceEvents.close();
-        performanceProbe.close();
-        mcpConnections.close();
-        eventBroker.observationBaseline(
-            dev.turboism.sdk.performance.PerformanceProbeService.class
-        ).compareAndSet(performanceProbe, null);
+    public synchronized void close() {
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Shared plugin service cleanup failed",
+                performanceEvents::close,
+                performanceProbe::close,
+                mcpConnections::close,
+                () -> eventBroker.observationBaseline(
+                    dev.turboism.sdk.performance.PerformanceProbeService.class
+                ).compareAndSet(performanceProbe, null)
+            );
+        }
+        cleanup.close();
     }
 
     PreviewPluginServices create(

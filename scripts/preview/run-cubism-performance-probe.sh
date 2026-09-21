@@ -36,7 +36,7 @@ mkdir "$run"
 mkdir -p "$home/plugins" "$home/logs" "$home/state" "$home/lib"
 cp "$task/probe-bundle/lib/performance-probe-carrier.jar" "$home/lib/performance-probe-carrier.jar"
 cat > "$home/config.json" <<EOF
-{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"perf-probe","safeMode":false,"logLevel":"INFO","pluginDirs":["plugins"],"hooks":{"disabledIds":[],"denylistedClasses":[],"startup":{"skipUpdateCheck":false,"skipSplash":false,"skipInformation":false}}}
+{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"perf-probe","safeMode":false,"logLevel":"INFO","pluginDirs":["plugins"],"hooks":{"disabledIds":[],"denylistedClasses":[],"startup":{"skipUpdateCheck":true,"skipSplash":true,"skipInformation":true}}}
 EOF
 
 # --- Bounded failure cleanup (host-unverified) -------------------------------

@@ -198,45 +198,24 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final Locale effectiveLocale
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        final Set<String> aliases;
-        final String adapterSliceId;
-        if (verified.isExactCubismVersion("5.3.03")) {
-            aliases = union(
+        final VerifiedTextureAtlasSelectorContract.Profile profile =
+            VerifiedTextureAtlasSelectorContract.profileFor(verified.cubismVersion())
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Texture-atlas automatic-layout hook version is unsupported."
+                ));
+        final Set<String> aliases = union(
+            union(
                 union(
-                    union(
-                        VerifiedCubism5303TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                        VerifiedCubism5303TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
-                    ),
-                    VerifiedCubism5303TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+                    profile.autoLayoutHookAliases(),
+                    profile.nativeInvocationAliases()
                 ),
-                VerifiedCubism5303TextureAtlasSelectorContract.STATISTICS_ALIASES
-            );
-            adapterSliceId = VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else if (verified.isExactCubismVersion("5.3.02")) {
-            aliases = union(
-                union(
-                    union(
-                        VerifiedCubism5302TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                        VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
-                    ),
-                    VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
-                ),
-                VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
-            );
-            adapterSliceId = VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else if (verified.isExactCubismVersion("5.2.03")) {
-            aliases = union(
-                union(
-                    VerifiedCubism520TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
-                    VerifiedCubism520TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
-                ),
-                VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
-            );
-            adapterSliceId = VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else {
-            throw new IllegalArgumentException("Texture-atlas automatic-layout hook version is unsupported.");
-        }
-        if (!verified.authorizesFeature(adapterSliceId, CAPABILITY_ID, aliases)) {
+                profile.dialogInjectionAliases()
+            ),
+            profile.statisticsAliases()
+        );
+        if (!verified.authorizesFeature(
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID, CAPABILITY_ID, aliases
+        )) {
             throw new IllegalArgumentException("Texture-atlas automatic-layout hook is not authorized.");
         }
         final StaticSelector entry = verified.verifiedSelector(AUTO_LAYOUT_ALIAS);
