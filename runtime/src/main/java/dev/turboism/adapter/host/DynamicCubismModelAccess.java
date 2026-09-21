@@ -3,6 +3,7 @@ import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.adapter.cubism.model.ModelObjectProviderUnavailableException;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -56,7 +57,7 @@ import java.util.function.Function;
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
 final class DynamicCubismModelAccess implements CubismModelAccess,
     NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider {
+    RuntimeAuthoringTransactionProvider, RuntimeEditSessionProvider {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
@@ -135,6 +136,75 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                         checkedOptions,
                         checkedWork
                     );
+                } finally {
+                    release(lease);
+                }
+            }
+        };
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.edit.EditSessionService editSessions(
+        final String pluginId,
+        final java.util.function.Supplier<java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId>> activeDocumentId
+    ) {
+        final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("pluginId must not be blank");
+        }
+        final java.util.function.Supplier<java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId>> checkedDocument =
+            Objects.requireNonNull(activeDocumentId, "activeDocumentId");
+        return new dev.turboism.sdk.cubism.edit.EditSessionService() {
+            @Override
+            public boolean isEditApproved(final dev.turboism.sdk.plugin.PluginContext context)
+                    throws dev.turboism.sdk.cubism.edit.EditSessionException {
+                Objects.requireNonNull(context, "context");
+                final AccessLease lease;
+                try {
+                    lease = acquireActiveLease();
+                } catch (IllegalStateException unavailable) {
+                    throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                        "cubism.edit.unavailable", "The Cubism edit surface is unavailable"
+                    );
+                }
+                try {
+                    if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
+                        throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                            "cubism.edit.unavailable",
+                            "Editor edit sessions are unavailable on this host"
+                        );
+                    }
+                    return provider.editSessions(owner, checkedDocument).isEditApproved(context);
+                } finally {
+                    release(lease);
+                }
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.edit.EditSession open(
+                final dev.turboism.sdk.plugin.PluginContext context,
+                final dev.turboism.sdk.cubism.id.DocumentId document,
+                final dev.turboism.sdk.cubism.edit.EditSessionOptions options
+            ) throws dev.turboism.sdk.cubism.edit.EditSessionException {
+                Objects.requireNonNull(context, "context");
+                Objects.requireNonNull(document, "document");
+                Objects.requireNonNull(options, "options");
+                final AccessLease lease;
+                try {
+                    lease = acquireActiveLease();
+                } catch (IllegalStateException unavailable) {
+                    throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                        "cubism.edit.unavailable", "The Cubism edit surface is unavailable"
+                    );
+                }
+                try {
+                    if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
+                        throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                            "cubism.edit.unavailable",
+                            "Editor edit sessions are unavailable on this host"
+                        );
+                    }
+                    return provider.editSessions(owner, checkedDocument).open(context, document, options);
                 } finally {
                     release(lease);
                 }
