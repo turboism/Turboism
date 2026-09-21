@@ -3068,12 +3068,20 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
             final CountDownLatch firstSample = new CountDownLatch(1);
+            final CountDownLatch secondSampleWaitStarted = new CountDownLatch(1);
+            final CountDownLatch releaseSecondSampleWait = new CountDownLatch(1);
             final AtomicInteger samples = new AtomicInteger();
             final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
                 disabledState, "disabled-run", clock.nanoTime(), () -> false, () -> false,
                 new AtomicReference<>("armed-waiting-for-trigger"), clock,
                 millis -> {
-                    if (firstSample.getCount() == 0) firstSample.await();
+                    if (firstSample.getCount() == 0) {
+                        // The first sampler has returned and writeSample has completed before
+                        // the scheduler asks for this next sleep. Hold it before the second
+                        // deadline so close() can interrupt this exact scheduling point.
+                        secondSampleWaitStarted.countDown();
+                        releaseSecondSampleWait.await();
+                    }
                     clock.advanceMillis(millis);
                 }, () -> {
                     samples.incrementAndGet();
@@ -3082,6 +3090,8 @@ public final class ExternalPsdEditHostProbeTest {
                 });
             assertTrue(firstSample.await(5L, java.util.concurrent.TimeUnit.SECONDS),
                 "diagnostic scheduler reaches its first deadline");
+            assertTrue(secondSampleWaitStarted.await(5L, java.util.concurrent.TimeUnit.SECONDS),
+                "diagnostic scheduler pauses before the second deadline");
             diagnostics.close("disabled");
             assertTrue(diagnostics.awaitForTest(2000L),
                 "disable interrupts the diagnostic daemon");
