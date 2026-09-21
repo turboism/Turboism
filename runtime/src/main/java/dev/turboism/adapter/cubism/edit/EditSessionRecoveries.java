@@ -13,12 +13,8 @@ public final class EditSessionRecoveries {
     public static final String RECOVERY_FAILED_CODE = "cubism.edit.recovery-failed";
 
     /**
-     * The default selection policy: always the compensating path.
-     *
-     * <p>The official {@code CUndoManager.revert()} path is never enabled implicitly — it becomes
-     * eligible only through an explicit selector once the {@code
-     * cubism.editor-model.undo.revert} capability row is verified for the connected host
-     * (spec 046, T6).</p>
+     * The always-compensating selection policy — kept for tests and for hosts whose record
+     * drops the revert row.
      */
     public static final EditSessionRecovery.Selector ALWAYS_COMPENSATING =
         (host, binding) -> compensating();
@@ -27,9 +23,8 @@ public final class EditSessionRecoveries {
      * The capability-driven selection policy: the official {@code CUndoManager.revert()} path
      * when {@link EditorEditSessionHost#undoRevertVerified} reports the {@code
      * cubism.editor-model.undo.revert} capability row verified on the connected host, and the
-     * compensating path otherwise. Compensation stays the safe default while the row is
-     * unverified — which is every currently supported host, since the row's verification
-     * records do not yet exist.
+     * compensating path otherwise. The row is bound on all three reviewed records — the
+     * compensating path remains the fallback for unverified records.
      */
     public static final EditSessionRecovery.Selector PREFER_REVERT_WHEN_VERIFIED =
         (host, binding) -> host.undoRevertVerified(binding) ? reverting() : compensating();

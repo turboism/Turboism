@@ -82,9 +82,9 @@ public final class RuntimeEditSessionManager {
 
     /**
      * Creates a production manager over one session host with the Swing UI lock and the
-     * capability-driven recovery policy: verified {@code CUndoManager.revert()} when the
-     * capability row binds, compensating recovery otherwise (the default on every currently
-     * supported host).
+     * capability-driven recovery policy: the official {@code CUndoManager.revert()} path when
+     * the capability row binds — as it does on every supported host — compensating recovery
+     * otherwise.
      */
     public RuntimeEditSessionManager(
         final EditorEditSessionHost host,

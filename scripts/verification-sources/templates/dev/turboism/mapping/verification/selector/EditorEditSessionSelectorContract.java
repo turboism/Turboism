@@ -33,8 +33,9 @@ public final class EditorEditSessionSelectorContract {
 
     /**
      * {@code UndoRevert}: the {@code CUndoManager.revert()} member a cancelled session prefers
-     * when the row is verified (spec 046, T6). Declared ahead of its verification records —
-     * until a record lists it, the runtime falls back to the compensating recovery path.
+     * when the row is verified (spec 046, T6/T7). The row is bound on all three reviewed
+     * records — static bytecode verification of {@code CUndoManager.revert()V} only; direct
+     * host evidence is deferred to the next host run.
      */
     public static final String UNDO_REVERT_CAPABILITY_ID =
         "cubism.editor-model.undo.revert";
@@ -96,9 +97,8 @@ public final class EditorEditSessionSelectorContract {
     );
 
     /**
-     * {@code UndoRevert}: undo-manager reach plus the revert member itself. The row is a T6
-     * placeholder — the {@code cubism.editor-history.manager.revert} member is declared ahead of
-     * its verification records on every supported version.
+     * {@code UndoRevert}: undo-manager reach plus the revert member itself — bound on every
+     * supported record.
      */
     public static final Set<String> UNDO_REVERT_REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",
