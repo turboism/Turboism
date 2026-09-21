@@ -55,6 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Validation-only preparation for the official Cubism 5.3.02 PSD new-model path.
@@ -858,15 +859,31 @@ public final class OfficialPsdFixturePreparation {
         if (currentWindow != window) throw new IllegalStateException(
             "official main-frame window changed before SAVE_AS");
         final ModelState currentModel = currentModelOnEdt();
-        if (!sameModelIdentity(before, currentModel)) throw new IllegalStateException(
+        return executeBoundSaveOnEdt(before, currentModel, window, currentWindow,
+            () -> checkStoppedAndTask(input), () -> {
+                final int afterSequence = events.captureBeforeExecute();
+                checkStoppedAndTask(input);
+                final EditorCommandResult result = context.editorCommands().execute(
+                    new EditorFileCommandRequest(EditorFileCommand.SAVE_AS, handle,
+                        EditorOverwritePolicy.REPLACE_EXISTING));
+                return new SaveExecution(result, afterSequence, currentModel);
+            });
+    }
+
+    /** Final identity checks and the command share one EDT turn, including in regression tests. */
+    static <T> T executeBoundSaveOnEdt(final ModelState expected, final ModelState current,
+        final Object expectedWindow, final Object currentWindow, final Runnable checkActive,
+        final Supplier<T> command) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "SAVE_AS execution must run on EDT");
+        checkActive.run();
+        if (expectedWindow == null || expectedWindow != currentWindow) {
+            throw new IllegalStateException("official main-frame window changed before SAVE_AS");
+        }
+        if (!sameModelIdentity(expected, current)) throw new IllegalStateException(
             "active model/document/relation identity changed before SAVE_AS");
-        checkStoppedAndTask(input);
-        final int afterSequence = events.captureBeforeExecute();
-        checkStoppedAndTask(input);
-        final EditorCommandResult result = context.editorCommands().execute(
-            new EditorFileCommandRequest(EditorFileCommand.SAVE_AS, handle,
-                EditorOverwritePolicy.REPLACE_EXISTING));
-        return new SaveExecution(result, afterSequence, currentModel);
+        checkActive.run();
+        return command.get();
     }
 
     private Window currentWindow(final HostAccess host) throws Exception {
