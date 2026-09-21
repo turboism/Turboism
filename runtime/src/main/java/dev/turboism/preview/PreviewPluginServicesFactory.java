@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
+import dev.turboism.core.event.PublicEventContractCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -45,6 +46,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Path home;
     private final RuntimeScheduler scheduler;
     private final RuntimeEventBroker eventBroker;
+    private final PublicEventContractCatalog eventContracts;
     private final RuntimeHostAdapterAccess hostAccess;
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
@@ -102,6 +104,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     ) {
         this.home = home;
         this.scheduler = scheduler;
+        this.eventContracts = new PublicEventContractCatalog(eventContractCacheDir(home));
         this.eventBroker = new RuntimeEventBroker(
             scheduler,
             64,
@@ -127,7 +130,8 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                     null,
                     1L
                 )
-            )
+            ),
+            eventContracts
         );
         Objects.requireNonNull(parameterLifecycle, "parameterLifecycle")
             .attachEventBroker(eventBroker);
@@ -179,12 +183,43 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         this.selectionObserver.signalDemand();
     }
 
+    private static Path eventContractCacheDir(final Path home) {
+        try {
+            return TurboismHomeLayout.create(home)
+                .runtimeCacheDir()
+                .resolve("event-contracts");
+        } catch (IOException failure) {
+            throw new IllegalStateException(
+                "cannot resolve the runtime cache directory under " + home,
+                failure
+            );
+        }
+    }
+
     RuntimeEventBroker.Owner admitEventOwner(final PluginDescriptor descriptor) {
         return eventBroker.admit(descriptor);
     }
 
     void preflightEventContracts(final PluginDescriptor descriptor) {
         eventBroker.preflight(descriptor);
+    }
+
+    void preflightEventContracts(
+        final PluginDescriptor descriptor,
+        final PublicEventContractCatalog.ContractLease lease
+    ) {
+        eventBroker.preflight(descriptor, lease);
+    }
+
+    PublicEventContractCatalog.ContractLease acquireEventContracts(
+        final PluginDescriptor descriptor,
+        final Path pluginJar
+    ) {
+        return eventContracts.acquire(descriptor, pluginJar);
+    }
+
+    PublicEventContractCatalog eventContracts() {
+        return eventContracts;
     }
 
     RuntimeEventBroker.Owner admitEventOwner(final String pluginId) {
@@ -204,6 +239,9 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         eventBroker.observationBaseline(
             dev.turboism.sdk.performance.PerformanceProbeService.class
         ).compareAndSet(performanceProbe, null);
+        // Retire contract admission; bindings still leased by retained generations stay
+        // usable until their last release, which remains legal after close().
+        eventContracts.close();
     }
 
     PreviewPluginServices create(

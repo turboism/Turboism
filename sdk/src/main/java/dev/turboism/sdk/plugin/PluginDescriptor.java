@@ -89,6 +89,20 @@ public interface PluginDescriptor {
         return List.of();
     }
 
+    /**
+     * Independently published public event contract artifacts embedded in this plugin
+     * archive. Each entry names a class-only JAR stored under
+     * {@code META-INF/turboism/contracts/} together with its identity, version and the
+     * SHA-256 of the artifact bytes. Provider and consumer plugins embed the exact same
+     * published artifact bytes so the runtime can bind one shared class identity for the
+     * contract across all of them.
+     *
+     * @return immutable contract artifact declarations in declaration order
+     */
+    default List<EventContract> eventContracts() {
+        return List.of();
+    }
+
     interface EventExport {
         String id();
 
@@ -111,6 +125,24 @@ public interface PluginDescriptor {
         String abiSha256();
 
         boolean required();
+    }
+
+    /**
+     * A published public event contract artifact embedded in the plugin JAR. The artifact
+     * is a class-only JAR under {@code META-INF/turboism/contracts/} carrying the event
+     * records and their closed payload API types; the declared {@code sha256} pins the exact
+     * published bytes.
+     */
+    interface EventContract {
+        String id();
+
+        String version();
+
+        /** JAR entry path of the artifact, under {@code META-INF/turboism/contracts/}. */
+        String artifact();
+
+        /** SHA-256 of the embedded artifact bytes, lowercase hexadecimal. */
+        String sha256();
     }
 
     interface Author {

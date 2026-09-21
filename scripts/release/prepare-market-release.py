@@ -59,7 +59,12 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from plugin_event_metadata import EventMetadataError, normalize_event_metadata, validate_event_routes
+from plugin_event_metadata import (
+    EventMetadataError,
+    normalize_event_contracts,
+    normalize_event_metadata,
+    validate_event_routes,
+)
 
 DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json"
 SIDECAR_NAME = "market-release.json"
@@ -312,10 +317,11 @@ def derive_descriptor(document: dict, module: str) -> dict:
         return value
 
     schema_version = document.get("schemaVersion")
-    if schema_version not in (3, 4):
-        raise MarketError(f"plugins/{module}: descriptor schemaVersion must be 3 or 4")
+    if schema_version not in (3, 4, 5):
+        raise MarketError(f"plugins/{module}: descriptor schemaVersion must be 3, 4 or 5")
     try:
         event_exports, event_imports = normalize_event_metadata(document, f"plugins/{module}")
+        event_contracts = normalize_event_contracts(document, f"plugins/{module}")
     except EventMetadataError as failure:
         raise MarketError(str(failure)) from failure
     plugin_id = text("id")
@@ -374,6 +380,7 @@ def derive_descriptor(document: dict, module: str) -> dict:
         "permissions": list(permissions),
         "eventExports": event_exports,
         "eventImports": event_imports,
+        "eventContracts": event_contracts,
         "i18n": {"baseName": base_name, "locales": list(locales)},
     }
 
@@ -564,6 +571,7 @@ def build_sidecar(revision: str, prepared: list) -> dict:
                 "permissions": descriptor["permissions"],
                 "publishedEvents": descriptor["eventExports"],
                 "subscribedEvents": descriptor["eventImports"],
+                "embeddedContracts": descriptor["eventContracts"],
             },
             "localizations": {
                 locale: {"name": entry["plugin.name"],

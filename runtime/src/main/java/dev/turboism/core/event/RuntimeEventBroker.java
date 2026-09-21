@@ -49,7 +49,8 @@ public final class RuntimeEventBroker {
     private final RuntimeScheduler scheduler;
     private final Object subscriptionLock = new Object();
     private final RuntimeEventContractCatalog contractCatalog = new RuntimeEventContractCatalog();
-    private final PublicEventRouteCatalog publicRoutes = new PublicEventRouteCatalog();
+    private final PublicEventRouteCatalog publicRoutes;
+    private final PublicEventContractCatalog publicContracts;
     private final int mailboxCapacity;
     private final AtomicLong sequence = new AtomicLong();
     private final ConcurrentMap<String, AtomicLong> generations = new ConcurrentHashMap<>();
@@ -94,6 +95,16 @@ public final class RuntimeEventBroker {
         final Consumer<DeliveryDiagnostic> diagnosticSink,
         final Consumer<SubscriberFailure> subscriberFailureSink
     ) {
+        this(scheduler, mailboxCapacity, diagnosticSink, subscriberFailureSink, null);
+    }
+
+    public RuntimeEventBroker(
+        final RuntimeScheduler scheduler,
+        final int mailboxCapacity,
+        final Consumer<DeliveryDiagnostic> diagnosticSink,
+        final Consumer<SubscriberFailure> subscriberFailureSink,
+        final PublicEventContractCatalog publicContracts
+    ) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         if (mailboxCapacity < 1) {
             throw new IllegalArgumentException("mailboxCapacity must be positive");
@@ -104,11 +115,24 @@ public final class RuntimeEventBroker {
             subscriberFailureSink,
             "subscriberFailureSink"
         );
+        this.publicContracts = publicContracts;
+        this.publicRoutes = new PublicEventRouteCatalog(publicContracts);
     }
 
     /** Validates shared public event payload classes before plugin code is initialized. */
     public void preflight(final PluginDescriptor descriptor) {
         publicRoutes.preflight(descriptor);
+    }
+
+    /**
+     * Validates shared public event payload classes before plugin code is initialized,
+     * resolving contract-owned types through the plugin's bound contract lease.
+     */
+    public void preflight(
+        final PluginDescriptor descriptor,
+        final PublicEventContractCatalog.ContractLease contractLease
+    ) {
+        publicRoutes.preflight(descriptor, contractLease);
     }
 
     /**
