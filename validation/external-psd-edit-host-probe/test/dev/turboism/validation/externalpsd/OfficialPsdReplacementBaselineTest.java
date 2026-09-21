@@ -22,6 +22,7 @@ public final class OfficialPsdReplacementBaselineTest {
         testRawChooserGuidGate();
         testChooserActionBoundary();
         testWrappedOptionSelection();
+        testNativeRawResolution();
         testOfficialJarShape();
         System.out.println("PASS: OfficialPsdReplacementBaselineTest");
     }
@@ -259,6 +260,32 @@ public final class OfficialPsdReplacementBaselineTest {
         });
     }
 
+    private static void testNativeRawResolution() throws Exception {
+        final NativeImage image = new NativeImage(new NativeGuid("target"));
+        final NativeImage other = new NativeImage(new NativeGuid("other"));
+        final Method unwrap = NativeWrapper.class.getDeclaredMethod("image");
+        final Method guid = NativeImage.class.getDeclaredMethod("guid");
+        final Method string = NativeGuid.class.getDeclaredMethod("value");
+        assertTrue(image == OfficialPsdReplacementBaseline.uniqueRawImage(
+            List.of(new NativeWrapper(other), new NativeWrapper(image)),
+            NativeWrapper.class, unwrap, guid, string, "target"),
+            "native raw resolution uses GUID and returns the original image object");
+        for (final List<?> invalid : List.of(
+            List.of(new NativeWrapper(other)),
+            List.of(new NativeWrapper(image), new NativeWrapper(image)),
+            List.of(new NativeWrapper(image), new NativeWrapper(
+                new NativeImage(new NativeGuid("target")))),
+            List.of(new NativeWrapper(null)), List.of(new Object()))) {
+            try {
+                OfficialPsdReplacementBaseline.uniqueRawImage(invalid,
+                    NativeWrapper.class, unwrap, guid, string, "target");
+                throw new AssertionError("missing, duplicated or invalid raw was accepted");
+            } catch (IllegalStateException expected) {
+                // Reject both duplicate wrappers and distinct native objects with the same GUID.
+            }
+        }
+    }
+
     private static String sha256(final Path path) throws Exception {
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         digest.update(Files.readAllBytes(path));
@@ -310,6 +337,9 @@ public final class OfficialPsdReplacementBaselineTest {
 
     private record ModelOption(Object value) { }
     private record RawOption(Object image, String name) { }
+    private record NativeWrapper(NativeImage image) { }
+    private record NativeImage(NativeGuid guid) { }
+    private record NativeGuid(String value) { }
     private static final class ListShape { }
     private static final class RendererShape { }
     private static final class OptionShape { }

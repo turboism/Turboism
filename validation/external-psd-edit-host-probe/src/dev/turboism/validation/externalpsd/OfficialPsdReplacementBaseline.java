@@ -107,6 +107,98 @@ public final class OfficialPsdReplacementBaseline {
         return replace(context, stopped, taskBound, request);
     }
 
+    /**
+     * Preflights a read-only native identity bridge off EDT. The returned reader must be
+     * invoked on EDT, alongside the caller's SDK task/window checks. It resolves the raw
+     * afresh by GUID; neither a basename nor a list position establishes native identity.
+     */
+    public static IdentityReader prepareIdentityReader(final PluginContext context,
+        final String rawGuid) throws Exception {
+        Objects.requireNonNull(context, "context");
+        requireText(rawGuid, "rawGuid");
+        final HostAccess host = new OfficialPsdReplacementBaseline(
+            context, () -> false, () -> true).preflightOfficialHost();
+        final TargetAccess target = preflightTargetAccess(host);
+        return () -> {
+            if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+                "official PSD target observation requires EDT");
+            final var document = context.cubism().activeDocument().orElseThrow();
+            final var model = context.cubism().model().active();
+            final var relations = model.textures().relations();
+            if (!relations.isAvailable() || relations.rawImages().stream()
+                .filter(raw -> rawGuid.equals(raw.id().value())).count() != 1L) {
+                throw new IllegalStateException("SDK raw target is unavailable or ambiguous");
+            }
+            final Object app = host.appInstance().invoke(null);
+            final Object nativeDocument = target.currentDocument().invoke(app);
+            if (nativeDocument == null || nativeDocument.getClass() != target.documentClass()) {
+                throw new IllegalStateException("official current document is not a modeling document");
+            }
+            final Object source = target.modelSource().invoke(nativeDocument);
+            final String nativeModelId = (String) host.guidStringGetter().invoke(
+                target.modelGuid().invoke(source));
+            if (!model.id().value().equals(nativeModelId)) throw new IllegalStateException(
+                "SDK and official current model GUID differ");
+            final Object manager = target.textureManager().invoke(source);
+            final Object wrappers = target.rawImages().invoke(manager);
+            if (!(wrappers instanceof List<?> values)) throw new IllegalStateException(
+                "official raw collection is unavailable");
+            final Object image = uniqueRawImage(values, target.wrapperClass(),
+                target.wrapperImage(), host.rawGuidGetter(), host.guidStringGetter(), rawGuid);
+            // Recheck SDK identity after native traversal within this same EDT operation.
+            if (!document.documentId().equals(context.cubism().activeDocument()
+                    .orElseThrow().documentId())
+                || !model.id().equals(context.cubism().model().active().id())
+                || target.currentDocument().invoke(app) != nativeDocument) {
+                throw new IllegalStateException("official PSD target changed during observation");
+            }
+            return new IdentityObservation(document.documentId(), nativeModelId, rawGuid,
+                nativeDocument, image);
+        };
+    }
+
+    private static TargetAccess preflightTargetAccess(final HostAccess host) throws Exception {
+        final ClassLoader loader = host.loader();
+        final Class<?> document = loadExact(loader, MODEL_DOCUMENT);
+        final Class<?> documentInterface = loadExact(loader, "com.live2d.cubism.doc.IDocument");
+        final Class<?> source = loadExact(loader, "com.live2d.cubism.doc.model.CModelSource");
+        final Class<?> modelGuid = loadExact(loader, "com.live2d.type.CModelGuid");
+        final Class<?> manager = loadExact(loader,
+            "com.live2d.cubism.doc.model.texture.CTextureManager");
+        final Class<?> wrapper = loadExact(loader,
+            "com.live2d.cubism.doc.model.texture.LayeredImageWrapper");
+        final Class<?> image = loadExact(loader, LAYERED_IMAGE);
+        for (final Class<?> type : List.of(document, documentInterface, source, modelGuid,
+            manager, wrapper, image)) verifyClassArtifact(type, loader, host.artifact());
+        return new TargetAccess(document, wrapper,
+            exactMethod(host.app(), "getCurrentDoc", documentInterface, false),
+            exactMethod(document, "getModelSource", source, false),
+            exactMethod(source, "getGuid", modelGuid, false),
+            exactMethod(source, "getTextureManager", manager, false),
+            exactMethod(manager, "getRawImages", List.class, false),
+            exactMethod(wrapper, "getImage", image, false));
+    }
+
+    static Object uniqueRawImage(final List<?> wrappers, final Class<?> wrapperClass,
+        final Method imageGetter, final Method guidGetter, final Method guidString,
+        final String expectedGuid) throws Exception {
+        Object found = null;
+        for (final Object wrapper : wrappers) {
+            if (wrapper == null || wrapper.getClass() != wrapperClass) {
+                throw new IllegalStateException("official raw wrapper shape is unknown");
+            }
+            final Object image = imageGetter.invoke(wrapper);
+            if (image == null) throw new IllegalStateException("official raw image is missing");
+            final String guid = (String) guidString.invoke(guidGetter.invoke(image));
+            if (expectedGuid.equals(guid)) {
+                if (found != null) throw new IllegalStateException("official raw GUID is ambiguous");
+                found = image;
+            }
+        }
+        if (found == null) throw new IllegalStateException("official raw GUID is missing");
+        return found;
+    }
+
     public ReplacementResult run(final ReplacementRequest request) throws Exception {
         final ValidatedSource source = validateTaskSource(request);
         final HostAccess host = preflightOfficialHost();
@@ -513,6 +605,7 @@ public final class OfficialPsdReplacementBaseline {
     static HostShapeSummary officialJarShapeForTest() throws Exception {
         final HostAccess host = new OfficialPsdReplacementBaseline(
             new ShapeOnlyContext(), () -> false, () -> true).preflightOfficialHost();
+        preflightTargetAccess(host);
         return new HostShapeSummary(host.artifact().toString(), host.sha256(),
             host.commandOpen().toGenericString(), host.modelGetter().toGenericString(),
             host.rawGetter().toGenericString(), host.rawGuidGetter().toGenericString());
@@ -1118,6 +1211,10 @@ public final class OfficialPsdReplacementBaseline {
         Method guidStringGetter, Class<?> modelRenderer, Class<?> rawRenderer, Class<?> listClass,
         Class<?> hostButton, Class<?> hostButtonSubclass, Class<?> actionClass,
         String modelTitle, String modelMessage, String rawTitle, String rawMessage) { }
+
+    private record TargetAccess(Class<?> documentClass, Class<?> wrapperClass,
+        Method currentDocument, Method modelSource, Method modelGuid, Method textureManager,
+        Method rawImages, Method wrapperImage) { }
 
     private record EdtCall<T>(boolean completed, T value, Throwable failure) {
         static <T> EdtCall<T> completed(final T value) { return new EdtCall<>(true, value, null); }
