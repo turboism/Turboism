@@ -109,6 +109,7 @@ public final class ExternalPsdEditHostProbeTest {
         testSaveCycleBytes();
         testRawImageRelationDeltaAndNewRawInspection();
         testCoordinatedNewRawExportIdentityGate();
+        testAppliedTargetLineageGate();
         testDiagnosticObservationBoundaries();
         testDiagnosticTargetBinding();
         testDiagnosticPsdSnapshotUsesRawImageId();
@@ -1165,14 +1166,15 @@ public final class ExternalPsdEditHostProbeTest {
             beforeRelations, rawRelationSnapshot("binding-1", 7, oldRaw, newRaw));
         final ExternalPsdEditHostProbe.TargetIdentity expected =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "document-1", "model-1", "binding-1", "model-image-1", oldRaw.value());
+                "document-1", "model-1", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", newRaw.value());
         final byte[] validPsd = validationPsd();
 
         final RawExportFixture stable = new RawExportFixture(
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1),
+                newRaw, newRaw, 7, 1, 1),
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1), validPsd);
+                newRaw, newRaw, 7, 1, 1), validPsd);
         final Properties stableResult = new Properties();
         final var inspected = inspectWithCoordinatedExport(
             stableResult, "cycle.4.raw.new", oldRaw, unique, expected, stable);
@@ -1195,14 +1197,14 @@ public final class ExternalPsdEditHostProbeTest {
             "postflight records one observed candidate");
         assertEquals("AVAILABLE", stableResult.getProperty("cycle.4.raw.new.status"),
             "only a fully coordinated export makes RGB available");
-        assertEquals("raw-old", stable.before.currentRawId(),
-            "the fixture keeps currentRaw on the old raw to prove it is not required to switch");
+        assertEquals("raw-new", stable.before.currentRawId(),
+            "new-raw coordination is anchored to the current lineage raw");
 
         final RawExportFixture switchedDuringExport = new RawExportFixture(
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1),
+                newRaw, newRaw, 7, 1, 1),
             rawExportObservation("document-2", "model-2", "binding-2", "model-image-2",
-                newRaw, oldRaw, 8, 1, 1), validPsd);
+                newRaw, newRaw, 8, 1, 1), validPsd);
         final Properties switchedResult = assertCoordinatedUnavailable(switchedDuringExport,
             "target document switches during the public export", oldRaw, newRaw, unique, expected,
             "document switch cannot produce available RGB", 1);
@@ -1215,36 +1217,36 @@ public final class ExternalPsdEditHostProbeTest {
 
         final RawExportFixture switchedBeforeExport = new RawExportFixture(
             rawExportObservation("document-2", "model-2", "binding-2", "model-image-2",
-                newRaw, oldRaw, 8, 1, 1),
+                newRaw, newRaw, 8, 1, 1),
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1), validPsd);
+                newRaw, newRaw, 7, 1, 1), validPsd);
         assertCoordinatedUnavailable(switchedBeforeExport,
             "target document/model/binding switches before the public export", oldRaw, newRaw,
             unique, expected, "preflight target switch cannot invoke export", 0);
 
         final RawExportFixture candidateDisappears = new RawExportFixture(
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1),
+                newRaw, newRaw, 7, 1, 1),
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 0), validPsd);
+                newRaw, newRaw, 7, 1, 0), validPsd);
         assertCoordinatedUnavailable(candidateDisappears,
             "candidate disappears after the public export", oldRaw, newRaw, unique, expected,
             "candidate disappearance cannot produce available RGB", 1);
 
         final RawExportFixture candidateBecomesAmbiguous = new RawExportFixture(
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1),
+                newRaw, newRaw, 7, 1, 1),
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 2), validPsd);
+                newRaw, newRaw, 7, 1, 2), validPsd);
         assertCoordinatedUnavailable(candidateBecomesAmbiguous,
             "candidate becomes non-unique after the public export", oldRaw, newRaw, unique,
             expected, "candidate ambiguity cannot produce available RGB", 1);
 
         final RawExportFixture preMissing = new RawExportFixture(
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 0),
+                newRaw, newRaw, 7, 1, 0),
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1), validPsd);
+                newRaw, newRaw, 7, 1, 1), validPsd);
         assertCoordinatedUnavailable(preMissing,
             "candidate is absent before the public export", oldRaw, newRaw, unique, expected,
             "missing preflight candidate cannot invoke export", 0);
@@ -1255,9 +1257,9 @@ public final class ExternalPsdEditHostProbeTest {
 
         final RawExportFixture preDuplicate = new RawExportFixture(
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 2),
+                newRaw, newRaw, 7, 1, 2),
             rawExportObservation("document-1", "model-1", "binding-1", "model-image-1",
-                newRaw, oldRaw, 7, 1, 1), validPsd);
+                newRaw, newRaw, 7, 1, 1), validPsd);
         assertCoordinatedUnavailable(preDuplicate,
             "candidate is duplicated before the public export", oldRaw, newRaw, unique, expected,
             "duplicate preflight candidate cannot invoke export", 0);
@@ -1296,6 +1298,143 @@ public final class ExternalPsdEditHostProbeTest {
         return result;
     }
 
+    /**
+     * Exercises the production APPLIED lineage gate with a real A→B→C relation sequence.  The
+     * same stable document/model/binding/generation/model-image/ArtMesh anchor is retained while
+     * only the current raw moves; every identity or revision mismatch is rejected.
+     */
+    private static void testAppliedTargetLineageGate() {
+        final RawImageId rawA = new RawImageId("lineage-A");
+        final RawImageId rawB = new RawImageId("lineage-B");
+        final RawImageId rawC = new RawImageId("lineage-C");
+        final ExternalPsdEditHostProbe.TargetIdentity targetA =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-lineage", "model-lineage", "binding-lineage", 7L,
+                "model-image-lineage", "art-mesh-lineage", rawA.value());
+        final ExternalPsdEditHostProbe.TargetIdentity targetB =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-lineage", "model-lineage", "binding-lineage", 7L,
+                "model-image-lineage", "art-mesh-lineage", rawB.value());
+        final ExternalPsdEditHostProbe.TargetIdentity targetC =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-lineage", "model-lineage", "binding-lineage", 7L,
+                "model-image-lineage", "art-mesh-lineage", rawC.value());
+        final PsdFileRevision revisionAB = new PsdFileRevision() { };
+        final PsdFileRevision revisionBC = new PsdFileRevision() { };
+        final PsdReplaceResult appliedAB = new PsdReplaceResult(
+            PsdReplaceResult.Status.APPLIED, "A to B", rawA, Optional.of(rawB),
+            Optional.of(revisionAB), Optional.empty());
+        final PsdReplaceResult appliedBC = new PsdReplaceResult(
+            PsdReplaceResult.Status.APPLIED, "B to C", rawB, Optional.of(rawC),
+            Optional.of(revisionBC), Optional.empty());
+
+        final ExternalPsdEditHostProbe.TargetIdentity acceptedB =
+            ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+                targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                    "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage",
+                    rawB), targetB);
+        assertEquals(rawB.value(), acceptedB.rawId(),
+            "APPLIED A→B advances the current lineage raw");
+        final ExternalPsdEditHostProbe.TargetIdentity acceptedC =
+            ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+                acceptedB, revisionBC, appliedBC, lineageRelationSnapshot(
+                    "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage",
+                    rawC), targetC);
+        assertEquals(rawC.value(), acceptedC.rawId(),
+            "APPLIED B→C advances from the prior current raw, not initial raw");
+
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
+            targetC), "wrong after raw is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawA),
+            targetB), "missing after raw is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshotWithRaws(
+                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawA,
+                List.of(rawA)),
+            targetB), "after raw absent from relations is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "other-document", "model-lineage", "binding-lineage", 7L,
+                "model-image-lineage", "art-mesh-lineage", rawB.value())),
+            "document change is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                "other-binding", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
+            targetB), "binding change is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                "binding-lineage", 8L, "model-image-lineage", "art-mesh-lineage", rawB),
+            targetB), "after-relation generation change is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-lineage", "model-lineage", "binding-lineage", 7L,
+                "other-model-image", "art-mesh-lineage", rawB.value())),
+            "model-image change is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionAB, appliedAB, lineageRelationSnapshot(
+                "binding-lineage", 7L, "model-image-lineage", "other-art-mesh", rawB),
+            targetB), "after-relation ArtMesh change is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+            targetA, revisionBC, appliedAB, lineageRelationSnapshot(
+                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
+            targetB), "consumed revision mismatch is rejected");
+
+        // Undo must target B (the last replacement-before target), while redo targets C.
+        assertTrue(ExternalPsdEditHostProbe.targetIdentityMatches(targetB,
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-lineage", "model-lineage", "binding-lineage", 7L,
+                "model-image-lineage", "art-mesh-lineage", rawB.value())),
+            "Undo target retains the stable anchor and last-before raw B");
+        assertTrue(ExternalPsdEditHostProbe.targetIdentityMatches(targetC,
+            acceptedC), "Redo target retains the applied raw C");
+    }
+
+    private static TextureRelationsSnapshot lineageRelationSnapshot(final String binding,
+        final long generation, final String modelImageValue, final String artMeshValue,
+        final RawImageId currentRaw) {
+        return lineageRelationSnapshotWithRaws(binding, generation, modelImageValue, artMeshValue,
+            currentRaw, List.of(
+                new RawImageId("lineage-A"), new RawImageId("lineage-B"),
+                new RawImageId("lineage-C")));
+    }
+
+    private static TextureRelationsSnapshot lineageRelationSnapshotWithRaws(
+        final String binding, final long generation, final String modelImageValue,
+        final String artMeshValue, final RawImageId currentRaw, final List<RawImageId> raws) {
+        final ModelImageId modelImageId = new ModelImageId(modelImageValue);
+        final ArtMeshId artMeshId = new ArtMeshId(artMeshValue);
+        final ModelImageEntry entry = new ModelImageEntry() {
+            @Override public ModelImageId id() { return modelImageId; }
+            @Override public String name() { return modelImageValue; }
+            @Override public int width() { return 1000; }
+            @Override public int height() { return 1000; }
+        };
+        final List<RawImageDetails> details = raws.stream().map(raw -> {
+            final RawTexture texture = new RawTexture() {
+                @Override public RawImageId id() { return raw; }
+                @Override public String name() { return raw.value(); }
+                @Override public int width() { return 1000; }
+                @Override public int height() { return 1000; }
+            };
+            return new RawImageDetails(texture, RawImageDetails.SourceKind.PSD,
+                List.of(), false, Optional.empty(), Optional.empty(), Optional.empty());
+        }).toList();
+        final ModelImageRelation relation = new ModelImageRelation(
+            modelImageId, entry, raws, Optional.of(currentRaw), Map.of(), List.of(artMeshId));
+        final ArtMeshTextureInputs mesh = new ArtMeshTextureInputs(
+            artMeshId, List.of(TextureInputBinding.modelImage(modelImageId)), OptionalInt.of(0));
+        return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
+            binding, generation, 1L, details, List.of(relation), List.of(), List.of(mesh));
+    }
+
     private static PsdValidationContent.Fingerprint inspectWithCoordinatedExport(
         final Properties result, final String prefix, final RawImageId oldRaw,
         final ExternalPsdEditHostProbe.RawImageRelationDelta delta,
@@ -1313,8 +1452,8 @@ public final class ExternalPsdEditHostProbeTest {
         final String modelImageId, final RawImageId candidate, final RawImageId currentRaw,
         final long generation, final int modelImageCount, final int candidateCount) {
         return new ExternalPsdEditHostProbe.RawExportObservation(
-            documentId, modelId, binding, modelImageId, candidate.value(), currentRaw.value(),
-            generation, modelImageCount, candidateCount, true, "");
+            documentId, modelId, binding, modelImageId, "art-mesh-1", candidate.value(),
+            currentRaw.value(), generation, modelImageCount, candidateCount, true, "");
     }
 
     private static final class RawExportFixture {
@@ -1481,22 +1620,28 @@ public final class ExternalPsdEditHostProbeTest {
                 "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
         final ExternalPsdEditHostProbe.TargetIdentity expected =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "document-1", "model-1", "binding-1", "model-image-1", "raw-1");
+                "document-1", "model-1", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", "raw-1");
         final ExternalPsdEditHostProbe.TargetIdentity same =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "document-1", "model-1", "binding-1", "model-image-1", "raw-1");
+                "document-1", "model-1", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", "raw-1");
         final ExternalPsdEditHostProbe.TargetIdentity switchedModel =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "document-1", "model-2", "binding-1", "model-image-1", "raw-1");
+                "document-1", "model-2", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", "raw-1");
         final ExternalPsdEditHostProbe.TargetIdentity switchedDocument =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "document-2", "model-1", "binding-1", "model-image-1", "raw-1");
+                "document-2", "model-1", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", "raw-1");
         final ExternalPsdEditHostProbe.TargetIdentity switchedBinding =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "document-1", "model-1", "binding-2", "model-image-1", "raw-1");
+                "document-1", "model-1", "binding-2", 7L, "model-image-1",
+                "art-mesh-1", "raw-1");
         final ExternalPsdEditHostProbe.TargetIdentity switchedRaw =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "document-1", "model-1", "binding-1", "model-image-1", "raw-2");
+                "document-1", "model-1", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", "raw-2");
 
         assertTrue(ExternalPsdEditHostProbe.targetIdentityMatches(expected, same),
             "the captured target identity matches itself");
@@ -1511,6 +1656,19 @@ public final class ExternalPsdEditHostProbeTest {
                 expected, mismatch, true, true, fingerprint).name(),
                 "target identity mismatch cannot be combined with an available observation");
         }
+
+        final ExternalPsdEditHostProbe.TargetIdentity legacyIncomplete =
+            new ExternalPsdEditHostProbe.TargetIdentity(
+                "document-1", "model-1", "binding-1", "model-image-1", "raw-1");
+        assertTrue(!ExternalPsdEditHostProbe.targetIdentityMatches(
+            legacyIncomplete, legacyIncomplete),
+            "legacy five-field identity is rejected fail-closed");
+        assertTrue(!ExternalPsdEditHostProbe.stableTargetIdentityMatches(
+            legacyIncomplete, legacyIncomplete),
+            "legacy five-field identity cannot satisfy the stable anchor");
+        assertEquals("UNAVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+            legacyIncomplete, legacyIncomplete, true, true, fingerprint).name(),
+            "legacy five-field identity remains unavailable diagnostic evidence");
 
         final ExternalPsdEditHostProbe.DiagnosticObservation observation =
             new ExternalPsdEditHostProbe.DiagnosticObservation(
@@ -1557,12 +1715,12 @@ public final class ExternalPsdEditHostProbeTest {
                 "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
         final ExternalPsdEditHostProbe.TargetIdentity expected =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "cmo-document-id", "model-1", "binding-1", "model-image-1",
-                "raw-guid-target");
+                "cmo-document-id", "model-1", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", "raw-guid-target");
         final ExternalPsdEditHostProbe.TargetIdentity observed =
             new ExternalPsdEditHostProbe.TargetIdentity(
-                "cmo-document-id", "model-1", "binding-1", "model-image-1",
-                "raw-guid-target");
+                "cmo-document-id", "model-1", "binding-1", 7L, "model-image-1",
+                "art-mesh-1", "raw-guid-target");
         final PsdLayerSnapshot layer = new PsdLayerSnapshot(
             "layer-6", "Target", true, List.of(), Optional.empty(), List.of());
         final PsdClipMaskDocumentSnapshot targetSnapshot =

@@ -7,8 +7,10 @@ GUI phase has no pixel-parser dependency.
 
 ## pipeline (default)
 
-1. Resolve an ArtMesh → model image → current raw image chain on the task fixture, and
-   record how many ArtMeshes share the same current raw (`relation.sharedRawArtMeshes`).
+1. Resolve an ArtMesh → model image → current raw image chain on the task fixture. The
+   document/model/binding/generation/model-image/ArtMesh tuple is the stable target anchor;
+   the raw image is tracked separately as the current lineage resource. Record how many
+   ArtMeshes share that raw (`relation.sharedRawArtMeshes`).
 2. `exportRawImagePsd` → `EXPORTED` + runtime-issued `PsdEditFile` + baseline revision.
 3. Bind that handle to one newly-created runtime candidate under `java.io.tmpdir` by the
    before/after candidate-set difference. Zero or multiple new candidates, missing files,
@@ -27,36 +29,44 @@ GUI phase has no pixel-parser dependency.
    task-prefix launch configuration; it does not provide a PID or window handle for one external
    editor instance.
 7. N save cycles (default 3; `-Dturboism.validation.externalpsd.cycles=`): structural
-   layer-name mutation → stable revision → `replaceRawImagePsd` → `APPLIED` with consumed
-   revision and post-native `after` observation. In persistence mode only, the final valid
-   cycle applies one decoded target-layer RGB inversion; all earlier cycles remain name-only.
-   Cycle 2 saves by atomic rename, and cycle 3 overlaps two writes; the overlap's final bytes
-   retain the one final-cycle RGB inversion. Persist mode also captures structured
-   `relations.rawImages` on the EDT immediately before and after each import. The full raw ID
-   set difference is recorded as `ZERO`, `UNIQUE`, or `MULTIPLE`; the old target raw must remain
-   present in both snapshots and binding/generation must remain unchanged. Only `UNIQUE` after
-   an `APPLIED` completion enters the new-raw export coordinator. Its EDT starter verifies the
-   original document/model/binding/model-image and exactly one occurrence of the candidate before
-   invoking public `exportRawImagePsd(newRawId)` in that same EDT task. After the completed export,
-   it verifies those identities and candidate uniqueness again; `currentRaw` is recorded for
-   diagnosis but is deliberately not required to become `newRawId`. A coordination-stage
-   switched target, missing or duplicate candidate, or unavailable relation is `UNAVAILABLE`; an
-   already-created handle is stopped before any bytes/RGB are accepted. The handle's `rawId()` is
-   only the requested argument,
-   not host identity evidence. Only a successful coordination then decodes validation layer 6 RGB
-   and stops its handle through the existing inspection path. `MULTIPLE` remains an explicit
-   rejected/unguessable difference; export/decode/stop failures fail closed. `ZERO` is recorded as
-   `NOT_ATTEMPTED` for the new-raw diagnostic and leaves the existing content and replacement
-   gates in force.
+   layer-name mutation → stable revision → `replaceRawImagePsd(currentRaw)` → `APPLIED` with
+   the exact pending revision consumed. A cycle advances its current target only when fresh
+   after-relations directly retain the stable binding/generation and stable model-image/ArtMesh
+   relation, contain the explicit `after` raw exactly once, and report that raw as the current
+   model-image raw; a separate fresh identity observation must agree on the same stable anchor
+   and current raw. `isReplaced` and a raw-set difference never advance lineage. The next cycle,
+   corrupted-save check, recovery export, persistence tail, and other current-target reads use
+   that verified raw rather than the initial raw. The final persistence cycle applies one decoded
+   target-layer RGB inversion; all earlier cycles remain name-only. Cycle 2 saves by atomic rename,
+   and cycle 3 overlaps two writes; the overlap's final bytes retain the one final-cycle RGB
+   inversion.
+
+   Persist mode also captures structured `relations.rawImages` on the EDT immediately before and
+   after each import. The full raw ID set difference is recorded as `ZERO`, `UNIQUE`, or
+   `MULTIPLE`; the previous raw is retained as an independent old-resource diagnostic export and
+   is never labeled with the incoming export. Only a `UNIQUE` candidate that is exactly the
+   explicit verified `after` raw enters the new-raw export coordinator. Its EDT starter verifies
+   the current document/model/binding/generation/model-image/ArtMesh anchor and exactly one
+   candidate occurrence before invoking public `exportRawImagePsd(candidate)` in that same EDT
+   task; after export it verifies the same current anchor and candidate uniqueness again.
+   A switched target, missing or duplicate candidate, or unavailable relation is `UNAVAILABLE`;
+   an already-created handle is stopped before any bytes/RGB are accepted. The handle's `rawId()`
+   is only the requested argument, not host identity evidence. `MULTIPLE` remains an explicit
+   rejected/unguessable difference; export/decode/stop failures fail closed. `ZERO` is recorded
+   as `NOT_ATTEMPTED` for the new-raw diagnostic and leaves the lineage and replacement gates in
+   force.
 8. In persistence mode, a fresh native export must differ from the stable baseline fingerprint.
    Corrupted save → non-`APPLIED`, revision not consumed; its invalid external bytes are never
    accepted as post evidence.
-9. Native `undo(1)` and `redo(1)` must both report `MOVED`. In persistence mode each is followed
-   by a fresh native export, requiring baseline and post fingerprints respectively; raw identity
-   alone is not sufficient. Ordinary pipeline mode retains the raw-identity check.
+9. Native `undo(1)` and `redo(1)` must both report `MOVED`. Undo is checked against the raw from
+   the last replacement-before target (for A→B→C, Undo must return to B), not always the initial
+   raw; Redo is checked against the final applied raw C. In persistence mode each is followed by
+   a fresh native export, requiring baseline and post fingerprints respectively; raw identity
+   alone is not sufficient. Ordinary pipeline mode retains the corresponding current-lineage
+   identity checks.
 10. Idle wait → no revision replay without a new save.
 11. `stop()` → `STOPPED`; post-stop writes publish nothing.
-12. Re-export the same raw image → fresh handle → clean stop (same-binding recovery).
+12. Re-export the verified current raw image → fresh handle → clean stop (same-binding recovery).
 13. Environment metrics (`env.*`: heap, processors, EDT dispatch latency).
 14. Persist tail when `-Dturboism.validation.externalpsd.persist=1`: a task-pinned
    `UserFileGrantSource.fixedSelection` target (wired by
@@ -111,7 +121,8 @@ being inferred from layer names or IDs.
 
 For each persistence cycle, `cycle.N.write.*` records the exact final bytes written by the test
 mutation, its full-file SHA-256, and its decoded layer-6 RGB fingerprint. `cycle.N.raw.old.*`
-records the old target raw ID and the fresh native RGB observation after public completion;
+records the previous target raw ID and an independent fresh native RGB observation after public
+completion; it is old-resource diagnosis only and never receives the incoming/current export.
 `cycle.N.raw.new.*` records the one newly-added raw ID, its fresh exported PSD bytes/RGB, and
 immediate stop result. The existing `cycle.N.importCompletion.publicCompletion` and
 `consumed` fields remain the public replacement evidence. A new raw's decoded RGB proves only
