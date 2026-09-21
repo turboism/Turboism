@@ -60,11 +60,28 @@ final class PreviewPluginShutdown {
     }
 
     /**
+     * Stops event admission for every plugin in the batch before any of them is torn down.
+     * Sealing the whole fenced set up front means one member's slow quiescence cannot leave the
+     * rest of the set still accepting callbacks; the per-plugin close below only re-enters an
+     * already-closing owner. A member whose owner refuses the transition is left to the normal
+     * close path, which retries {@code beginClosing} itself.
+     */
+    void fence(final List<LocalPluginRuntime.LoadedPlugin> loadedPlugins) {
+        for (LocalPluginRuntime.LoadedPlugin loadedPlugin : loadedPlugins) {
+            try {
+                loadedPlugin.eventOwner().beginClosing();
+            } catch (Throwable ignored) {
+                // Fencing is best-effort per member: the teardown path retries the transition.
+            }
+        }
+    }
+
+    /**
      * Unloads one already-loaded plugin mid-load through the same shutdown path used at runtime
      * close. The load coordinator calls this when a required dependency fails after the dependent
      * was already loaded under a {@code before}/{@code none} ordering, so the dependent is not
-     * left running against a dependency that never came up. The caller removes the plugin from
-     * the shared {@code loaded} list afterwards.
+     * left running against a dependency that never came up. The caller fences the batch and
+     * removes the plugin from the shared {@code loaded} list beforehand.
      *
      * @return the teardown summary for reporting; the plugin is not re-added to any live list
      */

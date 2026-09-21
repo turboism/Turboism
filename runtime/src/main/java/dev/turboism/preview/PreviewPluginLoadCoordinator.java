@@ -206,9 +206,11 @@ final class PreviewPluginLoadCoordinator {
      * {@code before} or {@code none} — are unloaded through the normal loaded-generation shutdown
      * path so none stay falsely healthy.
      *
-     * <p>The whole transitive dependent closure is fenced first, then unloaded dependents-first:
-     * a plugin is torn down before any member it requires, so no live dependent can keep calling
-     * into an already-disposed member of the same closure.</p>
+     * <p>The whole transitive dependent closure is fenced before teardown: every live member's
+     * event owner stops admitting callbacks and every member leaves the live lists up front, so a
+     * close that blocks cannot leave later members accepting work or reporting healthy. Members
+     * are then unloaded dependents-first — a plugin is torn down before any member it requires —
+     * from the references captured at fence time.</p>
      */
     private void markRuntimeFailed(
         final String failedId,
@@ -232,20 +234,24 @@ final class PreviewPluginLoadCoordinator {
             }
         }
         runtimeFailed.addAll(closure);
+        final List<LocalPluginRuntime.LoadedPlugin> fenced = new ArrayList<>();
         for (String dependentId : unloadOrder(closure, candidates)) {
-            final LocalPluginRuntime.LoadedPlugin live = loaded.stream()
+            loaded.stream()
                 .filter(plugin -> plugin.runtime().id().equals(dependentId))
                 .findFirst()
-                .orElse(null);
-            if (live == null) {
-                continue;
-            }
+                .ifPresent(fenced::add);
+        }
+        shutdown.fence(fenced);
+        for (LocalPluginRuntime.LoadedPlugin live : fenced) {
+            loaded.remove(live);
+            summaries.removeIf(summary -> summary.id().equals(live.runtime().id()));
+        }
+        for (LocalPluginRuntime.LoadedPlugin live : fenced) {
+            final String dependentId = live.runtime().id();
             final List<String> failedDependencies = failedDependencies(
                 live.runtime().descriptor(), runtimeFailed
             );
             final LocalPluginRuntime.LoadedPluginSummary unloadSummary = shutdown.unloadOne(live);
-            loaded.remove(live);
-            summaries.removeIf(summary -> summary.id().equals(dependentId));
             failures.add(new LocalPluginRuntime.PluginFailure(
                 dependentId, live.jar(),
                 "DEPENDENCY_LOAD_FAILED",
