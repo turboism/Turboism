@@ -71,10 +71,19 @@ dev.turboism.sdk.cubism.hook
   Override-based plugin lifecycle hooks; no registration bus.
 
 dev.turboism.sdk.cubism.event
-  Immutable Cubism and Editor semantic event values.
+  Immutable Cubism and Editor semantic event values, including selection
+  transitions and the CubismOperationEvent correlation payload.
 
 dev.turboism.sdk.event
-  Generic event transport and EventBus contracts.
+  Generic event transport, EventBus contracts, and the top-level TurboismEvent
+  marker that every shipped event family implements.
+
+dev.turboism.sdk.event.cubism
+  Runtime-published Cubism and Editor event families. Concrete runtime-owned
+  families also live in their domain packages (sdk.action, sdk.appearance,
+  sdk.cubism.backup, sdk.performance, sdk.runtime, sdk.ui.table); per-concrete
+  delivery permissions and supported origins are documented in
+  sdk/event-coverage.md.
 
 dev.turboism.sdk.cubism.id
   Shared identities used across reads, queries, events and transactions.
@@ -89,9 +98,9 @@ dev.turboism.core.runtime.sidecar
   Isolated heavy-work dispatch and supervision.
 ```
 
-Deprecated package shapes such as `sdk.cubism.callback`, `sdk.event.cubism`,
-feature-local `DocumentId`, and callback-named plugin work executors are not
-compatibility surfaces and must not be reintroduced.
+Deprecated package shapes such as `sdk.cubism.callback`, feature-local
+`DocumentId`, and callback-named plugin work executors are not compatibility
+surfaces and must not be reintroduced.
 
 ## 3. Public API model
 

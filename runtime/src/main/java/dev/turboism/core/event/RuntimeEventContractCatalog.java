@@ -27,6 +27,7 @@ import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
+import dev.turboism.sdk.runtime.PluginLifecycleEvent;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
 
 import java.util.List;
@@ -63,7 +64,8 @@ final class RuntimeEventContractCatalog {
             SceneTableItemOrderEvent.class,
             CubismLogBatchEvent.class,
             PerformanceSampleEvent.class,
-            ActionInvocationEvent.class
+            ActionInvocationEvent.class,
+            PluginLifecycleEvent.class
         );
 
     void requirePluginPublicationAllowed(

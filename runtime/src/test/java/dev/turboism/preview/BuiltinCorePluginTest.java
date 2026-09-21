@@ -140,6 +140,88 @@ class BuiltinCorePluginTest {
         }
     }
 
+    /**
+     * A FAILED lane outcome whose rollback left cleanup incomplete must retain the generation —
+     * the same retention the timeout branch already had — instead of dropping the scope and
+     * classloader references. The retention watcher re-drives {@code cleanupCore}; the sticky
+     * one-shot flags keep the failed scope outcome and never re-run its closer.
+     */
+    @Test
+    void failedLoadRetainsGenerationWhileCleanupIsIncomplete() throws Exception {
+        final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
+        try (PreviewLog log = new PreviewLog(temporary.resolve("logs/core3.log"))) {
+            final RetainedPluginGenerations retention =
+                new RetainedPluginGenerations(lane, POLICY, log);
+            final BuiltinCorePlugin.CoreLoad state = new BuiltinCorePlugin.CoreLoad();
+            final RecordingPlugin plugin = new RecordingPlugin();
+            state.plugin = plugin;
+            final AtomicInteger closerCalls = new AtomicInteger();
+            state.scope = new DisposableScope();
+            state.scope.register(() -> {
+                closerCalls.incrementAndGet();
+                throw new IllegalStateException("scope closer failed");
+            });
+            state.resources = new URLClassLoader(new URL[0], getClass().getClassLoader());
+
+            // The FAILED branch shape: the lane task exited exceptionally, so workerDone is
+            // already complete, and the in-worker rollback left disposal unproven.
+            final PluginLifecycleLane.Invocation<Object> invocation =
+                lane.submit("turboism.core", "load", () -> {
+                    throw new IllegalStateException("core load failed");
+                });
+            invocation.workerDone.get(5, TimeUnit.SECONDS);
+            state.cleanupComplete =
+                BuiltinCorePlugin.cleanupCore(state, log, POLICY, false);
+            assertFalse(state.cleanupComplete);
+
+            BuiltinCorePlugin.retainIfIncomplete(state, log, POLICY, retention, invocation);
+            assertEquals(
+                1,
+                retention.retainedCount(),
+                "incomplete core cleanup must retain the generation on FAILED too"
+            );
+
+            // Re-drives keep the generation retained and never re-run the failed closer.
+            Thread.sleep(POLICY.retentionRetryInterval().toMillis() * 5);
+            assertEquals(1, retention.retainedCount());
+            assertEquals(1, closerCalls.get(), "sticky scope failure must not be retried");
+            assertFalse(state.resourcesAttempted);
+        } finally {
+            lane.shutdown();
+        }
+    }
+
+    @Test
+    void failedLoadWithCompleteCleanupRetainsNothing() throws Exception {
+        final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
+        try (PreviewLog log = new PreviewLog(temporary.resolve("logs/core4.log"))) {
+            final RetainedPluginGenerations retention =
+                new RetainedPluginGenerations(lane, POLICY, log);
+            final BuiltinCorePlugin.CoreLoad state = new BuiltinCorePlugin.CoreLoad();
+            state.plugin = new RecordingPlugin();
+            state.scope = new DisposableScope();
+            state.resources = new URLClassLoader(new URL[0], getClass().getClassLoader());
+
+            final PluginLifecycleLane.Invocation<Object> invocation =
+                lane.submit("turboism.core", "load", () -> {
+                    throw new IllegalStateException("core load failed");
+                });
+            invocation.workerDone.get(5, TimeUnit.SECONDS);
+            state.cleanupComplete =
+                BuiltinCorePlugin.cleanupCore(state, log, POLICY, false);
+            assertTrue(state.cleanupComplete);
+
+            BuiltinCorePlugin.retainIfIncomplete(state, log, POLICY, retention, invocation);
+            assertEquals(
+                0,
+                retention.retainedCount(),
+                "a fully cleaned generation has nothing left to retain"
+            );
+        } finally {
+            lane.shutdown();
+        }
+    }
+
     private static final class RecordingPlugin implements TurboismPlugin {
         final AtomicInteger disables = new AtomicInteger();
         final AtomicInteger shutdowns = new AtomicInteger();
