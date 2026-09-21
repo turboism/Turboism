@@ -120,6 +120,7 @@ public final class EditorEditSessionSelectorContract {
             "cubism.editor-model.edit-mode.end",
             "cubism.editor-model.undo.add",
             "cubism.editor-model.undo.add-listener",
+            "cubism.editor-model.undo.group-undo",
             "cubism.editor-model.undo-listener.class",
             "cubism.editor-history.document.undo-manager",
             "cubism.editor-history.manager.class",
