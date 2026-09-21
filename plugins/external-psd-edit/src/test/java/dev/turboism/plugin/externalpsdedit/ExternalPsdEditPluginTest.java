@@ -58,7 +58,10 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -70,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExternalPsdEditPluginTest {
@@ -78,6 +82,7 @@ class ExternalPsdEditPluginTest {
     private static final String OTHER_BINDING = "session-test:model-2:1";
     private static final RawImageId RAW_A = new RawImageId("raw-a");
     private static final RawImageId RAW_B = new RawImageId("raw-b");
+    private static final RawImageId RAW_C = new RawImageId("raw-c");
     private static final ModelImageId IMAGE_A = new ModelImageId("image-a");
     private static final ModelImageId IMAGE_B = new ModelImageId("image-b");
 
@@ -509,6 +514,350 @@ class ExternalPsdEditPluginTest {
     }
 
     @Test
+    void saveFollowsModelImageAcrossRawMigrationAndMenuReusesOneSession() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        final CompletableFuture<PsdReplaceResult> first = new CompletableFuture<>();
+        final CompletableFuture<PsdReplaceResult> second = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(first);
+        context.cubism().textures().replaceCompletions.add(second);
+
+        file.saveListener.accept(new TestRevision("save-a"));
+        context.cubism().relations(singleRelation(BINDING, 7L, 2L, RAW_B));
+        first.complete(applied(RAW_A, RAW_B, "save-a"));
+
+        file.saveListener.accept(new TestRevision("save-b"));
+        context.cubism().relations(singleRelation(BINDING, 7L, 3L, RAW_C));
+        second.complete(applied(RAW_B, RAW_C, "save-b"));
+
+        // The captured model-image identity, rather than the old raw id, finds this session.
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(
+            List.of("export:raw-a", "replace:raw-a:save-a", "replace:raw-b:save-b"),
+            context.cubism().textures().calls()
+        );
+        assertEquals(2, file.openCalls.get(), "a migrated session is reopened, not re-exported");
+        assertEquals(1, file.observeCalls.get());
+        assertTrue(context.uiHost().notifications().stream()
+            .filter(n -> n.id().equals("external-psd-edit.status.applied"))
+            .count() >= 2);
+    }
+
+    @Test
+    void savesWhileReplacingKeepOnlyLatestPendingRevision() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        final CompletableFuture<PsdReplaceResult> first = new CompletableFuture<>();
+        final CompletableFuture<PsdReplaceResult> second = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(first);
+        context.cubism().textures().replaceCompletions.add(second);
+
+        file.saveListener.accept(new TestRevision("save-a"));
+        file.saveListener.accept(new TestRevision("save-b"));
+        file.saveListener.accept(new TestRevision("save-c"));
+        assertEquals(List.of("export:raw-a", "replace:raw-a:save-a"),
+            context.cubism().textures().calls());
+
+        context.cubism().relations(singleRelation(BINDING, 7L, 2L, RAW_B));
+        first.complete(applied(RAW_A, RAW_B, "save-a"));
+        assertEquals(List.of(
+            "export:raw-a", "replace:raw-a:save-a", "replace:raw-b:save-c"
+        ), context.cubism().textures().calls());
+
+        context.cubism().relations(singleRelation(BINDING, 7L, 3L, RAW_C));
+        second.complete(applied(RAW_B, RAW_C, "save-c"));
+    }
+
+    @Test
+    void undoAndRedoRelationsDriveTheNextSaveWithoutReplayingConsumedRevision() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        file.saveListener.accept(new TestRevision("save-a"));
+        context.cubism().relations(singleRelation(BINDING, 7L, 3L, RAW_A));
+        file.saveListener.accept(new TestRevision("undo-a"));
+        context.cubism().relations(singleRelation(BINDING, 7L, 5L, RAW_B));
+        file.saveListener.accept(new TestRevision("redo-b"));
+
+        assertEquals(List.of(
+            "export:raw-a",
+            "replace:raw-a:save-a",
+            "replace:raw-a:undo-a",
+            "replace:raw-b:redo-b"
+        ), context.cubism().textures().calls());
+    }
+
+    @Test
+    void afterMismatchPausesAndDoesNotDispatchPendingRevision() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        final CompletableFuture<PsdReplaceResult> first = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(first);
+        file.saveListener.accept(new TestRevision("save-a"));
+        file.saveListener.accept(new TestRevision("save-b"));
+        context.cubism().relations(singleRelation(BINDING, 7L, 2L, RAW_B));
+        first.complete(applied(RAW_A, RAW_A, "save-a"));
+
+        assertEquals(List.of("export:raw-a", "replace:raw-a:save-a"),
+            context.cubism().textures().calls());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.paused-partial")));
+    }
+
+    @Test
+    void consumedRevisionMismatchIsNotReportedAsApplied() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        final CompletableFuture<PsdReplaceResult> completion = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(completion);
+        file.saveListener.accept(new TestRevision("save-a"));
+        completion.complete(new PsdReplaceResult(
+            PsdReplaceResult.Status.APPLIED,
+            "applied with the wrong consumed revision",
+            RAW_A,
+            Optional.of(RAW_A),
+            Optional.of(new TestRevision("other")),
+            Optional.empty()
+        ));
+
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.paused-partial")));
+        assertTrue(context.uiHost().notifications().stream()
+            .noneMatch(n -> n.id().equals("external-psd-edit.status.applied")));
+    }
+
+    @Test
+    void partialFailureDropsQueuedRevisionAndPauses() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        final CompletableFuture<PsdReplaceResult> completion = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(completion);
+        file.saveListener.accept(new TestRevision("save-a"));
+        file.saveListener.accept(new TestRevision("save-b"));
+        completion.complete(new PsdReplaceResult(
+            PsdReplaceResult.Status.PARTIAL_FAILURE,
+            "native outcome uncertain",
+            RAW_A,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()
+        ));
+
+        assertEquals(List.of("export:raw-a", "replace:raw-a:save-a"),
+            context.cubism().textures().calls());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.paused-partial")));
+    }
+
+    @Test
+    void failedReplacementDropsPendingButAFreshSaveCanTryAgain() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        final CompletableFuture<PsdReplaceResult> failed = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(failed);
+        file.saveListener.accept(new TestRevision("save-a"));
+        file.saveListener.accept(new TestRevision("save-b"));
+        failed.complete(new PsdReplaceResult(
+            PsdReplaceResult.Status.FAILED, "failed", RAW_A,
+            Optional.empty(), Optional.empty(), Optional.empty()));
+
+        assertEquals(List.of(
+            "export:raw-a", "replace:raw-a:save-a", "replace:raw-a:save-b"
+        ), context.cubism().textures().calls());
+    }
+
+    @Test
+    void duplicateRelationIdentityFailsClosedBeforeAReplacement() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        context.cubism().relations(duplicateModelImageRelations(BINDING, 7L, 2L, RAW_A));
+        file.saveListener.accept(new TestRevision("ambiguous"));
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertFalse(context.uiHost().notifications().isEmpty());
+    }
+
+    @Test
+    void duplicateRawIndexFailsClosedBeforeAReplacement() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        context.cubism().relations(duplicateRawRelations(BINDING, 7L, 2L, RAW_A));
+        file.saveListener.accept(new TestRevision("raw-collision"));
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertTrue(file.stopped.get());
+    }
+
+    @Test
+    void lateNativeCompletionAfterDisableCannotPublishOrResubmit() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        final CompletableFuture<PsdReplaceResult> completion = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(completion);
+        file.saveListener.accept(new TestRevision("late"));
+
+        plugin.disable();
+        completion.complete(applied(RAW_A, RAW_A, "late"));
+
+        assertEquals(List.of("export:raw-a", "replace:raw-a:late"),
+            context.cubism().textures().calls());
+        assertTrue(context.uiHost().notifications().stream()
+            .noneMatch(n -> n.id().equals("external-psd-edit.status.applied")));
+        assertTrue(file.stopped.get());
+    }
+
+    @Test
+    void generationChangeStopsOldSessionBeforeOpeningNewAnchor() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        final FakePsdEditFile oldFile = context.cubism().textures().issued().get(RAW_A);
+
+        context.cubism().relations(singleRelation(BINDING, 8L, 2L, RAW_B));
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(List.of("export:raw-a", "export:raw-b"),
+            context.cubism().textures().calls());
+        assertTrue(oldFile.stopped.get());
+        assertEquals(1, plugin.liveSessions());
+    }
+
+    @Test
+    void addingAnotherModelImageOnTheSameRawStillReusesTheExistingSession() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+
+        context.cubism().relations(twoImageRelations(BINDING, 7L, 2L, RAW_A, RAW_A));
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertEquals(2, file.openCalls.get());
+        assertEquals(1, plugin.liveSessions());
+    }
+
+    @Test
+    void twoExistingAnchorsThatFreshlyConvergeOnOneRawRejectMenuWithoutGuessing() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(twoImageRelations(BINDING, 7L, 1L, RAW_A, RAW_B));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2")
+        ));
+        context.cubism().relations(twoImageRelations(BINDING, 7L, 2L, RAW_A, RAW_A));
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+
+        assertEquals(List.of("export:raw-a", "export:raw-b"),
+            context.cubism().textures().calls());
+        assertNotNull(context.cubism().textures().issued().get(RAW_A));
+        assertNotNull(context.cubism().textures().issued().get(RAW_B));
+    }
+
+    @Test
     void partialFailurePausesAutomaticImports() {
         final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
@@ -721,12 +1070,53 @@ class ExternalPsdEditPluginTest {
         final String binding,
         final List<ArtMeshTextureInputs> artMeshes
     ) {
+        return relations(binding, 1L, 1L, artMeshes, Map.of());
+    }
+
+    private static TextureRelationsSnapshot singleRelation(
+        final String binding,
+        final long generation,
+        final long revision,
+        final RawImageId raw
+    ) {
+        return relations(
+            binding,
+            generation,
+            revision,
+            List.of(artMesh("mesh-1", IMAGE_A)),
+            Map.of(IMAGE_A, raw)
+        );
+    }
+
+    private static TextureRelationsSnapshot twoImageRelations(
+        final String binding,
+        final long generation,
+        final long revision,
+        final RawImageId firstRaw,
+        final RawImageId secondRaw
+    ) {
+        return relations(
+            binding,
+            generation,
+            revision,
+            List.of(artMesh("mesh-1", IMAGE_A), artMesh("mesh-2", IMAGE_B)),
+            Map.of(IMAGE_A, firstRaw, IMAGE_B, secondRaw)
+        );
+    }
+
+    private static TextureRelationsSnapshot relations(
+        final String binding,
+        final long generation,
+        final long revision,
+        final List<ArtMeshTextureInputs> artMeshes,
+        final Map<ModelImageId, RawImageId> rawOverrides
+    ) {
         final List<ModelImageRelation> images = new ArrayList<>();
         final List<RawImageDetails> raws = new ArrayList<>();
         for (final ArtMeshTextureInputs inputs : artMeshes) {
             final ModelImageId imageId = inputs.inputs().get(0).modelImageId().orElseThrow();
+            final RawImageId raw = rawOverrides.getOrDefault(imageId, imageToRaw(imageId));
             if (images.stream().noneMatch(r -> r.id().equals(imageId))) {
-                final RawImageId raw = imageId.equals(IMAGE_B) ? RAW_B : RAW_A;
                 images.add(new ModelImageRelation(
                     imageId,
                     entry(imageId),
@@ -736,9 +1126,9 @@ class ExternalPsdEditPluginTest {
                     List.of(inputs.id())
                 ));
             }
-            if (raws.stream().noneMatch(r -> r.id().equals(imageToRaw(imageId)))) {
+            if (raws.stream().noneMatch(r -> r.id().equals(raw))) {
                 raws.add(new RawImageDetails(
-                    rawTexture(imageToRaw(imageId)),
+                    rawTexture(raw),
                     RawImageDetails.SourceKind.PSD,
                     List.of(),
                     false,
@@ -751,12 +1141,68 @@ class ExternalPsdEditPluginTest {
         return new TextureRelationsSnapshot(
             TextureRelationsSnapshot.Availability.AVAILABLE,
             binding,
-            1L,
-            1L,
+            generation,
+            revision,
             raws,
             images,
             List.of(),
             artMeshes
+        );
+    }
+
+    private static TextureRelationsSnapshot duplicateModelImageRelations(
+        final String binding,
+        final long generation,
+        final long revision,
+        final RawImageId raw
+    ) {
+        final TextureRelationsSnapshot base = singleRelation(
+            binding, generation, revision, raw);
+        final ModelImageRelation image = base.modelImages().get(0);
+        return new TextureRelationsSnapshot(
+            TextureRelationsSnapshot.Availability.AVAILABLE,
+            binding,
+            generation,
+            revision,
+            base.rawImages(),
+            List.of(image, image),
+            base.groups(),
+            base.artMeshInputs()
+        );
+    }
+
+    private static TextureRelationsSnapshot duplicateRawRelations(
+        final String binding,
+        final long generation,
+        final long revision,
+        final RawImageId raw
+    ) {
+        final TextureRelationsSnapshot base = singleRelation(
+            binding, generation, revision, raw);
+        return new TextureRelationsSnapshot(
+            TextureRelationsSnapshot.Availability.AVAILABLE,
+            binding,
+            generation,
+            revision,
+            List.of(base.rawImages().get(0), base.rawImages().get(0)),
+            base.modelImages(),
+            base.groups(),
+            base.artMeshInputs()
+        );
+    }
+
+    private static PsdReplaceResult applied(
+        final RawImageId before,
+        final RawImageId after,
+        final String revision
+    ) {
+        return new PsdReplaceResult(
+            PsdReplaceResult.Status.APPLIED,
+            "applied",
+            before,
+            Optional.of(after),
+            Optional.of(new TestRevision(revision)),
+            Optional.empty()
         );
     }
 
@@ -833,6 +1279,8 @@ class ExternalPsdEditPluginTest {
         private final java.util.Map<RawImageId, FakePsdEditFile> issued =
             new java.util.LinkedHashMap<>();
         private final List<String> calls = new ArrayList<>();
+        private final Deque<CompletableFuture<PsdReplaceResult>> replaceCompletions =
+            new ArrayDeque<>();
         private volatile TextureRelationsSnapshot relations = TextureRelationsSnapshot.unavailable();
         private volatile PsdExportResult.Status exportStatus = PsdExportResult.Status.EXPORTED;
         private volatile PsdReplaceResult.Status replaceStatus = PsdReplaceResult.Status.APPLIED;
@@ -876,6 +1324,10 @@ class ExternalPsdEditPluginTest {
         ) {
             calls.add("replace:" + target.value() + ":"
                 + ((TestRevision) revision).value());
+            final CompletableFuture<PsdReplaceResult> completion = replaceCompletions.pollFirst();
+            if (completion != null) {
+                return completion;
+            }
             if (replaceStatus != PsdReplaceResult.Status.APPLIED) {
                 return CompletableFuture.completedFuture(new PsdReplaceResult(
                     replaceStatus, "test", target,
