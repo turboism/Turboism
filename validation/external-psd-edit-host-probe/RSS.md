@@ -12,6 +12,8 @@ startup in its observation scope; neither value is a JVM heap measurement. The h
 reused PID, multiple main-class processes, or a foreign result stop collection. Missing
 process samples or zero samples produce incomplete evidence. It never signals processes,
 changes the queue, or declares SC-006 passed.
+The report carries the same job, attempt, run and prepared digest as containment, plus the
+Linux CPU model, logical CPU count, physical memory and kernel used for the measurement.
 
 This synchronous hook is for pipeline runs. GUI runs need the Runner's later readiness trigger
 and must not use this hook. A saved-file reopen stage does not form part of the ten-save

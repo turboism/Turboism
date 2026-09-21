@@ -118,6 +118,33 @@ def terminal_status(path: Path, run_id: str):
     return fields.get("status") if fields.get("status") in ("PASS", "FAIL", "BLOCKED") else None
 
 
+def report_identity(metadata: dict, expected: dict) -> dict:
+    if metadata.get("schemaVersion") != 1 or any(metadata.get(k) != v for k, v in expected.items()):
+        raise IdentityChanged("queue containment identity mismatch")
+    digest = metadata.get("preparedDigest")
+    if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+        raise IdentityChanged("queue containment prepared digest is unavailable")
+    return dict(expected, preparedDigest=digest)
+
+
+def machine_description(proc=Path("/proc")) -> dict:
+    result = {"kernel": " ".join(os.uname()), "logicalCpuCount": os.cpu_count(),
+              "cpuModel": "UNAVAILABLE", "physicalMemoryBytes": "UNAVAILABLE"}
+    try:
+        models = sorted({line.partition(":")[2].strip()
+                         for line in (proc / "cpuinfo").read_text().splitlines()
+                         if line.partition(":")[0].strip() == "model name"})
+        if models:
+            result["cpuModel"] = models
+        for line in (proc / "meminfo").read_text().splitlines():
+            fields = line.split()
+            if len(fields) == 3 and fields[0] == "MemTotal:" and fields[2] == "kB":
+                result["physicalMemoryBytes"] = int(fields[1]) * 1024
+    except (OSError, ValueError) as failure:
+        result["diagnostic"] = str(failure)
+    return result
+
+
 def collect(scope: Scope, terminal: Path, run_id: str, timeout: int) -> dict:
     started = time.monotonic_ns()
     deadline = started + timeout * 1_000_000_000
@@ -173,8 +200,9 @@ def main(argv: list[str]) -> int:
     metadata = json.loads((root / "jobs" / job / "containment.json").read_text())
     expected = {"jobId": job, "attemptId": os.environ["TURBOISM_QUEUE_ATTEMPT_ID"],
                 "runId": os.environ["TURBOISM_QUEUE_RUN_ID"]}
-    if metadata.get("schemaVersion") != 1 or expected["runId"] != run_id or any(metadata.get(k) != v for k, v in expected.items()):
+    if expected["runId"] != run_id:
         raise IdentityChanged("queue containment identity mismatch")
+    expected = report_identity(metadata, expected)
     seconds = int(timeout)
     if not 1 <= seconds <= 1800:
         raise ValueError("RSS observation timeout must be within 1..1800 seconds")
@@ -191,6 +219,7 @@ def main(argv: list[str]) -> int:
             stream.write("\n")
             raise
         report.update(expected)
+        report["machine"] = machine_description()
         report["cgroup"] = {k: metadata[k] for k in ("bootId", "cgroupPath", "cgroupDevice", "cgroupInode")}
         json.dump(report, stream, indent=2)
         stream.write("\n")
