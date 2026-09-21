@@ -212,6 +212,11 @@ final class PreviewPluginLoader {
             invocation.workerDone,
             resources.eventOwner,
             resources.guard,
+            // Dormant only once every stage that can still run plugin code — enable
+            // rollback, shutdown bodies, scope closers — has been attempted. A failed
+            // scope close is one-shot and stays dormant; later passes release only
+            // runtime bookkeeping (loader, contract lease).
+            () -> resources.rolledBack && resources.shutdownCalled && resources.scopeAttempted,
             () -> cleanupFailed(resources, pluginId, false)
         ));
         log.warn(

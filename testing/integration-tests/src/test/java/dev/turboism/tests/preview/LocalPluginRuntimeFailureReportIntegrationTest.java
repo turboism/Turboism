@@ -38,8 +38,7 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
             home,
             scheduler,
             ingress.adapterAccess(),
-            log,
-            new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
+            log
         );
         final LocalPluginRuntime.LoadReport loadReport = plugins.loadAll();
         final PreviewRuntime runtime = runtime(home, log, scheduler, ingress, plugins, loadReport);
@@ -47,7 +46,7 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
             runtime.writeInitialReports(HostSession.State.SAFE_MODE);
             assertTrue(Files.isRegularFile(home.resolve("plugins/preview-failure-plugin.jar")));
             assertEquals(List.of(), loadReport.failures());
-            assertEquals(2, loadReport.loaded().size());
+            assertEquals(1, loadReport.loaded().size());
             assertTrue(loadReport.loaded().stream().anyMatch(plugin -> plugin.id().equals(PreviewFailurePluginJarFixture.PLUGIN_ID)));
             assertInitialReport(home);
             assertSafeLog(home);
@@ -105,8 +104,8 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         final JsonNode payload = report(home).path("payload");
         assertEquals("STOPPED", payload.path("runtimeState").textValue());
         assertFailures(payload, 1, 2, 1);
-        assertEquals(2, payload.path("shutdownCounts").path("attempted").longValue());
-        assertEquals(2, payload.path("shutdownCounts").path("succeeded").longValue());
+        assertEquals(1, payload.path("shutdownCounts").path("attempted").longValue());
+        assertEquals(1, payload.path("shutdownCounts").path("succeeded").longValue());
         assertSafe(payload);
     }
 

@@ -1,7 +1,7 @@
 package dev.turboism.validation.texture;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.agent.shaded.jackson.databind.ObjectMapper;
+import dev.turboism.agent.shaded.jackson.databind.node.ObjectNode;
 import java.util.function.Consumer;
 
 /** Offline evidence-contract tests. Never invokes premain, Swing, Wine or Cubism. */

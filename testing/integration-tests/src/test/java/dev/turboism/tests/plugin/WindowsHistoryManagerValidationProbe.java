@@ -3,7 +3,10 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.SwingUtilities;
@@ -20,12 +23,31 @@ import java.util.Locale;
 /** Manual-test-only, read-only exact-host probe for Cubism's public Undo manager surface. */
 public final class WindowsHistoryManagerValidationProbe implements CubismPlugin {
 
-    private static final int POLL_MILLIS = 100;
-    private static final int MAX_ENTRIES = 256;
-    private static final int MAX_DETAIL_DEPTH = 4;
-    private static final int MAX_DETAIL_NODES = 64;
-    private static final int MAX_DETAIL_STRING = 256;
-    private static final long MAX_EVIDENCE_BYTES = 2L * 1024L * 1024L;
+    static final int POLL_MILLIS = 100;
+    static final int MAX_ENTRIES = 256;
+    static final int MAX_DETAIL_DEPTH = 4;
+    static final int MAX_DETAIL_NODES = 64;
+    /**
+     * Upper bound on the points summarised per form.
+     *
+     * <p>The summary is an aggregate, so this only bounds the work one entry can cause. A form over
+     * the limit degrades rather than being summarised in part, because a partial point set would
+     * make a uniform translation look non-uniform.</p>
+     */
+    static final int MAX_GEOMETRY_POINTS = 4096;
+
+    /**
+     * Upper bound on the geometry summaries one sample may carry.
+     *
+     * <p>A summary is projected for every form a sample walks and the artifact bound is a reviewed
+     * contract number, so an unbudgeted sampler could spend the whole bound on one snapshot and
+     * fail the run instead of producing evidence. Once the budget is gone the detail reports
+     * {@code OMITTED}. The budget is spent from the newest entry backwards, because that is the
+     * entry the operator has just created.</p>
+     */
+    static final int MAX_GEOMETRY_SUMMARIES = 24;
+    static final int MAX_DETAIL_STRING = 256;
+    static final long MAX_EVIDENCE_BYTES = 2L * 1024L * 1024L;
 
     private PluginContext context;
     private Timer timer;
@@ -102,6 +124,14 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
     }
 
     private Snapshot snapshot() throws Exception {
+        return sample(context);
+    }
+
+    /**
+     * Read the native manager and SDK projection together without owning an evidence file.
+     * The caller must arrange for this method to run on the host EDT.
+     */
+    static Snapshot sample(final PluginContext context) throws Exception {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("History probe snapshot must run on EDT");
         }
@@ -127,6 +157,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         }
         if (linkedManager != null) requireSameLoader(appClass, linkedManager.getClass());
 
+        // One geometry budget per sample, shared by the four manager snapshots.
+        final int[] geometryBudget = {MAX_GEOMETRY_SUMMARIES};
         return new Snapshot(
             Instant.now().toString(),
             Thread.currentThread().getName(),
@@ -135,25 +167,27 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             identity(document),
             currentMode == null ? "null" : currentMode.getClass().getName(),
             identity(currentMode),
-            manager("DOCUMENT", documentManager),
-            manager("CURRENT", currentManager),
-            manager("MAIN", mainManager),
-            manager("LINKED", linkedManager),
-            sdkHistory()
+            manager("DOCUMENT", documentManager, geometryBudget),
+            manager("CURRENT", currentManager, geometryBudget),
+            manager("MAIN", mainManager, geometryBudget),
+            manager("LINKED", linkedManager, geometryBudget),
+            sdkHistory(context)
         );
     }
 
-    private SdkHistorySnapshot sdkHistory() {
+    static SdkHistorySnapshot sdkHistory(final PluginContext context) {
         final HistorySnapshot history = context.cubism().history().snapshot();
         final int count = Math.min(history.entries().size(), MAX_ENTRIES);
         final List<SdkEntry> entries = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             final HistoryEntry entry = history.entries().get(index);
+            final HistoryEntryDetail detail = entry.detail();
             entries.add(new SdkEntry(
                 entry.index(),
                 entry.entryId().map(value -> value.value()).orElse(""),
                 boundedLabel(entry.label()),
-                sdkDetailJson(entry.detail(), 0)
+                sdkDetailJson(detail, 0),
+                detail
             ));
         }
         return new SdkHistorySnapshot(
@@ -170,14 +204,12 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         );
     }
 
-    private static String sdkDetailJson(
-        final dev.turboism.sdk.cubism.history.HistoryEntryDetail detail,
+    static String sdkDetailJson(
+        final HistoryEntryDetail detail,
         final int depth
     ) {
         final String targets = detail.targets().stream().map(target ->
-            "{\"type\":\"" + json(target.type())
-                + "\",\"id\":" + optionalJson(target.id())
-                + ",\"displayName\":" + optionalJson(target.displayName()) + "}"
+            sdkTargetJson(target)
         ).reduce((left, right) -> left + "," + right).orElse("");
         final String changes = detail.changes().stream().map(change ->
             "{\"operation\":\"" + change.operation().name()
@@ -185,7 +217,9 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
                 + ",\"property\":" + optionalJson(change.property())
                 + ",\"before\":" + optionalJson(change.before())
                 + ",\"after\":" + optionalJson(change.after())
-                + ",\"context\":" + sdkContextJson(change) + "}"
+                + ",\"context\":" + sdkContextJson(change)
+                + ",\"relation\":" + change.relation().map(WindowsHistoryManagerValidationProbe::sdkRelationJson).orElse("null")
+                + "}"
         ).reduce((left, right) -> left + "," + right).orElse("");
         String group = "null";
         if (depth < MAX_DETAIL_DEPTH && detail.group().isPresent()) {
@@ -208,6 +242,25 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             + ",\"group\":" + group + "}";
     }
 
+    private static String sdkTargetJson(final HistoryTarget target) {
+        return "{\"type\":\"" + json(target.type())
+            + "\",\"id\":" + optionalJson(target.id())
+            + ",\"displayName\":" + optionalJson(target.displayName()) + "}";
+    }
+
+    private static String sdkRelationJson(final HistoryRelationChange relation) {
+        return "{\"kind\":\"" + json(relation.kind().name())
+            + "\",\"before\":" + sdkRelationEndpointJson(relation.before())
+            + ",\"after\":" + sdkRelationEndpointJson(relation.after()) + "}";
+    }
+
+    private static String sdkRelationEndpointJson(final HistoryRelationChange.Endpoint endpoint) {
+        return "{\"state\":\"" + json(endpoint.state().name())
+            + "\",\"target\":"
+            + endpoint.target().map(WindowsHistoryManagerValidationProbe::sdkTargetJson).orElse("null")
+            + "}";
+    }
+
     private static String sdkContextJson(final HistoryChange change) {
         final String coordinates = change.context().coordinates().stream().map(coordinate ->
             "{\"parameter\":{\"type\":\"" + json(coordinate.parameter().type())
@@ -224,20 +277,33 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         return value.map(item -> "\"" + json(item) + "\"").orElse("null");
     }
 
-    private static ManagerSnapshot manager(final String name, final Object manager) throws Exception {
+    private static ManagerSnapshot manager(
+        final String name,
+        final Object manager,
+        final int[] geometryBudget
+    ) throws Exception {
         if (manager == null) return new ManagerSnapshot(name, "null", -1, false, false, 0, List.of());
         final List<?> raw = (List<?>) invoke(manager, "getUndoList");
         final int count = Math.min(raw.size(), MAX_ENTRIES);
+        final int position = (Integer) invoke(manager, "getCurrentPos");
         final List<Entry> entries = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
+        // Newest first, so the sample's geometry budget reaches the entry the operator has just
+        // created rather than the oldest one in the list. The list is put back into index order
+        // before it is returned, so the artifact keeps its existing ordering.
+        for (int index = count - 1; index >= 0; index--) {
             final Object entry = raw.get(index);
+            // A fresh entry stores no post state; mirroring the decoder's rule, the live target may
+            // stand in for it only while this entry is still the manager's tip — the last entry
+            // with the cursor at the tail — so no later edit can have overwritten the value read.
+            final boolean tip = position == raw.size() && index == position - 1;
             entries.add(new Entry(
                 index,
                 boundedLabel(invoke(entry, "getPresentationName")),
                 (Boolean) invoke(entry, "isSignificant"),
-                nativeDetail(entry, 0, new java.util.IdentityHashMap<>(), new int[] {0})
+                nativeDetail(entry, 0, new java.util.IdentityHashMap<>(), new int[] {0}, geometryBudget, tip)
             ));
         }
+        java.util.Collections.reverse(entries);
         return new ManagerSnapshot(
             name,
             identity(manager),
@@ -274,7 +340,9 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final Object entry,
         final int depth,
         final java.util.IdentityHashMap<Object, Boolean> visited,
-        final int[] nodes
+        final int[] nodes,
+        final int[] geometryBudget,
+        final boolean liveAllowed
     ) {
         final String className = entry.getClass().getName();
         if (depth > MAX_DETAIL_DEPTH || nodes[0] >= MAX_DETAIL_NODES || visited.put(entry, Boolean.TRUE) != null) {
@@ -283,9 +351,10 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         nodes[0]++;
         try {
             return switch (className) {
-                case "com.live2d.undo.GroupUndo" -> groupDetail(entry, className, depth, visited, nodes);
+                case "com.live2d.undo.GroupUndo" ->
+                    groupDetail(entry, className, depth, visited, nodes, geometryBudget, liveAllowed);
                 case "com.live2d.undo.PropertyUndo" -> propertyDetail(entry, className);
-                case "com.live2d.undo.SimpleUndo" -> simpleDetail(entry, className);
+                case "com.live2d.undo.SimpleUndo" -> simpleDetail(entry, className, geometryBudget, liveAllowed);
                 case "com.live2d.undo.ListUndo" -> listDetail(entry, className);
                 case "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_Parameter_" ->
                     addRemoveDetail(entry, className, "getChildItem");
@@ -307,25 +376,50 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final String className,
         final int depth,
         final java.util.IdentityHashMap<Object, Boolean> visited,
-        final int[] nodes
+        final int[] nodes,
+        final int[] geometryBudget,
+        final boolean liveAllowed
     ) throws Exception {
         final List<?> children = (List<?>) invoke(entry, "getEditList");
         final int observed = (Integer) invoke(entry, "getEditCount");
         final ArrayList<String> childClasses = new ArrayList<>();
         final ArrayList<NativeDetail> childDetails = new ArrayList<>();
         final int count = Math.min(children.size(), MAX_DETAIL_NODES - nodes[0]);
-        boolean truncated = observed != children.size() || children.size() > count;
+        // The live target holds the last writer's result, so among a group's children only the
+        // last SimpleUndo writing each object may read it — the decoder's withhold rule. A child
+        // group is not a writer itself and passes the permission to its own children.
+        final java.util.Set<Object> liveChildren = lastWriters(children, count);
         for (int index = 0; index < count; index++) {
-            final NativeDetail child = nativeDetail(children.get(index), depth + 1, visited, nodes);
-            childClasses.add(child.entryClass());
-            childDetails.add(child);
-            if (!child.degradationCode().isEmpty()) truncated = true;
+            final Object child = children.get(index);
+            final boolean childLive = liveAllowed
+                && (!"com.live2d.undo.SimpleUndo".equals(child.getClass().getName())
+                    || liveChildren.contains(child));
+            final NativeDetail childDetail =
+                nativeDetail(child, depth + 1, visited, nodes, geometryBudget, childLive);
+            childClasses.add(childDetail.entryClass());
+            childDetails.add(childDetail);
         }
+        final boolean truncated = groupTruncated(observed, children.size(), count, childDetails);
         return new NativeDetail(
             "GROUP", className, "", "", "", "", "", -1,
             observed, List.copyOf(childClasses), List.copyOf(childDetails), false, false,
             truncated ? "history.detail.group-truncated" : ""
         );
+    }
+
+    /**
+     * Calculates whether group projection omitted traversal facts.
+     * Package-private so focused probe tests exercise the same aggregation decision.
+     */
+    static boolean groupTruncated(
+        final int observedChildCount,
+        final int returnedChildCount,
+        final int projectedChildCount,
+        final List<NativeDetail> childDetails
+    ) {
+        return observedChildCount != returnedChildCount
+            || returnedChildCount > projectedChildCount
+            || childDetails.stream().anyMatch(child -> child.truncated());
     }
 
     private static NativeDetail propertyDetail(final Object entry, final String className) throws Exception {
@@ -346,15 +440,132 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         );
     }
 
-    private static NativeDetail simpleDetail(final Object entry, final String className) throws Exception {
+    /**
+     * Collects the children allowed to read their live target as post state.
+     *
+     * <p>Mirrors the decoder's last-writer rule over one group's direct children: each SimpleUndo
+     * that is the final writer of its own target may read it; earlier writers and SimpleUndo
+     * children whose target cannot be read stay withheld.</p>
+     */
+    private static java.util.Set<Object> lastWriters(final List<?> children, final int count) {
+        final java.util.Set<Object> allowed = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>());
+        final java.util.Map<Object, Integer> lastByTarget = new java.util.IdentityHashMap<>();
+        for (int index = 0; index < count; index++) {
+            final Object child = children.get(index);
+            if (!"com.live2d.undo.SimpleUndo".equals(child.getClass().getName())) continue;
+            final Object target;
+            try {
+                target = invoke(child, "getTargetData");
+            } catch (Exception unavailable) {
+                continue;
+            }
+            if (target != null) lastByTarget.put(target, index);
+        }
+        for (int index = 0; index < count; index++) {
+            final Object child = children.get(index);
+            if (!"com.live2d.undo.SimpleUndo".equals(child.getClass().getName())) continue;
+            final Object target;
+            try {
+                target = invoke(child, "getTargetData");
+            } catch (Exception unavailable) {
+                continue;
+            }
+            final Integer last = target == null ? null : lastByTarget.get(target);
+            if (last != null && last == index) allowed.add(child);
+        }
+        return allowed;
+    }
+
+    private static NativeDetail simpleDetail(
+        final Object entry,
+        final String className,
+        final int[] geometryBudget,
+        final boolean liveAllowed
+    ) throws Exception {
         final Object target = invoke(entry, "getTargetData");
         final Object undo = invoke(entry, "getUndoData");
         final Object redo = invoke(entry, "getRedoData");
+        final Object post = redo != null ? redo : (liveAllowed ? target : null);
         return new NativeDetail(
             "SIMPLE", className, target == null ? "" : target.getClass().getName(),
             "", "", "", "", -1, 0, List.of(), List.of(), undo != null, redo != null,
-            redo == null ? "history.detail.post-state-unavailable" : "history.detail.native-object-state-opaque"
+            redo == null
+                ? (post != null
+                    ? "history.detail.post-state-live-target"
+                    : "history.detail.post-state-unavailable")
+                : "history.detail.native-object-state-opaque",
+            budgetedGeometry(geometryBudget, undo, post)
         );
+    }
+
+    /**
+     * Spends one geometry summary from the sample's budget.
+     *
+     * <p>A summary is attached to every projected form, so an unbudgeted sampler could exhaust the
+     * artifact bound and fail the run instead of producing evidence. A detail the budget did not
+     * reach reports {@code OMITTED}, which is explicitly not {@code NONE}: {@code NONE} means the
+     * detail carried no form positions at all.</p>
+     */
+    static GeometryDelta budgetedGeometry(
+        final int[] budget,
+        final Object undo,
+        final Object redo
+    ) throws Exception {
+        if (budget == null || budget[0] <= 0) return GeometryDelta.omitted();
+        budget[0]--;
+        return geometryDelta(undo, redo);
+    }
+
+    /**
+     * Summarises the positions change between two ArtMesh form snapshots.
+     *
+     * <p>Computed only from the form's own positions, never from an edit name, and reduced to a
+     * bounded set of magnitudes so the artifact never carries the mesh itself. The point of the
+     * summary is to establish whether a whole-object move is structurally distinguishable from a
+     * mesh edit: a pure translation moves every point by the same vector, so {@code maxDeviation} is
+     * how far the worst point displacement is from the mean one. A non-zero deviation means the shape
+     * itself deformed rather than merely moving.</p>
+     */
+    static GeometryDelta geometryDelta(final Object undo, final Object redo) throws Exception {
+        if (undo == null || redo == null) return GeometryDelta.none();
+        final float[] before = positions(undo);
+        final float[] after = positions(redo);
+        if (before == null || after == null) return GeometryDelta.none();
+        if (before.length == 0 || before.length != after.length || before.length % 2 != 0) {
+            return GeometryDelta.degraded("history.geometry.shape-changed");
+        }
+        final int points = before.length / 2;
+        if (points > MAX_GEOMETRY_POINTS) {
+            return GeometryDelta.degraded("history.geometry.point-limit");
+        }
+        double sumX = 0.0;
+        double sumY = 0.0;
+        boolean changed = false;
+        for (int point = 0; point < points; point++) {
+            final float deltaX = after[point * 2] - before[point * 2];
+            final float deltaY = after[point * 2 + 1] - before[point * 2 + 1];
+            if (!Float.isFinite(deltaX) || !Float.isFinite(deltaY)) {
+                return GeometryDelta.degraded("history.geometry.value-unsupported");
+            }
+            if (deltaX != 0.0F || deltaY != 0.0F) changed = true;
+            sumX += deltaX;
+            sumY += deltaY;
+        }
+        final double meanX = sumX / points;
+        final double meanY = sumY / points;
+        double maxDeviation = 0.0;
+        for (int point = 0; point < points; point++) {
+            final double deviationX = after[point * 2] - before[point * 2] - meanX;
+            final double deviationY = after[point * 2 + 1] - before[point * 2 + 1] - meanY;
+            maxDeviation = Math.max(maxDeviation, Math.hypot(deviationX, deviationY));
+        }
+        return GeometryDelta.summary(points, changed, meanX, meanY, maxDeviation);
+    }
+
+    static float[] positions(final Object form) throws Exception {
+        final Object value = optionalInvoke(form, "getPositions");
+        return value instanceof float[] array ? array : null;
     }
 
     private static NativeDetail listDetail(final Object entry, final String className) throws Exception {
@@ -415,7 +626,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
     }
 
     private void append(final String line) throws Exception {
-        if (Files.exists(evidence) && Files.size(evidence) + line.length() + 1L > MAX_EVIDENCE_BYTES) {
+        if (Files.exists(evidence)
+            && Files.size(evidence) + line.getBytes(StandardCharsets.UTF_8).length + 1L > MAX_EVIDENCE_BYTES) {
             evidenceFull = true;
             throw new IllegalStateException("History probe evidence budget exhausted");
         }
@@ -483,12 +695,40 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         List<NativeDetail> childDetails,
         boolean undoAvailable,
         boolean postAvailable,
-        String degradationCode
+        String degradationCode,
+        GeometryDelta geometry
     ) {
+        /** Keeps the projection readable for every detail that carries no geometry. */
+        NativeDetail(
+            final String family,
+            final String entryClass,
+            final String targetClass,
+            final String propertyName,
+            final String previousValue,
+            final String postValue,
+            final String direction,
+            final int index,
+            final int observedChildCount,
+            final List<String> childClasses,
+            final List<NativeDetail> childDetails,
+            final boolean undoAvailable,
+            final boolean postAvailable,
+            final String degradationCode
+        ) {
+            this(family, entryClass, targetClass, propertyName, previousValue, postValue, direction,
+                index, observedChildCount, childClasses, childDetails, undoAvailable, postAvailable,
+                degradationCode, GeometryDelta.none());
+        }
         static NativeDetail degraded(final String entryClass, final String family, final String code) {
             return new NativeDetail(
                 family, entryClass, "", "", "", "", "", -1, 0, List.of(), List.of(), false, false, code
             );
+        }
+
+        boolean truncated() {
+            return (degradationCode != null && (degradationCode.contains("truncat")
+                || degradationCode.equals("history.detail.node-or-depth-limit")))
+                || (childDetails != null && childDetails.stream().anyMatch(NativeDetail::truncated));
         }
 
         String json() {
@@ -509,7 +749,81 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
                     .reduce((a, b) -> a + "," + b).orElse("") + "]"
                 + ",\"undoAvailable\":" + undoAvailable
                 + ",\"postAvailable\":" + postAvailable
-                + ",\"degradationCode\":\"" + WindowsHistoryManagerValidationProbe.json(degradationCode) + "\"}";
+                + ",\"degradationCode\":\"" + WindowsHistoryManagerValidationProbe.json(degradationCode)
+                + "\",\"geometry\":" + geometry.json() + "}";
+        }
+    }
+
+    /**
+     * Bounded structural summary of one form's positions change.
+     *
+     * <p>Deliberately magnitudes rather than the mesh: the artifact records that geometry moved, by
+     * how much on average, and how far the worst point departed from that average. It never carries
+     * vertex coordinates.</p>
+     *
+     * @param family         {@code NONE} when no form positions were readable, {@code OMITTED} when
+     *                       the sample's summary budget was spent before this detail
+     * @param pointCount     the number of points summarised
+     * @param changed        whether any point moved
+     * @param translationX   the mean x displacement
+     * @param translationY   the mean y displacement
+     * @param maxDeviation   the largest distance between a point's displacement and the mean one
+     * @param degradationCode why the summary is unavailable, if it is
+     */
+    record GeometryDelta(
+        String family,
+        int pointCount,
+        boolean changed,
+        String translationX,
+        String translationY,
+        String maxDeviation,
+        String degradationCode
+    ) {
+        /** The summary for a detail that carries no geometry at all. */
+        static GeometryDelta none() {
+            return new GeometryDelta("NONE", 0, false, "", "", "", "");
+        }
+
+        static GeometryDelta degraded(final String code) {
+            return new GeometryDelta("DEGRADED", 0, false, "", "", "", code);
+        }
+
+        /** A summary the sample's budget did not reach; unlike {@code NONE}, a form was there. */
+        static GeometryDelta omitted() {
+            return new GeometryDelta("OMITTED", 0, false, "", "", "", "");
+        }
+
+        static GeometryDelta summary(
+            final int pointCount,
+            final boolean changed,
+            final double translationX,
+            final double translationY,
+            final double maxDeviation
+        ) {
+            return new GeometryDelta(
+                "POSITIONS",
+                pointCount,
+                changed,
+                number(translationX),
+                number(translationY),
+                number(maxDeviation),
+                ""
+            );
+        }
+
+        /** Rounds to six decimals so the artifact stays small and stable to compare. */
+        private static String number(final double value) {
+            return String.format(Locale.ROOT, "%.6f", value);
+        }
+
+        String json() {
+            return "{\"family\":\"" + WindowsHistoryManagerValidationProbe.json(family)
+                + "\",\"pointCount\":" + pointCount
+                + ",\"changed\":" + changed
+                + ",\"translationX\":\"" + WindowsHistoryManagerValidationProbe.json(translationX)
+                + "\",\"translationY\":\"" + WindowsHistoryManagerValidationProbe.json(translationY)
+                + "\",\"maxDeviation\":\"" + WindowsHistoryManagerValidationProbe.json(maxDeviation)
+                + "\",\"degradationCode\":\"" + WindowsHistoryManagerValidationProbe.json(degradationCode) + "\"}";
         }
     }
 
@@ -534,7 +848,22 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         }
     }
 
-    record SdkEntry(int index, String entryId, String label, String detailJson) {
+    record SdkEntry(
+        int index,
+        String entryId,
+        String label,
+        String detailJson,
+        HistoryEntryDetail detail
+    ) {
+        SdkEntry(
+            final int index,
+            final String entryId,
+            final String label,
+            final String detailJson
+        ) {
+            this(index, entryId, label, detailJson, null);
+        }
+
         String json() {
             return "{\"index\":" + index
                 + ",\"entryId\":\"" + WindowsHistoryManagerValidationProbe.json(entryId)
@@ -602,6 +931,30 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
                 + "\",\"currentModeClass\":\"" + WindowsHistoryManagerValidationProbe.json(currentModeClass)
                 + "\",\"currentModeIdentity\":\"" + WindowsHistoryManagerValidationProbe.json(currentModeIdentity)
                 + "\",\"managers\":[" + document.json() + "," + current.json() + "," + main.json() + "," + linked.json() + "]"
+                + ",\"sdkHistory\":" + sdkHistory.json() + "}";
+        }
+
+
+        String pairedJson(final String phase) {
+            return "{\"type\":\"paired-snapshot\",\"phase\":\""
+                + WindowsHistoryManagerValidationProbe.json(phase)
+                + "\",\"nativeEvidence\":\"same-edt-read-only-manager-sampler\""
+                + ",\"nativePairing\":\"ordinal-label-supporting-only\""
+                + ",\"nativeStableIdMatch\":false"
+                + ",\"sdkEvidence\":\"captured-operation-metadata\""
+                + ",\"nativeUiCoverage\":\"not-proven-by-seed\""
+                + ",\"observedAt\":\"" + WindowsHistoryManagerValidationProbe.json(observedAt)
+                + "\",\"thread\":\"" + WindowsHistoryManagerValidationProbe.json(thread)
+                + "\",\"edt\":" + edt
+                + ",\"hostLoader\":\"" + WindowsHistoryManagerValidationProbe.json(hostLoader)
+                + "\",\"documentIdentity\":\""
+                + WindowsHistoryManagerValidationProbe.json(documentIdentity)
+                + "\",\"currentModeClass\":\""
+                + WindowsHistoryManagerValidationProbe.json(currentModeClass)
+                + "\",\"currentModeIdentity\":\""
+                + WindowsHistoryManagerValidationProbe.json(currentModeIdentity)
+                + "\",\"nativeManagers\":[" + document.json() + "," + current.json()
+                + "," + main.json() + "," + linked.json() + "]"
                 + ",\"sdkHistory\":" + sdkHistory.json() + "}";
         }
     }

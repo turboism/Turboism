@@ -7,6 +7,7 @@ import java.util.NoSuchElementException;
 /** Deformers in one Cubism model. */
 public interface Deformers {
 
+    /** Returns every deformer in the model, in host order. */
     List<Deformer> all();
 
     /** @throws NoSuchElementException when the ID is absent */

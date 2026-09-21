@@ -38,7 +38,7 @@ runtime producer publishes it.
 The runtime is the sole publisher of these contracts; plugins cannot publish
 them (`RuntimeEventContractCatalog` rejects plugin publication):
 
-- `sdk.event.cubism` semantic families: parameter value, part opacity/name,
+- `sdk.cubism.event` semantic families: parameter value, part opacity/name,
   drawable opacity/visibility/lock/geometry, deformer opacity/visibility/lock,
   warp-deformer grid, rotation-deformer base angle/form, model update,
   cubism operation lifecycle, editor startup/exit, project file lifecycle.
@@ -86,7 +86,8 @@ happened). A verdict is published at most once per outcome: a timed-out unload
 emits `TIMED_OUT`, then exactly one terminal `SUCCEEDED` or `FAILED` verdict
 when the retained cleanup actually settles. A `FAILED` verdict is never
 followed by a contradicting success. Subscription requires
-`turboism.plugin.lifecycle.observe`.
+`turboism.plugin.lifecycle.observe`. The runtime-owned framework shell is
+not an admitted plugin and does not emit plugin lifecycle verdicts.
 
 ## Selection observation
 
@@ -105,20 +106,31 @@ commit path. Native object-selection IDs and a native selection push hook
 remain unavailable; tests with mutable synthetic sources verify the observer
 machinery without establishing native object-selection coverage.
 
-## Unsupported origins
+## Native origins and remaining gaps
 
-`CubismOperationLifecycleEvent` currently has only `TURBOISM_API` producers;
-the declared `HOST_UI`, `HOST_INTERNAL`, `UNDO`, and `REDO` origins are not
-emitted. Native parameter and project-file bridges produce their own event
-families, but do not fill this semantic-operation origin gap. Native
-part/drawable/deformer mutation ingress is also unavailable.
+`TURBOISM_API` producers describe runtime-owned API operations. The native
+history ingress also publishes confirmed host edits with `HOST_UI`, `UNDO`
+and `REDO` origins. Committed native entries are decoded structurally;
+unclassified entries fall back to `EXECUTE_EDITOR_COMMAND`. Turboism-authored
+entries are suppressed by object provenance, avoiding duplicate publication.
+These observations publish `On` and `After`, since the host already performed
+the edit. The separately verified native edit-begin hook can publish a generic
+`Before` with `HOST_UI`; it is not proof of a completed edit and is not paired
+with a later completion by assuming the native presentation label is identity.
+`HOST_INTERNAL` still has no producer.
 
-Fourteen of the 40 `CubismOperation` values still have no producer:
-`OPEN_PROJECT`, `CLOSE_PROJECT`, `IMPORT_PROJECT`, `EXPORT_PROJECT`,
-`OPEN_DOCUMENT`, `SAVE_DOCUMENT`, `SAVE_DOCUMENT_AS`, `CLOSE_DOCUMENT`,
-`SWITCH_DOCUMENT`, `RELOAD_DOCUMENT`, `CHANGE_SELECTION`, `UNDO`, `REDO`,
-and `SET_PARAMETER_GROUP_LABEL_COLOR`. A document identity transition seen
-by the selection observer does not emit `SWITCH_DOCUMENT`.
+This native history coverage does not establish synchronous interception or
+per-object before/on/after ingress for every part, drawable or deformer
+mutation. Native parameter and project-file bridges have their own event
+families. Exact host admission and available native evidence determine what
+can be observed; a catalog enum by itself does not enable a producer.
+
+The project/document operation values (`OPEN_PROJECT`, `CLOSE_PROJECT`,
+`IMPORT_PROJECT`, `EXPORT_PROJECT`, `OPEN_DOCUMENT`, `SAVE_DOCUMENT`,
+`SAVE_DOCUMENT_AS`, `CLOSE_DOCUMENT`, `SWITCH_DOCUMENT`, `RELOAD_DOCUMENT`),
+`CHANGE_SELECTION`, and `SET_PARAMETER_GROUP_LABEL_COLOR` still have no
+semantic-operation producer. A document identity transition seen by the
+selection observer does not emit `SWITCH_DOCUMENT`.
 
 ## Trusted compatibility paths
 

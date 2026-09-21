@@ -28,6 +28,7 @@ public interface BackupSyncTarget {
         return Noop.INSTANCE;
     }
 
+    /** Singleton sync target that accepts the file list and does nothing with it. */
     enum Noop implements BackupSyncTarget {
         INSTANCE;
 

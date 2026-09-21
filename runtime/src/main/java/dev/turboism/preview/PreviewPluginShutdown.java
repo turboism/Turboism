@@ -75,6 +75,17 @@ final class PreviewPluginShutdown {
         this.lifecycleEvents = java.util.Objects.requireNonNull(lifecycleEvents, "lifecycleEvents");
     }
 
+    /**
+     * Drops every hook registration attributed to one event-owner key. The framework shell
+     * closes outside the plugin machinery but shares this safety net.
+     */
+    void unregisterOwnedHooks(final dev.turboism.core.event.PluginEventOwnerKey key) {
+        projectLifecycleHookRegistry.unregister(key);
+        editorObjectHookRegistry.unregister(key);
+        partHookRegistry.unregister(key);
+        parameterHookRegistry.unregister(key);
+    }
+
     List<LocalPluginRuntime.LoadedPluginSummary> closeAll(
         final List<LocalPluginRuntime.LoadedPlugin> loaded
     ) {
@@ -296,6 +307,10 @@ final class PreviewPluginShutdown {
             workerDone,
             loadedPlugin.eventOwner(),
             loadedPlugin.guard(),
+            // A close retained before all stages ran is not inert: the pending re-drive
+            // still executes disable()/shutdown()/scope teardown, so the shell drain
+            // barrier must hold until CloseProgress proves no stage is left.
+            progress::noPendingStages,
             () -> reclaimClose(loadedPlugin, id, progress, emitVerdictOnReclaim)
         ));
         log.warn(id, "Plugin close deferred: generation retained until lifecycle work quiesces");

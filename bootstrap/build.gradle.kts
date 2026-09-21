@@ -9,14 +9,14 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 dependencies {
     implementation(project(":runtime"))
     implementation(project(":sdk"))
-    // Composition layer: the agent jar still embeds the built-in core plugin and
-    // the internal management contracts; bootstrap wires the UI entrypoint into
-    // the runtime explicitly.
+    // Framework composition includes only SDK, runtime and internal contracts.
     implementation(project(":core-contract"))
-    implementation(project(":plugins:core"))
 }
 
 tasks.processResources {
+    // The record list below is hand-maintained; the root-project gate derives it
+    // from compatibility/cubism/verification/ and fails this build on drift.
+    dependsOn(":checkVerificationRecordIndex")
     listOf(
         "cubism-5.2.03-project-workspace.json",
         "cubism-5.3.02-project-workspace.json",
@@ -46,6 +46,7 @@ tasks.processResources {
         "cubism-5.3.03-clipmask.json",
         "cubism-5.2.03-performance-render-scene.json",
         "cubism-5.3.02-performance-render-scene.json",
+        "cubism-5.3.03-performance-render-scene.json",
         "cubism-5.2.03-ui-control-appearance.json",
         "cubism-5.3.02-ui-control-appearance.json",
         "cubism-5.3.03-ui-control-appearance.json",
@@ -59,13 +60,6 @@ tasks.processResources {
         from(rootProject.file("compatibility/cubism/verification/$record")) {
             into("META-INF/turboism/verification")
         }
-    }
-    // Bundle the project-owned built-in themes so the bootstrap can inject the
-    // persisted theme appearance before the Cubism GL scene initializes (the
-    // off-canvas background color is cached in a singleton Lazy and cannot be
-    // refreshed at runtime).
-    from(rootProject.file("plugins/ui-theme/src/main/resources/themes")) {
-        into("themes")
     }
 }
 
@@ -120,7 +114,7 @@ val relocatedAgentJar by tasks.named<ShadowJar>("shadowJar") {
 }
 
 val performanceProbeAgentJar by tasks.registering(ShadowJar::class) {
-    // Declare all runtimeClasspath producers (incl. :plugins:core:jar) so the
+    // Declare all runtimeClasspath producers (incl. :runtime:jar) so the
     // probe agent fat JAR can coexist with previewBundle in one task graph.
     dependsOn(agentRuntimeClasspath, performanceProbeCarrierJar)
     from(sourceSets.main.get().output)

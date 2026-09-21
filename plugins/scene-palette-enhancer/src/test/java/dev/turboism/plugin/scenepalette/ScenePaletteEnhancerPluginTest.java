@@ -25,7 +25,7 @@ final class ScenePaletteEnhancerPluginTest {
             PluginContext.class.getClassLoader(),
             new Class<?>[] {PluginContext.class},
             (proxy, method, args) -> switch (method.getName()) {
-                case "storage" -> throw new UnsupportedOperationException("storage unavailable");
+                case "storage" -> dev.turboism.sdk.storage.PluginStorage.unavailable();
                 case "sceneTable" -> service;
                 case "logger" -> logger;
                 case "toString" -> "TestPluginContext";

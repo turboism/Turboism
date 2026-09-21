@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
@@ -416,7 +417,7 @@ public final class NativeProjectLifecycleBridge {
     private Optional<Object> invoke(final Object target, final String methodName) {
         if (target == null) return Optional.empty();
         try {
-            final Method method = target.getClass().getMethod(methodName);
+            final Method method = MethodHandleCache.method(target.getClass(), methodName);
             return Optional.ofNullable(method.invoke(target));
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             return Optional.empty();

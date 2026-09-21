@@ -69,7 +69,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
     private static final String ACTIVE_PROJECT_KEY = "turboism.recentPreviewActiveProject";
 
     private final VerifiedMemberResolver panelResolver;
-    private final Locale locale;
+    private final java.util.function.Supplier<Locale> locale;
     private final Consumer<String> diagnostics;
     private final Set<String> emittedDiagnostics = ConcurrentHashMap.newKeySet();
     private final CopyOnWriteArrayList<RecentPreviewRenderer> renderers = new CopyOnWriteArrayList<>();
@@ -84,7 +84,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
     private volatile Popup activePopup;
 
     public VerifiedRecentPreviewPopupHostOperations(final VerifiedMemberResolver panelResolver) {
-        this(panelResolver, dev.turboism.i18n.CubismHostLocale.resolve(), ignored -> { });
+        this(panelResolver, dev.turboism.i18n.CubismHostLocale::resolve, ignored -> { });
     }
 
     public VerifiedRecentPreviewPopupHostOperations(
@@ -99,10 +99,27 @@ public final class VerifiedRecentPreviewPopupHostOperations
         final Locale locale,
         final Consumer<String> diagnostics
     ) {
+        this(panelResolver, fixedLocale(locale), diagnostics);
+    }
+
+    /**
+     * @param locale resolves the effective locale at render time, so a locale
+     *     settled after this operations object's construction is honored
+     */
+    public VerifiedRecentPreviewPopupHostOperations(
+        final VerifiedMemberResolver panelResolver,
+        final java.util.function.Supplier<Locale> locale,
+        final Consumer<String> diagnostics
+    ) {
         this.panelResolver = Objects.requireNonNull(panelResolver, "panelResolver");
         this.locale = Objects.requireNonNull(locale, "locale");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
         RecentMenuChain.PANEL_ALIASES.forEach(panelResolver::verifiedSelector);
+    }
+
+    private static java.util.function.Supplier<Locale> fixedLocale(final Locale locale) {
+        final Locale required = Objects.requireNonNull(locale, "locale");
+        return () -> required;
     }
 
     @Override
@@ -392,7 +409,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
             hideActivePopupNow();
         }
         hidePopup(popupMenu);
-        final JPanel panel = themedPanel(content.view(), locale);
+        final JPanel panel = themedPanel(content.view(), locale.get());
         final Point location = new Point(item.getWidth() + 8, 0);
         SwingUtilities.convertPointToScreen(location, item);
         final Popup popup = PopupFactory.getSharedInstance().getPopup(
