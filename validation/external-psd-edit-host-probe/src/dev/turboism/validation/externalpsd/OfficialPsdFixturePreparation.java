@@ -464,17 +464,29 @@ public final class OfficialPsdFixturePreparation {
         if (owner.get() == null) owner.set((Window) binding.owner());
 
         final List<Dialog> candidates = new ArrayList<>();
+        int observedLists = 0;
         for (final Window window : Window.getWindows()) {
             if (!(window instanceof Dialog dialog) || !dialog.isShowing() || !dialog.isDisplayable()) {
                 continue;
             }
             final List<JList<?>> lists = exactLists(dialog, host.hostList());
             if (lists.isEmpty()) continue;
+            final String observation = "prepare.chooser.observedDialog." + observedLists++;
+            properties.setProperty(observation + ".class", dialog.getClass().getName());
+            properties.setProperty(observation + ".title", String.valueOf(dialog.getTitle()));
+            properties.setProperty(observation + ".renderers", lists.stream()
+                .map(list -> list.getCellRenderer() == null ? "null"
+                    : list.getCellRenderer().getClass().getName()).toList().toString());
+            // q is Cubism's general Swing list, also used by other startup dialogs. Only
+            // the reviewed PSD renderer identifies this chooser; validate its remaining
+            // owner/title/options/action shape below before any selection or confirmation.
+            if (!hasReviewedRenderer(lists, host.renderer())) continue;
             if (dialog.getOwner() != currentOwner) {
                 throw new IllegalStateException("PSD chooser has an unknown/non-bound owner");
             }
             candidates.add(dialog);
         }
+        properties.setProperty("prepare.chooser.candidateCount", Integer.toString(candidates.size()));
         if (candidates.isEmpty()) return null;
         if (candidates.size() != 1) throw new IllegalStateException(
             "multiple official PSD chooser candidates are visible");
@@ -563,6 +575,12 @@ public final class OfficialPsdFixturePreparation {
         final List<JList<?>> result = new ArrayList<>();
         collect(root, exactClass, result);
         return result;
+    }
+
+    static boolean hasReviewedRenderer(final List<? extends JList<?>> lists,
+        final Class<?> expectedRenderer) {
+        return lists.stream().anyMatch(list -> list.getCellRenderer() != null
+            && list.getCellRenderer().getClass() == expectedRenderer);
     }
 
     private static void collect(final Component component, final Class<?> exactListClass,

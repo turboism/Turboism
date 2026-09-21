@@ -12,6 +12,8 @@ import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import java.awt.Window;
 import javax.swing.AbstractButton;
 import javax.swing.JFrame;
+import javax.swing.JList;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.SwingUtilities;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -39,6 +41,7 @@ public final class OfficialPsdFixturePreparationTest {
         testInputBindingAndPsdPolicy();
         testRelationGate();
         testWindowBindingAndChooserGate();
+        testChooserCandidateRenderer();
         testPostSaveModelGate();
         testSaveCommandAdmission();
         testSaveAfterIdentityGate();
@@ -102,6 +105,28 @@ public final class OfficialPsdFixturePreparationTest {
         expectReject("duplicate model-image identity", () ->
             OfficialPsdFixturePreparation.validateRelationSnapshot(
                 "document", "model", duplicateModelImages()));
+    }
+
+    private static void testChooserCandidateRenderer() {
+        final JList<String> genericList = new JList<>();
+        genericList.setCellRenderer(new DefaultListCellRenderer());
+        final JList<String> psdList = new JList<>();
+        psdList.setCellRenderer(new PsdTestRenderer());
+        assertFalse(OfficialPsdFixturePreparation.hasReviewedRenderer(
+            List.of(genericList), PsdTestRenderer.class),
+            "unrelated generic host list is not a PSD chooser candidate");
+        assertTrue(OfficialPsdFixturePreparation.hasReviewedRenderer(
+            List.of(psdList), PsdTestRenderer.class), "reviewed renderer identifies PSD candidate");
+        assertTrue(OfficialPsdFixturePreparation.hasReviewedRenderer(
+            List.of(genericList, psdList), PsdTestRenderer.class),
+            "extra generic lists do not hide a reviewed PSD candidate");
+        psdList.setCellRenderer(null);
+        assertFalse(OfficialPsdFixturePreparation.hasReviewedRenderer(
+            List.of(psdList), PsdTestRenderer.class), "unknown renderer cannot identify the chooser");
+    }
+
+    private static final class PsdTestRenderer extends DefaultListCellRenderer {
+        private static final long serialVersionUID = 1L;
     }
 
     private static void testSaveCommandAdmission() {
