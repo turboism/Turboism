@@ -738,6 +738,7 @@ tasks.register("checkIntegration") {
         "checkHistoryValidationProbePackaging",
         "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
+        ":bootstrap:checkBootstrapJarDependencyIsolation",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
 }
