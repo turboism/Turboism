@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import java.awt.Window;
 import javax.swing.AbstractButton;
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -39,6 +40,7 @@ public final class OfficialPsdFixturePreparationTest {
         testRelationGate();
         testWindowBindingAndChooserGate();
         testPostSaveModelGate();
+        testSaveCommandAdmission();
         testSaveAfterIdentityGate();
         testOfficialJarAccessorShape();
         System.out.println("PASS: OfficialPsdFixturePreparationTest");
@@ -100,6 +102,71 @@ public final class OfficialPsdFixturePreparationTest {
         expectReject("duplicate model-image identity", () ->
             OfficialPsdFixturePreparation.validateRelationSnapshot(
                 "document", "model", duplicateModelImages()));
+    }
+
+    private static void testSaveCommandAdmission() {
+        final var identity = OfficialPsdFixturePreparation.validateRelationSnapshot(
+            "document", "model", relations(true, true, false));
+        final var expected = new OfficialPsdFixturePreparation.ModelState(
+            "document", Optional.of("content"), "source.psd", "model", identity);
+        final var changed = new OfficialPsdFixturePreparation.ModelState(
+            "other-document", Optional.of("other-content"), "other.psd", "model",
+            OfficialPsdFixturePreparation.validateRelationSnapshot(
+                "other-document", "model", relations(true, true, false)));
+        final Object window = new Object();
+        final AtomicInteger commands = new AtomicInteger();
+        final java.util.concurrent.atomic.AtomicReference<OfficialPsdFixturePreparation.ModelState>
+            current = new java.util.concurrent.atomic.AtomicReference<>(expected);
+        final java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch changedBeforeRead =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CompletableFuture<Void> checked =
+            new java.util.concurrent.CompletableFuture<>();
+        SwingUtilities.invokeLater(() -> {
+            entered.countDown();
+            try {
+                assertTrue(changedBeforeRead.await(5, java.util.concurrent.TimeUnit.SECONDS),
+                    "controlled document switch occurs before the final SAVE read");
+                expectSaveRejected(() -> OfficialPsdFixturePreparation.executeBoundSaveOnEdt(
+                    expected, current.get(), window, window, () -> { }, commands::incrementAndGet));
+                assertEquals(0, commands.get(), "changed document issues no SAVE_AS command");
+                expectSaveRejected(() -> OfficialPsdFixturePreparation.executeBoundSaveOnEdt(
+                    expected, expected, window, new Object(), () -> { }, commands::incrementAndGet));
+                expectSaveRejected(() -> OfficialPsdFixturePreparation.executeBoundSaveOnEdt(
+                    expected, expected, window, window,
+                    () -> { throw new IllegalStateException("stopped"); }, commands::incrementAndGet));
+                assertEquals(0, commands.get(), "changed window and stopped task issue no command");
+                OfficialPsdFixturePreparation.executeBoundSaveOnEdt(
+                    expected, expected, window, window, () -> { }, commands::incrementAndGet);
+                assertEquals(1, commands.get(), "valid admission executes exactly one command");
+                checked.complete(null);
+            } catch (Throwable failure) {
+                checked.completeExceptionally(failure);
+            }
+        });
+        try {
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS),
+                "SAVE dispatch entered the EDT");
+            current.set(changed);
+            changedBeforeRead.countDown();
+            checked.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception failure) {
+            throw new AssertionError("SAVE command admission regression failed", failure);
+        } finally {
+            changedBeforeRead.countDown();
+        }
+        expectSaveRejected(() -> OfficialPsdFixturePreparation.executeBoundSaveOnEdt(
+            expected, expected, window, window, () -> { }, commands::incrementAndGet));
+        assertEquals(1, commands.get(), "off-EDT caller cannot execute another command");
+    }
+
+    private static void expectSaveRejected(final Runnable action) {
+        try {
+            action.run();
+        } catch (IllegalStateException expected) {
+            return;
+        }
+        throw new AssertionError("unsafe SAVE_AS admission was accepted");
     }
 
     private static void testOfficialJarAccessorShape() {
