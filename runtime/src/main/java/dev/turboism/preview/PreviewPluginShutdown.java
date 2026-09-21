@@ -39,6 +39,7 @@ final class PreviewPluginShutdown {
     private final PluginLifecycleLane lane;
     private final PluginLifecyclePolicy policy;
     private final RetainedPluginGenerations retention;
+    private final PluginLifecycleEvents lifecycleEvents;
 
     PreviewPluginShutdown(
         final PreviewLog log,
@@ -49,7 +50,8 @@ final class PreviewPluginShutdown {
         final ProjectLifecycleHookRegistry projectLifecycleHookRegistry,
         final PluginLifecycleLane lane,
         final PluginLifecyclePolicy policy,
-        final RetainedPluginGenerations retention
+        final RetainedPluginGenerations retention,
+        final PluginLifecycleEvents lifecycleEvents
     ) {
         this.log = log;
         this.closeHook = closeHook;
@@ -70,6 +72,7 @@ final class PreviewPluginShutdown {
         this.lane = java.util.Objects.requireNonNull(lane, "lane");
         this.policy = java.util.Objects.requireNonNull(policy, "policy");
         this.retention = java.util.Objects.requireNonNull(retention, "retention");
+        this.lifecycleEvents = java.util.Objects.requireNonNull(lifecycleEvents, "lifecycleEvents");
     }
 
     List<LocalPluginRuntime.LoadedPluginSummary> closeAll(
@@ -161,11 +164,28 @@ final class PreviewPluginShutdown {
             case SUCCEEDED -> {
                 summaries.add(result.value.summary());
                 if (result.value.retain()) {
-                    retainClose(loadedPlugin, invocation.workerDone, progress);
+                    // UNLOAD/SUCCEEDED is deferred until the retained cleanup
+                    // actually completes — never while it is still incomplete.
+                    retainClose(loadedPlugin, invocation.workerDone, progress, true);
+                } else if (result.value.unloadSucceeded()) {
+                    lifecycleEvents.unloaded(id, generation(loadedPlugin));
+                } else {
+                    // The task returned but a disable/shutdown/scope/loader stage
+                    // recorded a permanent failure — the unload is not a success.
+                    progress.unloadVerdictPublished = true;
+                    lifecycleEvents.unloadFailed(id, generation(loadedPlugin));
+                    if (!result.value.disposalProven()) {
+                        // Scope/classloader disposal was never proven: the failed
+                        // verdict is sticky but the generation stays retained so
+                        // its references are not released on an unverified cleanup.
+                        progress.permanentDisposalFailure = true;
+                        retainClose(loadedPlugin, invocation.workerDone, progress, true);
+                    }
                 }
             }
             case FAILED -> {
                 summaries.add(fallbackSummary(loadedPlugin));
+                lifecycleEvents.unloadFailed(id, generation(loadedPlugin));
                 finalizeEventOwnerAfterFailure(loadedPlugin, invocation.workerDone, progress);
                 tryLogStableFailure(id, "PLUGIN_CLOSE_STAGE_FAILED");
             }
@@ -174,12 +194,15 @@ final class PreviewPluginShutdown {
                 // already up, so report the timeout and let retention finish the close once
                 // the worker exits and admitted calls drain.
                 summaries.add(timeoutSummary(loadedPlugin));
-                retainClose(loadedPlugin, invocation.workerDone, progress);
+                lifecycleEvents.unloadTimedOut(id, generation(loadedPlugin));
+                retainClose(loadedPlugin, invocation.workerDone, progress, true);
                 tryLogStableFailure(id, "PLUGIN_CLOSE_TIMEOUT");
             }
             case REJECTED -> {
+                // The close task never ran; no verdict yet — retention emits UNLOAD when
+                // the deferred close actually completes.
                 summaries.add(fallbackSummary(loadedPlugin));
-                retainClose(loadedPlugin, invocation.workerDone, progress);
+                retainClose(loadedPlugin, invocation.workerDone, progress, true);
                 tryLogStableFailure(id, "PLUGIN_CLOSE_LANE_REJECTED");
             }
         }
@@ -225,8 +248,34 @@ final class PreviewPluginShutdown {
                 loadedPlugin, result.disableState(), result.shutdownState(), result.unloadState(),
                 result.scopeCleanupState(), result.classloaderCleanupState(), result.failures()
             ),
-            retryableCleanup
+            retryableCleanup,
+            unloadSucceeded(result),
+            disposalProven(result)
         );
+    }
+
+    /**
+     * A close is a genuine unload success only when the runtime reached UNLOADED and no
+     * stage recorded a failure — a thrown disable/shutdown body or a failed scope/loader
+     * close still ends in a returned task result, so task completion alone is not a verdict.
+     */
+    private static boolean unloadSucceeded(final PreviewPluginShutdownResult result) {
+        return "SUCCEEDED".equals(result.unloadState())
+            && !"FAILED".equals(result.disableState())
+            && !"FAILED".equals(result.shutdownState())
+            && !"FAILED".equals(result.scopeCleanupState())
+            && !"FAILED".equals(result.classloaderCleanupState())
+            && result.failures().isEmpty();
+    }
+
+    /**
+     * Disposal is proven only when both teardown resources verifiably closed. A failed
+     * scope close, or a classloader retained because the scope stayed open, leaves the
+     * generation's cleanup unproven and it must not be released from retention.
+     */
+    private static boolean disposalProven(final PreviewPluginShutdownResult result) {
+        return "SUCCEEDED".equals(result.scopeCleanupState())
+            && "SUCCEEDED".equals(result.classloaderCleanupState());
     }
 
     /**
@@ -238,7 +287,8 @@ final class PreviewPluginShutdown {
     private void retainClose(
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
         final java.util.concurrent.CompletableFuture<Void> workerDone,
-        final PreviewPluginShutdownStages.CloseProgress progress
+        final PreviewPluginShutdownStages.CloseProgress progress,
+        final boolean emitVerdictOnReclaim
     ) {
         final String id = safePluginId(loadedPlugin);
         retention.retain(new RetainedPluginGenerations.RetainedGeneration(
@@ -246,7 +296,7 @@ final class PreviewPluginShutdown {
             workerDone,
             loadedPlugin.eventOwner(),
             loadedPlugin.guard(),
-            () -> reclaimClose(loadedPlugin, id, progress)
+            () -> reclaimClose(loadedPlugin, id, progress, emitVerdictOnReclaim)
         ));
         log.warn(id, "Plugin close deferred: generation retained until lifecycle work quiesces");
     }
@@ -255,26 +305,52 @@ final class PreviewPluginShutdown {
      * Re-drive of the close stages. {@code progress} makes this genuinely idempotent: phases that
      * already completed are skipped, a failed scope/loader close keeps its recorded outcome, and
      * plugin {@code shutdown()} is never invoked twice.
+     *
+     * @param emitVerdictOnReclaim {@code true} only when no terminal UNLOAD verdict was
+     *     already reported — a timed-out, deferred or lane-rejected close publishes
+     *     UNLOAD/SUCCEEDED here once cleanup genuinely completes, or UNLOAD/FAILED when it
+     *     ends in a terminal stage failure, while a close that already reported FAILED
+     *     never gets a contradicting second verdict
      */
     private boolean reclaimClose(
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
         final String id,
-        final PreviewPluginShutdownStages.CloseProgress progress
+        final PreviewPluginShutdownStages.CloseProgress progress,
+        final boolean emitVerdictOnReclaim
     ) {
+        if (progress.permanentDisposalFailure) {
+            // Terminal verdict already published and disposal never proven: keep the
+            // generation's references retained without re-running stages or re-logging.
+            return false;
+        }
         loadedPlugin.eventOwner().beginClosing();
         if (!loadedPlugin.eventOwner().awaitQuiescence(Duration.ZERO)) {
             return false;
         }
         final PreviewPluginShutdownResult result = stages.close(loadedPlugin, id, true, progress);
-        if ("SUCCEEDED".equals(result.classloaderCleanupState())) {
+        if (unloadSucceeded(result)) {
             loadedPlugin.eventOwner().close();
+            if (emitVerdictOnReclaim && !progress.unloadVerdictPublished) {
+                progress.unloadVerdictPublished = true;
+                lifecycleEvents.unloaded(id, generation(loadedPlugin));
+            }
             return true;
         }
-        // Quiescence-type failures are retryable; every other failure shape is terminal and the
-        // generation stops being re-driven (the partial cleanup stays recorded in its summary).
-        return result.failures().stream().noneMatch(failure ->
+        // Quiescence-type failures are retryable; every other failure shape is terminal.
+        // The terminal verdict is published at most once across re-drives.
+        final boolean terminal = result.failures().stream().noneMatch(failure ->
             RETRYABLE_CODES.contains(failure.code())
         );
+        if (terminal && emitVerdictOnReclaim && !progress.unloadVerdictPublished) {
+            progress.unloadVerdictPublished = true;
+            lifecycleEvents.unloadFailed(id, generation(loadedPlugin));
+        }
+        // A terminal failure with unproven scope/classloader disposal stays retained
+        // forever: the flag makes every later reclaim a pure no-op that releases nothing.
+        if (terminal && !disposalProven(result)) {
+            progress.permanentDisposalFailure = true;
+        }
+        return terminal && disposalProven(result);
     }
 
     int retainedGenerationCount() {
@@ -286,16 +362,24 @@ final class PreviewPluginShutdown {
         final java.util.concurrent.CompletableFuture<Void> workerDone,
         final PreviewPluginShutdownStages.CloseProgress progress
     ) {
+        // The FAILED verdict is already published, but a stage that threw may never
+        // have reached scope/classloader disposal — closing the event owner alone
+        // must not release the generation's references. The retained re-drive runs
+        // the remaining one-shot stages and never publishes a second verdict.
         try {
             loadedPlugin.eventOwner().beginClosing();
             if (loadedPlugin.eventOwner().awaitQuiescence(Duration.ZERO)) {
                 loadedPlugin.eventOwner().close();
-                return;
             }
-            retainClose(loadedPlugin, workerDone, progress);
         } catch (Throwable failure) {
-            retainClose(loadedPlugin, workerDone, progress);
+            // The retained re-drive below owns the remaining cleanup either way.
         }
+        progress.unloadVerdictPublished = true;
+        retainClose(loadedPlugin, workerDone, progress, false);
+    }
+
+    private static long generation(final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
+        return loadedPlugin.eventOwner().key().generation();
     }
 
     private LocalPluginRuntime.LoadedPluginSummary fallbackSummary(
@@ -370,7 +454,9 @@ final class PreviewPluginShutdown {
 
     private record CloseOutcome(
         LocalPluginRuntime.LoadedPluginSummary summary,
-        boolean retain
+        boolean retain,
+        boolean unloadSucceeded,
+        boolean disposalProven
     ) {
     }
 }

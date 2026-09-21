@@ -312,6 +312,14 @@ final class PreviewPluginShutdownStages {
         String classloaderState;
         boolean unloadAttempted;
         String unloadState;
+        /** Set once a terminal UNLOAD verdict has been published for this generation. */
+        boolean unloadVerdictPublished;
+        /**
+         * Set once the close reached a terminal failure whose scope/classloader disposal was
+         * never proven. Retention keeps the generation's references after that point, but the
+         * reclaim must not re-drive stages or re-log: the verdict is sticky.
+         */
+        boolean permanentDisposalFailure;
 
         PreviewPluginShutdownResult result(
             final List<LocalPluginRuntime.PluginSummaryFailure> failures

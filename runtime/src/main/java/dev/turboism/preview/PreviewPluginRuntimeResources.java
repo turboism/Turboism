@@ -203,7 +203,8 @@ record PreviewPluginRuntimeResources(
             Objects.requireNonNull(pluginCloseHook, "pluginCloseHook"),
             parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
             projectLifecycleHookRegistry,
-            lifecycleLane, lifecyclePolicy, retention
+            lifecycleLane, lifecyclePolicy, retention,
+            new PluginLifecycleEvents(contextFactory.eventBroker(), log)
         );
         return new PreviewPluginRuntimeResources(
             lane, failureCollector,

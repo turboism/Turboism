@@ -43,6 +43,8 @@ final class BuiltinCorePlugin {
         final RetainedPluginGenerations retention
     ) throws Exception {
         final CoreLoad state = new CoreLoad();
+        final PluginLifecycleEvents lifecycleEvents =
+            new PluginLifecycleEvents(contexts.eventBroker(), log);
         final PluginLifecycleLease lease = new PluginLifecycleLease(CORE_ID);
         final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation =
             lane.submit(CORE_ID, "load", () -> {
@@ -57,34 +59,74 @@ final class BuiltinCorePlugin {
             lane.await(invocation, policy.loadTimeout(), lease);
         switch (result.outcome) {
             case SUCCEEDED -> {
+                lifecycleEvents.loaded(
+                    CORE_ID,
+                    result.value.eventOwner().key().generation()
+                );
                 return result.value;
             }
             case FAILED -> {
+                lifecycleEvents.loadFailed(CORE_ID, generation(state));
+                retainIfIncomplete(state, log, policy, retention, invocation);
                 throw propagate(result.failure);
             }
             case REJECTED -> {
                 fence(state, log);
+                lifecycleEvents.loadFailed(
+                    CORE_ID,
+                    dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION
+                );
                 throw new IllegalStateException(
                     "Built-in core load rejected: lifecycle lane is saturated or closed"
                 );
             }
             default -> {
                 fence(state, log);
-                if (!state.cleanupComplete) {
-                    retention.retain(new RetainedPluginGenerations.RetainedGeneration(
-                        CORE_ID,
-                        invocation.workerDone,
-                        state.context == null ? null : state.context.eventOwner(),
-                        state.guard,
-                        () -> cleanupCore(state, log, policy, false)
-                    ));
-                }
+                lifecycleEvents.loadTimedOut(CORE_ID, generation(state));
+                retainIfIncomplete(state, log, policy, retention, invocation);
                 throw new IllegalStateException(
                     "Built-in core load exceeded " + policy.loadTimeout(),
                     new TimeoutException("core lifecycle deadline expired")
                 );
             }
         }
+    }
+
+    /**
+     * Retains the failed generation while its cleanup is incomplete — an event owner that has
+     * not quiesced, an undrained guard, or a failed scope/classloader disposal — so the
+     * retention watcher re-drives {@link #cleanupCore} instead of dropping the references.
+     * A retained entry whose sticky cleanup state can never converge is not re-run: the one-shot
+     * flags inside {@link CoreLoad} make every later re-drive a no-op that keeps the
+     * generation retained.
+     */
+    static void retainIfIncomplete(
+        final CoreLoad state,
+        final PreviewLog log,
+        final PluginLifecyclePolicy policy,
+        final RetainedPluginGenerations retention,
+        final PluginLifecycleLane.Invocation<?> invocation
+    ) {
+        if (state.cleanupComplete) {
+            return;
+        }
+        retention.retain(new RetainedPluginGenerations.RetainedGeneration(
+            CORE_ID,
+            invocation.workerDone,
+            state.context == null ? null : state.context.eventOwner(),
+            state.guard,
+            () -> cleanupCore(state, log, policy, false)
+        ));
+    }
+
+    /**
+     * Generation admitted for this core attempt, or {@code NO_ADMITTED_GENERATION}
+     * when the load failed before context creation admitted an event owner.
+     */
+    private static long generation(final CoreLoad state) {
+        return state.context == null
+            ? dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION
+            : state.context.eventOwner().key().generation();
     }
 
     /** Immediate non-blocking fence for a timed-out core generation. */
