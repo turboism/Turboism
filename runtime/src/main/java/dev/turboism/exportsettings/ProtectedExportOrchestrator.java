@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -58,8 +60,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     public static final String BIND_FAILED_KEY = "protected-export.bind-failed";
     public static final String FLATTEN_FAILED_KEY = "protected-export.flatten-failed";
     public static final String OBFUSCATE_FAILED_KEY = "protected-export.obfuscation-failed";
+    public static final String BEHAVIOR_CAPTURE_FAILED_KEY =
+        "protected-export.behavior-capture-failed";
     public static final String EXPORT_CANCELLED_KEY = "protected-export.export-cancelled";
     public static final String EXPORT_FAILED_KEY = "protected-export.export-failed";
+    public static final String REVOKED_KEY = "protected-export.revoked";
     public static final String EXPORT_TIMEOUT_KEY = "protected-export.export-timeout";
     public static final String VALIDATION_FAILED_KEY = "protected-export.validation-failed";
     public static final String RESTORE_FAILED_KEY = "protected-export.restore-failed";
@@ -80,6 +85,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         COPY_BOUND,
         FLATTENED,
         OBFUSCATED,
+        BEHAVIOR_CAPTURED,
         EXPORT_DRIVEN,
         STAGED,
         VALIDATED,
@@ -269,6 +275,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             bindCopy(session);
             flatten(session);
             obfuscate(session);
+            captureBehavior(session);
             driveExport(session);
             awaitCompletion(session);
             validate(session);
@@ -396,33 +403,31 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private void flatten(final Session session) throws Exception {
         for (String guid : session.plan) {
             final boolean applied = onEdt(() -> {
-                // Re-verify the whole live triangle immediately before mutating:
-                // the active document is still our bound copy, its model source is
-                // the bound source with the same live instance, and the selector
-                // and edit mode are the modeling-main objects the command reads.
-                requireGeneration(session, session.hostGeneration);
-                requireLiveCopy(session);
-                final Object liveSource = requireCopyModelSource(session);
-                final Object selector = host.documentSelector(session.copyDocument);
-                final Object editMode = host.documentMainEditMode(session.copyDocument);
-                if (!host.isMainSelector(selector) || !host.isMainEditMode(editMode)) {
-                    throw new SessionRejection(FLATTEN_FAILED_KEY);
-                }
-                final Object source = resolveDeformer(liveSource, guid);
+                // The apply command mutates whatever the selector and active
+                // document hold, and every selection-mutating call can reenter
+                // host code — so the whole context is re-read and re-verified
+                // after each of them, never trusted across a callback.
+                FlattenContext context = requireFlattenContext(session, null);
+                final Object source = resolveDeformer(context.liveSource(), guid);
                 if (source == null) {
                     return Boolean.FALSE;
                 }
-                host.clearSelection(selector);
-                host.selectSource(selector, source);
-                // The apply command consumes whatever the selector holds: require
-                // exactly the planned deformer and nothing else.
-                final List<?> selected = host.selectedDeformers(selector);
-                if (selected.size() != 1
-                    || !guid.equals(host.deformerGuid(selected.get(0)))) {
+                host.clearSelection(context.selector());
+                context = requireFlattenContext(session, context);
+                host.selectSource(context.selector(), source);
+                context = requireFlattenContext(session, context);
+                // Exactly one selected deformer, the very source object resolved
+                // for this plan step — a switched document or a foreign
+                // selection entry rejects before any apply can run.
+                final List<?> selected = host.selectedDeformers(context.selector());
+                context = requireFlattenContext(session, context);
+                if (selected.size() != 1 || selected.get(0) != source
+                    || !guid.equals(host.deformerGuid(selected.get(0)))
+                    || host.selectedCount(context.selector()) != 1) {
                     throw new SessionRejection(FLATTEN_FAILED_KEY);
                 }
-                host.applyDeformerToParameters(editMode);
-                return resolveDeformer(liveSource, guid) == null
+                host.applyDeformerToParameters(context.editMode());
+                return resolveDeformer(context.liveSource(), guid) == null
                     ? Boolean.TRUE : Boolean.FALSE;
             });
             if (!Boolean.TRUE.equals(applied)) {
@@ -507,11 +512,154 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY);
         }
         session.expectedDrawableIds = plan.idTokens();
+        session.obfuscationPlan = plan;
         session.phase = Phase.OBFUSCATED;
+    }
+
+    /**
+     * Behavior-oracle capture: on the disposable copy, post-flatten and
+     * post-obfuscation, replay a deterministic parameter-sample sequence through
+     * the host's own model evaluation and record evaluated ArtMesh positions per
+     * drawable token. Validation replays the identical sequence on the staged
+     * .moc3 through the owned Core runtime — this is the sampled-behavior
+     * comparison, not a structural-equality proxy.
+     */
+    private void captureBehavior(final Session session) throws Exception {
+        final ProtectedExportObfuscationPlan.Plan plan = session.obfuscationPlan;
+        if (plan == null) {
+            throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
+        }
+        final List<ProtectedExportStaging.BehaviorSample> samples =
+            behaviorSamples(session.expectedParameters);
+        final ProtectedExportStaging.BehaviorSnapshot snapshot = onEdt(() -> {
+            requireGeneration(session, session.hostGeneration);
+            requireLiveCopy(session, BEHAVIOR_CAPTURE_FAILED_KEY);
+            final Object source =
+                requireCopyModelSource(session, BEHAVIOR_CAPTURE_FAILED_KEY);
+            final Object instance = session.copyModelInstance;
+            if (instance == null) {
+                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
+            }
+            final Map<String, ProtectedExportStaging.ParameterExpectation>
+                expected = session.expectedParameters;
+            // Baseline: every parameter at its contract default, then evaluate.
+            for (var expectation : expected.values()) {
+                host.setParameterInstanceValue(
+                    requireLiveParameter(session, source, expectation.id()),
+                    expectation.defaultValue());
+            }
+            host.evaluateModelInstance(instance);
+            final Map<String, float[]> baseline = captureFrame(instance, plan);
+            final List<Map<String, float[]>> frames =
+                new ArrayList<>(samples.size());
+            for (var sample : samples) {
+                host.setParameterInstanceValue(
+                    requireLiveParameter(session, source, sample.parameterId()),
+                    sample.value());
+                host.evaluateModelInstance(instance);
+                frames.add(captureFrame(instance, plan));
+                // Isolate the next sample: return this parameter to default.
+                host.setParameterInstanceValue(
+                    requireLiveParameter(session, source, sample.parameterId()),
+                    expected.get(sample.parameterId()).defaultValue());
+            }
+            return new ProtectedExportStaging.BehaviorSnapshot(
+                samples, baseline, frames);
+        });
+        if (snapshot == null) {
+            throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
+        }
+        session.behavior = snapshot;
+        session.phase = Phase.BEHAVIOR_CAPTURED;
+    }
+
+    /**
+     * Deterministic sample sequence from the parameter contract: parameters in
+     * ID order, each contributing its minimum, maximum, and bound key positions
+     * (the default is covered by the baseline frame). Capped so a pathological
+     * model cannot turn validation into an unbounded sampling run.
+     */
+    private List<ProtectedExportStaging.BehaviorSample> behaviorSamples(
+        final Map<String, ProtectedExportStaging.ParameterExpectation> expected
+    ) {
+        final int maxSamples = 64;
+        final List<ProtectedExportStaging.BehaviorSample> samples =
+            new ArrayList<>();
+        final List<String> ids = new ArrayList<>(expected.keySet());
+        Collections.sort(ids);
+        for (String id : ids) {
+            final var expectation = expected.get(id);
+            final Set<Float> points = new TreeSet<>();
+            points.add(expectation.minimumValue());
+            points.add(expectation.maximumValue());
+            points.addAll(expectation.keys());
+            for (float point : points) {
+                if (!Float.isFinite(point)) {
+                    continue;
+                }
+                if (samples.size() >= maxSamples) {
+                    return List.copyOf(samples);
+                }
+                samples.add(
+                    new ProtectedExportStaging.BehaviorSample(id, point));
+            }
+        }
+        return List.copyOf(samples);
+    }
+
+    /** Resolves a live parameter instance on the copy's source by ID. */
+    private Object requireLiveParameter(
+        final Session session,
+        final Object modelSource,
+        final String parameterId
+    ) {
+        for (Object parameter : host.liveParameters(modelSource)) {
+            if (parameterId.equals(host.parameterInstanceId(parameter))) {
+                return parameter;
+            }
+        }
+        throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
+    }
+
+    /**
+     * Evaluated positions of every planned ArtMesh on the copy's live model
+     * instance, keyed by planned drawable-ID token. The instance ArtMesh list is
+     * re-read on every call because host evaluation may rebuild instance
+     * objects; a planned mesh that cannot be resolved or read fails the capture.
+     */
+    private Map<String, float[]> captureFrame(
+        final Object modelInstance,
+        final ProtectedExportObfuscationPlan.Plan plan
+    ) {
+        final Map<String, float[]> frame = new LinkedHashMap<>();
+        for (Object mesh : host.modelInstanceArtMeshes(modelInstance)) {
+            final Object meshSource = host.artMeshInstanceSource(mesh);
+            final String guid = meshSource == null
+                ? null : host.objectGuid(meshSource);
+            final var target = guid == null ? null : plan.byGuid().get(guid);
+            if (target == null) {
+                continue;
+            }
+            final float[] positions = host.evaluatedArtMeshPositions(mesh);
+            if (positions == null) {
+                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
+            }
+            frame.put(target.idToken(), positions);
+        }
+        return Map.copyOf(frame);
     }
 
     private void driveExport(final Session session) throws Exception {
         final Object callback = host.newExportCompletionProxy((file, paths) -> {
+            // Late or foreign completions must not revive a session: only an
+            // armed, still-admitted session inside its own export window may
+            // record staged output.
+            if (armed.get() != session || !exportWindow.get() || closed.get()
+                || session.aborted.get()
+                || hostGeneration.getAsLong() != session.hostGeneration
+                || !optionBindingLive.getAsBoolean()) {
+                return;
+            }
             session.stagedPick = file;
             session.stagedPaths = paths == null ? List.of() : List.copyOf(paths);
             session.completion.countDown();
@@ -526,6 +674,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             // forever (observed on exact host run queue-e324da1a).
             edt.submit(() -> {
                 try {
+                    // Revocation while the task sat queued — or while the native
+                    // modal flow ran — must not proceed as a live session.
+                    requireExportLive(session);
                     final Object driver = host.exportDriver();
                     if (driver == null) {
                         throw new SessionRejection(EXPORT_FAILED_KEY);
@@ -533,6 +684,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     host.invokeNativeExport(
                         driver, session.copyModelSource, host.mainFrame(),
                         callback);
+                    requireExportLive(session);
                     session.exportDone.complete(null);
                 } catch (Throwable failure) {
                     session.exportDone.completeExceptionally(failure);
@@ -575,6 +727,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (session.aborted.get() || session.chooserCancelled.get()) {
                 throw new SessionRejection(EXPORT_CANCELLED_KEY);
             }
+            // Revocation during the native modal flow (plugin unload, host
+            // replacement, document loss) must never proceed to validation.
+            requireSessionAdmittedOnEdt(session, true);
             // A native pre-check veto (e.g. empty texture atlases) returns from
             // al.a without ever opening the settings dialog or the chooser.
             if (!session.innerDialogSeen.get() || !session.redirectFired.get()) {
@@ -586,6 +741,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 remaining, TimeUnit.MILLISECONDS)) {
                 throw new SessionRejection(EXPORT_TIMEOUT_KEY);
             }
+            requireExportLive(session);
+            requireSessionAdmittedOnEdt(session, true);
             if (session.stagedPick == null || session.stagedPaths.isEmpty()) {
                 throw new SessionRejection(EXPORT_FAILED_KEY);
             }
@@ -595,10 +752,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         }
     }
 
-    private void validate(final Session session) {
+    private void validate(final Session session) throws Exception {
+        requireSessionAdmittedOnEdt(session, true);
         final ProtectedExportStaging.Validation validation = staging.validate(
             session.stagedPick, session.stagedPaths, session.expectedDrawableIds,
-            session.expectedParameters, session.expectedPartIds);
+            session.expectedParameters, session.expectedPartIds,
+            session.behavior);
         if (!validation.valid()) {
             throw new SessionRejection(
                 VALIDATION_FAILED_KEY + ":" + validation.failureKey(),
@@ -611,6 +770,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private void restore(final Session session) throws Exception {
         // Restore the original as the SAME live document and verify every session
         // invariant before any output can be published.
+        requireSessionAdmittedOnEdt(session, true);
         restoreOriginalDocument(session);
         final boolean intact = onEdt(() -> {
             try {
@@ -649,6 +809,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     private void publish(final Session session) throws Exception {
+        // The last revocation barrier: the destination is touched only while the
+        // session is still armed, admitted and bound to the live original
+        // document — re-verified on the EDT immediately beforehand.
+        onEdt(() -> {
+            requireSessionAdmittedOnEdt(session, false);
+            if (host.currentDocument() != session.document) {
+                throw new SessionRejection(REVOKED_KEY);
+            }
+            return null;
+        });
         try {
             session.publishedFiles =
                 staging.publish(session.stagedPick, session.stagedFiles, session.realPick);
@@ -664,9 +834,59 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     private void requireGeneration(final Session session, final long expected) {
         if (hostGeneration.getAsLong() != expected
-            || !optionBindingLive.getAsBoolean()) {
+            || !optionBindingLive.getAsBoolean()
+            || closed.get() || session.aborted.get()) {
             throw new SessionRejection(NOT_ADMITTED_KEY);
         }
+    }
+
+    /**
+     * Cancellation precedes revocation in the report: an aborted or
+     * chooser-cancelled session reports CANCELLED, everything else revoked.
+     */
+    private void requireExportLive(final Session session) {
+        if (session.aborted.get() || session.chooserCancelled.get()) {
+            throw new SessionRejection(EXPORT_CANCELLED_KEY);
+        }
+        requireSessionAdmitted(session);
+    }
+
+    /**
+     * Worker-side revocation barrier for the export tail: the session must still
+     * be the armed session of a live orchestrator, on the same host generation
+     * with a live option binding, and neither cancelled nor chooser-cancelled.
+     * Any break throws {@link #REVOKED_KEY} — the report names the revocation
+     * instead of a generic failure.
+     */
+    private void requireSessionAdmitted(final Session session) {
+        if (closed.get() || armed.get() != session
+            || hostGeneration.getAsLong() != session.hostGeneration
+            || !optionBindingLive.getAsBoolean()
+            || session.aborted.get() || session.chooserCancelled.get()) {
+            throw new SessionRejection(REVOKED_KEY);
+        }
+    }
+
+    /**
+     * Full revocation barrier marshalled onto the EDT: the worker-side state
+     * plus live document identity. While the copy may be open
+     * ({@code copyExpectedOpen}) both documents must still be in the project;
+     * afterwards only the original's presence is required — the active-document
+     * check belongs to the caller.
+     */
+    private void requireSessionAdmittedOnEdt(
+        final Session session,
+        final boolean copyExpectedOpen
+    ) throws Exception {
+        onEdt(() -> {
+            requireSessionAdmitted(session);
+            if (!host.projectContains(session.document)
+                || (copyExpectedOpen && session.copyDocument != null
+                    && !host.projectContains(session.copyDocument))) {
+                throw new SessionRejection(REVOKED_KEY);
+            }
+            return null;
+        });
     }
 
     private void requireLiveDocument(final Session session) {
@@ -674,6 +894,41 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             || !host.projectContains(session.document)) {
             throw new SessionRejection(NOT_ADMITTED_KEY);
         }
+    }
+
+    /**
+     * The complete flatten-apply context: bound live model source, the document's
+     * main selector and the document's main edit mode — re-resolved from the
+     * document each call.
+     */
+    private record FlattenContext(Object liveSource, Object selector, Object editMode) {
+    }
+
+    /**
+     * Re-reads and re-verifies the whole flatten context on the EDT: binding
+     * liveness and host generation, the copy as the active in-project document,
+     * its bound model source and live instance, and the modeling-main selector
+     * and edit mode. When {@code expected} is given, the freshly resolved
+     * selector and edit mode must be the same objects — a swapped selector would
+     * make the apply command act on a selection this session never made.
+     */
+    private FlattenContext requireFlattenContext(
+        final Session session,
+        final FlattenContext expected
+    ) {
+        requireGeneration(session, session.hostGeneration);
+        requireLiveCopy(session);
+        final Object liveSource = requireCopyModelSource(session);
+        final Object selector = host.documentSelector(session.copyDocument);
+        final Object editMode = host.documentMainEditMode(session.copyDocument);
+        if (!host.isMainSelector(selector) || !host.isMainEditMode(editMode)
+            || (expected != null
+                && (selector != expected.selector()
+                    || editMode != expected.editMode()
+                    || liveSource != expected.liveSource()))) {
+            throw new SessionRejection(FLATTEN_FAILED_KEY);
+        }
+        return new FlattenContext(liveSource, selector, editMode);
     }
 
     private void requireLiveCopy(final Session session) {
@@ -1301,6 +1556,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile List<String> stagedPaths = List.of();
         volatile List<Path> stagedFiles = List.of();
         volatile Set<String> expectedDrawableIds = Set.of();
+        volatile ProtectedExportObfuscationPlan.Plan obfuscationPlan;
+        volatile ProtectedExportStaging.BehaviorSnapshot behavior;
         volatile Map<String, ProtectedExportStaging.ParameterExpectation>
             expectedParameters = Map.of();
         volatile Set<String> expectedPartIds = Set.of();

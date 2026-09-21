@@ -782,10 +782,16 @@ public final class PreviewRuntime implements AutoCloseable {
                         javax.swing.SwingUtilities.invokeLater(task);
                     }
                 };
+            final dev.turboism.sdk.cubism.core.MocLoader ownedMocLoader =
+                ingress.adapterAccess().coreRuntimeInfo().mocLoader();
             return new dev.turboism.exportsettings.ProtectedExportOrchestrator(
                 new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
                 new dev.turboism.exportsettings.ProtectedExportStaging(
-                    data -> ingress.adapterAccess().coreRuntimeInfo().mocLoader().load(data)
+                    ownedMocLoader::load,
+                    ownedMocLoader instanceof
+                            dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer
+                        ? writer::writeParameterValue
+                        : null
                 ),
                 layout.runtimeStateDir().resolve("protected-export"),
                 orchestratedPluginId,

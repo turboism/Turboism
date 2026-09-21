@@ -124,14 +124,24 @@ public final class ProtectedExportDeformerPlan {
      * parts. Glue sources are affecters, ArtPath/DeformPath sources are drawables and
      * aliases are controllable sources, so every one of them lands in this census and
      * is rejected here. Physics and motion-sync settings live outside the census and
-     * get their own emptiness check. Anything else is unknown and rejects — the
-     * runtime never relies on a plugin-side planner having run first.
+     * get their own emptiness check.
+     *
+     * <p>Category whitelisting alone is not sufficient: unsupported content also
+     * hides <em>inside</em> otherwise-allowed sources. The host's own {@code contain*}
+     * gates answer the model-level families (blend colors, morph-target
+     * parameters/enhancements, aliases, art paths, inverted clipping, quad
+     * transforms, offscreen rendering, motion sync), and every admitted object is
+     * scanned for embedded members the census cannot see — keyform morph-target
+     * sets, extended morph-target sets and attached extension objects. Anything
+     * detected or unknown rejects; the runtime never relies on a plugin-side
+     * planner having run first.</p>
      */
     private static void admitStructure(
         final ProtectedExportHostOperations host,
         final Object modelSource
     ) {
-        for (Object object : host.allObjects(modelSource)) {
+        final List<?> objects = host.allObjects(modelSource);
+        for (Object object : objects) {
             final boolean supported = object != null
                 && (host.isWarpDeformer(object) || host.isRotationDeformer(object)
                     || host.isArtMeshSource(object) || host.isPartSource(object));
@@ -144,6 +154,23 @@ public final class ProtectedExportDeformerPlan {
             || !host.allMotionSyncSettings(modelSource).isEmpty()) {
             throw new ProtectedExportPlanRejection(
                 "protected-export.unsupported-settings");
+        }
+        final List<String> features = host.unsupportedModelFeatures(modelSource);
+        if (!features.isEmpty()) {
+            throw new ProtectedExportPlanRejection(
+                "protected-export.unsupported-feature:"
+                    + String.join(",", features));
+        }
+        for (Object object : objects) {
+            if (object == null) {
+                continue;
+            }
+            final List<String> embedded = host.embeddedUnsupportedFamilies(object);
+            if (!embedded.isEmpty()) {
+                throw new ProtectedExportPlanRejection(
+                    "protected-export.embedded-structure:"
+                        + String.join(",", embedded));
+            }
         }
     }
 
