@@ -942,10 +942,28 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     /**
+     * Extension classes that the editor installs on ordinary sources for every
+     * model: texture inputs carry the atlas mapping, editable-mesh /
+     * mesh-generator / warp-bezier / original-shape extensions carry standard
+     * edit-time data. They are not feature carriers, so their presence alone
+     * must not reject a model. Any other extension class (glue deform-path
+     * skinning, art path, auto-yure, controller, rotate-3d, subdivision,
+     * topology observer, extended interpolation, or an unknown future type)
+     * is a feature carrier and rejects the source.
+     */
+    private static final Set<String> STANDARD_EXTENSION_CLASSES = Set.of(
+        "com.live2d.cubism.doc.model.extension.textureInput.CTextureInputExtension",
+        "com.live2d.cubism.doc.model.extension.editableMesh.CEditableMeshExtension",
+        "com.live2d.cubism.doc.model.extension.meshGenerator.CMeshGeneratorExtension",
+        "com.live2d.cubism.doc.model.extension.warpBezier.CWarpDeformerBezierExtension",
+        "com.live2d.cubism.doc.model.extension.deformerOriginalShape.CDeformerOriginalShapeExtension");
+
+    /**
      * Structures embedded inside a controllable source that never appear in the
      * object census: a keyform morph-target set with actual targets, an
-     * extended morph-target set, or any extension object attached to the source.
-     * Extension classes are named in the token so the rejection is diagnosable.
+     * extended morph-target set, or a non-standard extension object attached to
+     * the source. Extension classes are named in the token so the rejection is
+     * diagnosable.
      */
     @Override
     public List<String> embeddedUnsupportedFamilies(final Object controllableSource) {
@@ -963,7 +981,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         }
         for (Object extension : listOf(
             resolver.invoke(SOURCE_EXTENSIONS, controllableSource))) {
-            if (extension != null) {
+            if (extension != null
+                && !STANDARD_EXTENSION_CLASSES.contains(extension.getClass().getName())) {
                 detected.add("extension:" + extension.getClass().getName());
             }
         }

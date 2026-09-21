@@ -169,7 +169,8 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         if (!Float.isFinite(value)) {
             throw new IllegalArgumentException("value must be finite");
         }
-        if (!(model instanceof OwnedModelImpl impl)) {
+        if (!(model instanceof OwnedModelImpl impl)
+            || impl.owner() != this) {
             throw new IllegalStateException(
                 "Model is not owned by this runtime.");
         }
@@ -277,6 +278,11 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
 
         private OwnedModelImpl(final Object rawModel) {
             this.rawModel = Objects.requireNonNull(rawModel, "rawModel");
+        }
+
+        /** The runtime instance that owns this model's Core handle. */
+        private OwnedMocRuntime owner() {
+            return OwnedMocRuntime.this;
         }
 
         @Override
