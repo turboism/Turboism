@@ -2300,20 +2300,58 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private Optional<Target> pickTarget(final TextureRelationsSnapshot relations) {
+        return pickTarget(relations, contentProfile);
+    }
+
+    private static Optional<Target> pickTarget(final TextureRelationsSnapshot relations,
+        final PsdValidationContent.Profile profile) {
+        Objects.requireNonNull(relations, "relations");
+        Objects.requireNonNull(profile, "profile");
+        final List<Target> candidates = new ArrayList<>();
         for (final ArtMeshTextureInputs mesh : relations.artMeshInputs()) {
             if (mesh.currentInputIndex().isEmpty()) continue;
             final TextureInputBinding input = mesh.inputs().get(mesh.currentInputIndex().getAsInt());
             if (input.kind() != TextureInputBinding.Kind.MODEL_IMAGE
                 || !input.isResolved() || input.modelImageId().isEmpty()) continue;
-            final var relation = relations.modelImage(input.modelImageId().orElseThrow());
+            final var relation = profile == PsdValidationContent.Profile.F1_2048_20
+                ? uniqueModelImageRelation(relations, input.modelImageId().orElseThrow())
+                : relations.modelImage(input.modelImageId().orElseThrow());
             if (relation.isEmpty() || relation.orElseThrow().currentRawImageId().isEmpty()) continue;
-            final RawImageId raw = relation.orElseThrow().currentRawImageId().orElseThrow();
+            final ModelImageRelation modelImage = relation.orElseThrow();
+            if (profile == PsdValidationContent.Profile.F1_2048_20) {
+                final List<String> users = modelImage.usingArtMeshIds().stream()
+                    .map(ArtMeshId::value).distinct().toList();
+                if (users.size() < 2 || !users.contains(mesh.id().value())) continue;
+            }
+            final RawImageId raw = modelImage.currentRawImageId().orElseThrow();
             final boolean replaced = relations.rawImage(raw)
                 .map(dev.turboism.sdk.cubism.model.RawImageDetails::isReplaced).orElse(false);
-            return Optional.of(new Target(mesh, input.modelImageId().orElseThrow(), raw, replaced,
+            candidates.add(new Target(mesh, input.modelImageId().orElseThrow(), raw, replaced,
                 TargetIdentity.unavailable()));
+            if (profile != PsdValidationContent.Profile.F1_2048_20) {
+                return Optional.of(candidates.get(0));
+            }
         }
-        return Optional.empty();
+        return candidates.stream()
+            .sorted(Comparator
+                .comparing((Target target) -> target.modelImage().value())
+                .thenComparing(target -> target.artMesh().id().value())
+                .thenComparing(target -> target.raw().value()))
+            .findFirst();
+    }
+
+    private static Optional<ModelImageRelation> uniqueModelImageRelation(
+        final TextureRelationsSnapshot relations, final ModelImageId modelImageId) {
+        final List<ModelImageRelation> matches = relations.modelImages().stream()
+            .filter(relation -> relation != null && relation.id().equals(modelImageId))
+            .toList();
+        return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
+    }
+
+    static Optional<TargetSelection> selectTargetForTest(
+        final TextureRelationsSnapshot relations, final PsdValidationContent.Profile profile) {
+        return pickTarget(relations, profile).map(target -> new TargetSelection(
+            target.modelImage().value(), target.artMesh().id().value(), target.raw().value()));
     }
 
     /**
@@ -5141,6 +5179,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             throw new IllegalStateException("Undo did not restore the last replacement-before raw: "
                 + "expected=" + lastBeforeTarget.raw().value() + " actual=" + afterUndo);
         }
+        final TextureRelationsSnapshot undoRelations =
+            captureCycleRelations(result, "undo.rawRelation");
+        requireStableSharedModelImageRelation(result, "undo.rawRelation.sharedModelImage",
+            lastBeforeTarget.identity(), undoRelations, contentProfile,
+            stableSharedModelImageUsers);
         if (baselineFingerprint != null) {
             final PsdValidationContent.Fingerprint undoFingerprint = exportTargetFingerprint(
                 result, lastBeforeTarget, tracker, "undo");
@@ -5162,6 +5205,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (!appliedRaw.equals(afterRedo)) {
             throw new IllegalStateException("Redo did not restore the applied raw identity");
         }
+        final TextureRelationsSnapshot redoRelations =
+            captureCycleRelations(result, "redo.rawRelation");
+        requireStableSharedModelImageRelation(result, "redo.rawRelation.sharedModelImage",
+            appliedTarget.identity(), redoRelations, contentProfile,
+            stableSharedModelImageUsers);
         if (postFingerprint != null) {
             final PsdValidationContent.Fingerprint redoFingerprint = exportTargetFingerprint(
                 result, appliedTarget, tracker, "redo");
@@ -11158,6 +11206,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             super(message);
         }
     }
+
+    record TargetSelection(String modelImageId, String artMeshId, String rawId) {}
 
     private record Target(ArtMeshTextureInputs artMesh,
         dev.turboism.sdk.cubism.id.ModelImageId modelImage, RawImageId raw, boolean rawReplaced,
