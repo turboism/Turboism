@@ -446,7 +446,8 @@ val devCheck by tasks.registering {
         "checkCodeQuality",
         checkRepositoryHygiene,
         checkEditorModelAliases,
-        "validatePluginMeta"
+        "validatePluginMeta",
+        ":runtime:checkHeadlessRuntimeClasspath"
     )
 }
 

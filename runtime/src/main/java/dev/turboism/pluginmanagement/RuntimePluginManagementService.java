@@ -2,7 +2,7 @@ package dev.turboism.pluginmanagement;
 
 import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
-import dev.turboism.plugin.core.CorePluginManagement;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 
 import javax.swing.JFileChooser;

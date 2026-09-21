@@ -3,7 +3,7 @@ package dev.turboism.update;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
-import dev.turboism.plugin.core.CoreUpdateService;
+import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 

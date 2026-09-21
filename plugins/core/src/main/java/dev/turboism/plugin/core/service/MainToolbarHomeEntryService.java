@@ -2,7 +2,7 @@ package dev.turboism.plugin.core.service;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.plugin.core.CorePluginManagement;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;

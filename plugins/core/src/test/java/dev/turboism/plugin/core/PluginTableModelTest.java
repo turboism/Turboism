@@ -1,5 +1,6 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import org.junit.jupiter.api.Test;
 
