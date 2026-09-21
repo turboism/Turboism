@@ -27,8 +27,146 @@ public final class PsdValidationContentTest {
         testFingerprintUsesDecodedRgbAndIgnoresAlphaEncoding();
         testMalformedRowsAndPacketsAreRejected();
         testUnsupportedProfileIsRejected();
+        testF1Profile();
+        testF1RealSampleIfRequested();
         testRealSampleIfRequested();
         System.out.println("PASS: PsdValidationContentTest");
+    }
+
+    private static void testF1Profile() {
+        final F1Fixture fixture = f1Fixture();
+        final var profile = PsdValidationContent.Profile.F1_2048_20;
+        final var before = PsdValidationContent.targetLayerRgbFingerprint(fixture.bytes(), profile);
+        assertEquals(2048, before.width(), "F1 target width");
+        final byte[] changed = PsdValidationContent.invertTargetLayerRgb(fixture.bytes(), profile);
+        assertOnlyExpectedBytesChanged(fixture.bytes(), changed, fixture.rgbOffsets());
+        assertTrue(!before.sha256().equals(
+            PsdValidationContent.targetLayerRgbFingerprint(changed, profile).sha256()),
+            "F1 RGB content changes");
+        assertArrayEquals(fixture.bytes(),
+            PsdValidationContent.invertTargetLayerRgb(changed, profile), "F1 exact round trip");
+        rejectF1(Fixture.valid().bytes, "seven-layer input is not F1");
+        try {
+            fingerprint(fixture.bytes());
+            throw new AssertionError("F1 must require its explicit profile");
+        } catch (PsdValidationContent.ValidationException expected) { }
+        final byte[] wrongId = fixture.bytes().clone();
+        putU32(wrongId, fixture.targetIdOffset(), 21);
+        rejectF1(wrongId, "target layer ID must agree with the reviewed record");
+        final byte[] wrongGroup = fixture.bytes().clone();
+        putU32(wrongGroup, fixture.groupTypeOffset(), 2);
+        rejectF1(wrongGroup, "divider must retain its group marker");
+        final byte[] malformed = fixture.bytes().clone();
+        malformed[fixture.rgbOffsets()[0] - 1] = 0; // repeat becomes one literal: row too short
+        rejectF1(malformed, "malformed target packet must fail before mutation");
+        final byte[] invalidCanvas = fixture.bytes().clone();
+        putU32(invalidCanvas, 18, 1000);
+        rejectF1(invalidCanvas, "F1 canvas is fixed");
+        final byte[] alphaOnly = fixture.bytes().clone();
+        alphaOnly[fixture.alphaSampleOffset()] ^= (byte) 0xff;
+        assertEquals(before.sha256(), PsdValidationContent.targetLayerRgbFingerprint(
+            alphaOnly, profile).sha256(), "F1 alpha changes are outside target RGB");
+        final byte[] compositeOnly = fixture.bytes().clone();
+        compositeOnly[compositeOnly.length - 1] ^= (byte) 0xff;
+        assertEquals(before.sha256(), PsdValidationContent.targetLayerRgbFingerprint(
+            compositeOnly, profile).sha256(), "F1 composite changes are outside target RGB");
+    }
+
+    private static void rejectF1(final byte[] bytes, final String label) {
+        final byte[] original = bytes.clone();
+        try {
+            PsdValidationContent.invertTargetLayerRgb(bytes,
+                PsdValidationContent.Profile.F1_2048_20);
+            throw new AssertionError(label);
+        } catch (PsdValidationContent.ValidationException expected) {
+            assertArrayEquals(original, bytes, "F1 rejection leaves the input untouched");
+        }
+    }
+
+    private static void testF1RealSampleIfRequested() throws IOException {
+        final String sample = System.getProperty("turboism.validation.externalpsd.f1Sample", "");
+        if (sample.isBlank()) return;
+        final byte[] original = Files.readAllBytes(Path.of(sample));
+        final var profile = PsdValidationContent.Profile.F1_2048_20;
+        final var before = PsdValidationContent.targetLayerRgbFingerprint(original, profile);
+        final byte[] changed = PsdValidationContent.invertTargetLayerRgb(original, profile);
+        final var after = PsdValidationContent.targetLayerRgbFingerprint(changed, profile);
+        assertTrue(!before.sha256().equals(after.sha256()), "real F1 RGB mutation");
+        assertArrayEquals(original, PsdValidationContent.invertTargetLayerRgb(changed, profile),
+            "real F1 byte-preserving round trip");
+        System.out.println("F1 source RGB=" + before.sha256() + " inverted=" + after.sha256());
+    }
+
+    private record F1Fixture(byte[] bytes, int[] rgbOffsets, int targetIdOffset,
+        int groupTypeOffset, int alphaSampleOffset) { }
+
+    private static F1Fixture f1Fixture() {
+        final int size = 2048;
+        final Bytes channel = new Bytes();
+        channel.u16(1);
+        for (int y = 0; y < size; y++) channel.u16(32);
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < 16; x++) { channel.u8(129); channel.u8(64); }
+        }
+        final byte[] channelBytes = channel.toByteArray();
+        final Bytes records = new Bytes();
+        final Bytes pixels = new Bytes();
+        records.u16(24);
+        int targetIdOffset = -1;
+        int groupTypeOffset = -1;
+        int targetDataOffset = -1;
+        for (int i = 0; i < 24; i++) {
+            final int group = i == 0 || i == 12 ? 3 : i == 11 || i == 23 ? 2 : 0;
+            records.u32(0); records.u32(0);
+            records.u32(group == 0 ? size : 0); records.u32(group == 0 ? size : 0);
+            records.u16(4);
+            for (int c = 0; c < 4; c++) {
+                records.u16(c == 3 ? -1 : c);
+                records.u32(group == 0 ? channelBytes.length : 2);
+            }
+            records.ascii("8BIM"); records.ascii("norm");
+            records.u8(255); records.zeros(3);
+            final Bytes extra = new Bytes();
+            extra.u32(0); extra.u32(0);
+            extra.u8(1); extra.ascii("x"); extra.zeros(2);
+            extra.ascii("8BIM"); extra.ascii("lyid"); extra.u32(4);
+            final int idOffset = extra.size(); extra.u32(i);
+            if (group != 0) {
+                extra.ascii("8BIM"); extra.ascii("lsct"); extra.u32(4); extra.u32(group);
+            }
+            records.u32(extra.size());
+            if (i == 22) targetIdOffset = records.size() + idOffset;
+            if (i == 0) groupTypeOffset = records.size() + extra.size() - 4;
+            records.bytes(extra.toByteArray());
+            if (i == 22) targetDataOffset = pixels.size();
+            for (int c = 0; c < 4; c++) {
+                if (group == 0) pixels.bytes(channelBytes); else pixels.u16(0);
+            }
+        }
+        final Bytes file = new Bytes();
+        file.ascii("8BPS"); file.u16(1); file.zeros(6); file.u16(4);
+        file.u32(size); file.u32(size); file.u16(8); file.u16(3);
+        file.u32(0); file.u32(0);
+        file.u32(8 + records.size() + pixels.size());
+        file.u32(records.size() + pixels.size());
+        final int recordStart = file.size();
+        file.bytes(records.toByteArray());
+        final int targetStart = file.size() + targetDataOffset;
+        file.bytes(pixels.toByteArray()); file.u32(0);
+        file.u16(1);
+        for (int c = 0; c < 4; c++) for (int y = 0; y < size; y++) file.u16(32);
+        for (int c = 0; c < 4; c++) {
+            file.bytes(Arrays.copyOfRange(channelBytes, 2 + size * 2, channelBytes.length));
+        }
+        final int[] offsets = new int[3 * size * 16];
+        int n = 0;
+        for (int c = 0; c < 3; c++) {
+            for (int x = 2 + size * 2 + 1; x < channelBytes.length; x += 2) {
+                offsets[n++] = targetStart + c * channelBytes.length + x;
+            }
+        }
+        return new F1Fixture(file.toByteArray(), offsets, recordStart + targetIdOffset,
+            recordStart + groupTypeOffset, targetStart + 3 * channelBytes.length + 2 + size * 2 + 1);
     }
 
     private static void testMutationAndFingerprint() {

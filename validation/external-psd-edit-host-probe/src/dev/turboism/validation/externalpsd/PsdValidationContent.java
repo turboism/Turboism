@@ -11,10 +11,14 @@ import java.util.Locale;
  * Validation-only content mutation for the known external-edit PSD fixture profile.
  *
  * <p>This is intentionally a small profile parser, not a PSD library. It accepts only PSD v1,
- * RGB, 8-bit, four-channel files with a 1000x1000 canvas, seven layers, the fixture's four
- * channel layout, and PackBits/RLE1 pixel data in every layer and in the composite. The target is
+ * RGB, 8-bit, four-channel files. The default profile requires a 1000x1000 canvas, seven layers,
+ * the fixture's four-channel layout, and PackBits/RLE1 data in every layer and the composite.
+ * The default target is
  * located by its validated {@code (450,450)-(550,550)} bounds and 100x100 dimensions; layer index
- * 6 is also required so an index-only mutation cannot silently select another layer.</p>
+ * 6 is also required so an index-only mutation cannot silently select another layer. The explicit
+ * F1 profile instead requires 2048x2048, twenty paint layers and four group records, and the
+ * reviewed per-record layer IDs/group markers; its target is record/layer ID 22. These profiles
+ * are validation-only and never control product import admission.</p>
  *
  * <p>The composite is parsed for structural evidence but is never mutated and is not included in
  * the target fingerprint. The fingerprint includes validated target bounds, dimensions, RGB
@@ -23,17 +27,40 @@ import java.util.Locale;
  */
 public final class PsdValidationContent {
     private static final int PSD_HEADER_LENGTH = 26;
-    private static final int CANVAS_WIDTH = 1000;
-    private static final int CANVAS_HEIGHT = 1000;
-    private static final int EXPECTED_LAYER_COUNT = 7;
     private static final int EXPECTED_CHANNEL_COUNT = 4;
     private static final int EXPECTED_DEPTH = 8;
     private static final int EXPECTED_COLOR_MODE_RGB = 3;
     private static final int EXPECTED_RLE1 = 1;
-    private static final int TARGET_LAYER_INDEX = 6;
-    private static final Bounds TARGET_BOUNDS = new Bounds(450, 450, 550, 550);
     private static final int[] EXPECTED_CHANNEL_IDS = {0, 1, 2, -1};
     private static final byte[] PSD_SIGNATURE = ascii("8BPS");
+
+    /** Explicit validation inputs; the default remains the original seven-layer control. */
+    public enum Profile {
+        SEVEN_LAYER_CONTROL(1000, 7, 6, new Bounds(450, 450, 550, 550)),
+        F1_2048_20(2048, 24, 22, new Bounds(0, 0, 2048, 2048));
+
+        private final int canvas;
+        private final int records;
+        private final int targetIndex;
+        private final Bounds targetBounds;
+
+        Profile(final int canvas, final int records, final int targetIndex,
+            final Bounds targetBounds) {
+            this.canvas = canvas;
+            this.records = records;
+            this.targetIndex = targetIndex;
+            this.targetBounds = targetBounds;
+        }
+
+        private int groupType(final int index) {
+            if (this != F1_2048_20) return 0;
+            return switch (index) {
+                case 0, 12 -> 3;
+                case 11, 23 -> 2;
+                default -> 0;
+            };
+        }
+    }
 
     private PsdValidationContent() { }
 
@@ -46,7 +73,12 @@ public final class PsdValidationContent {
      * @throws ValidationException if the bytes are malformed or outside the supported profile
      */
     public static Fingerprint targetLayerRgbFingerprint(final byte[] psd) {
-        return fingerprint(parse(psd));
+        return targetLayerRgbFingerprint(psd, Profile.SEVEN_LAYER_CONTROL);
+    }
+
+    /** Fingerprints a target identified by the explicit validation profile. */
+    public static Fingerprint targetLayerRgbFingerprint(final byte[] psd, final Profile profile) {
+        return fingerprint(parse(psd, profile));
     }
 
     /**
@@ -59,7 +91,12 @@ public final class PsdValidationContent {
      * @throws ValidationException if the bytes are malformed or outside the supported profile
      */
     public static byte[] invertTargetLayerRgb(final byte[] psd) {
-        final ParsedDocument document = parse(psd);
+        return invertTargetLayerRgb(psd, Profile.SEVEN_LAYER_CONTROL);
+    }
+
+    /** Mutates only the target RGB samples after the complete profile has been validated. */
+    public static byte[] invertTargetLayerRgb(final byte[] psd, final Profile profile) {
+        final ParsedDocument document = parse(psd, profile);
         final byte[] mutated = psd.clone();
         for (final int sampleOffset : document.targetRgbSampleOffsets) {
             mutated[sampleOffset] ^= (byte) 0xff;
@@ -98,7 +135,8 @@ public final class PsdValidationContent {
         public ValidationException(final String message) { super(message); }
     }
 
-    private static ParsedDocument parse(final byte[] psd) {
+    private static ParsedDocument parse(final byte[] psd, final Profile profile) {
+        if (profile == null) throw invalid("validation profile is required");
         if (psd == null) throw invalid("PSD input is null");
         final Cursor file = new Cursor(psd, 0, psd.length);
         file.require(PSD_HEADER_LENGTH, "PSD header");
@@ -124,9 +162,9 @@ public final class PsdValidationContent {
             throw invalid("unsupported PSD channel count %d; expected %d", channels,
                 EXPECTED_CHANNEL_COUNT);
         }
-        if (width != CANVAS_WIDTH || height != CANVAS_HEIGHT) {
+        if (width != profile.canvas || height != profile.canvas) {
             throw invalid("unsupported canvas %dx%d; expected %dx%d", width, height,
-                CANVAS_WIDTH, CANVAS_HEIGHT);
+                profile.canvas, profile.canvas);
         }
         if (depth != EXPECTED_DEPTH) {
             throw invalid("unsupported PSD depth %d; expected %d", depth, EXPECTED_DEPTH);
@@ -154,7 +192,7 @@ public final class PsdValidationContent {
         final int layerInfoEnd = checkedEnd(layerInfoStart + 4, layerInfoLength,
             layerMask.limit, "layer info section");
         final List<Layer> layers = parseLayerInfo(
-            new Cursor(psd, layerInfoStart + 4, layerInfoEnd), width, height);
+            new Cursor(psd, layerInfoStart + 4, layerInfoEnd), width, height, profile);
         layerMask.pos = layerInfoEnd;
 
         final int globalMaskLength = readLength(layerMask, "global layer mask data");
@@ -172,22 +210,25 @@ public final class PsdValidationContent {
 
         Layer target = null;
         for (final Layer layer : layers) {
-            final int expectedSize = layer.index == 0 ? CANVAS_WIDTH : 100;
+            final int expectedSize = profile == Profile.SEVEN_LAYER_CONTROL
+                ? (layer.index == 0 ? profile.canvas : 100)
+                : (profile.groupType(layer.index) == 0 ? profile.canvas : 0);
             if (layer.width() != expectedSize || layer.height() != expectedSize) {
                 throw invalid("layer %d has %dx%d; expected %dx%d", layer.index,
                     layer.width(), layer.height(), expectedSize, expectedSize);
             }
-            if (layer.index == TARGET_LAYER_INDEX && TARGET_BOUNDS.equals(layer.bounds())) {
+            if (layer.index == profile.targetIndex && profile.targetBounds.equals(layer.bounds())) {
                 if (target != null) throw invalid("target bounds occur more than once");
                 target = layer;
             }
         }
         if (target == null) {
             throw invalid("target layer %d with bounds %s was not uniquely identified",
-                TARGET_LAYER_INDEX, TARGET_BOUNDS);
+                profile.targetIndex, profile.targetBounds);
         }
         for (final Layer layer : layers) {
-            if (TARGET_BOUNDS.equals(layer.bounds()) && layer != target) {
+            if (profile == Profile.SEVEN_LAYER_CONTROL
+                && profile.targetBounds.equals(layer.bounds()) && layer != target) {
                 throw invalid("target bounds occur on an unexpected layer index %d", layer.index);
             }
         }
@@ -201,11 +242,11 @@ public final class PsdValidationContent {
     }
 
     private static List<Layer> parseLayerInfo(final Cursor layer, final int canvasWidth,
-        final int canvasHeight) {
+        final int canvasHeight, final Profile profile) {
         final int layerCount = layer.s16("layer count");
-        if (layerCount != EXPECTED_LAYER_COUNT) {
+        if (layerCount != profile.records) {
             throw invalid("unsupported layer count %d; expected %d", layerCount,
-                EXPECTED_LAYER_COUNT);
+                profile.records);
         }
         final List<Layer> layers = new ArrayList<>(layerCount);
         for (int index = 0; index < layerCount; index++) {
@@ -213,7 +254,11 @@ public final class PsdValidationContent {
             final int left = layer.s32("layer left");
             final int bottom = layer.s32("layer bottom");
             final int right = layer.s32("layer right");
-            if (right <= left || bottom <= top) {
+            final boolean group = profile.groupType(index) != 0;
+            if (group && (top != 0 || left != 0 || bottom != 0 || right != 0)) {
+                throw invalid("group record %d must have empty bounds", index);
+            }
+            if (!group && (right <= left || bottom <= top)) {
                 throw invalid("layer %d has non-positive bounds (%d,%d)-(%d,%d)", index,
                     left, top, right, bottom);
             }
@@ -252,7 +297,7 @@ public final class PsdValidationContent {
             final int extraEnd = checkedEnd(extraStart, extraLength, layer.limit,
                 "layer extra data");
             validateLayerExtra(new Cursor(layer.bytes, extraStart, extraEnd),
-                "layer " + index + " extra data");
+                "layer " + index + " extra data", profile, index);
             layer.pos = extraEnd;
             layers.add(new Layer(index, top, left, bottom, right, channels));
         }
@@ -262,13 +307,14 @@ public final class PsdValidationContent {
                 final int start = layer.pos;
                 final int end = checkedEnd(start, channel.declaredLength, layer.limit,
                     "layer channel data");
-                final boolean collect = parsedLayer.index == TARGET_LAYER_INDEX
+                final boolean collect = parsedLayer.index == profile.targetIndex
                     && channel.id >= 0 && channel.id <= 2;
                 final byte[] decodedSamples = collect
                     ? new byte[parsedLayer.width() * parsedLayer.height()] : null;
                 parseLayerChannel(layer.bytes, start, end, parsedLayer.width(),
                     parsedLayer.height(), parsedLayer.index, channel.id,
-                    collect ? channel.sampleOffsets : null, decodedSamples);
+                    collect ? channel.sampleOffsets : null, decodedSamples,
+                    profile.groupType(parsedLayer.index) != 0);
                 channel.decodedSamples = decodedSamples;
                 layer.pos = end;
             }
@@ -279,7 +325,8 @@ public final class PsdValidationContent {
         return layers;
     }
 
-    private static void validateLayerExtra(final Cursor extra, final String label) {
+    private static void validateLayerExtra(final Cursor extra, final String label,
+        final Profile profile, final int layerIndex) {
         final int maskLength = readLength(extra, label + " mask");
         extra.skip(maskLength, label + " mask");
         final int blendingRangesLength = readLength(extra, label + " blending ranges");
@@ -287,9 +334,41 @@ public final class PsdValidationContent {
         final int nameLength = extra.u8(label + " name length");
         final int paddedNameLength = align4(1 + nameLength, label + " name");
         extra.skip(paddedNameLength - 1, label + " name");
-        validateAdditionalInfo(extra, label + " additional info");
+        if (profile == Profile.F1_2048_20) {
+            validateF1LayerInfo(extra, label, layerIndex, profile.groupType(layerIndex));
+        } else {
+            validateAdditionalInfo(extra, label + " additional info");
+        }
         if (extra.pos != extra.limit) {
             throw invalid("%s has an unread tail at byte %d", label, extra.pos);
+        }
+    }
+
+    private static void validateF1LayerInfo(final Cursor section, final String label,
+        final int layerIndex, final int expectedGroupType) {
+        Integer layerId = null;
+        Integer groupType = null;
+        while (section.remaining() > 0) {
+            requireSignature(section, "8BIM", label + " additional signature");
+            final String key = section.ascii(4, label + " additional key");
+            final int length = readLength(section, label + " additional block");
+            final int end = checkedEnd(section.pos, length, section.limit, label);
+            if (key.equals("lyid")) {
+                if (layerId != null || length != 4) throw invalid("invalid F1 layer ID block");
+                layerId = section.s32(label + " layer ID");
+            } else if (key.equals("lsct")) {
+                if (groupType != null || length < 4) throw invalid("invalid F1 group block");
+                groupType = section.s32(label + " group type");
+            }
+            section.pos = end;
+        }
+        // The reviewed writer assigns these IDs to all 24 records, including the dividers.
+        // Names and bounds alone cannot identify a target among F1's full-canvas layers.
+        if (layerId == null || layerId != layerIndex) {
+            throw invalid("F1 record %d has unexpected layer ID %s", layerIndex, layerId);
+        }
+        if ((groupType == null ? 0 : groupType) != expectedGroupType) {
+            throw invalid("F1 record %d has unexpected group type %s", layerIndex, groupType);
         }
     }
 
@@ -334,10 +413,16 @@ public final class PsdValidationContent {
 
     private static void parseLayerChannel(final byte[] bytes, final int start, final int end,
         final int width, final int height, final int layerIndex, final int channelId,
-        final List<Integer> sampleOffsets, final byte[] decodedSamples) {
+        final List<Integer> sampleOffsets, final byte[] decodedSamples, final boolean group) {
         final Cursor channel = new Cursor(bytes, start, end);
         final int compression = channel.u16("layer " + layerIndex + " channel " + channelId
             + " compression");
+        if (group) {
+            if (compression != 0 || width != 0 || height != 0 || channel.remaining() != 0) {
+                throw invalid("F1 group record %d has nonempty channel data", layerIndex);
+            }
+            return;
+        }
         if (compression != EXPECTED_RLE1) {
             throw invalid("layer %d channel %d uses compression %d; only RLE1 is supported",
                 layerIndex, channelId, compression);
