@@ -316,17 +316,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             // A dirty original means the file copy cannot represent the live document;
             // the protected output would silently diverge from what the user sees.
             if (session.originalModified) {
-                throw new SessionRejection(PREFLIGHT_FAILED_KEY);
+                throw new SessionRejection(PREFLIGHT_FAILED_KEY, "original-dirty");
             }
             // The full census resolves on the original source before any copy exists.
             try {
                 session.plan = ProtectedExportDeformerPlan.plan(host, session.modelSource)
                     .leafToRootGuids();
             } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
-                throw new SessionRejection(PREFLIGHT_FAILED_KEY);
+                throw new SessionRejection(PREFLIGHT_FAILED_KEY, rejection.getMessage());
             }
             if (host.usesExtendedInterpolation(session.modelSource)) {
-                throw new SessionRejection(PREFLIGHT_FAILED_KEY);
+                throw new SessionRejection(PREFLIGHT_FAILED_KEY, "extended-interpolation");
             }
             // Identity census on the authoring source before any copy exists —
             // the bound copy must reproduce it exactly.
