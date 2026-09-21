@@ -78,7 +78,8 @@ class PreviewPluginLifecycleEventIntegrationTest {
         installProbeState();
         try (PreviewLog log = new PreviewLog(temporary.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                temporary, scheduler, host.adapterAccess(), log
+                temporary, scheduler, host.adapterAccess(), log,
+                new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
             );
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
