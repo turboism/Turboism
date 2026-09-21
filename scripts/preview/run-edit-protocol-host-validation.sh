@@ -56,6 +56,7 @@ exec bash "$runner" \
   --jvm-option '-Dturboism.editProtocol.validation.enabled=true' \
   --ready-marker 'Plugin load complete' \
   --ready-marker 'EDIT_PROTOCOL_PROBE_READY' \
+  --ready-marker 'TURBOISM_EDIT_API_DISPATCH installation=COMPLETE' \
   --result-file 'state/edit-protocol-host-validation-result.properties' \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
