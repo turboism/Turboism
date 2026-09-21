@@ -2,6 +2,7 @@ package dev.turboism.validation.protectedexport;
 
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Frame;
 import java.awt.Window;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -91,6 +92,7 @@ public final class ProtectedExportHostProbeAgent {
     private static final long QUIESCENCE_MILLIS = 15_000L;
     private static final long IDLE_MILLIS = 6_000L;
     private static final long POLL_MILLIS = 200L;
+    private static final long EXIT_GRACE_MILLIS = 60_000L;
     private static final long BIND_TIMEOUT_MILLIS = 60_000L;
     private static final long APPLY_STEP_MILLIS = 60_000L;
     private static final int TRIGGER_ATTEMPTS = 3;
@@ -2802,10 +2804,107 @@ public final class ProtectedExportHostProbeAgent {
         if (Boolean.parseBoolean(
             System.getProperty("turboism.validation.protectedExport.exitOnComplete", "true")
         )) {
-            // halt (not exit): skips shutdown hooks that can hang under Wine once the probe has
-            // written its terminal result.
-            Runtime.getRuntime().halt(passed ? 0 : 2);
+            requestNativeHostClose(stateDir, evidence, passed);
         }
+    }
+
+    /**
+     * Drives the host through its own quit path: a daemon watchdog armed with a
+     * bounded grace window halts the JVM only if the native exit never completes,
+     * and a {@code WINDOW_CLOSING} event on the main editor frame asks the host to
+     * quit normally — which is the only path whose shutdown hooks print the
+     * {@code -- successfully exited pid:N --} line the runner's normalExit gate
+     * keys on. A wedged quit therefore still terminates the run while leaving
+     * honest evidence (no marker) rather than faking a clean exit.
+     */
+    private static void requestNativeHostClose(
+        final Path stateDir,
+        final Evidence evidence,
+        final boolean passed
+    ) {
+        final Thread watchdog = new Thread(() -> {
+            sleep(EXIT_GRACE_MILLIS);
+            Runtime.getRuntime().halt(passed ? 0 : 2);
+        }, "protected-export-exit-watchdog");
+        watchdog.setDaemon(true);
+        watchdog.start();
+        // Dialogs raised during the quit sequence (for example an unsaved-changes
+        // prompt) are recorded, not answered — dismissing them could veto the quit
+        // and answering a save prompt would mutate state the probe must not touch.
+        final Thread observer = new Thread(() -> observeExitDialogs(stateDir, evidence),
+            "protected-export-exit-observer");
+        observer.setDaemon(true);
+        observer.start();
+        try {
+            SwingUtilities.invokeLater(ProtectedExportHostProbeAgent::closeMainFrame);
+        } catch (Throwable failure) {
+            evidence.put("exit.requestError", text(failure));
+        }
+    }
+
+    /**
+     * Polls for dialogs that appear while the host is quitting and records their
+     * component signature into evidence. Runs until the JVM exits or the grace
+     * window ends; any observed dialog explains a missing normal-exit marker.
+     */
+    private static void observeExitDialogs(final Path stateDir, final Evidence evidence) {
+        final Set<Window> seen = new LinkedHashSet<>();
+        final List<String> sequence = new ArrayList<>();
+        final long deadline = System.currentTimeMillis() + EXIT_GRACE_MILLIS;
+        while (System.currentTimeMillis() < deadline) {
+            for (Window window : Window.getWindows()) {
+                if (!(window instanceof java.awt.Dialog) || !window.isVisible()
+                    || seen.contains(window)) {
+                    continue;
+                }
+                seen.add(window);
+                sequence.add(describe(window));
+                dumpTree(stateDir.resolve(
+                    "exit-dialog-" + sequence.size() + ".txt"), window);
+            }
+            sleep(POLL_MILLIS);
+        }
+        evidence.put("exit.dialogCount", Integer.toString(sequence.size()));
+        evidence.put("exit.dialogSequence", String.join(" -> ", sequence));
+    }
+
+    /**
+     * Sends {@code WINDOW_CLOSING} to the editor's main frame — the same native
+     * quit gesture a user makes. Prefers the frame carrying the model title, then
+     * any Cubism-titled frame, then the largest visible frame.
+     */
+    private static void closeMainFrame() {
+        Frame modelFrame = null;
+        Frame cubismFrame = null;
+        Frame fallback = null;
+        long largestArea = -1L;
+        for (Frame frame : Frame.getFrames()) {
+            if (!frame.isVisible()) {
+                continue;
+            }
+            if (fallback == null) {
+                fallback = frame;
+            }
+            final long area = (long) frame.getWidth() * frame.getHeight();
+            if (area > largestArea) {
+                largestArea = area;
+                fallback = frame;
+            }
+            final String title = frame.getTitle();
+            if (title != null && title.contains(".cmo3")) {
+                modelFrame = frame;
+                break;
+            }
+            if (cubismFrame == null && title != null && title.contains("Cubism")) {
+                cubismFrame = frame;
+            }
+        }
+        final Frame target = modelFrame != null ? modelFrame
+            : cubismFrame != null ? cubismFrame : fallback;
+        if (target == null) {
+            return;
+        }
+        target.dispatchEvent(new WindowEvent(target, WindowEvent.WINDOW_CLOSING));
     }
 
     /**

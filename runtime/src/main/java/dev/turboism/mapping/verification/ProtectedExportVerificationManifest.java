@@ -19,7 +19,7 @@ public final class ProtectedExportVerificationManifest {
 
     public static final String VERIFICATION_ID_53 = "cubism-5.3.02.protected-export.static";
     public static final String RECORD_SHA256_53 =
-        "4187b1855f66c6dee505e8031b5931a2e551372d02d501d07e8a95bae64462fd";
+        "48241c347bacb957cd74b87f3420d6597db980eeaa68b6a8f02e8812885db68f";
     public static final String CUBISM_VERSION_53 = "5.3.02";
     public static final String PROFILE_ID_53 = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE_53 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
@@ -82,15 +82,19 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.keyform-binding.class",
         "cubism.protected-export.keyform-binding.extended-type",
         "cubism.protected-export.keyform-binding.illegal-extended",
+        "cubism.protected-export.keyform-binding.keys",
+        "cubism.protected-export.keyform-binding.parameter-id",
         "cubism.protected-export.keyform-grid.bindings",
         "cubism.protected-export.keyform-grid.class",
         "cubism.protected-export.main-frame-ctrl.class",
         "cubism.protected-export.main-frame-ctrl.main-frame",
         "cubism.protected-export.model-source.all-art-meshes",
         "cubism.protected-export.model-source.all-deformers",
+        "cubism.protected-export.model-source.all-motion-sync-settings",
         "cubism.protected-export.model-source.all-objects",
         "cubism.protected-export.model-source.all-parameters",
         "cubism.protected-export.model-source.all-parts",
+        "cubism.protected-export.model-source.all-physics-settings",
         "cubism.protected-export.model-source.class",
         "cubism.protected-export.model-source.current-instance",
         "cubism.protected-export.model-source.document",
@@ -104,9 +108,14 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.parameter-instance.value",
         "cubism.protected-export.parameter-set.class",
         "cubism.protected-export.parameter-set.parameters",
+        "cubism.protected-export.parameter-source.default-value",
         "cubism.protected-export.parameter-source.id",
+        "cubism.protected-export.parameter-source.max-value",
+        "cubism.protected-export.parameter-source.min-value",
         "cubism.protected-export.parameter-source.name",
+        "cubism.protected-export.parameter-source.repeat",
         "cubism.protected-export.parameter.class",
+        "cubism.protected-export.part.child-guids",
         "cubism.protected-export.part.class",
         "cubism.protected-export.project.children",
         "cubism.protected-export.project.class",

@@ -44,6 +44,7 @@ public final class ProtectedExportDeformerPlan {
     ) {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(modelSource, "modelSource");
+        admitStructure(host, modelSource);
         final List<?> deformers = host.allDeformers(modelSource);
         final Map<String, Object> byGuid = new LinkedHashMap<>();
         for (Object deformer : deformers) {
@@ -114,6 +115,36 @@ public final class ProtectedExportDeformerPlan {
                 "protected-export.deformer-cycle");
         }
         return new Order(order);
+    }
+
+    /**
+     * Whole-structure admission. The parameter-controllable census ({@code allObjects}
+     * covers drawable, deformer, affecter, part and alias sources on the exact host)
+     * must contain only supported families — Warp/Rotation deformers, ArtMeshes and
+     * parts. Glue sources are affecters, ArtPath/DeformPath sources are drawables and
+     * aliases are controllable sources, so every one of them lands in this census and
+     * is rejected here. Physics and motion-sync settings live outside the census and
+     * get their own emptiness check. Anything else is unknown and rejects — the
+     * runtime never relies on a plugin-side planner having run first.
+     */
+    private static void admitStructure(
+        final ProtectedExportHostOperations host,
+        final Object modelSource
+    ) {
+        for (Object object : host.allObjects(modelSource)) {
+            final boolean supported = object != null
+                && (host.isWarpDeformer(object) || host.isRotationDeformer(object)
+                    || host.isArtMeshSource(object) || host.isPartSource(object));
+            if (!supported) {
+                throw new ProtectedExportPlanRejection(
+                    "protected-export.unsupported-structure");
+            }
+        }
+        if (!host.allPhysicsSettings(modelSource).isEmpty()
+            || !host.allMotionSyncSettings(modelSource).isEmpty()) {
+            throw new ProtectedExportPlanRejection(
+                "protected-export.unsupported-settings");
+        }
     }
 
     /** Bounded preflight rejection identity for an unplannable deformer census. */
