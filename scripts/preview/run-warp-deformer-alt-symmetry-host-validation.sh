@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Exact-host reconnaissance adapter for Warp deformer Alt symmetry.
 #
-# Runs the task-local SDK probe on Cubism 5.3.03: it reads every Warp transform
+# Runs the task-local SDK probe on a reviewed Cubism host (5203/5302/5303): it reads every Warp transform
 # grid of the reviewed mirror-test fixture, proves the SDK grid
 # write/hook/native-Undo round-trip, and — only when the caller supplies an
 # explicit screen point — records what a real Robot Alt-drag does to the grid.
@@ -30,9 +30,9 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 case "$version" in
-  5303) ;;
+  5203|5302|5303) ;;
   *)
-    echo "error: warp-deformer Alt-symmetry host validation supports only 5303" >&2
+    echo "error: warp-deformer Alt-symmetry host validation supports only 5203, 5302 and 5303" >&2
     exit 2
     ;;
 esac

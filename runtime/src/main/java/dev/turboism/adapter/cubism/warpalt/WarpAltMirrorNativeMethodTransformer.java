@@ -19,8 +19,8 @@ import java.util.function.Consumer;
 /**
  * Exact-selector transformer for the Warp deformer Alt-symmetry hook.
  *
- * <p>Three reviewed injection points, each verified against the 5.3.03 artifact
- * digest with exact owner/method/descriptor selectors:</p>
+ * <p>Three reviewed injection points, each verified against the 5.2.03, 5.3.02
+ * and 5.3.03 artifact digests with exact owner/method/descriptor selectors:</p>
  *
  * <ul>
  *   <li>{@code WarpPointRef.moveToOnLocal(GVector2, float)} — head: the converged
@@ -124,11 +124,11 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                         && profile.dragTickMethod().equals(name)
                         && profile.dragTickDescriptor().equals(descriptor);
                     final boolean stripMountHere = isStrip
-                        && "R".equals(name) && "()V".equals(descriptor);
+                        && profile.stripMountMethod().equals(name)
+                        && profile.stripMountDescriptor().equals(descriptor);
                     final boolean stripLayoutTail = isStrip
-                        && "a".equals(name)
-                        && ("(Lcom/live2d/cubism/view/context/actionManager/N;"
-                            + "Lcom/live2d/graphics3d/entity/GEntity;)V").equals(descriptor);
+                        && profile.stripLayoutMethod().equals(name)
+                        && profile.stripLayoutDescriptor().equals(descriptor);
                     final boolean greenTickHere = isGreenTick
                         && profile.greenTickMethod().equals(name)
                         && profile.greenTickDescriptor().equals(descriptor);

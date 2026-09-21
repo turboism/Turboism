@@ -46,7 +46,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   canvas hint shows the armed state; mirrored positions commit through the model-write path so a
   symmetric move joins native Undo/Redo. The plugin requests `turboism.cubism.model.read`,
   `turboism.cubism.model.write`, `turboism.ui.toolbar.contribute` and `turboism.ui.canvas.hint`,
-  and its native mirror binds only when the verified host hook is installed.
+  and its native mirror binds only when the verified host hook is installed. The verified
+  drag-tick hook admits the exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03 artifacts —
+  inside the native drag tick it provides live mirrored preview and a single undo entry —
+  while unreviewed hosts keep the release-time AWT fallback with identical results.
 - `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
   `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
   for every action or menu item it contributes.

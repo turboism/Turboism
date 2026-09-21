@@ -29,7 +29,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private static final RuntimeViewContextMenuRegistry INSTANCE = new RuntimeViewContextMenuRegistry();
 
-    /** Reviewed 5.3.03 selectors (disassembly-verified). */
+    /** Reviewed selectors, disassembly-verified identical on 5.2.03/5.3.02/5.3.03. */
     private static final String STRIP_CLASS = "com.live2d.cubism.view.context.a.b";
     private static final String BUTTON_CLASS =
         "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity";
@@ -336,7 +336,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * Appends the contributed button at the END of the strip's left tool
      * cluster (group H), after the last native button F — the position the
      * operator picked among strip-first/cluster-end options. Disassembly-
-     * verified 5.3.03 order: H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]
+     * verified order on the reviewed artifacts: H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]
      * laid out left-flow, followed by I, a divider, J and the right-aligned
      * K view cluster (▾). Appending to H seats the button between F and the
      * o/I segment, before the divider.
@@ -362,7 +362,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /**
      * Adds the button to the strip's scene-graph object children, mirroring
-     * {@code V()}'s {@code e().getObjectsOnComponent().getChildren().add}
+     * the host's own {@code sceneGraph.getObjectsOnComponent().getChildren().add}
      * reparent pass. The host appends members ({@code Entities.add} defaults
      * index to {@code -1} → {@code addOrInsertAt} appends), so the button is
      * appended too — inserting at index 0 would seat it under the strip's
@@ -374,8 +374,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
         final Class<?> gEntityClass = Class.forName(
             "com.live2d.graphics3d.entity.GEntity", false, hostLoader);
-        final Object sceneGraph =
-            stripInstance.getClass().getMethod("e").invoke(stripInstance);
+        final Object sceneGraph = sceneGraphOf(stripInstance);
         final Object objects = sceneGraph.getClass()
             .getMethod("getObjectsOnComponent").invoke(sceneGraph);
         final Object children =
@@ -392,6 +391,34 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             children.getClass().getMethod("getList").invoke(children);
         diagnostic("BUTTON_REPARENTED childIndex="
             + (after instanceof List<?> entities ? entities.indexOf(button) : -1));
+    }
+
+    /**
+     * Resolves the strip's scene graph. The accessor is the strip's unique no-arg
+     * method returning {@code GSceneGraph}: named {@code d()} on reviewed 5.2.03
+     * and {@code e()} on reviewed 5.3.x, so it is matched by return type rather
+     * than by a version-specific name.
+     */
+    static Object sceneGraphOf(final Object stripInstance)
+        throws ReflectiveOperationException {
+        final ClassLoader hostLoader = stripInstance.getClass().getClassLoader();
+        final Class<?> sceneGraphClass = Class.forName(
+            "com.live2d.graphics3d.sceneGraph.GSceneGraph", false, hostLoader);
+        Method accessor = null;
+        for (final Method method : stripInstance.getClass().getMethods()) {
+            if (method.getParameterCount() == 0
+                && method.getReturnType() == sceneGraphClass) {
+                if (accessor != null) {
+                    throw new IllegalStateException(
+                        "strip scene-graph accessor is ambiguous");
+                }
+                accessor = method;
+            }
+        }
+        if (accessor == null) {
+            throw new IllegalStateException("strip scene-graph accessor not found");
+        }
+        return accessor.invoke(stripInstance);
     }
 
     /**
@@ -684,8 +711,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 sb.append(" zBtn").append(rendererDiag(dropdown));
             }
             try {
-                final Object sceneGraph =
-                    strip.getClass().getMethod("e").invoke(strip);
+                final Object sceneGraph = sceneGraphOf(strip);
                 final Object objects = sceneGraph.getClass()
                     .getMethod("getObjectsOnComponent").invoke(sceneGraph);
                 final Object children =

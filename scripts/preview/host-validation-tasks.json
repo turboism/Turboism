@@ -834,9 +834,11 @@
       }
     },
     "warp-deformer-alt-symmetry": {
-      "description": "Warp deformer Alt-symmetry reconnaissance: SDK Warp grid baseline, grid write/hook/native-Undo round-trip, optional calibrated Robot Alt-drag observation, and a human-in-the-loop native-ingress observation window on 5.3.03.",
+      "description": "Warp deformer Alt-symmetry reconnaissance: SDK Warp grid baseline, grid write/hook/native-Undo round-trip, optional calibrated Robot Alt-drag observation, and a human-in-the-loop native-ingress observation window on the reviewed 5.2.03/5.3.02/5.3.03 hosts.",
       "command": "scripts/preview/run-warp-deformer-alt-symmetry-host-validation.sh",
       "versions": [
+        "5203",
+        "5302",
         "5303"
       ],
       "defaultVariant": "analyse",
