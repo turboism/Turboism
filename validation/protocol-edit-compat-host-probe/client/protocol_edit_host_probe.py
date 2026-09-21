@@ -1091,15 +1091,18 @@ class Probe:
                 # key used to pick the write target is version-flexible.
                 keys = sorted(str(k) for k in rows[0].keys())
                 self.observe("r.get-parameters.first-row-keys", ",".join(keys))
+                # The native 1.0.x GetParameters row carries the definition
+                # only (Id/Name/GroupUID/Default/Max/Min/Repeat/Type); the
+                # current value is not part of the response. Write the row's
+                # own Default back: a faithful, no-op-equivalent write that
+                # exercises SetParameterValues without perturbing the model.
                 for row in rows:
-                    if not (isinstance(row, dict) and isinstance(row.get("Id"), str)):
-                        continue
-                    for key, value in row.items():
-                        if (key.lower() == "value"
-                                and isinstance(value, (int, float))
-                                and not isinstance(value, bool)):
-                            writable = row
-                            break
+                    if (isinstance(row, dict) and isinstance(row.get("Id"), str)
+                            and isinstance(row.get("Default"), (int, float))
+                            and not isinstance(row.get("Default"), bool)):
+                        writable = dict(row)
+                        writable["Value"] = row["Default"]
+                        break
                 if writable is None:
                     self.observe("r.get-parameters.rows", sanitize(rows)[:600])
         if writable is not None:
