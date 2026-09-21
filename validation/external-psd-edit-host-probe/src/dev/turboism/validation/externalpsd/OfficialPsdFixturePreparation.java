@@ -134,6 +134,7 @@ public final class OfficialPsdFixturePreparation {
 
     private final PluginContext context;
     private final BooleanSupplier stopped;
+    private boolean homeCloseAttempted;
     private final Properties properties;
 
     public OfficialPsdFixturePreparation(final PluginContext context,
@@ -459,9 +460,11 @@ public final class OfficialPsdFixturePreparation {
         final Class<?> hostButtonSubclass = loadExact(loader, HOST_BUTTON_SUBCLASS);
         final Class<?> action = loadExact(loader, HOST_ACTION);
         final Class<?> localizer = loadExact(loader, LOCALIZER);
+        final Class<?> home = loadExact(loader, "com.live2d.cubism.appCtrlImpl.ui.e.a");
+        final Class<?> homeWindow = loadExact(loader, "com.live2d.ui.window.m");
         for (final Class<?> type : List.of(app, mainFrameController, cFrame, windowBase, option,
             previewOption, modelDocument, renderer, hostList, hostButton, hostButtonSubclass,
-            action, localizer)) {
+            action, localizer, home, homeWindow)) {
             verifyClassArtifact(type, loader, artifact);
         }
         if (!JList.class.isAssignableFrom(hostList)
@@ -479,6 +482,10 @@ public final class OfficialPsdFixturePreparation {
         final Method optionLabel = exactMethod(option, "b", String.class, false);
         final Method previewLabel = exactMethod(previewOption, "a", String.class, false);
         final Method previewRatio = exactMethod(previewOption, "b", int.class, false);
+        final HomeAccess homeAccess = new HomeAccess(
+            exactMethod(home, "e", home, true), exactMethod(home, "a", app, false),
+            exactMethod(home, "a", homeWindow, true, home),
+            exactMethod(homeWindow, "getJDialog", javax.swing.JDialog.class, false));
         final Field localizerInstance = localizer.getDeclaredField("a");
         if (!Modifier.isPublic(localizerInstance.getModifiers())
             || !Modifier.isStatic(localizerInstance.getModifiers())
@@ -507,7 +514,7 @@ public final class OfficialPsdFixturePreparation {
         return new HostAccess(loader, artifact, digest, app, appInstance, mainFrame, cFrameGetter,
             swingWindow, swingFrame, option, optionModel, optionLabel, previewOption, previewLabel,
             previewRatio, renderer, hostList, hostButton, hostButtonSubclass, action, firstLabel,
-            secondLabel, title, message, previewTitle, previewMessage);
+            secondLabel, title, message, previewTitle, previewMessage, homeAccess);
     }
 
     private static String localized(final Method localize, final Object instance,
@@ -1506,7 +1513,7 @@ public final class OfficialPsdFixturePreparation {
                 TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()));
             final EdtCall<F1CopyPasteResult> copyPasteCall = invokeEdtBounded(
                 () -> copyPasteF1OnEdt(input, before, window, host, preparedTables,
-                    target.artMeshId()), remainingMillis);
+                    target.artMeshId(), deadline), remainingMillis);
             if (!copyPasteCall.completed()) throw blocked("F1 COPY/PASTE EDT operation timed out");
             if (copyPasteCall.failure() != null) throw asException(copyPasteCall.failure());
             action = copyPasteCall.value();
@@ -1615,7 +1622,8 @@ public final class OfficialPsdFixturePreparation {
 
     private F1CopyPasteResult copyPasteF1OnEdt(final InputIdentity input,
         final ModelState before, final Window window, final HostAccess host,
-        final List<F1PreparedTable> tables, final String artMeshId) throws Exception {
+        final List<F1PreparedTable> tables, final String artMeshId, final long deadline)
+        throws Exception {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
             "F1 COPY/PASTE must run on EDT");
         checkStoppedAndTask(input);
@@ -1643,8 +1651,17 @@ public final class OfficialPsdFixturePreparation {
         if (!row.target().visible() || row.target().locked()) throw blocked(
             "F1 exact ArtMesh row is hidden or locked");
         final Set<Window> dialogsBefore = visibleDialogsOnEdt();
-        if (!dialogsBefore.isEmpty()) throw blocked(
-            "F1 has an unknown visible dialog before COPY: " + dialogsBefore.size());
+        if (!dialogsBefore.isEmpty()) {
+            // The official home/progress window may still be retiring when model
+            // relations first become available. Keep all COPY/PASTE actions blocked
+            // until it disappears, under the existing preparation deadline.
+            recordModelWaitDialogsOnEdt(window);
+            properties.setProperty("prepare.f1.copyPaste.waitingDialogs",
+                Integer.toString(dialogsBefore.size()));
+            closeExactHomeOnEdt(input, before, window, host, dialogsBefore, deadline);
+            return F1CopyPasteResult.retry(
+                "F1 awaits absence of visible dialogs before COPY: " + dialogsBefore.size());
+        }
         final ModelState expected = current.state();
         return executeF1CopyPasteOnEdt(expected, artMeshId, window,
             () -> currentWindowForF1(host), this::currentModelOnEdt,
@@ -1674,6 +1691,37 @@ public final class OfficialPsdFixturePreparation {
                     return after.stream().anyMatch(dialog -> !dialogsBefore.contains(dialog));
                 }
             });
+    }
+
+    /** Close only the official home singleton's own dialog, as its title-bar close does. */
+    private void closeExactHomeOnEdt(final InputIdentity input, final ModelState before,
+        final Window window, final HostAccess host, final Set<Window> visible,
+        final long deadline) throws Exception {
+        if (homeCloseAttempted || visible.size() != 1) return;
+        final HomeAccess access = host.homeAccess();
+        final Object home = access.instance().invoke(null);
+        if (home == null || access.controller().invoke(home) != host.appInstance().invoke(null)) return;
+        final Object nativeWindow = access.window().invoke(null, home);
+        if (nativeWindow == null) return;
+        final javax.swing.JDialog dialog = (javax.swing.JDialog) access.dialog().invoke(nativeWindow);
+        if (dialog == null || !visible.contains(dialog) || dialog.getOwner() != window
+            || !dialog.isShowing() || !dialog.isDisplayable()) return;
+        final int operation = dialog.getDefaultCloseOperation();
+        properties.setProperty("prepare.f1.home.closeOperation", Integer.toString(operation));
+        if (operation != javax.swing.WindowConstants.HIDE_ON_CLOSE
+            && operation != javax.swing.WindowConstants.DISPOSE_ON_CLOSE) return;
+        checkStoppedAndTask(input);
+        if (System.nanoTime() >= deadline || currentWindowOnEdt(host, false) != window
+            || !sameModelIdentity(before, currentModelOnEdt())
+            || access.instance().invoke(null) != home
+            || access.window().invoke(null, home) != nativeWindow
+            || access.dialog().invoke(nativeWindow) != dialog) return;
+        homeCloseAttempted = true;
+        properties.setProperty("prepare.f1.home.window", windowIdentity(dialog));
+        properties.setProperty("prepare.f1.home.close", "DISPATCHED");
+        dialog.dispatchEvent(new java.awt.event.WindowEvent(dialog,
+            java.awt.event.WindowEvent.WINDOW_CLOSING));
+        properties.setProperty("prepare.f1.home.close", "RETURNED");
     }
 
     private static F1ResolvedRow selectF1ResolvedRow(final List<F1ResolvedRow> matches)
@@ -2700,7 +2748,10 @@ public final class OfficialPsdFixturePreparation {
         Method optionLabel, Class<?> previewOption, Method previewLabel, Method previewRatio,
         Class<?> renderer, Class<?> hostList, Class<?> hostButton, Class<?> hostButtonSubclass,
         Class<?> action, String firstLabel, String secondLabel, String title, String message,
-        String previewTitle, String previewMessage) { }
+        String previewTitle, String previewMessage, HomeAccess homeAccess) { }
+
+    private record HomeAccess(Method instance, Method controller, Method window,
+        Method dialog) { }
 
     private record PreparedInput(InputIdentity identity, PreparationProfile profile) { }
 
