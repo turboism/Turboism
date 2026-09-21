@@ -364,6 +364,7 @@ public final class NativeWarpAltMirrorBridge {
         }
     }
 
+    /** Route diagnostics: reports the drag dispatch once, then throttled ticks. */
     public static void diagDragDispatch(final Object event) {
         if (REPORTED_SKIPS.add("route:dragDispatch")) {
             diagEventModifiers(event, "DRAG_DISPATCH");
@@ -371,6 +372,7 @@ public final class NativeWarpAltMirrorBridge {
         diagEventModifiersThrottled(event, "DRAG_DISPATCH_TICK");
     }
 
+    /** Route diagnostics: reports the selected-point move entry. */
     public static void diagMoveSelected(final Object event) {
         diagEventModifiers(event, "MOVE_SELECTED");
     }
@@ -548,6 +550,7 @@ public final class NativeWarpAltMirrorBridge {
         }
     }
 
+    /** Route diagnostics: reports the doc-level point write with index and position when resolvable. */
     public static void diagPointMove(final Object ref) {
         try {
             if (ref == null) return;
