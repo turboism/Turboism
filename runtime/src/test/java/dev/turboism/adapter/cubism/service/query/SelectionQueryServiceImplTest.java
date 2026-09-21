@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.service.query;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.SelectionObservation;
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -148,7 +149,8 @@ class SelectionQueryServiceImplTest {
             new CubismFacadeImpl(source, permissionGate),
             permissionGate,
             broker,
-            broker.observationBaseline(SelectionSummary.class)
+            broker.observationBaseline(SelectionObservation.class),
+            source
         );
     }
 
