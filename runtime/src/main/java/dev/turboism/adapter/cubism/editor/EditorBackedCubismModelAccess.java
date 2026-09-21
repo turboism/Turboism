@@ -80,7 +80,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final VerifiedEditorAuthoringTransactionHost authoringHost;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Object generationLock = new Object();
-    private String lazyPublishAttemptedIdentity;
     /**
      * Identity cache for generation tracking only. The bound values are held weakly so that a closed
      * document, its model source and its model instance do not stay reachable for the whole life of this
@@ -184,7 +183,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::requireCurrent,
             this.morphTargetAccess,
             this.evaluatedJoin,
-            this::lazyPublishOnce,
             this.hierarchyEditAccess,
             this.authoringCoordinator,
             this::authoringParticipationBinding
@@ -345,17 +343,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         synchronized (generationLock) {
             currentGeneration = generation;
         }
-        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin join = evaluatedJoin;
-        if (join != null && model != join.publishedModel()) {
-            // Publish follows the binding: the evaluated join must trace the model that is
-            // actually bound, not a previously published one. Best-effort — a failed publish
-            // still surfaces as MODEL_UNAVAILABLE on the evaluated read path.
-            try {
-                join.tryPublish(model, sessionIdentity + ":" + id);
-            } catch (RuntimeException publishFailure) {
-                // best-effort: evaluated reads fail closed through the join as before
-            }
-        }
         return new Binding(
             identity,
             currentGeneration,
@@ -396,17 +383,24 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         final Object source,
         final Object model
     ) {
+        final boolean changed;
+        final String identity;
         synchronized (generationLock) {
             if (document != cachedIdentity(activeDocument)
                 || source != cachedIdentity(activeSource)
                 || model != cachedIdentity(activeModel)) {
+                changed = generation != 0;
                 activeDocument = new WeakReference<>(document);
                 activeSource = new WeakReference<>(source);
                 activeModel = new WeakReference<>(model);
                 generation = Math.incrementExact(generation);
+            } else {
+                changed = false;
             }
-            return sessionIdentity + ":" + modelId + ":" + generation;
+            identity = sessionIdentity + ":" + modelId + ":" + generation;
         }
+        if (changed) releaseUnboundBorrowedModel();
+        return identity;
     }
 
     /** @return the cached identity, or {@code null} when it was never bound or has already been collected. */
@@ -415,85 +409,17 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     }
 
     /**
-     * Lazy best-effort publication of the current Editor document model, attempted at most
-     * once per binding identity. Called when the first evaluated read fails with
-     * MODEL_UNAVAILABLE; the mark is written under the generation lock (short critical
-     * section, no resolver invocation inside), the resolution and publish run outside it.
-     *
-     * <p>Resolution follows the same verified alias chain as the host connector's
-     * resolveBorrowedModel. Any missing value or resolution failure yields false: the
-     * original MODEL_UNAVAILABLE failure propagates and this identity is never retried.
-     * A new binding identity (document/model switch) may attempt again.</p>
-     */
-    private boolean lazyPublishOnce(final String identity) {
-        synchronized (generationLock) {
-            if (identity.equals(lazyPublishAttemptedIdentity)) {
-                return false;
-            }
-            lazyPublishAttemptedIdentity = identity;
-        }
-        try {
-            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-            if (app == null) {
-                return false;
-            }
-            final Object document = resolver.invoke(
-                "cubism.editor-model.app-controller.current-document", app
-            );
-            if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
-                return false;
-            }
-            final Object source = resolver.invoke(
-                "cubism.editor-model.modeling-document.model-source", document
-            );
-            if (source == null) {
-                return false;
-            }
-            final Object model = resolver.invoke(
-                "cubism.editor-model.model-source.current-instance", source
-            );
-            if (!resolver.isInstance("cubism.editor-model.model.class", model)) {
-                return false;
-            }
-            final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
-            final Object rawModelId = resolver.invoke("cubism.editor-model.guid.value", guid);
-            if (!(rawModelId instanceof String modelId) || modelId.isBlank()) {
-                return false;
-            }
-            return evaluatedJoin.tryPublish(model, sessionIdentity + ":" + modelId);
-        } catch (RuntimeException unavailable) {
-            return false;
-        }
-    }
-
-    /**
-     * Best-effort release of the published borrowed Core model after a host project-file close:
-     * keeps it while it is still the active binding, otherwise asks the join to drop it as soon
-     * as no lease is outstanding. Resets the lazy-publish dedup so a re-bound document may
-     * publish again. Never throws; safe to call from lifecycle listeners.
+     * Drops borrowed Core state after a project close. Editor CModel identity cannot prove
+     * ownership of a Core CubismModel; a future verified acquisition path must rebind it.
      */
     @Override
     public void releaseUnboundBorrowedModel() {
         try {
-            final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin join = evaluatedJoin;
-            if (join == null) {
-                return;
+            if (evaluatedJoin != null) {
+                evaluatedJoin.releaseBorrowedModelWhenIdle();
             }
-            boolean stillBound;
-            try {
-                stillBound = binding().model() == join.publishedModel();
-            } catch (RuntimeException unbound) {
-                stillBound = false;
-            }
-            if (stillBound) {
-                return;
-            }
-            synchronized (generationLock) {
-                lazyPublishAttemptedIdentity = null;
-            }
-            join.releaseBorrowedModelWhenIdle();
         } catch (RuntimeException releaseFailure) {
-            // best-effort: a release failure must not break the project-file lifecycle listener
+            // A best-effort release must not break the project-file lifecycle listener.
         }
     }
 

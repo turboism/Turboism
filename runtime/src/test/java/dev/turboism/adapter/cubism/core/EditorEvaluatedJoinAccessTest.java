@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,6 +37,7 @@ class EditorEvaluatedJoinAccessTest {
         final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
 
         try (CountingHarness harness = countingHarness("5.3.02")) {
+            harness.source.delegate.publishBorrowedModel(editor.coreModel, "session-a:model-a");
             final var access = new EditorBackedCubismModelAccess(
                 editor.resolver, "session-a", harness.join
             );
@@ -76,6 +76,7 @@ class EditorEvaluatedJoinAccessTest {
         final Fixture editor = new Fixture(first, canvasReads::incrementAndGet);
 
         try (CountingHarness harness = countingHarness("5.3.02")) {
+            harness.source.delegate.publishBorrowedModel(editor.coreModel, "session-a:model-a");
             final var access = new EditorBackedCubismModelAccess(
                 editor.resolver, "session-a", harness.join
             );
@@ -100,6 +101,7 @@ class EditorEvaluatedJoinAccessTest {
         final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
 
         try (CountingHarness harness = countingHarness("5.3.02")) {
+            harness.source.delegate.publishBorrowedModel(editor.coreModel, "session-a:model-a");
             final var access = new EditorBackedCubismModelAccess(
                 editor.resolver, "session-a", harness.join
             );
@@ -149,6 +151,7 @@ class EditorEvaluatedJoinAccessTest {
         final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
 
         try (CountingHarness harness = countingHarness("5.3.02")) {
+            harness.source.delegate.publishBorrowedModel(editor.coreModel, "session-a:model-a");
             final var access = new EditorBackedCubismModelAccess(
                 editor.resolver, "session-a", harness.join
             );
@@ -162,217 +165,61 @@ class EditorEvaluatedJoinAccessTest {
     }
 
     @Test
-    void firstEvaluatedReadLazilyPublishesTheCurrentEditorModelAndReturnsRealValues() {
-        final AtomicInteger canvasReads = new AtomicInteger();
-        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
-        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
-
-        try (CountingHarness harness = countingHarness("5.3.02")) {
-            final var access = new EditorBackedCubismModelAccess(
-                editor.resolver, "session-a", harness.join
-            );
-            final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
-
-            // The join has no active model: the first evaluated read lazily publishes the
-            // current Editor document model, then returns real values.
-            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
-            assertEquals(0x04, Byte.toUnsignedInt(mesh.constantFlag()));
-            assertEquals(11, mesh.renderOrder());
-            assertEquals(1, harness.source.publishes.get(), "first evaluated read publishes exactly once");
-            assertEquals(
-                java.util.List.of("session-a:model-a"),
-                harness.source.identities,
-                "lazy publish uses the borrowed-model identity format"
-            );
-            assertEquals(1, canvasReads.get(), "the retry takes the one bulk snapshot");
-
-            // A second SDK object in the same generation reuses the snapshot and never
-            // publishes again.
-            final Drawable again = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
-            assertEquals(BlendMode.ADDITIVE, again.blendMode());
-            assertEquals(1, harness.source.publishes.get(), "same binding identity never re-publishes");
-        }
-    }
-
-    @Test
-    void bindingNeverPublishesWithoutACurrentDocument() {
-        final AtomicInteger canvasReads = new AtomicInteger();
-        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
-        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
-        Host.documentServesLeft.set(0);
-        try {
-            try (CountingHarness harness = countingHarness("5.3.02")) {
-                final var access = new EditorBackedCubismModelAccess(
-                    editor.resolver, "session-a", harness.join
-                );
-
-                assertThrows(IllegalStateException.class, access::active);
-                assertEquals(
-                    0,
-                    harness.source.publishes.get(),
-                    "no publish without a resolvable binding"
-                );
-
-                // The document returns: the next binding publishes it and reads work.
-                Host.documentServesLeft.set(-1);
-                final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
-                assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
-                assertEquals(1, harness.source.publishes.get());
-            }
-        } finally {
-            Host.documentServesLeft.set(-1);
-        }
-    }
-
-    @Test
-    void lazyPublishIsRetriedAfterTheDocumentSwitchChangesTheIdentity() {
-        final AtomicInteger canvasReads = new AtomicInteger();
-        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
-        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
-
+    void editorBindingNeverPublishesAnEditorModelAsACoreModel() {
+        final Fixture editor = new Fixture();
         try (CountingHarness harness = countingHarness("5.3.02")) {
             final var access = new EditorBackedCubismModelAccess(
                 editor.resolver, "session-a", harness.join
             );
             final Drawable first = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
-            assertEquals(BlendMode.ADDITIVE, first.blendMode());
-            assertEquals(1, harness.source.publishes.get());
-
-            // The document closes (clearing the borrowed model) and a new document opens:
-            // the binding identity changes, so lazy publish may attempt once more.
-            harness.source.delegate.clearBorrowedModel();
-            Host.document = new Document(coreModel, canvasReads::incrementAndGet);
-
+            assertEquals(0.75F, first.getOpacity());
+            assertThrows(IllegalStateException.class, first::constantFlag);
+            assertThrows(IllegalStateException.class, access.active()::mocInfo);
+            Host.document = new Document();
             final Drawable second = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
-            assertEquals(BlendMode.ADDITIVE, second.blendMode());
-            assertEquals(2, harness.source.publishes.get(), "a new binding identity may lazy publish again");
+            assertThrows(IllegalStateException.class, second::constantFlag);
+            assertThrows(IllegalStateException.class, first::getOpacity);
+            assertEquals(0, harness.source.publishes.get());
+            assertNull(harness.source.publishedModel());
+            assertFalse(TestCoreApiFixture.Model.class.isInstance(Host.document.source.model));
         }
     }
 
     @Test
-    void evaluatedReadsRebindAfterAnIdleReleaseRepublishesUnderTheSameIdentity() {
-        final AtomicInteger canvasReads = new AtomicInteger();
-        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
-        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
-
+    void switchingEditorDocumentsCannotReuseThePreviousCoreModel() {
+        final Fixture editor = new Fixture(lazyCoreModel(4, 33, 1, 3, 11), () -> { });
         try (CountingHarness harness = countingHarness("5.3.02")) {
+            harness.source.delegate.publishBorrowedModel(editor.coreModel, "session-a:model-a");
             final var access = new EditorBackedCubismModelAccess(
                 editor.resolver, "session-a", harness.join
             );
-            final CubismModel model = access.active();
-            final Drawable mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
-            assertEquals(0x04, Byte.toUnsignedInt(mesh.constantFlag()));
-            assertEquals(1, canvasReads.get());
-            assertEquals(1, harness.source.publishes.get());
-
-            harness.source.releaseWhenIdle();
-
-            // The same document re-binds under the same identity: the cleared pin re-traces the
-            // republished model (a second canvas read) instead of failing stale forever.
-            assertEquals(0x04, Byte.toUnsignedInt(mesh.constantFlag()));
-            assertEquals(2, canvasReads.get(), "the dropped pin re-traces the republished model");
-            assertEquals(2, harness.source.publishes.get());
+            final Drawable first = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
+            assertEquals(BlendMode.ADDITIVE, first.blendMode());
+            Host.document = new Document();
+            final Drawable second = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
+            assertThrows(IllegalStateException.class, first::getOpacity);
+            assertThrows(IllegalStateException.class, second::constantFlag);
+            assertNull(harness.source.publishedModel());
         }
     }
 
     @Test
-    void documentSwitchRepublishesAndServesTheNewModel() {
-        final AtomicInteger canvasReads = new AtomicInteger();
-        final Fixture editor = new Fixture(
-            lazyCoreModel(0x04, 0x21, 1, 3, 11), canvasReads::incrementAndGet
-        );
-
+    void projectCloseReleasesCoreStateWithoutRepublishingTheEditorObject() {
+        final Fixture editor = new Fixture(lazyCoreModel(4, 33, 1, 3, 11), () -> { });
         try (CountingHarness harness = countingHarness("5.3.02")) {
-            final var access = new EditorBackedCubismModelAccess(
-                editor.resolver, "session-a", harness.join
-            );
-            assertEquals(
-                0x04,
-                Byte.toUnsignedInt(
-                    access.active().drawables().find(new ArtMeshId("ArtMeshFace")).constantFlag()
-                )
-            );
-
-            // The user switches to another open document without closing the first: the next
-            // binding publishes the new model, so evaluated reads serve its data — never a
-            // stale join of the previously published one.
-            Host.document = new Document(
-                lazyCoreModel(0x08, 0x21, 1, 3, 11), canvasReads::incrementAndGet
-            );
-            assertEquals(
-                0x08,
-                Byte.toUnsignedInt(
-                    access.active().drawables().find(new ArtMeshId("ArtMeshFace")).constantFlag()
-                )
-            );
-            assertEquals(2, harness.source.publishes.get());
-        }
-    }
-
-    @Test
-    void releaseUnboundBorrowedModelKeepsTheStillBoundPublishedModel() {
-        final AtomicInteger canvasReads = new AtomicInteger();
-        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
-        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
-
-        try (CountingHarness harness = countingHarness("5.3.02")) {
+            harness.source.delegate.publishBorrowedModel(editor.coreModel, "session-a:model-a");
             final var access = new EditorBackedCubismModelAccess(
                 editor.resolver, "session-a", harness.join
             );
             final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
             assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
-            assertNotNull(harness.source.publishedModel(), "lazy publish held the model");
-
             access.releaseUnboundBorrowedModel();
-
-            assertNotNull(
-                harness.source.publishedModel(),
-                "the published model is still the active binding: no release"
-            );
-            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
+            assertNull(harness.source.publishedModel());
+            assertThrows(IllegalStateException.class, mesh::constantFlag);
+            assertEquals(0, harness.source.publishes.get());
         }
     }
 
-    @Test
-    void releaseUnboundBorrowedModelDropsTheModelAndReArmsLazyPublish() {
-        final AtomicInteger canvasReads = new AtomicInteger();
-        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
-        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
-
-        try (CountingHarness harness = countingHarness("5.3.02")) {
-            final var access = new EditorBackedCubismModelAccess(
-                editor.resolver, "session-a", harness.join
-            );
-            final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
-            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
-            assertEquals(1, harness.source.publishes.get());
-
-            Host.documentServesLeft.set(0);
-            try {
-                access.releaseUnboundBorrowedModel();
-            } finally {
-                Host.documentServesLeft.set(-1);
-            }
-            assertNull(
-                harness.source.publishedModel(),
-                "the binding is gone: the borrowed model is forgotten"
-            );
-
-            // The same document objects rebind under the same identity: the release reset the
-            // lazy-publish dedup and the cleared pin re-traces instead of failing stale.
-            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
-            assertEquals(
-                2,
-                harness.source.publishes.get(),
-                "a re-bound identity may lazily publish again after the release"
-            );
-        }
-    }
-
-    /**
-     * Core fixture data for lazy-publish tests: the counter is wired on the fixture's
-     * combined model instead (the base copy is only read while the fixture is built).
-     */
     private static TestCoreApiFixture.Model lazyCoreModel(
         final int constantFlag,
         final int dynamicFlag,
@@ -424,7 +271,7 @@ class EditorEvaluatedJoinAccessTest {
         );
     }
 
-    /** Counting harness: the source stays unpublished; binding() publishes the bound model. */
+    /** Core publication is explicit; Editor bindings never publish. */
     private static CountingHarness countingHarness(final String artifactProfile) {
         final CoreParts parts = coreParts(artifactProfile);
         return new CountingHarness(new CountingSource(), parts.provider(), parts.tracer());
@@ -472,8 +319,8 @@ class EditorEvaluatedJoinAccessTest {
     }
 
     /**
-     * Counting source: records every lazy-publish attempt on top of a real borrowed source,
-     * so tests can assert the "at most once per binding identity" state machine.
+     * Counts publication attempts so Editor binding and evaluated reads can prove that they
+     * never substitute an Editor model for the separately supplied Core model.
      */
     private static final class CountingSource implements ActiveCoreModelSource {
         final BorrowedCoreModelSource delegate = new BorrowedCoreModelSource();
@@ -544,6 +391,7 @@ class EditorEvaluatedJoinAccessTest {
     private static final class Fixture {
         final VerifiedMemberResolver resolver;
         final Host host = new Host();
+        TestCoreApiFixture.Model coreModel;
 
         Fixture() {
             Host.document = new Document();
@@ -556,9 +404,14 @@ class EditorEvaluatedJoinAccessTest {
             );
         }
 
-        /** Fixture whose current model also carries the Core fixture data (combined model). */
+        /** Distinct Editor and Core objects, matching the real host type boundary. */
         Fixture(final TestCoreApiFixture.Model core, final Runnable beforeCanvasRead) {
-            Host.document = new Document(core, beforeCanvasRead);
+            Host.document = new Document();
+            coreModel = new TestCoreApiFixture.Model(
+                core.getCanvasInfo(), core.getParameters(), core.getParts(),
+                core.getDrawables(), core.getDeformers(), core.getGlues(), core.getMoc(),
+                beforeCanvasRead
+            );
             resolver = TestVerifiedResolvers.create(
                 "5.3.02",
                 EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
@@ -684,31 +537,13 @@ class EditorEvaluatedJoinAccessTest {
     }
 
     public static final class Document {
-        public ModelSource modelSource() {
-            return Host.document == this ? source : source;
-        }
-        private final ModelSource source;
-
-        Document() {
-            this(null, null);
-        }
-
-        Document(final TestCoreApiFixture.Model core, final Runnable beforeCanvasRead) {
-            source = new ModelSource(core, beforeCanvasRead);
-        }
+        private final ModelSource source = new ModelSource();
+        public ModelSource modelSource() { return source; }
     }
 
     public static final class ModelSource {
         private final ArtMeshSource meshSource = new ArtMeshSource("ArtMeshFace");
-        private final Model model;
-
-        ModelSource() {
-            this(null, null);
-        }
-
-        ModelSource(final TestCoreApiFixture.Model core, final Runnable beforeCanvasRead) {
-            model = core == null ? new Model(meshSource) : new Model(meshSource, core, beforeCanvasRead);
-        }
+        private final Model model = new Model(meshSource);
 
         public Id guid() {
             return new Id("model-a");
@@ -735,40 +570,10 @@ class EditorEvaluatedJoinAccessTest {
         }
     }
 
-    public static final class Model extends TestCoreApiFixture.Model {
+    public static final class Model {
         private final List<ArtMesh> meshes = new ArrayList<>();
 
         Model(final ArtMeshSource source) {
-            super(
-                new TestCoreApiFixture.CanvasInfo(
-                    new float[]{1000.0F, 500.0F}, new float[]{500.0F, 250.0F}, 100.0F
-                ),
-                new TestCoreApiFixture.Parameters(
-                    new String[0], new TestCoreApiFixture.ParameterType[0], new float[0],
-                    new float[0], new float[0], new float[0], new int[0], new float[0][],
-                    new boolean[0]
-                ),
-                TestCoreApiFixture.Parts.empty(),
-                TestCoreApiFixture.Drawables.empty(),
-                TestCoreApiFixture.Deformers.empty(),
-                TestCoreApiFixture.Glues.empty(),
-                new TestCoreApiFixture.Moc(6),
-                () -> { }
-            );
-            meshes.add(new ArtMesh(source));
-        }
-
-        /**
-         * Combined fixture model: the same object implements the editor model surface (this
-         * class) and the Core API surface ({@link TestCoreApiFixture.Model}), mirroring the
-         * real host where the Editor current instance is the Core model.
-         */
-        Model(final ArtMeshSource source, final TestCoreApiFixture.Model core, final Runnable beforeCanvasRead) {
-            super(
-                core.getCanvasInfo(), core.getParameters(), core.getParts(),
-                core.getDrawables(), core.getDeformers(), core.getGlues(),
-                core.getMoc(), beforeCanvasRead
-            );
             meshes.add(new ArtMesh(source));
         }
 

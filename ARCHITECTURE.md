@@ -163,7 +163,12 @@ Turboism-owned detached model
 
 For an Editor-attached model, Editor authoring state is the only write source of truth. Turboism does not maintain bidirectional synchronization between a separate Core mutation state and Editor state.
 
-Core remains responsible for evaluation, rendering-facing state, and result reads. A natural `setValue` call is routed through the Editor authoring path when the object belongs to an Editor document.
+Core remains responsible for evaluation, rendering-facing state, and result reads.
+Editor `CModel` and Core `CubismModel` are distinct objects. The admitted Editor
+selectors currently provide no verified acquisition path to a borrowed Core model;
+Core-only evaluated properties remain unavailable in that case. Event snapshots
+preserve unavailable optional metadata without blocking verified Editor authoring
+writes or inventing evaluated values. A natural `setValue` call is routed through the Editor authoring path when the object belongs to an Editor document.
 
 ## 5. Reference lifecycle
 
