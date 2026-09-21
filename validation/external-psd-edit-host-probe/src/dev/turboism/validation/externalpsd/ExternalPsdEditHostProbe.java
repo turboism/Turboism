@@ -3953,6 +3953,63 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         throw new IllegalStateException(diagnostic);
     }
 
+    /**
+     * Applies the cycle's fail-closed raw-delta gate. ZERO is diagnostic-only and keeps the
+     * historical NOT_ATTEMPTED result; every ambiguous, unavailable, identity-changed, or
+     * mismatched unique candidate is recorded as REJECTED and aborts the cycle. A unique
+     * candidate is returned only when it is the explicit APPLIED after raw.
+     */
+    static Optional<RawImageId> requireRawImageDeltaForCycle(final Properties result,
+        final String prefix, final RawImageRelationDelta delta, final RawImageId explicitAfter) {
+        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(delta, "delta");
+        final String normalizedPrefix = normalizePrefix(prefix);
+        switch (delta.status()) {
+            case ZERO -> {
+                if (!delta.addedRawImages().isEmpty()) {
+                    final String diagnostic = "ZERO raw delta contains unexpected candidates: "
+                        + delta.addedRawImages();
+                    recordRejectedRawDelta(result, normalizedPrefix, diagnostic);
+                    throw new IllegalStateException(diagnostic);
+                }
+                recordNoNewRawObserved(result, normalizedPrefix,
+                    "no new raw image was present in the import relation difference");
+                return Optional.empty();
+            }
+            case UNIQUE -> {
+                if (delta.addedRawImages().size() != 1) {
+                    final String diagnostic = "UNIQUE raw delta does not contain exactly one "
+                        + "candidate: " + delta.addedRawImages();
+                    recordRejectedRawDelta(result, normalizedPrefix, diagnostic);
+                    throw new IllegalStateException(diagnostic);
+                }
+                final RawImageId candidate = delta.addedRawImages().get(0);
+                if (explicitAfter == null || !candidate.equals(explicitAfter)) {
+                    final String diagnostic = "unique raw-set candidate is not the explicit "
+                        + "APPLIED after raw; no guess made: candidate=" + candidate
+                        + " explicitAfter=" + explicitAfter;
+                    recordRejectedRawDelta(result, normalizedPrefix, diagnostic);
+                    throw new IllegalStateException(diagnostic);
+                }
+                return Optional.of(candidate);
+            }
+            case MULTIPLE, IDENTITY_CHANGED, UNAVAILABLE -> {
+                final String diagnostic = "raw relation delta is not uniquely attributable: "
+                    + delta.status() + " " + delta.diagnostic();
+                recordRejectedRawDelta(result, normalizedPrefix, diagnostic);
+                throw new IllegalStateException(diagnostic);
+            }
+        }
+        throw new AssertionError("unhandled raw relation delta status: " + delta.status());
+    }
+
+    private static void recordRejectedRawDelta(final Properties result, final String prefix,
+        final String diagnostic) {
+        final String normalizedPrefix = normalizePrefix(prefix);
+        result.setProperty(normalizedPrefix + ".raw.new.status", "REJECTED");
+        result.setProperty(normalizedPrefix + ".raw.new.diagnostic", diagnostic);
+    }
+
     private static void recordRawRelationImportFailure(final Properties result,
         final String prefix, final Throwable failure) {
         final String normalizedPrefix = normalizePrefix(prefix);
@@ -3990,7 +4047,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * must never be labelled as {@code raw.old}.
      */
     private void recordCycleOldRawFingerprint(final Properties result, final String prefix,
-        final Target oldTarget, final TempTracker tracker) {
+        final Target oldTarget, final TempTracker tracker) throws Exception {
         final String normalizedPrefix = normalizePrefix(prefix) + ".raw.old";
         final RawImageId oldRaw = oldTarget.raw();
         result.setProperty(normalizedPrefix + ".id", oldRaw.value());
@@ -3999,6 +4056,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty(normalizedPrefix + ".diagnosticOnly", "true");
         TrackedExport exported = null;
         Throwable primary = null;
+        boolean contentOnlyFailure = false;
         try {
             requireStableTargetBinding(result, oldTarget,
                 normalizedPrefix + ".targetBinding.before", 0L);
@@ -4015,12 +4073,22 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 throw new IllegalStateException("old raw disappeared or became ambiguous after export: "
                     + after);
             }
-            final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
-                Files.readAllBytes(exported.path()), normalizedPrefix + " old raw");
-            result.setProperty(normalizedPrefix + ".rgb.status", "AVAILABLE");
-            result.setProperty(normalizedPrefix + ".rgb.source",
-                "fresh native export of the old raw resource");
-            recordTargetFingerprint(result, normalizedPrefix + ".rgb", fingerprint);
+            try {
+                final PsdValidationContent.Fingerprint fingerprint = targetFingerprint(
+                    Files.readAllBytes(exported.path()), normalizedPrefix + " old raw");
+                result.setProperty(normalizedPrefix + ".rgb.status", "AVAILABLE");
+                result.setProperty(normalizedPrefix + ".rgb.source",
+                    "fresh native export of the old raw resource");
+                recordTargetFingerprint(result, normalizedPrefix + ".rgb", fingerprint);
+            } catch (Exception contentFailure) {
+                // Missing/malformed old RGB is diagnostic-only; the identity and export-handle
+                // gates above remain phase-fatal.
+                primary = contentFailure;
+                contentOnlyFailure = true;
+                result.setProperty(normalizedPrefix + ".rgb.status", "UNAVAILABLE");
+                result.setProperty(normalizedPrefix + ".rgb.diagnostic",
+                    contentFailure.toString());
+            }
         } catch (Exception failure) {
             primary = failure;
             result.setProperty(normalizedPrefix + ".rgb.status", "UNAVAILABLE");
@@ -4032,14 +4100,17 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         } finally {
             if (exported != null) {
                 try {
-                    stopPreservingPrimary(tracker, exported, result, primary);
+                    tracker.stop(exported, result);
                 } catch (Throwable cleanup) {
                     result.setProperty(normalizedPrefix + ".stopStatus", "FAILED");
                     result.setProperty(normalizedPrefix + ".stopDiagnostic", cleanup.toString());
                     if (primary != null) addSuppressed(primary, cleanup);
+                    else primary = cleanup;
+                    contentOnlyFailure = false;
                 }
             }
         }
+        if (primary != null && !contentOnlyFailure) rethrowCleanup(primary);
     }
 
     /** Captures the candidate and target relation on the EDT; currentRaw is diagnostic only. */
@@ -4351,31 +4422,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             recordRawImageRelationDelta(result, prefix + "rawRelation", delta);
             requireExpectedRawForDelta(result, prefix + "rawRelation",
                 prefix + "raw.new", beforeTarget.raw(), relationsBefore, relationsAfter, delta);
-            switch (delta.status()) {
-                case ZERO -> recordNoNewRawObserved(result, prefix,
-                    "no new raw image was present in the import relation difference");
-                case UNIQUE -> {
-                    final RawImageId newCandidate = delta.addedRawImages().get(0);
-                    if (!newCandidate.equals(appliedTarget.raw())) {
-                        result.setProperty(prefix + "raw.new.status", "REJECTED");
-                        result.setProperty(prefix + "raw.new.diagnostic",
-                            "unique raw-set candidate is not the explicit APPLIED after raw; no guess made");
-                    } else {
-                        inspectUniqueNewRaw(
-                            result, prefix + "raw.new", beforeTarget.raw(), delta,
-                            candidate -> trackedRawExportHandle(
-                                result, appliedTarget, tracker, prefix + "raw.new", candidate));
-                    }
-                }
-                case MULTIPLE -> {
-                    result.setProperty(prefix + "raw.new.status", "REJECTED");
-                    result.setProperty(prefix + "raw.new.diagnostic",
-                        "multiple new raw candidates; no raw was guessed");
-                }
-                case IDENTITY_CHANGED, UNAVAILABLE -> {
-                    result.setProperty(prefix + "raw.new.status", "REJECTED");
-                    result.setProperty(prefix + "raw.new.diagnostic", delta.diagnostic());
-                }
+            final Optional<RawImageId> newCandidate = requireRawImageDeltaForCycle(
+                result, prefix, delta, appliedTarget.raw());
+            if (newCandidate.isPresent()) {
+                inspectUniqueNewRaw(
+                    result, prefix + "raw.new", beforeTarget.raw(), delta,
+                    candidate -> trackedRawExportHandle(
+                        result, appliedTarget, tracker, prefix + "raw.new", candidate));
             }
 
             if (validateTargetContent) {

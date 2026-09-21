@@ -1074,6 +1074,53 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals("MULTIPLE", result.getProperty("cycle.2.rawRelation.status"),
             "multiple raw status is recorded");
 
+        final Properties zeroGate = new Properties();
+        assertTrue(ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+            zeroGate, "cycle.0.", zero, newRaw).isEmpty(),
+            "ZERO delta remains diagnostic-only");
+        assertEquals("NOT_ATTEMPTED", zeroGate.getProperty("cycle.0.raw.new.status"),
+            "ZERO delta keeps the historical NOT_ATTEMPTED raw export status");
+
+        final Properties lineageGate = new Properties();
+        assertEquals(newRaw, ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+            lineageGate, "cycle.ab.", unique, newRaw).orElseThrow(),
+            "A→B unique candidate is accepted only for explicit after raw");
+        final var nextUnique = ExternalPsdEditHostProbe.rawImageRelationDelta(
+            rawRelationSnapshot("binding-1", 7, oldRaw, newRaw),
+            rawRelationSnapshot("binding-1", 7, oldRaw, newRaw, otherRaw));
+        assertEquals(otherRaw, ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+            lineageGate, "cycle.bc.", nextUnique, otherRaw).orElseThrow(),
+            "B→C unique candidate remains accepted for explicit after raw");
+
+        final Properties multipleGate = new Properties();
+        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+            multipleGate, "cycle.multiple.", multiple, newRaw),
+            "MULTIPLE delta remains fail-closed");
+        assertEquals("REJECTED", multipleGate.getProperty("cycle.multiple.raw.new.status"),
+            "MULTIPLE delta records rejection before aborting");
+
+        final Properties identityGate = new Properties();
+        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+            identityGate, "cycle.identity.", switched, newRaw),
+            "IDENTITY_CHANGED delta remains fail-closed");
+        assertEquals("REJECTED", identityGate.getProperty("cycle.identity.raw.new.status"),
+            "IDENTITY_CHANGED delta records rejection before aborting");
+
+        final Properties unavailableGate = new Properties();
+        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+            unavailableGate, "cycle.unavailable.", unavailable, newRaw),
+            "UNAVAILABLE delta remains fail-closed");
+        assertEquals("REJECTED", unavailableGate.getProperty(
+            "cycle.unavailable.raw.new.status"),
+            "UNAVAILABLE delta records rejection before aborting");
+
+        final Properties mismatchGate = new Properties();
+        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+            mismatchGate, "cycle.mismatch.", unique, otherRaw),
+            "unique candidate different from explicit after remains fail-closed");
+        assertEquals("REJECTED", mismatchGate.getProperty("cycle.mismatch.raw.new.status"),
+            "mismatched unique candidate records rejection before aborting");
+
         final AtomicInteger exports = new AtomicInteger();
         final AtomicInteger stops = new AtomicInteger();
         final byte[] validPsd = validationPsd();
@@ -1350,12 +1397,12 @@ public final class ExternalPsdEditHostProbeTest {
         expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawA),
-            targetB), "missing after raw is rejected");
+            targetB), "wrong current raw is rejected");
         expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshotWithRaws(
-                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawA,
-                List.of(rawA)),
-            targetB), "after raw absent from relations is rejected");
+                "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB,
+                List.of(rawA, rawC)),
+            targetB), "current after raw absent from relations is rejected");
         expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
