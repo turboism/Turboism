@@ -23,6 +23,7 @@ import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import java.util.function.LongSupplier;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Exact, generation-bound Editor projection of the model texture library.
@@ -80,6 +82,10 @@ final class EditorTextureAccess {
     private final EditorRawImagePsdAccess psdAccess;
     private final EditorRawImagePsdSourceBinding psdSourceBinding;
     private final EditorRawImagePsdReplaceAccess psdReplaceAccess;
+    private static final int MAX_EXPORT_DIAGNOSTIC_SESSIONS = 8;
+    private final Object exportDiagnosticGateLock = new Object();
+    private final LinkedHashMap<ExportSessionKey, ExportDiagnosticGate> exportDiagnosticGates =
+        new LinkedHashMap<>(MAX_EXPORT_DIAGNOSTIC_SESSIONS, 0.75f, true);
 
     EditorTextureAccess(
         final VerifiedMemberResolver resolver,
@@ -331,6 +337,89 @@ final class EditorTextureAccess {
         return failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
     }
 
+    /**
+     * Shares the one-shot export budget across every texture facade for one exact model session.
+     * The bounded LRU is keyed by object identity for source/model, plus the runtime binding and
+     * generation; no facade from another session can consume or observe this gate.
+     */
+    private ExportDiagnosticGate exportDiagnosticGate(
+        final String identity,
+        final Object source,
+        final Object model
+    ) {
+        final ExportSessionKey key = new ExportSessionKey(
+            identity,
+            generationSupplier.getAsLong(),
+            source,
+            model
+        );
+        synchronized (exportDiagnosticGateLock) {
+            final ExportDiagnosticGate existing = exportDiagnosticGates.get(key);
+            if (existing != null) return existing;
+            if (exportDiagnosticGates.size() >= MAX_EXPORT_DIAGNOSTIC_SESSIONS) {
+                final var oldest = exportDiagnosticGates.entrySet().iterator();
+                if (oldest.hasNext()) {
+                    oldest.next();
+                    oldest.remove();
+                }
+            }
+            final ExportDiagnosticGate created = new ExportDiagnosticGate(key);
+            exportDiagnosticGates.put(key, created);
+            return created;
+        }
+    }
+
+    private static final class ExportDiagnosticGate {
+        private final ExportSessionKey key;
+        private final AtomicBoolean consumed = new AtomicBoolean();
+
+        private ExportDiagnosticGate(final ExportSessionKey key) {
+            this.key = key;
+        }
+
+        private boolean consume() {
+            return consumed.compareAndSet(false, true);
+        }
+    }
+
+    private static final class ExportSessionKey {
+        private final String identity;
+        private final long generation;
+        private final Object source;
+        private final Object model;
+
+        private ExportSessionKey(
+            final String identity,
+            final long generation,
+            final Object source,
+            final Object model
+        ) {
+            this.identity = identity;
+            this.generation = generation;
+            this.source = source;
+            this.model = model;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (this == other) return true;
+            if (!(other instanceof ExportSessionKey key)) return false;
+            return generation == key.generation
+                && Objects.equals(identity, key.identity)
+                && source == key.source
+                && model == key.model;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hashCode(identity);
+            result = 31 * result + Long.hashCode(generation);
+            result = 31 * result + System.identityHashCode(source);
+            result = 31 * result + System.identityHashCode(model);
+            return result;
+        }
+    }
+
     @FunctionalInterface
     private interface Operation {
         Object apply(Object edit);
@@ -341,7 +430,6 @@ final class EditorTextureAccess {
         private final String identity;
         private final Object source;
         private final Object model;
-        private final AtomicBoolean exportDiagnosticConsumed = new AtomicBoolean();
 
         private EditorTextures(final String identity, final Object source, final Object model) {
             this.identity = identity;
@@ -457,75 +545,63 @@ final class EditorTextureAccess {
         @Override
         public Observation exportPsdTo(final RawImageId sourceId, final Path destination, final Runnable admission) {
             Objects.requireNonNull(admission, "admission");
+            final AtomicBoolean exportGuardSeen = new AtomicBoolean();
+            final AtomicBoolean postGuardStarted = new AtomicBoolean();
+            final AtomicReference<EditorTextureReplacementDiagnostic.ExportSession> diagnosticSession =
+                new AtomicReference<>();
             final EditorRawImagePsdAccess access = new EditorRawImagePsdAccess(resolver, (id, currentModel) -> {
                 admission.run();
+                final boolean firstGuard = exportGuardSeen.compareAndSet(false, true);
+                if (!firstGuard) postGuardStarted.set(true);
                 modelGuard.requireCurrent(id, currentModel);
+                if (!EditorTextureReplacementDiagnostic.enabled()) return;
+                if (firstGuard) {
+                    try {
+                        final ExportDiagnosticGate gate = exportDiagnosticGate(identity, source, model);
+                        final EditorRawImagePsdSourceBinding.BindingResult binding =
+                            psdSourceBinding.bindOnHostThread(source, sourceId);
+                        if (binding.status()
+                            != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED
+                            || !gate.consume()) {
+                            return;
+                        }
+                        final Object document = diagnosticDocument();
+                        EditorTextureReplacementDiagnostic.beginExport(
+                            resolver,
+                            identity,
+                            source,
+                            document,
+                            model,
+                            sourceId
+                        ).ifPresent(diagnosticSession::set);
+                    } catch (RuntimeException | LinkageError ignored) {
+                        // Diagnostic setup must not change admission or ordinary export behavior.
+                    }
+                    return;
+                }
+                final EditorTextureReplacementDiagnostic.ExportSession session = diagnosticSession.get();
+                if (session != null) session.finish(true, null);
             });
-            if (!EditorTextureReplacementDiagnostic.enabled() || exportDiagnosticConsumed.get()) {
-                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
-            }
-            return EditorHostThread.dispatch(
-                "Cubism PSD raw-image export diagnostic",
-                () -> exportPsdWithDiagnostic(access, sourceId, destination)
-            );
-        }
-
-        private Observation exportPsdWithDiagnostic(
-            final EditorRawImagePsdAccess access,
-            final RawImageId sourceId,
-            final Path destination
-        ) {
-            if (exportDiagnosticConsumed.get()) {
-                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
-            }
-
-            final EditorRawImagePsdSourceBinding.BindingResult binding;
-            try {
-                // The binding check is deliberately on this same EDT as the subsequent export.
-                // The export access repeats admission, guard, binding, save, and integrity checks
-                // immediately below; no host event can interleave these calls on this thread.
-                modelGuard.requireCurrent(identity, model);
-                binding = psdSourceBinding.bindOnHostThread(source, sourceId);
-            } catch (RuntimeException | LinkageError diagnosticBindingFailure) {
-                // Do not let diagnostic setup change the ordinary export result or exception.
-                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
-            }
-            if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED
-                || !exportDiagnosticConsumed.compareAndSet(false, true)) {
-                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
-            }
-
-            final Object document = diagnosticDocument();
-            final Optional<EditorTextureReplacementDiagnostic.ExportSession> diagnostic;
-            try {
-                diagnostic = EditorTextureReplacementDiagnostic.beginExport(
-                    resolver,
-                    identity,
-                    source,
-                    document,
-                    model,
-                    sourceId
-                );
-            } catch (RuntimeException | LinkageError ignored) {
-                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
-            }
-            if (diagnostic.isEmpty()) {
-                return exportObservation(access.exportPsd(identity, source, model, sourceId, destination));
-            }
-
-            final EditorTextureReplacementDiagnostic.ExportSession session = diagnostic.orElseThrow();
             try {
                 final EditorRawImagePsdAccess.ExportResult result =
                     access.exportPsd(identity, source, model, sourceId, destination);
-                try {
-                    modelGuard.requireCurrent(identity, model);
-                    session.finish(true, null);
-                } catch (RuntimeException | LinkageError postGuardFailure) {
-                    session.finish(false, "post-current-guard-failed:" + message(postGuardFailure));
+                final EditorTextureReplacementDiagnostic.ExportSession session =
+                    diagnosticSession.getAndSet(null);
+                if (session != null) {
+                    // A save that did not reach the access' second current-guard has no valid
+                    // post native read; the finish method records UNAVAILABLE without reading host.
+                    session.finish(false, "export-post-guard-not-observed");
                 }
                 return exportObservation(result);
             } catch (RuntimeException | LinkageError exportFailure) {
-                session.finish(false, "export-call-threw:" + message(exportFailure));
+                final EditorTextureReplacementDiagnostic.ExportSession session =
+                    diagnosticSession.getAndSet(null);
+                if (session != null) {
+                    final String cause = postGuardStarted.get()
+                        ? "post-current-guard-failed:" + message(exportFailure)
+                        : "export-call-threw:" + message(exportFailure);
+                    session.finish(false, cause);
+                }
                 throw exportFailure;
             }
         }
