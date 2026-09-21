@@ -166,6 +166,86 @@ class TextureAtlasPluginTest {
         plugin.shutdown();
     }
 
+    @Test
+    void legacySelectionIsMigratedOnlyWhileTheRuntimeSelectionIsUnset() {
+        // A stored v3 document carrying the user's algorithm preference upgrades to v4;
+        // the migration captures the legacy values for the one-time hand-off.
+        final TextureAtlasSettingsBinding binding = new TextureAtlasSettingsBinding();
+        upgradeFrom(binding, new dev.turboism.sdk.config.ConfigDocument(
+            3,
+            java.util.Map.of(
+                "algorithm", "maxrects",
+                "parallel", "true",
+                "layout-mode", "COMPACT")));
+
+        final ShellPluginContext context = new ShellPluginContext();
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin(binding);
+        plugin.init(context);
+        plugin.enable();
+        try {
+            // Nothing was ever selected, so the migrated preference is applied once.
+            assertEquals(
+                new TextureAtlasLayoutSelection("maxrects", true),
+                context.registry.selection());
+        } finally {
+            plugin.shutdown();
+        }
+    }
+
+    @Test
+    void explicitNativeRuntimeSelectionSurvivesALegacyUpgrade() {
+        final TextureAtlasSettingsBinding binding = new TextureAtlasSettingsBinding();
+        upgradeFrom(binding, new dev.turboism.sdk.config.ConfigDocument(
+            3,
+            java.util.Map.of(
+                "algorithm", "maxrects",
+                "parallel", "true",
+                "layout-mode", "COMPACT")));
+
+        final ShellPluginContext context = new ShellPluginContext();
+        // An explicit native choice was already recorded before the upgrade ran.
+        context.registry.select(new TextureAtlasLayoutSelection(
+            TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+            false));
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin(binding);
+        plugin.init(context);
+        plugin.enable();
+        try {
+            assertEquals(
+                TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+                context.registry.selection().algorithmId());
+            assertTrue(context.registry.selection().isNative());
+        } finally {
+            plugin.shutdown();
+        }
+    }
+
+    /**
+     * Drives the binding's registered migration chain over a stored document the
+     * way the config service does during read, so the legacy algorithm/parallel
+     * values land in the pending hand-off slot.
+     */
+    private static void upgradeFrom(
+        final TextureAtlasSettingsBinding binding,
+        dev.turboism.sdk.config.ConfigDocument stored
+    ) {
+        final DefaultPluginConfigRegistry registry = new DefaultPluginConfigRegistry();
+        binding.init(registry).toCompletableFuture().join();
+        while (stored.schemaVersion() < 4) {
+            for (final dev.turboism.sdk.config.ConfigMigration migration :
+                registry.lastMigrations()) {
+                if (migration.fromVersion() == stored.schemaVersion()) {
+                    try {
+                        stored = migration.migrate(stored);
+                    } catch (dev.turboism.sdk.config.ConfigMigrationException failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private static final class ShellPluginContext implements PluginContext {
         private final java.util.List<String> infoMessages = new java.util.ArrayList<>();
         private final java.util.List<String> warnMessages = new java.util.ArrayList<>();

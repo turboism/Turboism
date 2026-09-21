@@ -1048,6 +1048,14 @@ public final class CubismFacadeImpl implements CubismFacade {
                 requireActiveScope();
                 delegate.select(selection);
             }
+
+            @Override
+            public boolean selectIfUnset(
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection selection
+            ) {
+                requireActiveScope();
+                return delegate.selectIfUnset(selection);
+            }
         };
     }
 
