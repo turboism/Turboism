@@ -30,7 +30,10 @@ public interface SelectionQueryService {
     /**
      * Selection observations are published as
      * {@link dev.turboism.sdk.cubism.event.SelectionChangedEvent} through the plugin event bus.
-     * Because the current host integration is pull-based, an event is emitted only when a fresh
-     * query detects a transition; this API does not claim a native push subscription.
+     * Fresh queries and the session-bounded observer share one snapshot source and one
+     * versioned baseline: whichever path reads a newer snapshot commits the baseline and
+     * publishes the transition, so a query result and a later observed transition cannot
+     * double-publish or regress each other. There is still no native object-selection
+     * identity and no native push subscription behind this API.
      */
 }

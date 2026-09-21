@@ -96,6 +96,8 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "turboism.ui.appearance.modify", "turboism.ui.appearance.observe",
         "turboism.ui.toolbar.contribute", "turboism.config.plugin.read",
         "turboism.config.plugin.write", "turboism.event.subscribe", "turboism.event.publish",
+        "turboism.cubism.log.observe", "turboism.performance.sample.observe",
+        "turboism.action.invocation.observe", "turboism.plugin.lifecycle.observe",
         "turboism.performance.stats.read", "turboism.host.unsafe"
     );
 

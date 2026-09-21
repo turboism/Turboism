@@ -44,6 +44,7 @@ final class PreviewPluginLoader {
     private final PluginLifecycleLane lane;
     private final PluginLifecyclePolicy policy;
     private final RetainedPluginGenerations retention;
+    private final PluginLifecycleEvents lifecycleEvents;
 
     PreviewPluginLoader(
         final PreviewPluginContextFactory contextFactory,
@@ -76,6 +77,7 @@ final class PreviewPluginLoader {
         this.lane = java.util.Objects.requireNonNull(lane, "lane");
         this.policy = java.util.Objects.requireNonNull(policy, "policy");
         this.retention = java.util.Objects.requireNonNull(retention, "retention");
+        this.lifecycleEvents = new PluginLifecycleEvents(contextFactory.eventBroker(), log);
     }
 
     LocalPluginRuntime.LoadedPluginSummary load(
@@ -115,10 +117,15 @@ final class PreviewPluginLoader {
                         + " version=" + descriptor.version()
                         + " entrypoints=" + resources.entrypoints.size()
                 );
+                lifecycleEvents.loaded(
+                    descriptor.id(),
+                    result.value.eventOwner().key().generation()
+                );
                 yield PreviewPluginSummaryFactory.active(result.value);
             }
             case FAILED -> {
                 recordFailure(candidate, runtime, resources.classLoader, failures, result.failure);
+                lifecycleEvents.loadFailed(descriptor.id(), generation(resources));
                 retainIfIncomplete(resources, descriptor.id(), invocation);
                 yield null;
             }
@@ -132,6 +139,10 @@ final class PreviewPluginLoader {
                         "Plugin lifecycle lane is saturated or closed: " + descriptor.id()
                     )
                 );
+                lifecycleEvents.loadFailed(
+                    descriptor.id(),
+                    dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION
+                );
                 yield null;
             }
             case TIMED_OUT -> {
@@ -142,10 +153,22 @@ final class PreviewPluginLoader {
                         "Plugin load exceeded " + policy.loadTimeout() + ": " + descriptor.id()
                     )
                 );
+                lifecycleEvents.loadTimedOut(descriptor.id(), generation(resources));
                 retainIfIncomplete(resources, descriptor.id(), invocation);
                 yield null;
             }
         };
+    }
+
+    /**
+     * Generation admitted for this attempt, or {@code NO_ADMITTED_GENERATION} when the
+     * load failed before context creation admitted an event owner.
+     */
+    private static long generation(final LoadResources resources) {
+        final dev.turboism.core.event.RuntimeEventBroker.Owner owner = resources.eventOwner;
+        return owner == null
+            ? dev.turboism.sdk.runtime.PluginLifecycleEvent.NO_ADMITTED_GENERATION
+            : owner.key().generation();
     }
 
     /**

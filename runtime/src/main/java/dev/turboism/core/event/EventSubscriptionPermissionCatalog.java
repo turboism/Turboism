@@ -30,6 +30,7 @@ import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
+import dev.turboism.sdk.runtime.PluginLifecycleEvent;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
@@ -161,6 +162,9 @@ public final class EventSubscriptionPermissionCatalog {
         }
         if (subscriptionType.isAssignableFrom(ActionInvocationEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_ACTION_INVOCATION_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(PluginLifecycleEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_PLUGIN_LIFECYCLE_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
             || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)
