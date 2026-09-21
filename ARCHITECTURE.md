@@ -19,7 +19,12 @@ The authoritative project list is `settings.gradle.kts`.
 
 ```text
 :bootstrap
-  Thin Java Agent entrypoint and launch artifact.
+  Thin Java Agent entrypoint and launch artifact. The shipped fat JAR relocates
+  every private implementation library (Jackson, ASM, Resilience4j, SLF4J) under
+  dev.turboism.agent.shaded.*, so its Boot-Class-Path entry no longer exposes
+  those package names to host or plugin classloaders. dev.turboism.* framework
+  types stay unrelocated: bootstrap-injected bridges and the single shared SDK
+  type identity depend on it. This is not a sandbox for untrusted plugins.
 
 :sdk
   The only public dependency for first-party and third-party plugins.
