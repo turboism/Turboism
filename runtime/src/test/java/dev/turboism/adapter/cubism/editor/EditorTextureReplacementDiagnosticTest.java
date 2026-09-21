@@ -37,6 +37,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorTextureReplacementDiagnosticTest {
@@ -54,6 +56,7 @@ class EditorTextureReplacementDiagnosticTest {
         CallSiteFilterEnv.throwOnHasRead = 0;
         CallSiteFilterEnv.throwOnHasReadLinkageError = 0;
         CallSiteLayeredImage.failNextIncomingGuidRead = false;
+        CallSiteLayeredImage.saveCalls = 0;
         CallSiteNativeProcess.calls = 0;
         CallSiteNativeProcess.fail = false;
         CallSiteNativeProcess.active = null;
@@ -281,6 +284,115 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     @Test
+    void reobtainedTexturesFacadeSharesOneGatePerSessionButNewGenerationRecordsIndependently()
+        throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        final java.util.concurrent.atomic.AtomicLong generation =
+            new java.util.concurrent.atomic.AtomicLong(7L);
+        final EditorTextureAccess access = new EditorTextureAccess(
+            fixture.resolver,
+            (identity, model) -> { },
+            generation::get
+        );
+
+        final PsdExportHost firstFacade = (PsdExportHost) access.textures(
+            "session-a", fixture.source, fixture.model);
+        assertTrue(firstFacade.exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("facade-1.psd"), () -> { }
+        ).readable());
+
+        // This is the production call pattern: EditorBackedCubismModelAccess creates a new
+        // texture facade for every model.textures() call.  The exact same session key must reuse
+        // the already-consumed gate rather than add a second pre/post pair.
+        final PsdExportHost reobtainedFacade = (PsdExportHost) access.textures(
+            "session-a", fixture.source, fixture.model);
+        assertTrue(reobtainedFacade.exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("facade-2.psd"), () -> { }
+        ).readable());
+
+        generation.incrementAndGet();
+        final PsdExportHost nextGenerationFacade = (PsdExportHost) access.textures(
+            "session-a", fixture.source, fixture.model);
+        assertTrue(nextGenerationFacade.exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("facade-3.psd"), () -> { }
+        ).readable());
+
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(4, lines.size());
+        assertEquals(field(lines.get(0), "correlation"), field(lines.get(1), "correlation"));
+        assertEquals(field(lines.get(2), "correlation"), field(lines.get(3), "correlation"));
+        assertTrue(!field(lines.get(0), "correlation").equals(field(lines.get(2), "correlation")));
+        assertEquals(4, CallSiteFilterEnv.hasReads);
+    }
+
+    @Test
+    void newSourceAndModelObjectsDoNotReuseAnotherSessionGate() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture firstFixture = callSiteFixture();
+        final EditorTextureAccess access = new EditorTextureAccess(
+            firstFixture.resolver,
+            (identity, model) -> { }
+        );
+
+        assertTrue(((PsdExportHost) access.textures(
+            "session-a", firstFixture.source, firstFixture.model
+        )).exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("source-model-1.psd"), () -> { }
+        ).readable());
+
+        final CallSiteFixture secondFixture = callSiteFixture();
+        assertTrue(((PsdExportHost) access.textures(
+            "session-a", secondFixture.source, secondFixture.model
+        )).exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("source-model-2.psd"), () -> { }
+        ).readable());
+
+        final List<String> lines = Files.readAllLines(diagnosticArtifact());
+        assertEquals(4, lines.size());
+        assertTrue(!field(lines.get(0), "correlation").equals(field(lines.get(2), "correlation")));
+        assertEquals(2, CallSiteLayeredImage.saveCalls);
+    }
+
+    @Test
+    void admissionRejectionPrecedesDiagnosticReadsAndDoesNotConsumeSessionGate() throws Exception {
+        System.setProperty("turboism.home", tempDir.toString());
+        System.setProperty("turboism.editorObjectValidation.trace", "true");
+        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
+        final CallSiteFixture fixture = callSiteFixture();
+        final PsdExportHost host = (PsdExportHost) new EditorTextureAccess(
+            fixture.resolver,
+            (identity, model) -> { }
+        ).textures("session-a", fixture.source, fixture.model);
+        final IllegalStateException expected = new IllegalStateException("admission rejected");
+
+        final IllegalStateException actual = assertThrows(
+            IllegalStateException.class,
+            () -> host.exportPsdTo(
+                new RawImageId("old"), tempDir.resolve("rejected.psd"), () -> { throw expected; }
+            )
+        );
+        assertSame(expected, actual);
+        assertEquals(0, CallSiteFilterEnv.hasReads);
+        assertEquals(0, CallSiteLayeredImage.saveCalls);
+        assertFalse(Files.exists(diagnosticArtifact()));
+
+        final java.util.concurrent.atomic.AtomicInteger acceptedAdmissions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final PsdExportHost.Observation accepted = host.exportPsdTo(
+            new RawImageId("old"), tempDir.resolve("accepted.psd"), acceptedAdmissions::incrementAndGet
+        );
+        assertTrue(accepted.readable());
+        assertEquals(1, CallSiteLayeredImage.saveCalls);
+        assertEquals(2, acceptedAdmissions.get(), "only the original pre/post access guards admit");
+        assertEquals(2, Files.readAllLines(diagnosticArtifact()).size());
+    }
+
+    @Test
     void exportDiagnosticIsDefaultOffAndAddsNoNativeCapture() throws Exception {
         System.setProperty("turboism.home", tempDir.toString());
         final CallSiteFixture fixture = callSiteFixture();
@@ -328,23 +440,28 @@ class EditorTextureReplacementDiagnosticTest {
         final CallSiteFixture fixture = callSiteFixture();
         final java.util.concurrent.atomic.AtomicInteger guardCalls =
             new java.util.concurrent.atomic.AtomicInteger();
+        final IllegalStateException expected = new IllegalStateException("post export model is stale");
 
-        final PsdExportHost.Observation result = ((PsdExportHost) new EditorTextureAccess(
+        final PsdExportHost host = (PsdExportHost) new EditorTextureAccess(
             fixture.resolver,
             (identity, model) -> {
-                // textures() and the ordinary export each perform their own current-model
-                // checks.  The fourth check is still EditorRawImagePsdAccess' post-save guard;
-                // fail only the diagnostic's explicit post-export guard so the export result
-                // remains available while its post native read is correctly suppressed.
-                if (guardCalls.incrementAndGet() == 5) {
-                    throw new IllegalStateException("post export model is stale");
+                // textures() performs one check, then EditorRawImagePsdAccess performs its
+                // pre-save and post-save checks.  Fail the latter: the native save has happened,
+                // but the original export exception must remain visible and diagnostic post
+                // capture must stay unavailable.
+                if (guardCalls.incrementAndGet() == 3) {
+                    throw expected;
                 }
             }
-        ).textures("session-a", fixture.source, fixture.model)).exportPsdTo(
-            new RawImageId("old"), tempDir.resolve("post-guard-failure.psd"), () -> { }
-        );
+        ).textures("session-a", fixture.source, fixture.model);
 
-        assertTrue(result.readable());
+        final IllegalStateException actual = assertThrows(
+            IllegalStateException.class,
+            () -> host.exportPsdTo(
+                new RawImageId("old"), tempDir.resolve("post-guard-failure.psd"), () -> { }
+            )
+        );
+        assertSame(expected, actual);
         final List<String> lines = Files.readAllLines(diagnosticArtifact());
         assertEquals(2, lines.size());
         final String post = lines.get(1);
@@ -1351,6 +1468,7 @@ class EditorTextureReplacementDiagnosticTest {
 
     private static final class CallSiteLayeredImage {
         static boolean failNextIncomingGuidRead;
+        static int saveCalls;
         private final CallSiteId guid;
         private final String name;
         private final File psdFile;
@@ -1409,6 +1527,7 @@ class EditorTextureReplacementDiagnosticTest {
 
         public void save(final File target, final CallSiteProgress progress) {
             if (progress == null) throw new IllegalStateException("missing export progress");
+            saveCalls++;
             try {
                 Files.writeString(target.toPath(), "synthetic-export");
             } catch (Exception failure) {
