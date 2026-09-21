@@ -418,7 +418,8 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
             record("close.outcome=" + outcome);
         } catch (Exception failure) {
             logger.error("Automated edit-protocol host close request failed", failure);
-            record("close.error=" + failure.getClass().getSimpleName());
+            record("close.error=" + failure.getClass().getSimpleName()
+                + " message=" + String.valueOf(failure.getMessage()));
         }
     }
 
