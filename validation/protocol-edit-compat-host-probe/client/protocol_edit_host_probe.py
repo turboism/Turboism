@@ -338,7 +338,10 @@ class Connection:
         request_type: str = "Request",
     ) -> Frame:
         self._next_id += 1
-        request_id = self._next_id
+        # The host validator accepts only String/null RequestId; a Number is
+        # rejected as InvalidJson and the error frame echoes no RequestId, so
+        # the unregistered connection is then closed by the host.
+        request_id = str(self._next_id)
         envelope = {
             "Version": version,
             "Timestamp": int(time.time() * 1000),
