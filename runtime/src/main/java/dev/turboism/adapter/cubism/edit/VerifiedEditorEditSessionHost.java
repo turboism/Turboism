@@ -182,7 +182,7 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     ) {
         final Object editMode;
         synchronized (editLock) {
-            editMode = sessionEdits.remove(Objects.requireNonNull(edit, "edit"));
+            editMode = sessionEdits.get(Objects.requireNonNull(edit, "edit"));
         }
         if (editMode == null) {
             throw new IllegalArgumentException("Editor edit session token is invalid or closed");
@@ -193,6 +193,11 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
             cancel,
             null
         );
+        // The token is evicted only after the native close succeeded — a failed endEdit keeps
+        // it valid so the recovery path can retry the bracket close.
+        synchronized (editLock) {
+            sessionEdits.remove(edit);
+        }
     }
 
     @Override
@@ -207,6 +212,47 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
             }
         }
         resolver.invoke("cubism.editor-model.undo.group-undo", edit);
+    }
+
+    @Override
+    public Object currentEditGroup(
+        final EditorAuthoringTransactionCoordinator.Binding binding
+    ) {
+        final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
+        final Object editMode = resolver.invoke(
+            "cubism.editor-model.modeling-document.edit-mode",
+            active.document()
+        );
+        return resolver.invoke(
+            "cubism.editor-model.edit-mode.current-undo",
+            editMode
+        );
+    }
+
+    @Override
+    public void undoGroup(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final Object group
+    ) {
+        currentFor(binding);
+        resolver.invoke(
+            "cubism.editor-model.undo.group-undo",
+            Objects.requireNonNull(group, "group")
+        );
+    }
+
+    @Override
+    public void undoRedoTo(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final int position
+    ) {
+        final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
+        final Object manager = resolver.invoke(UNDO_MANAGER_ALIAS, active.document());
+        resolver.invoke(
+            "cubism.editor-history.manager.move-to",
+            manager,
+            Integer.valueOf(position)
+        );
     }
 
     @Override
@@ -268,6 +314,24 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         final Object completePack = resolver.invoke(
             "cubism.editor-model.app-controller.complete-pack",
             app
+        );
+        // The official session refresh runs once at session end — palette updates post
+        // deferred UI callbacks, so they must run after the native edit bracket closed;
+        // mid-session they could open a host edit that displaces the session's group.
+        resolver.invoke(
+            "cubism.editor-model.complete-pack.update-parameter",
+            completePack,
+            Boolean.TRUE
+        );
+        resolver.invoke(
+            "cubism.editor-model.complete-pack.update-part-palette",
+            completePack,
+            Boolean.TRUE
+        );
+        resolver.invoke(
+            "cubism.editor-model.complete-pack.update-deformer-palette",
+            completePack,
+            Boolean.TRUE
         );
         resolver.invoke(
             "cubism.editor-model.complete-pack.repaint-canvas",
