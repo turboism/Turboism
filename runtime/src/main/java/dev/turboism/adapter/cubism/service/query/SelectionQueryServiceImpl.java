@@ -1,31 +1,21 @@
 package dev.turboism.adapter.cubism.service.query;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.SelectionObservation;
+import dev.turboism.adapter.cubism.SelectionSummaries;
 import dev.turboism.adapter.cubism.SnapshotWithVersion;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.permissions.CubismPermissionGate;
-import dev.turboism.sdk.cubism.ArtMeshSnapshot;
-import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.CubismServiceException;
-import dev.turboism.sdk.cubism.DeformerSnapshot;
-import dev.turboism.sdk.cubism.ParameterSnapshot;
-import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
-import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.id.ProjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -36,9 +26,14 @@ import java.util.concurrent.atomic.AtomicReference;
  * parameters, art meshes and deformers by looking each one up in the snapshot, and any id that
  * matches none of those remains only in the generic model-object list.
  *
- * <p>There is no background polling. A Runtime-owned {@link SelectionChangedEvent} is published
- * only when a fresh query detects that the detached selection summary changed. The atomic baseline
- * preserves one global observation sequence across plugin-scoped query service instances.
+ * <p>Two producers share the runtime-owned observation baseline: fresh queries (this class) and
+ * the session-scoped {@link dev.turboism.adapter.cubism.SelectionObservationPublisher}, which
+ * observes the host's raw selection while {@link SelectionChangedEvent} subscriptions exist.
+ * Both commit through {@link SelectionObservation#commit} on
+ * {@link SelectionSummaries#observedIdentity} — the project-less identity — so identical host
+ * state observed through either path never emits duplicate events, a strictly older same-source
+ * revision cannot regress a newer committed baseline, and event payloads never carry the
+ * permission-gated project id.
  */
 public final class SelectionQueryServiceImpl implements SelectionQueryService {
 
@@ -49,25 +44,32 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
     private final CubismFacadeImpl facade;
     private final CubismPermissionGate permissionGate;
     private final RuntimeEventBroker eventBroker;
-    private final AtomicReference<SelectionSummary> observedSelection;
+    private final AtomicReference<SelectionObservation> observedSelection;
+    private final HostSnapshotSource observationSource;
 
     public SelectionQueryServiceImpl(
         final CubismFacadeImpl facade,
         final CubismPermissionGate permissionGate,
         final RuntimeEventBroker eventBroker,
-        final AtomicReference<SelectionSummary> observedSelection
+        final AtomicReference<SelectionObservation> observedSelection,
+        final HostSnapshotSource observationSource
     ) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.eventBroker = Objects.requireNonNull(eventBroker, "eventBroker");
         this.observedSelection = Objects.requireNonNull(observedSelection, "observedSelection");
+        // The identity tag commits under: production shares one session source
+        // instance across query facades and the observer, so versions compare.
+        this.observationSource = Objects.requireNonNull(observationSource, "observationSource");
     }
 
     @Override
     public SelectionSummary currentSelection() throws CubismServiceException {
         requireModelRead(CURRENT_SELECTION_OPERATION);
-        final SelectionSummary summary = selectionSummary(runtimeWithServiceError().snapshot());
-        publishSelectionChanges(summary);
+        final SnapshotWithVersion versioned = runtimeWithServiceError();
+        final SelectionSummary summary =
+            SelectionSummaries.fromRuntimeSnapshot(versioned.snapshot());
+        publishSelectionChanges(versioned, summary);
         return summary;
     }
 
@@ -75,8 +77,10 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
     public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind) throws CubismServiceException {
         Objects.requireNonNull(kind, "kind");
         requireModelRead(SELECTED_IDS_OPERATION);
-        final SelectionSummary summary = selectionSummary(runtimeWithServiceError().snapshot());
-        publishSelectionChanges(summary);
+        final SnapshotWithVersion versioned = runtimeWithServiceError();
+        final SelectionSummary summary =
+            SelectionSummaries.fromRuntimeSnapshot(versioned.snapshot());
+        publishSelectionChanges(versioned, summary);
         return switch (kind) {
             case MODEL, GROUP, PART, UNKNOWN -> summary.selectedModelObjectIds();
             case PARAMETER -> summary.selectedParameterIds().stream().map(id -> new ModelObjectId(id.value())).toList();
@@ -101,40 +105,18 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
         }
     }
 
-    private SelectionSummary selectionSummary(final CubismRuntimeSnapshot snapshot) {
-        final SelectionSnapshot selection = snapshot.selection();
-        final Set<String> parameterIds = new HashSet<>(snapshot.parameters().stream().map(ParameterSnapshot::id).toList());
-        final Set<String> artMeshIds = new HashSet<>(snapshot.artMeshes().stream().map(ArtMeshSnapshot::id).toList());
-        final Set<String> deformerIds = new HashSet<>(snapshot.deformers().stream().map(DeformerSnapshot::id).toList());
-        final List<ParameterId> selectedParameterIds = new ArrayList<>();
-        final List<ArtMeshId> selectedArtMeshIds = new ArrayList<>();
-        final List<DeformerId> selectedDeformerIds = new ArrayList<>();
-        final List<ModelObjectId> selectedModelObjectIds = new ArrayList<>();
-        for (String selectedObjectId : selection.selectedObjectIds()) {
-            selectedModelObjectIds.add(new ModelObjectId(selectedObjectId));
-            if (parameterIds.contains(selectedObjectId)) {
-                selectedParameterIds.add(new ParameterId(selectedObjectId));
-            } else if (artMeshIds.contains(selectedObjectId)) {
-                selectedArtMeshIds.add(new ArtMeshId(selectedObjectId));
-            } else if (deformerIds.contains(selectedObjectId)) {
-                selectedDeformerIds.add(new DeformerId(selectedObjectId));
-            }
-        }
-        return new SelectionSummary(
-            snapshot.project().map(project -> new ProjectId(project.projectId())),
-            snapshot.document().map(document -> new DocumentId(document.documentId())),
-            snapshot.model().map(model -> new ModelObjectId(model.modelId())),
-            selectedParameterIds,
-            selectedArtMeshIds,
-            selectedDeformerIds,
-            selectedModelObjectIds
+    private void publishSelectionChanges(
+        final SnapshotWithVersion versioned,
+        final SelectionSummary currentSelection
+    ) {
+        final SelectionSummary identity =
+            SelectionSummaries.observedIdentity(currentSelection);
+        SelectionObservation.commit(
+            observedSelection,
+            new SelectionObservation(observationSource, versioned.version(), identity),
+            (previous, current) -> eventBroker.publishRuntime(
+                new SelectionChangedEvent(previous, current)
+            )
         );
-    }
-
-    private void publishSelectionChanges(final SelectionSummary currentSelection) {
-        final SelectionSummary previous = observedSelection.getAndSet(currentSelection);
-        if (previous != null && !previous.equals(currentSelection)) {
-            eventBroker.publishRuntime(new SelectionChangedEvent(previous, currentSelection));
-        }
     }
 }

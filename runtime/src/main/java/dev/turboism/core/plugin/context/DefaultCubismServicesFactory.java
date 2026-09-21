@@ -270,8 +270,9 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 permissionGate,
                 dependencies.eventBroker(),
                 dependencies.eventBroker().observationBaseline(
-                    dev.turboism.sdk.cubism.service.query.SelectionSummary.class
-                )
+                    dev.turboism.adapter.cubism.SelectionObservation.class
+                ),
+                dependencies.hostSnapshotSource()
             ),
             new ModelHierarchyQueryServiceImpl(facade, permissionGate),
             readCapabilityService,

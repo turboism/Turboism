@@ -4,6 +4,7 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -13,7 +14,9 @@ import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -25,6 +28,11 @@ import java.util.function.Consumer;
 public final class RuntimeEventBroker {
 
     private static final String EVENT_TASK_TYPE = "event.subscribe";
+    private static final PluginEventOwnerKey INTERNAL_DIAGNOSTIC_OWNER =
+        new PluginEventOwnerKey(
+            "dev.turboism.runtime.internal",
+            PluginEventOwnerKey.INTERNAL_GENERATION
+        );
     private static final String DEFAULT_CAPABILITY = "none";
     private static final int DEFAULT_MAILBOX_CAPACITY = 64;
     private static final Comparator<Subscription<? extends EventBus.TurboismEvent>> SUBSCRIPTION_ORDER =
@@ -58,6 +66,11 @@ public final class RuntimeEventBroker {
         new ConcurrentHashMap<>();
     private final ConcurrentMap<Class<?>, EventBus.TurboismEvent> retainedRuntimeEvents =
         new ConcurrentHashMap<>();
+    private final ConcurrentMap<PluginEventOwnerKey, PermissionChecker> ownerPermissions =
+        new ConcurrentHashMap<>();
+    private final Set<DeniedRoute> deniedDeliveries = ConcurrentHashMap.newKeySet();
+    private final CopyOnWriteArrayList<Consumer<Class<?>>> subscriptionDemandListeners =
+        new CopyOnWriteArrayList<>();
 
     public RuntimeEventBroker(final RuntimeScheduler scheduler) {
         this(scheduler, DEFAULT_MAILBOX_CAPACITY, ignored -> { }, ignored -> { });
@@ -108,6 +121,72 @@ public final class RuntimeEventBroker {
         return (AtomicReference<T>) runtimeObservationBaselines.computeIfAbsent(
             keyType,
             ignored -> new AtomicReference<>()
+        );
+    }
+
+    /**
+     * Registers a runtime-internal demand listener notified after each subscription is added.
+     * Listeners receive the subscribed (possibly root/supertype) event type and decide whether
+     * the subscription creates observation demand — for example the selection observer parks
+     * itself while no subscription can receive its event. Listener failures are diagnosed as
+     * subscriber failures and never abort registration.
+     */
+    public void addSubscriptionDemandListener(final Consumer<Class<?>> listener) {
+        subscriptionDemandListeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    /**
+     * True when at least one active subscription could receive deliveries of {@code eventType}
+     * — that is, a subscription whose registered type is assignable from the concrete type.
+     * This is a demand probe only; delivery-time permission filtering still applies per owner.
+     */
+    public boolean hasObserversFor(
+        final Class<? extends EventBus.TurboismEvent> eventType
+    ) {
+        Objects.requireNonNull(eventType, "eventType");
+        synchronized (subscriptionLock) {
+            for (Map.Entry<
+                Class<? extends EventBus.TurboismEvent>,
+                CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>>
+                > route : subscribers.entrySet()) {
+                if (!route.getKey().isAssignableFrom(eventType)) {
+                    continue;
+                }
+                for (Subscription<? extends EventBus.TurboismEvent> subscription
+                    : route.getValue()) {
+                    if (subscription.active()) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Binds the permission checker a plugin-facing facade was granted to an event
+     * owner. Bound owners are filtered per delivered concrete event type; an owner
+     * that never gets a facade binding is a runtime-internal participant (raw broker
+     * subscriptions are a compatibility seam not exposed through the public SDK)
+     * and delivers unfiltered.
+     *
+     * <p>Multiple facades may exist for one owner (legacy compat bus plus the
+     * composition-bound bus). Bindings therefore combine monotonically: an event
+     * type is deliverable only when <em>every</em> bound checker permits it, so a
+     * second, broader facade can never widen the authorization of subscriptions
+     * created under a narrower grant.</p>
+     */
+    void bindOwnerPermissions(
+        final PluginEventOwnerKey owner,
+        final PermissionChecker permissionChecker
+    ) {
+        ownerPermissions.merge(
+            Objects.requireNonNull(owner, "owner"),
+            Objects.requireNonNull(permissionChecker, "permissionChecker"),
+            (first, second) -> (permission, operation) -> {
+                first.check(permission, operation);
+                second.check(permission, operation);
+            }
         );
     }
 
@@ -166,7 +245,7 @@ public final class RuntimeEventBroker {
         final Consumer<T> listener
     ) {
         publicRoutes.requireSubscription(owner, type);
-        return subscribe(owner, type, EventPriority.NORMAL, 0, 0, true, listener);
+        return subscribe(owner, type, EventPriority.NORMAL, 0, 0, true, true, listener);
     }
 
     /** Registers a deterministically ordered adapter subscription for a legacy hook. */
@@ -177,12 +256,15 @@ public final class RuntimeEventBroker {
         final int methodOrdinal,
         final Consumer<T> listener
     ) {
+        // Legacy hook adapters are already permission-gated when the registry builds
+        // them (intercept/observe flags); they must not be filtered again at delivery.
         return subscribe(
             owner,
             type,
             EventPriority.NORMAL,
             entrypointOrdinal,
             methodOrdinal,
+            false,
             false,
             listener
         );
@@ -195,6 +277,7 @@ public final class RuntimeEventBroker {
         final int entrypointOrdinal,
         final int methodOrdinal,
         final boolean deliverWhileEnabling,
+        final boolean permissionFiltered,
         final Consumer<T> listener
     ) {
         final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
@@ -209,6 +292,7 @@ public final class RuntimeEventBroker {
                 entrypointOrdinal,
                 methodOrdinal,
                 deliverWhileEnabling,
+                permissionFiltered,
                 Objects.requireNonNull(listener, "listener")
             );
             synchronized (subscriptionLock) {
@@ -222,7 +306,24 @@ public final class RuntimeEventBroker {
         if (requireOwner(key).lifecycleSnapshot() == OwnerLifecycle.ACTIVE) {
             replayRetained(subscription);
         }
+        notifySubscriptionDemand(type);
         return () -> remove(type, subscription);
+    }
+
+    private void notifySubscriptionDemand(final Class<?> subscribedType) {
+        for (Consumer<Class<?>> listener : subscriptionDemandListeners) {
+            try {
+                listener.accept(subscribedType);
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable failure) {
+                diagnose(new DeliveryDiagnostic(
+                    INTERNAL_DIAGNOSTIC_OWNER,
+                    subscribedType.getName(),
+                    DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
+                ));
+            }
+        }
     }
 
     /** Registers annotated subscribers under the plugin generation-zero owner. */
@@ -286,7 +387,9 @@ public final class RuntimeEventBroker {
         final List<Subscription<? extends EventBus.TurboismEvent>> route = dispatchPlan(eventType);
         for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
             final OwnerState owner = owners.get(subscription.owner());
-            if (owner == null || !owner.beginSynchronousDeliverySnapshot(subscription)) {
+            if (owner == null
+                || !mayDeliver(subscription, eventType)
+                || !owner.beginSynchronousDeliverySnapshot(subscription)) {
                 continue;
             }
             try {
@@ -348,7 +451,9 @@ public final class RuntimeEventBroker {
         final List<Subscription<? extends EventBus.TurboismEvent>> route = dispatchPlan(eventType);
         for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
             final OwnerState owner = owners.get(subscription.owner());
-            if (owner == null || !owner.beginSynchronousDeliverySnapshot(subscription)) {
+            if (owner == null
+                || !mayDeliver(subscription, eventType)
+                || !owner.beginSynchronousDeliverySnapshot(subscription)) {
                 continue;
             }
             try {
@@ -408,6 +513,7 @@ public final class RuntimeEventBroker {
             descriptor.priority(),
             descriptor.entrypointOrdinal(),
             descriptor.methodOrdinal(),
+            true,
             true,
             event -> invokeSafely(
                 owner,
@@ -576,6 +682,7 @@ public final class RuntimeEventBroker {
     ) {
         retainedRuntimeEvents.forEach((concreteType, event) -> {
             if (subscription.type().isAssignableFrom(concreteType)
+                && mayDeliver(subscription, concreteType)
                 && publicRoutes.mayReceive(subscription.owner(), concreteType)) {
                 enqueue(event, subscription);
             }
@@ -616,7 +723,9 @@ public final class RuntimeEventBroker {
             return;
         }
         final OwnerState owner = owners.get(subscription.owner());
-        if (owner == null || !subscription.accepts(owner.lifecycleSnapshot())) {
+        if (owner == null
+            || !subscription.accepts(owner.lifecycleSnapshot())
+            || !mayDeliver(subscription, event.getClass())) {
             return;
         }
         final EnqueueResult result = owner.enqueue(new Delivery(event, subscription));
@@ -660,6 +769,12 @@ public final class RuntimeEventBroker {
                 if (delivery == null) {
                     break;
                 }
+                // Re-authorize at drain time: a grant narrowed or revoked between
+                // enqueue and delivery must still suppress the queued event.
+                if (!mayDeliver(delivery.subscription(), delivery.event().getClass())) {
+                    owner.deliveryFinished();
+                    continue;
+                }
                 try {
                     delivery.deliver(owner.key());
                 } catch (ThreadDeath | VirtualMachineError fatal) {
@@ -680,6 +795,43 @@ public final class RuntimeEventBroker {
                 scheduleDrain(owner);
             }
         }
+    }
+
+    /**
+     * Delivery-time domain authorization for plugin-facing subscriptions. The
+     * concrete event type's required permissions are evaluated against the
+     * owner's facade-bound checker on every delivery — a broad root/supertype
+     * subscription receives exactly the subset its owner may observe and can
+     * never intercept a gated transform. Runtime adapter subscriptions and
+     * owners without a facade-bound checker (raw broker callers are not
+     * plugin-reachable) are trusted and pass through. Denials are diagnosed
+     * once per owner/type pair.
+     */
+    private boolean mayDeliver(
+        final Subscription<? extends EventBus.TurboismEvent> subscription,
+        final Class<?> concreteType
+    ) {
+        if (!subscription.permissionFiltered()) {
+            return true;
+        }
+        final PermissionChecker checker = ownerPermissions.get(subscription.owner());
+        if (checker == null) {
+            return true;
+        }
+        @SuppressWarnings("unchecked")
+        final Class<? extends EventBus.TurboismEvent> eventType =
+            (Class<? extends EventBus.TurboismEvent>) concreteType;
+        if (EventSubscriptionPermissionCatalog.isPermitted(eventType, checker)) {
+            return true;
+        }
+        if (deniedDeliveries.add(new DeniedRoute(subscription.owner(), concreteType))) {
+            diagnose(new DeliveryDiagnostic(
+                subscription.owner(),
+                concreteType.getName(),
+                DeliveryDiagnostic.Code.DELIVERY_PERMISSION_DENIED
+            ));
+        }
+        return false;
     }
 
     private void diagnose(final DeliveryDiagnostic diagnostic) {
@@ -861,6 +1013,8 @@ public final class RuntimeEventBroker {
         owners.remove(owner, state);
         failureInterceptors.remove(owner);
         publicRoutes.remove(owner);
+        ownerPermissions.remove(owner);
+        deniedDeliveries.removeIf(route -> route.owner().equals(owner));
     }
 
     private OwnerLifecycle lifecycle(final PluginEventOwnerKey owner) {
@@ -1023,7 +1177,8 @@ public final class RuntimeEventBroker {
         public enum Code {
             MAILBOX_SATURATED,
             SCHEDULER_REJECTED,
-            SUBSCRIBER_FAILED
+            SUBSCRIBER_FAILED,
+            DELIVERY_PERMISSION_DENIED
         }
     }
 
@@ -1200,6 +1355,7 @@ public final class RuntimeEventBroker {
         private final int entrypointOrdinal;
         private final int methodOrdinal;
         private final boolean deliverWhileEnabling;
+        private final boolean permissionFiltered;
         private final Consumer<T> listener;
         private volatile boolean active = true;
 
@@ -1211,6 +1367,7 @@ public final class RuntimeEventBroker {
             final int entrypointOrdinal,
             final int methodOrdinal,
             final boolean deliverWhileEnabling,
+            final boolean permissionFiltered,
             final Consumer<T> listener
         ) {
             this.sequence = sequence;
@@ -1220,6 +1377,7 @@ public final class RuntimeEventBroker {
             this.entrypointOrdinal = entrypointOrdinal;
             this.methodOrdinal = methodOrdinal;
             this.deliverWhileEnabling = deliverWhileEnabling;
+            this.permissionFiltered = permissionFiltered;
             this.listener = listener;
         }
 
@@ -1251,6 +1409,10 @@ public final class RuntimeEventBroker {
             return active;
         }
 
+        private boolean permissionFiltered() {
+            return permissionFiltered;
+        }
+
         private boolean accepts(final OwnerLifecycle lifecycle) {
             return lifecycle == OwnerLifecycle.ACTIVE
                 || (deliverWhileEnabling
@@ -1268,6 +1430,11 @@ public final class RuntimeEventBroker {
             }
         }
     }
+
+    private record DeniedRoute(
+        PluginEventOwnerKey owner,
+        Class<?> eventType
+    ) { }
 
     private record Delivery(
         EventBus.TurboismEvent event,

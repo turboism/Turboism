@@ -539,11 +539,19 @@ public final class CorePluginContext implements PluginContext {
         final UserFileAccessService userFileAccessService,
         final AsyncHostReadService asyncHostReadService
     ) {
+        // A composition that already injected a session-scoped source keeps it:
+        // one shared source means every plugin query facade and the runtime
+        // selection observer read in the same invalidation-token domain. Other
+        // sources are still replaced by the per-session projection here.
         this.dependencies = hostAccess == null
             ? Objects.requireNonNull(dependencies, "dependencies")
-            : dependencies.withHostSnapshotSource(HostSessionSnapshotSource.forSession(
-                hostAccess.adapters().projectWorkspace()
-            ));
+            : dependencies.withHostSnapshotSource(
+                dependencies.hostSnapshotSource() instanceof HostSessionSnapshotSource
+                    ? dependencies.hostSnapshotSource()
+                    : HostSessionSnapshotSource.forSession(
+                        hostAccess.adapters().projectWorkspace()
+                    )
+            );
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         final CubismServicesFactory servicesFactory = Objects.requireNonNull(
             cubismServicesFactory, "cubismServicesFactory"
