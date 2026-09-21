@@ -32,9 +32,10 @@ public final class ContractParentVisibilityMain {
 
         for (final String name : new String[] {
             "dev.turboism.core.event.RuntimeEventBroker",
+            "dev.turboism.internal.core.CorePluginManagement",
             "dev.turboism.plugin.core.MainToolbarPlugin",
             "dev.turboism.bootstrap.TurboismAgent",
-            "com.fasterxml.jackson.databind.ObjectMapper"
+            "dev.turboism.agent.shaded.jackson.databind.ObjectMapper"
         }) {
             Class.forName(name, false, null); // prove the class exists on bootstrap
             try {
