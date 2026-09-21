@@ -108,6 +108,8 @@ public final class OfficialPsdFixturePreparation {
     private static final String C_FRAME = "com.live2d.ui.window.CFrame";
     private static final String WINDOW_BASE = "com.live2d.ui.window.V";
     private static final String OPTION = "com.live2d.cubism.process.psd.a$a";
+    private static final String PREVIEW_OPTION =
+        "com.live2d.cubism.doc.modeling.ui.b";
     private static final String MODEL_DOCUMENT =
         "com.live2d.cubism.doc.modeling.CModelingDocument";
     private static final String RENDERER = "com.live2d.cubism.process.psd.e";
@@ -120,12 +122,16 @@ public final class OfficialPsdFixturePreparation {
     private static final String SECOND_LABEL_KEY = "CUB3-4408";
     private static final String DIALOG_TITLE_KEY = "CUB3-0421";
     private static final String DIALOG_MESSAGE_KEY = "CUB3-0420";
+    private static final String PREVIEW_TITLE_KEY = "CUBI-0003";
+    private static final String PREVIEW_MESSAGE_KEY = "CUB3-1430";
     private static final long DEFAULT_TIMEOUT_MILLIS = 180_000L;
     private static final long EDT_CALL_TIMEOUT_MILLIS = 2_000L;
     private static final long SAVE_AS_EDT_CALL_TIMEOUT_MILLIS = 60_000L;
+    private static final long PREVIEW_OPTIONAL_PROBE_MILLIS = 2_000L;
     private static final long POLL_MILLIS = 150L;
     private static final String UNAVAILABLE = "unavailable";
     private static final String MODE_UNAVAILABLE = "UNAVAILABLE";
+    private static final Set<Integer> PREVIEW_RATIOS = Set.of(1, 2, 4, 8);
 
     private final PluginContext context;
     private final BooleanSupplier stopped;
@@ -420,6 +426,9 @@ public final class OfficialPsdFixturePreparation {
             Integer.toString(profile.chooserIndex()));
         properties.setProperty("prepare.chooser.expectedSelectedKey", profile.chooserKey());
         properties.setProperty("prepare.savedCopy.expectedBasename", profile.savedCopyBasename());
+        if (!profile.f1PreviewChooser()) {
+            properties.setProperty("prepare.previewChooser.status", "NOT_APPLICABLE");
+        }
     }
 
     private HostAccess preflightHostAccess() throws Exception {
@@ -443,6 +452,7 @@ public final class OfficialPsdFixturePreparation {
         final Class<?> cFrame = loadExact(loader, C_FRAME);
         final Class<?> windowBase = loadExact(loader, WINDOW_BASE);
         final Class<?> option = loadExact(loader, OPTION);
+        final Class<?> previewOption = loadExact(loader, PREVIEW_OPTION);
         final Class<?> modelDocument = loadExact(loader, MODEL_DOCUMENT);
         final Class<?> renderer = loadExact(loader, RENDERER);
         final Class<?> hostList = loadExact(loader, HOST_LIST);
@@ -451,7 +461,8 @@ public final class OfficialPsdFixturePreparation {
         final Class<?> action = loadExact(loader, HOST_ACTION);
         final Class<?> localizer = loadExact(loader, LOCALIZER);
         for (final Class<?> type : List.of(app, mainFrameController, cFrame, windowBase, option,
-            modelDocument, renderer, hostList, hostButton, hostButtonSubclass, action, localizer)) {
+            previewOption, modelDocument, renderer, hostList, hostButton, hostButtonSubclass,
+            action, localizer)) {
             verifyClassArtifact(type, loader, artifact);
         }
         if (!JList.class.isAssignableFrom(hostList)
@@ -467,6 +478,8 @@ public final class OfficialPsdFixturePreparation {
         final Method swingFrame = exactMethod(cFrame, "getJFrame", JFrame.class, false);
         final Method optionModel = exactMethod(option, "a", modelDocument, false);
         final Method optionLabel = exactMethod(option, "b", String.class, false);
+        final Method previewLabel = exactMethod(previewOption, "a", String.class, false);
+        final Method previewRatio = exactMethod(previewOption, "b", int.class, false);
         final Field localizerInstance = localizer.getDeclaredField("a");
         if (!Modifier.isPublic(localizerInstance.getModifiers())
             || !Modifier.isStatic(localizerInstance.getModifiers())
@@ -485,13 +498,17 @@ public final class OfficialPsdFixturePreparation {
         final String secondLabel = localized(localize, localizerObject, SECOND_LABEL_KEY);
         final String title = localized(localize, localizerObject, DIALOG_TITLE_KEY);
         final String message = localized(localize, localizerObject, DIALOG_MESSAGE_KEY);
+        final String previewTitle = localized(localize, localizerObject, PREVIEW_TITLE_KEY);
+        final String previewMessage = localized(localize, localizerObject, PREVIEW_MESSAGE_KEY);
         if (firstLabel.isBlank() || secondLabel.isBlank() || title.isBlank() || message.isBlank()
-            || firstLabel.equals(secondLabel)) {
+            || firstLabel.equals(secondLabel) || previewTitle.isBlank()
+            || previewMessage.isBlank()) {
             throw new IllegalArgumentException("official chooser localization is unavailable");
         }
         return new HostAccess(loader, artifact, digest, app, appInstance, mainFrame, cFrameGetter,
-            swingWindow, swingFrame, option, optionModel, optionLabel, renderer, hostList, hostButton,
-            hostButtonSubclass, action, firstLabel, secondLabel, title, message);
+            swingWindow, swingFrame, option, optionModel, optionLabel, previewOption, previewLabel,
+            previewRatio, renderer, hostList, hostButton, hostButtonSubclass, action, firstLabel,
+            secondLabel, title, message, previewTitle, previewMessage);
     }
 
     private static String localized(final Method localize, final Object instance,
@@ -514,6 +531,10 @@ public final class OfficialPsdFixturePreparation {
         properties.setProperty("prepare.chooser.labelKey.1", SECOND_LABEL_KEY);
         properties.setProperty("prepare.chooser.titleKey", DIALOG_TITLE_KEY);
         properties.setProperty("prepare.chooser.messageKey", DIALOG_MESSAGE_KEY);
+        properties.setProperty("prepare.previewChooser.titleKey", PREVIEW_TITLE_KEY);
+        properties.setProperty("prepare.previewChooser.messageKey", PREVIEW_MESSAGE_KEY);
+        properties.setProperty("prepare.previewChooser.optionClass", PREVIEW_OPTION);
+        properties.setProperty("prepare.previewChooser.ratioGetter", "b():int");
     }
 
     private Window chooseNewModel(final HostAccess host, final InputIdentity input,
@@ -543,11 +564,252 @@ public final class OfficialPsdFixturePreparation {
                 final ChoiceObservation chosen = call.value();
                 recordChoice(chosen);
                 waitForDialogGone(chosen.dialog(), deadline);
+                if (profile.f1PreviewChooser()) {
+                    chooseOptionalPreviewReduction(host, input, chosen.owner(), deadline);
+                }
                 return chosen.owner();
             }
             sleepPoll(deadline);
         }
         throw new IllegalStateException("official PSD chooser did not appear before timeout");
+    }
+
+    /**
+     * F1 only: the official importer may expose a reduction chooser before a model exists.
+     * Its absence is valid; this bounded probe never invents a click or changes native state.
+     */
+    private void chooseOptionalPreviewReduction(final HostAccess host,
+        final InputIdentity input, final Window boundWindow, final long deadline) throws Exception {
+        final long probeDeadline = Math.min(deadline, deadlineAfter(PREVIEW_OPTIONAL_PROBE_MILLIS));
+        properties.setProperty("prepare.previewChooser.status", "WAITING_OPTIONAL");
+        while (System.nanoTime() < probeDeadline) {
+            checkStoppedAndTask(input);
+            final long remainingNanos = probeDeadline - System.nanoTime();
+            final long remainingMillis = Math.max(1L,
+                TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+            final EdtCall<PreviewProbe> call = invokeEdtBounded(
+                () -> inspectAndChoosePreviewOnEdt(host, input, boundWindow, deadline,
+                    probeDeadline), remainingMillis);
+            if (!call.completed()) {
+                properties.setProperty("prepare.previewChooser.status", "TIMEOUT");
+                throw new IllegalStateException("F1 preview chooser EDT inspection timed out");
+            }
+            if (call.failure() != null) throw asException(call.failure());
+            final PreviewProbe probe = call.value();
+            if (probe != null && probe.selected()) {
+                waitForDialogGone(probe.dialog(), deadline);
+                properties.setProperty("prepare.previewChooser.return", "RETURNED");
+                return;
+            }
+            if (probe != null && probe.activeModelPresent()) {
+                recordPreviewAbsent("active model became available");
+                return;
+            }
+            sleepPoll(probeDeadline);
+        }
+        recordPreviewAbsent("optional chooser was not visible");
+    }
+
+    private PreviewProbe inspectAndChoosePreviewOnEdt(final HostAccess host,
+        final InputIdentity input, final Window boundWindow, final long deadline,
+        final long actionDeadline) throws Exception {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "preview chooser inspection must run on EDT");
+        checkStoppedAndTask(input);
+        final Window currentWindow = currentWindowOnEdt(host, false);
+        if (currentWindow != boundWindow) throw new IllegalStateException(
+            "F1 preview chooser bound window identity changed");
+
+        final List<Dialog> candidates = new ArrayList<>();
+        for (final Window candidateWindow : Window.getWindows()) {
+            if (!(candidateWindow instanceof Dialog dialog) || !dialog.isShowing()
+                || !dialog.isDisplayable()) continue;
+            final List<JList<?>> lists = exactLists(dialog, host.hostList());
+            if (!containsText(dialog, host.previewTitle())
+                || !containsText(dialog, host.previewMessage())) continue;
+            if (dialog.getOwner() != boundWindow) throw new IllegalStateException(
+                "F1 preview chooser has a wrong owner");
+            candidates.add(dialog);
+            properties.setProperty("prepare.previewChooser.observedDialog."
+                + candidates.size() + ".class", dialog.getClass().getName());
+            properties.setProperty("prepare.previewChooser.observedDialog."
+                + candidates.size() + ".listCount", Integer.toString(lists.size()));
+        }
+        properties.setProperty("prepare.previewChooser.candidateCount",
+            Integer.toString(candidates.size()));
+        final boolean activeModel = activeModelPresentOnEdt();
+        if (candidates.isEmpty()) return new PreviewProbe(false, activeModel, null);
+        if (candidates.size() != 1) throw new IllegalStateException(
+            "multiple F1 preview chooser candidates are visible");
+        if (activeModel) throw new IllegalStateException(
+            "F1 preview chooser appeared with an existing active model");
+
+        final Dialog dialog = candidates.get(0);
+        final List<JList<?>> lists = exactLists(dialog, host.hostList());
+        if (lists.size() != 1) throw new IllegalStateException(
+            "F1 preview chooser list is ambiguous");
+        final JList<?> list = lists.get(0);
+        final List<Object> options = new ArrayList<>();
+        final List<Class<?>> optionClasses = new ArrayList<>();
+        final List<Integer> ratios = new ArrayList<>();
+        final List<String> labels = new ArrayList<>();
+        for (int index = 0; index < list.getModel().getSize(); index++) {
+            final Object option = list.getModel().getElementAt(index);
+            if (option == null || option.getClass() != host.previewOption()) {
+                throw new IllegalStateException("F1 preview chooser option class is unknown");
+            }
+            final Object ratioValue = host.previewRatio().invoke(option);
+            if (!(ratioValue instanceof Integer ratio)) throw new IllegalStateException(
+                "F1 preview chooser ratio is unavailable");
+            options.add(option);
+            optionClasses.add(option.getClass());
+            ratios.add(ratio);
+            labels.add(previewOptionLabel(host, option));
+        }
+        if (options.size() != PREVIEW_RATIOS.size()
+            || !new LinkedHashSet<>(ratios).equals(PREVIEW_RATIOS)
+            || ratios.stream().filter(value -> value == 1).count() != 1) {
+            throw new IllegalStateException("F1 preview chooser ratios are not exactly 1/2/4/8");
+        }
+        final int targetIndex = ratios.indexOf(1);
+        final Object targetOption = options.get(targetIndex);
+        final AbstractButton confirmation = exactPreviewConfirmation(dialog, host);
+        final PreviewChooserObservation observation = new PreviewChooserObservation(
+            currentWindow, dialog.getOwner(), dialog, list, 1, list.getClass(), options,
+            optionClasses, ratios, targetIndex, targetOption, 1, confirmation.getClass(),
+            confirmation.getAction() == null ? null : confirmation.getAction().getClass(),
+            confirmation.getAction() == null ? null
+                : String.valueOf(confirmation.getAction().getValue(Action.NAME)),
+            confirmation.isEnabled(), confirmation.isShowing(), confirmation.isDisplayable());
+        recordPreviewObservation(observation, labels);
+        final AtomicReference<String> guardFailure = new AtomicReference<>();
+        final PreviewChooserGateResult gate = verifyAndExecutePreviewChooser(observation,
+            new PreviewChooserGateExpectation(host.hostList(), host.previewOption(),
+                host.hostButton(), host.hostButtonSubclass(), host.action(), PREVIEW_RATIOS),
+            targetIndex, targetOption,
+            () -> previewWriteContextOpen(host, input, boundWindow, dialog, list,
+                confirmation, targetOption, targetIndex, actionDeadline, guardFailure),
+            () -> !stopped.getAsBoolean(), () -> isTaskBound(input),
+            () -> System.nanoTime() < actionDeadline,
+            new PreviewChooserGateActions() {
+                @Override public boolean select(final int index) {
+                    properties.setProperty("prepare.previewChooser.selection", "DISPATCHED");
+                    list.setSelectedIndex(index);
+                    final boolean selected = list.getSelectedIndex() == index
+                        && list.getSelectedValue() == targetOption;
+                    properties.setProperty("prepare.previewChooser.selection.result",
+                        selected ? "RETURNED" : "REJECTED");
+                    return selected;
+                }
+
+                @Override public void clickConfirm() {
+                    properties.setProperty("prepare.previewChooser.confirm", "DISPATCHED");
+                    confirmation.doClick();
+                    properties.setProperty("prepare.previewChooser.confirm", "RETURNED");
+                }
+            });
+        if (!gate.accepted()) {
+            properties.setProperty("prepare.previewChooser.return", "REJECTED");
+            final String suffix = guardFailure.get();
+            throw new IllegalStateException(gate.diagnostic()
+                + (suffix == null ? "" : ": " + suffix));
+        }
+        properties.setProperty("prepare.previewChooser.status", "SELECTED");
+        properties.setProperty("prepare.previewChooser.selectedRatio", "1");
+        return new PreviewProbe(true, false, dialog);
+    }
+
+    private boolean previewWriteContextOpen(final HostAccess host, final InputIdentity input,
+        final Window boundWindow, final Dialog dialog, final JList<?> list,
+        final AbstractButton confirmation, final Object targetOption, final int targetIndex,
+        final long deadline, final AtomicReference<String> guardFailure) {
+        try {
+            checkStoppedAndTask(input);
+            if (System.nanoTime() >= deadline || currentWindowOnEdt(host, false) != boundWindow
+                || dialog.getOwner() != boundWindow || !dialog.isShowing()
+                || !dialog.isDisplayable()) return false;
+            final List<Dialog> candidates = new ArrayList<>();
+            for (final Window candidateWindow : Window.getWindows()) {
+                if (!(candidateWindow instanceof Dialog candidate) || !candidate.isShowing()
+                    || !candidate.isDisplayable() || !containsText(candidate, host.previewTitle())
+                    || !containsText(candidate, host.previewMessage())) continue;
+                candidates.add(candidate);
+            }
+            if (candidates.size() != 1 || candidates.get(0) != dialog) return false;
+            final List<JList<?>> lists = exactLists(dialog, host.hostList());
+            if (lists.size() != 1 || lists.get(0) != list
+                || list.getModel().getSize() != 4
+                || list.getModel().getElementAt(targetIndex) != targetOption) return false;
+            if (activeModelPresentOnEdt()) return false;
+            final AbstractButton currentConfirmation = exactPreviewConfirmation(dialog, host);
+            if (currentConfirmation != confirmation) return false;
+            return true;
+        } catch (Throwable failure) {
+            guardFailure.set(summarize(failure));
+            return false;
+        }
+    }
+
+    private boolean activeModelPresentOnEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "active model observation must run on EDT");
+        return context.cubism().activeDocument().isPresent()
+            || context.cubism().model().active() != null;
+    }
+
+    private static String previewOptionLabel(final HostAccess host, final Object option)
+        throws Exception {
+        final Object value = host.previewLabel().invoke(option);
+        if (!(value instanceof String text)) throw new IllegalStateException(
+            "F1 preview chooser option label is not text");
+        return text;
+    }
+
+    private static AbstractButton exactPreviewConfirmation(final Dialog dialog,
+        final HostAccess host) {
+        final List<AbstractButton> confirmations = new ArrayList<>();
+        for (final AbstractButton button : buttons(dialog)) {
+            final Action action = button.getAction();
+            if (isExactButton(button, host) && action != null
+                && action.getClass() == host.action()
+                && "OK".equals(action.getValue(Action.NAME))) confirmations.add(button);
+        }
+        if (confirmations.size() != 1) throw new IllegalStateException(
+            "F1 preview chooser confirmation action is unknown or ambiguous");
+        return confirmations.get(0);
+    }
+
+    private void recordPreviewObservation(final PreviewChooserObservation observation,
+        final List<String> labels) {
+        properties.setProperty("prepare.previewChooser.status", "OBSERVED");
+        properties.setProperty("prepare.previewChooser.ownerIdentity",
+            windowIdentity(observation.currentOwner()));
+        properties.setProperty("prepare.previewChooser.dialogIdentity",
+            windowIdentity((Window) observation.dialog()));
+        properties.setProperty("prepare.previewChooser.listClass",
+            observation.listClass().getName());
+        properties.setProperty("prepare.previewChooser.optionClass",
+            observation.options().get(0).getClass().getName());
+        properties.setProperty("prepare.previewChooser.optionCount",
+            Integer.toString(observation.options().size()));
+        properties.setProperty("prepare.previewChooser.ratios", observation.ratios().toString());
+        properties.setProperty("prepare.previewChooser.labels", labels.toString());
+        properties.setProperty("prepare.previewChooser.selectedIndex",
+            Integer.toString(observation.targetIndex()));
+        properties.setProperty("prepare.previewChooser.selectedRatio", "1");
+    }
+
+    private void recordPreviewAbsent(final String reason) {
+        properties.setProperty("prepare.previewChooser.status", "NOT_PRESENT");
+        properties.setProperty("prepare.previewChooser.selection", "NOT_ATTEMPTED");
+        properties.setProperty("prepare.previewChooser.return", "NOT_PRESENT");
+        properties.setProperty("prepare.previewChooser.reason", reason);
+    }
+
+    private static long deadlineAfter(final long millis) {
+        final long now = System.nanoTime();
+        final long nanos = TimeUnit.MILLISECONDS.toNanos(millis);
+        return Long.MAX_VALUE - now < nanos ? Long.MAX_VALUE : now + nanos;
     }
 
     private void recordChooserTimeout() {
@@ -864,6 +1126,101 @@ public final class OfficialPsdFixturePreparation {
         } catch (RuntimeException failure) {
             return ChooserGateResult.rejected("official chooser action failed: " + failure);
         }
+    }
+
+    /** Production F1 preview chooser gate; the caller supplies fresh owner/dialog observations. */
+    static PreviewChooserGateResult verifyAndExecutePreviewChooser(
+        final PreviewChooserObservation observation, final PreviewChooserGateExpectation expected,
+        final int selectedIndex, final Object expectedOption, final BooleanSupplier contextOpen,
+        final BooleanSupplier stopped, final BooleanSupplier taskBound,
+        final BooleanSupplier deadlineOpen, final PreviewChooserGateActions actions) {
+        Objects.requireNonNull(observation, "observation");
+        Objects.requireNonNull(expected, "expected");
+        Objects.requireNonNull(contextOpen, "contextOpen");
+        Objects.requireNonNull(stopped, "stopped");
+        Objects.requireNonNull(taskBound, "taskBound");
+        Objects.requireNonNull(deadlineOpen, "deadlineOpen");
+        Objects.requireNonNull(actions, "actions");
+        final String shapeFailure = previewChooserShapeFailure(observation, expected,
+            selectedIndex, expectedOption);
+        if (!shapeFailure.isEmpty()) return PreviewChooserGateResult.rejected(shapeFailure);
+        if (!previewGateOpen(contextOpen, stopped, taskBound, deadlineOpen)) {
+            return PreviewChooserGateResult.rejected(
+                "F1 preview chooser action was stopped, unbound, or expired");
+        }
+        try {
+            if (!previewGateOpen(contextOpen, stopped, taskBound, deadlineOpen)) {
+                return PreviewChooserGateResult.rejected(
+                    "F1 preview chooser selection was stopped or expired");
+            }
+            if (!actions.select(selectedIndex)) return PreviewChooserGateResult.rejected(
+                "F1 preview chooser ratio=1 was not selected");
+            if (!previewGateOpen(contextOpen, stopped, taskBound, deadlineOpen)) {
+                return PreviewChooserGateResult.rejected(
+                    "F1 preview chooser confirmation was stopped or expired");
+            }
+            actions.clickConfirm();
+            return PreviewChooserGateResult.acceptedResult();
+        } catch (RuntimeException failure) {
+            return PreviewChooserGateResult.rejected(
+                "F1 preview chooser action failed: " + failure);
+        }
+    }
+
+    private static boolean previewGateOpen(final BooleanSupplier contextOpen,
+        final BooleanSupplier stopped, final BooleanSupplier taskBound,
+        final BooleanSupplier deadlineOpen) {
+        try {
+            return contextOpen.getAsBoolean() && !stopped.getAsBoolean()
+                && taskBound.getAsBoolean() && deadlineOpen.getAsBoolean();
+        } catch (RuntimeException failure) {
+            return false;
+        }
+    }
+
+    private static String previewChooserShapeFailure(
+        final PreviewChooserObservation actual, final PreviewChooserGateExpectation expected,
+        final int selectedIndex, final Object expectedOption) {
+        if (actual.currentOwner() == null || actual.dialogOwner() != actual.currentOwner()) {
+            return "F1 preview chooser owner is unknown or changed";
+        }
+        if (actual.candidateCount() != 1 || actual.listClass() != expected.listClass()) {
+            return "F1 preview chooser candidate/list shape is not exact";
+        }
+        if (actual.options() == null || actual.optionClasses() == null
+            || actual.ratios() == null || actual.options().size() != 4
+            || actual.optionClasses().size() != 4 || actual.ratios().size() != 4) {
+            return "F1 preview chooser option count is not four";
+        }
+        if (actual.optionClasses().stream().anyMatch(value -> value != expected.optionClass())) {
+            return "F1 preview chooser option class is unknown";
+        }
+        if (!expected.ratios().equals(PREVIEW_RATIOS)
+            || !new LinkedHashSet<>(actual.ratios()).equals(PREVIEW_RATIOS)
+            || actual.ratios().stream().filter(value -> value == 1).count() != 1) {
+            return "F1 preview chooser ratios are not exactly 1/2/4/8";
+        }
+        if (selectedIndex < 0 || selectedIndex >= actual.options().size()
+            || actual.options().get(selectedIndex) != expectedOption
+            || actual.ratios().get(selectedIndex) != 1) {
+            return "F1 preview chooser ratio=1 option identity is unknown";
+        }
+        final boolean buttonClass = actual.confirmationClass() != null
+            && (actual.confirmationClass() == expected.exactButtonClass()
+                || (expected.buttonSubclass() != null
+                    && expected.buttonSubclass().isAssignableFrom(actual.confirmationClass())));
+        if (actual.confirmationClass() == null || actual.actionClass() == null
+            || actual.confirmationCount() != 1 || !buttonClass) {
+            return "F1 preview chooser confirmation button is unknown or ambiguous";
+        }
+        if (actual.actionClass() != expected.actionClass()
+            || !"OK".equals(actual.actionName())) {
+            return "F1 preview chooser confirmation action is not exact OK";
+        }
+        if (!actual.enabled() || !actual.showing() || !actual.displayable()) {
+            return "F1 preview chooser confirmation is not operable";
+        }
+        return "";
     }
 
     private static boolean chooserGateOpen(final BooleanSupplier stopped,
@@ -2333,9 +2690,10 @@ public final class OfficialPsdFixturePreparation {
     private record HostAccess(ClassLoader loader, Path artifact, String sha256,
         Class<?> app, Method appInstance, Method mainFrame, Method cFrameGetter,
         Method swingWindow, Method swingFrame, Class<?> option, Method optionModel,
-        Method optionLabel, Class<?> renderer, Class<?> hostList, Class<?> hostButton,
-        Class<?> hostButtonSubclass, Class<?> action, String firstLabel, String secondLabel,
-        String title, String message) { }
+        Method optionLabel, Class<?> previewOption, Method previewLabel, Method previewRatio,
+        Class<?> renderer, Class<?> hostList, Class<?> hostButton, Class<?> hostButtonSubclass,
+        Class<?> action, String firstLabel, String secondLabel, String title, String message,
+        String previewTitle, String previewMessage) { }
 
     private record PreparedInput(InputIdentity identity, PreparationProfile profile) { }
 
@@ -2444,11 +2802,50 @@ public final class OfficialPsdFixturePreparation {
         boolean requiresLeafLayerBinding() { return requiresLeafLayerBinding; }
         boolean requiresEmptyTargetRgb() { return f1Sharing; }
         boolean f1Sharing() { return f1Sharing; }
+        boolean f1PreviewChooser() { return f1Sharing; }
     }
 
     private record ChoiceObservation(Window owner, Dialog dialog, String listClass,
         String confirmClass, int selectedIndex, String selectedKey, String firstLabel,
         String secondLabel, boolean chosen) { }
+
+    static record PreviewChooserObservation(Object currentOwner, Object dialogOwner,
+        Object dialog, Object list, int candidateCount, Class<?> listClass, List<?> options,
+        List<Class<?>> optionClasses, List<Integer> ratios, int targetIndex,
+        Object targetOption, int confirmationCount, Class<?> confirmationClass,
+        Class<?> actionClass, String actionName, boolean enabled, boolean showing,
+        boolean displayable) {
+        PreviewChooserObservation {
+            options = options == null ? List.of() : List.copyOf(options);
+            optionClasses = optionClasses == null ? List.of() : List.copyOf(optionClasses);
+            ratios = ratios == null ? List.of() : List.copyOf(ratios);
+        }
+    }
+
+    static record PreviewChooserGateExpectation(Class<?> listClass, Class<?> optionClass,
+        Class<?> exactButtonClass, Class<?> buttonSubclass, Class<?> actionClass,
+        Set<Integer> ratios) {
+        PreviewChooserGateExpectation {
+            ratios = ratios == null ? Set.of() : Set.copyOf(ratios);
+        }
+    }
+
+    interface PreviewChooserGateActions {
+        boolean select(int index);
+        void clickConfirm();
+    }
+
+    static record PreviewChooserGateResult(boolean accepted, String diagnostic) {
+        static PreviewChooserGateResult acceptedResult() {
+            return new PreviewChooserGateResult(true, "F1 preview chooser action accepted");
+        }
+
+        static PreviewChooserGateResult rejected(final String diagnostic) {
+            return new PreviewChooserGateResult(false, diagnostic);
+        }
+    }
+
+    private record PreviewProbe(boolean selected, boolean activeModelPresent, Dialog dialog) { }
 
     private record CurrentModelObservation(CubismModel model,
         TextureRelationsSnapshot relations, ModelState state) { }
