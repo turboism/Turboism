@@ -66,6 +66,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     static final AtomicReference<VerifiedMeshMirrorHookInstaller> MESH_MIRROR_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedWarpAltMirrorHookInstaller> WARP_ALT_MIRROR_HOOK =
+        new AtomicReference<>();
     private static final AtomicReference<VerifiedControlAppearanceHookInstaller>
         CONTROL_APPEARANCE_HOOK = new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
@@ -274,6 +276,12 @@ public final class TurboismAgent {
                 Path.of(System.getProperty("user.dir", ".")),
                 dev.turboism.config.RuntimeStartupConfig.load(options.home())
             );
+            installWarpAltMirrorHookPremain(
+                instrumentation,
+                System.getProperty("java.class.path", ""),
+                Path.of(System.getProperty("user.dir", ".")),
+                dev.turboism.config.RuntimeStartupConfig.load(options.home())
+            );
         }
         if (!STARTUP_SUPPRESSION.compareAndSet(null, startupSuppression)) {
             startupSuppression.close();
@@ -401,6 +409,7 @@ public final class TurboismAgent {
             if (fullRuntimeAdmission) installIncrementalUpdate(options, instrumentation, host);
             if (fullRuntimeAdmission) installUniformLocationCache(options, instrumentation, host);
             if (fullRuntimeAdmission) installMatrixScratch(options, instrumentation, host);
+            final VerifiedWarpAltMirrorHookInstaller warpAltMirrorHook = WARP_ALT_MIRROR_HOOK.get();
             final PreviewRuntime runtime;
             try {
                 runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
@@ -429,10 +438,12 @@ public final class TurboismAgent {
                 closeWarpPositionProjection();
                 closeModelUpdateSkip();
                 closeIncrementalUpdate();
+                closeWarpAltMirrorHookIfCurrent(warpAltMirrorHook);
                 throw failure;
             }
             if (!RUNTIME.compareAndSet(null, runtime)) {
                 closeDuplicateRuntimeAndMeshMirrorHook(runtime::close, meshMirrorHook);
+                closeWarpAltMirrorHookIfCurrent(warpAltMirrorHook);
                 return;
             }
             if (parameterLifecycleRuntimeAdmitted(profile, fullRuntimeAdmission)) {
@@ -496,6 +507,13 @@ public final class TurboismAgent {
                 bindMeshMirrorHook(
                     runtime,
                     dev.turboism.adapter.cubism.mesh.MeshMirrorHookAdmission.admitted(
+                        runtime.loadReport().loaded()
+                    )
+                );
+                bindWarpAltMirrorHook(
+                    runtime,
+                    host.classLoader(),
+                    dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHookAdmission.admitted(
                         runtime.loadReport().loaded()
                     )
                 );
@@ -1429,6 +1447,94 @@ public final class TurboismAgent {
         return dev.turboism.mapping.verification.ReviewedHostArtifacts.cubismVersionOf(artifact)
             .filter(dev.turboism.mapping.verification.ReviewedHostArtifacts::admitsFullRuntime)
             .isPresent();
+    }
+
+    static boolean warpAltMirrorHookEnabled(
+        final dev.turboism.config.RuntimeStartupConfig policy
+    ) {
+        return policy != null && policy.hookEnabled("cubism.warp.alt-symmetry");
+    }
+
+    private static void installWarpAltMirrorHookPremain(
+        final Instrumentation instrumentation,
+        final String classPath,
+        final Path workingDirectory,
+        final dev.turboism.config.RuntimeStartupConfig policy
+    ) {
+        if (!warpAltMirrorHookEnabled(policy)) return;
+        final Optional<Path> artifact = StartupSuppressionInstaller.locateHostArtifact(classPath, workingDirectory);
+        if (artifact.isEmpty()) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "warp-alt-mirror",
+                "Warp alt mirror hook unavailable because the host artifact was not admitted"
+            );
+            return;
+        }
+        try {
+            final HostArtifactDigest digest = HostArtifactDigest.from(artifact.orElseThrow());
+            if (!meshMirrorRuntimeAdmitted(digest)) {
+                throw new IllegalStateException("Warp alt mirror host artifact is not runtime-admitted");
+            }
+            final var profile = dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile.forArtifact(digest)
+                .orElseThrow(() -> new IllegalStateException("Unsupported warp alt mirror host artifact"));
+            final VerifiedWarpAltMirrorHookInstaller installer = new VerifiedWarpAltMirrorHookInstaller(
+                instrumentation,
+                null,
+                artifact.orElseThrow().toAbsolutePath().normalize(),
+                profile,
+                code -> dev.turboism.runtime.log.RuntimeDiagnostics.info("warp-alt-mirror", code)
+            );
+            installer.install();
+            if (!WARP_ALT_MIRROR_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            }
+        } catch (Throwable failure) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "warp-alt-mirror",
+                "Warp alt mirror hook installation failed",
+                failure
+            );
+        }
+    }
+
+    private static void bindWarpAltMirrorHook(
+        final PreviewRuntime runtime,
+        final ClassLoader hostClassLoader,
+        final boolean authorized
+    ) {
+        final VerifiedWarpAltMirrorHookInstaller installer = WARP_ALT_MIRROR_HOOK.get();
+        if (installer == null) {
+            if (!authorized) {
+                runtimeInfo("Turboism warp alt mirror hook disabled by policy or missing authorized consumer");
+            }
+            return;
+        }
+        if (!authorized) {
+            installer.close();
+            WARP_ALT_MIRROR_HOOK.compareAndSet(installer, null);
+            return;
+        }
+        try {
+            installer.defineLazyTargets(hostClassLoader);
+            installer.bind();
+        } catch (Throwable failure) {
+            installer.close();
+            WARP_ALT_MIRROR_HOOK.compareAndSet(installer, null);
+            runtimeWarn(
+                "Turboism warp alt mirror runtime binding disabled safely: "
+                    + failure.getClass().getName() + ": " + failure.getMessage()
+            );
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "warp-alt-mirror",
+                "warp alt mirror bind failed",
+                failure
+            );
+        }
+    }
+
+    static void closeWarpAltMirrorHookIfCurrent(final VerifiedWarpAltMirrorHookInstaller installer) {
+        if (installer == null || !WARP_ALT_MIRROR_HOOK.compareAndSet(installer, null)) return;
+        installer.close();
     }
 
     static void closeMeshMirrorHookIfCurrent(final VerifiedMeshMirrorHookInstaller installer) {

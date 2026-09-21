@@ -30,6 +30,7 @@ include(
     "plugins:perf-stats",
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",
+    "plugins:warp-deformer-alt-symmetry",
     "testing:test-support",
     "testing:integration-tests"
 )
