@@ -21,6 +21,7 @@ public final class OfficialPsdReplacementBaselineTest {
         testModelChooserIdentityGate();
         testRawChooserGuidGate();
         testChooserActionBoundary();
+        testWrappedOptionSelection();
         testOfficialJarShape();
         System.out.println("PASS: OfficialPsdReplacementBaselineTest");
     }
@@ -230,6 +231,32 @@ public final class OfficialPsdReplacementBaselineTest {
             "a$b.a() raw getter shape is verified");
         assertTrue(shape.rawGuidShape().contains("getGuid"),
             "CLayeredImage.getGuid() shape is verified");
+    }
+
+    private static void testWrappedOptionSelection() throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final Object document = new Object();
+            final ModelOption special = new ModelOption(null);
+            final ModelOption option = new ModelOption(document);
+            final javax.swing.DefaultListModel<ModelOption> model = new javax.swing.DefaultListModel<>();
+            model.addElement(special);
+            model.addElement(option);
+            final javax.swing.JList<ModelOption> list = new javax.swing.JList<>(model);
+            assertTrue(OfficialPsdReplacementBaseline.selectExactOption(
+                list, List.of(special, option), 1), "selects the wrapper returned by the real list");
+            assertTrue(list.getSelectedValue() == option,
+                "selected object is the option, not its contained native document");
+            assertFalse(OfficialPsdReplacementBaseline.selectExactOption(
+                list, List.of(special, document), 1), "native target is not a list option");
+            list.clearSelection();
+            list.addListSelectionListener(event -> {
+                if (list.getSelectedIndex() == 1 && model.getElementAt(1) == option) {
+                    model.setElementAt(new ModelOption(document), 1);
+                }
+            });
+            assertFalse(OfficialPsdReplacementBaseline.selectExactOption(
+                list, List.of(special, option), 1), "changed wrapper during selection is rejected");
+        });
     }
 
     private static String sha256(final Path path) throws Exception {

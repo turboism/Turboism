@@ -76,8 +76,8 @@ public final class OfficialPsdReplacementBaseline {
 
     private static final String MODEL_TITLE_KEY = "CUB3-0421";
     private static final String MODEL_MESSAGE_KEY = "CUB3-0420";
-    private static final String RAW_TITLE_KEY = "CUB3-0427";
-    private static final String RAW_MESSAGE_KEY = "CUB3-0428";
+    private static final String RAW_TITLE_KEY = "CUB3-0428";
+    private static final String RAW_MESSAGE_KEY = "CUB3-0427";
     private static final long MIN_TIMEOUT_MILLIS = 1_000L;
     private static final long MAX_TIMEOUT_MILLIS = 600_000L;
     private static final long POLL_MILLIS = 100L;
@@ -145,6 +145,12 @@ public final class OfficialPsdReplacementBaseline {
                             "command", "CEAppCtrl.command_open(File,true)",
                             "command.invocations", Integer.toString(commandCalls.get()),
                             "replacementApplied", "UNAVAILABLE: caller SDK gate required"));
+                }
+                if (modelConfirmed && rawConfirmed) {
+                    // Native import is now allowed to change the current raw. No further
+                    // chooser action or pre-replacement raw identity read is appropriate.
+                    sleepPoll(deadline);
+                    continue;
                 }
                 final Stage stage = modelConfirmed ? Stage.RAW : Stage.MODEL;
                 final EdtCall<Progress> call = invokeEdtBounded(
@@ -218,20 +224,17 @@ public final class OfficialPsdReplacementBaseline {
         for (final Window candidateWindow : Window.getWindows()) {
             if (!(candidateWindow instanceof Dialog dialog)
                 || !dialog.isShowing() || !dialog.isDisplayable()) continue;
+            final List<JList<?>> lists = exactLists(dialog, host.listClass());
+            final boolean isModel = hasRenderer(lists, host.modelRenderer());
+            final boolean isRaw = hasRenderer(lists, host.rawRenderer());
+            // Official progress/startup windows may coexist with a chooser. Only the
+            // reviewed chooser renderer admits any action; other dialogs remain untouched.
+            if (!isModel && !isRaw) continue;
+            if (isModel && isRaw) throw new IllegalStateException(
+                "official PSD chooser renderer is ambiguous");
             if (dialog.getOwner() != request.boundWindow()) {
                 throw new IllegalStateException("official PSD chooser has a wrong owner");
             }
-            final List<JList<?>> lists = exactLists(dialog, host.listClass());
-            if (lists.isEmpty()) {
-                if (dialog.getModalityType() != Dialog.ModalityType.MODELESS) {
-                    throw new IllegalStateException("unknown visible modal dialog during PSD replacement");
-                }
-                continue;
-            }
-            final boolean isModel = hasRenderer(lists, host.modelRenderer());
-            final boolean isRaw = hasRenderer(lists, host.rawRenderer());
-            if (isModel == isRaw) throw new IllegalStateException(
-                "official PSD chooser renderer is unknown or ambiguous");
             final DialogCandidate observed = inspectDialog(host, dialog, lists,
                 isModel ? Stage.MODEL : Stage.RAW);
             (isModel ? model : raw).add(observed);
@@ -298,6 +301,9 @@ public final class OfficialPsdReplacementBaseline {
         final ReplacementRequest request, final long deadline, final AtomicBoolean live,
         final DialogCandidate candidate, final int targetIndex, final Object expectedTarget,
         final boolean model) throws Exception {
+        // The list contains a$a/a$b wrappers. The native document/raw returned by a()
+        // identifies the target, but is never itself a selectable list element.
+        final Object expectedOption = candidate.options().get(targetIndex);
         final ChooserObservation observation = new ChooserObservation(
             candidate.owner(), candidate.dialog().getOwner(), candidate.dialog(), candidate.list(),
             candidate.list().getClass(), candidate.list().getCellRenderer().getClass(),
@@ -312,7 +318,7 @@ public final class OfficialPsdReplacementBaseline {
         final ChooserActionResult action = executeChooserGate(observation,
             new ChooserShape(host.listClass(), candidate.rendererClass(), candidate.optionClass(),
                 host.hostButton(), host.hostButtonSubclass(), host.actionClass()),
-            targetIndex, expectedTarget, () -> {
+            targetIndex, expectedOption, () -> {
                 try {
                     verifyWriteContext(host, request, deadline, live);
                     if (candidate.dialog() != observation.dialog()
@@ -321,6 +327,19 @@ public final class OfficialPsdReplacementBaseline {
                         || candidate.dialog().getOwner() != request.boundWindow()) {
                         throw new IllegalStateException("official PSD chooser identity changed");
                     }
+                    final DialogCandidate fresh = inspectDialog(host, candidate.dialog(),
+                        exactLists(candidate.dialog(), host.listClass()), candidate.stage());
+                    if (fresh.list() != candidate.list()
+                        || fresh.confirmation() != candidate.confirmation()
+                        || !sameOptions(fresh.options(), candidate.options())) {
+                        throw new IllegalStateException("official PSD chooser options/action changed");
+                    }
+                    final int freshIndex = model
+                        ? uniqueIdentityIndex(fresh.options(), host.modelOption(),
+                            expectedTarget, host.modelGetter())
+                        : uniqueRawIndex(fresh.options(), host, request);
+                    if (freshIndex != targetIndex) throw new IllegalStateException(
+                        "official PSD chooser target changed");
                     return true;
                 } catch (Throwable failure) {
                     guardFailure.set(failure.getMessage() == null
@@ -330,9 +349,7 @@ public final class OfficialPsdReplacementBaseline {
             }, () -> !stopped.getAsBoolean(), () -> taskBound.getAsBoolean(),
             () -> actionOpen(live, deadline), new ChooserActions() {
                 @Override public boolean select(final int index) {
-                    candidate.list().setSelectedIndex(index);
-                    return candidate.list().getSelectedIndex() == index
-                        && candidate.list().getSelectedValue() == expectedTarget;
+                    return selectExactOption(candidate.list(), candidate.options(), index);
                 }
 
                 @Override public void confirm() {
@@ -345,6 +362,25 @@ public final class OfficialPsdReplacementBaseline {
                 + (suffix == null ? "" : ": " + suffix));
         }
         return model ? new Progress(true, false) : new Progress(false, true);
+    }
+
+    private static boolean sameOptions(final List<?> left, final List<?> right) {
+        if (left.size() != right.size()) return false;
+        for (int index = 0; index < left.size(); index++) {
+            if (left.get(index) != right.get(index)) return false;
+        }
+        return true;
+    }
+
+    /** Uses the actual Swing option object; selection listeners may change the list. */
+    static boolean selectExactOption(final JList<?> list, final List<?> observed,
+        final int index) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "official chooser selection requires EDT");
+        if (index < 0 || index >= observed.size() || list.getModel().getSize() != observed.size()
+            || list.getModel().getElementAt(index) != observed.get(index)) return false;
+        list.setSelectedIndex(index);
+        return list.getSelectedIndex() == index && list.getSelectedValue() == observed.get(index);
     }
 
     private void verifyWriteContext(final HostAccess host, final ReplacementRequest request,
