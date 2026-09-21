@@ -17,14 +17,14 @@ runtime producer publishes it.
   (`publishExact`): a `TurboismEvent` root subscription never receives an
   arbitrary plugin-defined type. Custom plugin events are also not
   retained/replayed through the runtime observation channel.
-- Each concrete runtime-owned event type is gated by its own observe
-  permission (`turboism.*.observe`, plus `turboism.event.subscribe` for the
-  subscription itself). A subscriber without the concrete permission simply
-  never sees that event type; the denial is recorded as a
-  `DELIVERY_PERMISSION_DENIED` diagnostic, not a failed subscription.
-  Subscription types that can receive a mutable `*Before` transform state
-  additionally require `turboism.cubism.model.intercept` — observing is not
-  enough to mutate.
+- Each concrete runtime-owned event type is gated by its domain permissions,
+  in addition to `turboism.event.subscribe` for the subscription itself.
+  Mutable `*Before` transforms require `turboism.cubism.model.intercept`;
+  observations use the domain's observe permission. Direct concrete/family
+  subscriptions still validate their required permissions at registration.
+  A root subscription is admitted with the baseline subscription permission;
+  delivery skips unauthorized concrete types and records a
+  `DELIVERY_PERMISSION_DENIED` diagnostic.
 - Queued delivery is asynchronous and per-generation ordered. The two
   synchronous transform overloads (value transform and checkpointed reference
   transform) apply the same permission filtering on the caller thread.
@@ -58,14 +58,15 @@ Not every `*Before` state is a synchronous interceptor:
 - `ParameterValueEvent.Before` is a **synchronous transform**: each subscriber
   receives a distinct mutable candidate inside a callback scope, and the
   validated result feeds the next subscriber before the host write proceeds.
-  Mutating through this state requires the `turboism.cubism.model.intercept`
-  permission, which the subscription schema demands for every subscription
-  type that can receive a `*Before` member — the observe permissions alone do
+  Receiving this state requires `turboism.cubism.model.intercept`, including
+  delivery through either wildcard root. The observe permission alone does
   not grant it.
 - Immutable `Before` records — for example `CubismOperationLifecycleEvent.Before`
   — are **asynchronous observations** of an operation that already started.
   They are delivered through the mailbox like any other event; a subscriber
-  cannot veto or mutate the operation through them.
+  cannot veto or mutate the operation through them. Permission names alone
+  do not imply interception: the current catalog also requires the intercept
+  permission for semantic-operation and model-update `Before` observations.
 
 ## Correlation payloads are not events
 
@@ -97,20 +98,27 @@ and the observer never double-publish and a stale read can never regress a
 newer baseline. The observer runs on the shared bounded host-read lane — no
 per-subscription thread — and advances on a subscriber-driven schedule.
 
-Current limitation, stated plainly: every verified `HostSnapshotSource`
-implementation today returns a constant empty selection
-(`EMPTY_SELECTION`). Real document/model snapshots flow through the same
-commit path, but native object-selection transitions are not yet observed
-because no host adapter produces them, and no native push hook exists.
-Selection events therefore describe the shared-baseline machinery honestly
-rather than claiming native object-selection coverage.
+The production `HostSessionSnapshotSource` returns a constant empty object
+selection (`EMPTY_SELECTION`), as does the appearance snapshot source.
+Document/model identity transitions can produce events through the shared
+commit path. Native object-selection IDs and a native selection push hook
+remain unavailable; tests with mutable synthetic sources verify the observer
+machinery without establishing native object-selection coverage.
 
 ## Unsupported origins
 
-The following host surfaces are **not** covered by any event and no
-fabricated hook is implied: Undo/Redo operations, editor-operation origins
-beyond those enumerated above, and arbitrary native object-selection pushes.
-Producers are only added where a verified ingress exists.
+`CubismOperationLifecycleEvent` currently has only `TURBOISM_API` producers;
+the declared `HOST_UI`, `HOST_INTERNAL`, `UNDO`, and `REDO` origins are not
+emitted. Native parameter and project-file bridges produce their own event
+families, but do not fill this semantic-operation origin gap. Native
+part/drawable/deformer mutation ingress is also unavailable.
+
+Fourteen of the 40 `CubismOperation` values still have no producer:
+`OPEN_PROJECT`, `CLOSE_PROJECT`, `IMPORT_PROJECT`, `EXPORT_PROJECT`,
+`OPEN_DOCUMENT`, `SAVE_DOCUMENT`, `SAVE_DOCUMENT_AS`, `CLOSE_DOCUMENT`,
+`SWITCH_DOCUMENT`, `RELOAD_DOCUMENT`, `CHANGE_SELECTION`, `UNDO`, `REDO`,
+and `SET_PARAMETER_GROUP_LABEL_COLOR`. A document identity transition seen
+by the selection observer does not emit `SWITCH_DOCUMENT`.
 
 ## Trusted compatibility paths
 
@@ -130,15 +138,21 @@ The five formerly nested legacy event families
 `EventBus.TurboismEvent` marker — so existing subscribers keep working. These
 families stay runtime-owned and are not plugin-exportable contract types.
 
-The change does alter their structural ABI: `implements` clauses are part of
-the per-type digest, so an `eventExports`/`eventImports` `abiSha256` pin whose
-payload closure reaches one of these SDK types is stale. Recompute structural
-pins with the author-facing CLI against the matching runtime/SDK, for example:
+Their structural ABI digests change because the digest includes the event's
+declared interfaces and inheritance surface. The digest algorithm is
+unchanged: it records member type signatures but does not recursively hash
+the structure of referenced payload types. Payload-closure verification is
+a separate admission check. Referencing one of these SDK records from a
+custom payload therefore does not by itself change that custom event's pin.
+
+Inspect a changed SDK event's digest against the matching runtime/SDK with:
 
 ```bash
-java -cp <runtime classes> dev.turboism.core.event.PublicEventAbiCli \
+java -cp path/to/turboism-agent.jar dev.turboism.core.event.PublicEventAbiCli \
     dev.turboism.sdk.action.ActionInvocationEvent
 ```
 
-See `sdk/public-event-contracts.md` §2 for the pin model and what the digests
-cover.
+For plugin-exportable contracts, recompute `abiSha256` after changing the
+event's ABI and update `eventContracts[].sha256` whenever the artifact bytes
+change; see [public-event-contracts.md](public-event-contracts.md) §2.
+Historical SDK release baselines remain unchanged.

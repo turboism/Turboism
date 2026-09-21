@@ -191,12 +191,14 @@ different artifact in the session.
 - If contract-loader disposal fails, the `IOException` propagates through
   `ContractLease.close()` → `PluginContractClassLoader.close()` and is sticky:
   a retry rethrows the recorded first failure, so a no-op retry can never
-  report a false successful disposal. On the load-failure cleanup path the
-  generation stays retained until lifecycle work quiesces. On the normal
-  unload path the classloader-cleanup stage records
-  `PLUGIN_CLASSLOADER_CLOSE_FAILED` in the unload summary — caller-visible,
-  never erased — though a permanently failing close is currently a terminal
-  cleanup outcome and does not keep the generation in the re-drive set.
+  report a false successful disposal. Both failed-load cleanup and normal
+  unload keep the generation strongly referenced while scope or classloader
+  disposal remains unproven, even after in-flight work quiesces. Each disposal
+  stage is attempted at most once: a permanent failure stays recorded and
+  cannot turn into success on a later cleanup pass. Normal unload records
+  `PLUGIN_CLASSLOADER_CLOSE_FAILED` in the unload summary and reports an
+  `UNLOAD`/`FAILED` lifecycle verdict; a timed-out unload reports its terminal
+  verdict only when the retained cleanup settles.
   Independently of either lifecycle path, the session catalog quarantines the
   failed binding: it leaves every lookup map (a later acquire binds a fresh
   generation) while staying strongly referenced with its recorded failure,
