@@ -500,3 +500,13 @@ still requires the later real-run checks and does not weaken the GUI current-raw
 Supervisor gates. The authoritative record is `/opt/dev/projects/turboism/specs/025-external-psd-edit/plan.md`
 under T021; this README records the validation-only interpretation because that specification is
 read-only for this worktree.
+# Live composition evidence
+
+For the independently prepared normal/legacy controls, the pipeline can additionally receive
+`--jvm-option '-Dturboism.validation.externalpsd.compositionProfile=normal'` (or `legacy`).
+The validation-only reader verifies the reviewed host artifact off EDT, then binds native
+ArtMesh GUIDs to the current SDK document/model on EDT and reads the actual color/alpha
+composition enums and target version. It requires the requested old/new blend family and
+compares every ArtMesh ID/GUID/composition after each replacement and Undo/Redo with the
+baseline. Missing coverage or changed mode fails the phase. This is opt-in live evidence;
+earlier serialized XML audits are not relabelled as live observations.
