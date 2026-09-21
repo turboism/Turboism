@@ -100,14 +100,6 @@ public final class CoreEvaluatedJoin {
     }
 
     /**
-     * Best-effort lazy publication of a resolved Editor document model through the active
-     * source. Returns false when the source cannot accept it (for example when closed).
-     */
-    public boolean tryPublish(final Object model, final String identity) {
-        return source.tryPublishBorrowedModel(model, identity);
-    }
-
-    /**
      * Requests a non-blocking release of the published borrowed model once no lease is
      * outstanding. A later publication cancels the request, so a re-bound document is never
      * disturbed; when the model is actually forgotten the pinned snapshot is dropped, letting a
@@ -115,14 +107,6 @@ public final class CoreEvaluatedJoin {
      */
     public void releaseBorrowedModelWhenIdle() {
         source.releaseWhenIdle();
-    }
-
-    /**
-     * Returns the currently published borrowed model reference for identity comparison, or
-     * {@code null} when none is held.
-     */
-    public Object publishedModel() {
-        return source.publishedModel();
     }
 
     /**

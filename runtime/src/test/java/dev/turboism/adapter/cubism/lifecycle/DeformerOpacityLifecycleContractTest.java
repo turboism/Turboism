@@ -67,17 +67,23 @@ class DeformerOpacityLifecycleContractTest {
 
         @SubscribeEvent
         public void before(final DeformerOpacityEvent.Before event) {
+            org.junit.jupiter.api.Assertions.assertInstanceOf(WarpDeformer.class, event.deformer());
             event.setOpacity(event.opacity() * 0.5F);
         }
 
         @SubscribeEvent
         public void on(final DeformerOpacityEvent.On event) {
+            org.junit.jupiter.api.Assertions.assertInstanceOf(WarpDeformer.class, event.deformer());
             events.add("on:" + event.oldOpacity() + "->" + event.newOpacity());
             completion.countDown();
         }
 
         @SubscribeEvent
         public void after(final DeformerOpacityEvent.After event) {
+            final WarpDeformer snapshot = org.junit.jupiter.api.Assertions.assertInstanceOf(
+                WarpDeformer.class, event.deformer()
+            );
+            assertThrows(UnsupportedOperationException.class, snapshot::grid);
             events.add("after:" + event.finalOpacity());
             assertThrows(
                 UnsupportedOperationException.class,
