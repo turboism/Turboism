@@ -138,6 +138,29 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
         publishEvidence();
     }
 
+    /** Publishes the exact host version so the external client can key
+     * version-specific expectations (the runner passes it as a JVM option). */
+    private void publishHostVersion() {
+        try {
+            final String version = System.getProperty("turboism.validation.hostVersion");
+            if (version == null || version.isBlank()) {
+                return;
+            }
+            final Path file = stateDir().resolve("host-version.txt");
+            file.getParent().toFile().mkdirs();
+            final Path temporary = file.resolveSibling(
+                file.getFileName() + "." + ProcessHandle.current().pid() + ".tmp");
+            java.nio.file.Files.writeString(
+                temporary, version + "\n", java.nio.charset.StandardCharsets.UTF_8);
+            java.nio.file.Files.move(
+                temporary, file,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception failure) {
+            logger.error("edit-protocol host version publish failed", failure);
+        }
+    }
+
     private Path stateDir() {
         return context.paths().stateDir();
     }
@@ -180,6 +203,7 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
                     logger.info("EDIT_PROTOCOL_SERVICE_STARTED port="
                         + EXTERNAL_APP_PORT);
                     record("service.port=" + EXTERNAL_APP_PORT);
+                    publishHostVersion();
                     return;
                 }
             } catch (Exception failure) {

@@ -458,6 +458,17 @@ class Probe:
 
     # -- evidence -----------------------------------------------------------
 
+    def refresh_host_version(self) -> None:
+        """Reads the plugin-published host version once the home is staged."""
+        file = self.plugin_state / "host-version.txt"
+        try:
+            text = file.read_text(encoding="utf-8").strip()
+        except OSError:
+            return
+        if text and self.host_version == "unknown":
+            self.host_version = text
+            self.lines[3] = f"hostVersion={sanitize(self.host_version)}"
+
     def check(self, name: str, condition: bool, detail: str = "") -> bool:
         status = "PASS" if condition else "FAIL"
         if not condition:
@@ -623,6 +634,7 @@ class Probe:
         status = "FAIL"
         conns: list[Connection] = []
         try:
+            self.refresh_host_version()
             token = self.issue_token()
             self.write_control_files(token)
             time.sleep(self.seed_delay)
