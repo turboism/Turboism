@@ -25,9 +25,15 @@ class HostSessionCompositionApiTest {
             Set.of(
                 signature(HostInstanceSource.class),
                 signature(HostInstanceSource.class, java.util.Locale.class),
+                signature(HostInstanceSource.class, java.util.function.Supplier.class),
                 signature(
                     HostInstanceSource.class,
                     java.util.Locale.class,
+                    dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
+                ),
+                signature(
+                    HostInstanceSource.class,
+                    java.util.function.Supplier.class,
                     dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
                 )
             ),
@@ -37,8 +43,13 @@ class HostSessionCompositionApiTest {
             Set.of(
                 signature(),
                 signature(java.util.Locale.class),
+                signature(java.util.function.Supplier.class),
                 signature(
                     java.util.Locale.class,
+                    dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
+                ),
+                signature(
+                    java.util.function.Supplier.class,
                     dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
                 )
             ),

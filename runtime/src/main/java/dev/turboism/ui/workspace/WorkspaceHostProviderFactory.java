@@ -18,14 +18,10 @@ public final class WorkspaceHostProviderFactory {
      * @throws IllegalArgumentException if the resolver is admitted for neither
      */
     public static WorkspaceHostProvider create(final VerifiedMemberResolver resolver) {
-        if (WorkspaceControlAdmission.authorizes5203(resolver)) {
-            return new Cubism52WorkspaceHostProvider(resolver);
+        if (!WorkspaceControlAdmission.authorizes(resolver)) {
+            throw new IllegalArgumentException("resolver is not admitted for workspace control");
         }
-        if (WorkspaceControlAdmission.authorizes5302(resolver)
-            || WorkspaceControlAdmission.authorizes5303(resolver)) {
-            return new Cubism53WorkspaceHostProvider(resolver);
-        }
-        throw new IllegalArgumentException("resolver is not admitted for workspace control");
+        return new VerifiedWorkspaceHostProvider(resolver);
     }
 
     private WorkspaceHostProviderFactory() { }

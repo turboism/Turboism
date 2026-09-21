@@ -2,7 +2,9 @@ package dev.turboism.sdk.ui.window;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -43,6 +45,18 @@ class TurboismWindowFactoryTest {
             assertEquals(256, decoded.getWidth(), "product title icon width");
             assertEquals(256, decoded.getHeight(), "product title icon height");
         }
+    }
+
+    @Test
+    void installedWindowIconOverridesBundledDefault() {
+        final BufferedImage override = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
+        try {
+            TurboismWindowFactory.installWindowIcon(override);
+            assertSame(override, TurboismWindowFactory.windowIcon());
+        } finally {
+            TurboismWindowFactory.installWindowIcon(null);
+        }
+        assertNotSame(override, TurboismWindowFactory.windowIcon());
     }
 
     @Test

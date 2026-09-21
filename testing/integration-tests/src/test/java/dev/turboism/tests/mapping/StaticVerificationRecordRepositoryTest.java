@@ -4,7 +4,7 @@ import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorCont
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacityReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,12 +33,14 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -192,8 +194,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "b6ed488e17c2452eaa085e21fdab23063e93204e66843882925eae63dda9634c",
-            622,
+            "17d6a98338bf4390d3614c138fb7b39dcf5639150fb035fb07fdf36de48c6998",
+            759,
             EditorModelVerificationManifest.cubism52Aliases(),
             EditorModelVerificationManifest.cubism52Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
@@ -215,7 +217,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            643,
+            774,
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -318,7 +320,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-clipmask" ->
                 "c17a6596497b148fb71e9d9074b97d2967a9697d38e7222848f154e44fb5a597";
             case "cubism-5.3.03-editor-model" ->
-                "4e92ece4cb18cf4d780ae972e221c35f6ad911c3c922e8dbf2d012fcc7c3067b";
+                "2d8c2c47002a01feda3979e365467fdfaf150a5249442e61477b7dacf3cf82a9";
             case "cubism-5.3.03-performance-render-scene" ->
                 "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
             case "cubism-5.3.03-project-workspace" ->
@@ -1207,6 +1209,7 @@ class StaticVerificationRecordRepositoryTest {
 
         final Set<String> verificationIds = new HashSet<>();
         final Set<String> sliceVersions = new HashSet<>();
+        final var slices = new ArrayList<org.junit.jupiter.api.function.Executable>();
         for (Map.Entry<String, Path> discoveredRecord : discovered.entrySet()) {
             final JsonNode record = mapper.readTree(discoveredRecord.getValue().toFile());
             assertTrue(verificationIds.add(record.get("verificationId").asText()),
@@ -1215,8 +1218,11 @@ class StaticVerificationRecordRepositoryTest {
                 + "@" + record.get("cubismVersion").asText();
             assertTrue(sliceVersions.add(sliceVersion),
                 "duplicate (adapterSliceId,cubismVersion): " + sliceVersion);
-            verifySlice(discoveredRecord.getValue(), record, EXPECTATIONS.get(discoveredRecord.getKey()));
+            slices.add(() -> verifySlice(
+                discoveredRecord.getValue(), record, EXPECTATIONS.get(discoveredRecord.getKey())
+            ));
         }
+        assertAll("static verification records", slices);
     }
 
     private Map<String, Path> discoverRecords() throws Exception {
@@ -1256,9 +1262,10 @@ class StaticVerificationRecordRepositoryTest {
         assertEquals(expectation.artifactName(), record.get("artifact").get("name").asText());
         assertEquals(expectation.artifactSize(), record.get("artifact").get("size").asLong());
         assertEquals(expectation.artifactSha256(), record.get("artifact").get("sha256").asText());
-        assertEquals(expectation.recordSha256(), HostArtifactDigest.from(recordPath).sha256());
+        assertEquals(expectation.recordSha256(), HostArtifactDigest.from(recordPath).sha256(),
+            repositoryPath + ": verified record digest drifted");
         assertEquals(expectation.selectorCount(), record.get("selectors").size(),
-            "verified selector count drifted");
+            repositoryPath + ": verified selector count drifted");
 
         final JsonNode pack = mapper.readTree(PROJECT_ROOT.resolve(expectation.packPath()).toFile());
         assertEquals("DRAFT", pack.get("status").asText(), "mapping pack readiness must remain DRAFT");

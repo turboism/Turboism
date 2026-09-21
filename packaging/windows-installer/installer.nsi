@@ -98,7 +98,9 @@ SetFont "MS Shell Dlg" 12
 ; 安装前哈希计划对应的条件解压函数（由 assemble-release.sh 生成）。
 !include "${GENERATED_DIR}/payload-extract.nsh"
 
-; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
+; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Directory → Graal 策略 → Graal 安装 → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
+; Graal 安装页执行真实下载，必须排在 Directory 之后（$INSTDIR 已定稿）；
+; 它又必须紧跟 Graal 策略页，因此 Directory 整体上移到策略页之前。
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
@@ -110,8 +112,10 @@ Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave
 Page custom ModeCreate ModeLeave
 !define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPre
 !insertmacro MUI_PAGE_COMPONENTS
-Page custom GraalCreate GraalLeave
 !insertmacro MUI_PAGE_DIRECTORY
+Page custom GraalCreate GraalLeave
+Page custom GraalInstallCreate GraalInstallLeave
+Page custom ScriptEngineCreate ScriptEngineLeave
 Page custom CubismDiscoveryCreate CubismDiscoveryLeave
 Page custom LaunchOptionsCreate LaunchOptionsLeave
 !insertmacro MUI_PAGE_INSTFILES
@@ -267,10 +271,50 @@ LangString ManagedGraalInstallError ${LANG_ENGLISH} "GraalVM was not installed. 
 LangString ManagedGraalInstallError ${LANG_SIMPCHINESE} "GraalVM 未完成安装。请查看 $INSTDIR\logs\installer\managed-graal-install.log，检查 GitHub 访问、剩余磁盘空间及安装目录和配置文件的写入权限后重试。"
 LangString ManagedGraalInstallError ${LANG_JAPANESE} "GraalVM のインストールが完了しませんでした。$INSTDIR\logs\installer\managed-graal-install.log を参照し、GitHub への接続、空き容量、インストール先と設定ファイルの書き込み権限を確認して再試行してください。"
 LangString ManagedGraalInstallError ${LANG_KOREAN} "GraalVM 설치가 완료되지 않았습니다. $INSTDIR\logs\installer\managed-graal-install.log를 확인하고 GitHub 연결, 디스크 여유 공간, 설치 디렉터리와 설정 파일의 쓰기 권한을 확인한 후 다시 시도하세요."
-LangString ManagedGraalStarting ${LANG_ENGLISH} "Installing Turboism-managed GraalVM. Progress is also saved to $INSTDIR\logs\installer\managed-graal-install.log."
-LangString ManagedGraalStarting ${LANG_SIMPCHINESE} "正在安装 Turboism 托管的 GraalVM。进度也会保存到 $INSTDIR\logs\installer\managed-graal-install.log。"
-LangString ManagedGraalStarting ${LANG_JAPANESE} "Turboism 管理の GraalVM をインストールしています。進捗は $INSTDIR\logs\installer\managed-graal-install.log にも保存されます。"
-LangString ManagedGraalStarting ${LANG_KOREAN} "Turboism 관리형 GraalVM을 설치하는 중입니다. 진행 상황은 $INSTDIR\logs\installer\managed-graal-install.log에도 저장됩니다."
+LangString GraalInstallTitle ${LANG_ENGLISH} "Turboism-managed GraalVM"
+LangString GraalInstallTitle ${LANG_SIMPCHINESE} "Turboism 托管的 GraalVM"
+LangString GraalInstallTitle ${LANG_JAPANESE} "Turboism 管理の GraalVM"
+LangString GraalInstallTitle ${LANG_KOREAN} "Turboism 관리형 GraalVM"
+LangString GraalInstallPreparing ${LANG_ENGLISH} "Starting the GraalVM download..."
+LangString GraalInstallPreparing ${LANG_SIMPCHINESE} "正在启动 GraalVM 下载……"
+LangString GraalInstallPreparing ${LANG_JAPANESE} "GraalVM のダウンロードを開始しています…"
+LangString GraalInstallPreparing ${LANG_KOREAN} "GraalVM 다운로드를 시작하는 중…"
+LangString GraalStateDownloading ${LANG_ENGLISH} "Downloading GraalVM..."
+LangString GraalStateDownloading ${LANG_SIMPCHINESE} "正在下载 GraalVM……"
+LangString GraalStateDownloading ${LANG_JAPANESE} "GraalVM をダウンロードしています…"
+LangString GraalStateDownloading ${LANG_KOREAN} "GraalVM 다운로드 중…"
+LangString GraalStateVerifying ${LANG_ENGLISH} "Verifying the downloaded archive..."
+LangString GraalStateVerifying ${LANG_SIMPCHINESE} "正在校验下载的压缩包……"
+LangString GraalStateVerifying ${LANG_JAPANESE} "ダウンロードしたアーカイブを検証しています…"
+LangString GraalStateVerifying ${LANG_KOREAN} "다운로드한 아카이브를 확인하는 중…"
+LangString GraalStateExtracting ${LANG_ENGLISH} "Extracting runtime files..."
+LangString GraalStateExtracting ${LANG_SIMPCHINESE} "正在解压运行时文件……"
+LangString GraalStateExtracting ${LANG_JAPANESE} "ランタイムファイルを展開しています…"
+LangString GraalStateExtracting ${LANG_KOREAN} "런타임 파일을 압축 해제하는 중…"
+LangString GraalInstallReady ${LANG_ENGLISH} "GraalVM is installed. You can continue with setup."
+LangString GraalInstallReady ${LANG_SIMPCHINESE} "GraalVM 已安装。可继续安装。"
+LangString GraalInstallReady ${LANG_JAPANESE} "GraalVM をインストールしました。セットアップを続行できます。"
+LangString GraalInstallReady ${LANG_KOREAN} "GraalVM이 설치되었습니다. 설치를 계속할 수 있습니다."
+LangString GraalInstallAlready ${LANG_ENGLISH} "A managed GraalVM runtime is already installed."
+LangString GraalInstallAlready ${LANG_SIMPCHINESE} "已安装托管的 GraalVM 运行时。"
+LangString GraalInstallAlready ${LANG_JAPANESE} "管理対象の GraalVM ランタイムは既にインストールされています。"
+LangString GraalInstallAlready ${LANG_KOREAN} "관리형 GraalVM 런타임이 이미 설치되어 있습니다."
+LangString GraalInstallCancelled ${LANG_ENGLISH} "The download was cancelled. Setup will continue without the managed GraalVM; you can install it later from the Turboism configurator."
+LangString GraalInstallCancelled ${LANG_SIMPCHINESE} "下载已取消。安装将继续但不包含托管 GraalVM；之后可在 Turboism 配置器中安装。"
+LangString GraalInstallCancelled ${LANG_JAPANESE} "ダウンロードはキャンセルされました。管理対象 GraalVM なしでセットアップを続行します。後で Turboism 設定からインストールできます。"
+LangString GraalInstallCancelled ${LANG_KOREAN} "다운로드가 취소되었습니다. 관리형 GraalVM 없이 설치를 계속합니다. 나중에 Turboism 설정에서 설치할 수 있습니다."
+LangString GraalInstallCancelling ${LANG_ENGLISH} "Cancelling the download..."
+LangString GraalInstallCancelling ${LANG_SIMPCHINESE} "正在取消下载……"
+LangString GraalInstallCancelling ${LANG_JAPANESE} "ダウンロードをキャンセルしています…"
+LangString GraalInstallCancelling ${LANG_KOREAN} "다운로드를 취소하는 중…"
+LangString GraalInstallCancelText ${LANG_ENGLISH} "Cancel download"
+LangString GraalInstallCancelText ${LANG_SIMPCHINESE} "取消下载"
+LangString GraalInstallCancelText ${LANG_JAPANESE} "ダウンロードをキャンセル"
+LangString GraalInstallCancelText ${LANG_KOREAN} "다운로드 취소"
+LangString GraalInstallRetryText ${LANG_ENGLISH} "Retry"
+LangString GraalInstallRetryText ${LANG_SIMPCHINESE} "重试"
+LangString GraalInstallRetryText ${LANG_JAPANESE} "再試行"
+LangString GraalInstallRetryText ${LANG_KOREAN} "다시 시도"
 
 LangString GraalPageTitle ${LANG_ENGLISH} "Improve performance with GraalVM"
 LangString GraalPageTitle ${LANG_SIMPCHINESE} "使用 GraalVM 提升性能"
@@ -288,10 +332,10 @@ LangString GraalLaterChoice ${LANG_ENGLISH} "Install later"
 LangString GraalLaterChoice ${LANG_SIMPCHINESE} "稍后安装"
 LangString GraalLaterChoice ${LANG_JAPANESE} "後でインストール"
 LangString GraalLaterChoice ${LANG_KOREAN} "나중에 설치"
-LangString GraalProgressHint ${LANG_ENGLISH} "When downloading, a separate progress window shows downloaded/total bytes, transfer rate, and a Cancel button."
-LangString GraalProgressHint ${LANG_SIMPCHINESE} "下载时将显示独立进度窗口，包括已下载/总字节数、传输速度和“取消”按钮。"
-LangString GraalProgressHint ${LANG_JAPANESE} "ダウンロード中は別の進捗画面に、ダウンロード済み/合計バイト数、転送速度、キャンセルボタンが表示されます。"
-LangString GraalProgressHint ${LANG_KOREAN} "다운로드할 때 다운로드/전체 바이트, 전송 속도 및 [취소] 버튼이 표시되는 별도 진행 창이 열립니다."
+LangString GraalProgressHint ${LANG_ENGLISH} "When selected, the next page downloads and installs the runtime with progress and a Cancel option."
+LangString GraalProgressHint ${LANG_SIMPCHINESE} "勾选后，下一页将下载并安装该运行时，页面内显示进度并提供“取消”选项。"
+LangString GraalProgressHint ${LANG_JAPANESE} "選択すると、次のページでランタイムをダウンロードしてインストールします。進捗表示とキャンセルはページ内にあります。"
+LangString GraalProgressHint ${LANG_KOREAN} "선택하면 다음 페이지에서 런타임을 다운로드하여 설치하며, 진행 상황과 취소가 페이지에 표시됩니다."
 
 LangString CubismDiscoveryTitle ${LANG_ENGLISH} "Cubism installations"
 LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"
@@ -301,10 +345,10 @@ LangString CubismDiscoveryScanning ${LANG_ENGLISH} "Scanning for installed Cubis
 LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描已安装的 Cubism 编辑器……"
 LangString CubismDiscoveryScanning ${LANG_JAPANESE} "インストール済みの Cubism Editor をスキャンしています…"
 LangString CubismDiscoveryScanning ${LANG_KOREAN} "설치된 Cubism Editor를 스캔하는 중…"
-LangString CubismDiscoveryComplete ${LANG_ENGLISH} "Scan complete: $CubismDiscoverySupported supported; $CubismDiscoveryOther unsupported or invalid. Supported installations will be revalidated and configured after installation."
-LangString CubismDiscoveryComplete ${LANG_SIMPCHINESE} "扫描完成：支持 $CubismDiscoverySupported 个；不支持或无效 $CubismDiscoveryOther 个。安装后会重新校验并配置受支持的安装。"
-LangString CubismDiscoveryComplete ${LANG_JAPANESE} "スキャン完了：対応 $CubismDiscoverySupported 件、未対応または不正 $CubismDiscoveryOther 件。インストール後に再検証して設定します。"
-LangString CubismDiscoveryComplete ${LANG_KOREAN} "스캔 완료: 지원 $CubismDiscoverySupported개, 미지원 또는 잘못됨 $CubismDiscoveryOther개. 지원되는 설치는 설치 후 다시 검증하여 구성합니다."
+LangString CubismDiscoveryComplete ${LANG_ENGLISH} "Scan complete: $CubismDiscoverySupported supported; $CubismDiscoveryOther unsupported or invalid."
+LangString CubismDiscoveryComplete ${LANG_SIMPCHINESE} "扫描完成：支持 $CubismDiscoverySupported 个；不支持或无效 $CubismDiscoveryOther 个。"
+LangString CubismDiscoveryComplete ${LANG_JAPANESE} "スキャン完了：対応 $CubismDiscoverySupported 件、未対応または不正 $CubismDiscoveryOther 件。"
+LangString CubismDiscoveryComplete ${LANG_KOREAN} "스캔 완료: 지원 $CubismDiscoverySupported개, 미지원 또는 잘못됨 $CubismDiscoveryOther개."
 LangString CubismDiscoveryNone ${LANG_ENGLISH} "No supported Cubism installation was found. Turboism can still be installed and configured later."
 LangString CubismDiscoveryNone ${LANG_SIMPCHINESE} "未找到受支持的 Cubism 安装。仍可安装 Turboism，并在之后进行配置。"
 LangString CubismDiscoveryNone ${LANG_JAPANESE} "対応する Cubism インストールが見つかりません。Turboism はそのままインストールし、後で設定できます。"
@@ -338,10 +382,10 @@ LangString NoLaunchWarning ${LANG_ENGLISH} "All normal launch paths are disabled
 LangString NoLaunchWarning ${LANG_SIMPCHINESE} "所有常规启动路径均已关闭。Turboism 不会通过开始菜单、桌面或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
 LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路がすべて無効です。Turboism はスタートメニュー、デスクトップ、または既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
 LangString NoLaunchWarning ${LANG_KOREAN} "모든 일반 시작 경로가 해제되었습니다. Turboism은 시작 메뉴, 바탕 화면 또는 기존 Cubism 바로 가기를 통해 활성화되지 않습니다. [아니요]를 선택하여 돌아가거나 [예]를 선택하여 의도적으로 계속하세요."
-LangString InitialConfigurationError ${LANG_ENGLISH} "Initial Cubism discovery or shortcut configuration failed. Turboism is installed; run Turboism_Configurator from the Start menu to retry."
-LangString InitialConfigurationError ${LANG_SIMPCHINESE} "Cubism 初始扫描或快捷方式配置失败。Turboism 已完成安装；请从开始菜单运行 Turboism_Configurator 重试。"
-LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の初期検出またはショートカット設定に失敗しました。Turboism のインストールは完了しています。スタートメニューから Turboism_Configurator を実行して再試行してください。"
-LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 초기 검색 또는 바로 가기 구성에 실패했습니다. Turboism은 설치되었습니다. 시작 메뉴에서 Turboism_Configurator를 실행하여 다시 시도하세요."
+LangString InitialConfigurationError ${LANG_ENGLISH} "Cubism launch configuration could not be applied. Turboism is installed; run configure_turboism.ps1 in the installation folder to check the selected installations."
+LangString InitialConfigurationError ${LANG_SIMPCHINESE} "无法应用 Cubism 启动配置。Turboism 已安装；请运行安装目录中的 configure_turboism.ps1 检查所选安装。"
+LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の起動設定を適用できませんでした。Turboism はインストール済みです。インストール先の configure_turboism.ps1 で選択したインストールを確認してください。"
+LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 시작 구성을 적용하지 못했습니다. Turboism은 설치되었습니다. 설치 폴더의 configure_turboism.ps1에서 선택한 설치를 확인하세요."
 LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not complete or elevation was canceled. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit."
 LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。"
 LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。"
@@ -429,6 +473,22 @@ Var GraalDialog
 Var GraalNowRadio
 Var GraalLaterRadio
 Var managedGraalHelp
+Var GraalInstallDialog
+Var GraalInstallStatusLabel
+Var GraalInstallProgressBar
+Var GraalInstallDetailLabel
+Var GraalInstallCancelButton
+Var GraalInstallRetryButton
+Var GraalInstallNext
+Var GraalInstallWorkDir
+Var GraalInstallStatusFile
+Var GraalInstallCancelFile
+Var GraalInstallHandle
+Var GraalInstallGeneration
+Var GraalInstallPollCount
+Var GraalInstallStallCount
+Var GraalInstallLastLine
+Var GraalInstallState     ; 0 = 未开始/进行中, 1 = 本次装完, 2 = 已取消, 3 = 失败, 4 = 已存在
 Var CubismDiscoveryDialog
 Var CubismDiscoveryList
 Var CubismDiscoveryStatus
@@ -445,6 +505,9 @@ Var CubismDiscoveryOther
 Var CubismDiscoveryResultSeen
 Var CubismDiscoveryEndSeen
 Var CubismDiscoveryMalformed
+Var CubismDiscoverySnapshotHash
+Var installScriptEngine
+Var ScriptEngineCheckbox
 Var LaunchOptionsDialog
 Var createStartMenu
 Var createDesktopShortcut
@@ -475,7 +538,25 @@ Var unCfgStyle          ; 复选框控件样式
 !endif
 
 ; ---------- 初始化 ----------
+LangString ScriptEngineTitle ${LANG_ENGLISH} "JavaScript engine"
+LangString ScriptEngineTitle ${LANG_SIMPCHINESE} "JavaScript 脚本引擎"
+LangString ScriptEngineTitle ${LANG_JAPANESE} "JavaScript エンジン"
+LangString ScriptEngineTitle ${LANG_KOREAN} "JavaScript 엔진"
+LangString ScriptEngineOption ${LANG_ENGLISH} "Download and install the optional JavaScript engine (about 77 MiB)"
+LangString ScriptEngineOption ${LANG_SIMPCHINESE} "下载并安装可选的 JavaScript 脚本引擎（约 77 MiB）"
+LangString ScriptEngineOption ${LANG_JAPANESE} "オプションの JavaScript エンジンをダウンロードしてインストール（約 77 MiB）"
+LangString ScriptEngineOption ${LANG_KOREAN} "선택적 JavaScript 엔진 다운로드 및 설치 (약 77 MiB)"
+LangString ScriptEngineHelp ${LANG_ENGLISH} "The framework and Java plugins work without this download. Script execution also needs a compatible GraalVM. The portable ZIP includes these engine files for offline use."
+LangString ScriptEngineHelp ${LANG_SIMPCHINESE} "不下载也可使用框架与 Java 插件。运行脚本还需要兼容的 GraalVM。完整便携 ZIP 已包含这些引擎文件，可供离线使用。"
+LangString ScriptEngineHelp ${LANG_JAPANESE} "ダウンロードしなくてもフレームワークと Java プラグインは利用できます。スクリプト実行には対応する GraalVM も必要です。ポータブル ZIP にはオフライン用エンジンが含まれます。"
+LangString ScriptEngineHelp ${LANG_KOREAN} "다운로드 없이 프레임워크와 Java 플러그인을 사용할 수 있습니다. 스크립트 실행에는 호환되는 GraalVM도 필요합니다. 휴대용 ZIP에는 오프라인용 엔진 파일이 포함되어 있습니다."
+LangString ScriptEngineError ${LANG_ENGLISH} "The optional script engine could not be installed. The framework is installed. Retry with install-script-engine.ps1 in the installation folder."
+LangString ScriptEngineError ${LANG_SIMPCHINESE} "可选脚本引擎安装失败，框架已安装。可在安装目录运行 install-script-engine.ps1 重试。"
+LangString ScriptEngineError ${LANG_JAPANESE} "オプションのスクリプトエンジンをインストールできませんでした。フレームワークはインストール済みです。インストール先の install-script-engine.ps1 で再試行できます。"
+LangString ScriptEngineError ${LANG_KOREAN} "선택적 스크립트 엔진을 설치하지 못했습니다. 프레임워크는 설치되었습니다. 설치 폴더의 install-script-engine.ps1로 다시 시도하세요."
+
 Function .onInit
+  StrCpy $installScriptEngine 0
   ; 语言选择：MUI 语言对话框在欢迎页之前显示。$LANGUAGE 在 .onInit 之前已由
   ; NSIS 按系统区域匹配（无匹配时为首个语言 English），因此对话框默认预选系统
   ; 语言，用户可显式切换；MUI_LANGDLL_ALLLANGUAGES 保证 CJK/韩语在任何系统
@@ -489,6 +570,8 @@ Function .onInit
   StrCpy $EulaAck4State 0
   StrCpy $Mode 1
   StrCpy $installManagedGraal 0
+  StrCpy $GraalInstallGeneration 0
+  StrCpy $GraalInstallState 0
   StrCpy $CubismDiscoveryGeneration 0
   StrCpy $CubismDiscoveryStarted 0
   StrCpy $CubismDiscoveryPollCount 0
@@ -629,6 +712,252 @@ Function GraalLeave
   ${Else}
     StrCpy $installManagedGraal 0
   ${EndIf}
+  ; 策略页每次前进离开都重新武装安装页：返回策略页改动选择后再前进，
+  ; 安装页按新选择从头开始（已安装时按已安装态显示）。
+  StrCpy $GraalInstallState 0
+FunctionEnd
+
+; ---------- 托管 GraalVM 安装页（nsDialogs，紧接 Graal 策略页） ----------
+; 与 Cubism 扫描页相同的异步 worker 模式：worker 把进度记录写进状态文件
+; （UTF-16LE，首行 TURBOISM_GRAAL_STATUS_V1，随后每写一行覆盖文件；
+; 页面取最后一条记录），页面按 250ms 轮询。“取消下载”与“返回”通过
+; 向取消标志文件写入一个字节来通知 worker 尽快退出（exit 2）。
+Function GraalInstallShowState
+  ; 恢复终态界面（前进、返回后重进或 worker 结束时都走这里）。
+  ; 若取消后运行时其实已就位（取消发生在收尾阶段），按已安装显示。
+  ${If} $GraalInstallState == 2
+    ${If} ${FileExists} "$INSTDIR\graal\runtime\bin\java.exe"
+      StrCpy $GraalInstallState 1
+    ${EndIf}
+  ${EndIf}
+  ${NSD_SetText} $GraalInstallDetailLabel ""
+  EnableWindow $GraalInstallCancelButton 0
+  EnableWindow $GraalInstallNext 1
+  ${If} $GraalInstallState == 1
+    ${NSD_ProgressBar_SetPos} $GraalInstallProgressBar 1000
+    ${NSD_SetText} $GraalInstallStatusLabel "$(GraalInstallReady)"
+  ${ElseIf} $GraalInstallState == 4
+    ${NSD_ProgressBar_SetPos} $GraalInstallProgressBar 1000
+    ${NSD_SetText} $GraalInstallStatusLabel "$(GraalInstallAlready)"
+  ${ElseIf} $GraalInstallState == 2
+    ${NSD_SetText} $GraalInstallStatusLabel "$(GraalInstallCancelled)"
+  ${Else}
+    ${NSD_SetText} $GraalInstallStatusLabel "$(ManagedGraalInstallError)"
+    EnableWindow $GraalInstallRetryButton 1
+  ${EndIf}
+FunctionEnd
+
+Function GraalInstallFinish
+  ; $0 = 终态（1 完成, 2 取消, 3 失败）
+  ${NSD_KillTimer} GraalInstallPoll
+  StrCpy $GraalInstallState $0
+  Call GraalInstallShowState
+FunctionEnd
+
+Function GraalInstallBegin
+  ${If} ${FileExists} "$INSTDIR\graal\runtime\bin\java.exe"
+    StrCpy $GraalInstallState 4
+    Call GraalInstallShowState
+    Return
+  ${EndIf}
+  StrCpy $GraalInstallState 0
+  StrCpy $GraalInstallLastLine ""
+  StrCpy $GraalInstallPollCount 0
+  StrCpy $GraalInstallStallCount 0
+  ${NSD_SetText} $GraalInstallStatusLabel "$(GraalInstallPreparing)"
+  ${NSD_SetText} $GraalInstallDetailLabel ""
+  ${NSD_ProgressBar_SetPos} $GraalInstallProgressBar 0
+  EnableWindow $GraalInstallNext 0
+  EnableWindow $GraalInstallCancelButton 1
+  EnableWindow $GraalInstallRetryButton 0
+  CreateDirectory "$INSTDIR"
+  IntOp $GraalInstallGeneration $GraalInstallGeneration + 1
+  InitPluginsDir
+  StrCpy $GraalInstallWorkDir "$PLUGINSDIR\Turboism-graal-$GraalInstallGeneration"
+  StrCpy $GraalInstallStatusFile "$GraalInstallWorkDir\graal-status.txt"
+  StrCpy $GraalInstallCancelFile "$GraalInstallWorkDir\graal-cancel.flag"
+  SetOutPath "$GraalInstallWorkDir"
+  File /oname=install-managed-graal.ps1 "${STAGING_DIR}/install-managed-graal.ps1"
+  File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
+  File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
+  ; 先把既有 config.json 迁移/校验到 schema 1（缺失时为空操作）：
+  ; 托管安装只接受 v1 配置，旧版升级路径依赖这一步先于下载发生。
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$GraalInstallWorkDir\configure_turboism.ps1" -Home "$INSTDIR" -MigrateConfig'
+  Pop $0
+  ${If} $0 != 0
+    StrCpy $0 3
+    Call GraalInstallFinish
+    Return
+  ${EndIf}
+  ClearErrors
+  ; ShellExecute 保持安装异步；SW_HIDE 防止 console 子进程夺走向导焦点。
+  ExecShell "" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$GraalInstallWorkDir\install-managed-graal.ps1" -Home "$INSTDIR" -StatusFile "$GraalInstallStatusFile" -CancelFile "$GraalInstallCancelFile"' SW_HIDE
+  ${If} ${Errors}
+    StrCpy $0 3
+    Call GraalInstallFinish
+  ${Else}
+    ${NSD_CreateTimer} GraalInstallPoll 250
+  ${EndIf}
+FunctionEnd
+
+Function GraalInstallPoll
+  IntOp $GraalInstallPollCount $GraalInstallPollCount + 1
+  ${IfNot} ${FileExists} "$GraalInstallStatusFile"
+    ${If} $GraalInstallPollCount >= 480
+      ; 2 分钟仍未产出状态文件 → worker 启动即死（PowerShell 缺失等）
+      StrCpy $0 3
+      Call GraalInstallFinish
+    ${EndIf}
+    Return
+  ${EndIf}
+  FileOpen $GraalInstallHandle "$GraalInstallStatusFile" r
+  ${If} $GraalInstallHandle == ""
+    Return
+  ${EndIf}
+  StrCpy $5 ""        ; 文件中最后一条记录
+GraalInstallReadLoop:
+  ClearErrors
+  FileReadUTF16LE $GraalInstallHandle $line
+  ${If} ${Errors}
+    Goto GraalInstallReadDone
+  ${EndIf}
+  Call TrimCubismDiscoveryLine
+  ${If} $line != ""
+  ${AndIf} $line != "TURBOISM_GRAAL_STATUS_V1"
+    StrCpy $5 $line
+  ${EndIf}
+  Goto GraalInstallReadLoop
+GraalInstallReadDone:
+  FileClose $GraalInstallHandle
+  ${If} $5 == ""
+    Return
+  ${EndIf}
+  ${If} $5 == $GraalInstallLastLine
+    IntOp $GraalInstallStallCount $GraalInstallStallCount + 1
+    ${If} $GraalInstallStallCount >= 1200
+      ; 状态记录 5 分钟无变化 → worker 已死亡
+      StrCpy $0 3
+      Call GraalInstallFinish
+    ${EndIf}
+    Return
+  ${EndIf}
+  StrCpy $GraalInstallLastLine $5
+  StrCpy $GraalInstallStallCount 0
+  StrCpy $0 $5
+  Call SplitPipeFirst          ; $0 = 记录名, $1 = 其余字段
+  ${If} $0 == "EXIT"
+    StrCpy $0 $1
+    Call SplitPipeFirst        ; $0 = 退出码
+    ${If} $0 == "0"
+      StrCpy $0 1
+    ${ElseIf} $0 == "2"
+      StrCpy $0 2
+    ${Else}
+      StrCpy $0 3
+    ${EndIf}
+    Call GraalInstallFinish
+    Return
+  ${EndIf}
+  ${If} $0 != "STATE"
+    Return
+  ${EndIf}
+  StrCpy $0 $1
+  Call SplitPipeFirst          ; $0 = 状态名, $1 = done|total
+  StrCpy $2 $0
+  StrCpy $0 $1
+  Call SplitPipeFirst          ; $0 = done, $1 = total
+  ${If} $2 == "DOWNLOADING"
+    ${NSD_SetText} $GraalInstallStatusLabel "$(GraalStateDownloading)"
+    ${If} $1 != ""
+    ${AndIf} $1 != "0"
+      ; done/total 为字节；先折算 MiB 再做 0-900 换算，避免 32 位整型溢出
+      IntOp $3 $0 / 1048576
+      IntOp $4 $1 / 1048576
+      ${If} $4 > 0
+        IntOp $6 $3 * 900
+        IntOp $6 $6 / $4
+        ${NSD_ProgressBar_SetPos} $GraalInstallProgressBar $6
+        ${NSD_SetText} $GraalInstallDetailLabel "$3 / $4 MiB"
+      ${EndIf}
+    ${EndIf}
+  ${ElseIf} $2 == "VERIFYING"
+    ${NSD_SetText} $GraalInstallStatusLabel "$(GraalStateVerifying)"
+    ${NSD_ProgressBar_SetPos} $GraalInstallProgressBar 925
+  ${ElseIf} $2 == "EXTRACTING"
+    ${NSD_SetText} $GraalInstallStatusLabel "$(GraalStateExtracting)"
+    ${NSD_ProgressBar_SetPos} $GraalInstallProgressBar 975
+  ${ElseIf} $2 == "READY"
+    StrCpy $0 1
+    Call GraalInstallFinish
+  ${EndIf}
+FunctionEnd
+
+Function GraalInstallCancelClick
+  Pop $0
+  FileOpen $0 "$GraalInstallCancelFile" w
+  FileWrite $0 "cancel"
+  FileClose $0
+  EnableWindow $GraalInstallCancelButton 0
+  ${NSD_SetText} $GraalInstallStatusLabel "$(GraalInstallCancelling)"
+FunctionEnd
+
+Function GraalInstallRetryClick
+  Pop $0
+  Call GraalInstallBegin
+FunctionEnd
+
+Function GraalInstallBack
+  Pop $0
+  ${NSD_KillTimer} GraalInstallPoll
+  ${If} $GraalInstallState == 0
+    FileOpen $0 "$GraalInstallCancelFile" w
+    FileWrite $0 "cancel"
+    FileClose $0
+    StrCpy $GraalInstallState 2
+  ${EndIf}
+  EnableWindow $GraalInstallNext 1
+FunctionEnd
+
+Function GraalInstallCreate
+  ${If} $installManagedGraal != 1
+    Abort        ; 选择“稍后安装”时跳过本页
+  ${EndIf}
+  nsDialogs::Create 1018
+  Pop $GraalInstallDialog
+  ${If} $GraalInstallDialog == error
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(GraalInstallTitle)" ""
+  ${NSD_CreateLabel} 0 0 100% 28u "$(GraalInstallPreparing)"
+  Pop $GraalInstallStatusLabel
+  ${NSD_CreateProgressBar} 0 34u 100% 14u ""
+  Pop $GraalInstallProgressBar
+  ${NSD_ProgressBar_SetRange32} $GraalInstallProgressBar 0 1000
+  ${NSD_CreateLabel} 0 52u 100% 20u ""
+  Pop $GraalInstallDetailLabel
+  ${NSD_CreateButton} 0 116u 48% 16u "$(GraalInstallCancelText)"
+  Pop $GraalInstallCancelButton
+  ${NSD_OnClick} $GraalInstallCancelButton GraalInstallCancelClick
+  ${NSD_CreateButton} 52% 116u 48% 16u "$(GraalInstallRetryText)"
+  Pop $GraalInstallRetryButton
+  ${NSD_OnClick} $GraalInstallRetryButton GraalInstallRetryClick
+  EnableWindow $GraalInstallRetryButton 0
+  ${NSD_OnBack} GraalInstallBack
+  GetDlgItem $GraalInstallNext $HWNDPARENT 1
+  EnableWindow $GraalInstallNext 0
+  ${If} $GraalInstallState == 0
+    Call GraalInstallBegin
+  ${Else}
+    Call GraalInstallShowState
+  ${EndIf}
+  nsDialogs::Show
+FunctionEnd
+
+Function GraalInstallLeave
+  ${If} $GraalInstallState == 0
+    Abort        ; 下载进行中禁止前进（Next 同时处于禁用态）
+  ${EndIf}
+  ${NSD_KillTimer} GraalInstallPoll
 FunctionEnd
 
 Function TrimCubismDiscoveryLine
@@ -667,12 +996,38 @@ Function SplitPipeFirst
   ${Loop}
 FunctionEnd
 
+Function ScriptEngineCreate
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(ScriptEngineTitle)" ""
+  ${NSD_CreateCheckbox} 0 8u 100% 34u "$(ScriptEngineOption)"
+  Pop $ScriptEngineCheckbox
+  ${NSD_SetState} $ScriptEngineCheckbox $installScriptEngine
+  ${NSD_CreateLabel} 0 54u 100% 80u "$(ScriptEngineHelp)"
+  Pop $0
+  ${NSD_OnBack} ScriptEngineBack
+  nsDialogs::Show
+FunctionEnd
+
+Function ScriptEngineBack
+  Pop $0
+  ${NSD_GetState} $ScriptEngineCheckbox $installScriptEngine
+FunctionEnd
+
+Function ScriptEngineLeave
+  ${NSD_GetState} $ScriptEngineCheckbox $installScriptEngine
+FunctionEnd
+
 Function CubismDiscoveryEnableNext
   StrCpy $CubismDiscoveryComplete 1
   EnableWindow $CubismDiscoveryNext 1
 FunctionEnd
 
 Function CubismDiscoveryFail
+  StrCpy $CubismDiscoverySnapshotHash ""
   ${NSD_KillTimer} CubismDiscoveryPoll
   ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryFailed)"
   Call CubismDiscoveryEnableNext
@@ -683,6 +1038,7 @@ Function CubismDiscoveryPoll
   IfFileExists "$CubismDiscoveryResult" ReadCubismDiscoveryResult
   ${If} $CubismDiscoveryPollCount >= 480
     ${NSD_KillTimer} CubismDiscoveryPoll
+    StrCpy $CubismDiscoverySnapshotHash ""
     ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryTimeout)"
     Call CubismDiscoveryEnableNext
   ${EndIf}
@@ -690,6 +1046,23 @@ Function CubismDiscoveryPoll
 
 ReadCubismDiscoveryResult:
   ${NSD_KillTimer} CubismDiscoveryPoll
+  Call CubismDiscoveryReadResult
+  ${If} $CubismDiscoveryMalformed != 0
+    Call CubismDiscoveryFail
+    Return
+  ${EndIf}
+  ${If} $CubismDiscoverySupported == 0
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryNone)"
+  ${Else}
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryComplete)"
+  ${EndIf}
+  Call CubismDiscoveryEnableNext
+FunctionEnd
+
+; The parser has no dialog dependency, so silent installs can use the same
+; pre-install discovery and digest handoff without creating a second scan.
+Function CubismDiscoveryReadResult
+  StrCpy $CubismDiscoverySnapshotHash ""
   StrCpy $CubismDiscoveryResultSeen 0
   StrCpy $CubismDiscoveryEndSeen 0
   StrCpy $CubismDiscoveryMalformed 0
@@ -698,7 +1071,7 @@ ReadCubismDiscoveryResult:
   StrCpy $2 0
   FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r
   ${If} $CubismDiscoveryHandle == ""
-    Call CubismDiscoveryFail
+    StrCpy $CubismDiscoveryMalformed 1
     Return
   ${EndIf}
 
@@ -757,6 +1130,42 @@ CubismDiscoveryReadLoop:
     StrCpy $CubismDiscoveryResultSeen 1
     Goto CubismDiscoveryReadLoop
   ${EndIf}
+  StrCpy $3 "$line" 9
+  ${If} $3 == "SNAPSHOT|"
+    ${If} $CubismDiscoveryResultSeen != 1
+    ${OrIf} $CubismDiscoverySnapshotHash != ""
+      StrCpy $CubismDiscoveryMalformed 1
+      Goto CubismDiscoveryReadLoop
+    ${EndIf}
+    StrCpy $CubismDiscoverySnapshotHash "$line" "" 9
+    StrLen $0 $CubismDiscoverySnapshotHash
+    ${If} $0 != 64
+      StrCpy $CubismDiscoveryMalformed 1
+    ${Else}
+      ${For} $pos 0 63
+        StrCpy $ch "$CubismDiscoverySnapshotHash" 1 $pos
+        StrCmp $ch "0" CubismDigestDigitValid
+        StrCmp $ch "1" CubismDigestDigitValid
+        StrCmp $ch "2" CubismDigestDigitValid
+        StrCmp $ch "3" CubismDigestDigitValid
+        StrCmp $ch "4" CubismDigestDigitValid
+        StrCmp $ch "5" CubismDigestDigitValid
+        StrCmp $ch "6" CubismDigestDigitValid
+        StrCmp $ch "7" CubismDigestDigitValid
+        StrCmp $ch "8" CubismDigestDigitValid
+        StrCmp $ch "9" CubismDigestDigitValid
+        StrCmp $ch "a" CubismDigestDigitValid
+        StrCmp $ch "b" CubismDigestDigitValid
+        StrCmp $ch "c" CubismDigestDigitValid
+        StrCmp $ch "d" CubismDigestDigitValid
+        StrCmp $ch "e" CubismDigestDigitValid
+        StrCmp $ch "f" CubismDigestDigitValid
+        StrCpy $CubismDiscoveryMalformed 1
+      CubismDigestDigitValid:
+      ${Next}
+    ${EndIf}
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
   StrCpy $3 "$line" 8
   ${If} $3 == "DISPLAY|"
     ${If} $CubismDiscoveryResultSeen != 1
@@ -764,8 +1173,10 @@ CubismDiscoveryReadLoop:
       Goto CubismDiscoveryReadLoop
     ${EndIf}
     StrCpy $3 "$line" "" 8
-    SendMessage $CubismDiscoveryList ${LB_ADDSTRING} 0 "STR:$3"
-    SendMessage $CubismDiscoveryList ${LB_SETHORIZONTALEXTENT} 8192 0
+    ${If} $CubismDiscoveryList != ""
+      SendMessage $CubismDiscoveryList ${LB_ADDSTRING} 0 "STR:$3"
+      SendMessage $CubismDiscoveryList ${LB_SETHORIZONTALEXTENT} 8192 0
+    ${EndIf}
     Goto CubismDiscoveryReadLoop
   ${EndIf}
   StrCpy $CubismDiscoveryMalformed 1
@@ -776,15 +1187,26 @@ CubismDiscoveryReadDone:
   ${If} $CubismDiscoveryEndSeen != 1
   ${OrIf} $CubismDiscoveryResultSeen != 1
   ${OrIf} $CubismDiscoveryMalformed != 0
-    Call CubismDiscoveryFail
-    Return
+  ${OrIf} $CubismDiscoverySnapshotHash == ""
+    StrCpy $CubismDiscoveryMalformed 1
+    StrCpy $CubismDiscoverySnapshotHash ""
   ${EndIf}
-  ${If} $CubismDiscoverySupported == 0
-    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryNone)"
-  ${Else}
-    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryComplete)"
+  ${IfNot} ${FileExists} "$CubismDiscoveryResult.json"
+    StrCpy $CubismDiscoveryMalformed 1
+    StrCpy $CubismDiscoverySnapshotHash ""
   ${EndIf}
-  Call CubismDiscoveryEnableNext
+FunctionEnd
+
+Function CubismDiscoveryPrepareFiles
+  IntOp $CubismDiscoveryGeneration $CubismDiscoveryGeneration + 1
+  InitPluginsDir
+  StrCpy $CubismDiscoverySnapshotHash ""
+  StrCpy $CubismDiscoveryWorkDir "$PLUGINSDIR\Turboism-discovery-$CubismDiscoveryGeneration"
+  StrCpy $CubismDiscoveryResult "$CubismDiscoveryWorkDir\cubism-scan.result"
+  SetOutPath "$CubismDiscoveryWorkDir"
+  File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
+  File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
+  File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
 FunctionEnd
 
 Function CubismDiscoveryBack
@@ -818,14 +1240,7 @@ Function CubismDiscoveryCreate
       ${NSD_CreateTimer} CubismDiscoveryPoll 250
     ${EndIf}
   ${Else}
-    IntOp $CubismDiscoveryGeneration $CubismDiscoveryGeneration + 1
-    InitPluginsDir
-    StrCpy $CubismDiscoveryWorkDir "$PLUGINSDIR\Turboism-discovery-$CubismDiscoveryGeneration"
-    StrCpy $CubismDiscoveryResult "$CubismDiscoveryWorkDir\cubism-scan.result"
-    SetOutPath "$CubismDiscoveryWorkDir"
-    File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
-    File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
-    File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
+    Call CubismDiscoveryPrepareFiles
     ClearErrors
     ; ShellExecute keeps discovery asynchronous; SW_HIDE prevents its console
     ; process from taking focus away from the installer wizard.
@@ -886,44 +1301,84 @@ Function LaunchOptionsLeave
   ${EndIf}
 FunctionEnd
 
+!define CUBISM_DISCOVERY_HANDOFF '-InstallerDiscoverySnapshot "$CubismDiscoveryResult.json" -InstallerDiscoverySnapshotSha256 "$CubismDiscoverySnapshotHash"'
+
 Function .onInstSuccess
-  ; 预安装扫描目录包含 agent JAR。若留到 Finish 按钮关闭安装器时由 NSIS
-  ; 自动清理，会表现为点击“完成”后的短暂卡顿；在进入 Finish 页前主动释放。
+  ; A failed/skipped middle scan is explicitly framework-only. Never start a
+  ; hidden recovery scan here. Successful scans are consumed before cleanup.
+  ${If} $CubismDiscoverySnapshotHash == ""
+    DetailPrint "$(CubismDiscoveryFailed)"
+    Goto InstallerConfigurationDone
+  ${EndIf}
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection ${CUBISM_DISCOVERY_HANDOFF}'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)" /SD IDOK
+    SetErrorLevel 2
+    Goto InstallerConfigurationDone
+  ${EndIf}
+  ${If} $createStartMenu == 1
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${Else}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${EndIf}
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)" /SD IDOK
+    SetErrorLevel 2
+    Goto InstallerConfigurationDone
+  ${EndIf}
+  ${If} $integrateCubismBat == 1
+    ${If} $CubismDiscoverySupported == 0
+      Goto InstallerConfigurationDone
+    ${EndIf}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${Else}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat ${CUBISM_DISCOVERY_HANDOFF}'
+    Pop $0
+  ${EndIf}
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)" /SD IDOK
+    SetErrorLevel 2
+  ${EndIf}
+InstallerConfigurationDone:
+  ; Release temporary verifier/snapshot only after the synchronous elevated
+  ; helper returns, and before the Finish page performs automatic temp cleanup.
   ${If} $CubismDiscoveryWorkDir != ""
     RMDir /r "$CubismDiscoveryWorkDir"
     StrCpy $CubismDiscoveryWorkDir ""
     StrCpy $CubismDiscoveryResult ""
+    StrCpy $CubismDiscoverySnapshotHash ""
   ${EndIf}
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection'
-  Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
-    Return
-  ${EndIf}
-  ${If} $createStartMenu == 1
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts'
-    Pop $0
-  ${Else}
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts'
-    Pop $0
-  ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
-    Return
-  ${EndIf}
-  ${If} $integrateCubismBat == 1
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat'
-    Pop $0
-  ${Else}
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat'
-    Pop $0
-  ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)"
+  ${If} $GraalInstallWorkDir != ""
+    RMDir /r "$GraalInstallWorkDir"
+    StrCpy $GraalInstallWorkDir ""
+    StrCpy $GraalInstallStatusFile ""
+    StrCpy $GraalInstallCancelFile ""
   ${EndIf}
 FunctionEnd
 
 ; ---------- Section 声明 ----------
+; Silent installs have no middle page: make the same single, bounded scan
+; before permanent configuration/payload mutation, then reuse its snapshot.
+Section "-静默发现 Cubism" SecSilentDiscovery
+  IfSilent 0 SilentDiscoveryDone
+  Call CubismDiscoveryPrepareFiles
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult"'
+  Pop $0
+  ${If} $0 != 0
+    SetErrorLevel 2
+    Abort
+  ${EndIf}
+  Call CubismDiscoveryReadResult
+  ${If} $CubismDiscoveryMalformed != 0
+    SetErrorLevel 2
+    Abort
+  ${EndIf}
+SilentDiscoveryDone:
+SectionEnd
 ; 配置必须在任何永久载荷、托管运行时或插件 JAR 写入前完成。这里只将当前
 ; helper 解压到 NSIS 私有临时目录；无效/未来配置会在安装树变化前失败关闭。
 Section "-写入配置" SecConfig
@@ -988,14 +1443,16 @@ Section "-核心文件" SecCore
   Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256"
 SectionEnd
 
-Section "-托管 GraalVM" SecManagedGraal
-  ${If} $installManagedGraal == 1
-    DetailPrint "$(ManagedGraalStarting)"
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR" -Gui'
+; Optional engine acquisition is independent of plugin selection. Existing
+; engine files are never removed merely because this option is unchecked.
+Section "-可选脚本引擎" SecScriptEngine
+  ${If} $installScriptEngine == 1
+    DetailPrint "$(ScriptEngineTitle)"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-script-engine.ps1" -HomePath "$INSTDIR"'
     Pop $0
     ${If} $0 != 0
-      DetailPrint "$(ManagedGraalInstallError)"
-      MessageBox MB_ICONEXCLAMATION|MB_OK "$(ManagedGraalInstallError)"
+      MessageBox MB_ICONEXCLAMATION|MB_OK "$(ScriptEngineError)" /SD IDOK
+      SetErrorLevel 2
     ${EndIf}
   ${EndIf}
 SectionEnd
@@ -1071,6 +1528,8 @@ Section "Uninstall"
   Delete "$INSTDIR\configure_turboism.ps1"
   Delete "$INSTDIR\install-jar-payload.ps1"
   Delete "$INSTDIR\install-managed-graal.ps1"
+  Delete "$INSTDIR\install-script-engine.ps1"
+  Delete "$INSTDIR\script-engine.json"
   Delete "$INSTDIR\turboism.ico"
   Delete "$INSTDIR\turboism.png"
   ; The configurator removes managed state only after validated shortcut cleanup.

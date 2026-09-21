@@ -521,6 +521,10 @@ public final class RuntimeEventBroker {
 
     /** One callback-scoped Runtime transform event. */
     public interface TransformCallback extends AutoCloseable {
+        /**
+         * @return the event this callback may transform in place; valid only while the
+         *         callback is open
+         */
         EventBus.TurboismEvent event();
         @Override void close();
     }
@@ -1158,13 +1162,21 @@ public final class RuntimeEventBroker {
         }
     }
 
+    /** Lifecycle state of one event-owner mailbox inside the broker. */
     public enum OwnerLifecycle {
+        /** The owner is registered but not yet initializing; deliveries may queue. */
         ADMITTED,
+        /** The owner is being initialized. */
         INITIALIZING,
+        /** The owner is being enabled. */
         ENABLING,
+        /** The owner receives deliveries normally. */
         ACTIVE,
+        /** The owner is closing; new deliveries stop being admitted. */
         CLOSING,
+        /** In-flight deliveries drained; the owner no longer runs callbacks. */
         QUIESCED,
+        /** The owner is fully closed and its mailbox is released. */
         CLOSED
     }
 
@@ -1198,10 +1210,15 @@ public final class RuntimeEventBroker {
             code = Objects.requireNonNull(code, "code");
         }
 
+        /** Why one delivery could not be admitted or completed. */
         public enum Code {
+            /** The owner mailbox was full and the delivery was dropped. */
             MAILBOX_SATURATED,
+            /** The scheduler refused the drain task. */
             SCHEDULER_REJECTED,
+            /** The subscriber callback threw; the failure was contained. */
             SUBSCRIBER_FAILED,
+            /** The bound permission checker denied delivery of the concrete event type. */
             DELIVERY_PERMISSION_DENIED
         }
     }

@@ -30,6 +30,9 @@ record PreviewPluginRuntimeResources(
     PreviewPluginContextFactory contextFactory,
     dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
     dev.turboism.internal.core.CubismJvmSettingsService cubismJvmSettings,
+    dev.turboism.internal.core.MeshTriangulationSettingsService meshTriangulationSettings,
+    dev.turboism.internal.core.AtlasTileBboxSettingsService atlasTileBboxSettings,
+    dev.turboism.internal.core.AtlasCacheReuseSettingsService atlasCacheReuseSettings,
     dev.turboism.internal.core.CoreUpdateService updateService,
     PluginLifecyclePolicy lifecyclePolicy,
     PluginLifecycleLane lifecycleLane,
@@ -180,6 +183,12 @@ record PreviewPluginRuntimeResources(
         log.setMaxStorageMiB(settings.maxLogStorageMiB());
         final dev.turboism.config.CubismJvmSettingsFileService cubismJvmSettings =
             new dev.turboism.config.CubismJvmSettingsFileService(home);
+        final dev.turboism.config.MeshTriangulationSettingsFileService meshTriangulationSettings =
+            new dev.turboism.config.MeshTriangulationSettingsFileService(home);
+        final dev.turboism.config.AtlasTileBboxSettingsFileService atlasTileBboxSettings =
+            new dev.turboism.config.AtlasTileBboxSettingsFileService(home);
+        final dev.turboism.config.AtlasCacheReuseSettingsFileService atlasCacheReuseSettings =
+            new dev.turboism.config.AtlasCacheReuseSettingsFileService(home);
         final dev.turboism.internal.core.CoreUpdateService updateService =
             new dev.turboism.update.RuntimeUpdateService(
                 home,
@@ -219,6 +228,9 @@ record PreviewPluginRuntimeResources(
             contextFactory,
             runtimeSettings,
             cubismJvmSettings,
+            meshTriangulationSettings,
+            atlasTileBboxSettings,
+            atlasCacheReuseSettings,
             updateService,
             lifecyclePolicy,
             lifecycleLane,

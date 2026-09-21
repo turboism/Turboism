@@ -48,8 +48,8 @@ class PaletteFilterHostOperationsTest {
     @Test
     void filterBoxRendersPlaceholderFieldAndClearButton() {
         final AtomicReference<String> lastText = new AtomicReference<>();
-        final PaletteFilterHostOperations.FilterBox box = onEdt(() ->
-            PaletteFilterHostOperations.createFilterBox("输入关键词过滤", "", lastText::set));
+        final FilterBox box = onEdt(() ->
+            PaletteToolbarSupport.createFilterBox("输入关键词过滤", "", lastText::set));
 
         assertNotNull(box.panel);
         assertNotNull(box.field);
@@ -63,8 +63,8 @@ class PaletteFilterHostOperationsTest {
     @Test
     void filterBoxPropagatesTextChangesAndClearResetsField() throws Exception {
         final AtomicReference<String> lastText = new AtomicReference<>();
-        final PaletteFilterHostOperations.FilterBox box = onEdt(() ->
-            PaletteFilterHostOperations.createFilterBox("placeholder", "", lastText::set));
+        final FilterBox box = onEdt(() ->
+            PaletteToolbarSupport.createFilterBox("placeholder", "", lastText::set));
 
         onEdt(() -> box.field.setText("eye"));
         assertEquals("eye", lastText.get());
@@ -85,8 +85,8 @@ class PaletteFilterHostOperationsTest {
             final JPanel filter = new JPanel();
             filter.setPreferredSize(new Dimension(140, 26));
 
-            final PaletteFilterHostOperations.ToolbarPlacement placement =
-                PaletteFilterHostOperations.attachToolbarContribution(nativeToolbar, filter);
+            final ToolbarPlacement placement =
+                PaletteToolbarSupport.attachToolbarContribution(nativeToolbar, filter);
             parent.setSize(500, 30);
             parent.doLayout();
             nativeToolbar.getParent().doLayout();
@@ -111,12 +111,12 @@ class PaletteFilterHostOperationsTest {
         final String raw = "INFO loaded\nWARN missing texture\nERROR failed";
         assertEquals(
             "WARN missing texture",
-            PaletteFilterHostOperations.filterLogText(raw, "missing", true, true, true)
+            PaletteLogFilter.filterLogText(raw, "missing", true, true, true)
         );
-        assertEquals(raw, PaletteFilterHostOperations.filterLogText(raw, "", true, true, true));
-        assertEquals("", PaletteFilterHostOperations.filterLogText(null, "x", true, true, true));
-        assertEquals("", PaletteFilterHostOperations.filterLogText("", "x", true, true, true));
-        assertEquals("", PaletteFilterHostOperations.filterLogText(raw, "nonexistent", true, true, true));
+        assertEquals(raw, PaletteLogFilter.filterLogText(raw, "", true, true, true));
+        assertEquals("", PaletteLogFilter.filterLogText(null, "x", true, true, true));
+        assertEquals("", PaletteLogFilter.filterLogText("", "x", true, true, true));
+        assertEquals("", PaletteLogFilter.filterLogText(raw, "nonexistent", true, true, true));
     }
 
     @Test
@@ -124,15 +124,15 @@ class PaletteFilterHostOperationsTest {
         final String raw = "INFO loaded\nWARN missing texture\nERROR failed";
         assertEquals(
             "WARN missing texture",
-            PaletteFilterHostOperations.filterLogText(raw, "", false, true, false)
+            PaletteLogFilter.filterLogText(raw, "", false, true, false)
         );
         assertEquals(
             "ERROR failed",
-            PaletteFilterHostOperations.filterLogText(raw, "", false, false, true)
+            PaletteLogFilter.filterLogText(raw, "", false, false, true)
         );
         assertEquals(
             "",
-            PaletteFilterHostOperations.filterLogText(raw, "", false, false, false)
+            PaletteLogFilter.filterLogText(raw, "", false, false, false)
         );
     }
 
@@ -360,8 +360,8 @@ class PaletteFilterHostOperationsTest {
         folderB.add(child3);
         final javax.swing.tree.DefaultTreeModel delegate = new javax.swing.tree.DefaultTreeModel(root);
 
-        final PaletteFilterHostOperations.FilteredTreeModel filtered =
-            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "angle", String::valueOf);
+        final FilteredTreeModel filtered =
+            new FilteredTreeModel(delegate, "angle", String::valueOf);
 
         // root visible (always), folderA visible (descendant matches), child1 visible, child2 hidden
         assertEquals(1, filtered.getChildCount(root));
@@ -376,8 +376,8 @@ class PaletteFilterHostOperationsTest {
         root.add(new javax.swing.tree.DefaultMutableTreeNode("Alpha"));
         root.add(new javax.swing.tree.DefaultMutableTreeNode("Beta"));
         final javax.swing.tree.DefaultTreeModel delegate = new javax.swing.tree.DefaultTreeModel(root);
-        final PaletteFilterHostOperations.FilteredTreeModel filtered =
-            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "", String::valueOf);
+        final FilteredTreeModel filtered =
+            new FilteredTreeModel(delegate, "", String::valueOf);
         assertEquals(2, filtered.getChildCount(root));
     }
 
@@ -405,9 +405,9 @@ class PaletteFilterHostOperationsTest {
 
     @Test
     void nodeSourceProfileRoutesExactVersionsToPinnedAccessors() {
-        // Runtime resolver spelling (EditorModelVerificationManifest52) and record spelling.
+        // Exact record spelling routes to the pinned accessor; other spellings fail closed.
         assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
-        assertEquals("h", DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
+        assertTrue(DeformerNodeSourceProfile.forVersion("5.2.0").isEmpty());
         assertEquals("i", DeformerNodeSourceProfile.forVersion("5.3.02").orElseThrow().accessorName());
         assertTrue(DeformerNodeSourceProfile.forVersion("5.4.0").isEmpty());
         assertTrue(DeformerNodeSourceProfile.forVersion("").isEmpty());
@@ -448,12 +448,12 @@ class PaletteFilterHostOperationsTest {
         root.add(parent);
         parent.add(child);
         final javax.swing.tree.DefaultTreeModel delegate = new javax.swing.tree.DefaultTreeModel(root);
-        final PaletteFilterHostOperations.FilteredTreeModel filtered =
-            new PaletteFilterHostOperations.FilteredTreeModel(delegate, "artmesh16", host::deformerNodeSearchText);
+        final FilteredTreeModel filtered =
+            new FilteredTreeModel(delegate, "artmesh16", host::deformerNodeSearchText);
         final javax.swing.JTree tree = onEdt(() -> new javax.swing.JTree(filtered));
 
         assertEquals(2, onEdt(tree::getRowCount));
-        onEdt(() -> PaletteFilterHostOperations.expandFilteredTree(tree));
+        onEdt(() -> PaletteTreeFilter.expandFilteredTree(tree));
         assertEquals(3, onEdt(tree::getRowCount));
         assertEquals(child, onEdt(() -> tree.getPathForRow(2).getLastPathComponent()));
 
@@ -478,8 +478,8 @@ class PaletteFilterHostOperationsTest {
     void debouncedTreeFilterAppliesLatestKeystrokeNotInitialText() throws Exception {
         final PaletteFilterHostOperations host = hostWithResolver(
             "5.3.02", PaletteFilterHostOperationsTest.class.getClassLoader());
-        final PaletteFilterHostOperations.PaletteFilterState state =
-            new PaletteFilterHostOperations.PaletteFilterState(PaletteFilterHostOperations.PaletteKind.DEFORMER);
+        final PaletteFilterState state =
+            new PaletteFilterState(PaletteFilterHostOperations.PaletteKind.DEFORMER);
         final javax.swing.tree.DefaultMutableTreeNode root = new javax.swing.tree.DefaultMutableTreeNode("root");
         root.add(new javax.swing.tree.DefaultMutableTreeNode("ParamAngleX"));
         final javax.swing.tree.DefaultTreeModel model = new javax.swing.tree.DefaultTreeModel(root);
@@ -489,14 +489,14 @@ class PaletteFilterHostOperationsTest {
             state.tree = tree;
             state.treeModel = model;
             state.filterText = "initial"; // attach-time keyword
-            host.scheduleTreeFilter(state, "angle"); // a keystroke lands with the new text
+            PaletteTreeFilter.scheduleTreeFilter(host, state, "angle"); // a keystroke lands with the new text
         });
 
         // Debounce timer → background prewarm → EDT model swap must apply "angle", not "initial".
-        final java.util.concurrent.atomic.AtomicReference<PaletteFilterHostOperations.FilteredTreeModel> applied =
+        final java.util.concurrent.atomic.AtomicReference<FilteredTreeModel> applied =
             new java.util.concurrent.atomic.AtomicReference<>();
         awaitUntil(() -> {
-            final PaletteFilterHostOperations.FilteredTreeModel filtered = state.filteredTreeModel;
+            final FilteredTreeModel filtered = state.filteredTreeModel;
             if (filtered != null) {
                 applied.set(filtered);
             }
@@ -522,7 +522,7 @@ class PaletteFilterHostOperationsTest {
         onEdt(() -> field.setText("warp4")); // keystroke
         awaitUntil(() -> {
             final javax.swing.tree.TreeModel current = onEdt(fixture.tree::getModel);
-            return current instanceof PaletteFilterHostOperations.FilteredTreeModel filtered
+            return current instanceof FilteredTreeModel filtered
                 && "warp4".equals(filtered.keyword());
         });
     }
@@ -616,25 +616,25 @@ class PaletteFilterHostOperationsTest {
         root.add(folder);
         folder.add(child);
         root.add(sibling);
-        final List<PaletteFilterHostOperations.ParameterFilterRow> rows = List.of(
-            new PaletteFilterHostOperations.ParameterFilterRow(folder, "facefolder face", true),
-            new PaletteFilterHostOperations.ParameterFilterRow(child, "paramanglex angle x", false),
-            new PaletteFilterHostOperations.ParameterFilterRow(sibling, "parammouth mouth", false)
+        final List<ParameterFilterRow> rows = List.of(
+            new ParameterFilterRow(folder, "facefolder face", true),
+            new ParameterFilterRow(child, "paramanglex angle x", false),
+            new ParameterFilterRow(sibling, "parammouth mouth", false)
         );
         final java.util.Map<JComponent, Boolean> original = new java.util.IdentityHashMap<>();
         rows.forEach(row -> original.put(row.component(), row.component().isVisible()));
 
-        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(rows, original, "paramanglex"));
+        onEdt(() -> PaletteParameterRows.applyParameterRows(rows, original, "paramanglex"));
         assertTrue(folder.isVisible());
         assertTrue(child.isVisible());
         assertFalse(sibling.isVisible());
 
-        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(rows, original, "mouth"));
+        onEdt(() -> PaletteParameterRows.applyParameterRows(rows, original, "mouth"));
         assertFalse(folder.isVisible());
         assertFalse(child.isVisible());
         assertTrue(sibling.isVisible());
 
-        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(rows, original, ""));
+        onEdt(() -> PaletteParameterRows.applyParameterRows(rows, original, ""));
         assertTrue(folder.isVisible());
         assertTrue(child.isVisible());
         assertTrue(sibling.isVisible());
@@ -642,22 +642,22 @@ class PaletteFilterHostOperationsTest {
 
     @Test
     void matchingEveryParameterUsesLinearRowVisits() {
-        final java.util.List<PaletteFilterHostOperations.ParameterFilterRow> values = new java.util.ArrayList<>();
+        final java.util.List<ParameterFilterRow> values = new java.util.ArrayList<>();
         final JPanel root = new JPanel();
         for (int i = 0; i < 128; i++) {
             final JPanel row = new JPanel();
             root.add(row);
-            values.add(new PaletteFilterHostOperations.ParameterFilterRow(row, "Param" + i, false));
+            values.add(new ParameterFilterRow(row, "Param" + i, false));
         }
         final java.util.concurrent.atomic.AtomicInteger visits = new java.util.concurrent.atomic.AtomicInteger();
-        final List<PaletteFilterHostOperations.ParameterFilterRow> counted = new java.util.AbstractList<>() {
-            @Override public PaletteFilterHostOperations.ParameterFilterRow get(final int index) {
+        final List<ParameterFilterRow> counted = new java.util.AbstractList<>() {
+            @Override public ParameterFilterRow get(final int index) {
                 visits.incrementAndGet();
                 return values.get(index);
             }
             @Override public int size() { return values.size(); }
         };
-        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(counted, java.util.Map.of(), "Param"));
+        onEdt(() -> PaletteParameterRows.applyParameterRows(counted, java.util.Map.of(), "Param"));
         assertTrue(visits.get() <= 4 * values.size(), "row visits=" + visits.get());
         assertTrue(values.stream().allMatch(row -> row.component().isVisible()));
     }
@@ -667,12 +667,12 @@ class PaletteFilterHostOperationsTest {
         final CountingParent parent = new CountingParent();
         final JPanel row = new JPanel();
         parent.add(row);
-        final var rows = List.of(new PaletteFilterHostOperations.ParameterFilterRow(row, "ParamA", false));
+        final var rows = List.of(new ParameterFilterRow(row, "ParamA", false));
         onEdt(() -> {
             parent.layouts = 0;
             parent.paints = 0;
             for (int i = 0; i < 10; i++) {
-                PaletteFilterHostOperations.applyParameterRows(rows, java.util.Map.of(row, true), "");
+                PaletteParameterRows.applyParameterRows(rows, java.util.Map.of(row, true), "");
             }
             assertEquals(0, parent.layouts);
             assertEquals(0, parent.paints);
@@ -689,30 +689,30 @@ class PaletteFilterHostOperationsTest {
             root.add(first);
             root.add(second);
             first.add(child);
-            final var state = new PaletteFilterHostOperations.PaletteFilterState(
+            final var state = new PaletteFilterState(
                 PaletteFilterHostOperations.PaletteKind.PARAMETER);
             state.rows = List.of(
-                new PaletteFilterHostOperations.ParameterFilterRow(first, "first", true),
-                new PaletteFilterHostOperations.ParameterFilterRow(second, "second", true),
-                new PaletteFilterHostOperations.ParameterFilterRow(child, "needle", false));
+                new ParameterFilterRow(first, "first", true),
+                new ParameterFilterRow(second, "second", true),
+                new ParameterFilterRow(child, "needle", false));
             state.rows.forEach(row -> state.originalRowVisibility.put(row.component(), true));
-            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            PaletteParameterRows.applyParameterFilter(state, "needle");
             assertTrue(first.isVisible());
             assertFalse(second.isVisible());
-            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            PaletteParameterRows.applyParameterFilter(state, "needle");
             second.add(child);
-            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            PaletteParameterRows.applyParameterFilter(state, "needle");
             assertFalse(first.isVisible());
             assertTrue(second.isVisible());
             child.setVisible(false);
-            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            PaletteParameterRows.applyParameterFilter(state, "needle");
             assertTrue(child.isVisible());
             state.rows = List.of(state.rows.get(0), state.rows.get(1),
-                new PaletteFilterHostOperations.ParameterFilterRow(child, "renamed", false));
-            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+                new ParameterFilterRow(child, "renamed", false));
+            PaletteParameterRows.applyParameterFilter(state, "needle");
             assertFalse(child.isVisible());
             assertFalse(second.isVisible());
-            PaletteFilterHostOperations.applyParameterFilter(state, "");
+            PaletteParameterRows.applyParameterFilter(state, "");
             assertTrue(first.isVisible());
             assertTrue(second.isVisible());
             assertTrue(child.isVisible());

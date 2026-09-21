@@ -10,7 +10,7 @@ import java.lang.reflect.Constructor;
  *
  * <p>Asserts that {@code dev.turboism.core.event.SdkContractParent}:</p>
  * <ul>
- *   <li>blocks agent/runtime/core-plugin classes that ARE bootstrap-visible;</li>
+ *   <li>blocks agent/runtime/framework-shell classes that ARE bootstrap-visible;</li>
  *   <li>preserves the shared SDK {@link Class} identity for {@code dev.turboism.sdk.*};</li>
  *   <li>still resolves genuine JDK platform-module classes ({@code jdk.httpserver},
  *       {@code java.xml}).</li>
@@ -33,7 +33,7 @@ public final class ContractParentVisibilityMain {
         for (final String name : new String[] {
             "dev.turboism.core.event.RuntimeEventBroker",
             "dev.turboism.internal.core.CorePluginManagement",
-            "dev.turboism.plugin.core.MainToolbarPlugin",
+            "dev.turboism.shell.CoreShell",
             "dev.turboism.bootstrap.TurboismAgent",
             "dev.turboism.agent.shaded.jackson.databind.ObjectMapper"
         }) {

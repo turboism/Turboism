@@ -23,29 +23,131 @@ public interface ProjectWorkspaceAdapter {
     String WORKSPACE_CAPABILITY_ID = "cubism.workspace.read";
     String ADAPTER_SLICE_ID = "adapter.project-workspace.readonly";
 
+    /**
+     * @return an available result carrying the active project (empty when none is open),
+     *         or an unavailable result whose diagnostic explains the failed read; never null
+     */
     AdapterResult<Optional<ProjectSnapshot>> activeProject();
 
+    /**
+     * @return an available result carrying the active document (empty when none is active),
+     *         or an unavailable result whose diagnostic explains the failed read; never null
+     */
     AdapterResult<Optional<DocumentSnapshot>> activeDocument();
 
+    /**
+     * @return an available result carrying the current workspace (empty when the host has
+     *         none to report), or an unavailable result whose diagnostic explains the failed
+     *         read; never null
+     */
     AdapterResult<Optional<WorkspaceSnapshot>> workspace();
 
     /** One ordered adapter admission for a coherent serialized project/workspace observation. */
     AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot();
 
+    /**
+     * One adapter call that observes the active project and the active document together.
+     *
+     * <p>The default composes the two individual reads; connected adapters pair them under one
+     * admission so implementations that can resolve both from one host traversal do so. A half
+     * that the host could not supply is empty while the other half still reports, matching the
+     * per-call behaviour of {@link #activeProject()} and {@link #activeDocument()}.</p>
+     *
+     * @return the observed pair; never null
+     */
+    default AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
+        final AdapterResult<Optional<ProjectSnapshot>> project = activeProject();
+        final AdapterResult<Optional<DocumentSnapshot>> document = activeDocument();
+        final Optional<SafeModeDiagnostic> diagnostic = project.diagnostic().isPresent()
+            && document.diagnostic().isPresent()
+            ? project.diagnostic()
+            : Optional.empty();
+        return new AdapterResult<>(
+            Optional.of(new ActiveProjectDocument(
+                project.value().orElse(Optional.empty()),
+                document.value().orElse(Optional.empty())
+            )),
+            diagnostic
+        );
+    }
+
+    /**
+     * The raw host call surface this adapter guards.
+     *
+     * <p>Implementations talk to the real Editor; callers must go through
+     * {@link ProjectWorkspaceAdapter} so version and capability checks are applied and host
+     * failures become diagnostics instead of exceptions.</p>
+     */
     interface HostOperations {
+        /**
+         * @return the host application version string used for the reviewed-version check
+         */
         String hostVersion();
 
+        /**
+         * @return {@code true} when this host exposes the project/workspace read surface
+         */
         boolean supportsProjectWorkspaceRead();
 
+        /**
+         * @return the project currently open on the host; empty when none is open
+         * @throws AdapterHostException when the host call fails with a known diagnostic
+         */
         Optional<ProjectSnapshot> activeProject();
 
+        /**
+         * @return the document currently active on the host; the default reports none,
+         *         for hosts that cannot resolve the active document
+         */
         default Optional<DocumentSnapshot> activeDocument() {
             return Optional.empty();
         }
 
+        /**
+         * One host traversal that observes the active project and document together.
+         *
+         * <p>The default performs the two individual reads; implementations that resolve both
+         * from one controller traversal override it. A half that fails is empty while the other
+         * half still reports.</p>
+         *
+         * @return the observed pair; never null
+         */
+        default ActiveProjectDocument activeProjectAndDocument() {
+            return new ActiveProjectDocument(activeProject(), activeDocument());
+        }
+
+        /**
+         * @return the workspace currently in effect on the host; empty when the host has
+         *         none to report
+         * @throws AdapterHostException when the host call fails with a known diagnostic
+         */
         Optional<WorkspaceSnapshot> workspace();
     }
 
+    /**
+     * One paired observation of the active project and document.
+     *
+     * @param project the observed project, empty when none is active or the read failed
+     * @param document the observed document, empty when none is active or the read failed
+     */
+    record ActiveProjectDocument(
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document
+    ) {
+        public ActiveProjectDocument {
+            project = Objects.requireNonNull(project, "project");
+            document = Objects.requireNonNull(document, "document");
+        }
+    }
+
+    /**
+     * The outcome of one guarded adapter read: either the observed {@code value} or the
+     * {@link SafeModeDiagnostic} explaining why it is absent.
+     *
+     * @param value the observed value, empty when the read was unavailable; never null
+     * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
+     * @param <T> the observed value type
+     */
     record AdapterResult<T>(
         Optional<T> value,
         Optional<SafeModeDiagnostic> diagnostic
@@ -91,6 +193,15 @@ public interface ProjectWorkspaceAdapter {
         }
     }
 
+    /**
+     * Guarded implementation of {@link ProjectWorkspaceAdapter}.
+     *
+     * <p>Every read checks the reviewed host version and the corresponding capability before
+     * issuing the data read — the gate itself already calls
+     * {@link HostOperations#hostVersion()} and the capability probe, so admission gates the
+     * data read, not all host access. {@link AdapterHostException} and unexpected runtime
+     * failures become unavailable results.</p>
+     */
     final class Impl implements ProjectWorkspaceAdapter {
         private final Optional<HostOperations> host;
 
@@ -147,11 +258,45 @@ public interface ProjectWorkspaceAdapter {
         }
 
         @Override
+        public AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
+            return host.map(this::readProjectAndDocument)
+                .orElseGet(() -> AdapterResult.unavailable(
+                    SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)
+                ));
+        }
+
+        @Override
         public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
             return host.map(this::readCombined)
                 .orElseGet(() -> AdapterResult.unavailable(
                     SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)
                 ));
+        }
+
+        private AdapterResult<ActiveProjectDocument> readProjectAndDocument(
+            final HostOperations operations
+        ) {
+            try {
+                if (!isReviewedProjectWorkspaceVersion(operations.hostVersion())) {
+                    return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
+                        PROJECT_CAPABILITY_ID,
+                        operations.hostVersion()
+                    ));
+                }
+                if (!operations.supportsProjectWorkspaceRead()) {
+                    return AdapterResult.unavailable(
+                        SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID)
+                    );
+                }
+                return AdapterResult.available(operations.activeProjectAndDocument());
+            } catch (AdapterHostException exception) {
+                return AdapterResult.unavailable(exception.diagnostic());
+            } catch (RuntimeException exception) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                    PROJECT_CAPABILITY_ID,
+                    "Host project/workspace adapter call failed safely."
+                ));
+            }
         }
 
         private AdapterResult<ProjectWorkspaceSnapshot> readCombined(final HostOperations operations) {

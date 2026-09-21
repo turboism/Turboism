@@ -14,7 +14,7 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.ParameterValueEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;

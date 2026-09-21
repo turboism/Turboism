@@ -4,7 +4,7 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.model.Parameter;
-import dev.turboism.sdk.event.cubism.ParameterValueEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 
@@ -166,6 +166,8 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         return invocation;
     }
 
+    // Token currency is identity: only the exact invocation instance may complete the lifecycle.
+    @SuppressWarnings("ReferenceEquality")
     void completeNative(final NativeInvocation invocation, final boolean succeeded) {
         if (nativeInvocation.get() != invocation) {
             throw new IllegalStateException("Native parameter lifecycle token is not current.");

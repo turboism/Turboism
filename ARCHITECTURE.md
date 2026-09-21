@@ -30,30 +30,28 @@ The authoritative project list is `settings.gradle.kts`.
   The only public dependency for first-party and third-party plugins.
 
 :core-contract
-  Internal management contracts (dev.turboism.internal.core.*) shared by the
-  runtime and the built-in core application: plugin management, update and JVM
-  settings services, the runtime-to-core service handoff, and the
-  CorePluginEntrypoint factory contract. This is not a plugin-facing API —
-  ordinary plugins cannot compile against it and their classloaders refuse to
-  resolve dev.turboism.internal.* at runtime.
+  Internal management and composition contracts (dev.turboism.internal.core.*)
+  shared by the runtime and framework shell: plugin management, updates, JVM
+  and feature settings, ShellServices, and ShellAdmission/ShellHandle. Depends
+  only on :sdk. These are not plugin-facing APIs; ordinary plugins cannot
+  compile against them and their classloaders refuse dev.turboism.internal.*.
 
 :runtime
   Plugin runtime, policies, Cubism/Editor adapters, providers, mapping,
-  hook infrastructure, transactions, diagnostics, and shared services.
-  Implements the internal management contracts; depends on :sdk and
-  :core-contract only — never on :plugins:*. It runs headless when no core
-  entrypoint is supplied.
+  hook infrastructure, transactions, diagnostics, shared services, and the
+  framework shell (`dev.turboism.shell`): the built-in Turboism menu,
+  main-toolbar home entry, embedded panel, settings, logs, About, plugin
+  management, and update hints. The shell is runtime-owned framework code,
+  not a plugin; it consumes the same PluginContext surfaces plugins use
+  under the reserved `turboism.core` identity, which external packages
+  remain forbidden from declaring. Runtime production dependencies never include
+  :plugins:*. Explicit null shell admission runs headless; the boundary gate
+  removes dev/turboism/shell/** from a real runtime JAR before loading and
+  closing an independently compiled external plugin.
 
 :plugins:*
   First-party plugins. They are treated like external consumers and depend
   on :sdk with compileOnly scope.
-
-:plugins:core
-  The built-in core application (main toolbar, plugin management UI, update
-  and JVM settings UI). The single deliberate exception to the plugin module
-  rule: it also compiles against :core-contract and is composed explicitly —
-  bootstrap injects a MainToolbarPluginEntrypoint into PreviewRuntime.start,
-  so the runtime invokes it without importing dev.turboism.plugin.core types.
 
 :testing:test-support
   Fake hosts, fixtures, and reusable test support.
@@ -71,19 +69,16 @@ dev.turboism.sdk.cubism.hook
   Override-based plugin lifecycle hooks; no registration bus.
 
 dev.turboism.sdk.cubism.event
-  Immutable Cubism and Editor semantic event values, including selection
-  transitions and the CubismOperationEvent correlation payload.
+  Cubism and Editor semantic event families, including per-object lifecycle
+  payloads, selection transitions and the CubismOperationEvent correlation
+  payload. Runtime-owned domain families also live in sdk.action,
+  sdk.appearance, sdk.cubism.backup, sdk.performance, sdk.runtime and
+  sdk.ui.table; delivery permissions and supported origins are documented
+  in sdk/event-coverage.md.
 
 dev.turboism.sdk.event
   Generic event transport, EventBus contracts, and the top-level TurboismEvent
   marker that every shipped event family implements.
-
-dev.turboism.sdk.event.cubism
-  Runtime-published Cubism and Editor event families. Concrete runtime-owned
-  families also live in their domain packages (sdk.action, sdk.appearance,
-  sdk.cubism.backup, sdk.performance, sdk.runtime, sdk.ui.table); per-concrete
-  delivery permissions and supported origins are documented in
-  sdk/event-coverage.md.
 
 dev.turboism.sdk.cubism.id
   Shared identities used across reads, queries, events and transactions.
@@ -98,9 +93,20 @@ dev.turboism.core.runtime.sidecar
   Isolated heavy-work dispatch and supervision.
 ```
 
-Deprecated package shapes such as `sdk.cubism.callback`, feature-local
+Deprecated package shapes such as `sdk.event.cubism`, `sdk.cubism.callback`, feature-local
 `DocumentId`, and callback-named plugin work executors are not compatibility
 surfaces and must not be reintroduced.
+
+Several plugins also keep a `b1/` package tree (`b1/domain`, sometimes
+`b1/application`). `b1` marks a legacy-plugin migration wave, not a
+host-adaptation or compatibility surface: `b1/domain` holds pure, deterministic
+behavior and state declarations salvaged from the pre-SDK codebase (value
+objects, enums, reducers), while `b1/application` is reserved for typed config
+and lifecycle orchestration. B1 code may depend only on the JDK,
+`dev.turboism.sdk.*`, and same-plugin classes — never on
+runtime/core/hook/mapping/adapter/preview packages, `com.live2d.*`, or host
+I/O. When a behavior graduates out of the migration wave, move it to a stable
+plugin-owned package name rather than treating `b1` as permanent structure.
 
 ## 3. Public API model
 
@@ -115,6 +121,8 @@ SDK APIs use Turboism-owned types only. They must not expose:
 - mutable arrays whose ownership belongs to Cubism.
 
 Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs.
+
+Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
 
 Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract. No other package may expose JDK UI types.
 
@@ -227,19 +235,19 @@ These remain typed operations owned by runtime adapters. They share the same obj
 
 ## 8. Permissions and capabilities
 
-Permissions describe risk boundaries rather than individual methods:
+Permissions describe risk boundaries rather than individual methods. The canonical catalog is `dev.turboism.sdk.permission.PermissionIds`; manifests declare ids through the `turboism.permission` schema. Representative ids:
 
 ```text
-turboism.cubism.read
-turboism.cubism.write
-turboism.user-file.read
-turboism.user-file.write
-turboism.network
-turboism.process
+turboism.cubism.model.read / turboism.cubism.model.write
+turboism.file.read / turboism.file.write
+turboism.network.fetch
+turboism.process.run
 turboism.host.unsafe
 ```
 
-Routine UI contributions, local configuration, plugin storage, localization, diagnostics, events, and bounded tasks are governed primarily through ownership, namespace, quota, lifecycle, and cleanup.
+Permission ids are declared at the granularity a reviewer must approve and the runtime must be able to revoke. Surfaces that attach a plugin to shared host UI therefore carry their own contribution permissions — `turboism.ui.menu.contribute`, `turboism.ui.toolbar.main.contribute`, `turboism.ui.panel.contribute`, `turboism.ui.context-menu.contribute`, `turboism.ui.dialog.contribute`, `turboism.ui.canvas.hint`, and so on — rather than riding on a blanket UI grant. First-party manifests declare them exactly the way third-party plugins do; the fine granularity exists so each contribution can be audited and revoked independently.
+
+Ownership, namespace, quota, lifecycle, and cleanup then bound what a granted plugin may do at runtime; they complement a declared permission rather than replace it. Plugin-private facilities that cannot cross a risk boundary — localization, the plugin logger and paths, bounded task scheduling, the disposable scope — carry no dedicated permission id.
 
 The terms are independent:
 

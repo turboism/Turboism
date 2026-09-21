@@ -4,15 +4,18 @@ package dev.turboism.preview;
  * Narrow parent-boundary filter for external plugin classloaders. Plugin loaders delegate
  * parent-first, so without this filter an external plugin could link against implementation
  * namespaces carried by the agent jar: {@code dev.turboism.internal.*} management contracts
- * (built-in-only services), {@code dev.turboism.plugin.core.*} core UI classes, and
+ * (built-in-only services), {@code dev.turboism.shell.*} runtime-owned shell UI classes,
+ * the retired {@code dev.turboism.plugin.core.*} core plugin namespace, and
  * {@code dev.turboism.agent.shaded.*} relocated private libraries. The wrapper refuses those
  * names before delegation; every other class — SDK types, JDK platform modules — resolves
- * exactly as before. The built-in core never loads through this loader: it is constructed on
- * the application classpath by its entrypoint, so its contract access is unaffected.
+ * exactly as before. The runtime-owned shell never loads through this loader: it is
+ * constructed on the application classpath by the composition's shell admission, so its
+ * contract access is unaffected.
  */
 final class PluginParentBoundary extends ClassLoader {
     private static final String[] DENIED_PREFIXES = {
         "dev.turboism.internal.",
+        "dev.turboism.shell.",
         "dev.turboism.plugin.core.",
         "dev.turboism.agent.shaded."
     };

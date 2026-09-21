@@ -6,7 +6,7 @@ package dev.turboism.core.event;
  * <p>A published contract may only reference the JDK platform modules and the public SDK
  * surface ({@code dev.turboism.sdk.*}). When the SDK is loaded by the agent bootstrap class
  * loader its loader is {@code null}; that bootstrap view also exposes runtime internals,
- * the built-in core plugin and shaded dependencies, so names must never be delegated to it
+ * the framework shell and shaded dependencies, so names must never be delegated to it
  * unfiltered. Two rules apply:</p>
  *
  * <ul>

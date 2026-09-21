@@ -10,10 +10,13 @@ import java.util.Optional;
 /** View of the Cubism host exposed to plugins. */
 public interface CubismFacade {
 
+    /** Returns the host runtime identity and version snapshot. */
     CubismRuntimeSnapshot runtime();
 
+    /** Returns the currently open project, or empty when no project is open. */
     Optional<ProjectSnapshot> activeProject();
 
+    /** Returns the focused document, or empty when none is focused. */
     Optional<DocumentSnapshot> activeDocument();
 
     /**
@@ -49,6 +52,11 @@ public interface CubismFacade {
         return ActiveReadProjections.projectContentOf(activeProject(), activeDocument());
     }
 
+    /**
+     * Returns whether the backing snapshot source currently observes a host session — in
+     * practice whether a project or document is visible to it. This is the source's
+     * observability signal, not a guarantee that a physical host connection is alive.
+     */
     boolean isHostPresent();
 
     /** Returns permission-checked Cubism Core metadata and MOC inspection. */
@@ -128,22 +136,27 @@ public interface CubismFacade {
         );
     }
 
+    /** Returns whether a project is currently open. */
     default boolean hasActiveProject() {
         return activeProject().isPresent();
     }
 
+    /** Returns whether a document is currently focused. */
     default boolean hasActiveDocument() {
         return activeDocument().isPresent();
     }
 
+    /** Returns whether the active document owns a Live2D model. */
     default boolean hasActiveModel() {
         return activeModel().isPresent();
     }
 
+    /** Returns whether the active document is an animation scene. */
     default boolean hasActiveAnimation() {
         return activeAnimation().isPresent();
     }
 
+    /** Returns whether the active document is a layered image/PSD document. */
     default boolean hasActiveImageDocument() {
         return activeImageDocument().isPresent();
     }

@@ -189,8 +189,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path topMenuVerificationRecord,
         final Path boundingBoxOverlayVerificationRecord,
         final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final dev.turboism.internal.core.CorePluginEntrypoint corePluginEntrypoint
+        final ClassLoader hostClassLoader
     ) throws IOException {
         return start(
             requestedHome,
@@ -206,8 +205,7 @@ public final class PreviewRuntime implements AutoCloseable {
             null,
             hostArtifact,
             null,
-            hostClassLoader,
-            corePluginEntrypoint
+            hostClassLoader
         );
     }
 
@@ -229,8 +227,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path autoBackupVerificationRecord,
         final Path hostArtifact,
         final Path coreArtifact,
-        final ClassLoader hostClassLoader,
-        final dev.turboism.internal.core.CorePluginEntrypoint corePluginEntrypoint
+        final ClassLoader hostClassLoader
     ) throws IOException {
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
@@ -279,11 +276,12 @@ public final class PreviewRuntime implements AutoCloseable {
             // Provisional: Cubism writes the Environment Settings language onto the
             // process default locale as the editor starts, which is later than this
             // first resolution. Re-resolved once the host is verified and ACTIVE.
-            java.util.Locale effectiveLocale = resolveEffectiveLocale(
-                runtimeConfig,
-                message -> log.warn("i18n", message)
-            );
-            log.info("i18n", "Using startup locale " + effectiveLocale.toLanguageTag());
+            java.util.concurrent.atomic.AtomicReference<java.util.Locale> effectiveLocale =
+                new java.util.concurrent.atomic.AtomicReference<>(resolveEffectiveLocale(
+                    runtimeConfig,
+                    message -> log.warn("i18n", message)
+                ));
+            log.info("i18n", "Using startup locale " + effectiveLocale.get().toLanguageTag());
             log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
             log.setMaxStorageMiB(runtimeConfig.path("maxLogStorageMiB").asInt(
                 dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
@@ -310,7 +308,7 @@ public final class PreviewRuntime implements AutoCloseable {
             scheduler = createScheduler(log);
             RecentPreviewDiagnostics.install(message -> log.warn("recent-preview", message));
             ingress = new HostRuntimeIngress(
-                effectiveLocale,
+                effectiveLocale::get,
                 new dev.turboism.config.ConfigTextureAtlasSelectionStore(
                     home,
                     diagnostic -> log.warn("config", diagnostic)
@@ -428,10 +426,10 @@ public final class PreviewRuntime implements AutoCloseable {
             // outranks the host in resolveStartup. The first resolution already
             // reported operator/config diagnostics, hence the silent sink here.
             final java.util.Locale hostVerifiedLocale = resolveEffectiveLocale(runtimeConfig, message -> { });
-            if (!hostVerifiedLocale.equals(effectiveLocale)) {
+            if (!hostVerifiedLocale.equals(effectiveLocale.get())) {
                 log.info("i18n", "Host locale " + hostVerifiedLocale.toLanguageTag()
-                    + " supersedes the startup locale " + effectiveLocale.toLanguageTag());
-                effectiveLocale = hostVerifiedLocale;
+                    + " supersedes the startup locale " + effectiveLocale.get().toLanguageTag());
+                effectiveLocale.set(hostVerifiedLocale);
             }
 
             final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
@@ -443,8 +441,8 @@ public final class PreviewRuntime implements AutoCloseable {
                 log,
                 ingress.adapterAccess().parameterLifecycle(),
                 fileChooserHistory,
-                effectiveLocale,
-                corePluginEntrypoint
+                effectiveLocale.get(),
+                CoreShellRuntime.frameworkAdmission()
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));
@@ -475,7 +473,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 "runtime-" + UUID.randomUUID(),
                 normalizedVerificationRecord,
                 normalizedHostArtifact,
-                effectiveLocale
+                effectiveLocale.get()
             );
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
@@ -721,6 +719,10 @@ public final class PreviewRuntime implements AutoCloseable {
         return hostIngress.editorModelResolver();
     }
 
+    /**
+     * @return the texture-atlas data-model capture of the active verified connection
+     * @throws IllegalStateException when no verified connection is active
+     */
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
         textureAtlasDataModelCapture() {
         return hostIngress.textureAtlasDataModelCapture();

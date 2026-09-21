@@ -59,8 +59,14 @@ def classify_framework(
         return {"action": "none", "reason": "source has no exact release tag"}
     if not isinstance(artifacts, list) or len(artifacts) != 8:
         raise ReleaseError("tagged framework candidate must contain exactly eight verified artifacts")
+    # Developer artifacts (the standalone SDK jar) are GitHub Release assets only;
+    # they never enter the product or Updates media contracts.
+    developer = framework.get("developerArtifacts")
+    if not isinstance(developer, list) or len(developer) != 2:
+        raise ReleaseError("tagged framework candidate must contain exactly two developer artifacts")
     expected = _artifact_map(artifacts, "framework candidate")
-    github_result = _classify_artifact_host(expected, github, "GitHub Release")
+    github_expected = {**expected, **_artifact_map(developer, "framework candidate developer")}
+    github_result = _classify_artifact_host(github_expected, github, "GitHub Release")
     updates_result = _classify_artifact_host(expected, updates, "updates service")
     actions = {github_result["action"], updates_result["action"]}
     if "publish" in actions:
@@ -75,7 +81,7 @@ def classify_framework(
         "version": version,
         "github": github_result,
         "updates": updates_result,
-        "expectedAssetCount": 8,
+        "expectedAssetCount": len(github_expected),
         "updatesContract": {
             "releaseManifestKey": f"turboism/releases/{version}/release.json",
             "channelManifestKey": "turboism/channels/stable/latest.json",

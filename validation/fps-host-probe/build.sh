@@ -20,11 +20,25 @@ src="validation/fps-host-probe/src"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
-javac --release 17 -cp "$sdk_jar" -d "$out" \
-  "$src/dev/turboism/validation/fps/FpsHostValidationPlugin.java"
-cp -r "$src/META-INF" "$out/"
+mkdir -p "$out/actor" "$out/observer"
+helpers="testing/integration-tests/src/test/java/dev/turboism/tests/plugin"
+javac --release 17 -cp "$sdk_jar" -d "$out/actor" \
+  "$src/dev/turboism/validation/fps/FpsHostValidationPlugin.java" \
+  "$src/dev/turboism/validation/fps/FpsLifecycleAcceptance.java" \
+  "$helpers/McpValidationHostClose.java" \
+  "$helpers/WindowsHistoryNativeUiHostClose.java"
+cp -r "$src/META-INF" "$out/actor/"
 
 output="$repo_root/build/fps-host-validation-exerciser.jar"
-jar cf "$output" -C "$out" .
+jar cf "$output" -C "$out/actor" .
 echo "[probe] $output"
 sha256sum "$output"
+
+observer="validation/fps-host-probe/observer"
+javac --release 17 -cp "$sdk_jar" -d "$out/observer" \
+  "$observer/dev/turboism/validation/fpsobserver/FpsLifecycleObserverPlugin.java"
+cp -r "$observer/META-INF" "$out/observer/"
+observer_output="$repo_root/build/fps-host-validation-observer.jar"
+jar cf "$observer_output" -C "$out/observer" .
+echo "[probe] $observer_output"
+sha256sum "$observer_output"

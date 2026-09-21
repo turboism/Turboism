@@ -1,7 +1,7 @@
 package dev.turboism.validation.texture;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.agent.shaded.jackson.databind.JsonNode;
+import dev.turboism.agent.shaded.jackson.databind.ObjectMapper;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Files;
 import java.nio.file.Path;

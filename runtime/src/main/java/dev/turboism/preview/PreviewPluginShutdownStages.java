@@ -321,6 +321,21 @@ final class PreviewPluginShutdownStages {
          */
         boolean permanentDisposalFailure;
 
+        /**
+         * @return {@code true} once every plugin-code-bearing stage has been attempted at
+         *     least once: a retention re-drive of this generation can only re-probe the
+         *     quiescence gates, never run {@code disable()}/{@code shutdown()} or scope
+         *     closers again. This is what the shell drain barrier waits for — a generation
+         *     with unattempted stages is not inert even when no worker is currently running.
+         */
+        boolean noPendingStages() {
+            return disableAttempted
+                && shutdownAttempted
+                && scopeAttempted
+                && classloaderAttempted
+                && unloadAttempted;
+        }
+
         PreviewPluginShutdownResult result(
             final List<LocalPluginRuntime.PluginSummaryFailure> failures
         ) {

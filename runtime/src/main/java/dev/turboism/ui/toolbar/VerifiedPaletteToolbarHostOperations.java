@@ -46,6 +46,8 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     private Binding binding;
     private Timer pollTimer;
     private int pollAttempt;
+    private int contributionsVersion;
+    private int syncedVersion = -1;
 
     public VerifiedPaletteToolbarHostOperations(
         final EditorUiPluginResourceRegistry resources
@@ -79,6 +81,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             }
             contributions.clear();
             contributions.putAll(next);
+            contributionsVersion++;
             if (contributions.isEmpty()) {
                 stopPolling();
                 resetBinding();
@@ -105,6 +108,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     public void clearContributions() {
         onEdt(() -> {
             contributions.clear();
+            contributionsVersion++;
             stopPolling();
             resetBinding();
             return null;
@@ -121,9 +125,13 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             resetBinding();
             return;
         }
+        // resolve() is the only source of truth for pane identity — the host can swap the
+        // pane while the old structure still looks attached, so the poll must keep asking.
         final JTextPane pane = logPaletteRoot.resolve();
         if (binding != null && bindingIsCurrent(pane)) {
-            syncButtons();
+            if (syncedVersion != contributionsVersion || !buttonsIntact()) {
+                syncButtons();
+            }
             return;
         }
         resetBinding();
@@ -205,6 +213,19 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         }
         binding.row.revalidate();
         binding.row.repaint();
+        syncedVersion = contributionsVersion;
+    }
+
+    /** Cheap per-poll check: every contributed button still sits in its anchor group. */
+    private boolean buttonsIntact() {
+        for (ButtonContribution contribution : contributions.values()) {
+            final ButtonState state = binding.buttons.get(contribution.descriptor().nativeId());
+            if (state == null
+                || state.button.getParent() != groupFor(contribution.descriptor().anchor())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void removeButton(final String nativeId) {
@@ -241,6 +262,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     }
 
     private void resetBinding() {
+        syncedVersion = -1;
         if (binding == null) {
             return;
         }

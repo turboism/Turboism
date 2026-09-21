@@ -25,12 +25,15 @@ def write_project(project: Path, dependency: str = "", source: str = "") -> None
         source_file.write_text(source, encoding="utf-8")
 
 
-def run_fixture(name: str, sdk_dependency: str = "", plugin_dependency: str = "", source: str = "", expected: str = "") -> None:
+def run_fixture(
+    name: str, sdk_dependency: str = "", plugin_dependency: str = "", source: str = "",
+    expected: str = "", *, runtime_dependency: str = "", contract_dependency: str = "",
+) -> None:
     with tempfile.TemporaryDirectory(prefix=f"turboism-boundary-{name}-") as directory:
         root = Path(directory)
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "boundary-fixture"\n'
-            'include(":sdk", ":runtime", ":plugins:fixture")\n',
+            'include(":sdk", ":runtime", ":core-contract", ":plugins:fixture")\n',
             encoding="utf-8",
         )
         (root / "build.gradle.kts").write_text(
@@ -39,7 +42,8 @@ def run_fixture(name: str, sdk_dependency: str = "", plugin_dependency: str = ""
             encoding="utf-8",
         )
         write_project(root / "sdk", sdk_dependency)
-        write_project(root / "runtime")
+        write_project(root / "runtime", runtime_dependency)
+        write_project(root / "core-contract", contract_dependency)
         write_project(root / "plugins/fixture", plugin_dependency, source)
         if "files(" in plugin_dependency:
             (root / "plugins/fixture/bad.jar").write_bytes(b"not-a-jar")
@@ -103,9 +107,37 @@ def main() -> None:
             "class Fixture { Object value() { return dev.turboism.core.parameter.ForbiddenType.value; } }\n",
             "Forbidden fully-qualified reference",
         ),
+        (
+            "retired-event-package",
+            "",
+            "",
+            "package dev.turboism.sdk.event.cubism;\nclass Fixture {}\n",
+            "Retired package dev.turboism.sdk.event.cubism must not be reintroduced",
+        ),
     ]
     for fixture in fixtures:
         run_fixture(fixture[0], *fixture[1:])
+    for configuration in ("implementation", "runtimeOnly"):
+        run_fixture(
+            f"runtime-plugin-{configuration}",
+            runtime_dependency=f'dependencies {{ {configuration}(project(":plugins:fixture")) }}\n',
+            expected="Runtime may not depend on plugin component :plugins:fixture",
+        )
+    run_fixture(
+        "contract-runtime-project",
+        contract_dependency='dependencies { api(project(":runtime")) }\n',
+        expected="Core-contract :core-contract may not depend on project component :runtime",
+    )
+    run_fixture(
+        "plugin-contract-project",
+        plugin_dependency='dependencies { compileOnly(project(":core-contract")) }\n',
+        expected="Plugin :plugins:fixture may not depend on project component :core-contract",
+    )
+    run_fixture(
+        "plugin-internal-contract-import",
+        source="import dev.turboism.internal.core.ShellServices;\nclass Fixture {}\n",
+        expected="Forbidden internal-contract import",
+    )
 
 
 if __name__ == "__main__":

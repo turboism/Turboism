@@ -17,14 +17,16 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
 /**
- * Production-classpath headless gate: constructs {@link LocalPluginRuntime} with no core
- * entrypoint, loads a real external plugin JAR, and closes — all while the JVM classpath
- * provably contains no {@code dev.turboism.plugin.core.*} classes. The external fixture also
- * verifies that an ordinary plugin cannot resolve internal management contracts
- * ({@code dev.turboism.internal.*}) through its classloader's parent boundary.
+ * Production-classpath headless gate: constructs {@link LocalPluginRuntime} with an
+ * explicit {@code null} shell admission, loads a real external plugin JAR, and closes —
+ * all while the JVM classpath provably contains no {@code dev.turboism.shell.*} classes.
+ * The external fixture also verifies that an ordinary plugin cannot resolve internal
+ * management contracts ({@code dev.turboism.internal.*}) through its classloader's
+ * parent boundary.
  *
- * <p>Run by {@code :runtime:checkHeadlessRuntimeClasspath} with
- * {@code sourceSets.main.runtimeClasspath}, which no longer carries the core UI module.</p>
+ * <p>Run by {@code :runtime:checkHeadlessRuntimeClasspath} against a runtime jar with
+ * {@code dev/turboism/shell/**} physically removed, so a headless composition that still
+ * resolved the shell implementation would fail linkage here.</p>
  */
 public final class HeadlessRuntimeProbeMain {
     private static final String PLUGIN_ID = "dev.example.headless";
@@ -50,8 +52,10 @@ public final class HeadlessRuntimeProbeMain {
         );
         final HostSession host = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime runtime =
-                new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                home, scheduler, host.adapterAccess(), log,
+                (dev.turboism.internal.core.ShellAdmission) null
+            );
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
                 require(
@@ -82,16 +86,16 @@ public final class HeadlessRuntimeProbeMain {
         System.out.println("HEADLESS-PROBE-PASS");
     }
 
-    /** The probe classpath must contain no core UI implementation classes at all. */
+    /** The probe classpath must contain no shell implementation classes at all. */
     private static void assertCoreAbsent() {
         try {
-            Class.forName("dev.turboism.plugin.core.MainToolbarPlugin", false,
+            Class.forName("dev.turboism.shell.CoreShell", false,
                 HeadlessRuntimeProbeMain.class.getClassLoader());
             throw new AssertionError(
-                "core UI class resolvable on a supposedly headless classpath"
+                "shell implementation class resolvable on a supposedly headless classpath"
             );
         } catch (ClassNotFoundException expected) {
-            // expected: the production runtime classpath no longer carries :plugins:core
+            // expected: the probe jar was built with dev/turboism/shell/** removed
         }
     }
 
