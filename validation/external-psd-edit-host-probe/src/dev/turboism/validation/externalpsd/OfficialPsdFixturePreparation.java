@@ -407,10 +407,22 @@ public final class OfficialPsdFixturePreparation {
         final AtomicReference<Window> owner = new AtomicReference<>();
         while (System.nanoTime() < deadline) {
             checkStoppedAndTask(input);
-            final EdtCall<ChoiceObservation> call = invokeEdtBounded(() ->
-                inspectAndChooseOnEdt(host, input, owner), EDT_CALL_TIMEOUT_MILLIS);
-            if (!call.completed()) throw new IllegalStateException(
-                "official chooser EDT inspection timed out");
+            properties.setProperty("prepare.chooser.edtState", "QUEUED");
+            // Startup and the official confirmation action can occupy the EDT for longer than
+            // an ordinary read. Wait for this single dispatch within the preparation deadline;
+            // a timed-out action is never resubmitted.
+            final long remainingMillis = Math.max(1L,
+                TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()));
+            final EdtCall<ChoiceObservation> call = invokeEdtBounded(() -> {
+                properties.setProperty("prepare.chooser.edtState", "RUNNING");
+                final ChoiceObservation choice = inspectAndChooseOnEdt(host, input, owner);
+                properties.setProperty("prepare.chooser.edtState", "RETURNED");
+                return choice;
+            }, remainingMillis);
+            if (!call.completed()) {
+                recordChooserTimeout();
+                throw new IllegalStateException("official chooser EDT inspection timed out");
+            }
             if (call.failure() != null) throw asException(call.failure());
             if (call.value() != null && call.value().chosen()) {
                 final ChoiceObservation chosen = call.value();
@@ -421,6 +433,18 @@ public final class OfficialPsdFixturePreparation {
             sleepPoll(deadline);
         }
         throw new IllegalStateException("official PSD chooser did not appear before timeout");
+    }
+
+    private void recordChooserTimeout() {
+        final StringBuilder stack = new StringBuilder();
+        for (final var entry : Thread.getAllStackTraces().entrySet()) {
+            if (!entry.getKey().getName().startsWith("AWT-EventQueue-")) continue;
+            stack.append(entry.getKey().getName()).append(' ').append(entry.getKey().getState());
+            for (int index = 0; index < Math.min(64, entry.getValue().length); index++) {
+                stack.append('\n').append(entry.getValue()[index]);
+            }
+        }
+        properties.setProperty("prepare.chooser.timeout.edtStack", stack.toString());
     }
 
     private ChoiceObservation inspectAndChooseOnEdt(final HostAccess host,
@@ -511,7 +535,9 @@ public final class OfficialPsdFixturePreparation {
                 }
 
                 @Override public void clickConfirm() {
+                    properties.setProperty("prepare.chooser.confirmState", "DISPATCHED");
                     confirmation.doClick();
+                    properties.setProperty("prepare.chooser.confirmState", "RETURNED");
                 }
             });
         if (!gate.accepted()) throw new IllegalStateException(gate.diagnostic());
