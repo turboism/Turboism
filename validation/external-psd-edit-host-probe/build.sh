@@ -13,6 +13,7 @@ javac --release 17 -Xlint:all -cp "${sdk[0]}" -d "$out" \
   "$src/dev/turboism/validation/externalpsd/PsdValidationContent.java" \
   "$src/dev/turboism/validation/externalpsd/ExactHostRowTarget.java" \
   "$src/dev/turboism/validation/externalpsd/OfficialPsdFixturePreparation.java" \
+  "$src/dev/turboism/validation/externalpsd/ExternalPsdPerformanceSampler.java" \
   "$src/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbe.java"
 cp -R "$src/META-INF" "$out/"
 [[ $# -eq 0 ]] || { echo 'Usage: build.sh' >&2; exit 2; }

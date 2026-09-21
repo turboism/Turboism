@@ -128,6 +128,8 @@ public final class ExternalPsdEditHostProbeTest {
         testRawImageRelationDeltaAndNewRawInspection();
         testCoordinatedNewRawExportIdentityGate();
         testAppliedTargetLineageGate();
+        testPerformanceAdmission();
+        testPerformanceTimingAndCoverage();
         testDiagnosticObservationBoundaries();
         testDiagnosticTargetBinding();
         testDiagnosticPsdSnapshotUsesRawImageId();
@@ -204,6 +206,92 @@ public final class ExternalPsdEditHostProbeTest {
             "F1 requires RGB shape/content validation before mutation");
         expectIllegalArgument(() -> ExternalPsdEditHostProbe.parseContentProfile("unknown"),
             "unknown content profile is rejected before any export or mutation");
+    }
+
+    private static void testPerformanceAdmission() {
+        final var admitted = ExternalPsdEditHostProbe.performanceAdmission(
+            "pipeline", PsdValidationContent.Profile.F1_2048_20, 10, "1");
+        assertTrue(admitted.requested() && admitted.admitted(),
+            "only an explicit F1 ten-cycle pipeline admits performance observation");
+
+        final var disabled = ExternalPsdEditHostProbe.performanceAdmission(
+            "pipeline", PsdValidationContent.Profile.F1_2048_20, 10, "0");
+        assertTrue(!disabled.requested() && !disabled.admitted(),
+            "default/zero performance opt-in does not start a sampler");
+
+        final var control = ExternalPsdEditHostProbe.performanceAdmission(
+            "pipeline", PsdValidationContent.Profile.SEVEN_LAYER_CONTROL, 10, "1");
+        assertTrue(control.requested() && !control.admitted(),
+            "control7 cannot start the F1 performance sampler");
+        assertContains(control.diagnostic(), "f1", "control7 rejection explains the profile gate");
+
+        final var shortRun = ExternalPsdEditHostProbe.performanceAdmission(
+            "pipeline", PsdValidationContent.Profile.F1_2048_20, 3, "1");
+        assertTrue(!shortRun.admitted(), "fewer than ten cycles cannot be admitted");
+        assertContains(shortRun.diagnostic(), "10", "cycle-count rejection is explicit");
+
+        final var gui = ExternalPsdEditHostProbe.performanceAdmission(
+            "gui", PsdValidationContent.Profile.F1_2048_20, 10, "1");
+        assertTrue(!gui.admitted(), "GUI phase cannot start the pipeline sampler");
+        expectIllegalArgument(() -> ExternalPsdEditHostProbe.parsePerformanceOptIn("yes"),
+            "unrecognized performance opt-in is rejected fail-closed");
+    }
+
+    private static void testPerformanceTimingAndCoverage() {
+        final ExternalPsdEditHostProbe.PerformanceTimingSample sample =
+            ExternalPsdEditHostProbe.performanceTimingSampleForTest(100L, 120L, 150L, 220L);
+        assertTrue(sample.available(), "ordered write/callback/public/fresh events are observable");
+        assertEquals(50L, sample.writeCompleteToPublicCompletionUpperBoundNanos(),
+            "write-to-public timing has the documented upper-bound meaning");
+        assertEquals(120L, sample.writeCompleteToFreshObservationUpperBoundNanos(),
+            "write-to-fresh timing has the documented upper-bound meaning");
+        assertEquals(100L, sample.revisionCallbackToFreshObservationLowerBoundNanos(),
+            "callback-to-fresh timing has the documented lower-bound meaning");
+
+        final var callbackBeforeWrite = ExternalPsdEditHostProbe.performanceTimingSampleForTest(
+            100L, 99L, 150L, 220L);
+        assertTrue(!callbackBeforeWrite.available(),
+            "a callback timestamp before write completion is unavailable, not a native timing");
+        final var freshBeforePublic = ExternalPsdEditHostProbe.performanceTimingSampleForTest(
+            100L, 120L, 150L, 149L);
+        assertTrue(!freshBeforePublic.available(),
+            "out-of-order fresh observation is unavailable");
+
+        final Properties evidence = new Properties();
+        final ExternalPsdEditHostProbe.PerformanceCycleTimings timings =
+            new ExternalPsdEditHostProbe.PerformanceCycleTimings();
+        for (int index = 0; index < 10; index++) {
+            final long write = 1_000L + index * 100L;
+            timings.record(evidence, "cycle." + (index + 1) + ".", write,
+                write + 10L, write + 20L + index, write + 100L + index);
+        }
+        timings.recordAggregate(evidence, 10);
+        assertEquals(10, timings.sampleCount(), "all ten ordered cycle timings are covered");
+        assertEquals("COMPLETE", evidence.getProperty("performance.timing.coverage"),
+            "ten timing samples form complete timing coverage");
+        assertEquals("109", evidence.getProperty(
+            "performance.timing.p95.writeCompleteToFreshObservationUpperBoundNanos"),
+            "nearest-rank p95 of ten samples is the maximum sample");
+        assertEquals("UNAVAILABLE", evidence.getProperty("cycle.1.timing.nativeRefresh"),
+            "native stable refresh remains explicitly unavailable");
+
+        final ExternalPsdPerformanceSampler.Snapshot complete =
+            new ExternalPsdPerformanceSampler.Snapshot(1L, 1L, false,
+                5L, 0L, 10L, 100L, 50L, 100L, 0L, "");
+        assertTrue(ExternalPsdEditHostProbe.performanceCoverageComplete(complete, 10, 10),
+            "coverage helper accepts only a complete sampler plus ten timing samples");
+        final ExternalPsdPerformanceSampler.Snapshot pending =
+            new ExternalPsdPerformanceSampler.Snapshot(1L, 1L, true,
+                5L, 20L, 10L, 100L, 50L, 100L, 0L, "");
+        assertTrue(!ExternalPsdEditHostProbe.performanceCoverageComplete(pending, 10, 10),
+            "pending EDT heartbeat cannot be reported as complete");
+        final ExternalPsdPerformanceSampler.Snapshot failed =
+            new ExternalPsdPerformanceSampler.Snapshot(1L, 1L, false,
+                5L, 0L, 10L, 100L, 50L, 100L, 1L, "dispatch failed");
+        assertTrue(!ExternalPsdEditHostProbe.performanceCoverageComplete(failed, 10, 10),
+            "sampler failure cannot be reported as complete evidence");
+        assertTrue(!ExternalPsdEditHostProbe.performanceCoverageComplete(complete, 0, 10),
+            "zero timing samples cannot be reported as complete evidence");
     }
 
     private static void testSharedModelImageRelationGate() {

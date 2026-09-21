@@ -176,6 +176,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static final String PERSISTED_DOCUMENT_BASENAME = "persisted-document.cmo3";
     private static final String CONTENT_PROFILE_PROPERTY =
         "turboism.validation.externalpsd.contentProfile";
+    private static final String PERFORMANCE_PROPERTY =
+        "turboism.validation.externalpsd.performance";
+    private static final String PERFORMANCE_WARM_COLD_PROPERTY =
+        "turboism.validation.externalpsd.performanceWarmCold";
+    private static final long PERFORMANCE_FINISH_TIMEOUT_MILLIS = 1_000L;
     private static final String CONTROL_CONTENT_PROFILE = "control7";
     private static final String F1_CONTENT_PROFILE = "f1";
     private static final String UNUSED_RAW_MESSAGE_KEY = "CUB3-3054";
@@ -212,6 +217,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private volatile Window guiBoundWindow;
     /** Worker-prepared reflection handles for the official CEAppCtrl→main-frame window chain. */
     private volatile HostWindowAccess hostWindowAccess;
+    /** Validation-only sampler; disable closes it before interrupting the worker. */
+    private volatile ExternalPsdPerformanceSampler performanceSampler;
 
     @Override public void init(final PluginContext context) { this.context = context; }
 
@@ -227,6 +234,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         stopped = true;
         final GuiWaitDiagnostics diagnostics = guiWaitDiagnostics;
         if (diagnostics != null) diagnostics.close("disabled");
+        final ExternalPsdPerformanceSampler sampler = performanceSampler;
+        if (sampler != null) sampler.close();
         if (worker != null) worker.interrupt();
     }
     @Override public void shutdown() { disable(); }
@@ -246,40 +255,71 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final String requestedContentProfile = System.getProperty(
             CONTENT_PROFILE_PROPERTY, CONTROL_CONTENT_PROFILE);
         result.setProperty("contentProfile", requestedContentProfile);
+        final String requestedPerformance = System.getProperty(PERFORMANCE_PROPERTY, "");
+        result.setProperty("performance.requested", requestedPerformance.isBlank()
+            ? "0" : requestedPerformance);
+        ExternalPsdPerformanceSampler sampler = null;
+        PerformanceCycleTimings performanceTimings = null;
+        Throwable terminalFailure = null;
         try {
-            stableSharedModelImageUsers = List.of();
-            contentProfile = parseContentProfile(requestedContentProfile);
-            result.setProperty("contentProfile", contentProfileName(contentProfile));
-            result.setProperty("contentValidation",
-                Boolean.toString(contentValidationRequired(contentProfile, "1".equals(
-                    System.getProperty("turboism.validation.externalpsd.persist")))));
-            if (isPrepareFixturePhase(phase)) {
-                runPrepareFixture(result);
-            } else {
-                if ("gui".equals(phase)) awaitGuiReadyTrigger(result);
-                awaitReady();
-                switch (phase) {
-                    case "reopen" -> runReopen(result);
-                    case "gui" -> runGui(result);
-                    case "pipeline" -> runPipeline(result, cycles);
-                    default -> throw new IllegalStateException("unknown probe phase " + phase);
+            try {
+                stableSharedModelImageUsers = List.of();
+                contentProfile = parseContentProfile(requestedContentProfile);
+                result.setProperty("contentProfile", contentProfileName(contentProfile));
+                result.setProperty("contentValidation",
+                    Boolean.toString(contentValidationRequired(contentProfile, "1".equals(
+                        System.getProperty("turboism.validation.externalpsd.persist")))));
+                final PerformanceAdmission performanceAdmission = performanceAdmission(
+                    phase, contentProfile, cycles, requestedPerformance);
+                recordPerformanceAdmission(result, performanceAdmission);
+                if (performanceAdmission.requested() && !performanceAdmission.admitted()) {
+                    throw new IllegalStateException("performance admission rejected: "
+                        + performanceAdmission.diagnostic());
                 }
+                if (isPrepareFixturePhase(phase)) {
+                    runPrepareFixture(result);
+                } else {
+                    if ("gui".equals(phase)) awaitGuiReadyTrigger(result);
+                    awaitReady();
+                    if (performanceAdmission.admitted()) {
+                        recordPerformanceEnvironment(result);
+                        sampler = ExternalPsdPerformanceSampler.start();
+                        performanceSampler = sampler;
+                        performanceTimings = new PerformanceCycleTimings();
+                        result.setProperty("performance.lifecycle.start", "STARTED");
+                    }
+                    switch (phase) {
+                        case "reopen" -> runReopen(result);
+                        case "gui" -> runGui(result);
+                        case "pipeline" -> runPipeline(result, cycles, performanceTimings);
+                        default -> throw new IllegalStateException("unknown probe phase " + phase);
+                    }
+                }
+                result.setProperty("status", "PASS");
+            } catch (Blocked blocked) {
+                terminalFailure = blocked;
+                result.setProperty("status", "BLOCKED");
+                result.setProperty("expected", blocked.expected);
+                result.setProperty("actual", blocked.getMessage());
+                context.logger().warn("EXTERNAL_PSD_EDIT_RESULT status=BLOCKED "
+                    + blocked.getMessage());
+            } catch (Throwable error) {
+                terminalFailure = error;
+                if (stopped) return;
+                result.setProperty("status", "FAIL");
+                result.setProperty("expected", "external edit save→replace→undo→stop→recover pipeline");
+                result.setProperty("actual", error.toString());
+                if (error.getCause() != null) result.setProperty("cause", error.getCause().toString());
+                final StringWriter trace = new StringWriter();
+                error.printStackTrace(new java.io.PrintWriter(trace));
+                result.setProperty("failureTrace", trace.toString());
             }
-            result.setProperty("status", "PASS");
-        } catch (Blocked blocked) {
-            result.setProperty("status", "BLOCKED");
-            result.setProperty("expected", blocked.expected);
-            result.setProperty("actual", blocked.getMessage());
-            context.logger().warn("EXTERNAL_PSD_EDIT_RESULT status=BLOCKED " + blocked.getMessage());
-        } catch (Throwable error) {
-            if (stopped) return;
-            result.setProperty("status", "FAIL");
-            result.setProperty("expected", "external edit save→replace→undo→stop→recover pipeline");
-            result.setProperty("actual", error.toString());
-            if (error.getCause() != null) result.setProperty("cause", error.getCause().toString());
-            final StringWriter trace = new StringWriter();
-            error.printStackTrace(new java.io.PrintWriter(trace));
-            result.setProperty("failureTrace", trace.toString());
+        } finally {
+            if (sampler != null) {
+                finishPerformanceEvidence(result, sampler, performanceTimings, cycles,
+                    terminalFailure);
+                performanceSampler = null;
+            }
         }
         if (stopped) return;
         Path stateDir = null;
@@ -339,6 +379,185 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final boolean persistValidation) {
         Objects.requireNonNull(profile, "profile");
         return persistValidation || profile == PsdValidationContent.Profile.F1_2048_20;
+    }
+
+    /**
+     * Performance observation is deliberately narrower than the content-profile switch.  Only
+     * an explicitly requested F1 ten-cycle pipeline may start the sampler; all other requests
+     * are rejected before readiness/export/mutation rather than silently producing partial data.
+     */
+    static boolean parsePerformanceOptIn(final String requested) {
+        final String value = requested == null || requested.isBlank()
+            ? "0" : requested.trim();
+        return switch (value) {
+            case "0" -> false;
+            case "1" -> true;
+            default -> throw new IllegalArgumentException(
+                "performance must be namespaced value 1 (or 0); actual=" + requested);
+        };
+    }
+
+    static PerformanceAdmission performanceAdmission(final String phase,
+        final PsdValidationContent.Profile profile, final int cycles, final String requested) {
+        Objects.requireNonNull(profile, "profile");
+        final boolean requestedOptIn = parsePerformanceOptIn(requested);
+        if (!requestedOptIn) {
+            return PerformanceAdmission.disabled("performance opt-in was not requested");
+        }
+        if (!"pipeline".equals(phase)) {
+            return PerformanceAdmission.rejected(
+                "performance observation is admitted only for the pipeline phase");
+        }
+        if (profile != PsdValidationContent.Profile.F1_2048_20) {
+            return PerformanceAdmission.rejected(
+                "performance observation requires the explicit f1 content profile");
+        }
+        if (cycles != 10) {
+            return PerformanceAdmission.rejected(
+                "performance observation requires exactly 10 save cycles; actual=" + cycles);
+        }
+        return PerformanceAdmission.admitted(
+            "f1 pipeline with exactly 10 save cycles is eligible for observation");
+    }
+
+    private static void recordPerformanceAdmission(final Properties result,
+        final PerformanceAdmission admission) {
+        result.setProperty("performance.admission", admission.admitted()
+            ? "ADMITTED" : admission.requested() ? "REJECTED" : "DISABLED");
+        result.setProperty("performance.admissionDiagnostic", admission.diagnostic());
+        result.setProperty("performance.sampling", admission.admitted() ? "OPT_IN" : "OFF");
+        result.setProperty("performance.sc006", "NOT_CLAIMED");
+    }
+
+    private static String performanceWarmColdDeclaration() {
+        final String value = System.getProperty(PERFORMANCE_WARM_COLD_PROPERTY, "").trim()
+            .toLowerCase(Locale.ROOT);
+        return switch (value) {
+            case "warm", "cold" -> value;
+            case "" -> "UNDECLARED";
+            default -> "UNAVAILABLE";
+        };
+    }
+
+    private static void recordPerformanceEnvironment(final Properties result) {
+        final Runtime runtime = Runtime.getRuntime();
+        result.setProperty("performance.jvm.javaVersion",
+            System.getProperty("java.runtime.version", "UNAVAILABLE"));
+        result.setProperty("performance.jvm.vmName",
+            System.getProperty("java.vm.name", "UNAVAILABLE"));
+        result.setProperty("performance.os.name",
+            System.getProperty("os.name", "UNAVAILABLE"));
+        result.setProperty("performance.os.version",
+            System.getProperty("os.version", "UNAVAILABLE"));
+        result.setProperty("performance.os.arch",
+            System.getProperty("os.arch", "UNAVAILABLE"));
+        result.setProperty("performance.processors",
+            Integer.toString(runtime.availableProcessors()));
+        result.setProperty("performance.jvm.maxHeapBytes", Long.toString(runtime.maxMemory()));
+        result.setProperty("performance.warmCold", performanceWarmColdDeclaration());
+        result.setProperty("performance.rssBytes", "UNAVAILABLE");
+        result.setProperty("performance.nativeStableRefresh", "UNAVAILABLE");
+        result.setProperty("performance.timing.clock", "System.nanoTime");
+        result.setProperty("performance.timing.nativeRefresh", "UNAVAILABLE");
+        result.setProperty("performance.timing.writeToObservationSemantics",
+            "write-complete to public completion/fresh-current observation is an upper bound; "
+                + "revision-callback to the same observation is a lower bound; neither is a "
+                + "native-final-refresh timestamp");
+    }
+
+    private static void finishPerformanceEvidence(final Properties result,
+        final ExternalPsdPerformanceSampler sampler, final PerformanceCycleTimings timings,
+        final int expectedCycles, final Throwable terminalFailure) {
+        ExternalPsdPerformanceSampler.Snapshot snapshot = null;
+        Throwable finishFailure = null;
+        try {
+            snapshot = sampler.finish(PERFORMANCE_FINISH_TIMEOUT_MILLIS);
+        } catch (Throwable failure) {
+            finishFailure = failure;
+            try {
+                sampler.close();
+            } catch (Throwable closeFailure) {
+                failure.addSuppressed(closeFailure);
+            }
+        }
+        result.setProperty("performance.lifecycle.finish", "CALLED");
+        result.setProperty("performance.lifecycle.stop", "CLOSED");
+        if (terminalFailure != null) {
+            result.setProperty("performance.lifecycle.terminalFailure",
+                terminalFailure.toString());
+        }
+        if (finishFailure != null) {
+            result.setProperty("performance.lifecycle.finishFailure", finishFailure.toString());
+        }
+        if (snapshot == null) {
+            recordUnavailablePerformanceSnapshot(result);
+        } else {
+            result.setProperty("performance.heartbeat.periodMillis",
+                Long.toString(ExternalPsdPerformanceSampler.PERIOD_MILLIS));
+            result.setProperty("performance.heartbeat.samples",
+                Long.toString(snapshot.heartbeatSamples()));
+            result.setProperty("performance.memory.samples",
+                Long.toString(snapshot.memorySamples()));
+            result.setProperty("performance.heartbeat.pending",
+                Boolean.toString(snapshot.heartbeatPending()));
+            result.setProperty("performance.heartbeat.pendingAgeNanos",
+                Long.toString(snapshot.pendingHeartbeatAgeNanos()));
+            result.setProperty("performance.heartbeat.maximumQueueDelayNanos",
+                Long.toString(snapshot.maximumQueueDelayNanos()));
+            result.setProperty("performance.sampling.maximumGapNanos",
+                Long.toString(snapshot.maximumTickGapNanos()));
+            result.setProperty("performance.heap.peakBytes",
+                Long.toString(snapshot.peakHeapBytes()));
+            result.setProperty("performance.nonHeap.peakBytes",
+                Long.toString(snapshot.peakNonHeapBytes()));
+            result.setProperty("performance.elapsedNanos", Long.toString(snapshot.elapsedNanos()));
+            result.setProperty("performance.sampler.failures",
+                Long.toString(snapshot.failures()));
+            result.setProperty("performance.sampler.diagnostic", snapshot.diagnostic());
+        }
+        if (timings == null) {
+            result.setProperty("performance.timing.sampleCount", "0");
+            result.setProperty("performance.timing.expectedSampleCount",
+                Integer.toString(expectedCycles));
+            result.setProperty("performance.timing.coverage", "INCOMPLETE");
+        } else {
+            timings.recordAggregate(result, expectedCycles);
+        }
+        final int timingSamples = timings == null ? 0 : timings.sampleCount();
+        final boolean complete = snapshot != null
+            && performanceCoverageComplete(snapshot, timingSamples, expectedCycles)
+            && finishFailure == null;
+        result.setProperty("performance.coverage.complete", Boolean.toString(complete));
+        result.setProperty("performance.coverage.status", complete ? "COMPLETE" : "INCOMPLETE");
+        result.setProperty("performance.evidence.status", complete ? "OBSERVED" : "UNAVAILABLE");
+        result.setProperty("performance.gate", "EVIDENCE_ONLY");
+        result.setProperty("performance.sc006", "NOT_CLAIMED");
+        if (!complete && !"BLOCKED".equals(result.getProperty("status")) && !Thread.currentThread().isInterrupted()) {
+            result.setProperty("status", "FAIL");
+            result.setProperty("expected", "complete F1 ten-cycle performance observation");
+            result.setProperty("actual", "performance observation coverage is incomplete; no performance PASS");
+        }
+    }
+
+    private static void recordUnavailablePerformanceSnapshot(final Properties result) {
+        for (final String key : List.of(
+            "performance.heartbeat.samples", "performance.memory.samples",
+            "performance.heartbeat.pendingAgeNanos", "performance.heartbeat.maximumQueueDelayNanos",
+            "performance.sampling.maximumGapNanos", "performance.heap.peakBytes",
+            "performance.nonHeap.peakBytes", "performance.elapsedNanos",
+            "performance.sampler.failures")) {
+            result.setProperty(key, "UNAVAILABLE");
+        }
+        result.setProperty("performance.heartbeat.periodMillis",
+            Long.toString(ExternalPsdPerformanceSampler.PERIOD_MILLIS));
+        result.setProperty("performance.heartbeat.pending", "UNAVAILABLE");
+        result.setProperty("performance.sampler.diagnostic", "UNAVAILABLE");
+    }
+
+    static boolean performanceCoverageComplete(final ExternalPsdPerformanceSampler.Snapshot snapshot,
+        final int timingSamples, final int expectedCycles) {
+        return snapshot != null && snapshot.complete() && expectedCycles == 10
+            && timingSamples == expectedCycles;
     }
 
     /**
@@ -1100,7 +1319,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     /** Full save→replace→undo→stop→recover pipeline plus optional persist tail. */
-    private void runPipeline(final Properties result, final int cycles) throws Exception {
+    private void runPipeline(final Properties result, final int cycles,
+        final PerformanceCycleTimings performanceTimings) throws Exception {
         if (cycles < 1) throw new IllegalArgumentException("cycles must be at least 1");
         result.setProperty("realEditorApplication",
             "default-application launch recorded; OPENED requires the task .psd association");
@@ -1195,9 +1415,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             }
 
             final PsdEditFile file = primary.file();
-            final Deque<PsdFileRevision> revisions = new ArrayDeque<>();
+            final Deque<RevisionEvent> revisions = new ArrayDeque<>();
             final Registration subscription = file.observeSaves(revision -> {
-                synchronized (revisions) { revisions.add(revision); revisions.notifyAll(); }
+                synchronized (revisions) {
+                    // PsdFileRevision has no stable timestamp.  This callback timestamp is a
+                    // probe observation used only for the explicitly labelled lower-bound
+                    // diagnostic; it is never presented as native refresh timing.
+                    revisions.add(new RevisionEvent(revision, System.nanoTime()));
+                    revisions.notifyAll();
+                }
             });
             try {
                 assertNoRevision(revisions, 1500,
@@ -1211,7 +1437,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
                 final SaveCyclesResult cyclesResult = runSaveCycles(
                     result, file, initialTarget, tempFile, revisions, tracker, cycles,
-                    validateContent);
+                    validateContent, performanceTimings);
                 final Target currentTarget = cyclesResult.currentTarget();
                 final Target lastBeforeTarget = cyclesResult.lastBeforeTarget();
                 final Mutation marker = cyclesResult.lastMutation();
@@ -4876,8 +5102,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private SaveCyclesResult runSaveCycles(final Properties result, final PsdEditFile file,
-        final Target initialTarget, final Path tempFile, final Deque<PsdFileRevision> revisions,
-        final TempTracker tracker, final int cycles, final boolean validateTargetContent)
+        final Target initialTarget, final Path tempFile, final Deque<RevisionEvent> revisions,
+        final TempTracker tracker, final int cycles, final boolean validateTargetContent,
+        final PerformanceCycleTimings performanceTimings)
         throws Exception {
         Mutation lastMutation = null;
         Target currentTarget = initialTarget;
@@ -4915,7 +5142,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             } else {
                 Files.write(tempFile, mutated);
             }
-            final PsdFileRevision revision = awaitRevision(revisions, 20);
+            final long writeCompletedNanos = System.nanoTime();
+            final RevisionEvent revisionEvent = awaitRevision(revisions, 20);
+            final PsdFileRevision revision = revisionEvent.revision();
             final TextureRelationsSnapshot relationsBefore;
             try {
                 requireTargetBinding(result, beforeTarget,
@@ -4949,6 +5178,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 recordRawRelationImportFailure(result, prefix, failure);
                 throw failure;
             }
+            final long publicCompletionNanos = System.nanoTime();
             final long replaceMs = (System.nanoTime() - replaceStart) / 1_000_000;
             result.setProperty(prefix + "revisionDeliveredMs", Long.toString(detectedMs));
             result.setProperty(prefix + "replaceMs", Long.toString(replaceMs));
@@ -5026,10 +5256,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 final String settlePrefix =
                     joinPrefix("persist.observation." + prefix, "boundedSettle");
                 final DiagnosticObservation completion;
+                final long freshObservationCompletedNanos;
                 try {
                     completion = captureFreshDiagnosticObservation(
                         result, completionPrefix, appliedTarget, tracker,
                         "fresh-native-export-after-public-import-completion", 0L, true);
+                    freshObservationCompletedNanos = System.nanoTime();
                 } catch (Exception failure) {
                     recordFreshDiagnosticFailurePreservingPrimary(
                         result, completionPrefix, settlePrefix, failure);
@@ -5038,6 +5270,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     recordFreshDiagnosticFailurePreservingPrimary(
                         result, completionPrefix, settlePrefix, failure);
                     throw failure;
+                }
+                if (performanceTimings != null) {
+                    performanceTimings.record(result, prefix, writeCompletedNanos,
+                        revisionEvent.callbackNanos(), publicCompletionNanos,
+                        freshObservationCompletedNanos);
                 }
                 final AtomicInteger settleAttempt = new AtomicInteger();
                 final AtomicReference<String> settleAttemptPrefix = new AtomicReference<>();
@@ -5140,6 +5377,168 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
+    private record RevisionEvent(PsdFileRevision revision, long callbackNanos) {
+        RevisionEvent {
+            Objects.requireNonNull(revision, "revision");
+            if (callbackNanos < 0L) throw new IllegalArgumentException(
+                "revision callback time must not be negative");
+        }
+    }
+
+    static record PerformanceAdmission(boolean requested, boolean admitted,
+        String diagnostic) {
+        PerformanceAdmission {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+            if (admitted && !requested) {
+                throw new IllegalArgumentException("admitted performance must be requested");
+            }
+        }
+
+        static PerformanceAdmission disabled(final String diagnostic) {
+            return new PerformanceAdmission(false, false, diagnostic);
+        }
+
+        static PerformanceAdmission rejected(final String diagnostic) {
+            return new PerformanceAdmission(true, false, diagnostic);
+        }
+
+        static PerformanceAdmission admitted(final String diagnostic) {
+            return new PerformanceAdmission(true, true, diagnostic);
+        }
+    }
+
+    static record PerformanceTimingSample(boolean available,
+        long writeCompleteToPublicCompletionUpperBoundNanos,
+        long writeCompleteToFreshObservationUpperBoundNanos,
+        long revisionCallbackToFreshObservationLowerBoundNanos,
+        String diagnostic) {
+        PerformanceTimingSample {
+            diagnostic = diagnostic == null ? "" : diagnostic;
+            if (available && (writeCompleteToPublicCompletionUpperBoundNanos < 0L
+                || writeCompleteToFreshObservationUpperBoundNanos < 0L
+                || revisionCallbackToFreshObservationLowerBoundNanos < 0L)) {
+                throw new IllegalArgumentException(
+                    "available performance timing values must not be negative");
+            }
+        }
+
+        static PerformanceTimingSample unavailable(final String diagnostic) {
+            return new PerformanceTimingSample(false, -1L, -1L, -1L, diagnostic);
+        }
+    }
+
+    static PerformanceTimingSample performanceTimingSampleForTest(
+        final long writeCompleteNanos, final long revisionCallbackNanos,
+        final long publicCompletionNanos, final long freshObservationNanos) {
+        return performanceTimingSample(writeCompleteNanos, revisionCallbackNanos,
+            publicCompletionNanos, freshObservationNanos);
+    }
+
+    private static PerformanceTimingSample performanceTimingSample(
+        final long writeCompleteNanos, final long revisionCallbackNanos,
+        final long publicCompletionNanos, final long freshObservationNanos) {
+        if (writeCompleteNanos < 0L || revisionCallbackNanos < 0L
+            || publicCompletionNanos < 0L || freshObservationNanos < 0L) {
+            return PerformanceTimingSample.unavailable("monotonic timing value is negative");
+        }
+        if (revisionCallbackNanos < writeCompleteNanos) {
+            return PerformanceTimingSample.unavailable(
+                "revision callback preceded write completion");
+        }
+        if (publicCompletionNanos < revisionCallbackNanos) {
+            return PerformanceTimingSample.unavailable(
+                "public completion preceded revision callback");
+        }
+        if (freshObservationNanos < publicCompletionNanos) {
+            return PerformanceTimingSample.unavailable(
+                "fresh current observation preceded public completion");
+        }
+        return new PerformanceTimingSample(
+            true,
+            publicCompletionNanos - writeCompleteNanos,
+            freshObservationNanos - writeCompleteNanos,
+            freshObservationNanos - revisionCallbackNanos,
+            "");
+    }
+
+    static final class PerformanceCycleTimings {
+        private final List<Long> writeToPublic = new ArrayList<>();
+        private final List<Long> writeToFresh = new ArrayList<>();
+        private final List<Long> callbackToFresh = new ArrayList<>();
+
+        void record(final Properties result, final String prefix,
+            final long writeCompleteNanos, final long revisionCallbackNanos,
+            final long publicCompletionNanos, final long freshObservationNanos) {
+            final PerformanceTimingSample sample = performanceTimingSample(writeCompleteNanos,
+                revisionCallbackNanos, publicCompletionNanos, freshObservationNanos);
+            result.setProperty(prefix + "timing.status",
+                sample.available() ? "AVAILABLE" : "UNAVAILABLE");
+            result.setProperty(prefix + "timing.nativeRefresh", "UNAVAILABLE");
+            result.setProperty(prefix + "timing.semantics",
+                "write-complete to public/fresh-current observation bounds; "
+                    + "revision callback to same observation lower bound; not native refresh time");
+            if (!sample.available()) {
+                result.setProperty(prefix + "timing.diagnostic", sample.diagnostic());
+                return;
+            }
+            result.setProperty(prefix + "timing.writeCompleteToPublicCompletionUpperBoundNanos",
+                Long.toString(sample.writeCompleteToPublicCompletionUpperBoundNanos()));
+            result.setProperty(prefix + "timing.writeCompleteToFreshObservationUpperBoundNanos",
+                Long.toString(sample.writeCompleteToFreshObservationUpperBoundNanos()));
+            result.setProperty(prefix + "timing.revisionCallbackToFreshObservationLowerBoundNanos",
+                Long.toString(sample.revisionCallbackToFreshObservationLowerBoundNanos()));
+            writeToPublic.add(sample.writeCompleteToPublicCompletionUpperBoundNanos());
+            writeToFresh.add(sample.writeCompleteToFreshObservationUpperBoundNanos());
+            callbackToFresh.add(sample.revisionCallbackToFreshObservationLowerBoundNanos());
+        }
+
+        int sampleCount() {
+            return writeToFresh.size();
+        }
+
+        void recordAggregate(final Properties result, final int expectedCycles) {
+            final int count = sampleCount();
+            result.setProperty("performance.timing.sampleCount", Integer.toString(count));
+            result.setProperty("performance.timing.expectedSampleCount",
+                Integer.toString(expectedCycles));
+            result.setProperty("performance.timing.coverage",
+                count == expectedCycles ? "COMPLETE" : "INCOMPLETE");
+            result.setProperty("performance.timing.p95.method", "nearest-rank");
+            result.setProperty("performance.timing.p95.rank",
+                Integer.toString((int) Math.ceil(expectedCycles * 0.95d)));
+            if (count != expectedCycles || expectedCycles != 10) {
+                result.setProperty(
+                    "performance.timing.p95.writeCompleteToPublicCompletionUpperBoundNanos",
+                    "UNAVAILABLE");
+                result.setProperty(
+                    "performance.timing.p95.writeCompleteToFreshObservationUpperBoundNanos",
+                    "UNAVAILABLE");
+                result.setProperty(
+                    "performance.timing.p95.revisionCallbackToFreshObservationLowerBoundNanos",
+                    "UNAVAILABLE");
+                return;
+            }
+            result.setProperty(
+                "performance.timing.p95.writeCompleteToPublicCompletionUpperBoundNanos",
+                Long.toString(nearestRankP95(writeToPublic)));
+            result.setProperty(
+                "performance.timing.p95.writeCompleteToFreshObservationUpperBoundNanos",
+                Long.toString(nearestRankP95(writeToFresh)));
+            result.setProperty(
+                "performance.timing.p95.revisionCallbackToFreshObservationLowerBoundNanos",
+                Long.toString(nearestRankP95(callbackToFresh)));
+        }
+    }
+
+    static long nearestRankP95(final List<Long> samples) {
+        if (samples == null || samples.isEmpty()) {
+            throw new IllegalArgumentException("p95 requires at least one sample");
+        }
+        final List<Long> ordered = samples.stream().map(Objects::requireNonNull).sorted().toList();
+        final int rank = Math.max(1, (int) Math.ceil(ordered.size() * 0.95d));
+        return ordered.get(rank - 1);
+    }
+
     static boolean isFinalRgbMutationCycle(final int cycle, final int cycles) {
         if (cycles < 1 || cycle < 1 || cycle > cycles) {
             throw new IllegalArgumentException("cycle must be within a positive cycle count");
@@ -5148,9 +5547,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private void runCorruptedSave(final Properties result, final PsdEditFile file, final Target target,
-        final Path tempFile, final Deque<PsdFileRevision> revisions) throws Exception {
+        final Path tempFile, final Deque<RevisionEvent> revisions) throws Exception {
         Files.write(tempFile, "not-a-psd-corrupted-save".getBytes(StandardCharsets.UTF_8));
-        final PsdFileRevision revision = awaitRevision(revisions, 20);
+        final PsdFileRevision revision = awaitRevision(revisions, 20).revision();
         final PsdReplaceResult corrupted = replace(file, target.raw(), revision);
         result.setProperty("corrupted.status", corrupted.status().name());
         result.setProperty("corrupted.diagnostic", corrupted.diagnostic());
@@ -5223,7 +5622,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private void assertNoReplayAfterIdle(final Properties result,
-        final Deque<PsdFileRevision> revisions) throws Exception {
+        final Deque<RevisionEvent> revisions) throws Exception {
         final int before;
         synchronized (revisions) { before = revisions.size(); }
         Thread.sleep(3000);
@@ -5237,7 +5636,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private void runStopAndRecovery(final Properties result, final TrackedExport primary,
-        final Target target, final Path tempFile, final Deque<PsdFileRevision> revisions,
+        final Target target, final Path tempFile, final Deque<RevisionEvent> revisions,
         final TempTracker tracker)
         throws Exception {
         final PsdFileOperationResult stopResult = tracker.stop(primary, result);
@@ -5337,7 +5736,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return new Target(previous.artMesh(), previous.modelImage(), raw, replaced, identity);
     }
 
-    private void assertNoRevision(final Deque<PsdFileRevision> revisions, final long millis,
+    private void assertNoRevision(final Deque<RevisionEvent> revisions, final long millis,
         final String message) throws Exception {
         synchronized (revisions) {
             final long deadline = System.currentTimeMillis() + millis;
@@ -5348,7 +5747,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    private PsdFileRevision awaitRevision(final Deque<PsdFileRevision> revisions,
+    private RevisionEvent awaitRevision(final Deque<RevisionEvent> revisions,
         final int timeoutSeconds) throws Exception {
         synchronized (revisions) {
             final long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
