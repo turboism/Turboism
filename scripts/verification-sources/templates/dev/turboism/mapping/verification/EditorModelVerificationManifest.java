@@ -379,6 +379,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.modeling-document.mark-dirty",
         "cubism.editor-model.edit-mode.class",
         "cubism.editor-model.edit-mode.begin",
+        "cubism.editor-model.edit-mode.current-undo",
         "cubism.editor-model.edit-mode.end",
         "cubism.editor-model.undo.class",
         "cubism.editor-model.undo.add",
@@ -700,6 +701,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid.reverse-parameter",
         "cubism.editor-model.keyform-grid.change-parameter",
         "cubism.editor-model.keyform-grid.add-key",
+        "cubism.editor-model.keyform-grid-source.set-initial-keyform",
         "cubism.editor-model.keyform-grid.remove-key",
         "cubism.editor-model.keyform-grid.remove-all-key",
         "cubism.editor-model.keyform-grid.rearrange-keys"

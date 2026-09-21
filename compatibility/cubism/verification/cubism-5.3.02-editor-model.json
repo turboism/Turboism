@@ -1816,6 +1816,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.edit_mode_current_undo",
+      "alias": "cubism.editor-model.edit-mode.current-undo",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/ACEditMode",
+      "memberName": "getCurrentUndo",
+      "descriptor": "()Lcom/live2d/undo/GroupUndo;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.edit_end",
       "alias": "cubism.editor-model.edit-mode.end",
       "kind": "method",
@@ -2274,6 +2285,17 @@
       "memberName": "importCubism21",
       "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Ljava/util/List;Ljava/util/List;Lcom/live2d/cubism/doc/model/io/b/c;)V",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.keyform_grid_set_initial_keyform",
+      "alias": "cubism.editor-model.keyform-grid-source.set-initial-keyform",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "memberName": "setInitialKeyform",
+      "descriptor": "(Lcom/live2d/type/CFormGuid;)V",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },

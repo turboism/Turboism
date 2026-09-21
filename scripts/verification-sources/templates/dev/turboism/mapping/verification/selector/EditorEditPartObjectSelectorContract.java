@@ -286,12 +286,25 @@ public final class EditorEditPartObjectSelectorContract {
 
     /**
      * {@code AddPart}: verified part creation plus child attachment and id resolution for the
-     * {@code Ids} field.
+     * {@code Ids} field. The keyform seeding set mirrors the official {@code AddPart} route —
+     * a fresh {@code CPartForm} registered on the source's keyform list and a {@code
+     * KeyformGridSource} primed by {@code setInitialKeyform} so the first instance update
+     * finds a bound keyform instead of dereferencing an empty binding table.
      */
     public static final Set<String> ADD_PART_REQUIRED_ALIASES = unionAll(
         EditorEditSessionSelectorContract.EDIT_SESSION_WRITE_ENVELOPE_ALIASES,
         EditorPartStructureSelectorContract.ROOT_CREATE_REQUIRED_ALIASES,
-        OBJECT_LOOKUP_ALIASES
+        OBJECT_LOOKUP_ALIASES,
+        Set.of(
+            "cubism.editor-model.part-form.create",
+            "cubism.editor-model.part-source.keyforms",
+            "cubism.editor-model.form-guid.create",
+            "cubism.editor-model.form.set-guid",
+            "cubism.editor-model.keyform-grid-source.create",
+            "cubism.editor-model.keyform-grid-source.set-initial-keyform",
+            "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source",
+            "cubism.editor-model.c-array-list.add"
+        )
     );
 
     /**
