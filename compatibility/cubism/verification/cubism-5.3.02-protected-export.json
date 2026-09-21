@@ -627,6 +627,28 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.keyform_binding_keys",
+      "alias": "cubism.protected-export.keyform-binding.keys",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "getKeys",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.keyform_binding_parameter_id",
+      "alias": "cubism.protected-export.keyform-binding.parameter-id",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "getParameterId",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.protected_export.method.keyform_grid_bindings",
       "alias": "cubism.protected-export.keyform-grid.bindings",
       "kind": "method",
@@ -693,6 +715,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.model_source_all_motion_sync_settings",
+      "alias": "cubism.protected-export.model-source.all-motion-sync-settings",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": "getAllMotionSyncSettings",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.protected_export.method.model_source_all_objects",
       "alias": "cubism.protected-export.model-source.all-objects",
       "kind": "method",
@@ -720,6 +753,17 @@
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
       "memberName": "getAllParts",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.model_source_all_physics_settings",
+      "alias": "cubism.protected-export.model-source.all-physics-settings",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": "getAllPhysicsSettings",
       "descriptor": "()Ljava/util/List;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
@@ -869,12 +913,45 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_default_value",
+      "alias": "cubism.protected-export.parameter-source.default-value",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "getDefaultValue",
+      "descriptor": "()F",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_id",
       "alias": "cubism.protected-export.parameter-source.id",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
       "memberName": "getId",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_max_value",
+      "alias": "cubism.protected-export.parameter-source.max-value",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "getMaxValue",
+      "descriptor": "()F",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_min_value",
+      "alias": "cubism.protected-export.parameter-source.min-value",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "getMinValue",
+      "descriptor": "()F",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -891,6 +968,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.parameter_source_repeat",
+      "alias": "cubism.protected-export.parameter-source.repeat",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "isRepeat",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.protected_export.class.parameter_class",
       "alias": "cubism.protected-export.parameter.class",
       "kind": "class",
@@ -899,6 +987,17 @@
       "descriptor": null,
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.protected_export.method.part_child_guids",
+      "alias": "cubism.protected-export.part.child-guids",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+      "memberName": "getChildGuids",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {

@@ -300,6 +300,83 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
+    void rejectsWhenSelectionCarriesForeignDeformer() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The selector reports an extra unplanned deformer beside the target —
+        // applying would consume a foreign object, so flatten must refuse.
+        fixture.host.selectsExtraDeformer = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        // The copy mutation never ran: both deformers survive on the copy model.
+        assertEquals(2, fixture.host.copy.model.deformers.size());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenUnsupportedObjectEntersCensus() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A glue-like unsupported family member inside getAllObjects must reject
+        // the session at preflight — before any copy is created or written.
+        fixture.host.original.model.unsupportedObjects.add(new Object());
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.host.copy == null, "no copy may be bound");
+        assertTrue(fixture.destinationFiles().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenPhysicsSettingsArePresent() throws Exception {
+        final Fixture fixture = new Fixture();
+        // Physics settings live outside getAllObjects and need their own gate.
+        fixture.host.original.model.physicsSettings.add(new Object());
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.host.copy == null);
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenMotionSyncSettingsArePresent() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.original.model.motionSyncSettings.add(new Object());
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenPartIdentityDriftsDuringFlatten() throws Exception {
+        final Fixture fixture = new Fixture();
+        // An out-of-band mutation renames a part while flatten runs — the
+        // post-mutation census compares against the bound snapshot and refuses.
+        fixture.host.mutatePartNameMidRun = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
     void rejectsDuplicateDeformerIdentitiesAtPreflight() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.host.duplicateDeformerGuids = true;
@@ -407,6 +484,34 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_CANCELLED_KEY, report.failureKey());
         assertFalse(report.published());
+        // AC07: a cancelled session still restores the original document and
+        // removes every task-owned file — the report carries the proof.
+        assertTrue(report.originalRestored(),
+            "original document must be active and intact after cancellation");
+        assertTrue(report.cleanedUp(),
+            "cleanup errors: " + report.cleanupErrors());
+        assertTrue(fixture.host.activeDoc == fixture.host.original);
+        assertFalse(fixture.host.project.contains(fixture.host.copy));
+        assertFalse(fixture.host.copy.file.exists(),
+            "copy file must be deleted");
+        assertTrue(fixture.destinationFiles().isEmpty(),
+            "destination must stay untouched: " + fixture.destinationFiles());
+        orchestrator.close();
+    }
+
+    @Test
+    void restoresOriginalWhenExportTimesOut() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.exportCompletes = false;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.EXPORT_TIMEOUT_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
+        assertTrue(fixture.host.activeDoc == fixture.host.original);
         orchestrator.close();
     }
 
@@ -548,6 +653,13 @@ class ProtectedExportOrchestratorTest {
             return report;
         }
 
+        /** Regular files currently in the user's real destination directory. */
+        List<Path> destinationFiles() throws IOException {
+            try (var stream = Files.list(realPick.toPath().getParent())) {
+                return stream.filter(Files::isRegularFile).toList();
+            }
+        }
+
         private OwnedMoc fakeMoc() {
             return new OwnedMoc() {
                 @Override
@@ -595,9 +707,25 @@ class ProtectedExportOrchestratorTest {
                 new Color(1f, 1f, 1f, 1f), new Color(0f, 0f, 0f, 0f),
                 -1, -1, List.of())));
             final List<OwnedParameter> parameters = new ArrayList<>();
-            exported.parameters.forEach(parameter -> parameters.add(
-                new OwnedParameter(parameter.id, 0, 0f, 1f, 0f, 0f,
-                    List.of(0f, 1f), java.util.Optional.empty())));
+            exported.parameters.forEach(parameter -> {
+                // Serialized keys = union of key positions across the model's
+                // bindings for the parameter — the surface flatten must preserve.
+                final Set<Float> keys = new java.util.TreeSet<>();
+                exported.artMeshes.forEach(mesh -> mesh.bindings.forEach(binding -> {
+                    if (binding.parameterId.equals(parameter.id)) {
+                        keys.addAll(binding.keys);
+                    }
+                }));
+                exported.deformers.forEach(deformer -> deformer.bindings.forEach(
+                    binding -> {
+                        if (binding.parameterId.equals(parameter.id)) {
+                            keys.addAll(binding.keys);
+                        }
+                    }));
+                parameters.add(new OwnedParameter(parameter.id, 0,
+                    parameter.min, parameter.max, parameter.defaultValue, 0f,
+                    List.copyOf(keys), java.util.Optional.empty()));
+            });
             if (host.exportAddsParameter) {
                 parameters.add(new OwnedParameter("param-injected", 0, 0f, 1f, 0f,
                     0f, List.of(0f, 1f), java.util.Optional.empty()));
@@ -675,13 +803,34 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
+    /** One keyform binding: parameter ID plus the key positions it contributes. */
+    private static final class FakeBinding {
+        final String parameterId;
+        final List<Float> keys;
+
+        FakeBinding(final String parameterId, final List<Float> keys) {
+            this.parameterId = parameterId;
+            this.keys = List.copyOf(keys);
+        }
+    }
+
     private static final class FakeDeformer {
         final String guid;
         final String targetGuid;
+        final List<FakeBinding> bindings;
 
         FakeDeformer(final String guid, final String targetGuid) {
+            this(guid, targetGuid, List.of());
+        }
+
+        FakeDeformer(
+            final String guid,
+            final String targetGuid,
+            final List<FakeBinding> bindings
+        ) {
             this.guid = guid;
             this.targetGuid = targetGuid;
+            this.bindings = new ArrayList<>(bindings);
         }
     }
 
@@ -689,27 +838,71 @@ class ProtectedExportOrchestratorTest {
         final String guid;
         String name;
         String drawableId;
+        final List<FakeBinding> bindings;
 
         FakeArtMesh(final String guid, final String name, final String drawableId) {
+            this(guid, name, drawableId, List.of());
+        }
+
+        FakeArtMesh(
+            final String guid,
+            final String name,
+            final String drawableId,
+            final List<FakeBinding> bindings
+        ) {
             this.guid = guid;
             this.name = name;
             this.drawableId = drawableId;
+            this.bindings = new ArrayList<>(bindings);
         }
     }
 
     private static final class FakeParameter {
         final String id;
+        final float min;
+        final float max;
+        final float defaultValue;
+        final boolean repeat;
 
         FakeParameter(final String id) {
+            this(id, 0f, 1f, 0f, false);
+        }
+
+        FakeParameter(
+            final String id,
+            final float min,
+            final float max,
+            final float defaultValue,
+            final boolean repeat
+        ) {
             this.id = id;
+            this.min = min;
+            this.max = max;
+            this.defaultValue = defaultValue;
+            this.repeat = repeat;
         }
     }
 
     private static final class FakePart {
+        final String guid;
         final String id;
+        String name;
+        final List<String> childGuids;
 
-        FakePart(final String id) {
+        FakePart(final String guid, final String id) {
+            this(guid, id, "part-name-" + id, new ArrayList<>());
+        }
+
+        FakePart(
+            final String guid,
+            final String id,
+            final String name,
+            final List<String> childGuids
+        ) {
+            this.guid = guid;
             this.id = id;
+            this.name = name;
+            this.childGuids = childGuids;
         }
     }
 
@@ -718,9 +911,14 @@ class ProtectedExportOrchestratorTest {
         final List<FakeArtMesh> artMeshes = new ArrayList<>();
         final List<FakeParameter> parameters = new ArrayList<>();
         final List<FakePart> parts = new ArrayList<>();
+        /** Objects in allObjects that are none of the supported families. */
+        final List<Object> unsupportedObjects = new ArrayList<>();
+        final List<Object> physicsSettings = new ArrayList<>();
+        final List<Object> motionSyncSettings = new ArrayList<>();
         // The host enumerates a synthetic root part in getAllParts but never
         // serializes it into exported output.
-        final FakePart rootPart = new FakePart("__RootPart__");
+        final FakePart rootPart =
+            new FakePart("root-part-guid", "__RootPart__");
         FakeDoc document;
     }
 
@@ -759,18 +957,26 @@ class ProtectedExportOrchestratorTest {
         volatile boolean exportAddsParameter;
         volatile boolean vanishArtMeshAfterCensus;
         volatile boolean copyFileMarkedReadOnlyOnOpen;
+        volatile boolean selectsExtraDeformer;
+        volatile boolean mutatePartNameMidRun;
         private int copyCensusCalls;
         private int artMeshCensusCalls;
 
         FakeHost() {
-            original.model.deformers.add(new FakeDeformer("g-leaf", "g-root"));
-            original.model.deformers.add(new FakeDeformer("g-root", null));
+            original.model.deformers.add(new FakeDeformer("g-leaf", "g-root",
+                List.of(new FakeBinding("param-1", List.of(0f, 0.5f, 1f)))));
+            original.model.deformers.add(new FakeDeformer("g-root", null,
+                List.of(new FakeBinding("param-1", List.of(0f, 1f)))));
             original.model.artMeshes.add(
-                new FakeArtMesh("m-a-guid", "meshA", "id-a"));
+                new FakeArtMesh("m-a-guid", "meshA", "id-a",
+                    List.of(new FakeBinding("param-1", List.of(0f)))));
             original.model.artMeshes.add(
                 new FakeArtMesh("m-b-guid", "meshB", "id-b"));
             original.model.parameters.add(new FakeParameter("param-1"));
-            original.model.parts.add(new FakePart("part-1"));
+            final FakePart part = new FakePart("part-1-guid", "part-1");
+            part.childGuids.addAll(
+                List.of("m-a-guid", "m-b-guid", "g-leaf", "g-root"));
+            original.model.parts.add(part);
             otherDoc.file = new File("other.cmo3");
         }
 
@@ -802,6 +1008,11 @@ class ProtectedExportOrchestratorTest {
         @Override
         public boolean projectContains(final Object document) {
             return project.contains(document);
+        }
+
+        @Override
+        public List<?> projectDocuments() {
+            return List.copyOf(project);
         }
 
         @Override
@@ -846,18 +1057,26 @@ class ProtectedExportOrchestratorTest {
             fresh.file = file;
             for (FakeDeformer deformer : original.model.deformers) {
                 fresh.model.deformers.add(
-                    new FakeDeformer(deformer.guid, deformer.targetGuid));
+                    new FakeDeformer(deformer.guid, deformer.targetGuid,
+                        deformer.bindings));
             }
             for (FakeArtMesh mesh : original.model.artMeshes) {
                 fresh.model.artMeshes.add(
-                    new FakeArtMesh(mesh.guid, mesh.name, mesh.drawableId));
+                    new FakeArtMesh(mesh.guid, mesh.name, mesh.drawableId,
+                        mesh.bindings));
             }
             for (FakeParameter parameter : original.model.parameters) {
-                fresh.model.parameters.add(new FakeParameter(parameter.id));
+                fresh.model.parameters.add(new FakeParameter(parameter.id,
+                    parameter.min, parameter.max, parameter.defaultValue,
+                    parameter.repeat));
             }
             for (FakePart part : original.model.parts) {
-                fresh.model.parts.add(new FakePart(part.id));
+                fresh.model.parts.add(new FakePart(part.guid, part.id, part.name,
+                    new ArrayList<>(part.childGuids)));
             }
+            fresh.model.unsupportedObjects.addAll(original.model.unsupportedObjects);
+            fresh.model.physicsSettings.addAll(original.model.physicsSettings);
+            fresh.model.motionSyncSettings.addAll(original.model.motionSyncSettings);
             copy = fresh;
             project.add(fresh);
             activeDoc = fresh;
@@ -977,6 +1196,12 @@ class ProtectedExportOrchestratorTest {
         @Override
         public void selectSource(final Object selector, final Object source) {
             ((FakeSelector) selector).selected.add(source);
+            if (selectsExtraDeformer) {
+                // A foreign deformer coexists in the selection — the apply must
+                // refuse rather than consume an unplanned target.
+                ((FakeSelector) selector).selected.add(
+                    new FakeDeformer("g-foreign", null));
+            }
         }
 
         @Override
@@ -988,10 +1213,49 @@ class ProtectedExportOrchestratorTest {
         public void applyDeformerToParameters(final Object mainEditMode) {
             final FakeDoc doc = (FakeDoc) activeDoc;
             if (applyRemovesDeformer) {
-                doc.model.deformers.removeIf(d -> doc.selector.selected.contains(d));
+                if (mutatePartNameMidRun && doc == copy) {
+                    // A mutation outside the orchestrator's plan touches part
+                    // identity — the post-mutation census must catch it.
+                    doc.model.parts.forEach(part -> part.name = "part-mutated");
+                }
+                final List<FakeDeformer> removed = doc.model.deformers.stream()
+                    .filter(d -> doc.selector.selected.contains(d))
+                    .toList();
+                doc.model.deformers.removeAll(removed);
+                // Bake: a removed deformer's key positions move onto a surviving
+                // binding of the same parameter, and its membership leaves every
+                // part's child list — the union per parameter is preserved.
+                for (FakeDeformer deformer : removed) {
+                    for (FakeBinding binding : deformer.bindings) {
+                        mergeBinding(doc.model, binding);
+                    }
+                    for (FakePart part : doc.model.parts) {
+                        part.childGuids.remove(deformer.guid);
+                    }
+                    doc.model.rootPart.childGuids.remove(deformer.guid);
+                }
             }
             doc.modified = true;
             doc.selector.selected.clear();
+        }
+
+        private void mergeBinding(final FakeModel model, final FakeBinding binding) {
+            for (FakeArtMesh mesh : model.artMeshes) {
+                for (FakeBinding target : mesh.bindings) {
+                    if (target.parameterId.equals(binding.parameterId)) {
+                        final List<Float> merged = new ArrayList<>(target.keys);
+                        for (Float key : binding.keys) {
+                            if (!merged.contains(key)) {
+                                merged.add(key);
+                            }
+                        }
+                        mesh.bindings.remove(target);
+                        mesh.bindings.add(new FakeBinding(
+                            binding.parameterId, merged));
+                        return;
+                    }
+                }
+            }
         }
 
         @Override
@@ -1034,13 +1298,14 @@ class ProtectedExportOrchestratorTest {
             // getAllObjects never returns them.
             all.add(model.rootPart);
             all.addAll(model.parts);
+            all.addAll(model.unsupportedObjects);
             return all;
         }
 
         @Override
         public List<?> allArtMeshes(final Object modelSource) {
             final FakeModel model = (FakeModel) modelSource;
-            if (vanishArtMeshAfterCensus && model == copy.model
+            if (copy != null && vanishArtMeshAfterCensus && model == copy.model
                 && model.artMeshes.size() > 1 && ++artMeshCensusCalls > 1) {
                 // The census planned over both meshes; later reads (per-target
                 // re-resolution, the post-pass census) no longer see the first.
@@ -1066,6 +1331,16 @@ class ProtectedExportOrchestratorTest {
         @Override
         public List<?> allParameters(final Object modelSource) {
             return List.copyOf(((FakeModel) modelSource).parameters);
+        }
+
+        @Override
+        public List<?> allPhysicsSettings(final Object modelSource) {
+            return List.copyOf(((FakeModel) modelSource).physicsSettings);
+        }
+
+        @Override
+        public List<?> allMotionSyncSettings(final Object modelSource) {
+            return List.copyOf(((FakeModel) modelSource).motionSyncSettings);
         }
 
         @Override
@@ -1099,6 +1374,9 @@ class ProtectedExportOrchestratorTest {
             if (source instanceof FakeArtMesh mesh) {
                 return mesh.guid;
             }
+            if (source instanceof FakePart part) {
+                return part.guid;
+            }
             return "object-guid";
         }
 
@@ -1119,12 +1397,46 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
+        public List<?> keyformBindings(final Object controllableSource) {
+            if (controllableSource instanceof FakeDeformer deformer) {
+                return deformer.bindings;
+            }
+            if (controllableSource instanceof FakeArtMesh mesh) {
+                return mesh.bindings;
+            }
+            return List.of();
+        }
+
+        @Override
+        public String keyformBindingParameterId(final Object binding) {
+            return ((FakeBinding) binding).parameterId;
+        }
+
+        @Override
+        public List<Float> keyformBindingKeys(final Object binding) {
+            return ((FakeBinding) binding).keys;
+        }
+
+        @Override
+        public boolean isPartSource(final Object object) {
+            return object instanceof FakePart;
+        }
+
+        @Override
+        public List<String> partChildGuids(final Object partSource) {
+            return List.copyOf(((FakePart) partSource).childGuids);
+        }
+
+        @Override
         public String objectLocalName(final Object source) {
             if (source instanceof FakeParameter) {
                 throw new IllegalArgumentException("not a controllable source");
             }
             if (source instanceof FakeArtMesh mesh) {
                 return mesh.name;
+            }
+            if (source instanceof FakePart part) {
+                return part.name;
             }
             return "object-name-" + System.identityHashCode(source);
         }
@@ -1139,6 +1451,30 @@ class ProtectedExportOrchestratorTest {
         public String parameterSourceName(final Object parameterSource) {
             return parameterSource instanceof FakeParameter parameter
                 ? "param-name-" + parameter.id : null;
+        }
+
+        @Override
+        public Float parameterSourceMinValue(final Object parameterSource) {
+            return parameterSource instanceof FakeParameter parameter
+                ? parameter.min : null;
+        }
+
+        @Override
+        public Float parameterSourceMaxValue(final Object parameterSource) {
+            return parameterSource instanceof FakeParameter parameter
+                ? parameter.max : null;
+        }
+
+        @Override
+        public Float parameterSourceDefaultValue(final Object parameterSource) {
+            return parameterSource instanceof FakeParameter parameter
+                ? parameter.defaultValue : null;
+        }
+
+        @Override
+        public Boolean parameterSourceRepeat(final Object parameterSource) {
+            return parameterSource instanceof FakeParameter parameter
+                ? parameter.repeat : null;
         }
 
         @Override
