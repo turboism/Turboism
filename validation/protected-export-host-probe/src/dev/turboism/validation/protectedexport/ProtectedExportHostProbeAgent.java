@@ -158,8 +158,17 @@ public final class ProtectedExportHostProbeAgent {
             if (phases.contains("flatten")) {
                 phaseFlatten(controller, stateDir, evidence);
             }
+            if (phases.contains("census")) {
+                phaseCensus(controller, stateDir, evidence);
+            }
+            if (phases.contains("atlas-fixture")) {
+                phaseAtlasFixture(controller, stateDir, evidence);
+            }
             if (phases.contains("export")) {
                 phaseExport(controller, appCtrl, stateDir, evidence);
+            }
+            if (phases.contains("export-native")) {
+                phaseExportNative(controller, appCtrl, stateDir, evidence);
             }
             if (phases.contains("expect-reject")) {
                 phaseExpectReject(controller, appCtrl, stateDir, evidence);
@@ -517,6 +526,14 @@ public final class ProtectedExportHostProbeAgent {
                 return; // chooser drive recorded its own failure evidence
             }
             awaitPublished(approved, stateDir, evidence, prefix);
+            // Dump the published moc3 through the SDK Core so it can be
+            // diffed against the unprotected native baseline byte-semantics.
+            final Path published = approved.getName().endsWith(".moc3")
+                ? approved.toPath().toAbsolutePath()
+                : approved.toPath().toAbsolutePath().getParent()
+                    .resolve(approved.getName() + ".moc3");
+            dumpMoc3(published, stateDir.resolve("published-moc3.txt"),
+                evidence, prefix);
 
             final Object restored = readNoArg(controller, "getCurrentDoc");
             evidence.put(prefix + "restoredActive",
@@ -1159,6 +1176,726 @@ public final class ProtectedExportHostProbeAgent {
         } catch (Throwable failure) {
             evidence.fail("REJ_PHASE_FAILURE:" + failure.getClass().getName()
                 + ":" + text(failure));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Phase: native census (diagnostic, read-only)
+    //
+    // Enumerates the live model source through the same host members the
+    // orchestrator verifies — actual object census (not XML tag counts),
+    // per-mesh texture state and atlas membership, deformer parent chains,
+    // and which sources bind each parameter at which key positions. The
+    // r24 "Texture Atlas does not contain" warning made mesh exportability
+    // dependent on textureState == TEXTURE_ATLAS, so both are recorded.
+    // ------------------------------------------------------------------
+
+    private static void phaseCensus(
+        final Object controller,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        try {
+            final List<String> lines = new ArrayList<>();
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                censusCollect(controller, lines);
+                return null;
+            });
+            Files.write(stateDir.resolve("census.txt"), lines,
+                StandardCharsets.UTF_8);
+            evidence.put("census.lines", Integer.toString(lines.size()));
+        } catch (Throwable failure) {
+            evidence.fail("CENSUS_FAILURE:" + text(failure));
+        }
+    }
+
+    /** Enumerates the live model source; must run on the EDT. */
+    private static void censusCollect(
+        final Object controller,
+        final List<String> out
+    ) {
+        final Object document = readNoArg(controller, "getCurrentDoc");
+        final Object source =
+            document == null ? null : readNoArg(document, "getModelSource");
+        if (source == null) {
+            out.add("error=no-model-source");
+            return;
+        }
+        final Object allObjects = readNoArg(source, "getAllObjects");
+        final Map<String, Integer> byClass = new TreeMap<>();
+        final Set<String> uniqueGuids = new LinkedHashSet<>();
+        if (allObjects instanceof List<?> objects) {
+            for (Object object : objects) {
+                byClass.merge(object.getClass().getName(), 1, Integer::sum);
+                final String guid = guidString(object);
+                if (guid != null) {
+                    uniqueGuids.add(guid);
+                }
+            }
+            out.add("objects.total=" + objects.size());
+            out.add("objects.uniqueGuids=" + uniqueGuids.size());
+            byClass.forEach((name, count) ->
+                out.add("objectClass." + name + "=" + count));
+        }
+        // Parameter sources: evaluable contract + which sources bind them.
+        final Map<String, List<String>> bindings = new TreeMap<>();
+        final Map<String, String> bindingKeys = new TreeMap<>();
+        final Object allParameters = readNoArg(source, "getAllParameters");
+        if (allParameters instanceof List<?> parameters) {
+            out.add("parameters.count=" + parameters.size());
+            int index = 0;
+            for (Object parameter : parameters) {
+                final String id = idString(parameter);
+                out.add("param." + index + ".id=" + id);
+                out.add("param." + index + ".name=" + readNoArg(parameter,
+                    "getName"));
+                out.add("param." + index + ".min=" + readNoArg(parameter,
+                    "getMinValue"));
+                out.add("param." + index + ".max=" + readNoArg(parameter,
+                    "getMaxValue"));
+                out.add("param." + index + ".default=" + readNoArg(parameter,
+                    "getDefaultValue"));
+                out.add("param." + index + ".repeat=" + readNoArg(parameter,
+                    "getRepeat"));
+                index++;
+            }
+        }
+        // Every controllable's keyform bindings — the ParamAngleX question is
+        // which sources still reference it after flatten.
+        if (allObjects instanceof List<?> objects) {
+            for (Object object : objects) {
+                final Object grid = readNoArg(object, "getKeyformGridSource");
+                final Object bound = grid == null
+                    ? null : readNoArg(grid, "getKeyformBindings");
+                if (!(bound instanceof List<?> list) || list.isEmpty()) {
+                    continue;
+                }
+                final String objectId = idString(object);
+                for (Object binding : list) {
+                    final String paramId =
+                        idValueOf(readNoArg(binding, "getParameterId"));
+                    final Object keys = readNoArg(binding, "getKeys");
+                    final String keyList = keys instanceof List<?> keyList2
+                        ? join(keyList2) : "?";
+                    bindings.computeIfAbsent(paramId, k -> new ArrayList<>())
+                        .add(objectId);
+                    bindingKeys.merge(paramId, keyList,
+                        (a, b) -> a.contains(b) ? a : a + "|" + b);
+                }
+            }
+            bindings.forEach((paramId, sources) -> {
+                out.add("bind." + paramId + ".sourceCount=" + sources.size());
+                out.add("bind." + paramId + ".sources=" + join(sources));
+                out.add("bind." + paramId + ".keys=" + bindingKeys.get(paramId));
+            });
+        }
+        // Art meshes: texture state decides exportability.
+        final Object allArtMeshes = readNoArg(source, "getAllArtMeshes");
+        if (allArtMeshes instanceof List<?> meshes) {
+            out.add("artMeshes.count=" + meshes.size());
+            int index = 0;
+            int atlasState = 0;
+            for (Object mesh : meshes) {
+                final String meshPrefix = "artMesh." + index + ".";
+                out.add(meshPrefix + "guid="
+                    + guidString(mesh));
+                out.add(meshPrefix + "id="
+                    + idString(mesh));
+                out.add(meshPrefix + "name=" + readNoArg(mesh, "getLocalName"));
+                final Object state = readNoArg(mesh, "getTextureState");
+                out.add(meshPrefix + "textureState=" + state);
+                if ("TEXTURE_ATLAS".equals(String.valueOf(state))) {
+                    atlasState++;
+                }
+                final Object extension =
+                    readNoArg(mesh, "getTextureInputExtension");
+                final Object input = extension == null
+                    ? null : readNoArg(extension, "getCurrentTextureInputData");
+                out.add(meshPrefix + "textureInput=" + (input == null
+                    ? "<none>" : input.getClass().getSimpleName()));
+                final Object modelImageGuid = input == null
+                    ? null : readNoArg(input, "getModelImageGuid");
+                if (modelImageGuid != null) {
+                    out.add(meshPrefix + "modelImage="
+                        + uuidOf(modelImageGuid));
+                }
+                final Object parents =
+                    readNoArg(mesh, "getAllParentDeformers");
+                if (parents instanceof Iterable<?> chain) {
+                    final List<String> links = new ArrayList<>();
+                    for (Object deformer : chain) {
+                        links.add(idString(deformer)
+                            + ":" + deformer.getClass().getSimpleName());
+                    }
+                    out.add(meshPrefix + "deformerChain=" + join(links));
+                }
+                index++;
+            }
+            out.add("artMeshes.textureAtlasState=" + atlasState);
+        }
+        // Deformers: the flatten target census.
+        final Object allDeformers = readNoArg(source, "getAllDeformers");
+        if (allDeformers instanceof List<?> deformers) {
+            out.add("deformers.count=" + deformers.size());
+            int index = 0;
+            for (Object deformer : deformers) {
+                out.add("deformer." + index + ".guid="
+                    + guidString(deformer));
+                out.add("deformer." + index + ".id="
+                    + idString(deformer));
+                out.add("deformer." + index + ".class="
+                    + deformer.getClass().getSimpleName());
+                out.add("deformer." + index + ".target="
+                    + targetDeformerGuid(deformer));
+                index++;
+            }
+        }
+        final Object allParts = readNoArg(source, "getAllParts");
+        if (allParts instanceof List<?> parts) {
+            out.add("parts.count=" + parts.size());
+            int index = 0;
+            for (Object part : parts) {
+                out.add("part." + index + "="
+                    + idString(part));
+                index++;
+            }
+        }
+        // Texture atlas census: placements are the export gate.
+        final Object manager = readNoArg(source, "getTextureManager");
+        final Object images = manager == null
+            ? null : readNoArg(manager, "getAllModelImages");
+        if (images instanceof List<?> list) {
+            out.add("modelImages.count=" + list.size());
+            int index = 0;
+            for (Object image : list) {
+                out.add("modelImage." + index + ".guid="
+                    + uuidOf(readNoArg(image, "getGuid")));
+                out.add("modelImage." + index + ".name="
+                    + readNoArg(image, "getName"));
+                out.add("modelImage." + index + ".size="
+                    + readNoArg(image, "getWidth") + "x"
+                    + readNoArg(image, "getHeight"));
+                index++;
+            }
+        }
+        final Object atlases = manager == null
+            ? null : readNoArg(manager, "getTextureAtlases");
+        if (atlases instanceof List<?> list) {
+            out.add("atlases.count=" + list.size());
+            int index = 0;
+            for (Object atlas : list) {
+                out.add("atlas." + index + ".name=" + readNoArg(atlas,
+                    "getName"));
+                out.add("atlas." + index + ".size="
+                    + readNoArg(atlas, "getWidth") + "x"
+                    + readNoArg(atlas, "getHeight"));
+                final Object entries = readNoArg(atlas, "getModelImages");
+                if (entries instanceof List<?> placements) {
+                    out.add("atlas." + index + ".placements="
+                        + placements.size());
+                    int entryIndex = 0;
+                    for (Object entry : placements) {
+                        out.add("atlas." + index + ".placement." + entryIndex
+                            + "=" + uuidOf(
+                                readNoArg(entry, "getModelImageGuid")));
+                        entryIndex++;
+                    }
+                }
+                index++;
+            }
+        }
+    }
+
+    /** UUID text of a host Guid object (e.g. CModelImageGuid). */
+    private static String uuidOf(final Object guid) {
+        final Object value =
+            guid == null ? null : readNoArg(guid, "getUuidString");
+        return value == null ? null : value.toString();
+    }
+
+    /** Id-string text of a host Id object (e.g. CParameterId). */
+    private static String idValueOf(final Object id) {
+        final Object value =
+            id == null ? null : readNoArg(id, "getIdString");
+        return value == null ? "<null>" : value.toString();
+    }
+
+    private static String join(final List<?> items) {
+        final StringBuilder joined = new StringBuilder();
+        for (Object item : items) {
+            if (joined.length() > 0) {
+                joined.append(',');
+            }
+            joined.append(item);
+        }
+        return joined.toString();
+    }
+
+    // ------------------------------------------------------------------
+    // Phase: build a task-owned fixture with a real texture atlas
+    //
+    // The converted fixture carries model-image inputs but no atlas
+    // placements, so the exporter removes every drawable as unplaced
+    // (w$a collects textureState != TEXTURE_ATLAS then deletes via
+    // ModelHandler). This phase populates a real CTextureAtlas on the live
+    // document — ModelImageEntry placements shelf-packed over every model
+    // image — then re-links each mesh's texture input through the host's
+    // own atlas-region repair and switches it to the atlas, exactly the
+    // objects the serializer writes back out as a fixture.
+    // ------------------------------------------------------------------
+
+    private static void phaseAtlasFixture(
+        final Object controller,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        final String prefix = "atlas.";
+        try {
+            final List<String> before = new ArrayList<>();
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                censusCollect(controller, before);
+                return null;
+            });
+            Files.write(stateDir.resolve("census-pre.txt"), before,
+                StandardCharsets.UTF_8);
+
+            final String outcome = onEdtBounded(APPLY_STEP_MILLIS,
+                () -> placeAllMeshesIntoAtlas(controller, evidence, prefix));
+            evidence.put(prefix + "placeOutcome", outcome);
+            if (outcome.startsWith("failure:")) {
+                evidence.fail("ATLAS_PLACE_FAILED");
+                return;
+            }
+
+            final List<String> after = new ArrayList<>();
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                censusCollect(controller, after);
+                return null;
+            });
+            Files.write(stateDir.resolve("census-post.txt"), after,
+                StandardCharsets.UTF_8);
+
+            final File out =
+                stateDir.resolve("atlas-fixture.cmo3").toFile();
+            final Boolean saved = onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object document =
+                    readNoArg(controller, "getCurrentDoc");
+                final Object result = invoke(document, "saveDocument",
+                    new Class<?>[] {File.class, boolean.class}, out, false);
+                return Boolean.TRUE.equals(result);
+            });
+            evidence.put(prefix + "saved", String.valueOf(saved));
+            if (Boolean.TRUE.equals(saved) && out.isFile()) {
+                evidence.put(prefix + "fixture", out.getAbsolutePath());
+                evidence.put(prefix + "fixtureSha256", sha256(out));
+                evidence.put(prefix + "fixtureBytes",
+                    Long.toString(out.length()));
+            } else {
+                evidence.fail("ATLAS_FIXTURE_NOT_SAVED");
+            }
+        } catch (Throwable failure) {
+            evidence.fail("ATLAS_PHASE_FAILURE:" + text(failure));
+        }
+    }
+
+    /** Populates one atlas and re-links every mesh to it; EDT only. */
+    private static String placeAllMeshesIntoAtlas(
+        final Object controller,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        try {
+            final Object document = readNoArg(controller, "getCurrentDoc");
+            final Object source =
+                document == null ? null : readNoArg(document, "getModelSource");
+            final Object manager = source == null
+                ? null : readNoArg(source, "getTextureManager");
+            final Object images = manager == null
+                ? null : readNoArg(manager, "getAllModelImages");
+            if (!(images instanceof List<?> imageList) || imageList.isEmpty()) {
+                return "failure:no-model-images";
+            }
+            final Object atlases = readNoArg(manager, "getTextureAtlases");
+            final Class<?> atlasType = Class.forName(
+                "com.live2d.cubism.doc.model.texture.textureAtlas.CTextureAtlas");
+            Object atlas = null;
+            if (atlases instanceof List<?> list && !list.isEmpty()) {
+                atlas = list.get(0);
+            }
+            if (atlas == null) {
+                int widest = 0;
+                long area = 0;
+                for (Object image : imageList) {
+                    final int width = intMember(image, "getWidth");
+                    final int height = intMember(image, "getHeight");
+                    widest = Math.max(widest, width);
+                    area += (long) width * height;
+                }
+                int side = 512;
+                while (side < widest || (long) side * side < area * 13 / 10) {
+                    side <<= 1;
+                }
+                final java.lang.reflect.Constructor<?> ctor =
+                    atlasType.getDeclaredConstructor(
+                        Class.forName("com.live2d.cubism.doc.model.CModelSource"),
+                        String.class, int.class, int.class);
+                ctor.setAccessible(true);
+                atlas = ctor.newInstance(source, "pe-atlas",
+                    Math.min(side, 8192), Math.min(side, 8192));
+                invoke(manager, "addTextureAtlas",
+                    new Class<?>[] {atlasType, int.class}, atlas, 0);
+            }
+            // Shelf-pack every model image into real atlas placements.
+            final Class<?> entryType = Class.forName(
+                "com.live2d.cubism.doc.model.texture.textureAtlas."
+                    + "CTextureAtlas$ModelImageEntry");
+            final Class<?> affineType =
+                Class.forName("com.live2d.type.CAffine");
+            final Class<?> guidType =
+                Class.forName("com.live2d.type.CModelImageGuid");
+            final java.lang.reflect.Constructor<?> entryCtor =
+                entryType.getDeclaredConstructor(
+                    atlasType, guidType, affineType);
+            entryCtor.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            final List<Object> placements =
+                (List<Object>) readNoArg(atlas, "getModelImages");
+            final int side = intMember(atlas, "getWidth");
+            int x = 0;
+            int y = 0;
+            int rowHeight = 0;
+            int placed = 0;
+            int overflow = 0;
+            for (Object image : imageList) {
+                final int width = intMember(image, "getWidth");
+                final int height = intMember(image, "getHeight");
+                if (x + width > side) {
+                    x = 0;
+                    y += rowHeight;
+                    rowHeight = 0;
+                }
+                if (y + height > side) {
+                    overflow++;
+                    continue;
+                }
+                // atlasLocalToCanvas A must satisfy
+                // modelImageLocalToCanvas ∘ A⁻¹ = translate(x, y), i.e.
+                // A = translate(x, y)⁻¹ ∘ modelImageLocalToCanvas.
+                final java.awt.geom.AffineTransform translation =
+                    new java.awt.geom.AffineTransform();
+                translation.setToTranslation(x, y);
+                final java.awt.geom.AffineTransform transform =
+                    (java.awt.geom.AffineTransform) translation.clone();
+                transform.invert();
+                final Object modelToCanvas = readNoArg(image,
+                    "getModelImageLocalToCanvasTransform");
+                if (modelToCanvas instanceof java.awt.geom.AffineTransform m2c) {
+                    transform.concatenate(m2c);
+                }
+                final Object affine =
+                    affineType.getDeclaredConstructor().newInstance();
+                ((java.awt.geom.AffineTransform) affine).setTransform(transform);
+                final Object entry = entryCtor.newInstance(
+                    atlas, readNoArg(image, "getGuid"), affine);
+                try {
+                    invoke(entry, "setup", new Class<?>[0]);
+                } catch (Throwable ignored) {
+                    // The constructor may already have set the entry up.
+                }
+                placements.add(entry);
+                x += width;
+                rowHeight = Math.max(rowHeight, height);
+                placed++;
+            }
+            evidence.put(prefix + "placementsAdded",
+                Integer.toString(placed));
+            evidence.put(prefix + "placementsOverflow",
+                Integer.toString(overflow));
+            // Re-link each mesh's texture input to an atlas region, then flip
+            // it to TEXTURE_ATLAS — the same members the host's own relink
+            // and the ArtMeshHandler atlas toggle use.
+            final Class<?> relinkerType =
+                Class.forName("com.live2d.cubism.doc.model.texture.r");
+            final Field relinkerField =
+                relinkerType.getDeclaredField("a");
+            relinkerField.setAccessible(true);
+            final Object relinker = relinkerField.get(null);
+            final Class<?> meshType = Class.forName(
+                "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource");
+            final Class<?> sourceType = Class.forName(
+                "com.live2d.cubism.doc.model.CModelSource");
+            final Class<?> handlerType = Class.forName(
+                "com.live2d.cubism.doc.model.drawable.artMesh.ArtMeshHandler");
+            final java.lang.reflect.Constructor<?> handlerCtor =
+                handlerType.getDeclaredConstructor(meshType);
+            handlerCtor.setAccessible(true);
+            final Class<?> collectorType = Class.forName(
+                "com.live2d.cubism.doc.model.drawable.artMesh.ArtMeshHandler$c");
+            final java.lang.reflect.Constructor<?> collectorCtor =
+                collectorType.getDeclaredConstructor();
+            collectorCtor.setAccessible(true);
+            final Object meshes = readNoArg(source, "getAllArtMeshes");
+            int atlasBound = 0;
+            int meshCount = 0;
+            if (meshes instanceof List<?> list) {
+                meshCount = list.size();
+                for (Object mesh : list) {
+                    try {
+                        invoke(relinker, "a",
+                            new Class<?>[] {meshType, sourceType},
+                            mesh, source);
+                    } catch (Throwable ignored) {
+                        // Region may already exist; the toggle still applies.
+                    }
+                    final Object handler = handlerCtor.newInstance(mesh);
+                    final Object collector = collectorCtor.newInstance();
+                    invoke(handler, "a",
+                        new Class<?>[] {Boolean.class, collectorType},
+                        Boolean.TRUE, collector);
+                    if ("TEXTURE_ATLAS".equals(String.valueOf(
+                            readNoArg(mesh, "getTextureState")))) {
+                        atlasBound++;
+                    }
+                }
+            }
+            evidence.put(prefix + "meshCount", Integer.toString(meshCount));
+            evidence.put(prefix + "atlasBoundMeshes",
+                Integer.toString(atlasBound));
+            // Rasterize the atlas image the same way the editor does after a
+            // layout change; the export reads the cached atlas image.
+            try {
+                final Method update = atlasType.getDeclaredMethod(
+                    "updateTexture$default", atlasType, boolean.class,
+                    boolean.class,
+                    Class.forName("com.live2d.util.a.a"),
+                    int.class, Object.class);
+                update.setAccessible(true);
+                update.invoke(null, atlas, false, false, null, 7, null);
+            } catch (Throwable failure) {
+                evidence.put(prefix + "updateTexture", text(failure));
+            }
+            return "placed=" + placed + " bound=" + atlasBound
+                + " overflow=" + overflow;
+        } catch (Throwable failure) {
+            return "failure:" + text(failure);
+        }
+    }
+
+    private static int intMember(final Object target, final String name) {
+        final Object value = readNoArg(target, name);
+        return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    // ------------------------------------------------------------------
+    // Phase: unprotected native export comparison (diagnostic)
+    //
+    // Same dialog and chooser path as the protected run, but the contributed
+    // option stays unchecked — the host writes its .moc3 directly. The output
+    // is dumped through the SDK Core so protected-vs-native comparisons are
+    // evidence, not inference: drawable set, parameter ids, key values,
+    // min/max/default, parts.
+    // ------------------------------------------------------------------
+
+    private static void phaseExportNative(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        final String prefix = "nat.";
+        try {
+            final Object original = readNoArg(controller, "getCurrentDoc");
+            if (original == null || !isA(original.getClass(), MODELING_DOCUMENT)) {
+                evidence.fail("NAT_NO_MODELING_DOCUMENT");
+                return;
+            }
+            final Object content = readNoArg(original, "getFileContent");
+            final Object fileObj =
+                content == null ? null : readNoArg(content, "getFile");
+            if (!(fileObj instanceof File originalFile) || !originalFile.isFile()) {
+                evidence.fail("NAT_ORIGINAL_FILE_MISSING");
+                return;
+            }
+            final Object modifiedCheck =
+                readNoArg(content, "isModifiedAfterSaving");
+            if (Boolean.TRUE.equals(modifiedCheck)) {
+                evidence.fail("NAT_ORIGINAL_DIRTY");
+                return;
+            }
+            ensureTextureAtlas(controller, evidence);
+            final DocumentState before =
+                snapshotDocument(original, evidence, prefix + "orig");
+            evidence.put(prefix + "origFileSha256", sha256(originalFile));
+
+            final Path exportOut = stateDir.resolve("export-native-out");
+            Files.createDirectories(exportOut);
+            final File pickFile =
+                exportOut.resolve("native-export.moc3").toFile();
+
+            final Set<Window> alreadyVisible = visibleWindows();
+            if (!triggerExport(controller, appCtrl, evidence)) {
+                return;
+            }
+            final JDialog outer = awaitExportSettingsDialog(
+                alreadyVisible, stateDir, evidence, "natOuter");
+            if (outer == null) {
+                evidence.fail("NAT_OUTER_DIALOG_NOT_OBSERVED");
+                return;
+            }
+            inspectSettingsDialog(outer, stateDir, evidence, "natOuter");
+            evidence.put(prefix + "injectedCheckBoxCount",
+                Integer.toString(injectedCheckBoxes(outer).size()));
+            final AbstractButton confirm = findButton(outer, CONFIRM_ACTION);
+            if (confirm == null) {
+                evidence.fail("NAT_CONFIRM_MISSING");
+                dismiss(outer);
+                return;
+            }
+            onEdt(() -> {
+                confirm.doClick(0);
+                return null;
+            });
+            evidence.put(prefix + "outerConfirmed", "true");
+            waitForHidden(outer);
+
+            final File approved = driveToDestination(outer, pickFile,
+                alreadyVisible, stateDir, evidence, prefix);
+            if (approved == null) {
+                return;
+            }
+            awaitPublished(approved, stateDir, evidence, prefix);
+            final Path moc3 = approved.getName().endsWith(".moc3")
+                ? approved.toPath().toAbsolutePath()
+                : approved.toPath().toAbsolutePath().getParent()
+                    .resolve(approved.getName() + ".moc3");
+            dumpMoc3(moc3, stateDir.resolve("native-moc3.txt"),
+                evidence, prefix);
+
+            final Object restored = readNoArg(controller, "getCurrentDoc");
+            evidence.put(prefix + "sameLiveDocument", Boolean.toString(
+                restored != null && System.identityHashCode(restored)
+                    == before.docId));
+            evidence.put(prefix + "fileSha256Preserved",
+                Boolean.toString(sha256(originalFile)
+                    .equals(evidence.values.get(prefix + "origFileSha256"))));
+        } catch (Throwable failure) {
+            evidence.fail("NAT_PHASE_FAILURE:" + failure.getClass().getName()
+                + ":" + text(failure));
+        }
+    }
+
+    /**
+     * Dumps a {@code .moc3} through the host-bundled SDK Core — parameter ids,
+     * key values, ranges, defaults, drawable ids, vertex counts and position
+     * hashes — so protected-vs-native diffs compare actual output bytes'
+     * semantics, never assumed structure.
+     */
+    private static void dumpMoc3(
+        final Path moc3,
+        final Path out,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        if (!Files.isRegularFile(moc3)) {
+            evidence.put(prefix + "moc3Dump", "absent:" + moc3);
+            return;
+        }
+        try {
+            final byte[] bytes = Files.readAllBytes(moc3);
+            final Class<?> mocType =
+                Class.forName("com.live2d.sdk.cubism.core.CubismMoc");
+            final Object moc = mocType
+                .getMethod("instantiate", byte[].class)
+                .invoke(null, bytes);
+            final List<String> lines = new ArrayList<>();
+            Object model = null;
+            try {
+                model = mocType.getMethod("instantiateModel").invoke(moc);
+                final Object parameters = model.getClass()
+                    .getMethod("getParameters").invoke(model);
+                final String[] parameterIds = (String[]) parameters.getClass()
+                    .getMethod("getIds").invoke(parameters);
+                final float[][] keyValues = (float[][]) parameters.getClass()
+                    .getMethod("getKeyValues").invoke(parameters);
+                final float[] minimums = (float[]) parameters.getClass()
+                    .getMethod("getMinimumValues").invoke(parameters);
+                final float[] maximums = (float[]) parameters.getClass()
+                    .getMethod("getMaximumValues").invoke(parameters);
+                final float[] defaults = (float[]) parameters.getClass()
+                    .getMethod("getDefaultValues").invoke(parameters);
+                final boolean[] repeats = (boolean[]) parameters.getClass()
+                    .getMethod("getParameterRepeats").invoke(parameters);
+                lines.add("parameters.count=" + parameterIds.length);
+                for (int i = 0; i < parameterIds.length; i++) {
+                    lines.add("param." + parameterIds[i] + ".keys="
+                        + java.util.Arrays.toString(keyValues[i]));
+                    lines.add("param." + parameterIds[i] + ".range="
+                        + minimums[i] + "," + maximums[i]
+                        + "," + defaults[i] + ",repeat=" + repeats[i]);
+                }
+                final Object drawables = model.getClass()
+                    .getMethod("getDrawables").invoke(model);
+                final String[] drawableIds = (String[]) drawables.getClass()
+                    .getMethod("getIds").invoke(drawables);
+                final int[] vertexCounts = (int[]) drawables.getClass()
+                    .getMethod("getVertexCounts").invoke(drawables);
+                final float[][] positions = (float[][]) drawables.getClass()
+                    .getMethod("getVertexPositions").invoke(drawables);
+                final int[] textureIndices = (int[]) drawables.getClass()
+                    .getMethod("getTextureIndices").invoke(drawables);
+                lines.add("drawables.count=" + drawableIds.length);
+                lines.add("drawables.ids=" + String.join(",", drawableIds));
+                for (int i = 0; i < drawableIds.length; i++) {
+                    lines.add("drawable." + drawableIds[i] + ".vertexCount="
+                        + vertexCounts[i]);
+                    lines.add("drawable." + drawableIds[i] + ".textureIndex="
+                        + textureIndices[i]);
+                    lines.add("drawable." + drawableIds[i] + ".positionsSha="
+                        + sha256Floats(positions[i]));
+                }
+                final Object parts = model.getClass()
+                    .getMethod("getParts").invoke(model);
+                final String[] partIds = (String[]) parts.getClass()
+                    .getMethod("getIds").invoke(parts);
+                lines.add("parts.count=" + partIds.length);
+                lines.add("parts.ids=" + String.join(",", partIds));
+                final Object deformers = model.getClass()
+                    .getMethod("getDeformers").invoke(model);
+                final int deformerCount = (Integer) deformers.getClass()
+                    .getMethod("getCount").invoke(deformers);
+                lines.add("deformers.count=" + deformerCount);
+            } finally {
+                if (model != null) {
+                    model.getClass().getMethod("close").invoke(model);
+                }
+                mocType.getMethod("close").invoke(moc);
+            }
+            Files.write(out, lines, StandardCharsets.UTF_8);
+            evidence.put(prefix + "moc3Dump", out.getFileName().toString());
+            evidence.put(prefix + "moc3Sha256", sha256(moc3.toFile()));
+        } catch (Throwable failure) {
+            evidence.put(prefix + "moc3DumpFailure", text(failure));
+        }
+    }
+
+    private static String sha256Floats(final float[] values) {
+        try {
+            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (float value : values) {
+                final int bits = Float.floatToIntBits(value);
+                digest.update((byte) bits);
+                digest.update((byte) (bits >>> 8));
+                digest.update((byte) (bits >>> 16));
+                digest.update((byte) (bits >>> 24));
+            }
+            final byte[] hash = digest.digest();
+            final StringBuilder hex = new StringBuilder();
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException failure) {
+            return "sha256-unavailable";
         }
     }
 
@@ -3149,8 +3886,18 @@ public final class ProtectedExportHostProbeAgent {
             return false;
         }
         final List<String> unmet = new ArrayList<>();
-        final String phases = evidence.values.getOrDefault("phases", "dialog");
-        if (phases.contains("dialog")) {
+        final String phasesRaw = evidence.values.getOrDefault("phases", "dialog");
+        final java.util.Set<String> phaseSet = new java.util.HashSet<>();
+        for (String token : phasesRaw.split(",")) {
+            final String phase = token.trim();
+            if (!phase.isEmpty()) {
+                phaseSet.add(phase);
+            }
+        }
+        // Exact-token matching: "export-native" must not trip the protected
+        // "export" checklist, and vice versa.
+        final java.util.function.Predicate<String> phases = phaseSet::contains;
+        if (phases.test("dialog")) {
             if (intOf(evidence, "uncheckedInjectedCheckBoxCount") < 1) {
                 unmet.add("injected option missing from the native dialog");
             }
@@ -3180,10 +3927,10 @@ public final class ProtectedExportHostProbeAgent {
                 unmet.add("cancel still raised a continuation window");
             }
         }
-        if (phases.contains("copy-binding")) {
+        if (phases.test("copy-binding")) {
             requireCopySession(evidence, unmet, "copy.");
         }
-        if (phases.contains("flatten")) {
+        if (phases.test("flatten")) {
             requireCopySession(evidence, unmet, "flat.");
             if (intOf(evidence, "flat.planSize") < 1) {
                 unmet.add("fixture bound no supported deformers; nothing was flattened");
@@ -3201,7 +3948,7 @@ public final class ProtectedExportHostProbeAgent {
                 unmet.add("ArtMesh identities changed during flatten");
             }
         }
-        if (phases.contains("export")) {
+        if (phases.test("export")) {
             if (intOf(evidence, "exp.outerInjectedCheckBoxCount") < 1) {
                 unmet.add("contributed option missing from the outer dialog");
             }
@@ -3245,7 +3992,36 @@ public final class ProtectedExportHostProbeAgent {
                 unmet.add("task-owned staging residue remains");
             }
         }
-        if (phases.contains("expect-reject")) {
+        if (phases.test("export-native")) {
+            if (intOf(evidence, "natOuterInjectedCheckBoxCount") < 1) {
+                unmet.add("contributed option missing from the outer dialog");
+            }
+            if (!"true".equals(evidence.values.get("natOuterInjectedCheckBoxesUnselected"))) {
+                unmet.add("native comparison run must leave the contributed option unchecked");
+            }
+            if (!"true".equals(evidence.values.get("nat.outerConfirmed"))) {
+                unmet.add("outer confirmation was not driven");
+            }
+            if (!"true".equals(evidence.values.get("nat.chooserDriven"))) {
+                unmet.add("native destination chooser was not driven");
+            }
+            if (!"true".equals(evidence.values.get("nat.publishedMoc3"))) {
+                unmet.add("no published moc3 at the picked destination");
+            }
+            if (!"true".equals(evidence.values.get("nat.publishedModelJson"))) {
+                unmet.add("no published model/display-info json at the picked destination");
+            }
+            if (evidence.values.getOrDefault("nat.moc3Sha256", "").isEmpty()) {
+                unmet.add("published moc3 was not dumped for comparison");
+            }
+            if (!"true".equals(evidence.values.get("nat.sameLiveDocument"))) {
+                unmet.add("original was not the same live document after the native export");
+            }
+            if (!"true".equals(evidence.values.get("nat.fileSha256Preserved"))) {
+                unmet.add("original file bytes changed across the native export");
+            }
+        }
+        if (phases.test("expect-reject")) {
             if (!"true".equals(evidence.values.get("rej.outerConfirmed"))) {
                 unmet.add("expected-rejection drive never confirmed the outer dialog");
             }
