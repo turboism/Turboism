@@ -79,6 +79,9 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String MS_PARTS = PREFIX + "model-source.all-parts";
     private static final String MS_ROOT_PART = PREFIX + "model-source.root-part";
     private static final String MS_PARAMETERS = PREFIX + "model-source.all-parameters";
+    private static final String MS_PHYSICS = PREFIX + "model-source.all-physics-settings";
+    private static final String MS_MOTION_SYNC =
+        PREFIX + "model-source.all-motion-sync-settings";
     private static final String MS_GUID = PREFIX + "model-source.guid";
 
     private static final String SOURCE_GUID = PREFIX + "source.guid";
@@ -102,6 +105,11 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String PARAMETER_ID_CLASS = PREFIX + "parameter-id.class";
     private static final String PARAMETER_SOURCE_ID = PREFIX + "parameter-source.id";
     private static final String PARAMETER_SOURCE_NAME = PREFIX + "parameter-source.name";
+    private static final String PARAMETER_SOURCE_MIN = PREFIX + "parameter-source.min-value";
+    private static final String PARAMETER_SOURCE_MAX = PREFIX + "parameter-source.max-value";
+    private static final String PARAMETER_SOURCE_DEFAULT =
+        PREFIX + "parameter-source.default-value";
+    private static final String PARAMETER_SOURCE_REPEAT = PREFIX + "parameter-source.repeat";
     private static final String GUID_CLASS = PREFIX + "guid.class";
     private static final String GUID_UUID = PREFIX + "guid.uuid-string";
     private static final String ID_CLASS = PREFIX + "id.class";
@@ -121,6 +129,10 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String GRID_BINDINGS = PREFIX + "keyform-grid.bindings";
     private static final String BINDING_EXT_TYPE = PREFIX + "keyform-binding.extended-type";
     private static final String BINDING_ILLEGAL = PREFIX + "keyform-binding.illegal-extended";
+    private static final String BINDING_PARAMETER_ID =
+        PREFIX + "keyform-binding.parameter-id";
+    private static final String BINDING_KEYS = PREFIX + "keyform-binding.keys";
+    private static final String PART_CHILD_GUIDS = PREFIX + "part.child-guids";
 
     private static final String DIALOG_CLASS = PREFIX + "export-dialog.class";
     private static final String DIALOG_MODEL_SOURCE = PREFIX + "export-dialog.model-source";
@@ -150,14 +162,18 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SELECTOR_CLEAR, SELECTOR_SELECTED, SELECTOR_SELECTED_COUNT,
         SELECTOR_ADD_SOURCE, SELECTOR_SELECTED_DEFORMERS, EDIT_MODE_APPLY,
         MS_DOCUMENT, MS_INSTANCE, MS_DEFORMERS, MS_OBJECTS, MS_ART_MESHES, MS_PARTS,
-        MS_ROOT_PART, MS_PARAMETERS, MS_GUID, MODEL_PARAMETER_SET,
+        MS_ROOT_PART, MS_PARAMETERS, MS_PHYSICS, MS_MOTION_SYNC, MS_GUID,
+        MODEL_PARAMETER_SET,
         SOURCE_GUID, SOURCE_ID, SOURCE_LOCAL_NAME, SOURCE_SET_LOCAL_NAME,
         SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
+        BINDING_PARAMETER_ID, BINDING_KEYS, PART_CHILD_GUIDS,
         DEFORMER_GUID, DEFORMER_TARGET,
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
         GUID_UUID, ID_STRING,
         PARAMETER_SET_PARAMETERS, PARAMETER_INSTANCE_VALUE, PARAMETER_INSTANCE_ID,
         PARAMETER_SOURCE_ID, PARAMETER_SOURCE_NAME,
+        PARAMETER_SOURCE_MIN, PARAMETER_SOURCE_MAX, PARAMETER_SOURCE_DEFAULT,
+        PARAMETER_SOURCE_REPEAT,
         DIALOG_MODEL_SOURCE, DRIVER_INSTANCE, DRIVER_EXPORT,
         FILE_CACHE_INSTANCE, FILE_CACHE_HANDLES, FILE_CACHE_BY_FILE, FILE_CACHE_REMOVE,
         FILE_HANDLE_FILE, FILE_HANDLE_LOADER, FILE_HANDLE_LISTENERS,
@@ -247,6 +263,25 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
             }
         }
         return false;
+    }
+
+    @Override
+    public List<?> projectDocuments() {
+        final Object project = currentProject();
+        if (project == null || !resolver.isInstance(PROJECT_CLASS, project)) {
+            return List.of();
+        }
+        final Object children = resolver.invoke(PROJECT_CHILDREN, project);
+        if (!(children instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<Object> documents = new ArrayList<>();
+        for (Object child : list) {
+            if (isModelingDocument(child)) {
+                documents.add(child);
+            }
+        }
+        return List.copyOf(documents);
     }
 
     @Override
@@ -457,6 +492,16 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     @Override
+    public List<?> allPhysicsSettings(final Object modelSource) {
+        return listOf(resolver.invoke(MS_PHYSICS, requireModelSource(modelSource)));
+    }
+
+    @Override
+    public List<?> allMotionSyncSettings(final Object modelSource) {
+        return listOf(resolver.invoke(MS_MOTION_SYNC, requireModelSource(modelSource)));
+    }
+
+    @Override
     public String modelSourceGuid(final Object modelSource) {
         final Object guid = resolver.invoke(MS_GUID, requireModelSource(modelSource));
         return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
@@ -547,6 +592,112 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         }
         final Object name = resolver.invoke(PARAMETER_SOURCE_NAME, parameterSource);
         return name instanceof String text ? text : null;
+    }
+
+    @Override
+    public Float parameterSourceMinValue(final Object parameterSource) {
+        return floatParameterMember(PARAMETER_SOURCE_MIN, parameterSource);
+    }
+
+    @Override
+    public Float parameterSourceMaxValue(final Object parameterSource) {
+        return floatParameterMember(PARAMETER_SOURCE_MAX, parameterSource);
+    }
+
+    @Override
+    public Float parameterSourceDefaultValue(final Object parameterSource) {
+        return floatParameterMember(PARAMETER_SOURCE_DEFAULT, parameterSource);
+    }
+
+    @Override
+    public Boolean parameterSourceRepeat(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object repeat = resolver.invoke(PARAMETER_SOURCE_REPEAT, parameterSource);
+        return repeat instanceof Boolean flag ? flag : null;
+    }
+
+    /**
+     * All keyform bindings of a controllable source across both its grids — the same
+     * grid pair the extended-interpolation gate reads, deduplicated by identity so a
+     * shared grid object is only counted once.
+     */
+    @Override
+    public List<?> keyformBindings(final Object controllableSource) {
+        final java.util.Set<Object> grids = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>());
+        final List<Object> bindings = new ArrayList<>();
+        for (String gridAlias : new String[] {SOURCE_GRID, SOURCE_EXT_GRID}) {
+            final Object grid = controllableSource == null
+                ? null : resolver.invoke(gridAlias, controllableSource);
+            if (grid == null || !grids.add(grid)
+                || !resolver.isInstance(GRID_CLASS, grid)) {
+                continue;
+            }
+            bindings.addAll(listOf(resolver.invoke(GRID_BINDINGS, grid)));
+        }
+        return List.copyOf(bindings);
+    }
+
+    @Override
+    public String keyformBindingParameterId(final Object binding) {
+        if (!resolver.isInstance(BINDING_CLASS, binding)) {
+            return null;
+        }
+        final Object id = resolver.invoke(BINDING_PARAMETER_ID, binding);
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public List<Float> keyformBindingKeys(final Object binding) {
+        if (!resolver.isInstance(BINDING_CLASS, binding)) {
+            return List.of();
+        }
+        final Object keys = resolver.invoke(BINDING_KEYS, binding);
+        if (!(keys instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<Float> positions = new ArrayList<>();
+        for (Object key : list) {
+            if (key instanceof Number number) {
+                positions.add(number.floatValue());
+            }
+        }
+        return List.copyOf(positions);
+    }
+
+    @Override
+    public boolean isPartSource(final Object object) {
+        return resolver.isInstance(PART_CLASS, object);
+    }
+
+    @Override
+    public List<String> partChildGuids(final Object partSource) {
+        if (!resolver.isInstance(PART_CLASS, partSource)) {
+            return List.of();
+        }
+        final Object guids = resolver.invoke(PART_CHILD_GUIDS, partSource);
+        if (!(guids instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<String> children = new ArrayList<>();
+        for (Object guid : list) {
+            final Object uuid = guid == null ? null : resolver.invoke(GUID_UUID, guid);
+            if (uuid instanceof String text) {
+                children.add(text);
+            }
+        }
+        return List.copyOf(children);
+    }
+
+    /** Float member of a parameter source, or {@code null} when unreadable. */
+    private Float floatParameterMember(final String alias, final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object value = resolver.invoke(alias, parameterSource);
+        return value instanceof Number number ? number.floatValue() : null;
     }
 
     // ------------------------------------------------------------------

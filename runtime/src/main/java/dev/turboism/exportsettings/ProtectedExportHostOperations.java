@@ -29,6 +29,12 @@ public interface ProtectedExportHostOperations {
     /** Whether the project currently contains the given document. */
     boolean projectContains(Object document);
 
+    /**
+     * Modeling documents currently in the active project. Used to find a bound copy
+     * document that completed its native open after the bind wait already timed out.
+     */
+    List<?> projectDocuments();
+
     /** The main frame used as export-dialog parent, or {@code null}. */
     Object mainFrame();
 
@@ -132,6 +138,18 @@ public interface ProtectedExportHostOperations {
 
     List<?> allParameters(Object modelSource);
 
+    /**
+     * Physics settings sources — outside the parameter-controllable census.
+     * Protected export admits only models with none.
+     */
+    List<?> allPhysicsSettings(Object modelSource);
+
+    /**
+     * Motion-sync settings sources — outside the parameter-controllable census.
+     * Protected export admits only models with none.
+     */
+    List<?> allMotionSyncSettings(Object modelSource);
+
     /** Stable model GUID string of a model source. */
     String modelSourceGuid(Object modelSource);
 
@@ -175,6 +193,31 @@ public interface ProtectedExportHostOperations {
     /** Display name of a parameter source, or {@code null} when unreadable. */
     String parameterSourceName(Object parameterSource);
 
+    /** Minimum of a parameter source's evaluable range, or {@code null} unreadable. */
+    Float parameterSourceMinValue(Object parameterSource);
+
+    /** Maximum of a parameter source's evaluable range, or {@code null} unreadable. */
+    Float parameterSourceMaxValue(Object parameterSource);
+
+    /** A parameter source's default value, or {@code null} when unreadable. */
+    Float parameterSourceDefaultValue(Object parameterSource);
+
+    /** A parameter source's repeat flag, or {@code null} when unreadable. */
+    Boolean parameterSourceRepeat(Object parameterSource);
+
+    /**
+     * Keyform bindings of a controllable source across both its keyform grids
+     * (normal and extended), deduplicated by identity. Empty when the source has
+     * no grid.
+     */
+    List<?> keyformBindings(Object controllableSource);
+
+    /** Parameter ID string a keyform binding targets, or {@code null} when absent. */
+    String keyformBindingParameterId(Object binding);
+
+    /** Key positions a keyform binding contributes to its parameter (immutable). */
+    List<Float> keyformBindingKeys(Object binding);
+
     boolean isDeformerSource(Object object);
 
     boolean isWarpDeformer(Object object);
@@ -182,6 +225,14 @@ public interface ProtectedExportHostOperations {
     boolean isRotationDeformer(Object object);
 
     boolean isArtMeshSource(Object object);
+
+    boolean isPartSource(Object object);
+
+    /**
+     * Child-membership GUID strings of a part source — the part palette nesting
+     * (child parts and member drawables/deformers). Empty when none or unreadable.
+     */
+    List<String> partChildGuids(Object partSource);
 
     /** Deformer GUID string; the receiver must be a deformer source. */
     String deformerGuid(Object deformerSource);
