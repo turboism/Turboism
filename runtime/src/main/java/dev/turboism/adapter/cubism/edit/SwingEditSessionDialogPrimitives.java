@@ -10,8 +10,11 @@ import javax.swing.Timer;
 import java.awt.BorderLayout;
 import java.awt.Dialog;
 import java.awt.Frame;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Swing implementation of the session-UI primitives, used by the production {@link
@@ -32,9 +35,17 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
         final JDialog dialog = new JDialog(ownerFrame(context), INVISIBLE_MODAL_TITLE);
         dialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setUndecorated(true);
-        dialog.setOpacity(0.0f);
-        dialog.setSize(INVISIBLE_MODAL_WIDTH, INVISIBLE_MODAL_HEIGHT);
+        // The official interceptor is transparent. A display without per-window
+        // translucency cannot honor setOpacity — a zero-size undecorated shell holds the
+        // same modal input block there instead of failing session admission.
+        if (translucencySupported()) {
+            dialog.setOpacity(0.0f);
+            dialog.setSize(INVISIBLE_MODAL_WIDTH, INVISIBLE_MODAL_HEIGHT);
+        } else {
+            dialog.setSize(0, 0);
+        }
         dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        final AtomicBoolean released = new AtomicBoolean();
         return new InvisibleModal() {
             @Override
             public void show() {
@@ -42,6 +53,15 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
                 // loop for the pulse duration; posting the show instead keeps the session's
                 // dispatch task free while the invisible dialog still intercepts host input.
                 SwingUtilities.invokeLater(() -> {
+                    // A session admitted and terminated inside one dispatch task (the
+                    // official WS dispatcher runs on the host UI thread, so a transient
+                    // silent read opens and cancels before this queued show runs) reaches
+                    // dispose() first. setVisible(true) on a disposed dialog re-creates
+                    // its peer and leaves an ownerless APPLICATION_MODAL shell showing
+                    // forever — the late show must be dropped.
+                    if (released.get()) {
+                        return;
+                    }
                     dialog.setLocationRelativeTo(ownerWindow(context));
                     dialog.setVisible(true);
                 });
@@ -49,11 +69,18 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
 
             @Override
             public void hide() {
-                SwingUtilities.invokeLater(() -> dialog.setVisible(false));
+                SwingUtilities.invokeLater(() -> {
+                    if (!released.get()) {
+                        dialog.setVisible(false);
+                    }
+                });
             }
 
             @Override
             public void dispose() {
+                // The latch lands before the dialog is touched, so a show or hide already
+                // queued behind this release can never resurrect the disposed dialog.
+                released.set(true);
                 dialog.setVisible(false);
                 dialog.dispose();
             }
@@ -118,6 +145,16 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
     public void setWindowEnabled(final Object window, final boolean enabled) {
         if (window instanceof Window swingWindow) {
             swingWindow.setEnabled(enabled);
+        }
+    }
+
+    private static boolean translucencySupported() {
+        try {
+            return !GraphicsEnvironment.isHeadless()
+                && GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+                    .isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.TRANSLUCENT);
+        } catch (RuntimeException unavailable) {
+            return false;
         }
     }
 
