@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
 import dev.turboism.adapter.cubism.editor.history.NativeEditBeginBridge;
 import dev.turboism.adapter.cubism.editor.history.VerifiedNativeEditBeginHookInstaller;
+import dev.turboism.adapter.cubism.integration.EditProtocolBridge;
+import dev.turboism.adapter.cubism.integration.VerifiedEditApiDispatchInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
 
@@ -48,6 +50,10 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedNativeEditBeginHookInstaller>
         NATIVE_EDIT_BEGIN_HOOK = new AtomicReference<>();
+    private static final AtomicReference<VerifiedEditApiDispatchInstaller>
+        EDIT_API_DISPATCH_HOOK = new AtomicReference<>();
+    private static final AtomicReference<EditProtocolBridge>
+        EDIT_API_DISPATCH_BRIDGE = new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
@@ -450,6 +456,9 @@ public final class TurboismAgent {
             }
             if (nativeEditBeginHookRuntimeAdmitted(profile, fullRuntimeAdmission)) {
                 installNativeEditBeginHook(runtime, instrumentation, host);
+            }
+            if (editApiDispatchRuntimeAdmitted(profile, fullRuntimeAdmission)) {
+                installEditApiDispatchHook(runtime, instrumentation, host);
             }
             if (fullRuntimeAdmission) {
                 // Republish admission after the runtime logger is available; never install twice.
@@ -1390,6 +1399,20 @@ public final class TurboismAgent {
         return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
     }
 
+    /**
+     * {@return whether the edit-protocol dispatch hook may be installed for this host}
+     *
+     * <p>Same ordinary reviewed admission as the other host hooks; the deeper gate is inside
+     * {@code VerifiedEditApiDispatchInstaller.fromVerifiedResolver}, which refuses without a
+     * reviewed dispatch-entry selector and keeps the feature inert.</p>
+     */
+    static boolean editApiDispatchRuntimeAdmitted(
+        final String profile,
+        final boolean fullRuntimeAdmission
+    ) {
+        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
+    }
+
     static boolean textureAtlasRuntimeAdmitted(
         final String profile,
         final boolean fullRuntimeAdmission
@@ -1591,6 +1614,7 @@ public final class TurboismAgent {
         closeParameterHook(runtime, "process-exit");
         closeTextureAtlasHooks(runtime, "process-exit");
         closeNativeEditBeginHook(runtime, "process-exit");
+        closeEditApiDispatchHook(runtime, "process-exit");
         if (runtime == null) {
             return;
         }
@@ -1825,6 +1849,7 @@ public final class TurboismAgent {
 
         closeFileChooserHistoryHook(RUNTIME.get(), "runtime-close");
         closeNativeEditBeginHook(RUNTIME.get(), "runtime-close");
+        closeEditApiDispatchHook(RUNTIME.get(), "runtime-close");
         closeParameterHook(RUNTIME.get(), "runtime-close");
         closeTextureAtlasHooks(RUNTIME.get(), "runtime-close");
         final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
@@ -1998,6 +2023,73 @@ public final class TurboismAgent {
             runtimeInfo("TURBOISM_NATIVE_EDIT_BEGIN_HOOK cleanup=COMPLETE phase=" + phase);
         } catch (Throwable failure) {
             runtimeWarn("Turboism native edit entry hook cleanup failed safely: phase=" + phase);
+        }
+    }
+
+    /**
+     * Installs the single edit-protocol interception point on the host dispatcher.
+     *
+     * <p>Phase 1 of the 5.4-editing bridge is deliberately inert until a reviewed dispatch-entry
+     * selector lands in the verification record: {@code fromVerifiedResolver} throws then and the
+     * failure is absorbed, leaving every message on the native path. The injected prologue also
+     * degrades to native behaviour whenever the bridge is absent, disabled, or throws.</p>
+     */
+    private static void installEditApiDispatchHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedEditApiDispatchInstaller installer = null;
+        try {
+            installer = VerifiedEditApiDispatchInstaller.fromVerifiedResolver(
+                instrumentation,
+                runtime.editorModelResolver(),
+                host.classLoader()
+            );
+            final EditProtocolBridge bridge = new EditProtocolBridge();
+            if (!installer.install(bridge.receiver())) {
+                return;
+            }
+            if (!EDIT_API_DISPATCH_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            } else {
+                EDIT_API_DISPATCH_BRIDGE.set(bridge);
+                runtimeInfo(
+                    "TURBOISM_EDIT_API_DISPATCH installation=COMPLETE retransformed="
+                        + String.join(",", installer.transformedClassNames())
+                );
+            }
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try {
+                    installer.close();
+                } catch (Throwable ignored) {
+                    // cleanup is best effort
+                }
+            }
+            runtimeWarn("Turboism edit-protocol dispatch hook disabled safely: "
+                + failure.getClass().getName());
+        }
+    }
+
+    /**
+     * Removes the edit-protocol interception point and unpublishes the bridge.
+     *
+     * @param runtime the preview runtime used for reporting, may be null
+     * @param phase   the cleanup phase name used in the report
+     */
+    private static void closeEditApiDispatchHook(
+        final PreviewRuntime runtime,
+        final String phase
+    ) {
+        EDIT_API_DISPATCH_BRIDGE.set(null);
+        final VerifiedEditApiDispatchInstaller installer = EDIT_API_DISPATCH_HOOK.getAndSet(null);
+        if (installer == null) return;
+        try {
+            installer.close();
+            runtimeInfo("TURBOISM_EDIT_API_DISPATCH cleanup=COMPLETE phase=" + phase);
+        } catch (Throwable failure) {
+            runtimeWarn("Turboism edit-protocol dispatch hook cleanup failed safely: phase=" + phase);
         }
     }
 
