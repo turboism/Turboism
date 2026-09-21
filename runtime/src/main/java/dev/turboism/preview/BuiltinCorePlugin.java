@@ -186,8 +186,9 @@ final class BuiltinCorePlugin {
     /**
      * Idempotent teardown for a failed or fenced core generation. Returns {@code true} when every
      * step completed; {@code false} leaves the generation retained for a later re-drive.
+     * Package-private so lifecycle tests can drive the ordering directly.
      */
-    private static boolean cleanupCore(
+    static boolean cleanupCore(
         final CoreLoad state,
         final PreviewLog log,
         final PluginLifecyclePolicy policy,
@@ -206,30 +207,38 @@ final class BuiltinCorePlugin {
             state.context.eventOwner().close();
             state.eventOwnerClosed = true;
         }
+        // Admitted SDK calls must drain before teardown bodies: disable()/shutdown() can destroy
+        // state an in-flight pre-fence call still touches — same ordering as the external loader
+        // and the normal shutdown path.
+        if (state.guard != null && !state.guard.drained()) {
+            return false;
+        }
         if (!state.pluginCleaned) {
             state.pluginCleaned = true;
             cleanupPlugin(state.plugin, state.enabled, log);
         }
-        // Disposal waits for SDK calls admitted before the fence to drain, matching the
-        // external-plugin loader path.
-        if (state.guard != null && !state.guard.drained()) {
-            return false;
-        }
-        if (!state.scopeClosed) {
+        // One-shot disposal: DisposableScope.close() marks itself closed before running closers,
+        // so a retry after a failure would be an empty success that erases the recorded failure
+        // and releases the classloader early. Attempted and outcome are tracked separately; a
+        // failed step keeps its outcome and the generation stays retained.
+        if (!state.scopeAttempted) {
+            state.scopeAttempted = true;
             state.scopeClosed = closeScope(state.scope, log);
         }
-        if (!state.resourcesClosed) {
-            if (state.scopeClosed) {
-                closeResources(state.resources, log);
-                state.resourcesClosed = true;
-            } else {
+        if (state.scopeClosed && !state.resourcesAttempted) {
+            state.resourcesAttempted = true;
+            state.resourcesClosed = closeResources(state.resources, log);
+        }
+        if (!(state.scopeClosed && state.resourcesClosed)) {
+            if (!state.retentionLogged) {
+                state.retentionLogged = true;
                 log.error(
                     CORE_ID,
                     "Built-in core classloader retained because cleanup did not quiesce",
                     new IllegalStateException("Built-in core cleanup is incomplete")
                 );
-                return false;
             }
+            return false;
         }
         return true;
     }
@@ -299,21 +308,23 @@ final class BuiltinCorePlugin {
         }
     }
 
-    private static void closeResources(
+    private static boolean closeResources(
         final URLClassLoader resources,
         final PreviewLog log
     ) {
         if (resources == null) {
-            return;
+            return true;
         }
         try {
             resources.close();
+            return true;
         } catch (Throwable failure) {
             log.error(
                 CORE_ID,
                 "Built-in core classloader cleanup failed safely",
                 failure
             );
+            return false;
         }
     }
 
@@ -369,7 +380,7 @@ final class BuiltinCorePlugin {
     }
 
     /** Mutable per-attempt state so a timeout fence and retained cleanup can reach the resources. */
-    private static final class CoreLoad {
+    static final class CoreLoad {
         volatile URLClassLoader resources;
         volatile DisposableScope scope;
         volatile PluginContextBundle context;
@@ -379,7 +390,10 @@ final class BuiltinCorePlugin {
         volatile boolean cleanupComplete;
         volatile boolean eventOwnerClosed;
         volatile boolean pluginCleaned;
+        volatile boolean scopeAttempted;
         volatile boolean scopeClosed;
+        volatile boolean resourcesAttempted;
         volatile boolean resourcesClosed;
+        volatile boolean retentionLogged;
     }
 }
