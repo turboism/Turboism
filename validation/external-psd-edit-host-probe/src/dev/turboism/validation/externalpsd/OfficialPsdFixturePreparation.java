@@ -171,7 +171,13 @@ public final class OfficialPsdFixturePreparation {
 
             final Window window = chooseNewModel(host, input, profile, input.timeoutMillis());
             recordWindow(window);
-            ModelState state = awaitInitialModel(input, profile, input.timeoutMillis());
+            ModelState state;
+            try {
+                state = awaitInitialModel(input, profile, input.timeoutMillis(), window);
+            } catch (Exception failure) {
+                recordModelWaitStacks();
+                throw failure;
+            }
             recordModelState("model.initial", state);
             if (profile.f1Sharing()) {
                 final F1SharingPreparation sharing = prepareF1Sharing(
@@ -919,8 +925,9 @@ public final class OfficialPsdFixturePreparation {
     }
 
     private ModelState awaitInitialModel(final InputIdentity input,
-        final PreparationProfile profile, final long timeoutMillis) throws Exception {
-        final ModelState state = awaitModel(input, timeoutMillis, "model.beforeSave");
+        final PreparationProfile profile, final long timeoutMillis,
+        final Window boundWindow) throws Exception {
+        final ModelState state = awaitModel(input, timeoutMillis, "model.beforeSave", boundWindow);
         final EdtCall<InitialSourceObservation> call = invokeEdtBounded(
             () -> verifyInitialSourceOnEdt(input, state, profile),
             Math.min(EDT_CALL_TIMEOUT_MILLIS, timeoutMillis));
@@ -936,6 +943,11 @@ public final class OfficialPsdFixturePreparation {
 
     private ModelState awaitModel(final InputIdentity input, final long timeoutMillis,
         final String modePrefix) throws Exception {
+        return awaitModel(input, timeoutMillis, modePrefix, null);
+    }
+
+    private ModelState awaitModel(final InputIdentity input, final long timeoutMillis,
+        final String modePrefix, final Window diagnosticWindow) throws Exception {
         final AtomicReference<String> last = new AtomicReference<>("no model yet");
         final CurrentModelObservation observation = awaitEdtObservation(timeoutMillis,
             () -> checkStoppedAndTask(input), () -> {
@@ -947,11 +959,68 @@ public final class OfficialPsdFixturePreparation {
                 } catch (RuntimeException unavailable) {
                     last.set(unavailable.getMessage() == null ? unavailable.toString()
                         : unavailable.getMessage());
+                    if (diagnosticWindow != null) recordModelWaitDialogsOnEdt(diagnosticWindow);
                     return null;
                 }
             }, "new PSD model relation readiness timed out: ", last);
         if (modePrefix != null) recordModelBlendVersionMode(modePrefix, observation.model());
         return observation.state();
+    }
+
+    /** Read-only failure diagnostics. Unknown import dialogs are never acted upon. */
+    private void recordModelWaitDialogsOnEdt(final Window boundWindow) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "model wait diagnostics require EDT");
+        final List<String> dialogs = new ArrayList<>();
+        for (final Window candidate : Window.getWindows()) {
+            if (!(candidate instanceof Dialog dialog) || !dialog.isShowing()
+                || !dialog.isDisplayable()) continue;
+            Window owner = dialog.getOwner();
+            while (owner != null && owner != boundWindow) owner = owner.getOwner();
+            if (owner != boundWindow) continue;
+            final List<String> texts = new ArrayList<>();
+            collectDiagnosticTexts(dialog, texts);
+            dialogs.add("dialog=" + windowIdentity(dialog) + " owner="
+                + windowIdentity(dialog.getOwner()) + " directOwner="
+                + (dialog.getOwner() == boundWindow) + " title=" + dialog.getTitle()
+                + " texts=" + texts + " buttons=" + buttons(dialog).stream().limit(20)
+                    .map(button -> button.getClass().getName() + ":" + button.getText()
+                        + ":" + button.getActionCommand()).toList());
+        }
+        properties.setProperty("prepare.model.wait.ownedDialogs", dialogs.toString());
+    }
+
+    private static void collectDiagnosticTexts(final Component component,
+        final List<String> texts) {
+        if (texts.size() >= 40) return;
+        final String value = component instanceof JLabel label ? label.getText()
+            : component instanceof JTextComponent text ? text.getText() : null;
+        if (value != null && !value.isBlank()) {
+            texts.add(value.substring(0, Math.min(value.length(), 512)));
+        }
+        if (component instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                collectDiagnosticTexts(child, texts);
+                if (texts.size() >= 40) break;
+            }
+        }
+    }
+
+    private void recordModelWaitStacks() {
+        final StringBuilder stacks = new StringBuilder();
+        for (final var entry : Thread.getAllStackTraces().entrySet()) {
+            final boolean relevant = entry.getKey().getName().startsWith("AWT-EventQueue-")
+                || java.util.Arrays.stream(entry.getValue()).anyMatch(frame ->
+                    frame.getClassName().startsWith("com.live2d.cubism.process.psd.")
+                        || frame.getClassName().startsWith("com.live2d.cubism.appCtrlImpl.O"));
+            if (!relevant) continue;
+            stacks.append(entry.getKey().getName()).append(' ').append(entry.getKey().getState());
+            for (int index = 0; index < Math.min(64, entry.getValue().length); index++) {
+                stacks.append('\n').append(entry.getValue()[index]);
+            }
+            stacks.append('\n');
+        }
+        properties.setProperty("prepare.model.wait.threadStacks", stacks.toString());
     }
 
     /** Shared total-budget coordinator for model readiness and its focused EDT regression seam. */
