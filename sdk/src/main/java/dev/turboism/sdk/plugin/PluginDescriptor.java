@@ -130,10 +130,26 @@ public interface PluginDescriptor {
     interface DependencyRef {
         String id();
 
+        /**
+         * {@code required} gates this plugin on the target being present, version-compatible, and
+         * successfully loaded; {@code optional} never disables this plugin and only applies when
+         * the target is present, resolvable, and version-compatible.
+         */
         String type();
 
+        /**
+         * Version range the target must satisfy. Enforced for {@code required} dependencies; for
+         * {@code optional} ones it decides whether the reference applies at all.
+         */
         String version();
 
+        /**
+         * This plugin's load position relative to the dependency target: {@code before} loads this
+         * plugin first, {@code after} loads the target first, {@code none} declares no constraint.
+         * Only explicit values create ordering edges — a required {@code none} dependency may load
+         * after its dependents, so plugins needing a target's services at init must declare
+         * {@code after}.
+         */
         String ordering();
 
         Optional<String> reason();
