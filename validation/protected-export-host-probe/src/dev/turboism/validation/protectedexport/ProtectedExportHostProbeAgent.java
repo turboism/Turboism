@@ -1162,12 +1162,39 @@ public final class ProtectedExportHostProbeAgent {
         }
     }
 
-    /** {@code <home>/logs/turboism.log} beside the probe state directory. */
+    /**
+     * Newest {@code <home>/logs/runtime/<date>/turboism-*.log} — the runtime
+     * rotates per-session timestamped files, so the session terminal can only
+     * be observed in the file this run actually opened. Falls back to the
+     * legacy flat {@code logs/turboism.log} when no runtime file exists yet.
+     */
     private static Path turboismLogPath(final Path stateDir) {
         final Path state = stateDir.getParent();
         final Path home = state == null ? null : state.getParent();
-        return home == null
-            ? stateDir.resolve("turboism.log")
+        if (home == null) {
+            return stateDir.resolve("turboism.log");
+        }
+        final Path runtimeDir = home.resolve("logs").resolve("runtime");
+        Path newest = null;
+        try (var walk = Files.walk(runtimeDir, 2)) {
+            for (Path candidate : walk.toList()) {
+                final String name = candidate.getFileName() == null
+                    ? "" : candidate.getFileName().toString();
+                if (!Files.isRegularFile(candidate)
+                    || !name.startsWith("turboism-") || !name.endsWith(".log")) {
+                    continue;
+                }
+                if (newest == null
+                    || Files.getLastModifiedTime(candidate)
+                        .compareTo(Files.getLastModifiedTime(newest)) > 0) {
+                    newest = candidate;
+                }
+            }
+        } catch (IOException unavailable) {
+            // Fall through to the legacy flat path.
+        }
+        return newest != null
+            ? newest
             : home.resolve("logs").resolve("turboism.log");
     }
 
