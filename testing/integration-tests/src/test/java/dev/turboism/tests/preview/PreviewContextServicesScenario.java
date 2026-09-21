@@ -47,7 +47,8 @@ final class PreviewContextServicesScenario {
         final RuntimeScheduler scheduler = scheduler();
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
         final LocalPluginRuntime runtime = new LocalPluginRuntime(
-            home, scheduler, hostIngress.adapterAccess(), log
+            home, scheduler, hostIngress.adapterAccess(), log,
+            new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
         );
         try {
             PreviewContextServicesPluginJarFixture.write(home.resolve("plugins"), temporaryDirectory);

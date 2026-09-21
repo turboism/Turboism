@@ -95,7 +95,8 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
             home,
             scheduler,
             hostIngress.adapterAccess(),
-            log
+            log,
+            new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
         );
         return new Scenario(runtime, hostIngress, scheduler, log);
     }

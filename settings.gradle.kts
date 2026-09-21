@@ -20,6 +20,7 @@ include(
     "bootstrap",
     "runtime",
     "sdk",
+    "core-contract",
     "event-processor",
     "graal-host",
     "plugins:demo",

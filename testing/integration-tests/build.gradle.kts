@@ -5,6 +5,7 @@ plugins {
 dependencies {
     testImplementation(project(":runtime"))
     testImplementation(project(":sdk"))
+    testImplementation(project(":core-contract"))
     testImplementation(project(":plugins:demo"))
     testImplementation(project(":plugins:ui-theme"))
     testImplementation(project(":plugins:core"))

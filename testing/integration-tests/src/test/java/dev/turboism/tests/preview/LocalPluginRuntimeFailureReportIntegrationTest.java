@@ -38,7 +38,8 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
             home,
             scheduler,
             ingress.adapterAccess(),
-            log
+            log,
+            new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
         );
         final LocalPluginRuntime.LoadReport loadReport = plugins.loadAll();
         final PreviewRuntime runtime = runtime(home, log, scheduler, ingress, plugins, loadReport);

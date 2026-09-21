@@ -293,9 +293,42 @@ tasks.named<ProcessResources>("processTestResources") {
     }
 }
 
+// Headless boundary gate: a small probe main runs against the runtime's PRODUCTION
+// runtimeClasspath — which must no longer carry dev.turboism.plugin.core.* — and performs a
+// full LocalPluginRuntime construct/load-real-JAR/close cycle with no core entrypoint.
+sourceSets {
+    create("headlessProbe") {
+        java.srcDir("src/headlessProbe/java")
+    }
+}
+sourceSets.named("headlessProbe") {
+    compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+    runtimeClasspath += sourceSets.main.get().runtimeClasspath
+}
+
+val headlessProbeHome = layout.buildDirectory.dir("headless-probe/home")
+
+val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Constructs, loads a real external plugin and closes a headless " +
+        "LocalPluginRuntime with no core classes on the production classpath."
+    dependsOn(tasks.named("classes"), "compileHeadlessProbeJava")
+    classpath = sourceSets["headlessProbe"].runtimeClasspath
+    mainClass.set("dev.turboism.preview.HeadlessRuntimeProbeMain")
+    jvmArgs("-Djava.awt.headless=true")
+    doFirst {
+        val home = headlessProbeHome.get().asFile
+        home.deleteRecursively()
+        home.mkdirs()
+        args(home.absolutePath)
+    }
+}
+
 dependencies {
     implementation(project(":sdk"))
-    implementation(project(":plugins:core"))
+    // Internal management contracts shared with the built-in core application.
+    // The runtime never depends on :plugins:* modules.
+    implementation(project(":core-contract"))
 
     // JSON parsing implementation stays in runtime, not in SDK
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")
@@ -308,4 +341,8 @@ dependencies {
     implementation("io.github.resilience4j:resilience4j-bulkhead:2.1.0")
     implementation("io.github.resilience4j:resilience4j-timelimiter:2.1.0")
     implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.1.0")
+
+    // Test scope only: runtime unit tests instantiate the real core entrypoint
+    // the same way bootstrap does in production.
+    testImplementation(project(":plugins:core"))
 }

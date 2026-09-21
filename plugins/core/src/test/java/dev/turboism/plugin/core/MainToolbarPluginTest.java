@@ -1,5 +1,9 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.internal.core.CubismJvmSettingsService;
+import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.internal.core.CoreUpdateService;
+import dev.turboism.internal.core.CorePluginServices;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -181,10 +185,7 @@ class MainToolbarPluginTest {
                 return new DockCleanupResult("Empty dock cleanup completed.");
             }
         };
-        final MainToolbarPlugin plugin = CorePluginServices.instantiate(
-            new CorePluginServices(settings, plugins()),
-            MainToolbarPlugin::new
-        );
+        final MainToolbarPlugin plugin = new MainToolbarPlugin(new CorePluginServices(settings, plugins()));
         final RecordingPluginContext context = new RecordingPluginContext();
 
         plugin.init(context);
@@ -623,15 +624,11 @@ class MainToolbarPluginTest {
     }
 
     private static MainToolbarPlugin plugin(final boolean useTextIcon) {
-        return CorePluginServices.instantiate(
-            new CorePluginServices(settings(useTextIcon), plugins()),
-            MainToolbarPlugin::new
-        );
+        return new MainToolbarPlugin(new CorePluginServices(settings(useTextIcon), plugins()));
     }
 
     private static MainToolbarPlugin plugin(final CoreUpdateService updates) {
-        return CorePluginServices.instantiate(
-            new CorePluginServices(
+        return new MainToolbarPlugin(new CorePluginServices(
                 settings(),
                 CubismJvmSettingsService.unavailable(),
                 dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
@@ -639,9 +636,7 @@ class MainToolbarPluginTest {
                 CorePluginServices.FloatingPanelActions.unavailable(),
                 dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
                 updates
-            ),
-            MainToolbarPlugin::new
-        );
+            ));
     }
 
     /** Scripted update service used to drive core UI behaviour without any network access. */
@@ -706,10 +701,7 @@ class MainToolbarPluginTest {
     }
 
     private static MainToolbarPlugin plugin(final CorePluginManagement management) {
-        return CorePluginServices.instantiate(
-            new CorePluginServices(settings(), management),
-            MainToolbarPlugin::new
-        );
+        return new MainToolbarPlugin(new CorePluginServices(settings(), management));
     }
 
     private static dev.turboism.sdk.runtime.RuntimeSettingsService settings() {

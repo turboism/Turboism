@@ -29,13 +29,31 @@ The authoritative project list is `settings.gradle.kts`.
 :sdk
   The only public dependency for first-party and third-party plugins.
 
+:core-contract
+  Internal management contracts (dev.turboism.internal.core.*) shared by the
+  runtime and the built-in core application: plugin management, update and JVM
+  settings services, the runtime-to-core service handoff, and the
+  CorePluginEntrypoint factory contract. This is not a plugin-facing API —
+  ordinary plugins cannot compile against it and their classloaders refuse to
+  resolve dev.turboism.internal.* at runtime.
+
 :runtime
   Plugin runtime, policies, Cubism/Editor adapters, providers, mapping,
   hook infrastructure, transactions, diagnostics, and shared services.
+  Implements the internal management contracts; depends on :sdk and
+  :core-contract only — never on :plugins:*. It runs headless when no core
+  entrypoint is supplied.
 
 :plugins:*
   First-party plugins. They are treated like external consumers and depend
   on :sdk with compileOnly scope.
+
+:plugins:core
+  The built-in core application (main toolbar, plugin management UI, update
+  and JVM settings UI). The single deliberate exception to the plugin module
+  rule: it also compiles against :core-contract and is composed explicitly —
+  bootstrap injects a MainToolbarPluginEntrypoint into PreviewRuntime.start,
+  so the runtime invokes it without importing dev.turboism.plugin.core types.
 
 :testing:test-support
   Fake hosts, fixtures, and reusable test support.

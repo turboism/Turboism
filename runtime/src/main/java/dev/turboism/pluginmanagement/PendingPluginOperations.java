@@ -25,7 +25,8 @@ import java.util.UUID;
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final String CORE_ID = "turboism.core";
+    private static final String CORE_ID =
+        dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
     private final Path home;
     private final Path plugins;
     private final Path staging;

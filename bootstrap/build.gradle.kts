@@ -9,6 +9,11 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 dependencies {
     implementation(project(":runtime"))
     implementation(project(":sdk"))
+    // Composition layer: the agent jar still embeds the built-in core plugin and
+    // the internal management contracts; bootstrap wires the UI entrypoint into
+    // the runtime explicitly.
+    implementation(project(":core-contract"))
+    implementation(project(":plugins:core"))
 }
 
 tasks.processResources {

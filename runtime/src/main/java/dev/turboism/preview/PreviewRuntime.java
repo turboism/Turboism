@@ -189,7 +189,8 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path topMenuVerificationRecord,
         final Path boundingBoxOverlayVerificationRecord,
         final Path hostArtifact,
-        final ClassLoader hostClassLoader
+        final ClassLoader hostClassLoader,
+        final dev.turboism.internal.core.CorePluginEntrypoint corePluginEntrypoint
     ) throws IOException {
         return start(
             requestedHome,
@@ -205,7 +206,8 @@ public final class PreviewRuntime implements AutoCloseable {
             null,
             hostArtifact,
             null,
-            hostClassLoader
+            hostClassLoader,
+            corePluginEntrypoint
         );
     }
 
@@ -227,7 +229,8 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path autoBackupVerificationRecord,
         final Path hostArtifact,
         final Path coreArtifact,
-        final ClassLoader hostClassLoader
+        final ClassLoader hostClassLoader,
+        final dev.turboism.internal.core.CorePluginEntrypoint corePluginEntrypoint
     ) throws IOException {
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
@@ -440,7 +443,8 @@ public final class PreviewRuntime implements AutoCloseable {
                 log,
                 ingress.adapterAccess().parameterLifecycle(),
                 fileChooserHistory,
-                effectiveLocale
+                effectiveLocale,
+                corePluginEntrypoint
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));

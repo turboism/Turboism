@@ -6,8 +6,8 @@ import dev.turboism.core.event.GeneratedSubscriberCatalogLoader;
 import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
-import dev.turboism.plugin.core.CorePluginServices;
-import dev.turboism.plugin.core.MainToolbarPlugin;
+import dev.turboism.internal.core.CorePluginEntrypoint;
+import dev.turboism.internal.core.CorePluginServices;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -29,12 +29,13 @@ import java.util.concurrent.TimeoutException;
 final class BuiltinCorePlugin {
     private static final String DESCRIPTOR = "META-INF/turboism/core-plugin.json";
     private static final String CORE_ID =
-        dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID;
+        dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
 
     private BuiltinCorePlugin() { }
 
     static LocalPluginRuntime.LoadedPlugin load(
         final PreviewPluginContextFactory contexts,
+        final CorePluginEntrypoint entrypoint,
         final CorePluginServices services,
         final PreviewLog log,
         final PluginLifecycleLane lane,
@@ -46,7 +47,7 @@ final class BuiltinCorePlugin {
         final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation =
             lane.submit(CORE_ID, "load", () -> {
                 try {
-                    return loadOnLane(contexts, services, log, state, lease);
+                    return loadOnLane(contexts, entrypoint, services, log, state, lease);
                 } catch (Throwable failure) {
                     state.cleanupComplete = cleanupCore(state, log, policy, true);
                     throw failure;
@@ -115,12 +116,13 @@ final class BuiltinCorePlugin {
 
     private static LocalPluginRuntime.LoadedPlugin loadOnLane(
         final PreviewPluginContextFactory contexts,
+        final CorePluginEntrypoint entrypoint,
         final CorePluginServices services,
         final PreviewLog log,
         final CoreLoad state,
         final PluginLifecycleLease lease
     ) throws Exception {
-        final ClassLoader loader = MainToolbarPlugin.class.getClassLoader();
+        final ClassLoader loader = entrypoint.pluginClassLoader();
         state.resources = resourceLoader(loader);
         final PluginDescriptor descriptor;
         try (InputStream input = descriptorStream(loader)) {
@@ -140,7 +142,7 @@ final class BuiltinCorePlugin {
         state.guard = new PluginGenerationGuard(descriptor.id());
         state.scope = new DisposableScope();
         state.context = contexts.create(descriptor, state.resources, state.scope);
-        state.plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
+        state.plugin = entrypoint.createPlugin(services);
         runtime.setEntrypoints(List.of(state.plugin));
         final var eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
             List.of(state.plugin),
@@ -333,16 +335,12 @@ final class BuiltinCorePlugin {
     }
 
     /**
-     * The agent jar that carries the built-in core. With {@code Boot-Class-Path}
-     * the core classes may be bootstrap-loaded, in which case the protection
-     * domain has no CodeSource; fall back to the system classpath jar that
-     * still carries the descriptor (the agent jar is appended to the system
-     * classpath by {@code -javaagent}).
+     * The classpath root that carries the built-in core, derived from the descriptor resource
+     * served by the entrypoint's loader. Packaged builds resolve {@code jar:} URLs back to the
+     * agent jar; exploded dev/test classpaths resolve {@code file:} URLs back to the classes
+     * directory so the resource loader gets a usable classpath root rather than the JSON file.
      */
     private static URL coreSource(final ClassLoader loader) {
-        final java.security.CodeSource codeSource =
-            MainToolbarPlugin.class.getProtectionDomain().getCodeSource();
-        if (codeSource != null && codeSource.getLocation() != null) return codeSource.getLocation();
         final URL descriptorResource = loader != null
             ? loader.getResource(DESCRIPTOR)
             : ClassLoader.getSystemResource(DESCRIPTOR);
@@ -354,7 +352,15 @@ final class BuiltinCorePlugin {
                 throw new IllegalStateException("built-in core source is invalid", impossible);
             }
         }
-        return descriptorResource;
+        final String spec = descriptorResource.toExternalForm();
+        if (!spec.endsWith(DESCRIPTOR)) {
+            throw new IllegalStateException("built-in core descriptor location is unexpected: " + spec);
+        }
+        try {
+            return java.net.URI.create(spec.substring(0, spec.length() - DESCRIPTOR.length())).toURL();
+        } catch (java.net.MalformedURLException impossible) {
+            throw new IllegalStateException("built-in core source is invalid", impossible);
+        }
     }
 
     /**

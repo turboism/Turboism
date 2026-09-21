@@ -1,5 +1,7 @@
 package dev.turboism.plugin.core;
 
+import dev.turboism.internal.core.CubismJvmSettingsService;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
@@ -16,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.plugin.core.CubismJvmSettingsService.CubismJvm;
+import dev.turboism.internal.core.CubismJvmSettingsService.CubismJvm;
 
 class CoreWindowsTest {
 

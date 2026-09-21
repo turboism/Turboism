@@ -1,4 +1,4 @@
-package dev.turboism.plugin.core;
+package dev.turboism.internal.core;
 
 import java.util.List;
 import java.util.Optional;

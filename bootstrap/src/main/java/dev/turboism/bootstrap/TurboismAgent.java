@@ -331,7 +331,8 @@ public final class TurboismAgent {
                     autoBackupVerificationRecord,
                     host.artifact(),
                     coreArtifact,
-                    host.classLoader()
+                    host.classLoader(),
+                    new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
                 ));
             } catch (Throwable failure) {
                 closeMeshMirrorHookIfCurrent(meshMirrorHook);
