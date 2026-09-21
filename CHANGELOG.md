@@ -40,6 +40,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `turboism-sdk-<version>.jar` plus its SHA-256 sidecar as a GitHub-only developer asset,
   `./gradlew publishToMavenLocal` yields clean `dev.turboism` coordinates, and
   `templates/plugin-template` is a standalone project that builds against the released SDK.
+- The Warp Deformer Alt Symmetry plugin extends the bounding-box Alt semantics to Warp Deformer
+  control points: Alt drags mirror across the vertical grid axis and Alt+Shift across the
+  horizontal. A contributed toggle on the canvas-top control strip arms the axis and a native
+  canvas hint shows the armed state; mirrored positions commit through the model-write path so a
+  symmetric move joins native Undo/Redo. The plugin requests `turboism.cubism.model.read`,
+  `turboism.cubism.model.write`, `turboism.ui.toolbar.contribute` and `turboism.ui.canvas.hint`,
+  and its native mirror binds only when the verified host hook is installed.
+- `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
+  `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
+  for every action or menu item it contributes.
 
 ### Changed
 
@@ -77,6 +87,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   (en, ja, ko, zh-Hans, zh-Hant), and release candidates are rejected unless the
   reviewed zh, ja and ko note translations exist. The framework message catalogs join the
   official-plugin completeness gate, which now also runs as part of `checkIntegration`.
+- Every optional `PluginContext` service accessor now returns that service's `unavailable()`
+  sentinel instead of throwing `UnsupportedOperationException` from the getter, and each service
+  exposes `isAvailable()` for probing. Sentinels still fail closed: they report structured
+  failures where the domain offers one (task submissions, host reads, storage, user files, mesh
+  edits, host dialogs, script runs) and throw a stable `UnsupportedOperationException` on use
+  where it does not. `ScriptService#available` is renamed `isAvailable` so the probe carries one
+  name everywhere. **Plugin API migration may be required:** a plugin that caught the accessor's
+  `UnsupportedOperationException` should call `isAvailable()` instead.
+- The eighteen semantic event types moved from `dev.turboism.sdk.event.cubism` to
+  `dev.turboism.sdk.cubism.event`; the retired package is rejected by the boundary and
+  package-layout checks so the deprecated shape cannot regress. **Plugin API migration may be
+  required:** update event imports.
+- Install-time host hooks are declared in `META-INF/turboism/hooks` and scanned by the agent
+  instead of being hand-wired: each `HookContributor` checks its own admission and forwards
+  install/bind/uninstall through `HookRegistry`, so a new hook is a manifest line plus a
+  contributor class rather than an edit to the agent. Verified/fail-closed admission, atomic
+  record extraction, the mesh-mirror premain/bind lifecycle, and the `installation=`/`cleanup=`
+  report lines are unchanged.
 
 ### Fixed
 
@@ -137,6 +165,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Windows result lines, close-phase artifacts count toward the automated result, the
   plugin-management restart hook is admitted into the reviewed queue inventory, and the Cubism
   5.3.03 exact host joined the validation queue.
+- The hook registry no longer corrupts or double-closes handles when a process-exit close pass
+  races a late enrollment: close passes walk a snapshot and claim each entry atomically, and a
+  handle enrolled mid-pass stays enrolled instead of being half-closed.
+- The agent reads the hook manifest on the boot class path, so a manifest packaged inside the
+  agent JAR resolves regardless of the process working directory.
 
 ## [0.44.0] - 2026-09-11
 
