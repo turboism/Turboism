@@ -9,7 +9,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -83,6 +85,38 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String MS_MOTION_SYNC =
         PREFIX + "model-source.all-motion-sync-settings";
     private static final String MS_GUID = PREFIX + "model-source.guid";
+    private static final String MS_CONTAIN_MULTIPLY =
+        PREFIX + "model-source.contain-multiply-color";
+    private static final String MS_CONTAIN_SCREEN =
+        PREFIX + "model-source.contain-screen-color";
+    private static final String MS_CONTAIN_MORPH =
+        PREFIX + "model-source.contain-morph-target";
+    private static final String MS_CONTAIN_MORPH_ENH =
+        PREFIX + "model-source.contain-morph-target-enhancement";
+    private static final String MS_CONTAIN_ADVANCED_BLEND =
+        PREFIX + "model-source.contain-advanced-blend";
+    private static final String MS_CONTAIN_ART_PATH =
+        PREFIX + "model-source.contain-art-path";
+    private static final String MS_CONTAIN_ALIAS =
+        PREFIX + "model-source.contain-alias";
+    private static final String MS_CONTAIN_INVERT_CLIP =
+        PREFIX + "model-source.contain-invert-clipping";
+    private static final String MS_CONTAIN_QUAD =
+        PREFIX + "model-source.contain-quad-transform";
+    private static final String MS_CONTAIN_OFFSCREEN =
+        PREFIX + "model-source.contain-offscreen-rendering";
+    private static final String MS_CONTAIN_MOTION_SYNC =
+        PREFIX + "model-source.contain-motion-sync";
+    private static final String MS_CONTAIN_MOTION_SYNC_FIX =
+        PREFIX + "model-source.contain-motion-sync-correction";
+
+    private static final String SOURCE_MORPH_SET =
+        PREFIX + "source.keyform-morph-target-set";
+    private static final String SOURCE_EXT_MORPH_SET =
+        PREFIX + "source.extended-morph-target-set";
+    private static final String SOURCE_EXTENSIONS = PREFIX + "source.extensions";
+    private static final String MORPH_SET_CLASS = PREFIX + "morph-target-set.class";
+    private static final String MORPH_SET_TARGETS = PREFIX + "morph-target-set.morph-targets";
 
     private static final String SOURCE_GUID = PREFIX + "source.guid";
     private static final String SOURCE_ID = PREFIX + "source.id";
@@ -120,6 +154,20 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String PARAMETER_INSTANCE_CLASS = PREFIX + "parameter-instance.class";
     private static final String PARAMETER_INSTANCE_VALUE = PREFIX + "parameter-instance.value";
     private static final String PARAMETER_INSTANCE_ID = PREFIX + "parameter-instance.id";
+    private static final String PARAMETER_INSTANCE_SET_VALUE =
+        PREFIX + "parameter-instance.set-value";
+
+    private static final String MODEL_REINIT_EXE = PREFIX + "model.reinit-instance-exe";
+    private static final String MODEL_ART_MESHES = PREFIX + "model.all-art-meshes";
+    private static final String ART_MESH_INSTANCE_CLASS =
+        PREFIX + "art-mesh-instance.class";
+    private static final String ART_MESH_INSTANCE_SOURCE =
+        PREFIX + "art-mesh-instance.source";
+    private static final String ART_MESH_INSTANCE_FORM =
+        PREFIX + "art-mesh-instance.calculated-form";
+    private static final String ART_MESH_FORM_CLASS = PREFIX + "art-mesh-form.class";
+    private static final String ART_MESH_FORM_POSITIONS =
+        PREFIX + "art-mesh-form.positions";
 
     private static final String GRID_CLASS = PREFIX + "keyform-grid.class";
     private static final String BINDING_CLASS = PREFIX + "keyform-binding.class";
@@ -163,6 +211,12 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SELECTOR_ADD_SOURCE, SELECTOR_SELECTED_DEFORMERS, EDIT_MODE_APPLY,
         MS_DOCUMENT, MS_INSTANCE, MS_DEFORMERS, MS_OBJECTS, MS_ART_MESHES, MS_PARTS,
         MS_ROOT_PART, MS_PARAMETERS, MS_PHYSICS, MS_MOTION_SYNC, MS_GUID,
+        MS_CONTAIN_MULTIPLY, MS_CONTAIN_SCREEN, MS_CONTAIN_MORPH,
+        MS_CONTAIN_MORPH_ENH, MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ART_PATH,
+        MS_CONTAIN_ALIAS, MS_CONTAIN_INVERT_CLIP, MS_CONTAIN_QUAD,
+        MS_CONTAIN_OFFSCREEN, MS_CONTAIN_MOTION_SYNC, MS_CONTAIN_MOTION_SYNC_FIX,
+        SOURCE_MORPH_SET, SOURCE_EXT_MORPH_SET, SOURCE_EXTENSIONS,
+        MORPH_SET_TARGETS,
         MODEL_PARAMETER_SET,
         SOURCE_GUID, SOURCE_ID, SOURCE_LOCAL_NAME, SOURCE_SET_LOCAL_NAME,
         SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
@@ -171,6 +225,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
         GUID_UUID, ID_STRING,
         PARAMETER_SET_PARAMETERS, PARAMETER_INSTANCE_VALUE, PARAMETER_INSTANCE_ID,
+        PARAMETER_INSTANCE_SET_VALUE, MODEL_REINIT_EXE, MODEL_ART_MESHES,
+        ART_MESH_INSTANCE_SOURCE, ART_MESH_INSTANCE_FORM, ART_MESH_FORM_POSITIONS,
         PARAMETER_SOURCE_ID, PARAMETER_SOURCE_NAME,
         PARAMETER_SOURCE_MIN, PARAMETER_SOURCE_MAX, PARAMETER_SOURCE_DEFAULT,
         PARAMETER_SOURCE_REPEAT,
@@ -187,7 +243,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         ART_MESH_CLASS, PART_CLASS, PARAMETER_CLASS, DRAWABLE_CLASS,
         DRAWABLE_ID_CLASS, PARAMETER_ID_CLASS, GUID_CLASS, ID_CLASS,
         PARAMETER_SET_CLASS, PARAMETER_INSTANCE_CLASS,
-        GRID_CLASS, BINDING_CLASS, EXT_TYPE_CLASS,
+        ART_MESH_INSTANCE_CLASS, ART_MESH_FORM_CLASS,
+        GRID_CLASS, BINDING_CLASS, EXT_TYPE_CLASS, MORPH_SET_CLASS,
         DIALOG_CLASS, DRIVER_CLASS, FILE_CACHE_CLASS, FILE_HANDLE_CLASS
     );
 
@@ -539,6 +596,63 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     /**
+     * {@code CParameter.setValue} on a live parameter instance — behavior-sampling
+     * writes only ever land on the disposable copy's model instance.
+     */
+    @Override
+    public void setParameterInstanceValue(
+        final Object parameterInstance,
+        final float value
+    ) {
+        if (!resolver.isInstance(PARAMETER_INSTANCE_CLASS, parameterInstance)) {
+            throw new IllegalStateException("object is not a parameter instance");
+        }
+        resolver.invoke(PARAMETER_INSTANCE_SET_VALUE, parameterInstance, value);
+    }
+
+    /**
+     * {@code CModel.reinitModelInstance_exe} — the self-contained "update model"
+     * evaluation: rebuilds instance objects and refreshes calculated forms with
+     * no view context required.
+     */
+    @Override
+    public void evaluateModelInstance(final Object modelInstance) {
+        if (!resolver.isInstance(MODEL_CLASS, modelInstance)) {
+            throw new IllegalStateException("object is not a model instance");
+        }
+        resolver.invoke(MODEL_REINIT_EXE, modelInstance);
+    }
+
+    @Override
+    public List<?> modelInstanceArtMeshes(final Object modelInstance) {
+        if (!resolver.isInstance(MODEL_CLASS, modelInstance)) {
+            return List.of();
+        }
+        return listOf(resolver.invoke(MODEL_ART_MESHES, modelInstance));
+    }
+
+    @Override
+    public Object artMeshInstanceSource(final Object artMeshInstance) {
+        if (!resolver.isInstance(ART_MESH_INSTANCE_CLASS, artMeshInstance)) {
+            return null;
+        }
+        return resolver.invoke(ART_MESH_INSTANCE_SOURCE, artMeshInstance);
+    }
+
+    @Override
+    public float[] evaluatedArtMeshPositions(final Object artMeshInstance) {
+        if (!resolver.isInstance(ART_MESH_INSTANCE_CLASS, artMeshInstance)) {
+            return null;
+        }
+        final Object form = resolver.invoke(ART_MESH_INSTANCE_FORM, artMeshInstance);
+        if (!resolver.isInstance(ART_MESH_FORM_CLASS, form)) {
+            return null;
+        }
+        final Object positions = resolver.invoke(ART_MESH_FORM_POSITIONS, form);
+        return positions instanceof float[] array ? array.clone() : null;
+    }
+
+    /**
      * Rewrites a parameter-controllable source's local name. Used only by the protected
      * ArtMesh obfuscation pass on the disposable copy (never on the authoring document).
      */
@@ -793,6 +907,67 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
             }
         }
         return false;
+    }
+
+    /**
+     * The model source's own {@code contain*} gates — the host's semantic answer
+     * to feature content the object census cannot see. Each predicate maps to a
+     * stable family token; any {@code true} is a hard admission rejection.
+     */
+    @Override
+    public List<String> unsupportedModelFeatures(final Object modelSource) {
+        if (modelSource == null) {
+            return List.of();
+        }
+        final Map<String, String> gates = new LinkedHashMap<>();
+        gates.put(MS_CONTAIN_MULTIPLY, "multiply-color");
+        gates.put(MS_CONTAIN_SCREEN, "screen-color");
+        gates.put(MS_CONTAIN_MORPH, "morph-target");
+        gates.put(MS_CONTAIN_MORPH_ENH, "morph-target-enhancement");
+        gates.put(MS_CONTAIN_ADVANCED_BLEND, "advanced-blend");
+        gates.put(MS_CONTAIN_ART_PATH, "art-path");
+        gates.put(MS_CONTAIN_ALIAS, "alias");
+        gates.put(MS_CONTAIN_INVERT_CLIP, "invert-clipping");
+        gates.put(MS_CONTAIN_QUAD, "quad-transform");
+        gates.put(MS_CONTAIN_OFFSCREEN, "offscreen-rendering");
+        gates.put(MS_CONTAIN_MOTION_SYNC, "motion-sync");
+        gates.put(MS_CONTAIN_MOTION_SYNC_FIX, "motion-sync-correction");
+        final List<String> detected = new ArrayList<>();
+        for (Map.Entry<String, String> gate : gates.entrySet()) {
+            if (Boolean.TRUE.equals(resolver.invoke(gate.getKey(), modelSource))) {
+                detected.add(gate.getValue());
+            }
+        }
+        return List.copyOf(detected);
+    }
+
+    /**
+     * Structures embedded inside a controllable source that never appear in the
+     * object census: a keyform morph-target set with actual targets, an
+     * extended morph-target set, or any extension object attached to the source.
+     * Extension classes are named in the token so the rejection is diagnosable.
+     */
+    @Override
+    public List<String> embeddedUnsupportedFamilies(final Object controllableSource) {
+        if (controllableSource == null) {
+            return List.of();
+        }
+        final List<String> detected = new ArrayList<>();
+        final Object morphSet = resolver.invoke(SOURCE_MORPH_SET, controllableSource);
+        if (morphSet != null && resolver.isInstance(MORPH_SET_CLASS, morphSet)
+            && !listOf(resolver.invoke(MORPH_SET_TARGETS, morphSet)).isEmpty()) {
+            detected.add("keyform-morph-target-set");
+        }
+        if (resolver.invoke(SOURCE_EXT_MORPH_SET, controllableSource) != null) {
+            detected.add("extended-morph-target-set");
+        }
+        for (Object extension : listOf(
+            resolver.invoke(SOURCE_EXTENSIONS, controllableSource))) {
+            if (extension != null) {
+                detected.add("extension:" + extension.getClass().getName());
+            }
+        }
+        return List.copyOf(detected);
     }
 
     // ------------------------------------------------------------------

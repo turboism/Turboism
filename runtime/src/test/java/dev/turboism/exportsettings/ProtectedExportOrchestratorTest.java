@@ -21,14 +21,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
@@ -37,6 +41,7 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -172,6 +177,29 @@ class ProtectedExportOrchestratorTest {
         assertTrue(report.failureKey().startsWith(
             ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
         assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenStagedGeometryDriftsFromEvaluatedCopy() throws Exception {
+        // The exported model reproduces every structural contract (IDs, ranges,
+        // key positions) but its evaluated geometry differs from the copy's —
+        // only the sampled-behavior oracle can see it.
+        final Fixture fixture = new Fixture();
+        fixture.host.exportDriftsGeometry = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().startsWith(
+                ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
+            "expected validation rejection, got " + report.failureKey());
+        assertTrue(report.failureKey().contains("behavior-drift"),
+            "expected behavior-drift detail, got " + report.failureKey());
+        assertFalse(report.published());
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanupErrors().isEmpty());
         orchestrator.close();
     }
 
@@ -581,6 +609,174 @@ class ProtectedExportOrchestratorTest {
     }
 
     // ------------------------------------------------------------------
+    // Hidden structure families
+    // ------------------------------------------------------------------
+
+    @Test
+    void rejectsModelFeatureInvisibleToCensus() throws Exception {
+        final Fixture fixture = new Fixture();
+        // Multiply colour lives on ArtMesh colour composition — the object
+        // census sees only supported families, the host contain* gate must
+        // still reject before any copy is written.
+        fixture.host.multiplyColor = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.host.copy == null || !fixture.host.copy.file.exists(),
+            "unsupported model must be refused before a copy is written");
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsMorphTargetsEmbeddedInsideArtMesh() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A keyform morph-target set embedded in an ArtMesh source — the exact
+        // hidden family the r19 fixture carried — must reject at admission even
+        // though every census object is a supported category.
+        fixture.host.embeddedMorphTargets = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsExtensionAttachedToDeformer() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.attachedExtension = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    // ------------------------------------------------------------------
+    // Selection reentrancy and mid-session revocation
+    // ------------------------------------------------------------------
+
+    @Test
+    void refusesApplyWhenSelectionSwitchesActiveDocument() throws Exception {
+        final Fixture fixture = new Fixture();
+        // selectSource returns with the original document active again — the
+        // supervisor probe reproduced an apply landing after exactly this
+        // reentrancy. The apply must never run, and the original's dirty and
+        // undo state must stay untouched.
+        fixture.host.switchActiveDocOnSelect = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertEquals(0, fixture.host.applyCalls.get(),
+            "apply must not run after the selection switched documents");
+        assertFalse(fixture.host.original.modified,
+            "original dirty flag must stay untouched");
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
+        assertTrue(fixture.destinationFiles().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void refusesPublishWhenPluginUnloadedDuringNativeExport() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The plugin binding dies while the native modal flow runs — the
+        // completion already fired, so this is exactly the probe scenario.
+        fixture.host.revokeBindingOnNativeExport = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.destinationFiles().isEmpty(),
+            "revoked session must not publish: " + fixture.destinationFiles());
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
+        orchestrator.close();
+    }
+
+    @Test
+    void refusesPublishWhenHostGenerationChangesDuringNativeExport()
+            throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.bumpGenerationOnNativeExport = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.destinationFiles().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void refusesPublishWhenOriginalDocumentClosesDuringNativeExport()
+            throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.removeOriginalOnNativeExport = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.destinationFiles().isEmpty());
+        // Teardown reopens the original file — restoration still proves out.
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
+        orchestrator.close();
+    }
+
+    @Test
+    void refusesPublishWhenCopyDocumentClosesDuringNativeExport()
+            throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.removeCopyOnNativeExport = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.destinationFiles().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void ignoresCompletionCallbackArrivingAfterTimeout() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The native flow never completes — the session times out, disarms, and
+        // clears the export window. A callback landing afterwards must be a
+        // no-op: no second report and certainly no publication.
+        fixture.host.exportCompletes = false;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.EXPORT_TIMEOUT_KEY, report.failureKey());
+        assertFalse(report.published());
+        assertNotNull(fixture.host.completion,
+            "the fake must retain the gated completion callback");
+        fixture.host.completion.accept(fixture.realPick, List.of("late.moc3"));
+        assertNull(fixture.reports.poll(2L, TimeUnit.SECONDS),
+            "a late callback must not produce another report");
+        assertTrue(fixture.destinationFiles().isEmpty());
+        orchestrator.close();
+    }
+
+    // ------------------------------------------------------------------
     // Fixture: fake host, inline EDT, blocking report queue
     // ------------------------------------------------------------------
 
@@ -626,11 +822,34 @@ class ProtectedExportOrchestratorTest {
             host.orchestratorRef = () -> orchestrator;
         }
 
+        /** Live parameter values per instantiated fake model — the writer's target. */
+        final IdentityHashMap<OwnedModel, Map<String, Float>> fakeModelValues =
+            new IdentityHashMap<>();
+
+        /**
+         * Fake Core-parameter write seam mirroring {@code OwnedMocRuntime}'s
+         * runtime-private path: writes the model's live value table, which
+         * {@code drawables()} reads when re-projecting evaluated positions.
+         */
+        private void writeFakeParameter(
+            final OwnedModel model,
+            final String parameterId,
+            final float value
+        ) {
+            final Map<String, Float> values = fakeModelValues.get(model);
+            if (values == null || !values.containsKey(parameterId)) {
+                throw new IllegalStateException("parameter absent: " + parameterId);
+            }
+            values.put(parameterId, value);
+        }
+
         ProtectedExportOrchestrator orchestrator() {
             if (orchestrator == null) {
                 orchestrator = new ProtectedExportOrchestrator(
                     host,
-                    new ProtectedExportStaging(data -> mocLoads ? fakeMoc() : null),
+                    new ProtectedExportStaging(
+                        data -> mocLoads ? fakeMoc() : null,
+                        this::writeFakeParameter),
                     stagingRoot,
                     "dev.turboism.plugin.protected-export",
                     "protected-export",
@@ -698,38 +917,11 @@ class ProtectedExportOrchestratorTest {
          * unless a fault knob rewrites them.
          */
         private OwnedModel fakeModel(final FakeModel exported) {
-            final List<OwnedDrawable> drawables = new ArrayList<>();
-            exported.artMeshes.forEach(mesh -> drawables.add(new OwnedDrawable(
-                host.exportKeepsOriginalDrawableIds
-                    ? mesh.guid.replace("-guid", "-original") : mesh.drawableId,
-                (byte) 0, (byte) 0, BlendMode.NORMAL, 0, 0, 0, 1f,
-                List.of(), List.of(), List.of(), List.of(),
-                new Color(1f, 1f, 1f, 1f), new Color(0f, 0f, 0f, 0f),
-                -1, -1, List.of())));
-            final List<OwnedParameter> parameters = new ArrayList<>();
-            exported.parameters.forEach(parameter -> {
-                // Serialized keys = union of key positions across the model's
-                // bindings for the parameter — the surface flatten must preserve.
-                final Set<Float> keys = new java.util.TreeSet<>();
-                exported.artMeshes.forEach(mesh -> mesh.bindings.forEach(binding -> {
-                    if (binding.parameterId.equals(parameter.id)) {
-                        keys.addAll(binding.keys);
-                    }
-                }));
-                exported.deformers.forEach(deformer -> deformer.bindings.forEach(
-                    binding -> {
-                        if (binding.parameterId.equals(parameter.id)) {
-                            keys.addAll(binding.keys);
-                        }
-                    }));
-                parameters.add(new OwnedParameter(parameter.id, 0,
-                    parameter.min, parameter.max, parameter.defaultValue, 0f,
-                    List.copyOf(keys), java.util.Optional.empty()));
-            });
-            if (host.exportAddsParameter) {
-                parameters.add(new OwnedParameter("param-injected", 0, 0f, 1f, 0f,
-                    0f, List.of(0f, 1f), java.util.Optional.empty()));
-            }
+            // Live parameter values the writer mutates; evaluated drawable
+            // positions re-project from this table exactly like the real Core.
+            final Map<String, Float> liveValues = new HashMap<>();
+            exported.parameters.forEach(
+                parameter -> liveValues.put(parameter.id, parameter.defaultValue));
             final List<OwnedPart> parts = new ArrayList<>();
             exported.parts.forEach(part ->
                 parts.add(new OwnedPart(part.id, 1f, -1)));
@@ -737,7 +929,7 @@ class ProtectedExportOrchestratorTest {
             if (host.exportLeavesDeformer) {
                 deformers.add(new OwnedDeformer("d-left", -1, List.of()));
             }
-            return new OwnedModel() {
+            final OwnedModel model = new OwnedModel() {
                 @Override
                 public long nativeHandle() {
                     return 1L;
@@ -750,7 +942,34 @@ class ProtectedExportOrchestratorTest {
 
                 @Override
                 public List<OwnedParameter> parameters() {
-                    return parameters;
+                    final List<OwnedParameter> projected = new ArrayList<>();
+                    exported.parameters.forEach(parameter -> {
+                        // Serialized keys = union of key positions across the
+                        // model's bindings for the parameter.
+                        final Set<Float> keys = new java.util.TreeSet<>();
+                        exported.artMeshes.forEach(mesh ->
+                            mesh.bindings.forEach(binding -> {
+                                if (binding.parameterId.equals(parameter.id)) {
+                                    keys.addAll(binding.keys);
+                                }
+                            }));
+                        exported.deformers.forEach(deformer ->
+                            deformer.bindings.forEach(binding -> {
+                                if (binding.parameterId.equals(parameter.id)) {
+                                    keys.addAll(binding.keys);
+                                }
+                            }));
+                        projected.add(new OwnedParameter(parameter.id, 0,
+                            parameter.min, parameter.max, parameter.defaultValue,
+                            liveValues.get(parameter.id),
+                            List.copyOf(keys), java.util.Optional.empty()));
+                    });
+                    if (host.exportAddsParameter) {
+                        projected.add(new OwnedParameter("param-injected", 0,
+                            0f, 1f, 0f, 0f, List.of(0f, 1f),
+                            java.util.Optional.empty()));
+                    }
+                    return projected;
                 }
 
                 @Override
@@ -760,7 +979,32 @@ class ProtectedExportOrchestratorTest {
 
                 @Override
                 public List<OwnedDrawable> drawables() {
-                    return drawables;
+                    final List<OwnedDrawable> projected = new ArrayList<>();
+                    exported.artMeshes.forEach(mesh -> {
+                        final float[] positions =
+                            evalPositions(mesh.bindings, liveValues);
+                        if (host.exportDriftsGeometry) {
+                            // The exporter's bake diverges from live evaluation —
+                            // contracts still match, only the behavior oracle can
+                            // see the positional drift.
+                            for (int i = 0; i < positions.length; i++) {
+                                positions[i] *= 1.5f;
+                            }
+                        }
+                        final List<Float> vertexPositions = new ArrayList<>();
+                        for (float position : positions) {
+                            vertexPositions.add(position);
+                        }
+                        projected.add(new OwnedDrawable(
+                            host.exportKeepsOriginalDrawableIds
+                                ? mesh.guid.replace("-guid", "-original")
+                                : mesh.drawableId,
+                            (byte) 0, (byte) 0, BlendMode.NORMAL, 0, 0, 0, 1f,
+                            List.of(), vertexPositions, List.of(), List.of(),
+                            new Color(1f, 1f, 1f, 1f), new Color(0f, 0f, 0f, 0f),
+                            -1, -1, List.of()));
+                    });
+                    return projected;
                 }
 
                 @Override
@@ -781,6 +1025,8 @@ class ProtectedExportOrchestratorTest {
                 public void close() {
                 }
             };
+            fakeModelValues.put(model, liveValues);
+            return model;
         }
     }
 
@@ -839,6 +1085,8 @@ class ProtectedExportOrchestratorTest {
         String name;
         String drawableId;
         final List<FakeBinding> bindings;
+        /** Post-evaluation vertex positions, filled by {@code evaluateModelInstance}. */
+        float[] evaluatedPositions;
 
         FakeArtMesh(final String guid, final String name, final String drawableId) {
             this(guid, name, drawableId, List.of());
@@ -863,6 +1111,8 @@ class ProtectedExportOrchestratorTest {
         final float max;
         final float defaultValue;
         final boolean repeat;
+        /** Live current value — the fake's parameter-instance write target. */
+        float currentValue;
 
         FakeParameter(final String id) {
             this(id, 0f, 1f, 0f, false);
@@ -880,6 +1130,7 @@ class ProtectedExportOrchestratorTest {
             this.max = max;
             this.defaultValue = defaultValue;
             this.repeat = repeat;
+            this.currentValue = defaultValue;
         }
     }
 
@@ -922,6 +1173,40 @@ class ProtectedExportOrchestratorTest {
         FakeDoc document;
     }
 
+    /**
+     * Instance-side ArtMesh handle — the fake mirrors the real host split where
+     * evaluated geometry lives on instance objects that point back to sources.
+     */
+    private static final class FakeInstanceMesh {
+        final FakeArtMesh source;
+
+        FakeInstanceMesh(final FakeArtMesh source) {
+            this.source = source;
+        }
+    }
+
+    /**
+     * Deterministic evaluated geometry shared by the fake host (post-evaluation
+     * positions) and the fake staged model (Core-side vertex positions): every
+     * bound parameter's current value contributes, weighted by that binding's
+     * key count — a dropped or re-baked binding changes the output.
+     */
+    private static float[] evalPositions(
+        final List<FakeBinding> bindings,
+        final Map<String, Float> values
+    ) {
+        float sum = 0f;
+        float weighted = 0f;
+        for (FakeBinding binding : bindings) {
+            final Float value = values.get(binding.parameterId);
+            if (value != null) {
+                sum += value;
+                weighted += value * binding.keys.size();
+            }
+        }
+        return new float[]{sum, weighted, sum + weighted, sum - weighted};
+    }
+
     private static final class FakeHost implements ProtectedExportHostOperations {
         final FakeDoc original = new FakeDoc();
         final FakeDoc otherDoc = new FakeDoc();
@@ -954,11 +1239,21 @@ class ProtectedExportOrchestratorTest {
         volatile boolean releaseCopyHandle = true;
         volatile boolean exportKeepsOriginalDrawableIds;
         volatile boolean exportLeavesDeformer;
+        volatile boolean exportDriftsGeometry;
         volatile boolean exportAddsParameter;
         volatile boolean vanishArtMeshAfterCensus;
         volatile boolean copyFileMarkedReadOnlyOnOpen;
         volatile boolean selectsExtraDeformer;
         volatile boolean mutatePartNameMidRun;
+        volatile boolean switchActiveDocOnSelect;
+        volatile boolean multiplyColor;
+        volatile boolean embeddedMorphTargets;
+        volatile boolean attachedExtension;
+        volatile boolean revokeBindingOnNativeExport;
+        volatile boolean bumpGenerationOnNativeExport;
+        volatile boolean removeOriginalOnNativeExport;
+        volatile boolean removeCopyOnNativeExport;
+        final AtomicInteger applyCalls = new AtomicInteger();
         private int copyCensusCalls;
         private int artMeshCensusCalls;
 
@@ -1031,6 +1326,9 @@ class ProtectedExportOrchestratorTest {
             }
             if (file.equals(original.file)) {
                 if (restoreOriginal) {
+                    // Reopening a document that left the project re-adds it —
+                    // the native open path does the same.
+                    project.add(original);
                     activeDoc = original;
                 }
                 return;
@@ -1202,6 +1500,12 @@ class ProtectedExportOrchestratorTest {
                 ((FakeSelector) selector).selected.add(
                     new FakeDeformer("g-foreign", null));
             }
+            if (switchActiveDocOnSelect) {
+                // Selection callbacks reenter host code: the active document
+                // flips back to the original while the selection itself still
+                // holds the planned deformer.
+                activeDoc = original;
+            }
         }
 
         @Override
@@ -1211,6 +1515,7 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public void applyDeformerToParameters(final Object mainEditMode) {
+            applyCalls.incrementAndGet();
             final FakeDoc doc = (FakeDoc) activeDoc;
             if (applyRemovesDeformer) {
                 if (mutatePartNameMidRun && doc == copy) {
@@ -1350,17 +1655,63 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public List<?> liveParameters(final Object modelSource) {
-            return List.of();
+            return List.copyOf(((FakeModel) modelSource).parameters);
         }
 
         @Override
         public String parameterInstanceId(final Object parameter) {
-            return null;
+            return parameter instanceof FakeParameter p ? p.id : null;
         }
 
         @Override
         public float parameterInstanceValue(final Object parameter) {
-            return Float.NaN;
+            return parameter instanceof FakeParameter p
+                ? p.currentValue : Float.NaN;
+        }
+
+        @Override
+        public void setParameterInstanceValue(
+            final Object parameterInstance,
+            final float value
+        ) {
+            ((FakeParameter) parameterInstance).currentValue = value;
+        }
+
+        @Override
+        public void evaluateModelInstance(final Object modelInstance) {
+            // The fake's "update model": every ArtMesh's evaluated positions are
+            // recomputed from the current parameter values — the same function
+            // the fake staged model evaluates on the Core side.
+            final FakeModel model = (FakeModel) modelInstance;
+            final Map<String, Float> values = new HashMap<>();
+            for (FakeParameter parameter : model.parameters) {
+                values.put(parameter.id, parameter.currentValue);
+            }
+            for (FakeArtMesh mesh : model.artMeshes) {
+                mesh.evaluatedPositions = evalPositions(mesh.bindings, values);
+            }
+        }
+
+        @Override
+        public List<?> modelInstanceArtMeshes(final Object modelInstance) {
+            return ((FakeModel) modelInstance).artMeshes.stream()
+                .map(FakeInstanceMesh::new)
+                .toList();
+        }
+
+        @Override
+        public Object artMeshInstanceSource(final Object artMeshInstance) {
+            return artMeshInstance instanceof FakeInstanceMesh mesh
+                ? mesh.source : null;
+        }
+
+        @Override
+        public float[] evaluatedArtMeshPositions(final Object artMeshInstance) {
+            if (!(artMeshInstance instanceof FakeInstanceMesh mesh)) {
+                return null;
+            }
+            return mesh.source.evaluatedPositions == null
+                ? null : mesh.source.evaluatedPositions.clone();
         }
 
         @Override
@@ -1528,6 +1879,28 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
+        public List<String> unsupportedModelFeatures(final Object modelSource) {
+            // Mirrors the host contain* gates: any populated flag is a family
+            // the census cannot see — multiply colour lives on ArtMesh colour
+            // composition, not the object list.
+            return multiplyColor ? List.of("multiply-color") : List.of();
+        }
+
+        @Override
+        public List<String> embeddedUnsupportedFamilies(final Object controllableSource) {
+            final List<String> detected = new ArrayList<>();
+            if (embeddedMorphTargets
+                && controllableSource instanceof FakeArtMesh mesh
+                && "m-a-guid".equals(mesh.guid)) {
+                detected.add("keyform-morph-target-set");
+            }
+            if (attachedExtension && controllableSource instanceof FakeDeformer) {
+                detected.add("extension:com.live2d.cubism.doc.model.extension.controller.CControllerExtension");
+            }
+            return detected;
+        }
+
+        @Override
         public boolean isExportDialog(final Object owner) {
             return owner != null;
         }
@@ -1587,6 +1960,19 @@ class ProtectedExportOrchestratorTest {
             }
             if (exportCompletes && completion != null) {
                 completion.accept(staged, paths);
+            }
+            if (revokeBindingOnNativeExport && bindingLiveFlag != null) {
+                // Plugin unload lands while the native modal flow runs.
+                bindingLiveFlag.set(false);
+            }
+            if (bumpGenerationOnNativeExport && hostGenerationFlag != null) {
+                hostGenerationFlag.incrementAndGet();
+            }
+            if (removeOriginalOnNativeExport) {
+                project.remove(original);
+            }
+            if (removeCopyOnNativeExport && copy != null) {
+                project.remove(copy);
             }
         }
 

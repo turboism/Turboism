@@ -388,6 +388,23 @@ final class CoreCallSiteTable implements AutoCloseable {
         return callSite;
     }
 
+    /**
+     * Package-private raw invocation over the already-bound, verified call sites.
+     * Used by {@link OwnedMocRuntime} for the runtime-private behavior-sampling
+     * write path (parameter value writes through the live {@code getValues()}
+     * array); nothing here widens the public SDK surface.
+     */
+    Object invokeRaw(
+        final String alias,
+        final Object target,
+        final Object... arguments
+    ) {
+        if (closed) {
+            throw invalid("Core structural call-site table is closed.");
+        }
+        return callSite(alias).invoke(target, arguments);
+    }
+
     private Optional<VerifiedMethodCallSite> optionalCallSite(
         final String alias
     ) {
