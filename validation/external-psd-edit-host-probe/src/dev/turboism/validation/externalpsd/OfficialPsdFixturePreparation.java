@@ -75,7 +75,6 @@ public final class OfficialPsdFixturePreparation {
         "8b760eb0b6ac5839271210aa0efc681f6a02a6537c1ab97d40a3a56879d8f02c";
     public static final String NATIVE_SEVEN_LAYER_TARGET_RGB_SHA256 =
         "12eca5a1c8d8b9096384c974d52e8f0310c4ad9ac4ea87a072684096cf2b808d";
-
     public static final String CONFIG_PREFIX =
         "turboism.validation.externalpsd.prepare.";
     public static final String FIXTURE_PROPERTY = CONFIG_PREFIX + "fixture";
@@ -195,30 +194,40 @@ public final class OfficialPsdFixturePreparation {
         return prepare();
     }
 
-    private PreparedInput readInput(final Properties values) {
-        final String fixture = configured(values, FIXTURE_PROPERTY, "fixture");
-        final String fixtureSha = configured(values, FIXTURE_SHA256_PROPERTY, "fixtureSha256");
-        final String fixtureName = configured(values, FIXTURE_NAME_PROPERTY, "fixtureName");
-        final String runId = configured(values, RUN_ID_PROPERTY, "runId");
-        final String taskId = configured(values, TASK_ID_PROPERTY, "taskId");
-        final String savedCopy = configured(values, SAVED_COPY_PROPERTY, "savedCopy");
-        final String targetRgb = configured(values, TARGET_RGB_SHA256_PROPERTY, "targetRgbSha256");
-        final String hostVersion = configured(values, HOST_VERSION_PROPERTY, "hostVersion");
-        final PreparationProfile profile = parseProfile(
-            configured(values, PROFILE_PROPERTY, "profile"));
-        final long timeout = timeoutMillis(configured(values, TIMEOUT_MILLIS_PROPERTY,
-            "timeoutMillis"));
+    private static PreparedInput readInput(final Properties values) {
+        final String fixture = configured(values, FIXTURE_PROPERTY);
+        final String fixtureSha = configured(values, FIXTURE_SHA256_PROPERTY);
+        final String fixtureName = configured(values, FIXTURE_NAME_PROPERTY);
+        final String runId = configured(values, RUN_ID_PROPERTY);
+        final String taskId = configured(values, TASK_ID_PROPERTY);
+        final String savedCopy = configured(values, SAVED_COPY_PROPERTY);
+        final String targetRgb = configured(values, TARGET_RGB_SHA256_PROPERTY);
+        final String hostVersion = configured(values, HOST_VERSION_PROPERTY);
+        final PreparationProfile profile = parseProfile(configured(values, PROFILE_PROPERTY));
+        final long timeout = timeoutMillis(configured(values, TIMEOUT_MILLIS_PROPERTY));
         return new PreparedInput(validateInput(fixture, fixtureSha, fixtureName, runId, taskId,
             savedCopy, targetRgb, hostVersion, timeout, profile), profile);
     }
 
-    private static String configured(final Properties values, final String key,
-        final String shortKey) {
+    /**
+     * Read only the preparation namespace.  Runner result properties also contain generic keys
+     * such as {@code profile}, {@code runId}, and {@code fixture}; falling back to those keys
+     * can make a pipeline profile mask the explicitly requested preparation profile.
+     */
+    private static String configured(final Properties values, final String key) {
         String value = values.getProperty(key, "");
-        if (value.isBlank()) value = values.getProperty(shortKey, "");
         if (value.isBlank()) value = System.getProperty(key, "");
-        if (value.isBlank()) value = System.getProperty(shortKey, "");
         return value == null ? "" : value.trim();
+    }
+
+    /** Package-private regression seam for the preparation namespace only. */
+    static InputIdentity readInputForTest(final Properties values) {
+        return readInput(values).identity();
+    }
+
+    /** Package-private regression seam for profile precedence and collision handling. */
+    static String configuredProfileForTest(final Properties values) {
+        return readInput(values).profile().profileName();
     }
 
     private static long timeoutMillis(final String value) {
