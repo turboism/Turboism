@@ -9,9 +9,23 @@ import dev.turboism.sdk.cubism.model.ModelImageRelation;
 import dev.turboism.sdk.cubism.model.RawLayerBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 
+import java.awt.Window;
+import javax.swing.AbstractButton;
+import javax.swing.JFrame;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.CodeSource;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Offline focused checks for the official PSD preparation gates. */
 public final class OfficialPsdFixturePreparationTest {
@@ -23,8 +37,10 @@ public final class OfficialPsdFixturePreparationTest {
     public static void main(final String[] args) {
         testInputBindingAndPsdPolicy();
         testRelationGate();
+        testWindowBindingAndChooserGate();
         testPostSaveModelGate();
         testSaveAfterIdentityGate();
+        testOfficialJarAccessorShape();
         System.out.println("PASS: OfficialPsdFixturePreparationTest");
     }
 
@@ -86,33 +102,325 @@ public final class OfficialPsdFixturePreparationTest {
                 "document", "model", duplicateModelImages()));
     }
 
+    private static void testOfficialJarAccessorShape() {
+        final String configured = System.getenv("TURBOISM_EXTERNAL_PSD_SHAPE_JAR");
+        if (configured == null || configured.isBlank()) {
+            throw new AssertionError("TURBOISM_EXTERNAL_PSD_SHAPE_JAR is required");
+        }
+        try {
+            final Path expectedJar = Path.of(
+                "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/"
+                    + "Live2D_Cubism.jar").toRealPath();
+            final Path configuredJar = Path.of(configured).toRealPath();
+            assertEquals(expectedJar, configuredJar, "shape test uses the reviewed JAR");
+            assertEquals("988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                sha256(configuredJar), "shape JAR SHA-256 is reviewed");
+
+            final ClassLoader loader = ClassLoader.getSystemClassLoader();
+            final Class<?> app = load(loader, "com.live2d.cubism.CEAppCtrl");
+            final Class<?> mainFrameController = load(loader,
+                "com.live2d.cubism.view.CEMainFrameCtrl");
+            final Class<?> cFrame = load(loader, "com.live2d.ui.window.CFrame");
+            final Class<?> windowBase = load(loader, "com.live2d.ui.window.V");
+            final Class<?> option = load(loader, "com.live2d.cubism.process.psd.a$a");
+            final Class<?> modelDocument = load(loader,
+                "com.live2d.cubism.doc.modeling.CModelingDocument");
+            final Class<?> renderer = load(loader, "com.live2d.cubism.process.psd.e");
+            final Class<?> list = load(loader, "com.live2d.ui.swingImpl.q");
+            final Class<?> button = load(loader, "com.live2d.ui.swingImpl.j");
+            final Class<?> buttonSubclass = load(loader, "com.live2d.ui.control.CButton$b");
+            final Class<?> cButton = load(loader, "com.live2d.ui.control.CButton");
+            final Class<?> action = load(loader, "com.live2d.ui.event.CAction");
+            final Class<?> localizer = load(loader, "b.c");
+            for (final Class<?> type : List.of(app, mainFrameController, cFrame, windowBase,
+                option, modelDocument, renderer, list, button, buttonSubclass, cButton, action,
+                localizer)) {
+                assertSame(loader, type.getClassLoader(), "all shape classes use one loader");
+                assertEquals(configuredJar, codeSource(type),
+                    "shape class code source is the reviewed JAR: " + type.getName());
+            }
+
+            exactMethod(app, "access$get_instance$cp", app, true);
+            exactMethod(app, "getMainFrameCtrl", mainFrameController, false);
+            exactMethod(mainFrameController, "getMainFrame", cFrame, false);
+            final Method swingWindow = cFrame.getMethod("getJWindow");
+            assertEquals(Window.class, swingWindow.getReturnType(), "V.getJWindow return shape");
+            assertEquals(windowBase, swingWindow.getDeclaringClass(),
+                "CFrame window getter is inherited from V");
+            exactMethod(cFrame, "getJFrame", JFrame.class, false);
+            exactMethod(option, "a", modelDocument, false);
+            exactMethod(option, "b", String.class, false);
+            assertTrue(AbstractButton.class.isAssignableFrom(button),
+                "exact j button is a Swing button");
+            assertTrue(AbstractButton.class.isAssignableFrom(buttonSubclass),
+                "verified CButton$b is a Swing button");
+            final java.lang.reflect.Constructor<?> buttonActionConstructor =
+                cButton.getConstructor(action);
+            assertEquals(cButton, buttonActionConstructor.getDeclaringClass(),
+                "CButton(CAction) shape is exact");
+
+            final Field instance = localizer.getDeclaredField("a");
+            assertTrue(Modifier.isPublic(instance.getModifiers())
+                && Modifier.isStatic(instance.getModifiers())
+                && Modifier.isFinal(instance.getModifiers())
+                && instance.getType() == localizer, "localizer singleton field shape");
+            final Method localize = exactMethod(localizer, "a", String.class, false,
+                String.class, String[].class);
+            assertTrue(instance.trySetAccessible(), "localizer singleton is readable");
+            final Object localizerObject = instance.get(null);
+            for (final String key : List.of("CUB3-0418", "CUB3-4408", "CUB3-0421", "CUB3-0420")) {
+                final Object value = localize.invoke(localizerObject, key, new String[0]);
+                assertTrue(value instanceof String text && !text.isBlank(),
+                    "runtime locale text is available for " + key);
+            }
+        } catch (ReflectiveOperationException | IOException | URISyntaxException failure) {
+            throw new AssertionError("official accessor shape failed", failure);
+        }
+    }
+
+    private static Class<?> load(final ClassLoader loader, final String name)
+        throws ClassNotFoundException {
+        return Class.forName(name, false, loader);
+    }
+
+    private static Method exactMethod(final Class<?> owner, final String name,
+        final Class<?> returnType, final boolean staticRequired, final Class<?>... parameters)
+        throws ReflectiveOperationException {
+        final Method method = owner.getDeclaredMethod(name, parameters);
+        assertTrue(Modifier.isPublic(method.getModifiers())
+            && Modifier.isStatic(method.getModifiers()) == staticRequired
+            && method.getReturnType() == returnType, "exact method shape: " + owner.getName()
+            + '.' + name);
+        return method;
+    }
+
+    private static Path codeSource(final Class<?> type) throws URISyntaxException, IOException {
+        final CodeSource source = type.getProtectionDomain().getCodeSource();
+        assertTrue(source != null && source.getLocation() != null,
+            "code source exists for " + type.getName());
+        return Path.of(source.getLocation().toURI()).toRealPath();
+    }
+
+    private static String sha256(final Path path) throws IOException {
+        try {
+            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (var input = Files.newInputStream(path)) {
+                final byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) >= 0) {
+                    if (count > 0) digest.update(buffer, 0, count);
+                }
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException failure) {
+            throw new IOException("SHA-256 unavailable", failure);
+        }
+    }
+
+    private static void testWindowBindingAndChooserGate() {
+        final Object owner = new Object();
+        final OfficialPsdFixturePreparation.WindowBindingDecision waiting =
+            OfficialPsdFixturePreparation.bindWindow(null, null);
+        assertFalse(waiting.ready(), "unready main frame is not bound");
+        assertTrue(waiting.waiting(), "unready main frame is retryable before binding");
+        final OfficialPsdFixturePreparation.WindowBindingDecision first =
+            OfficialPsdFixturePreparation.bindWindow(null, owner);
+        assertTrue(first.ready(), "first showing main frame binds");
+        assertFalse(first.waiting(), "first binding is not a retry state");
+        assertSame(owner, first.owner(), "first owner identity is retained");
+        final OfficialPsdFixturePreparation.WindowBindingDecision retained =
+            OfficialPsdFixturePreparation.bindWindow(owner, owner);
+        assertTrue(retained.ready(), "same owner remains valid");
+        assertFalse(retained.waiting(), "same owner is not a retry state");
+        final OfficialPsdFixturePreparation.WindowBindingDecision disappeared =
+            OfficialPsdFixturePreparation.bindWindow(owner, null);
+        assertFalse(disappeared.ready(), "bound owner disappearance is terminal");
+        assertFalse(disappeared.waiting(), "bound owner disappearance cannot rebind");
+        assertSame(owner, disappeared.owner(), "terminal decision keeps original owner");
+        final OfficialPsdFixturePreparation.WindowBindingDecision changed =
+            OfficialPsdFixturePreparation.bindWindow(owner, new Object());
+        assertFalse(changed.ready(), "changed owner is terminal");
+        assertSame(owner, changed.owner(), "changed owner cannot replace the binding");
+
+        final OfficialPsdFixturePreparation.ChooserGateExpectation expected = chooserExpectation();
+        final Object currentOwner = new Object();
+        final AtomicInteger selected = new AtomicInteger();
+        final AtomicInteger clicked = new AtomicInteger();
+        final OfficialPsdFixturePreparation.ChooserGateActions actions = chooserActions(
+            selected, clicked);
+        final Object changedWindow = new Object();
+        final OfficialPsdFixturePreparation.WindowBindingDecision changedBinding =
+            OfficialPsdFixturePreparation.bindWindow(currentOwner, changedWindow);
+        final OfficialPsdFixturePreparation.ChooserGateResult changedResult =
+            OfficialPsdFixturePreparation.verifyAndExecuteChooser(changedBinding,
+                validChooserObservation(changedWindow), expected, () -> false, () -> true, actions);
+        assertFalse(changedResult.accepted(), "changed window is rejected before chooser actions");
+        assertEquals(0, selected.get(), "changed window does not select");
+        assertEquals(0, clicked.get(), "changed window does not click");
+        final OfficialPsdFixturePreparation.ChooserGateResult accepted =
+            OfficialPsdFixturePreparation.verifyAndExecuteChooser(
+                validChooserObservation(currentOwner), expected, () -> false, () -> true, actions);
+        assertTrue(accepted.accepted(), "exact chooser is accepted");
+        assertEquals(1, selected.get(), "exact chooser selects once");
+        assertEquals(1, clicked.get(), "exact chooser confirms once");
+
+        assertChooserRejected("wrong chooser owner", validChooserObservation(new Object(),
+            currentOwner), expected, actions, selected, clicked);
+        assertChooserRejected("unknown option", withFirstOptionClass(
+            validChooserObservation(currentOwner), WrongOption.class), expected, actions,
+            selected, clicked);
+        assertChooserRejected("multiple chooser candidates", withCandidateCount(
+            validChooserObservation(currentOwner), 2), expected, actions, selected, clicked);
+        assertChooserRejected("stopped queued chooser", validChooserObservation(currentOwner),
+            expected, actions, selected, clicked, () -> true, () -> true);
+        assertChooserRejected("unbound queued chooser", validChooserObservation(currentOwner),
+            expected, actions, selected, clicked, () -> false, () -> false);
+    }
+
+    private static void assertChooserRejected(final String description,
+        final OfficialPsdFixturePreparation.ChooserGateObservation observation,
+        final OfficialPsdFixturePreparation.ChooserGateExpectation expected,
+        final OfficialPsdFixturePreparation.ChooserGateActions actions,
+        final AtomicInteger selected, final AtomicInteger clicked) {
+        assertChooserRejected(description, observation, expected, actions, selected, clicked,
+            () -> false, () -> true);
+    }
+
+    private static void assertChooserRejected(final String description,
+        final OfficialPsdFixturePreparation.ChooserGateObservation observation,
+        final OfficialPsdFixturePreparation.ChooserGateExpectation expected,
+        final OfficialPsdFixturePreparation.ChooserGateActions actions,
+        final AtomicInteger selected, final AtomicInteger clicked,
+        final java.util.function.BooleanSupplier stopped,
+        final java.util.function.BooleanSupplier taskBound) {
+        final int selectedBefore = selected.get();
+        final int clickedBefore = clicked.get();
+        final OfficialPsdFixturePreparation.ChooserGateResult result =
+            OfficialPsdFixturePreparation.verifyAndExecuteChooser(
+                observation, expected, stopped, taskBound, actions);
+        assertFalse(result.accepted(), description + " is rejected");
+        assertEquals(selectedBefore, selected.get(), description + " does not select");
+        assertEquals(clickedBefore, clicked.get(), description + " does not click");
+    }
+
+    private static OfficialPsdFixturePreparation.ChooserGateExpectation chooserExpectation() {
+        return new OfficialPsdFixturePreparation.ChooserGateExpectation(
+            ListShape.class, RendererShape.class, OptionShape.class, ExactButton.class,
+            ButtonSubclass.class, ActionShape.class, "follow-target", "older-mode");
+    }
+
+    private static OfficialPsdFixturePreparation.ChooserGateObservation validChooserObservation(
+        final Object owner) {
+        return validChooserObservation(owner, owner);
+    }
+
+    private static OfficialPsdFixturePreparation.ChooserGateObservation validChooserObservation(
+        final Object currentOwner, final Object dialogOwner) {
+        return new OfficialPsdFixturePreparation.ChooserGateObservation(
+            currentOwner, dialogOwner, 1, ListShape.class, RendererShape.class, 2,
+            OptionShape.class, null, "follow-target", OptionShape.class, null, "older-mode",
+            1, ButtonSubclass.class, ActionShape.class, "OK", true, true, true);
+    }
+
+    private static OfficialPsdFixturePreparation.ChooserGateActions chooserActions(
+        final AtomicInteger selected, final AtomicInteger clicked) {
+        return new OfficialPsdFixturePreparation.ChooserGateActions() {
+            @Override public boolean selectFirst() {
+                selected.incrementAndGet();
+                return true;
+            }
+
+            @Override public void clickConfirm() {
+                clicked.incrementAndGet();
+            }
+        };
+    }
+
+    private static OfficialPsdFixturePreparation.ChooserGateObservation withFirstOptionClass(
+        final OfficialPsdFixturePreparation.ChooserGateObservation source,
+        final Class<?> firstOptionClass) {
+        return new OfficialPsdFixturePreparation.ChooserGateObservation(
+            source.currentOwner(), source.dialogOwner(), source.candidateCount(), source.listClass(),
+            source.rendererClass(), source.optionCount(), firstOptionClass,
+            source.firstOptionModel(), source.firstLabel(), source.secondOptionClass(),
+            source.secondOptionModel(), source.secondLabel(), source.confirmationCount(),
+            source.confirmationClass(), source.actionClass(), source.actionName(),
+            source.enabled(), source.showing(), source.displayable());
+    }
+
+    private static OfficialPsdFixturePreparation.ChooserGateObservation withCandidateCount(
+        final OfficialPsdFixturePreparation.ChooserGateObservation source, final int count) {
+        return new OfficialPsdFixturePreparation.ChooserGateObservation(
+            source.currentOwner(), source.dialogOwner(), count, source.listClass(),
+            source.rendererClass(), source.optionCount(), source.firstOptionClass(),
+            source.firstOptionModel(), source.firstLabel(), source.secondOptionClass(),
+            source.secondOptionModel(), source.secondLabel(), source.confirmationCount(),
+            source.confirmationClass(), source.actionClass(), source.actionName(),
+            source.enabled(), source.showing(), source.displayable());
+    }
+
     private static void testSaveAfterIdentityGate() {
-        final OfficialPsdFixturePreparation.RelationIdentity before =
+        final OfficialPsdFixturePreparation.RelationIdentity identity =
             OfficialPsdFixturePreparation.validateRelationSnapshot(
                 "document", "model", relations(true, true, false));
+        final OfficialPsdFixturePreparation.ModelState before = new OfficialPsdFixturePreparation.ModelState(
+            "document", Optional.of("content-before"), "source.psd", "model", identity);
+        final OfficialPsdFixturePreparation.ModelState after = new OfficialPsdFixturePreparation.ModelState(
+            "document", Optional.of("content-after"), "C:\\task\\prepared-control.cmo3",
+            "model", identity);
         final OfficialPsdFixturePreparation.SaveAfterIdentity success =
             new OfficialPsdFixturePreparation.SaveAfterIdentity(
-                "SAVE", true, "prepared-control.cmo3", "content");
+                "SAVE", true, "prepared-control.cmo3", "content-after");
         assertTrue(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, before, "prepared-control.cmo3", "window@1", "window@1"),
-            "SAVE After accepts the unchanged relation/window identity");
+            success, before, after, "prepared-control.cmo3", "window@1", "window@1"),
+            "SAVE After accepts the bound post-SAVE content identity");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
             new OfficialPsdFixturePreparation.SaveAfterIdentity(
-                "SAVE", false, "prepared-control.cmo3", "content"),
-            before, before, "prepared-control.cmo3", "window@1", "window@1"),
+                "SAVE", false, "prepared-control.cmo3", "content-after"),
+            before, after, "prepared-control.cmo3", "window@1", "window@1"),
             "failed SAVE is rejected");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, before, "other.cmo3", "window@1", "window@1"),
+            success, before, after, "other.cmo3", "window@1", "window@1"),
             "wrong saved filename is rejected");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, new OfficialPsdFixturePreparation.RelationIdentity(
-                before.documentId(), before.modelId(), before.binding(), before.generation() + 1,
-                before.modelImageIds(), before.currentRawIds(), before.linkedRawIds(),
-                before.rawLayerBindings()), "prepared-control.cmo3", "window@1", "window@1"),
+            new OfficialPsdFixturePreparation.SaveAfterIdentity(
+                "SAVE", true, "prepared-control.cmo3", "content-before"),
+            before, after, "prepared-control.cmo3", "window@1", "window@1"),
+            "wrong SAVE After content ID is rejected");
+        assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
+            new OfficialPsdFixturePreparation.SaveAfterIdentity(
+                "SAVE", true, "prepared-control.cmo3", "unavailable"),
+            before, after, "prepared-control.cmo3", "window@1", "window@1"),
+            "missing SAVE After content ID is rejected");
+        final OfficialPsdFixturePreparation.ModelState missingContent =
+            new OfficialPsdFixturePreparation.ModelState(
+                "document", Optional.empty(), "C:\\task\\prepared-control.cmo3",
+                "model", identity);
+        assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
+            success, before, missingContent, "prepared-control.cmo3", "window@1", "window@1"),
+            "missing post-SAVE model content ID is rejected");
+        assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
+            success, before, new OfficialPsdFixturePreparation.ModelState(
+                "document", Optional.of("content-after"), "C:\\task\\prepared-control.cmo3",
+                "model", new OfficialPsdFixturePreparation.RelationIdentity(
+                    identity.documentId(), identity.modelId(), identity.binding(),
+                    identity.generation() + 1, identity.modelImageIds(), identity.currentRawIds(),
+                    identity.linkedRawIds(), identity.rawLayerBindings())),
+            "prepared-control.cmo3", "window@1", "window@1"),
             "changed relation generation is rejected");
         assertFalse(OfficialPsdFixturePreparation.saveAfterMatches(
-            success, before, before, "prepared-control.cmo3", "window@1", "window@2"),
+            success, before, after, "prepared-control.cmo3", "window@1", "window@2"),
             "changed window identity is rejected");
+
+        final OfficialPsdFixturePreparation.SaveAfterIdentity oldSameName =
+            new OfficialPsdFixturePreparation.SaveAfterIdentity(
+                "SAVE", true, "prepared-control.cmo3", "old-content");
+        assertTrue(OfficialPsdFixturePreparation.firstSaveAfterAfterSequenceForTest(
+            List.of(oldSameName, success), 1, "prepared-control.cmo3").orElseThrow()
+            .equals(success), "SAVE search starts after the execute boundary");
+        assertTrue(OfficialPsdFixturePreparation.firstSaveAfterAfterSequenceForTest(
+            List.of(oldSameName), 1, "prepared-control.cmo3").isEmpty(),
+            "old same-name SAVE is not reused");
     }
 
     private static void testPostSaveModelGate() {
@@ -198,10 +506,25 @@ public final class OfficialPsdFixturePreparationTest {
         }
     }
 
+    private static void assertSame(final Object expected, final Object actual,
+        final String message) {
+        if (expected != actual) {
+            throw new AssertionError(message + ": expected same identity");
+        }
+    }
+
     private static final class Entry implements ModelImageEntry {
         @Override public ModelImageId id() { return new ModelImageId("model-image"); }
         @Override public String name() { return "fixture"; }
         @Override public int width() { return 100; }
         @Override public int height() { return 100; }
     }
+
+    private static final class ListShape { }
+    private static final class RendererShape { }
+    private static final class OptionShape { }
+    private static final class ExactButton { }
+    private static final class ButtonSubclass { }
+    private static final class ActionShape { }
+    private static final class WrongOption { }
 }
