@@ -179,6 +179,105 @@ public final class OfficialPsdReplacementBaseline {
             exactMethod(wrapper, "getImage", image, false));
     }
 
+    /** Read actual native composition enums; SDK BlendMode collapses old/new variants. */
+    public static CompositionReader prepareCompositionReader(final PluginContext context)
+        throws Exception {
+        Objects.requireNonNull(context, "context");
+        final HostAccess host = new OfficialPsdReplacementBaseline(
+            context, () -> false, () -> true).preflightOfficialHost();
+        final TargetAccess target = preflightTargetAccess(host);
+        final CompositionAccess access = preflightCompositionAccess(host);
+        return () -> {
+            if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+                "official composition observation requires EDT");
+            final var document = context.cubism().activeDocument().orElseThrow();
+            final var model = context.cubism().model().active();
+            final Object app = host.appInstance().invoke(null);
+            final Object nativeDocument = target.currentDocument().invoke(app);
+            if (nativeDocument == null || nativeDocument.getClass() != target.documentClass()) {
+                throw new IllegalStateException("official current modeling document unavailable");
+            }
+            final Object source = target.modelSource().invoke(nativeDocument);
+            final String modelGuid = (String) host.guidStringGetter().invoke(
+                target.modelGuid().invoke(source));
+            if (!model.id().value().equals(modelGuid)) throw new IllegalStateException(
+                "SDK and composition model GUID differ");
+            final Map<String, String> sdkMeshes = new java.util.TreeMap<>();
+            for (final var mesh : model.drawables().all()) {
+                if (sdkMeshes.put(mesh.guid(), mesh.id().value()) != null) {
+                    throw new IllegalStateException("SDK ArtMesh GUID is ambiguous");
+                }
+            }
+            final Map<String, Composition> meshes = new java.util.TreeMap<>();
+            final Object all = access.allMeshes().invoke(source);
+            if (!(all instanceof List<?> values)) throw new IllegalStateException(
+                "official ArtMesh collection is unavailable");
+            for (final Object mesh : values) {
+                if (mesh == null || mesh.getClass() != access.meshClass()) {
+                    throw new IllegalStateException("official ArtMesh shape is unknown");
+                }
+                final String guid = (String) host.guidStringGetter().invoke(
+                    access.meshGuid().invoke(mesh));
+                final String id = sdkMeshes.remove(guid);
+                if (id == null) throw new IllegalStateException(
+                    "official ArtMesh has no unique SDK counterpart");
+                final String color = exactEnumName(access.color().invoke(mesh), access.colorClass());
+                final String alpha = exactEnumName(access.alpha().invoke(mesh), access.alphaClass());
+                if (meshes.put(id, new Composition(guid, color, alpha)) != null) {
+                    throw new IllegalStateException("official ArtMesh ID is ambiguous");
+                }
+            }
+            if (!sdkMeshes.isEmpty() || meshes.isEmpty()) throw new IllegalStateException(
+                "official/SDK ArtMesh coverage differs or is empty");
+            final int version = (Integer) access.versionNumber().invoke(
+                access.version().invoke(source));
+            if (!document.documentId().equals(context.cubism().activeDocument()
+                    .orElseThrow().documentId())
+                || !model.id().equals(context.cubism().model().active().id())
+                || target.currentDocument().invoke(app) != nativeDocument) {
+                throw new IllegalStateException("composition identity changed during observation");
+            }
+            return new CompositionObservation(document.documentId(), modelGuid, version,
+                Map.copyOf(meshes));
+        };
+    }
+
+    private static CompositionAccess preflightCompositionAccess(final HostAccess host)
+        throws Exception {
+        final ClassLoader loader = host.loader();
+        final Class<?> source = loadExact(loader, "com.live2d.cubism.doc.model.CModelSource");
+        final Class<?> mesh = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource");
+        final Class<?> drawable = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.ACDrawableSource");
+        final Class<?> guid = loadExact(loader, "com.live2d.type.CDrawableGuid");
+        final Class<?> color = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.ColorComposition");
+        final Class<?> alpha = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.AlphaComposition");
+        final Class<?> version = loadExact(loader, "com.live2d.cubism.CETargetVersion$a");
+        for (final Class<?> type : List.of(source, mesh, drawable, guid, color, alpha, version)) {
+            verifyClassArtifact(type, loader, host.artifact());
+        }
+        if (!color.isEnum() || !alpha.isEnum() || !version.isEnum()) {
+            throw new IllegalStateException("official composition/version enum shape differs");
+        }
+        return new CompositionAccess(mesh, color, alpha,
+            exactMethod(source, "getAllArtMeshes", List.class, false),
+            exactMethod(drawable, "getGuid", guid, false),
+            exactMethod(mesh, "getColorComposition", color, false),
+            exactMethod(mesh, "getAlphaComposition", alpha, false),
+            exactMethod(source, "getTargetVersion", version, false),
+            exactMethod(version, "a", int.class, false));
+    }
+
+    static String exactEnumName(final Object value, final Class<?> type) {
+        if (value == null || value.getClass() != type || !(value instanceof Enum<?> entry)) {
+            throw new IllegalStateException("official enum value is unavailable or unverified");
+        }
+        return entry.name();
+    }
+
     static Object uniqueRawImage(final List<?> wrappers, final Class<?> wrapperClass,
         final Method imageGetter, final Method guidGetter, final Method guidString,
         final String expectedGuid) throws Exception {
@@ -606,6 +705,7 @@ public final class OfficialPsdReplacementBaseline {
         final HostAccess host = new OfficialPsdReplacementBaseline(
             new ShapeOnlyContext(), () -> false, () -> true).preflightOfficialHost();
         preflightTargetAccess(host);
+        preflightCompositionAccess(host);
         return new HostShapeSummary(host.artifact().toString(), host.sha256(),
             host.commandOpen().toGenericString(), host.modelGetter().toGenericString(),
             host.rawGetter().toGenericString(), host.rawGuidGetter().toGenericString());
@@ -1159,6 +1259,16 @@ public final class OfficialPsdReplacementBaseline {
     public record IdentityObservation(String documentId, String modelId, String rawGuid,
         Object modelingDocument, Object layeredImage) { }
 
+    @FunctionalInterface
+    public interface CompositionReader {
+        CompositionObservation observe() throws Exception;
+    }
+
+    public record Composition(String guid, String color, String alpha) { }
+
+    public record CompositionObservation(String documentId, String modelId, int targetVersion,
+        Map<String, Composition> meshes) { }
+
     public record ReplacementResult(Path sourcePath, String sourceSha256, String documentId,
         String modelId, String rawGuid, Window window, boolean chooserOperationComplete,
         boolean modelChooserConfirmed, boolean rawChooserConfirmed, int commandOpenInvocations,
@@ -1215,6 +1325,10 @@ public final class OfficialPsdReplacementBaseline {
     private record TargetAccess(Class<?> documentClass, Class<?> wrapperClass,
         Method currentDocument, Method modelSource, Method modelGuid, Method textureManager,
         Method rawImages, Method wrapperImage) { }
+
+    private record CompositionAccess(Class<?> meshClass, Class<?> colorClass, Class<?> alphaClass,
+        Method allMeshes, Method meshGuid, Method color, Method alpha, Method version,
+        Method versionNumber) { }
 
     private record EdtCall<T>(boolean completed, T value, Throwable failure) {
         static <T> EdtCall<T> completed(final T value) { return new EdtCall<>(true, value, null); }

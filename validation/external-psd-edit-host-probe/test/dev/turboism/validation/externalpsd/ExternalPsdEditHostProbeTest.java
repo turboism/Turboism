@@ -79,6 +79,7 @@ import dev.turboism.sdk.plugin.Registration;
 /** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
     public static void main(final String[] args) throws Exception {
+        testNativeCompositionPreservation();
         testPopupTriggerDispatch();
         testSyntheticTargetDiagnostics();
         testRendererPreparationFollowsDispatch();
@@ -2891,6 +2892,37 @@ public final class ExternalPsdEditHostProbeTest {
         private void advanceMillis(final long millis) {
             nanos.addAndGet(millis * 1_000_000L);
         }
+    }
+
+    private static void testNativeCompositionPreservation() {
+        final var legacy = new OfficialPsdReplacementBaseline.CompositionObservation(
+            "document", "model", 5030000, Map.of("ArtMesh",
+                new OfficialPsdReplacementBaseline.Composition("mesh-guid", "MULTIPLY", "OVER")));
+        final var modern = new OfficialPsdReplacementBaseline.CompositionObservation(
+            "document", "model", 5030000, Map.of("ArtMesh",
+                new OfficialPsdReplacementBaseline.Composition("mesh-guid", "MULTIPLY_R2", "OVER")));
+        ExternalPsdEditHostProbe.requireCompositionProfile(legacy, "legacy");
+        ExternalPsdEditHostProbe.requireCompositionProfile(modern, "normal");
+        ExternalPsdEditHostProbe.requireSameComposition(legacy, legacy);
+        for (final var changed : List.of(modern,
+            new OfficialPsdReplacementBaseline.CompositionObservation(
+                "other-document", "model", 5030000, legacy.meshes()),
+            new OfficialPsdReplacementBaseline.CompositionObservation(
+                "document", "model", 5020000, legacy.meshes()),
+            new OfficialPsdReplacementBaseline.CompositionObservation(
+                "document", "model", 5030000, Map.of("ArtMesh",
+                    new OfficialPsdReplacementBaseline.Composition("mesh-guid", "MULTIPLY", "ATOP"))),
+            new OfficialPsdReplacementBaseline.CompositionObservation(
+                "document", "model", 5030000, Map.of()))) {
+            try {
+                ExternalPsdEditHostProbe.requireSameComposition(legacy, changed);
+                throw new AssertionError("changed composition/version/coverage was accepted");
+            } catch (IllegalStateException expected) { }
+        }
+        try {
+            ExternalPsdEditHostProbe.requireCompositionProfile(modern, "legacy");
+            throw new AssertionError("modern MULTIPLY_R2 was accepted as old MULTIPLY");
+        } catch (IllegalStateException expected) { }
     }
 
     private static void testPopupTriggerDispatch() {
