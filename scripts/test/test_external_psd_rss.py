@@ -96,6 +96,16 @@ class RssObservationTests(unittest.TestCase):
         self.assertFalse(report["complete"])
         self.assertEqual(1, report["missedAfterBinding"])
 
+    def test_report_rejects_foreign_attempt_and_missing_prepared_digest(self):
+        expected = dict(jobId="job", attemptId="attempt", runId="run")
+        metadata = dict(expected, schemaVersion=1, preparedDigest="a" * 64)
+        self.assertEqual("a" * 64, rss.report_identity(metadata, expected)["preparedDigest"])
+        with self.assertRaises(rss.IdentityChanged):
+            rss.report_identity(dict(metadata, attemptId="other"), expected)
+        for digest in (None, "", "g" * 64):
+            with self.assertRaises(rss.IdentityChanged):
+                rss.report_identity(dict(metadata, preparedDigest=digest), expected)
+
 
 if __name__ == "__main__":
     unittest.main()
