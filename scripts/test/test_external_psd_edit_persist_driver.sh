@@ -56,6 +56,7 @@ b_task_dir="$host_root/external-psd-edit-pipeline/5302-025-us4/$b_run_id"
 result_name="external-psd-edit-result.properties"
 
 printf 'phase=%s\n' "$phase" >> "$log"
+printf 'arg=%s\n' "$@" >> "$log"
 
 convert_result_to_crlf() {
   python3 - "$1" <<'PY'
@@ -550,6 +551,101 @@ PY
 }
 
 run_host_wrapper_forwarding_case
+
+run_resume_case() {
+  local mode="$1" expected_status="$2"
+  local case_root="$test_root/resume-$mode" status
+  local sandbox="$case_root/sandbox" host_root="$case_root/host root"
+  local log="$case_root/stub.log" output="$case_root/driver.out"
+  local args=(--resume-stage-a job-a --jvm-option '-Dexample=value with spaces')
+  mkdir -p "$case_root"
+  make_driver_sandbox "$sandbox"
+  local fixture_mode=correct
+  [ "$mode" != quarantine ] || fixture_mode=quarantine-incomplete
+  [ "$mode" != content ] || fixture_mode=target-unchanged
+  DRIVER_STUB_MODE="$fixture_mode" DRIVER_STUB_HOST_ROOT="$host_root" DRIVER_STUB_LOG="$log" \
+    EXTERNAL_PSD_PHASE=pipeline \
+    bash "$sandbox/scripts/preview/run-external-psd-edit-host-validation.sh" > "$case_root/existing-a.json"
+  # Prepare the existing task once, then observe only calls made by the recovery.
+  : > "$log"
+  python3 - "$case_root" "$mode" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root, mode = Path(sys.argv[1]), sys.argv[2]
+job = json.loads((root / "existing-a.json").read_text())["job"]
+evidence = json.loads(job["evidence_json"])
+if mode == "wrong-job":
+    job["job_id"] = "unrelated-job"
+elif mode in ("running", "failed"):
+    job["state"] = mode
+elif mode == "missing-evidence":
+    job["evidence_json"] = None
+elif mode == "identity":
+    evidence["attemptId"] = "unrelated-attempt"
+    job["evidence_json"] = json.dumps(evidence)
+elif mode == "hash":
+    Path(evidence["details"]["postContainmentChecks"]["terminalResult"]["path"]).write_text("changed")
+elif mode == "missing-saved":
+    (Path(evidence["details"]["taskDir"]) / "turboism-home/persisted-document.cmo3").unlink()
+jobs = [] if mode == "missing-job" else [job, job] if mode == "ambiguous" else [job]
+response = {"schemaVersion": 2 if mode == "schema" else 1, "jobs": jobs}
+(root / "status.json").write_text("invalid-json" if mode == "malformed" else json.dumps(response))
+PY
+  cat > "$sandbox/scripts/preview/host_validation.py" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+with Path(os.environ["DRIVER_STUB_LOG"]).open("a") as log:
+    log.write("status-called " + " ".join(sys.argv[1:]) + "\n")
+if sys.argv[1:] != ["status", "job-a", "--json"]:
+    raise SystemExit("unexpected queue command")
+if os.environ["DRIVER_RESUME_MODE"] == "query-failed":
+    raise SystemExit(2)
+print(Path(os.environ["DRIVER_STATUS_FILE"]).read_text())
+PY
+  case "$mode" in
+    dry-run) args+=(--dry-run) ;;
+    missing-arg) args=(--resume-stage-a) ;;
+    invalid-arg) args=(--resume-stage-a --dry-run) ;;
+    duplicate-arg) args+=(--resume-stage-a job-a) ;;
+  esac
+  set +e
+  DRIVER_STUB_HOST_ROOT="$host_root" DRIVER_STUB_LOG="$log" \
+    DRIVER_RESUME_MODE="$mode" DRIVER_STATUS_FILE="$case_root/status.json" \
+    bash "$sandbox/scripts/preview/run-external-psd-edit-persist-validation.sh" "${args[@]}" \
+    > "$output" 2>&1
+  status=$?
+  set -e
+  if [ "$status" -ne "$expected_status" ]; then
+    record_failure "resume-$mode returned $status, expected $expected_status; output: $(tr '\n' ' ' < "$output")"
+  fi
+  assert_file_not_contains "$log" 'phase=pipeline' "resume-$mode must never rerun A"
+  assert_file_not_contains "$log" 'queue-submit-called' "resume-$mode must never resubmit A"
+  assert_file_not_contains "$log" 'arg=--resume-stage-a' "resume argument must not reach the wrapper"
+  if [ "$expected_status" = 0 ]; then
+    assert_file_contains "$log" 'status-called status job-a --json' 'resume must read the exact job'
+    assert_file_contains "$log" 'stageB.job=job-b' 'successful recovery must execute independent B'
+    assert_file_contains "$log" 'arg=-Dexample=value with spaces' 'resume must preserve wrapper arguments'
+    assert_file_contains "$log" "stageB.fixture=$host_root/external-psd-edit-pipeline/5302-025-us4/queue-run-a/turboism-home/persisted-document.cmo3" \
+      'resume B must use the recovered A saved file'
+  else
+    assert_file_not_contains "$log" 'phase=reopen' "resume-$mode must not start B"
+  fi
+  case "$mode" in
+    dry-run|missing-arg|invalid-arg|duplicate-arg)
+      assert_file_not_contains "$log" 'status-called' "resume-$mode must reject before querying"
+      ;;
+  esac
+}
+
+run_resume_case correct 0
+for mode in wrong-job missing-job ambiguous running failed missing-evidence identity hash \
+  quarantine content missing-saved schema malformed query-failed dry-run missing-arg invalid-arg duplicate-arg; do
+  run_resume_case "$mode" 1
+done
 
 if [ "$failures" -ne 0 ]; then
   printf '%s focused assertion(s) failed\n' "$failures" >&2
