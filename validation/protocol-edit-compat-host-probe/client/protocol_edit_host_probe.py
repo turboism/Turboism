@@ -363,6 +363,33 @@ class Connection:
                     f"{self.label}: more than 64 stray frames without a matching response"
                 )
 
+    def pump(self, seconds: float) -> None:
+        """Keeps reading frames for the given duration.
+
+        The host's external-integration server runs a 100ms connection-lost
+        timeout, so *any* idle gap without reads kills the connection. The
+        pump keeps the recv loop alive (answering pings inside recv_message)
+        and stashes stray text frames/events the main flow is not waiting
+        for.
+        """
+        deadline = time.monotonic() + max(0.0, seconds)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            try:
+                frame = parse_frame(self.ws.recv_message(min(remaining, 0.05)))
+            except TimeoutError:
+                continue
+            if frame.is_event:
+                self.events.append(frame)
+            else:
+                self.stray_frames.append(frame)
+            if len(self.stray_frames) + len(self.events) > 64:
+                raise ValidationFailure(
+                    f"{self.label}: more than 64 stray frames while pumping"
+                )
+
     def close(self) -> None:
         self.ws.close()
 
@@ -488,7 +515,7 @@ class Probe:
                     f"GetIsApproval stayed false for {self.approval_timeout:.0f}s; "
                     "the probe plugin did not grant the token"
                 )
-            time.sleep(0.5)
+            conn.pump(0.5)
 
     def write_control_files(self, token: str) -> None:
         self.plugin_state.mkdir(parents=True, exist_ok=True)
