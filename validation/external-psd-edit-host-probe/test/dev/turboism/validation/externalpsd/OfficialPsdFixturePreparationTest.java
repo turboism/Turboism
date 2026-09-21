@@ -48,6 +48,9 @@ public final class OfficialPsdFixturePreparationTest {
         "8b760eb0b6ac5839271210aa0efc681f6a02a6537c1ab97d40a3a56879d8f02c";
     private static final String RGB_SHA =
         "12eca5a1c8d8b9096384c974d52e8f0310c4ad9ac4ea87a072684096cf2b808d";
+    private static final String F1_RUN_ID = "queue-f1";
+    private static final String F1_TASK_FIXTURE_NAME =
+        F1_RUN_ID + "-f1-2048-20layers.psd";
 
     public static void main(final String[] args) {
         testInputBindingAndPsdPolicy();
@@ -123,10 +126,10 @@ public final class OfficialPsdFixturePreparationTest {
 
         final OfficialPsdFixturePreparation.InputIdentity f1 =
             OfficialPsdFixturePreparation.validateInputForProfileForTest(
-                "C:\\task\\f1-2048-20layers.psd",
+                "C:\\task\\" + F1_TASK_FIXTURE_NAME,
                 OfficialPsdFixturePreparation.F1_FIXTURE_SHA256,
-                OfficialPsdFixturePreparation.F1_FIXTURE_NAME,
-                "queue-f1", "queue-f1", "C:\\task\\home\\prepared-f1.cmo3", "",
+                F1_TASK_FIXTURE_NAME,
+                F1_RUN_ID, F1_RUN_ID, "C:\\task\\home\\prepared-f1.cmo3", "",
                 "5.3.02", 30_000L, "f1");
         assertEquals(OfficialPsdFixturePreparation.F1_SAVED_COPY_BASENAME,
             OfficialPsdFixturePreparation.profileSavedCopyBasenameForTest("f1"),
@@ -136,15 +139,41 @@ public final class OfficialPsdFixturePreparationTest {
         assertEquals(0, OfficialPsdFixturePreparation.profileChooserIndexForTest("f1"),
             "F1 chooser index is the first new-model option");
         assertEquals("", f1.targetRgbSha256(), "F1 has no seven-layer RGB admission");
+        final Properties expandedRunnerInput = new Properties();
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.FIXTURE_PROPERTY,
+            "C:\\task\\" + F1_TASK_FIXTURE_NAME);
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.FIXTURE_SHA256_PROPERTY,
+            OfficialPsdFixturePreparation.F1_FIXTURE_SHA256);
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.FIXTURE_NAME_PROPERTY,
+            F1_TASK_FIXTURE_NAME);
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.RUN_ID_PROPERTY, F1_RUN_ID);
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.TASK_ID_PROPERTY, F1_RUN_ID);
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.SAVED_COPY_PROPERTY,
+            "C:\\task\\home\\prepared-f1.cmo3");
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.HOST_VERSION_PROPERTY,
+            "5.3.02");
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.TIMEOUT_MILLIS_PROPERTY,
+            "30000");
+        expandedRunnerInput.setProperty(OfficialPsdFixturePreparation.PROFILE_PROPERTY, "f1");
+        assertEquals(F1_TASK_FIXTURE_NAME,
+            OfficialPsdFixturePreparation.readInputForTest(expandedRunnerInput).fixtureName(),
+            "production readInput accepts the runner-expanded F1 task copy");
         expectReject("F1 cannot accept seven-layer RGB target", () ->
             OfficialPsdFixturePreparation.validateInputForProfileForTest(
                 f1.fixturePath(), OfficialPsdFixturePreparation.F1_FIXTURE_SHA256,
                 f1.fixtureName(), f1.runId(), f1.taskId(), f1.savedCopyPath(), RGB_SHA,
                 "5.3.02", 30_000L, "f1"));
-        expectReject("F1 wrong fixed source name", () ->
+        expectReject("F1 wrong run prefix", () ->
             OfficialPsdFixturePreparation.validateInputForProfileForTest(
-                "C:\\task\\other.psd", OfficialPsdFixturePreparation.F1_FIXTURE_SHA256,
-                "other.psd", f1.runId(), f1.taskId(), f1.savedCopyPath(), "", "5.3.02",
+                f1.fixturePath(), OfficialPsdFixturePreparation.F1_FIXTURE_SHA256,
+                f1.fixtureName(), "other-run", "other-run",
+                f1.savedCopyPath(), "", "5.3.02",
+                30_000L, "f1"));
+        expectReject("F1 wrong task-copy basename", () ->
+            OfficialPsdFixturePreparation.validateInputForProfileForTest(
+                "C:\\task\\" + F1_RUN_ID + "-other.psd",
+                OfficialPsdFixturePreparation.F1_FIXTURE_SHA256, F1_TASK_FIXTURE_NAME,
+                f1.runId(), f1.taskId(), f1.savedCopyPath(), "", "5.3.02",
                 30_000L, "f1"));
     }
 
