@@ -26,9 +26,12 @@ public interface TextureAtlasLayoutAlgorithmRegistry {
     /**
      * Registers an algorithm. Replacing an existing id is allowed; closing the
      * returned registration removes only that exact registration generation.
-     * Registering a {@code null} algorithm is rejected. Registering never selects
-     * the algorithm; selection is owned by the runtime and driven by the native
-     * dialog or {@link #select(TextureAtlasLayoutSelection)}.
+     * Registering a {@code null} algorithm is rejected, and so is the reserved
+     * {@link TextureAtlasLayoutSelection#NATIVE_ALGORITHM_ID} — it always
+     * designates the host's native packing and can never be claimed by a
+     * plugin. Registering never selects the algorithm; selection is owned by
+     * the runtime and driven by the native dialog or {@link
+     * #select(TextureAtlasLayoutSelection)}.
      */
     Registration register(TextureAtlasLayoutAlgorithm algorithm);
 
@@ -69,5 +72,28 @@ public interface TextureAtlasLayoutAlgorithmRegistry {
      */
     default void select(final TextureAtlasLayoutSelection selection) {
         Objects.requireNonNull(selection, "selection");
+    }
+
+    /**
+     * Requests a selection only when no selection has ever been made — neither a
+     * plugin algorithm nor an explicit native choice. This is the atomic
+     * "absent" check used by one-time migrations: a concurrent or earlier
+     * explicit {@code select(...)} (including selecting {@link
+     * TextureAtlasLayoutSelection#nativeDefault()}) always wins.
+     *
+     * <p>The default implementation performs a best-effort check-then-select;
+     * the runtime registry applies the check and mutation atomically.</p>
+     *
+     * @return true when the selection was applied, false when a selection
+     *     already existed
+     * @throws NullPointerException if {@code selection} is null
+     */
+    default boolean selectIfUnset(final TextureAtlasLayoutSelection selection) {
+        Objects.requireNonNull(selection, "selection");
+        if (selection().algorithmId() != null) {
+            return false;
+        }
+        select(selection);
+        return true;
     }
 }

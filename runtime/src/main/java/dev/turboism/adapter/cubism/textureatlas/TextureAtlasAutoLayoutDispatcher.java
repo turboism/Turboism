@@ -55,7 +55,9 @@ public final class TextureAtlasAutoLayoutDispatcher {
     public boolean dispatch() {
         final TextureAtlasLayoutSelection selected = selection.selection();
         final String algorithmId = selected.algorithmId();
-        if (algorithmId == null) {
+        // Unset and the reserved explicit-native id both defer to the host.
+        if (algorithmId == null
+            || TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID.equals(algorithmId)) {
             return false;
         }
         final RuntimeTextureAtlasLayoutAlgorithmRegistry.RegisteredAlgorithm lease =
