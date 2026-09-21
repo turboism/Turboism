@@ -70,12 +70,50 @@ final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
     public MocLoader mocLoader() {
         final Current current = current();
         final MocLoader loader = current.delegate().mocLoader();
-        return new MocLoader() {
-            @Override public OwnedMoc load(final MocData data) {
-                requireCurrent(current.generation());
-                return loader.load(data);
+        return new GuardedMocLoader(current.generation(), loader);
+    }
+
+    /**
+     * Generation-guarded {@link MocLoader} that also exposes the runtime-internal
+     * {@link dev.turboism.adapter.cubism.core.OwnedModelParameterWriter} seam
+     * when the delegate loader supports it. The anonymous wrapper previously
+     * returned here hid the writer behind a plain {@code MocLoader} type, so
+     * {@code instanceof} probing always failed on the real host.
+     */
+    private final class GuardedMocLoader
+        implements MocLoader,
+            dev.turboism.adapter.cubism.core.OwnedModelParameterWriter {
+
+        private final long expectedGeneration;
+        private final MocLoader delegateLoader;
+
+        private GuardedMocLoader(
+            final long expectedGeneration,
+            final MocLoader delegateLoader
+        ) {
+            this.expectedGeneration = expectedGeneration;
+            this.delegateLoader = delegateLoader;
+        }
+
+        @Override public OwnedMoc load(final MocData data) {
+            requireCurrent(expectedGeneration);
+            return delegateLoader.load(data);
+        }
+
+        @Override public void writeParameterValue(
+            final dev.turboism.sdk.cubism.core.OwnedModel model,
+            final String parameterId,
+            final float value
+        ) {
+            requireCurrent(expectedGeneration);
+            if (!(delegateLoader instanceof
+                    dev.turboism.adapter.cubism.core.OwnedModelParameterWriter
+                        writer)) {
+                throw new IllegalStateException(
+                    "Core runtime does not support parameter writes.");
             }
-        };
+            writer.writeParameterValue(model, parameterId, value);
+        }
     }
 
     static CoreRuntimeInfo unavailableRuntime() {
