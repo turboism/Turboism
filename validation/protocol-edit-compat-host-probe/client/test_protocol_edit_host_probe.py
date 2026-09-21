@@ -412,7 +412,7 @@ class TransportTest(unittest.TestCase):
             self.assertEqual(request["Method"], "GetIsEditApproval")
             self.assertEqual(request["Version"], "1.1.0")
             self.assertIsInstance(request["Timestamp"], int)
-            self.assertIsInstance(request["RequestId"], int)
+            self.assertIsInstance(request["RequestId"], str)
             self.assertEqual(request["Data"], {})
             conn.close()
 
@@ -478,6 +478,46 @@ class TransportTest(unittest.TestCase):
                 probe.WebSocket("127.0.0.1", port, 5.0)
         finally:
             server.close()
+
+
+class NativeContractHost(MockHost):
+    """Mock enforcing the envelope contract observed on the exact host.
+
+    Cubism 5.3.03's frame validator rejects a numeric RequestId with an
+    InvalidJson error frame that echoes no RequestId, then closes the still
+    unregistered connection with close code 1000 -- the r6 failure shape.
+    """
+
+    def respond(self, conn: MockConnection, request: dict) -> list[dict]:
+        request_id = request.get("RequestId")
+        if request_id is not None and not isinstance(request_id, str):
+            conn.push_text(json.dumps({
+                "Version": request.get("Version", "1.0.0"),
+                "Timestamp": 1700000000000,
+                "Type": "Error",
+                "Method": request.get("Method"),
+                "Data": {"ErrorType": "InvalidJson"},
+            }))
+            conn._send_frame(0x8, struct.pack(">H", 1000))
+            conn.closed = True
+            return []
+        return super().respond(conn, request)
+
+
+class NativeContractTest(unittest.TestCase):
+    def test_register_and_approval_survive_native_contract(self):
+        host = NativeContractHost()
+        self.addCleanup(host.close)
+        with tempfile.TemporaryDirectory() as tmp:
+            p = make_probe(Path(tmp), host)
+            conn = probe.connect("127.0.0.1", host.port, 5.0, "conn1")
+            token = p.register(conn, "token-1", "TurboismProtocolProbe")
+            self.assertEqual(token, "mock-token")
+            self.assertTrue(p.await_plugin_approval(conn))
+            # the wire request carried a String RequestId, not a Number
+            self.assertIsInstance(
+                host.connections[0].received[0]["RequestId"], str)
+            conn.close()
 
 
 class MatrixTest(unittest.TestCase):

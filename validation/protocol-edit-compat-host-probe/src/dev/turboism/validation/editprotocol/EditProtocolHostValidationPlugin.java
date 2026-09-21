@@ -34,8 +34,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>Pre-seed native plugin authorization: tokens listed in
  *       {@code state/<id>/auth-allow.txt} are written through
  *       {@code CExternalAppAuthManager.setAuth(token, null, true)}, the same persisted
- *       grant the native approval UI would produce, so {@code RegisterPlugin} takes the
- *       already-authorized path and no native dialog appears.</li>
+ *       grant the native approval UI would produce, then read back through
+ *       {@code getAuth(token, null)} so {@code auth.granted} is only recorded for a
+ *       grant the host itself confirms. The {@code null} origin matches the probe
+ *       connection, which carries no {@code Origin} header; {@code RegisterPlugin}
+ *       therefore takes the already-authorized path and no native dialog appears.</li>
  *   <li>Answer Turboism's edit-approval dialog: while {@code approval.mode} exists its
  *       content ({@code approve}|{@code deny}) is applied to the "Turboism Edit Session"
  *       JOptionPane. Without the file the dialog is left untouched — production stays
@@ -63,6 +66,8 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
     private final List<String> evidence = new CopyOnWriteArrayList<>();
     private final java.util.Set<String> grantedTokens =
         ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> unverifiedTokens =
+        ConcurrentHashMap.newKeySet();
     private final AtomicInteger dialogDecisions = new AtomicInteger();
     private final AtomicInteger dialogDenials = new AtomicInteger();
     private final java.util.Set<Window> answeredDialogs =
@@ -72,6 +77,7 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
     private Thread dialogThread;
     private Thread resultThread;
     private volatile Method setAuthMethod;
+    private volatile Method getAuthMethod;
     private volatile Object authManager;
     private volatile boolean authManagerResolved;
 
@@ -229,12 +235,34 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
             return false;
         }
         try {
-            setAuthMethod.invoke(authManager, token, null, Boolean.TRUE);
-            return true;
+            if (!Boolean.TRUE.equals(readAuth(token))) {
+                setAuthMethod.invoke(authManager, token, null, Boolean.TRUE);
+            }
+            // The grant only counts when the manager itself confirms it; a failed
+            // readback stays ungranted so the poll retries rather than trusting
+            // setAuth blindly.
+            if (getAuthMethod == null || Boolean.TRUE.equals(readAuth(token))) {
+                return true;
+            }
+            if (unverifiedTokens.add(token)) {
+                record("auth.unverified=" + mask(token));
+            }
+            return false;
         } catch (Exception failure) {
             record("auth.error=" + failure.getClass().getSimpleName()
                 + " token=" + mask(token));
             return false;
+        }
+    }
+
+    private Boolean readAuth(final String token) {
+        if (authManager == null || getAuthMethod == null) {
+            return null;
+        }
+        try {
+            return (Boolean) getAuthMethod.invoke(authManager, token, null);
+        } catch (Exception failure) {
+            return null;
         }
     }
 
@@ -252,6 +280,12 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
                 authManager = instance.get(null);
                 setAuthMethod = manager.getMethod(
                     "setAuth", String.class, String.class, boolean.class);
+                try {
+                    getAuthMethod = manager.getMethod(
+                        "getAuth", String.class, String.class);
+                } catch (Throwable missing) {
+                    record("auth.verify=unsupported");
+                }
                 authManagerResolved = true;
                 record("auth.manager=RESOLVED loader=" + loader.getClass().getSimpleName());
                 return;
