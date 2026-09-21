@@ -107,6 +107,7 @@ public final class ExternalPsdEditHostProbeTest {
         testPersistSaveLifecycleGate();
         testContentProfileSelection();
         testSharedModelImageRelationGate();
+        testF1TargetSelection();
         testSaveAsAdmissionGate();
         testSaveDialogGate();
         testDialogButtonShapeOnEdt();
@@ -267,6 +268,46 @@ public final class ExternalPsdEditHostProbeTest {
             wrongTarget, "relation.modelImage", absentMesh, shared,
             PsdValidationContent.Profile.F1_2048_20),
             "F1 rejects a shared relation that omits the stable target ArtMesh");
+    }
+
+    private static void testF1TargetSelection() {
+        final ModelImageRelation unsharedFirst =
+            selectionModelImage("model-a", List.of("ArtMesh1"), "raw-a");
+        final ModelImageRelation sharedLater =
+            selectionModelImage("model-z", List.of("ArtMesh4", "ArtMesh5"), "raw-z");
+        final TextureRelationsSnapshot ordered = selectionRelations(
+            List.of(unsharedFirst, sharedLater),
+            List.of(selectionMesh("ArtMesh1", "model-a"),
+                selectionMesh("ArtMesh4", "model-z"), selectionMesh("ArtMesh5", "model-z")));
+        final var selected = ExternalPsdEditHostProbe.selectTargetForTest(
+            ordered, PsdValidationContent.Profile.F1_2048_20).orElseThrow();
+        assertEquals("model-z", selected.modelImageId(),
+            "F1 skips the first unshared model image");
+        assertEquals("ArtMesh4", selected.artMeshId(),
+            "F1 selects a current input that is one of the shared users");
+
+        final TextureRelationsSnapshot reordered = selectionRelations(
+            List.of(sharedLater, unsharedFirst),
+            List.of(selectionMesh("ArtMesh5", "model-z"),
+                selectionMesh("ArtMesh1", "model-a"), selectionMesh("ArtMesh4", "model-z")));
+        final var reorderedSelection = ExternalPsdEditHostProbe.selectTargetForTest(
+            reordered, PsdValidationContent.Profile.F1_2048_20).orElseThrow();
+        assertEquals(selected.modelImageId(), reorderedSelection.modelImageId(),
+            "F1 selection is independent of model-image order");
+        assertEquals(selected.artMeshId(), reorderedSelection.artMeshId(),
+            "F1 selection is independent of ArtMesh input order");
+
+        final var controlSelection = ExternalPsdEditHostProbe.selectTargetForTest(
+            ordered, PsdValidationContent.Profile.SEVEN_LAYER_CONTROL).orElseThrow();
+        assertEquals("model-a", controlSelection.modelImageId(),
+            "control7 retains the first resolvable target behavior");
+
+        final TextureRelationsSnapshot noShared = selectionRelations(
+            List.of(selectionModelImage("model-single", List.of("ArtMesh4"), "raw-single")),
+            List.of(selectionMesh("ArtMesh4", "model-single")));
+        assertTrue(ExternalPsdEditHostProbe.selectTargetForTest(
+            noShared, PsdValidationContent.Profile.F1_2048_20).isEmpty(),
+            "F1 rejects a target when no current input belongs to a shared model image");
     }
 
     private static void testPersistEvidenceGate() {
@@ -1892,6 +1933,49 @@ public final class ExternalPsdEditHostProbeTest {
             .toList();
         return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
             binding, generation, 1L, details, List.of(relation), List.of(), meshes);
+    }
+
+    private static ModelImageRelation selectionModelImage(final String modelImageValue,
+        final List<String> userArtMeshValues, final String rawValue) {
+        final ModelImageId modelImageId = new ModelImageId(modelImageValue);
+        final RawImageId raw = new RawImageId(rawValue);
+        final ModelImageEntry entry = new ModelImageEntry() {
+            @Override public ModelImageId id() { return modelImageId; }
+            @Override public String name() { return modelImageValue; }
+            @Override public int width() { return 2048; }
+            @Override public int height() { return 2048; }
+        };
+        return new ModelImageRelation(
+            modelImageId, entry, List.of(raw), Optional.of(raw), Map.of(),
+            userArtMeshValues.stream().map(ArtMeshId::new).toList());
+    }
+
+    private static ArtMeshTextureInputs selectionMesh(final String artMeshValue,
+        final String modelImageValue) {
+        return new ArtMeshTextureInputs(new ArtMeshId(artMeshValue),
+            List.of(TextureInputBinding.modelImage(new ModelImageId(modelImageValue))),
+            OptionalInt.of(0));
+    }
+
+    private static TextureRelationsSnapshot selectionRelations(
+        final List<ModelImageRelation> modelImages,
+        final List<ArtMeshTextureInputs> artMeshes) {
+        final List<RawImageDetails> rawImages = modelImages.stream()
+            .flatMap(relation -> relation.linkedRawImageIds().stream())
+            .distinct()
+            .map(raw -> {
+                final RawTexture texture = new RawTexture() {
+                    @Override public RawImageId id() { return raw; }
+                    @Override public String name() { return raw.value(); }
+                    @Override public int width() { return 2048; }
+                    @Override public int height() { return 2048; }
+                };
+                return new RawImageDetails(texture, RawImageDetails.SourceKind.PSD,
+                    List.of(), false, Optional.empty(), Optional.empty(), Optional.empty());
+            })
+            .toList();
+        return new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,
+            "selection-binding", 3L, 1L, rawImages, modelImages, List.of(), artMeshes);
     }
 
     private static PsdValidationContent.Fingerprint inspectWithCoordinatedExport(
