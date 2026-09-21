@@ -51,6 +51,7 @@ final class EditorTextureAccess {
     private static final String TEXTURE_ATLASES = "cubism.editor-model.texture-manager.texture-atlases";
     private static final String HANDLER = "cubism.editor-model.texture-manager.handler";
     private static final String WRAPPER_IMAGE = "cubism.editor-model.layered-image-wrapper.image";
+    private static final String LAYERED_IMAGE_GUID = "cubism.editor-model.layered-image.guid";
     private static final String GUID_VALUE = "cubism.editor-model.guid.value";
 
     private static final String APP_INSTANCE = "cubism.editor-model.app-controller.instance";
@@ -296,8 +297,9 @@ final class EditorTextureAccess {
     }
 
     /**
-     * Model images whose current raw image is the replaced target, from the pre-replacement read.
-     * Only these can be affected by the native matcher, so only these identify the observed result.
+     * Model images whose current raw image is the replaced target in the pre-replacement read.
+     * This is the bounded observation subset for the requested target; native matching may
+     * affect other model images, which this method deliberately does not infer.
      */
     private static List<ModelImageId> modelImagesUsing(
         final TextureRelationsSnapshot snapshot,
@@ -315,8 +317,15 @@ final class EditorTextureAccess {
     /** The raw image currently bound to every previously affected model image, when consistent. */
     private static Optional<RawImageId> observedRawImage(
         final TextureRelationsSnapshot after,
-        final List<ModelImageId> affected
+        final List<ModelImageId> affected,
+        final RawImageId expectedIncoming
     ) {
+        if (after == null || !after.isAvailable() || affected.isEmpty() || expectedIncoming == null) {
+            return Optional.empty();
+        }
+        if (after.rawImages().stream().noneMatch(raw -> expectedIncoming.equals(raw.id()))) {
+            return Optional.empty();
+        }
         RawImageId observed = null;
         for (final ModelImageId id : affected) {
             final Optional<ModelImageRelation> relation = after.modelImage(id);
@@ -330,7 +339,7 @@ final class EditorTextureAccess {
                 return Optional.empty();
             }
         }
-        return Optional.ofNullable(observed);
+        return expectedIncoming.equals(observed) ? Optional.of(expectedIncoming) : Optional.empty();
     }
 
     private static String message(final Throwable failure) {
@@ -686,6 +695,27 @@ final class EditorTextureAccess {
                 );
             }
 
+            final RawImageId incomingRaw;
+            try {
+                // This is production application evidence, not opt-in diagnostic capture. Keep
+                // the exact parsed identity fixed across the one native call and fresh reread.
+                incomingRaw = new RawImageId(guidValue(
+                    resolver.invoke(LAYERED_IMAGE_GUID, incoming),
+                    "incoming raw image"
+                ));
+            } catch (RuntimeException | LinkageError identityFailure) {
+                return new Replacement(
+                    "UNAVAILABLE", true, false, false, false, false, Optional.empty(),
+                    "The parsed incoming raw image GUID could not be verified before native replace."
+                );
+            }
+            if (target.equals(incomingRaw)) {
+                return new Replacement(
+                    "UNAVAILABLE", true, false, false, false, false, Optional.empty(),
+                    "The parsed incoming raw image is not distinct from the requested target."
+                );
+            }
+
             final EditorTextureReplacementDiagnostic.Session diagnostic =
                 replacementDiagnostic(before, document, target, incoming);
             final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult;
@@ -777,8 +807,9 @@ final class EditorTextureAccess {
                 false,
                 false,
                 true,
-                observedRawImage(after, modelImagesUsing(before, target)),
-                "The native replacement returned and current state was re-read."
+                observedRawImage(after, modelImagesUsing(before, target), incomingRaw),
+                "The native replacement returned and current state was re-read; application evidence "
+                    + "requires every previously affected model image to use the verified incoming raw."
             );
         }
 
