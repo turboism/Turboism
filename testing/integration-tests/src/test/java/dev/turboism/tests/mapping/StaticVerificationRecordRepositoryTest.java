@@ -338,7 +338,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-ui-top-menu" ->
                 "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b";
             case "cubism-5.3.03-workspace-control" ->
-                "19a28870070b7f0e5c49060fef15dea087ebd37c7d20963d6aabd55fc5a464da";
+                "50acfcbb92cb83caf07113034001b12e71d032656cab76a652f294dd2b809130";
             default -> throw new IllegalArgumentException("unregistered 5.3.03 record " + fileName);
         };
     }
@@ -390,7 +390,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.2.03", "5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "88811e3a663e595d7b02675fc0e86e486132eb78c96772a90bef3e7d3c7abb94",
+                "558165115b594ba787cc65c7c60162654888a2c1ef032d7dede09271a14061e3",
                 "m.workspace-5.2.03.control.static", "adapter.workspace.control.v5_2",
                 "5.2.03"
             )
@@ -400,7 +400,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.3.02", "5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "cbf5c201267d7aa70d3f82404e9125f61429c7a251457a5a23011c6d6bf27b4f",
+                "2ea801ef1f78342ffaba462bfb3159f3c38f755f823dfe5632f01f8585377440",
                 "m.workspace-5.3.02.control.static", "adapter.workspace.control.v5_3",
                 "5.3.02"
             )
