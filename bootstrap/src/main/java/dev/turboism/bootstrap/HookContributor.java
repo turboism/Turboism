@@ -10,6 +10,16 @@ package dev.turboism.bootstrap;
  * the hook belongs in this host, and forwards {@link #install(HookEnvironment)}
  * to the verified installer. Install-time state lives in the returned
  * {@link AutoCloseable}, never in the contributor.</p>
+ *
+ * <p>Known exception: {@link Phase#PREMAIN} transformer hooks whose installer
+ * must stay reachable from the agent's runtime-start failure and
+ * duplicate-runtime paths keep a {@code CURRENT} static reference that the
+ * agent reads directly ({@link MeshMirrorHookContributor#CURRENT},
+ * {@link WarpAltMirrorHookContributor#CURRENT}). Those contributors also carry
+ * two identities by design: {@link #id()} is the report label, while the
+ * startup-policy toggle lives on the contributor's own {@code HOOK_ID}
+ * constant. Adding a hook still means adding a manifest line; this hand-off is
+ * the only case where the agent touches contributor internals.</p>
  */
 interface HookContributor {
 
