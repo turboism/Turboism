@@ -466,40 +466,59 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     /**
-     * Bakes an unbound deformer's constant deformation into every ArtMesh child:
-     * each base position array and each keyform position array is rewritten to
-     * the deformer's own local-to-canvas image, so deleting the deformer leaves
-     * the rendered shape unchanged under whatever ancestors remain. Runs on the
+     * Bakes an unbound deformer's constant deformation into every ArtMesh child.
+     * Child positions are authored in the deformer's local space; once the
+     * deformer is deleted they are interpreted in the surviving parent's local
+     * space, so each authored position is first mapped to its evaluated canvas
+     * position through the deformer's own local-to-canvas transform and then
+     * re-expressed in the parent's local space through the parent's
+     * canvas-to-local transform (identity when the deformer is root-level).
+     * Rewriting both the base positions and every keyform's positions keeps the
+     * rendered shape unchanged under whatever ancestors remain. Runs on the
      * copy's live model instance; called only inside the flatten EDT block after
      * the deformer's selection identity was verified.
      */
     private void bakeConstantDeformation(final Session session, final Object source) {
         final Object instance = session.copyModelInstance;
-        final Object transform =
+        final Object forward =
             host.deformerLocalToCanvasTransform(instance, source);
-        if (transform == null) {
+        if (forward == null) {
             throw new SessionRejection(FLATTEN_FAILED_KEY);
         }
+        final Object parentInverse =
+            host.deformerParentCanvasToLocalTransform(instance, source);
         for (Object child : host.deformerChildren(source)) {
             if (!host.isArtMeshSource(child)) {
-                continue;
+                // A surviving deformer child cannot absorb a position bake;
+                // leaf-to-root order should have deleted it first — fail closed.
+                throw new SessionRejection(FLATTEN_FAILED_KEY);
             }
             final float[] base = host.artMeshSourcePositions(child);
             if (base == null) {
                 throw new SessionRejection(FLATTEN_FAILED_KEY);
             }
             host.setArtMeshSourcePositions(
-                child, host.transformPositions(transform, base));
+                child, bakePositions(forward, parentInverse, base));
             for (Object keyform : host.artMeshSourceKeyforms(child)) {
                 final float[] positions = host.artMeshFormPositions(keyform);
                 if (positions == null) {
                     throw new SessionRejection(FLATTEN_FAILED_KEY);
                 }
                 host.setArtMeshFormPositions(
-                    keyform, host.transformPositions(transform, positions));
+                    keyform, bakePositions(forward, parentInverse, positions));
             }
         }
         host.evaluateModelInstance(instance);
+    }
+
+    private float[] bakePositions(
+        final Object forward,
+        final Object parentInverse,
+        final float[] positions
+    ) {
+        final float[] canvas = host.transformPositions(forward, positions);
+        return parentInverse == null
+            ? canvas : host.transformPositions(parentInverse, canvas);
     }
 
     /**

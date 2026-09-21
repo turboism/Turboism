@@ -288,6 +288,16 @@ public interface ProtectedExportHostOperations {
     Object deformerLocalToCanvasTransform(Object modelInstance, Object deformerSource);
 
     /**
+     * The deformer's parent's canvas-to-local transform functor evaluated on the
+     * copy's live model instance ({@code CModel.getDeformerTransform(parentGuid)
+     * .createCanvasToLocalTransform()}), or {@code null} when the deformer has
+     * no parent. After a deformer is deleted its children are re-expressed in
+     * the surviving parent's local space; this functor converts an evaluated
+     * canvas position back into that space.
+     */
+    Object deformerParentCanvasToLocalTransform(Object modelInstance, Object deformerSource);
+
+    /**
      * Applies a transform functor to xy position pairs, writing into a fresh
      * destination array ({@code transform.transform(src, dst)}). The receiver is
      * the functor returned by {@link #deformerLocalToCanvasTransform}.
