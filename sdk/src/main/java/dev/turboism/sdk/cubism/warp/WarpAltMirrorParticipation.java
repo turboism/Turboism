@@ -12,6 +12,12 @@ import dev.turboism.sdk.plugin.Registration;
  */
 public interface WarpAltMirrorParticipation {
 
+    /**
+     * Joins the alt-mirror policy for this session.
+     *
+     * @return a registration whose close withdraws participation and disarms
+     *     any axis this participant armed
+     */
     Registration participate();
 
     /**
