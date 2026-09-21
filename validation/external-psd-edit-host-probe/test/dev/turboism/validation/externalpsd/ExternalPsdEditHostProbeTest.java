@@ -453,6 +453,11 @@ public final class ExternalPsdEditHostProbeTest {
             final var proof = ExternalPsdEditHostProbe.UnusedRawDialogProof.forTest(
                 "CUB3-3054: %d unused raw images: %s",
                 TestKeepAction.class.getName());
+            assertTrue(proof.messageMatchesOnEdt(
+                "CUB3-3054: 1 unused raw images: source-image.png"),
+                "complete formatted CUB3-3054 message is proven on EDT");
+            assertTrue(!proof.messageMatchesOnEdt("No: keep this image"),
+                "generic dialog text is not treated as the official message");
             final var proven = proof.buttonsOnEdt(pane);
             inputMap.remove(KeyStroke.getKeyStroke(KeyEvent.VK_N, 0));
             final var missingKey = proof.buttonsOnEdt(pane);
