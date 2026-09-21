@@ -118,6 +118,7 @@ public final class EditorEditSessionSelectorContract {
         Set.of(
             "cubism.editor-model.edit-mode.begin",
             "cubism.editor-model.edit-mode.end",
+            "cubism.editor-model.edit-mode.current-undo",
             "cubism.editor-model.undo.add",
             "cubism.editor-model.undo.add-listener",
             "cubism.editor-model.undo.group-undo",
@@ -147,6 +148,7 @@ public final class EditorEditSessionSelectorContract {
         SESSION_NAVIGATION_ALIASES,
         Set.of(
             "cubism.editor-model.edit-mode.end",
+            "cubism.editor-model.edit-mode.current-undo",
             "cubism.editor-history.document.undo-manager",
             "cubism.editor-history.manager.class",
             "cubism.editor-history.manager.entries",
