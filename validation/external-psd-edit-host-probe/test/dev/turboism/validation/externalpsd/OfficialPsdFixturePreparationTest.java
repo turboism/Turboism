@@ -60,6 +60,7 @@ public final class OfficialPsdFixturePreparationTest {
         testF1SourceAndSharingGate();
         testF1CopyPasteAdmission();
         testWindowBindingAndChooserGate();
+        testPreviewChooserGate();
         testChooserCandidateRenderer();
         testInitialSourceGate();
         testPostSaveModelGate();
@@ -693,6 +694,8 @@ public final class OfficialPsdFixturePreparationTest {
             final Class<?> cFrame = load(loader, "com.live2d.ui.window.CFrame");
             final Class<?> windowBase = load(loader, "com.live2d.ui.window.V");
             final Class<?> option = load(loader, "com.live2d.cubism.process.psd.a$a");
+            final Class<?> previewOption = load(loader,
+                "com.live2d.cubism.doc.modeling.ui.b");
             final Class<?> modelDocument = load(loader,
                 "com.live2d.cubism.doc.modeling.CModelingDocument");
             final Class<?> renderer = load(loader, "com.live2d.cubism.process.psd.e");
@@ -703,8 +706,8 @@ public final class OfficialPsdFixturePreparationTest {
             final Class<?> action = load(loader, "com.live2d.ui.event.CAction");
             final Class<?> localizer = load(loader, "b.c");
             for (final Class<?> type : List.of(app, mainFrameController, cFrame, windowBase,
-                option, modelDocument, renderer, list, button, buttonSubclass, cButton, action,
-                localizer)) {
+                option, previewOption, modelDocument, renderer, list, button, buttonSubclass,
+                cButton, action, localizer)) {
                 assertSame(loader, type.getClassLoader(), "all shape classes use one loader");
                 assertEquals(configuredJar, codeSource(type),
                     "shape class code source is the reviewed JAR: " + type.getName());
@@ -720,6 +723,8 @@ public final class OfficialPsdFixturePreparationTest {
             exactMethod(cFrame, "getJFrame", JFrame.class, false);
             exactMethod(option, "a", modelDocument, false);
             exactMethod(option, "b", String.class, false);
+            exactMethod(previewOption, "a", String.class, false);
+            exactMethod(previewOption, "b", int.class, false);
             assertTrue(AbstractButton.class.isAssignableFrom(button),
                 "exact j button is a Swing button");
             assertTrue(AbstractButton.class.isAssignableFrom(buttonSubclass),
@@ -738,7 +743,8 @@ public final class OfficialPsdFixturePreparationTest {
                 String.class, String[].class);
             assertTrue(instance.trySetAccessible(), "localizer singleton is readable");
             final Object localizerObject = instance.get(null);
-            for (final String key : List.of("CUB3-0418", "CUB3-4408", "CUB3-0421", "CUB3-0420")) {
+            for (final String key : List.of("CUB3-0418", "CUB3-4408", "CUB3-0421", "CUB3-0420",
+                "CUBI-0003", "CUB3-1430")) {
                 final Object value = localize.invoke(localizerObject, key, new String[0]);
                 assertTrue(value instanceof String text && !text.isBlank(),
                     "runtime locale text is available for " + key);
@@ -873,6 +879,131 @@ public final class OfficialPsdFixturePreparationTest {
             "wrong legacy label does not select");
         assertEquals(beforeLegacyClicked, legacyClicked.get(),
             "wrong legacy label does not click");
+    }
+
+    private static void testPreviewChooserGate() {
+        final Object owner = new Object();
+        final Object dialog = new Object();
+        final Object list = new Object();
+        final Object ratioOne = new Object();
+        final Object ratioTwo = new Object();
+        final Object ratioFour = new Object();
+        final Object ratioEight = new Object();
+        final List<Object> options = List.of(ratioOne, ratioTwo, ratioFour, ratioEight);
+        final List<Class<?>> optionClasses = List.of(PreviewOptionShape.class,
+            PreviewOptionShape.class, PreviewOptionShape.class, PreviewOptionShape.class);
+        final List<Integer> ratios = List.of(1, 2, 4, 8);
+        final OfficialPsdFixturePreparation.PreviewChooserGateExpectation expected =
+            new OfficialPsdFixturePreparation.PreviewChooserGateExpectation(
+                ListShape.class, PreviewOptionShape.class, ExactButton.class,
+                ButtonSubclass.class, ActionShape.class, java.util.Set.of(1, 2, 4, 8));
+        final OfficialPsdFixturePreparation.PreviewChooserObservation observation =
+            previewObservation(owner, owner, dialog, list, options, optionClasses, ratios,
+                ratioOne, 0);
+        final AtomicInteger selected = new AtomicInteger();
+        final AtomicInteger clicked = new AtomicInteger();
+        final OfficialPsdFixturePreparation.PreviewChooserGateActions actions =
+            previewActions(selected, clicked, ratioOne);
+
+        final var accepted = OfficialPsdFixturePreparation.verifyAndExecutePreviewChooser(
+            observation, expected, 0, ratioOne, () -> true, () -> false, () -> true,
+            () -> true, actions);
+        assertTrue(accepted.accepted(), "ratio=1 preview chooser is accepted");
+        assertEquals(1, selected.get(), "ratio=1 is selected exactly once");
+        assertEquals(1, clicked.get(), "preview chooser confirms exactly once");
+
+        final int selectedBefore = selected.get();
+        final int clickedBefore = clicked.get();
+        assertPreviewRejected("wrong preview owner", previewObservation(owner, new Object(),
+            dialog, list, options, optionClasses, ratios, ratioOne, 0), expected, ratioOne,
+            actions, selected, clicked, () -> true, () -> false, () -> true, () -> true);
+        assertPreviewRejected("stopped preview chooser", observation, expected, ratioOne,
+            actions, selected, clicked, () -> true, () -> true, () -> true, () -> true);
+        assertPreviewRejected("changed preview window", observation, expected, ratioOne,
+            actions, selected, clicked, () -> false, () -> false, () -> true, () -> true);
+        assertPreviewRejected("expired preview callback", observation, expected, ratioOne,
+            actions, selected, clicked, () -> true, () -> false, () -> true, () -> false);
+        assertPreviewRejected("duplicate preview ratio", previewObservation(owner, owner,
+            dialog, list, options, optionClasses, List.of(1, 2, 4, 1), ratioOne, 0), expected,
+            ratioOne, actions, selected, clicked, () -> true, () -> false, () -> true,
+            () -> true);
+        assertPreviewRejected("unknown preview ratio", previewObservation(owner, owner,
+            dialog, list, options, optionClasses, List.of(1, 2, 4, 16), ratioOne, 0), expected,
+            ratioOne, actions, selected, clicked, () -> true, () -> false, () -> true,
+            () -> true);
+        assertPreviewRejected("multiple preview candidates", previewObservation(owner, owner,
+            dialog, list, options, optionClasses, ratios, ratioOne, 0, 2), expected, ratioOne,
+            actions, selected, clicked, () -> true, () -> false, () -> true, () -> true);
+        assertPreviewRejected("unknown preview dialog", previewObservation(owner, owner,
+            dialog, list, options, optionClasses, ratios, ratioOne, 0, 0), expected, ratioOne,
+            actions, selected, clicked, () -> true, () -> false, () -> true, () -> true);
+        assertPreviewRejected("wrong preview option identity", observation, expected, new Object(),
+            actions, selected, clicked, () -> true, () -> false, () -> true, () -> true);
+        assertEquals(selectedBefore, selected.get(), "invalid preview observations do not select");
+        assertEquals(clickedBefore, clicked.get(), "invalid preview observations do not click");
+
+        final AtomicInteger lateSelected = new AtomicInteger();
+        final AtomicInteger lateClicked = new AtomicInteger();
+        final AtomicInteger contextChecks = new AtomicInteger();
+        final var late = OfficialPsdFixturePreparation.verifyAndExecutePreviewChooser(
+            observation, expected, 0, ratioOne,
+            () -> contextChecks.incrementAndGet() <= 2, () -> false, () -> true,
+            () -> true, previewActions(lateSelected, lateClicked, ratioOne));
+        assertFalse(late.accepted(), "late preview identity change is rejected");
+        assertEquals(1, lateSelected.get(), "late preview change may retain selection only");
+        assertEquals(0, lateClicked.get(), "late preview change never confirms");
+    }
+
+    private static OfficialPsdFixturePreparation.PreviewChooserObservation previewObservation(
+        final Object currentOwner, final Object dialogOwner, final Object dialog,
+        final Object list, final List<?> options, final List<Class<?>> optionClasses,
+        final List<Integer> ratios, final Object targetOption, final int targetIndex) {
+        return previewObservation(currentOwner, dialogOwner, dialog, list, options, optionClasses,
+            ratios, targetOption, targetIndex, 1);
+    }
+
+    private static OfficialPsdFixturePreparation.PreviewChooserObservation previewObservation(
+        final Object currentOwner, final Object dialogOwner, final Object dialog,
+        final Object list, final List<?> options, final List<Class<?>> optionClasses,
+        final List<Integer> ratios, final Object targetOption, final int targetIndex,
+        final int candidateCount) {
+        return new OfficialPsdFixturePreparation.PreviewChooserObservation(
+            currentOwner, dialogOwner, dialog, list, candidateCount, ListShape.class, options,
+            optionClasses, ratios, targetIndex, targetOption, 1, ButtonSubclass.class,
+            ActionShape.class, "OK", true, true, true);
+    }
+
+    private static OfficialPsdFixturePreparation.PreviewChooserGateActions previewActions(
+        final AtomicInteger selected, final AtomicInteger clicked, final Object target) {
+        return new OfficialPsdFixturePreparation.PreviewChooserGateActions() {
+            @Override public boolean select(final int index) {
+                selected.incrementAndGet();
+                return index == 0;
+            }
+
+            @Override public void clickConfirm() {
+                clicked.incrementAndGet();
+            }
+        };
+    }
+
+    private static void assertPreviewRejected(final String description,
+        final OfficialPsdFixturePreparation.PreviewChooserObservation observation,
+        final OfficialPsdFixturePreparation.PreviewChooserGateExpectation expected,
+        final Object target, final OfficialPsdFixturePreparation.PreviewChooserGateActions actions,
+        final AtomicInteger selected, final AtomicInteger clicked,
+        final java.util.function.BooleanSupplier contextOpen,
+        final java.util.function.BooleanSupplier stopped,
+        final java.util.function.BooleanSupplier taskBound,
+        final java.util.function.BooleanSupplier deadlineOpen) {
+        final int selectedBefore = selected.get();
+        final int clickedBefore = clicked.get();
+        final var result = OfficialPsdFixturePreparation.verifyAndExecutePreviewChooser(
+            observation, expected, 0, target, contextOpen, stopped, taskBound, deadlineOpen,
+            actions);
+        assertFalse(result.accepted(), description + " is rejected");
+        assertEquals(selectedBefore, selected.get(), description + " does not select");
+        assertEquals(clickedBefore, clicked.get(), description + " does not click");
     }
 
     private static void testInitialSourceGate() {
@@ -1327,6 +1458,7 @@ public final class OfficialPsdFixturePreparationTest {
     private static final class ListShape { }
     private static final class RendererShape { }
     private static final class OptionShape { }
+    private static final class PreviewOptionShape { }
     private static final class ExactButton { }
     private static final class ButtonSubclass { }
     private static final class ActionShape { }
