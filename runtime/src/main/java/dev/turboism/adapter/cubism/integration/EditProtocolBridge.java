@@ -65,6 +65,10 @@ public final class EditProtocolBridge {
 
     private static final ObjectMapper JSON = JsonMapper.builder().build();
 
+    private static final int TRACE_LIMIT = 64;
+    private final java.util.concurrent.atomic.AtomicLong traceCount =
+        new java.util.concurrent.atomic.AtomicLong();
+
     private final EditSocketWriter writer;
     private final EditApiRouter router;
     private final AtomicReference<Outcome> lastOutcome = new AtomicReference<>(Outcome.NONE);
@@ -116,6 +120,10 @@ public final class EditProtocolBridge {
         Objects.requireNonNull(socket, "socket");
         if (!enabled()) {
             return pass(Outcome.PASSTHROUGH_DISABLED);
+        }
+        if (TRACE_LIMIT > 0 && traceCount.getAndIncrement() < TRACE_LIMIT) {
+            System.out.println("[turboism-edit-bridge] onMessage outcome=begin raw="
+                + (raw == null ? "null" : raw.substring(0, Math.min(120, raw.length()))));
         }
         if (raw == null) {
             return pass(Outcome.PASSTHROUGH_UNPARSEABLE);
@@ -231,6 +239,9 @@ public final class EditProtocolBridge {
     private boolean pass(final Outcome outcome) {
         lastOutcome.set(outcome);
         passedThrough.incrementAndGet();
+        if (traceCount.get() <= TRACE_LIMIT) {
+            System.out.println("[turboism-edit-bridge] onMessage outcome=" + outcome);
+        }
         return false;
     }
 }
