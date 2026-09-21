@@ -2083,7 +2083,7 @@ public final class TurboismAgent {
                 }
             }
             runtimeWarn("Turboism edit-protocol dispatch hook disabled safely: "
-                + failure.getClass().getName());
+                + failure.getClass().getName() + ": " + failure.getMessage());
         }
     }
 
