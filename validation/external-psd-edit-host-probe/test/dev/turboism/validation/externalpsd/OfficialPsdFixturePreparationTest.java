@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;
 
 /** Offline focused checks for the official PSD preparation gates. */
 public final class OfficialPsdFixturePreparationTest {
@@ -63,6 +64,7 @@ public final class OfficialPsdFixturePreparationTest {
         testInitialSourceGate();
         testPostSaveModelGate();
         testSaveCommandAdmission();
+        testAwaitEdtObservationBudget();
         testSaveAfterIdentityGate();
         testOfficialJarAccessorShape();
         System.out.println("PASS: OfficialPsdFixturePreparationTest");
@@ -530,6 +532,75 @@ public final class OfficialPsdFixturePreparationTest {
         expectSaveRejected(() -> OfficialPsdFixturePreparation.executeBoundSaveOnEdt(
             expected, expected, window, window, () -> { }, commands::incrementAndGet));
         assertEquals(1, commands.get(), "off-EDT caller cannot execute another command");
+    }
+
+    private static void testAwaitEdtObservationBudget() {
+        final AtomicInteger successfulObservations = new AtomicInteger();
+        final long started = System.nanoTime();
+        final String value;
+        try {
+            value = OfficialPsdFixturePreparation.awaitEdtObservationForTest(
+                5_000L, () -> false, () -> true, () -> {
+                    successfulObservations.incrementAndGet();
+                    try {
+                        Thread.sleep(2_250L);
+                    } catch (InterruptedException failure) {
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError("EDT budget test was interrupted", failure);
+                    }
+                    return "ready";
+                });
+        } catch (Exception failure) {
+            throw new AssertionError("EDT observation should use the remaining total budget",
+                failure);
+        }
+        assertEquals("ready", value, "EDT observation succeeds after more than the old 2s slice");
+        assertEquals(1, successfulObservations.get(), "successful EDT observation runs once");
+        assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) >= 2_000L,
+            "budget regression really blocked the EDT for more than 2s");
+
+        final java.util.concurrent.CountDownLatch blockerEntered =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseBlocker =
+            new java.util.concurrent.CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            blockerEntered.countDown();
+            try {
+                releaseBlocker.await(5, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        try {
+            assertTrue(blockerEntered.await(5, java.util.concurrent.TimeUnit.SECONDS),
+                "EDT blocker entered before the exhausted-budget observation");
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("EDT blocker setup was interrupted", failure);
+        }
+        final AtomicInteger lateObservations = new AtomicInteger();
+        try {
+            OfficialPsdFixturePreparation.awaitEdtObservationForTest(
+                250L, () -> false, () -> true, () -> {
+                    lateObservations.incrementAndGet();
+                    return "late";
+                });
+            throw new AssertionError("exhausted EDT budget unexpectedly succeeded");
+        } catch (IllegalStateException expected) {
+            // The operation was queued behind the blocker and must be cancelled before it runs.
+        } catch (Exception failure) {
+            throw new AssertionError("exhausted EDT budget failed with the wrong exception",
+                failure);
+        } finally {
+            releaseBlocker.countDown();
+        }
+        try {
+            SwingUtilities.invokeAndWait(() -> { });
+        } catch (Exception failure) {
+            throw new AssertionError("EDT blocker did not drain", failure);
+        }
+        assertEquals(0, lateObservations.get(),
+            "total-budget timeout cancels the queued observation with no late read");
     }
 
     private static void expectSaveRejected(final Runnable action) {
