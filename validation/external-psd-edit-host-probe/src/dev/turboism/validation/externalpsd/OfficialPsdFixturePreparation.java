@@ -1,14 +1,19 @@
 package dev.turboism.validation.externalpsd;
 
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
+import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
+import dev.turboism.sdk.cubism.SelectionSnapshot;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
 import dev.turboism.sdk.cubism.model.ModelImageRelation;
 import dev.turboism.sdk.cubism.model.RawLayerBinding;
+import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -26,12 +31,17 @@ import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JTable;
 import javax.swing.text.JTextComponent;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dialog;
+import java.awt.KeyboardFocusManager;
+import java.awt.Point;
 import java.awt.Window;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -75,6 +85,10 @@ public final class OfficialPsdFixturePreparation {
         "8b760eb0b6ac5839271210aa0efc681f6a02a6537c1ab97d40a3a56879d8f02c";
     public static final String NATIVE_SEVEN_LAYER_TARGET_RGB_SHA256 =
         "12eca5a1c8d8b9096384c974d52e8f0310c4ad9ac4ea87a072684096cf2b808d";
+    public static final String F1_FIXTURE_NAME = "f1-2048-20layers.psd";
+    public static final String F1_FIXTURE_SHA256 =
+        "2473baeae7fc8942d8d2e0df72cf4567f57f8e3a9a37a924fc4d01034ababfeb";
+    public static final String F1_SAVED_COPY_BASENAME = "prepared-f1.cmo3";
     public static final String CONFIG_PREFIX =
         "turboism.validation.externalpsd.prepare.";
     public static final String FIXTURE_PROPERTY = CONFIG_PREFIX + "fixture";
@@ -157,7 +171,14 @@ public final class OfficialPsdFixturePreparation {
 
             final Window window = chooseNewModel(host, input, profile, input.timeoutMillis());
             recordWindow(window);
-            final ModelState state = awaitInitialModel(input, input.timeoutMillis());
+            ModelState state = awaitInitialModel(input, profile, input.timeoutMillis());
+            recordModelState("model.initial", state);
+            if (profile.f1Sharing()) {
+                final F1SharingPreparation sharing = prepareF1Sharing(
+                    input, state, window, host, input.timeoutMillis());
+                recordF1Sharing(sharing);
+                state = sharing.afterState();
+            }
             recordModelState("model.beforeSave", state);
 
             final SavedCopyIdentity saved = saveAsAndConfirm(
@@ -169,7 +190,8 @@ public final class OfficialPsdFixturePreparation {
             properties.setProperty("actual", "official chooser, relation graph, and SAVE After verified");
             return new PreparationResult(window, saved, state.identity());
         } catch (Throwable failure) {
-            properties.setProperty("prepare.status", "FAIL");
+            properties.setProperty("prepare.status",
+                failure instanceof PreparationBlockedException ? "BLOCKED" : "FAIL");
             properties.setProperty("prepare.failure", summarize(failure));
             if (failure instanceof Exception exception) throw exception;
             if (failure instanceof Error error) throw error;
@@ -267,8 +289,17 @@ public final class OfficialPsdFixturePreparation {
             throw new IllegalArgumentException("fixture task copy must be a .psd");
         }
         requireSha(fixtureSha, "fixtureSha256");
-        if (!NATIVE_SEVEN_LAYER_SHA256.equals(fixtureSha)) {
-            throw new IllegalArgumentException("fixtureSha256 is not the reviewed seven-layer PSD");
+        if (!profile.fixtureSha256().equals(fixtureSha)) {
+            throw new IllegalArgumentException("fixtureSha256 is not the reviewed "
+                + profile.profileName() + " PSD");
+        }
+        if (profile.expectedFixtureName() != null
+            && !profile.expectedFixtureName().equals(fixtureName)) {
+            throw new IllegalArgumentException("fixtureName is not the reviewed "
+                + profile.profileName() + " PSD");
+        }
+        if (profile.requiresEmptyTargetRgb() && !targetRgb.isBlank()) {
+            throw new IllegalArgumentException("F1 does not accept a seven-layer target RGB hash");
         }
         requireWindowsPath(savedCopy, "savedCopy");
         if (!lastPathPart(savedCopy).equals(profile.savedCopyBasename())) {
@@ -318,6 +349,7 @@ public final class OfficialPsdFixturePreparation {
             return PreparationProfile.NORMAL;
         }
         if ("legacy".equalsIgnoreCase(value.trim())) return PreparationProfile.LEGACY;
+        if ("f1".equalsIgnoreCase(value.trim())) return PreparationProfile.F1;
         throw new IllegalArgumentException("unknown official PSD preparation profile: " + value);
     }
 
@@ -331,6 +363,12 @@ public final class OfficialPsdFixturePreparation {
     private static void requireSafeId(final String value, final String name) {
         if (value == null || !value.matches("[A-Za-z0-9._-]+")) {
             throw new IllegalArgumentException(name + " is not a safe task identity");
+        }
+    }
+
+    private static void requireText(final String value, final String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
         }
     }
 
@@ -877,11 +915,11 @@ public final class OfficialPsdFixturePreparation {
         throw new IllegalStateException("official PSD chooser did not close after OK");
     }
 
-    private ModelState awaitInitialModel(final InputIdentity input, final long timeoutMillis)
-        throws Exception {
+    private ModelState awaitInitialModel(final InputIdentity input,
+        final PreparationProfile profile, final long timeoutMillis) throws Exception {
         final ModelState state = awaitModel(timeoutMillis, "model.beforeSave");
         final EdtCall<InitialSourceObservation> call = invokeEdtBounded(
-            () -> verifyInitialSourceOnEdt(input, state),
+            () -> verifyInitialSourceOnEdt(input, state, profile),
             Math.min(EDT_CALL_TIMEOUT_MILLIS, timeoutMillis));
         if (!call.completed()) throw new IllegalStateException(
             "initial PSD source verification EDT timed out");
@@ -950,15 +988,302 @@ public final class OfficialPsdFixturePreparation {
     }
 
     private InitialSourceObservation verifyInitialSourceOnEdt(final InputIdentity input,
-        final ModelState before) {
+        final ModelState before, final PreparationProfile profile) {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
             "initial PSD source verification must run on EDT");
         checkStoppedAndTask(input);
         final CurrentModelObservation current = currentModelObservationOnEdt();
         final SourceSnapshotIdentity source = validateInitialSourceGate(before, current.state(),
-            current.relations(), current.model().psdDocuments(), input.fixtureName());
+            current.relations(), current.model().psdDocuments(), input.fixtureName(),
+            profile.requiresLeafLayerBinding());
         checkStoppedAndTask(input);
         return new InitialSourceObservation(current.state(), source);
+    }
+
+    /**
+     * F1's only authoring operation after the official import.  The selected ArtMesh is copied
+     * and pasted through the public command service; relation validation below is what decides
+     * whether the command actually established shared ModelImage usage.
+     */
+    private F1SharingPreparation prepareF1Sharing(final InputIdentity input,
+        final ModelState before, final Window window, final HostAccess host,
+        final long timeoutMillis) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        final EdtCall<CurrentModelObservation> initialCall = invokeEdtBounded(
+            () -> currentModelObservationOnEdt(), EDT_CALL_TIMEOUT_MILLIS);
+        if (!initialCall.completed()) throw blocked("F1 initial relation observation timed out");
+        if (initialCall.failure() != null) throw asException(initialCall.failure());
+        final CurrentModelObservation initial = initialCall.value();
+        if (initial == null || !sameModelIdentity(before, initial.state())) {
+            throw blocked("F1 model/document/relation identity changed before COPY");
+        }
+        final F1Target target = selectF1Target(initial.relations());
+        properties.setProperty("prepare.f1.modelImageId", target.modelImageId());
+        properties.setProperty("prepare.f1.sourceRawId", target.rawId());
+        properties.setProperty("prepare.f1.originalArtMeshId", target.artMeshId());
+        properties.setProperty("prepare.f1.copyPaste.status", "WAITING");
+
+        F1CopyPasteResult action = null;
+        while (System.nanoTime() < deadline) {
+            checkStoppedAndTask(input);
+            final EdtCall<List<F1TableRef>> tablesCall = invokeEdtBounded(
+                () -> reviewedF1TablesOnEdt(window), EDT_CALL_TIMEOUT_MILLIS);
+            if (!tablesCall.completed()) throw blocked("F1 host table observation timed out");
+            if (tablesCall.failure() != null) throw asException(tablesCall.failure());
+            final List<F1TableRef> tables = tablesCall.value() == null
+                ? List.of() : tablesCall.value();
+            if (tables.isEmpty()) {
+                sleepPoll(deadline);
+                continue;
+            }
+            final List<F1PreparedTable> preparedTables = prepareF1Tables(tables);
+            final long remainingMillis = Math.max(1L,
+                TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()));
+            final EdtCall<F1CopyPasteResult> copyPasteCall = invokeEdtBounded(
+                () -> copyPasteF1OnEdt(input, before, window, host, preparedTables,
+                    target.artMeshId()), remainingMillis);
+            if (!copyPasteCall.completed()) throw blocked("F1 COPY/PASTE EDT operation timed out");
+            if (copyPasteCall.failure() != null) throw asException(copyPasteCall.failure());
+            action = copyPasteCall.value();
+            if (action == null) throw blocked("F1 COPY/PASTE returned no admission result");
+            if (action.retryable()) {
+                sleepPoll(deadline);
+                continue;
+            }
+            if (!action.accepted()) throw blocked(action.diagnostic());
+            break;
+        }
+        if (action == null || !action.accepted()) {
+            throw blocked("F1 exact ArtMesh row was not available before timeout");
+        }
+        return awaitF1Sharing(input, before, window, host, target, action, deadline);
+    }
+
+    private static F1Target selectF1Target(final TextureRelationsSnapshot relations)
+        throws PreparationBlockedException {
+        if (relations == null || !relations.isAvailable() || relations.modelImages() == null) {
+            throw blocked("F1 initial texture relations are unavailable");
+        }
+        final Map<String, ArtMeshTextureInputs> inputs = artMeshInputsById(relations);
+        for (final ModelImageRelation image : relations.modelImages()) {
+            if (image == null || image.id() == null || image.currentRawImageId().isEmpty()
+                || image.usingArtMeshIds() == null || image.usingArtMeshIds().isEmpty()) continue;
+            final String modelImageId = image.id().value();
+            final String rawId = image.currentRawImageId().orElseThrow().value();
+            for (final ArtMeshId artMesh : image.usingArtMeshIds()) {
+                if (artMesh == null || artMesh.value() == null || artMesh.value().isBlank()) continue;
+                final ArtMeshTextureInputs input = inputs.get(artMesh.value());
+                try {
+                    requireModelImageInput(input, modelImageId, artMesh.value(), "initial");
+                    return new F1Target(modelImageId, rawId, artMesh.value(), relations);
+                } catch (IllegalArgumentException ignored) {
+                    // This candidate is not a resolved ArtMesh input; continue only across
+                    // relation entries already exposed by the verified SDK projection.
+                }
+            }
+        }
+        throw blocked("F1 has no resolved ArtMesh using a current ModelImage");
+    }
+
+    private List<F1PreparedTable> prepareF1Tables(final List<F1TableRef> tables)
+        throws PreparationBlockedException {
+        final List<F1PreparedTable> prepared = new ArrayList<>();
+        final List<String> failures = new ArrayList<>();
+        for (final F1TableRef table : tables) {
+            final ExactHostRowTarget.HostAccessPreparation access =
+                ExactHostRowTarget.prepareHostAccess(table.modelClass());
+            if (!access.available()) {
+                failures.add(table.modelClass().getName() + ": " + access.reason());
+                continue;
+            }
+            prepared.add(new F1PreparedTable(table.table(), access.context(),
+                table.modelIdentity()));
+        }
+        if (prepared.isEmpty()) {
+            throw blocked("F1 exact host row code-source/accessor proof unavailable: "
+                + failures);
+        }
+        properties.setProperty("prepare.f1.hostTables", Integer.toString(prepared.size()));
+        return List.copyOf(prepared);
+    }
+
+    private F1SharingPreparation awaitF1Sharing(final InputIdentity input,
+        final ModelState before, final Window window, final HostAccess host,
+        final F1Target target, final F1CopyPasteResult action, final long deadline)
+        throws Exception {
+        String lastFailure = "no post-PASTE relation observed";
+        while (System.nanoTime() < deadline) {
+            checkStoppedAndTask(input);
+            final long remainingMillis = Math.max(1L,
+                TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()));
+            final EdtCall<CurrentModelObservation> call = invokeEdtBounded(() -> {
+                checkStoppedAndTask(input);
+                final Window currentWindow = currentWindowOnEdt(host, false);
+                if (currentWindow != window) throw new IllegalStateException(
+                    "F1 bound main-frame window changed after PASTE");
+                final CurrentModelObservation current = currentModelObservationOnEdt();
+                if (!sameDocumentModelIdentity(before, current.state())) {
+                    throw new IllegalStateException(
+                        "F1 document/model identity changed after PASTE");
+                }
+                return current;
+            }, Math.min(EDT_CALL_TIMEOUT_MILLIS, remainingMillis));
+            if (!call.completed()) throw blocked("F1 post-PASTE relation observation timed out");
+            if (call.failure() != null) {
+                lastFailure = summarize(call.failure());
+                sleepPoll(deadline);
+                continue;
+            }
+            final CurrentModelObservation current = call.value();
+            try {
+                final F1SharedIdentity sharing = validateF1SharedRelation(
+                    target.beforeRelations(), current.relations(), target.modelImageId(),
+                    target.rawId(), target.artMeshId());
+                return new F1SharingPreparation(current.state(), sharing, action);
+            } catch (IllegalArgumentException failure) {
+                lastFailure = failure.getMessage() == null ? failure.toString() : failure.getMessage();
+                sleepPoll(deadline);
+            }
+        }
+        throw blocked("F1 COPY/PASTE relation proof timed out: " + lastFailure);
+    }
+
+    private F1CopyPasteResult copyPasteF1OnEdt(final InputIdentity input,
+        final ModelState before, final Window window, final HostAccess host,
+        final List<F1PreparedTable> tables, final String artMeshId) throws Exception {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "F1 COPY/PASTE must run on EDT");
+        checkStoppedAndTask(input);
+        if (currentWindowOnEdt(host, false) != window) throw blocked(
+            "F1 bound main-frame window changed before row selection");
+        final CurrentModelObservation current = currentModelObservationOnEdt();
+        if (!sameModelIdentity(before, current.state())) throw blocked(
+            "F1 document/model/relation identity changed before row selection");
+        final List<F1ResolvedRow> matches = new ArrayList<>();
+        for (final F1PreparedTable table : tables) {
+            if (table.table().getModel() != table.modelIdentity()) continue;
+            for (int row = 0; row < table.table().getRowCount(); row++) {
+                final ExactHostRowTarget.Resolution resolution = ExactHostRowTarget.resolve(
+                    table.table(), row, table.context());
+                if (resolution.available()
+                    && artMeshId.equals(resolution.target().domainId())) {
+                    matches.add(new F1ResolvedRow(table.table(), table.modelIdentity(),
+                        table.context(), resolution.target()));
+                }
+            }
+        }
+        if (matches.isEmpty()) return F1CopyPasteResult.retry(
+            "F1 exact ArtMesh row is not visible in the bound window");
+        final F1ResolvedRow row = selectF1ResolvedRow(matches);
+        if (!row.target().visible() || row.target().locked()) throw blocked(
+            "F1 exact ArtMesh row is hidden or locked");
+        final Set<Window> dialogsBefore = visibleDialogsOnEdt();
+        if (!dialogsBefore.isEmpty()) throw blocked(
+            "F1 has an unknown visible dialog before COPY: " + dialogsBefore.size());
+        final ModelState expected = current.state();
+        return executeF1CopyPasteOnEdt(expected, artMeshId, window,
+            () -> currentWindowForF1(host), this::currentModelOnEdt,
+            stopped, () -> isTaskBound(input),
+            new F1CopyPasteActions() {
+                @Override public void leftClick() {
+                    dispatchF1LeftClick(row.table(), row.target().nameClickPoint());
+                }
+
+                @Override public F1SelectionObservation selection() {
+                    final SelectionSnapshot selection = context.cubism().runtime().selection();
+                    if (selection == null) return null;
+                    return new F1SelectionObservation(selection.selectedObjectIds(),
+                        selection.activeArtMeshId());
+                }
+
+                @Override public EditorCommandResult copy() {
+                    return context.editorCommands().execute(EditorCommand.COPY);
+                }
+
+                @Override public EditorCommandResult paste() {
+                    return context.editorCommands().execute(EditorCommand.PASTE);
+                }
+
+                @Override public boolean unknownVisibleDialog() {
+                    final Set<Window> after = visibleDialogsOnEdt();
+                    return after.stream().anyMatch(dialog -> !dialogsBefore.contains(dialog));
+                }
+            });
+    }
+
+    private static F1ResolvedRow selectF1ResolvedRow(final List<F1ResolvedRow> matches)
+        throws PreparationBlockedException {
+        final Map<ExactHostRowTarget.RowFamily, List<F1ResolvedRow>> byFamily =
+            new java.util.EnumMap<>(ExactHostRowTarget.RowFamily.class);
+        for (final F1ResolvedRow match : matches) {
+            byFamily.computeIfAbsent(match.target().rowFamily(), ignored -> new ArrayList<>())
+                .add(match);
+        }
+        for (final Map.Entry<ExactHostRowTarget.RowFamily, List<F1ResolvedRow>> entry
+            : byFamily.entrySet()) {
+            if (entry.getValue().size() > 1) throw blocked(
+                "F1 exact ArtMesh row is ambiguous within " + entry.getKey() + ": "
+                    + entry.getValue().size());
+        }
+        final F1ResolvedRow deformer = byFamily.getOrDefault(
+            ExactHostRowTarget.RowFamily.DEFORMER, List.of()).stream().findFirst().orElse(null);
+        if (deformer != null) return deformer;
+        final F1ResolvedRow parts = byFamily.getOrDefault(
+            ExactHostRowTarget.RowFamily.PARTS, List.of()).stream().findFirst().orElse(null);
+        if (parts != null) return parts;
+        throw blocked("F1 exact ArtMesh row family is not reviewed");
+    }
+
+    private static List<F1TableRef> reviewedF1TablesOnEdt(final Window window) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "F1 table discovery must run on EDT");
+        if (window == null || !window.isShowing() || !window.isDisplayable()) {
+            return List.of();
+        }
+        final Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+            .getActiveWindow();
+        if (active != null && active != window) throw new IllegalStateException(
+            "F1 bound window is not the active window");
+        final List<F1TableRef> tables = new ArrayList<>();
+        collectF1Tables(window, window, tables);
+        return List.copyOf(tables);
+    }
+
+    private static void collectF1Tables(final Component component, final Window window,
+        final List<F1TableRef> tables) {
+        if (component instanceof JTable table && table.isShowing() && table.isDisplayable()
+            && SwingUtilities.getWindowAncestor(table) == window
+            && ExactHostRowTarget.isReviewedTableModelClass(table.getModel().getClass())) {
+            tables.add(new F1TableRef(table, table.getModel().getClass(), table.getModel()));
+        }
+        if (component instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                collectF1Tables(child, window, tables);
+            }
+        }
+    }
+
+    private static Set<Window> visibleDialogsOnEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "dialog observation must run on EDT");
+        final Set<Window> result = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>());
+        for (final Window window : Window.getWindows()) {
+            if (window instanceof Dialog && window.isShowing() && window.isDisplayable()) {
+                result.add(window);
+            }
+        }
+        return result;
+    }
+
+    private static void dispatchF1LeftClick(final Component target, final Point point) {
+        final long now = System.currentTimeMillis();
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
+            InputEvent.BUTTON1_DOWN_MASK, point.x, point.y, 1, false, MouseEvent.BUTTON1));
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
+            InputEvent.BUTTON1_DOWN_MASK, point.x, point.y, 1, false, MouseEvent.BUTTON1));
+        target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_CLICKED, now,
+            InputEvent.BUTTON1_DOWN_MASK, point.x, point.y, 1, false, MouseEvent.BUTTON1));
     }
 
     private SavedCopyIdentity saveAsAndConfirm(final InputIdentity input, final ModelState before,
@@ -1064,6 +1389,116 @@ public final class OfficialPsdFixturePreparation {
         return command.get();
     }
 
+    /**
+     * Production COPY/PASTE admission boundary.  The live caller supplies only exact row UI
+     * actions and SDK observations; focused tests use counters through the same boundary.  No
+     * command is issued until the bound window, task, model identity, and selection are proven.
+     */
+    static F1CopyPasteResult executeF1CopyPasteOnEdt(final ModelState expected,
+        final String artMeshId, final Object expectedWindow, final Supplier<Object> currentWindow,
+        final Supplier<ModelState> currentState, final BooleanSupplier stopped,
+        final BooleanSupplier taskBound, final F1CopyPasteActions actions) {
+        Objects.requireNonNull(expected, "expected");
+        Objects.requireNonNull(artMeshId, "artMeshId");
+        Objects.requireNonNull(currentWindow, "currentWindow");
+        Objects.requireNonNull(currentState, "currentState");
+        Objects.requireNonNull(stopped, "stopped");
+        Objects.requireNonNull(taskBound, "taskBound");
+        Objects.requireNonNull(actions, "actions");
+        if (!SwingUtilities.isEventDispatchThread()) return F1CopyPasteResult.rejected(
+            "F1 COPY/PASTE admission must run on EDT", null, false, false);
+        F1SelectionObservation selection = null;
+        boolean copyExecuted = false;
+        boolean pasteExecuted = false;
+        try {
+            String failure = f1PreCommandFailure(expected, expectedWindow, currentWindow,
+                currentState, stopped, taskBound);
+            if (failure != null) return F1CopyPasteResult.rejected(
+                failure, selection, copyExecuted, pasteExecuted);
+            actions.leftClick();
+            failure = f1PreCommandFailure(expected, expectedWindow, currentWindow,
+                currentState, stopped, taskBound);
+            if (failure != null) return F1CopyPasteResult.rejected(
+                "F1 selection admission failed: " + failure, selection, copyExecuted,
+                pasteExecuted);
+            selection = actions.selection();
+            if (!f1SelectionMatches(selection, artMeshId)) return F1CopyPasteResult.rejected(
+                "F1 SDK selection is empty or not exactly the selected ArtMesh", selection,
+                copyExecuted, pasteExecuted);
+            failure = f1PreCommandFailure(expected, expectedWindow, currentWindow,
+                currentState, stopped, taskBound);
+            if (failure != null) return F1CopyPasteResult.rejected(
+                "F1 COPY admission failed: " + failure, selection, copyExecuted,
+                pasteExecuted);
+            final EditorCommandResult copied = actions.copy();
+            copyExecuted = copied != null && copied.executed();
+            if (!copyExecuted) return F1CopyPasteResult.rejected(
+                "F1 COPY did not execute", selection, copyExecuted, pasteExecuted);
+            failure = f1PreCommandFailure(expected, expectedWindow, currentWindow,
+                currentState, stopped, taskBound);
+            if (failure != null) return F1CopyPasteResult.rejected(
+                "F1 PASTE admission failed: " + failure, selection, copyExecuted,
+                pasteExecuted);
+            final EditorCommandResult pasted = actions.paste();
+            pasteExecuted = pasted != null && pasted.executed();
+            if (!pasteExecuted) return F1CopyPasteResult.rejected(
+                "F1 PASTE did not execute", selection, copyExecuted, pasteExecuted);
+            failure = f1PostPasteFailure(expected, expectedWindow, currentWindow, currentState,
+                stopped, taskBound);
+            if (failure != null) return F1CopyPasteResult.rejected(
+                "F1 post-PASTE identity failed: " + failure, selection, copyExecuted,
+                pasteExecuted);
+            if (actions.unknownVisibleDialog()) return F1CopyPasteResult.rejected(
+                "F1 PASTE opened an unknown visible dialog", selection, copyExecuted,
+                pasteExecuted);
+            return F1CopyPasteResult.accepted(selection, copyExecuted, pasteExecuted);
+        } catch (RuntimeException failure) {
+            return F1CopyPasteResult.rejected("F1 COPY/PASTE action failed: "
+                + summarize(failure), selection, copyExecuted, pasteExecuted);
+        }
+    }
+
+    private static String f1PreCommandFailure(final ModelState expected,
+        final Object expectedWindow, final Supplier<Object> currentWindow,
+        final Supplier<ModelState> currentState, final BooleanSupplier stopped,
+        final BooleanSupplier taskBound) {
+        if (stopped.getAsBoolean()) return "preparation was stopped";
+        if (!taskBound.getAsBoolean()) return "preparation task binding changed";
+        final Object observedWindow = currentWindow.get();
+        if (expectedWindow == null || observedWindow != expectedWindow) {
+            return "bound window identity changed";
+        }
+        final ModelState state = currentState.get();
+        if (!sameModelIdentity(expected, state)) return "document/model/relation identity changed";
+        return null;
+    }
+
+    private static String f1PostPasteFailure(final ModelState expected,
+        final Object expectedWindow, final Supplier<Object> currentWindow,
+        final Supplier<ModelState> currentState, final BooleanSupplier stopped,
+        final BooleanSupplier taskBound) {
+        if (stopped.getAsBoolean()) return "preparation was stopped";
+        if (!taskBound.getAsBoolean()) return "preparation task binding changed";
+        if (expectedWindow == null || currentWindow.get() != expectedWindow) {
+            return "bound window identity changed";
+        }
+        final ModelState state = currentState.get();
+        if (!sameDocumentModelIdentity(expected, state)) {
+            return "document/model identity changed";
+        }
+        return null;
+    }
+
+    private static boolean f1SelectionMatches(final F1SelectionObservation selection,
+        final String artMeshId) {
+        if (selection == null || selection.selectedObjectIds() == null
+            || selection.selectedObjectIds().size() != 1
+            || !artMeshId.equals(selection.selectedObjectIds().get(0))) return false;
+        return selection.activeArtMeshId() == null
+            || selection.activeArtMeshId().isEmpty()
+            || artMeshId.equals(selection.activeArtMeshId().orElse(null));
+    }
+
     private Window currentWindow(final HostAccess host) throws Exception {
         final EdtCall<Window> call = invokeEdtBounded(
             () -> currentWindowOnEdt(host, false), EDT_CALL_TIMEOUT_MILLIS);
@@ -1105,6 +1540,14 @@ public final class OfficialPsdFixturePreparation {
         }
         checkStopped();
         return window;
+    }
+
+    private Window currentWindowForF1(final HostAccess host) {
+        try {
+            return currentWindowOnEdt(host, false);
+        } catch (Exception failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     private static Window notReadyOrFail(final boolean allowNotReady, final String diagnostic) {
@@ -1159,6 +1602,25 @@ public final class OfficialPsdFixturePreparation {
         properties.setProperty(prefix + ".rawLayerBindings", state.identity().rawLayerBindings());
     }
 
+    private void recordF1Sharing(final F1SharingPreparation preparation) {
+        final F1SharedIdentity sharing = preparation.sharing();
+        properties.setProperty("prepare.f1.copyPaste.status", "PASS");
+        properties.setProperty("prepare.f1.copyPaste.selection", preparation.action().selection() == null
+            ? UNAVAILABLE : preparation.action().selection().selectedObjectIds().toString());
+        properties.setProperty("prepare.f1.copyPaste.copyExecuted",
+            Boolean.toString(preparation.action().copyExecuted()));
+        properties.setProperty("prepare.f1.copyPaste.pasteExecuted",
+            Boolean.toString(preparation.action().pasteExecuted()));
+        properties.setProperty("prepare.f1.modelImageId", sharing.modelImageId());
+        properties.setProperty("prepare.f1.sourceRawId", sharing.rawId());
+        properties.setProperty("prepare.f1.originalArtMeshId", sharing.originalArtMeshId());
+        properties.setProperty("prepare.f1.copiedArtMeshId", sharing.copiedArtMeshId());
+        properties.setProperty("prepare.f1.usingArtMeshIds",
+            String.join(",", sharing.usingArtMeshIds()));
+        properties.setProperty("prepare.f1.relationGate", "old-model-image-and-raw-retained"
+            + "+old-and-new-artmesh-resolve-to-old-model-image");
+    }
+
     private void recordSourceIdentity(final ModelState state,
         final SourceSnapshotIdentity source) {
         final String documentPath = state.relativePath();
@@ -1199,6 +1661,10 @@ public final class OfficialPsdFixturePreparation {
         }
     }
 
+    private static PreparationBlockedException blocked(final String diagnostic) {
+        return new PreparationBlockedException(diagnostic);
+    }
+
     private void checkStoppedAndTask(final InputIdentity input) {
         checkStopped();
         if (!isTaskBound(input)) {
@@ -1212,7 +1678,17 @@ public final class OfficialPsdFixturePreparation {
     }
 
     private static boolean sameModelIdentity(final ModelState before, final ModelState after) {
-        return before != null && after != null && before.identity().equals(after.identity());
+        return before != null && after != null
+            && Objects.equals(before.documentId(), after.documentId())
+            && Objects.equals(before.modelId(), after.modelId())
+            && before.identity().equals(after.identity());
+    }
+
+    private static boolean sameDocumentModelIdentity(final ModelState before,
+        final ModelState after) {
+        return before != null && after != null
+            && Objects.equals(before.documentId(), after.documentId())
+            && Objects.equals(before.modelId(), after.modelId());
     }
 
     private static boolean savedModelMatches(final ModelState before, final ModelState after,
@@ -1435,6 +1911,19 @@ public final class OfficialPsdFixturePreparation {
         final ModelState expected, final ModelState fresh,
         final TextureRelationsSnapshot relations,
         final List<PsdClipMaskDocumentSnapshot> documents, final String fixtureName) {
+        return validateInitialSourceGate(expected, fresh, relations, documents, fixtureName, true);
+    }
+
+    /**
+     * Shared source gate with an explicit profile switch.  The seven-layer control requires
+     * every PSD leaf to equal a raw layer binding; F1 deliberately does not, because its
+     * twenty-layer source is used to prove a shared ModelImage relation instead.
+     */
+    static SourceSnapshotIdentity validateInitialSourceGate(
+        final ModelState expected, final ModelState fresh,
+        final TextureRelationsSnapshot relations,
+        final List<PsdClipMaskDocumentSnapshot> documents, final String fixtureName,
+        final boolean requireLeafLayerBinding) {
         if (!sameModelIdentity(expected, fresh)) throw new IllegalArgumentException(
             "initial model/document/relation identity changed");
         if (fresh.documentId() == null || fresh.modelId() == null
@@ -1446,7 +1935,8 @@ public final class OfficialPsdFixturePreparation {
             fresh.documentId(), fresh.modelId(), relations);
         if (!observed.equals(fresh.identity())) throw new IllegalArgumentException(
             "fresh texture relation identity changed");
-        return validateSourceSnapshot(fresh.identity(), relations, documents, fixtureName);
+        return validateSourceSnapshot(fresh.identity(), relations, documents, fixtureName,
+            requireLeafLayerBinding);
     }
 
     /**
@@ -1455,7 +1945,8 @@ public final class OfficialPsdFixturePreparation {
      */
     private static SourceSnapshotIdentity validateSourceSnapshot(
         final RelationIdentity identity, final TextureRelationsSnapshot relations,
-        final List<PsdClipMaskDocumentSnapshot> documents, final String fixtureName) {
+        final List<PsdClipMaskDocumentSnapshot> documents, final String fixtureName,
+        final boolean requireLeafLayerBinding) {
         if (identity == null || relations == null || fixtureName == null
             || !isPsdName(fixtureName)) throw new IllegalArgumentException(
             "initial PSD source identity is unavailable");
@@ -1523,8 +2014,10 @@ public final class OfficialPsdFixturePreparation {
         for (final PsdLayerSnapshot layer : document.layers()) {
             collectPsdLayerIds(layer, allLayerIds, leafLayerIds);
         }
-        if (!leafLayerIds.equals(rawLayerIds)) throw new IllegalArgumentException(
-            "initial PSD source leaf layers do not match raw bindings");
+        if (requireLeafLayerBinding && !leafLayerIds.equals(rawLayerIds)) {
+            throw new IllegalArgumentException(
+                "initial PSD source leaf layers do not match raw bindings");
+        }
         return new SourceSnapshotIdentity(rawId, document.relativePath(), fileName,
             List.copyOf(leafLayerIds));
     }
@@ -1549,6 +2042,110 @@ public final class OfficialPsdFixturePreparation {
         }
         for (final PsdLayerSnapshot child : layer.children()) {
             collectPsdLayerIds(child, allLayerIds, leafLayerIds);
+        }
+    }
+
+    /**
+     * F1-specific post-COPY/PASTE relation gate.  The seven-layer leaf/binding equality rule is
+     * intentionally absent here; this gate proves only that the old ModelImage and raw remain
+     * intact and that a new ArtMesh now resolves to that same ModelImage.
+     */
+    static F1SharedIdentity validateF1SharedRelation(
+        final TextureRelationsSnapshot before, final TextureRelationsSnapshot after,
+        final String modelImageId, final String rawId, final String originalArtMeshId) {
+        validateRelationSnapshot("f1-document", "f1-model", before);
+        validateRelationSnapshot("f1-document", "f1-model", after);
+        requireText(modelImageId, "F1 modelImageId");
+        requireText(rawId, "F1 rawId");
+        requireText(originalArtMeshId, "F1 originalArtMeshId");
+        final ModelImageRelation beforeImage = modelImage(before, modelImageId);
+        final ModelImageRelation afterImage = modelImage(after, modelImageId);
+        if (!rawId.equals(beforeImage.currentRawImageId().map(RawImageId::value).orElse(""))
+            || !rawId.equals(afterImage.currentRawImageId().map(RawImageId::value).orElse(""))) {
+            throw new IllegalArgumentException("F1 old ModelImage current raw changed or is missing");
+        }
+        if (beforeImage.inputsByRawImage().isEmpty()
+            || afterImage.inputsByRawImage().isEmpty()
+            || !beforeImage.inputsByRawImage().equals(afterImage.inputsByRawImage())
+            || !beforeImage.linkedRawImageIds().equals(afterImage.linkedRawImageIds())) {
+            throw new IllegalArgumentException("F1 old ModelImage raw bindings changed or are empty");
+        }
+        final List<String> beforeUsing = uniqueArtMeshIds(beforeImage.usingArtMeshIds(),
+            "F1 before usingArtMeshIds");
+        final List<String> afterUsing = uniqueArtMeshIds(afterImage.usingArtMeshIds(),
+            "F1 after usingArtMeshIds");
+        if (!beforeUsing.contains(originalArtMeshId) || !afterUsing.contains(originalArtMeshId)) {
+            throw new IllegalArgumentException("F1 original ArtMesh is not retained by the old ModelImage");
+        }
+        final Set<String> beforeSet = new LinkedHashSet<>(beforeUsing);
+        final List<String> added = afterUsing.stream().filter(id -> !beforeSet.contains(id)).toList();
+        if (added.size() != 1) throw new IllegalArgumentException(
+            "F1 COPY/PASTE must add exactly one new ArtMesh to the old ModelImage: " + added);
+        final String copiedArtMeshId = added.get(0);
+        final Map<String, ArtMeshTextureInputs> beforeInputs = artMeshInputsById(before);
+        final Map<String, ArtMeshTextureInputs> afterInputs = artMeshInputsById(after);
+        if (beforeInputs.containsKey(copiedArtMeshId)) throw new IllegalArgumentException(
+            "F1 copied ArtMesh ID was already present before PASTE: " + copiedArtMeshId);
+        requireModelImageInput(beforeInputs.get(originalArtMeshId), modelImageId,
+            originalArtMeshId, "before");
+        requireModelImageInput(afterInputs.get(originalArtMeshId), modelImageId,
+            originalArtMeshId, "after original");
+        requireModelImageInput(afterInputs.get(copiedArtMeshId), modelImageId,
+            copiedArtMeshId, "after copied");
+        return new F1SharedIdentity(modelImageId, rawId, originalArtMeshId, copiedArtMeshId,
+            afterUsing);
+    }
+
+    private static ModelImageRelation modelImage(final TextureRelationsSnapshot relations,
+        final String modelImageId) {
+        return relations.modelImages().stream()
+            .filter(image -> image != null && image.id() != null
+                && modelImageId.equals(image.id().value()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException(
+                "F1 ModelImage is missing: " + modelImageId));
+    }
+
+    private static List<String> uniqueArtMeshIds(final List<ArtMeshId> ids, final String field) {
+        if (ids == null || ids.isEmpty()) throw new IllegalArgumentException(field + " is empty");
+        final List<String> values = new ArrayList<>();
+        final Set<String> unique = new LinkedHashSet<>();
+        for (final ArtMeshId id : ids) {
+            if (id == null || id.value() == null || id.value().isBlank() || !unique.add(id.value())) {
+                throw new IllegalArgumentException(field + " contains a missing or duplicate ID");
+            }
+            values.add(id.value());
+        }
+        return List.copyOf(values);
+    }
+
+    private static Map<String, ArtMeshTextureInputs> artMeshInputsById(
+        final TextureRelationsSnapshot relations) {
+        if (relations.artMeshInputs() == null) throw new IllegalArgumentException(
+            "F1 ArtMesh texture-input projection is unavailable");
+        final Map<String, ArtMeshTextureInputs> result = new java.util.LinkedHashMap<>();
+        for (final ArtMeshTextureInputs mesh : relations.artMeshInputs()) {
+            if (mesh == null || mesh.id() == null || mesh.id().value() == null
+                || mesh.id().value().isBlank() || result.put(mesh.id().value(), mesh) != null) {
+                throw new IllegalArgumentException("F1 ArtMesh texture-input identity is missing or duplicated");
+            }
+        }
+        return result;
+    }
+
+    private static void requireModelImageInput(final ArtMeshTextureInputs mesh,
+        final String modelImageId, final String artMeshId, final String stage) {
+        if (mesh == null || mesh.currentInputIndex().isEmpty()) throw new IllegalArgumentException(
+            "F1 " + stage + " ArtMesh input is missing: " + artMeshId);
+        final int index = mesh.currentInputIndex().getAsInt();
+        if (index < 0 || index >= mesh.inputs().size()) throw new IllegalArgumentException(
+            "F1 " + stage + " ArtMesh current input index is invalid: " + artMeshId);
+        final TextureInputBinding input = mesh.inputs().get(index);
+        if (input == null || input.kind() != TextureInputBinding.Kind.MODEL_IMAGE
+            || !input.isResolved() || input.modelImageId().isEmpty()
+            || !modelImageId.equals(input.modelImageId().orElseThrow().value())) {
+            throw new IllegalArgumentException("F1 " + stage
+                + " ArtMesh does not resolve to the old ModelImage: " + artMeshId);
         }
     }
 
@@ -1634,27 +2231,111 @@ public final class OfficialPsdFixturePreparation {
 
     private record PreparedInput(InputIdentity identity, PreparationProfile profile) { }
 
+    @FunctionalInterface
+    interface F1CopyPasteActions {
+        void leftClick();
+
+        default F1SelectionObservation selection() { return null; }
+        default EditorCommandResult copy() { return null; }
+        default EditorCommandResult paste() { return null; }
+        default boolean unknownVisibleDialog() { return false; }
+    }
+
+    static record F1SelectionObservation(List<String> selectedObjectIds,
+        Optional<String> activeArtMeshId) {
+        F1SelectionObservation {
+            selectedObjectIds = selectedObjectIds == null ? List.of() : List.copyOf(selectedObjectIds);
+            activeArtMeshId = activeArtMeshId == null ? Optional.empty() : activeArtMeshId;
+        }
+    }
+
+    static record F1CopyPasteResult(boolean accepted, boolean retryable, String diagnostic,
+        F1SelectionObservation selection, boolean copyExecuted, boolean pasteExecuted) {
+        static F1CopyPasteResult retry(final String diagnostic) {
+            return new F1CopyPasteResult(false, true, diagnostic, null, false, false);
+        }
+
+        static F1CopyPasteResult rejected(final String diagnostic,
+            final F1SelectionObservation selection, final boolean copyExecuted,
+            final boolean pasteExecuted) {
+            return new F1CopyPasteResult(false, false, diagnostic, selection,
+                copyExecuted, pasteExecuted);
+        }
+
+        static F1CopyPasteResult accepted(final F1SelectionObservation selection,
+            final boolean copyExecuted, final boolean pasteExecuted) {
+            return new F1CopyPasteResult(true, false, "F1 COPY/PASTE commands executed",
+                selection, copyExecuted, pasteExecuted);
+        }
+    }
+
+    static record F1SharedIdentity(String modelImageId, String rawId, String originalArtMeshId,
+        String copiedArtMeshId, List<String> usingArtMeshIds) {
+        F1SharedIdentity {
+            usingArtMeshIds = List.copyOf(usingArtMeshIds);
+        }
+    }
+
+    private record F1Target(String modelImageId, String rawId, String artMeshId,
+        TextureRelationsSnapshot beforeRelations) { }
+
+    private record F1SharingPreparation(ModelState afterState, F1SharedIdentity sharing,
+        F1CopyPasteResult action) { }
+
+    private record F1TableRef(JTable table, Class<?> modelClass, Object modelIdentity) { }
+
+    private record F1PreparedTable(JTable table, ExactHostRowTarget.HostAccessContext context,
+        Object modelIdentity) { }
+
+    private record F1ResolvedRow(JTable table, Object modelIdentity,
+        ExactHostRowTarget.HostAccessContext context, ExactHostRowTarget.Target target) { }
+
+    private static final class PreparationBlockedException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        PreparationBlockedException(final String message) { super(message); }
+    }
+
     private enum PreparationProfile {
-        NORMAL("normal", 0, FIRST_LABEL_KEY, "prepared-control.cmo3"),
-        LEGACY("legacy", 1, SECOND_LABEL_KEY, "prepared-control-legacy.cmo3");
+        NORMAL("normal", 0, FIRST_LABEL_KEY, "prepared-control.cmo3",
+            NATIVE_SEVEN_LAYER_SHA256, null, true, false),
+        LEGACY("legacy", 1, SECOND_LABEL_KEY, "prepared-control-legacy.cmo3",
+            NATIVE_SEVEN_LAYER_SHA256, null, true, false),
+        F1("f1", 0, FIRST_LABEL_KEY, F1_SAVED_COPY_BASENAME,
+            F1_FIXTURE_SHA256, F1_FIXTURE_NAME, false, true);
 
         private final String name;
         private final int chooserIndex;
         private final String chooserKey;
         private final String savedCopyBasename;
+        private final String fixtureSha256;
+        private final String expectedFixtureName;
+        private final boolean requiresLeafLayerBinding;
+        private final boolean f1Sharing;
 
         PreparationProfile(final String name, final int chooserIndex, final String chooserKey,
-            final String savedCopyBasename) {
+            final String savedCopyBasename, final String fixtureSha256,
+            final String expectedFixtureName, final boolean requiresLeafLayerBinding,
+            final boolean f1Sharing) {
             this.name = name;
             this.chooserIndex = chooserIndex;
             this.chooserKey = chooserKey;
             this.savedCopyBasename = savedCopyBasename;
+            this.fixtureSha256 = fixtureSha256;
+            this.expectedFixtureName = expectedFixtureName;
+            this.requiresLeafLayerBinding = requiresLeafLayerBinding;
+            this.f1Sharing = f1Sharing;
         }
 
         String profileName() { return name; }
         int chooserIndex() { return chooserIndex; }
         String chooserKey() { return chooserKey; }
         String savedCopyBasename() { return savedCopyBasename; }
+        String fixtureSha256() { return fixtureSha256; }
+        String expectedFixtureName() { return expectedFixtureName; }
+        boolean requiresLeafLayerBinding() { return requiresLeafLayerBinding; }
+        boolean requiresEmptyTargetRgb() { return f1Sharing; }
+        boolean f1Sharing() { return f1Sharing; }
     }
 
     private record ChoiceObservation(Window owner, Dialog dialog, String listClass,
