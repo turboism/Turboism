@@ -162,6 +162,8 @@ function New-CubismInstallationCandidate {
     $java = Join-Path $canonical "app\jre\bin\java.exe"
     $applicationJar = Join-Path $canonical "app\lib\Live2D_Cubism.jar"
     $version = $null
+    $applicationSha256 = ""
+    $javaSha256 = ""
     $missing = @()
     if (-not (Test-CubismFixedDrive $canonical)) { $missing += "fixed local drive" }
     if (-not (Test-Path -LiteralPath $canonical -PathType Container)) { $missing += "root directory" }
@@ -178,7 +180,17 @@ function New-CubismInstallationCandidate {
     if (-not (Test-Path -LiteralPath $java -PathType Leaf)) { $missing += "bundled Java launcher" }
     if (-not (Test-Path -LiteralPath $applicationJar -PathType Leaf)) { $missing += "Cubism application JAR" }
     if ($missing.Count -eq 0) {
-        $version = Get-CubismVersionFromArtifact -Java $java -ApplicationJar $applicationJar -TurboismHome $TurboismHome
+        # Bind the version probe to stable input bytes; a host update during
+        # discovery must not turn an old admission result into a new identity.
+        try {
+            $applicationSha256 = Get-CubismSha256 $applicationJar
+            $javaSha256 = Get-CubismSha256 $java
+            $version = Get-CubismVersionFromArtifact -Java $java -ApplicationJar $applicationJar -TurboismHome $TurboismHome
+            if ((Get-CubismSha256 $applicationJar) -ine $applicationSha256 -or (Get-CubismSha256 $java) -ine $javaSha256) {
+                $version = $null
+            }
+        }
+        catch { $version = $null }
     }
 
     if ($missing.Count -gt 0) {
@@ -200,6 +212,7 @@ function New-CubismInstallationCandidate {
         Status = $status; Reason = $reason; Selectable = ($status -eq "Ready")
         OfficialBat = $officialBat; D3DBat = (Get-CubismD3DBat $canonical)
         Java = $java; ApplicationJar = $applicationJar; Selected = $false
+        ApplicationSha256 = $applicationSha256; JavaSha256 = $javaSha256
     }
 }
 
@@ -382,6 +395,117 @@ function ConvertTo-CubismDiscoveryField {
     return $safe
 }
 
+function Write-CubismInstallerSnapshot {
+    param([string]$TurboismHome, [string]$SnapshotPath, [object[]]$Candidates = @())
+    # The report publishes this file's digest only after the snapshot is complete.
+    # No installation state or user selection is mutated during discovery.
+    $agent = Join-Path $TurboismHome "turboism-agent.jar"
+    if (-not (Test-CubismNormalFile $agent)) { throw "installer verifier payload is missing" }
+    if (Test-Path -LiteralPath $SnapshotPath) { throw "installer snapshot already exists" }
+    $entries = @(
+        foreach ($candidate in @($Candidates | Where-Object { $_.Selectable })) {
+            if ([string]::IsNullOrWhiteSpace($candidate.ApplicationSha256) -or
+                [string]::IsNullOrWhiteSpace($candidate.JavaSha256) -or
+                (Get-CubismSha256 $candidate.ApplicationJar) -ine $candidate.ApplicationSha256 -or
+                (Get-CubismSha256 $candidate.Java) -ine $candidate.JavaSha256) {
+                throw "Cubism changed before the discovery snapshot was published"
+            }
+            $d3dName = if ([string]::IsNullOrWhiteSpace($candidate.D3DBat)) { "" } else { [System.IO.Path]::GetFileName($candidate.D3DBat) }
+            [ordered]@{
+                root = $candidate.CanonicalRoot
+                version = $candidate.Version
+                applicationSha256 = $candidate.ApplicationSha256
+                javaSha256 = $candidate.JavaSha256
+                d3dName = $d3dName
+            }
+        }
+    )
+    if ($entries.Count -gt $script:CubismMaxStateEntries) { throw "installer snapshot entry cap exceeded" }
+    $document = [ordered]@{
+        format = "turboism.cubism.discovery-snapshot"
+        schemaVersion = 1
+        verifierSha256 = (Get-CubismSha256 $agent)
+        installations = $entries
+    }
+    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+    $bytes = $utf8.GetBytes(($document | ConvertTo-Json -Depth 5 -Compress))
+    if ($bytes.Length -gt $script:CubismMaxStateBytes) { throw "installer snapshot byte cap exceeded" }
+    $temporary = $SnapshotPath + "." + [guid]::NewGuid().ToString("N") + ".tmp"
+    try {
+        [System.IO.File]::WriteAllBytes($temporary, $bytes)
+        [System.IO.File]::Move($temporary, $SnapshotPath)
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+    }
+    return (Get-CubismSha256 $SnapshotPath)
+}
+
+function Read-CubismInstallerSnapshot {
+    param([string]$TurboismHome, [string]$SnapshotPath, [string]$ExpectedSha256)
+    if ($ExpectedSha256 -notmatch '^[0-9a-fA-F]{64}$' -or -not (Test-CubismNormalFile $SnapshotPath)) {
+        throw "installer discovery snapshot or digest is missing"
+    }
+    # Read a bounded, single byte snapshot. The digest received by NSIS at scan
+    # completion binds the bytes; a later edited sidecar cannot change targets.
+    $text = Read-CubismStateBytes $SnapshotPath
+    if ((Get-CubismTextSha256 $text) -ine $ExpectedSha256) { throw "installer discovery snapshot digest mismatch" }
+    try { $document = $text | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "installer discovery snapshot is invalid JSON" }
+    if ($null -eq $document -or
+        (@($document.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'format,installations,schemaVersion,verifierSha256' -or
+        $document.format -cne 'turboism.cubism.discovery-snapshot' -or
+        ($document.schemaVersion -isnot [int] -and $document.schemaVersion -isnot [long]) -or
+        $document.schemaVersion -ne 1 -or $document.installations -isnot [array] -or
+        $document.installations.Count -gt $script:CubismMaxStateEntries -or
+        $document.verifierSha256 -isnot [string] -or $document.verifierSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "installer discovery snapshot schema is invalid"
+    }
+    $agent = Join-Path $TurboismHome "turboism-agent.jar"
+    if (-not (Test-CubismNormalFile $agent) -or (Get-CubismSha256 $agent) -ine $document.verifierSha256) {
+        throw "installer verifier changed after discovery"
+    }
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $items = [System.Collections.Generic.List[object]]::new()
+    foreach ($entry in $document.installations) {
+        if ($null -eq $entry -or
+            (@($entry.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'applicationSha256,d3dName,javaSha256,root,version' -or
+            $entry.root -isnot [string] -or [string]::IsNullOrWhiteSpace($entry.root) -or
+            $entry.root.Length -gt $script:CubismMaxStateFieldLength -or
+            $entry.version -isnot [string] -or $entry.version -notmatch '^5\.(?:2\.03|3\.(?:02|03))$' -or
+            $entry.applicationSha256 -isnot [string] -or $entry.applicationSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
+            $entry.javaSha256 -isnot [string] -or $entry.javaSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
+            $entry.d3dName -isnot [string] -or ($entry.d3dName -ne '' -and $entry.d3dName -notmatch '(?i)^CubismEditor5[-_]?D3D\.bat$')) {
+            throw "installer discovery candidate is invalid"
+        }
+        $root = ConvertTo-CubismCanonicalRoot $entry.root
+        if ($null -eq $root -or $root -ine $entry.root -or -not (Test-CubismFixedDrive $root) -or -not $seen.Add($root)) {
+            throw "installer discovery root is invalid or duplicated"
+        }
+        foreach ($relative in @('', 'app', 'app/lib', 'app/jre', 'app/jre/bin')) {
+            $directory = if ($relative -eq '') { $root } else { Join-Path $root $relative }
+            if (-not (Test-CubismNormalDirectory $directory)) { throw "Cubism directory changed after discovery: $directory" }
+        }
+        $official = Join-Path $root 'CubismEditor5.bat'
+        $java = Join-Path $root 'app/jre/bin/java.exe'
+        $application = Join-Path $root 'app/lib/Live2D_Cubism.jar'
+        $d3d = if ($entry.d3dName -eq '') { $null } else { Join-Path $root $entry.d3dName }
+        foreach ($path in @($official, $java, $application, $d3d)) {
+            if ($null -ne $path -and -not (Test-CubismNormalFile $path)) { throw "Cubism file changed after discovery: $path" }
+        }
+        if ((Get-CubismSha256 $application) -ine $entry.applicationSha256 -or (Get-CubismSha256 $java) -ine $entry.javaSha256) {
+            throw "Cubism identity changed after discovery: $root"
+        }
+        [void]$items.Add([pscustomobject]@{
+            Root=$root; CanonicalRoot=$root; Key=(Get-CubismRootKey $root); Version=$entry.version
+            Source='installer-snapshot'; Status='Ready'; Reason='Verified installer discovery snapshot.'
+            Selectable=$true; Selected=$false; OfficialBat=$official; D3DBat=$d3d; Java=$java; ApplicationJar=$application
+            ApplicationSha256=$entry.applicationSha256; JavaSha256=$entry.javaSha256
+        })
+    }
+    return $items.ToArray()
+}
+
 function Write-CubismInstallerDiscoveryReport {
     param(
         [string]$TurboismHome,
@@ -420,6 +544,7 @@ function Write-CubismInstallerDiscoveryReport {
             }
             $scanRoots = if ($null -eq $Roots) { @(Get-CubismDiscoveryRoots) } else { @($Roots) }
             $candidates = @(Get-CubismInstallations -Roots $scanRoots -TurboismHome $canonicalHome)
+            $snapshotSha256 = Write-CubismInstallerSnapshot -TurboismHome $canonicalHome -SnapshotPath ($output + '.json') -Candidates $candidates
             $supported = @($candidates | Where-Object { $_.Selectable }).Count
             $other = $candidates.Count - $supported
             $language = [System.Threading.Thread]::CurrentThread.CurrentUICulture.TwoLetterISOLanguageName
@@ -431,6 +556,7 @@ function Write-CubismInstallerDiscoveryReport {
             $lines = [System.Collections.Generic.List[string]]::new()
             [void]$lines.Add("TURBOISM_CUBISM_SCAN_V1")
             [void]$lines.Add("RESULT|OK|$supported|$other")
+            [void]$lines.Add("SNAPSHOT|$snapshotSha256")
             foreach ($candidate in $candidates) {
                 if ($candidate.Selectable) {
                     $label = "$($labels.Supported) $($candidate.Version)"
@@ -1428,14 +1554,14 @@ function Get-CubismBatIntegrationText {
     $options = @(
         (ConvertTo-JdkOptionToken "-Dturboism.home=$TurboismHome"),
         (ConvertTo-JdkOptionToken "-javaagent:$agent=home=$TurboismHome;timeoutSeconds=120")
-    ) + @(Get-CubismManagedJdkOptionTokens)
+    ) + @(Get-CubismManagedJdkOptionTokens -TurboismHome $TurboismHome)
     $managed = @(
         'rem TURBOISM MANAGED BEGIN',
-        'set "TURBOISM_HOME=' + $TurboismHome + '"',
+        ('set "TURBOISM_HOME=' + $TurboismHome + '"'),
         # The JVM parses JAVA_TOOL_OPTIONS directly. Putting quoted paths into
         # JDK_JAVA_OPTIONS is unsafe for Cubism's BAT because it expands that
         # variable through cmd.exe before Java receives it.
-        'set "JAVA_TOOL_OPTIONS=' + (($options -join ' ') + ' %JAVA_TOOL_OPTIONS%') + '"',
+        ('set "JAVA_TOOL_OPTIONS=' + (($options -join ' ') + ' %JAVA_TOOL_OPTIONS%') + '"'),
         'rem TURBOISM MANAGED END',
         ''
     ) -join "`r`n"
@@ -1632,6 +1758,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -1641,9 +1768,60 @@ function Remove-TurboismJdkOptions {
 }
 
 function Get-CubismManagedJdkOptionTokens {
+    param([string]$TurboismHome = "")
     # CLDR replaces the locale data removed with the legacy COMPAT provider.
     # Keep SPI available for Cubism or plugin service-provider extensions.
-    return @("-Djava.locale.providers=CLDR,SPI")
+    $tokens = @("-Djava.locale.providers=CLDR,SPI")
+    if (Read-CubismZgcPreference -TurboismHome $TurboismHome) {
+        $tokens += "-XX:+UseZGC"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "modelUpdateSkip")) {
+        $tokens += "-Dturboism.optimization.modelUpdateSkip=false"
+    }
+    if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "incrementalUpdate") {
+        $tokens += "-Dturboism.optimization.incrementalUpdate=true"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uniformLocationCache")) {
+        $tokens += "-Dturboism.optimization.uniformLocationCache=false"
+    }
+    return $tokens
+}
+
+function Read-CubismOptimizationPreference {
+    param([string]$TurboismHome, [string]$Name)
+    # Only the experimental incremental geometry path requires explicit opt-in.
+    # Verified frame/query reuse remains default-on for admitted hosts.
+    $defaultValue = $Name -ne "incrementalUpdate"
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $defaultValue }
+    $setting = $launcherProperty.Value.PSObject.Properties[$Name]
+    if ($null -eq $setting) { return $defaultValue }
+    if ($setting.Value -isnot [bool]) { throw "Turboism launcher.$Name setting is invalid" }
+    return [bool]$setting.Value
+}
+
+function Read-CubismZgcPreference {
+    param([string]$TurboismHome)
+    # ZGC is on by default; only an explicit `"zgc": false` disables it. An
+    # absent home/config/field therefore resolves enabled rather than off.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $true }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return $true }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $true }
+    $zgcProperty = $launcherProperty.Value.PSObject.Properties["zgc"]
+    if ($null -eq $zgcProperty -or $null -eq $zgcProperty.Value) { return $true }
+    if ($zgcProperty.Value -isnot [bool]) { throw "Turboism launcher.zgc setting is invalid" }
+    return [bool]$zgcProperty.Value
 }
 
 function ConvertTo-JdkOptionToken {
@@ -1660,12 +1838,15 @@ function Read-CubismJvmPreference {
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
-    if ($null -eq $document.launcher -or $null -eq $document.launcher.cubismJvm) { return "graalvm" }
-    if ($document.launcher.cubismJvm -isnot [string] -or
-        @("graalvm", "bundled") -notcontains [string]$document.launcher.cubismJvm) {
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return "graalvm" }
+    $jvmProperty = $launcherProperty.Value.PSObject.Properties["cubismJvm"]
+    if ($null -eq $jvmProperty -or $null -eq $jvmProperty.Value) { return "graalvm" }
+    if ($jvmProperty.Value -isnot [string] -or
+        @("graalvm", "bundled") -notcontains [string]$jvmProperty.Value) {
         throw "Turboism Cubism JVM setting is invalid"
     }
-    return [string]$document.launcher.cubismJvm
+    return [string]$jvmProperty.Value
 }
 
 function Read-CubismGraalVmPath {
@@ -1768,6 +1949,26 @@ function Resolve-TurboismGraalHost {
     else {
         try { $java = Resolve-CubismGraalJava -TurboismHome $TurboismHome }
         catch { return $null }
+    }
+    $optionalManifest = Join-Path $TurboismHome 'script-engine.json'
+    if (Test-Path -LiteralPath $optionalManifest) {
+        # A thin install intentionally omits the heavy engine. This is distinct
+        # from claiming a partially present script host is usable. A corrupt
+        # optional engine disables scripting, not the Editor/framework itself.
+        try {
+            $engineHelper = Join-Path $script:CubismScriptRoot 'install-script-engine.ps1'
+            if (-not (Test-CubismNormalFile $engineHelper)) { throw 'optional script engine helper is missing' }
+            . $engineHelper -HomePath $TurboismHome
+            $engineState = Get-TurboismScriptEngineStatus -HomePath $TurboismHome
+            if ($engineState.Status -ne 'Ready') {
+                Write-Warning "Turboism JavaScript engine is $($engineState.Status); scripting is disabled. Run install-script-engine.ps1 or use the offline Full ZIP."
+                return $null
+            }
+        }
+        catch {
+            Write-Warning ("Turboism JavaScript engine validation failed; scripting is disabled: " + $_.Exception.Message)
+            return $null
+        }
     }
     $libraryRoot = Join-Path $TurboismHome "graal\lib"
     if (-not (Test-CubismNormalDirectory $libraryRoot)) { return $null }
@@ -1898,7 +2099,7 @@ function New-CubismManagedOptionsBat {
         )
     }
     else { $managedOptions += "-Dturboism.graal.enabled=false" }
-    $managedOptions += @(Get-CubismManagedJdkOptionTokens)
+    $managedOptions += @(Get-CubismManagedJdkOptionTokens -TurboismHome $canonicalHome)
     if (@($managedOptions | Where-Object { $_ -match '[\r\n"&|<>^%!`]' }).Count -gt 0) {
         throw "managed Cubism JVM option contains an unsupported BAT character"
     }

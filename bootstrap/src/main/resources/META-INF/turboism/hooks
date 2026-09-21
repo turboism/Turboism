@@ -1,0 +1,32 @@
+# Declarative install-time hook manifest: one HookContributor class per line.
+# The agent scans this list, checks each contributor's own admission, and
+# forwards install/uninstall through the shared protocol. Adding a hook means
+# adding a contributor class plus one line here — TurboismAgent stays unchanged.
+dev.turboism.bootstrap.MeshMirrorHookContributor
+dev.turboism.bootstrap.WarpAltMirrorHookContributor
+dev.turboism.bootstrap.MeshTriangulationHashHookContributor
+dev.turboism.bootstrap.AtlasTileBboxHookContributor
+dev.turboism.bootstrap.AtlasCacheReuseHookContributor
+dev.turboism.bootstrap.FpsHookContributor
+dev.turboism.bootstrap.ParameterHookContributor
+dev.turboism.bootstrap.ProjectLifecycleHookContributor
+dev.turboism.bootstrap.FileChooserHistoryHookContributor
+dev.turboism.bootstrap.ImageArchiveReuseHookContributor
+dev.turboism.bootstrap.FloatArrayParseCacheHookContributor
+dev.turboism.bootstrap.TextureUploadPreparationHookContributor
+dev.turboism.bootstrap.WarpPositionProjectionHookContributor
+dev.turboism.bootstrap.ModelUpdateSkipHookContributor
+dev.turboism.bootstrap.IncrementalUpdateHookContributor
+dev.turboism.bootstrap.UniformLocationCacheHookContributor
+dev.turboism.bootstrap.MatrixScratchHookContributor
+dev.turboism.bootstrap.NativeEditBeginHookContributor
+dev.turboism.bootstrap.TextureAtlasDataModelHookContributor
+dev.turboism.bootstrap.TextureAtlasAutoLayoutHookContributor
+dev.turboism.bootstrap.PerformanceProbeHookContributor
+dev.turboism.bootstrap.DockTabPopupHookContributor
+dev.turboism.bootstrap.FloatingFrameDisposeHookContributor
+dev.turboism.bootstrap.FloatingTabCloseHookContributor
+dev.turboism.bootstrap.ObjectContextMenuHookContributor
+dev.turboism.bootstrap.PhysicsEditorHookContributor
+dev.turboism.bootstrap.BoundingBoxOverlayHookContributor
+dev.turboism.bootstrap.ControlAppearanceHookContributor

@@ -59,7 +59,7 @@ class PreviewPluginReservedIdentityIntegrationTest {
     }
 
     @Test
-    void runtimeKeepsBuiltinCoreLoadsNormalPluginAndReportsSpoofAsNotAdmitted() throws Exception {
+    void runtimeLoadsNormalPluginAndReportsReservedIdSpoofAsNotAdmitted() throws Exception {
         final Path home = temporary.resolve("runtime-home");
         final Path plugins = home.resolve("plugins");
         writePlugin(plugins, temporary.resolve("runtime-core"), "spoof-core.jar", CORE_ID, CORE_MARKER);
@@ -70,12 +70,20 @@ class PreviewPluginReservedIdentityIntegrationTest {
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
                 home, scheduler, host.adapterAccess(), log,
-                new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
+                services -> new dev.turboism.internal.core.ShellHandle() {
+                    @Override
+                    public void start(final dev.turboism.sdk.plugin.PluginContext context) {
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                }
             );
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
-                assertTrue(report.loaded().stream().anyMatch(plugin ->
-                    plugin.id().equals(CORE_ID) && plugin.state().name().equals("ENABLED")));
+                assertTrue(report.loaded().stream().noneMatch(plugin -> plugin.id().equals(CORE_ID)),
+                    "the framework shell is not a plugin and must not appear in the load report");
                 assertTrue(report.loaded().stream().anyMatch(plugin ->
                     plugin.id().equals(NORMAL_ID) && plugin.state().name().equals("ENABLED")));
                 assertEquals(1, report.failures().size());

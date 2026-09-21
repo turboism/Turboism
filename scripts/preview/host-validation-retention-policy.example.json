@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "enabled": false,
+  "writersMigrated": false,
+  "successDays": 3,
+  "failureDays": 14,
+  "preparedDays": 7,
+  "stagingHours": 24,
+  "logDays": 30,
+  "minFreeGiB": 20,
+  "maxItems": 10
+}

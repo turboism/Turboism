@@ -56,6 +56,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final RuntimePerformanceEventPublisher performanceEvents;
     private final dev.turboism.adapter.cubism.HostSnapshotSource sessionSnapshotSource;
     private final dev.turboism.adapter.cubism.SelectionObservationPublisher selectionObserver;
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
     private final dev.turboism.mcp.McpConnectionRegistry mcpConnections =
         new dev.turboism.mcp.McpConnectionRegistry();
 
@@ -231,17 +232,23 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        selectionObserver.close();
-        performanceEvents.close();
-        performanceProbe.close();
-        mcpConnections.close();
-        eventBroker.observationBaseline(
-            dev.turboism.sdk.performance.PerformanceProbeService.class
-        ).compareAndSet(performanceProbe, null);
-        // Retire contract admission; bindings still leased by retained generations stay
-        // usable until their last release, which remains legal after close().
-        eventContracts.close();
+    public synchronized void close() {
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Shared plugin service cleanup failed",
+                selectionObserver::close,
+                performanceEvents::close,
+                performanceProbe::close,
+                mcpConnections::close,
+                () -> eventBroker.observationBaseline(
+                    dev.turboism.sdk.performance.PerformanceProbeService.class
+                ).compareAndSet(performanceProbe, null),
+                // Retire contract admission; bindings still leased by retained generations stay
+                // usable until their last release, which remains legal after close().
+                eventContracts::close
+            );
+        }
+        cleanup.close();
     }
 
     PreviewPluginServices create(

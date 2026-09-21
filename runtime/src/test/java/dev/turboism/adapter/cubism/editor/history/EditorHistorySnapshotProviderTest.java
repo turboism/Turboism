@@ -9,6 +9,7 @@ import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import org.junit.jupiter.api.Test;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 
 import java.util.ArrayList;
@@ -112,6 +113,73 @@ class EditorHistorySnapshotProviderTest {
         assertEquals("Captured semantic summary", projected.summary());
         assertEquals(HistoryOrigin.Kind.TURBOISM, projected.origin().kind());
         assertEquals("history.detail.captured-label-only", projected.degradationCode().orElseThrow());
+    }
+
+    @Test
+    void observedDetailFillsEntriesThatHaveNoAuthoritativeMetadata() {
+        final Manager manager = new Manager();
+        final Entry entry = new Entry("Native edit", true);
+        manager.entries.add(entry);
+        manager.position = 1;
+        Host.document = new Document(manager);
+        EditorHistoryMetadataRegistry.registerObserved(
+            entry,
+            HistoryEntryDetail.labelOnly(
+                "Observed at commit",
+                HistoryOrigin.hostUnattributed(),
+                "history.detail.native-decoded"
+            )
+        );
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 6
+        );
+
+        final var projected = provider.snapshot().entries().get(0).detail();
+
+        assertEquals("Observed at commit", projected.summary());
+        assertEquals(HistoryOrigin.Kind.HOST_UNATTRIBUTED, projected.origin().kind());
+        assertFalse(
+            EditorHistoryMetadataRegistry.claimsProvenance(entry),
+            "reading an observed detail must not claim the entry"
+        );
+    }
+
+    @Test
+    void anObservedGroupThatGrewAfterCommitIsDecodedAgain() {
+        final Manager manager = new Manager();
+        final Entry entry = new Entry("Grouped edit", true);
+        entry.groupCount = 2;
+        manager.entries.add(entry);
+        manager.position = 1;
+        Host.document = new Document(manager);
+        EditorHistoryMetadataRegistry.registerObserved(
+            entry,
+            new HistoryEntryDetail(
+                "Observed while open",
+                HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.hostUnattributed(),
+                List.of(),
+                List.of(),
+                Optional.of(new HistoryGroup(
+                    Optional.empty(),
+                    1,
+                    List.of(HistoryEntryDetail.labelOnly(
+                        "child", HistoryOrigin.hostUnattributed(), "history.detail.native-decoded")),
+                    false
+                )),
+                Optional.of("history.detail.group-partial")
+            )
+        );
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 6
+        );
+
+        final var projected = provider.snapshot().entries().get(0).detail();
+
+        assertNotEquals("Observed while open", projected.summary());
+        assertTrue(projected.group().isEmpty(), "the stale group projection must be replaced");
     }
 
     @Test
@@ -390,7 +458,8 @@ class EditorHistorySnapshotProviderTest {
                 method("cubism.editor-history.manager.move-to", Manager.class, "moveTo", "(I)V"),
                 StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Entry.class)),
                 method("cubism.editor-history.entry.presentation-name", Entry.class, "presentationName", "()Ljava/lang/String;"),
-                method("cubism.editor-history.entry.significant", Entry.class, "significant", "()Z")
+                method("cubism.editor-history.entry.significant", Entry.class, "significant", "()Z"),
+                method("cubism.editor-history.semantic.group.count", Entry.class, "count", "()I")
             ),
             Host.class.getClassLoader()
         );
@@ -445,11 +514,13 @@ class EditorHistorySnapshotProviderTest {
     public static final class Entry {
         private String label;
         private final boolean significant;
+        private int groupCount;
         Entry(final String label, final boolean significant) {
             this.label = label;
             this.significant = significant;
         }
         public String presentationName() { return label; }
         public boolean significant() { return significant; }
+        public int count() { return groupCount; }
     }
 }

@@ -61,17 +61,21 @@ class PreviewPluginLoaderParentTest {
             assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
                 "dev.turboism.internal.core.CorePluginManagement"));
             assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
-                "dev.turboism.internal.core.CorePluginServices"));
+                "dev.turboism.internal.core.ShellServices"));
         }
     }
 
     @Test
-    void coreUiAndShadedAgentNamespacesAreDenied() throws Exception {
+    void shellAndShadedAgentNamespacesAreDenied() throws Exception {
         try (URLClassLoader loader = new URLClassLoader(
             new URL[0],
             PreviewPluginLoader.resolvePluginParent(
                 PreviewPluginLoaderParentTest.class.getClassLoader())
         )) {
+            // The class genuinely exists on the test classpath — the boundary, not the
+            // classpath, is what keeps it away from external plugins.
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "dev.turboism.shell.CoreShell"));
             assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
                 "dev.turboism.plugin.core.MainToolbarPlugin"));
             assertThrows(ClassNotFoundException.class, () -> loader.loadClass(

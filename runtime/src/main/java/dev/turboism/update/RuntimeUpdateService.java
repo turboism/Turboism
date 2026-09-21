@@ -30,7 +30,7 @@ import java.util.function.Consumer;
  * {@code https://api.turboism.dev/v1/releases/stable.json}.
  *
  * <p>The runtime owns transport, validation, persistence, scheduling and
- * cancellation. Selection and presentation stay in the core plugin, which only
+ * cancellation. Selection and presentation stay in the framework shell, which only
  * receives immutable snapshots and invokes explicitly user-driven operations.</p>
  */
 public final class RuntimeUpdateService implements CoreUpdateService {

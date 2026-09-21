@@ -181,13 +181,16 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         }
     }
 
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
+
     @Override
-    public void close() {
-        try {
-            servicesFactory.close();
-        } finally {
-            graalHost.close();
+    public synchronized void close() {
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Plugin context service cleanup failed", servicesFactory::close, graalHost::close
+            );
         }
+        cleanup.close();
     }
 }
 

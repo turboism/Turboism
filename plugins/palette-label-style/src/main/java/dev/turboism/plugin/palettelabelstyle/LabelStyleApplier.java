@@ -71,6 +71,14 @@ public final class LabelStyleApplier {
 
     /** Persistence callback: empty hex clears the entry. */
     public interface ColorSink {
+        /**
+         * Persists the override applied to one palette object.
+         *
+         * @param palette the palette tab the object was styled in
+         * @param objectId the styled object's id
+         * @param property the styled property ({@code text} or {@code background})
+         * @param hex the applied color as hex text, or empty to clear the persisted entry
+         */
         void save(Location palette, String objectId, String property, Optional<String> hex);
     }
 

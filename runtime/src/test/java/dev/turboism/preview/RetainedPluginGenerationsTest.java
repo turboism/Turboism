@@ -44,6 +44,7 @@ class RetainedPluginGenerationsTest {
                 worker,
                 null,
                 null,
+                () -> true,
                 () -> {
                     reclaimed.set(true);
                     return true;
@@ -92,6 +93,7 @@ class RetainedPluginGenerationsTest {
                 CompletableFuture.completedFuture(null),
                 null,
                 guard,
+                () -> true,
                 () -> {
                     reclaimed.set(true);
                     return true;
@@ -126,6 +128,7 @@ class RetainedPluginGenerationsTest {
                 CompletableFuture.completedFuture(null),
                 owner,
                 null,
+                () -> true,
                 () -> {
                     reclaimed.set(true);
                     return true;
@@ -147,6 +150,47 @@ class RetainedPluginGenerationsTest {
     }
 
     @Test
+    void drainBarrierHoldsForGenerationsWithPendingStages() throws Exception {
+        final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
+        final PreviewLog log = new PreviewLog(temporary.resolve("logs/t5.log"));
+        final RetainedPluginGenerations retention =
+            new RetainedPluginGenerations(lane, POLICY, log);
+        try {
+            // An idle retained generation whose reclaim has unexecuted stages is not
+            // inert: nothing is in flight, yet the barrier must still hold.
+            final AtomicBoolean dormant = new AtomicBoolean();
+            retention.retain(new RetainedPluginGenerations.RetainedGeneration(
+                "pending",
+                CompletableFuture.completedFuture(null),
+                null,
+                null,
+                dormant::get,
+                dormant::get
+            ));
+            retention.retain(new RetainedPluginGenerations.RetainedGeneration(
+                ShellManifest.ID,
+                CompletableFuture.completedFuture(null),
+                null,
+                null,
+                () -> true,
+                () -> true
+            ));
+            Thread.sleep(200);
+            assertFalse(
+                retention.drainedExcept(ShellManifest.ID),
+                "a retained generation with unattempted cleanup stages must hold the barrier"
+            );
+            // The barrier's own generation is excluded from the drain check.
+            assertTrue(retention.drainedExcept("pending"));
+            dormant.set(true);
+            awaitTrue(() -> retention.drainedExcept(ShellManifest.ID));
+        } finally {
+            retention.retire(lane::shutdown);
+            log.close();
+        }
+    }
+
+    @Test
     void failedReclaimIsRetriedAndDrainCallbackFiresOnceEmpty() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         final PreviewLog log = new PreviewLog(temporary.resolve("logs/t4.log"));
@@ -159,6 +203,7 @@ class RetainedPluginGenerationsTest {
                 CompletableFuture.completedFuture(null),
                 null,
                 null,
+                () -> true,
                 () -> attempts.incrementAndGet() >= 2
             ));
             awaitTrue(() -> attempts.get() >= 2);

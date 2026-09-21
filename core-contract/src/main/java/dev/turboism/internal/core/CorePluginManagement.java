@@ -3,25 +3,86 @@ package dev.turboism.internal.core;
 import java.util.List;
 import java.util.Optional;
 
-/** Runtime-supplied private management seam for the built-in core plugin only. */
+/** Runtime-supplied private management seam for the framework shell only. */
 public interface CorePluginManagement extends AutoCloseable {
     String CORE_PLUGIN_ID = "turboism.core";
 
+    /**
+     * @return the catalog of plugins known to the runtime — live plugins, installed archives,
+     *         and entries with pending operations — sorted with the core plugin first; desired
+     *         state reflects configuration and never means a pending change already applied
+     */
     List<PluginInfo> plugins();
+
+    /**
+     * @param pluginId the plugin to describe
+     * @return the plugin's details, or empty when the id is unknown; this default exposes only
+     *         the plugin-list metadata, so extended fields are empty — implementations may
+     *         return richer detail from the installed archive
+     */
     default Optional<PluginDetails> details(final String pluginId) {
         return plugins().stream()
             .filter(plugin -> plugin.id().equals(pluginId))
             .findFirst()
             .map(PluginDetails::summary);
     }
+    /**
+     * Runs the interactive package-pick-and-stage flow on the calling thread.
+     *
+     * @return the accepted/rejected outcome; acceptance means the install is journalled for the
+     *         next launch, not that the plugin is already installed
+     */
     OperationResult install();
+
+    /**
+     * Starts the install flow and delivers its outcome to {@code completion}.
+     *
+     * <p>This default runs {@link #install()} synchronously on the calling thread;
+     * implementations may dispatch the pick and staging asynchronously.</p>
+     *
+     * @param completion receives exactly one outcome
+     */
     default void requestInstall(final java.util.function.Consumer<OperationResult> completion) {
         completion.accept(install());
     }
+
+    /**
+     * Stages the removal of an installed plugin.
+     *
+     * @param pluginId the plugin to remove
+     * @return the accepted/rejected outcome; acceptance means the uninstall is journalled for
+     *         the next launch — the plugin stays live for this session
+     */
     OperationResult uninstall(String pluginId);
+
+    /**
+     * Records the desired enabled state of an installed plugin.
+     *
+     * @param pluginId the plugin to enable or disable
+     * @param enabled the desired state
+     * @return the accepted/rejected outcome; acceptance means the change applies from the next
+     *         launch, not immediately
+     */
     OperationResult setEnabled(String pluginId, boolean enabled);
     @Override default void close() { }
 
+    /**
+     * One plugin catalog row.
+     *
+     * @param id unique plugin id, not blank
+     * @param name display name, not blank
+     * @param version plugin version, not blank
+     * @param description display description, empty when absent
+     * @param effectiveState lifecycle state in this session, {@code "DISCOVERED"} when unset
+     * @param desiredState the configured state for the next launch; defaults to
+     *     {@code effectiveState}
+     * @param core whether this row is the built-in framework component
+     * @param pendingOperation the journalled {@code "INSTALL"}/{@code "UNINSTALL"} awaiting the
+     *     next launch
+     * @param category presentation category, {@code "other"} when unset
+     * @param tags descriptor tags, defensively copied
+     * @param authors descriptor authors, defensively copied
+     */
     record PluginInfo(
         String id, String name, String version, String description,
         String effectiveState, String desiredState, boolean core,
@@ -62,6 +123,11 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
+    /**
+     * Full plugin metadata for a details view; every collection is defensively copied and
+     * optional metadata that is null falls back to an empty value. The {@code plugin}
+     * component is required and a null value is rejected.
+     */
     record PluginDetails(
         PluginInfo plugin,
         String turboismApi,
@@ -118,6 +184,7 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
+    /** One plugin author: display {@code name} and optional contact {@code email}. */
     record Author(String name, Optional<String> email) {
         public Author {
             if (name == null || name.isBlank()) throw new IllegalArgumentException("name must not be blank");
@@ -125,6 +192,7 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
+    /** One declared plugin dependency: target {@code id}, {@code type}, {@code version} range, {@code ordering} hint, and optional {@code reason}. */
     record Dependency(
         String id, String type, String version, String ordering, Optional<String> reason
     ) {
@@ -137,6 +205,7 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
+    /** One declared permission requirement: permission {@code id}, {@code scope}, and optional {@code reason}. */
     record Permission(String id, String scope, Optional<String> reason) {
         public Permission {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
@@ -145,6 +214,7 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
+    /** One event contract the plugin publishes: {@code id}, {@code contractVersion}, {@code eventType}, and payload {@code abiSha256} fingerprint. */
     record EventExport(String id, String contractVersion, String eventType, String abiSha256) {
         public EventExport {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
@@ -154,6 +224,10 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
+    /**
+     * One event contract the plugin consumes: {@code providerId}/{@code eventId} identify the
+     * export; {@code required} marks subscriptions the plugin cannot run without.
+     */
     record EventImport(
         String providerId,
         String eventId,
@@ -173,6 +247,10 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
+    /**
+     * Outcome of one management operation: {@code accepted} plus a stable machine-readable
+     * {@code code} and a human-readable {@code message}; neither may be blank.
+     */
     record OperationResult(boolean accepted, String code, String message) {
         public OperationResult {
             if (code == null || code.isBlank()) throw new IllegalArgumentException("code must not be blank");

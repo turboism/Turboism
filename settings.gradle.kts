@@ -26,7 +26,6 @@ include(
     "plugins:demo",
     "plugins:ui-theme",
     "plugins:cubism-tab-filter",
-    "plugins:core",
     "plugins:parameter",
     "plugins:mesh-edit-mirror-axis-enhance",
     "plugins:mcp",
@@ -48,6 +47,7 @@ include(
     "plugins:perf-stats",
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",
+    "plugins:warp-deformer-alt-symmetry",
     "testing:test-support",
     "testing:integration-tests"
 )

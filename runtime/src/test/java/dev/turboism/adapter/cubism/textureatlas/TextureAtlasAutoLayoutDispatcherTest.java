@@ -447,7 +447,7 @@ final class TextureAtlasAutoLayoutDispatcherTest {
         );
         return TestVerifiedResolvers.create(
             "5.3.02",
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
             Set.of(VerifiedTextureAtlasNativeInvocationAdapter.CAPABILITY_ID),
             selectors,
             Receiver.class.getClassLoader()

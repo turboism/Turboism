@@ -24,6 +24,9 @@ import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 /** Unforgeable runtime composition handle for a verified, fail-closed host session. */
 public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRuntimeHostAdapterAccess {
 
+    /**
+     * @return the composed adapter set of the verified session; never null
+     */
     RuntimeHostAdapters adapters();
 
     /**
@@ -32,66 +35,176 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
      */
     java.util.Optional<String> cubismEditorVersion();
 
+    /**
+     * @return the unified Cubism model object access; never null
+     */
     CubismModelAccess modelAccess();
 
+    /**
+     * @return the host undo-history facade; never null
+     */
     CubismHistory history();
+
+    /**
+     * @return the snapshot source used only by model-appearance projections; never null
+     */
     HostSnapshotSource modelAppearanceSource();
 
+    /**
+     * @return the Core runtime information surface; never null
+     */
     dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo();
+
+    /**
+     * @return the versioned Editor command adapter; never null
+     */
     dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands();
 
+    /**
+     * @return the parameter write/lifecycle coordinator; never null
+     */
     ParameterLifecycleCoordinator parameterLifecycle();
 
+    /**
+     * @return the part opacity write/lifecycle coordinator; never null
+     */
     PartLifecycleCoordinator partLifecycle();
 
+    /**
+     * @return the texture-atlas layout apply coordinator; never null
+     */
     TextureAtlasLayoutCoordinator textureAtlasLayouts();
+
+    /**
+     * @return the coordinator wrapping verified texture-atlas native invocations; never null
+     */
     dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator textureAtlasNativeInvocations();
 
+    /**
+     * @return the texture-atlas editor UI this access was composed with; never null
+     */
     dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi();
 
+    /**
+     * @return the texture-atlas editor session this access was composed with; never null
+     */
     dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession();
 
+    /**
+     * @return the registry of texture-atlas layout algorithms available to plugins; never null
+     */
     dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms();
+
+    /**
+     * @return the coordinator for editor object (document/model) lifecycle observation; never null
+     */
     EditorObjectLifecycleCoordinator editorObjectLifecycle();
 
+    /**
+     * @return the coordinator for project file open/save/close lifecycle events; never null
+     */
     ProjectFileLifecycleCoordinator projectFileLifecycle();
 
+    /**
+     * @return the coordinator for editor-level lifecycle events such as exit; never null
+     */
     EditorLifecycleCoordinator editorLifecycleEvents();
 
+    /**
+     * @return the physics editor bridge coordinator; never null
+     */
     PhysicsEditorCoordinator physicsEditorCoordinator();
+
+    /**
+     * @return the mesh mirror-axis service; never null
+     */
     RuntimeMeshMirrorAxisService meshMirrorAxisService();
+
+    /**
+     * @return the mesh edit UI service; never null
+     */
     RuntimeMeshEditUiService meshEditUiService();
 
+    /**
+     * @return the editor UI host lifecycle surface; never null
+     */
     EditorUiHostLifecycle editorUiLifecycle();
 
+    /**
+     * @return the authority admitting editor UI contributions; never null
+     */
     EditorUiContributionAuthority editorUiContributions();
 
+    /**
+     * @return the coordinator activating the embedded panel; never null
+     */
     RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation();
 
+    /**
+     * @return the router dispatching editor UI actions; never null
+     */
     RuntimeEditorUiActionRouter editorUiActionRouter();
 
+    /**
+     * @return the registry of plugin-contributed UI resources; never null
+     */
     EditorUiPluginResourceRegistry editorUiPluginResources();
 
+    /**
+     * @return the handler augmenting native object context menus; never null
+     */
     dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler();
 
+    /**
+     * @return the handler for parameter-point context menu notifications; never null
+     */
     dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler();
 
+    /**
+     * @return the coordinator cleaning up empty docks; never null
+     */
     dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance();
 
+    /**
+     * @return the verified member resolver backing bounding-box overlays, or empty when the
+     *     active connection cannot supply one
+     */
     java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver();
 
+    /**
+     * @return the appearance (theme/LaF) coordinator; never null
+     */
     AppearanceCoordinator appearanceCoordinator();
 
+    /**
+     * @return the scene table service; never null
+     */
     dev.turboism.sdk.ui.table.SceneTableService sceneTable();
 
+    /**
+     * @return the Cubism log service; never null
+     */
     dev.turboism.sdk.runtime.CubismLogService cubismLog();
 
+    /**
+     * @return the sink reporting palette filter visibility changes; never null
+     */
     dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink();
 
+    /**
+     * @return the palette appearance coordinator; never null
+     */
     PaletteAppearanceCoordinator paletteAppearanceCoordinator();
 
+    /**
+     * @return the workspace coordinator; never null
+     */
     dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator();
 
+    /**
+     * @return the workspace layout coordinator; may be null before the first connection, in
+     *     which case callers fall back to an unavailable layout service
+     */
     dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator();
 
     /**

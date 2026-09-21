@@ -504,6 +504,38 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void summarizeArtifactsIgnoresNonTerminalPeerPlaceholder() throws Exception {
+        final java.nio.file.Path primary = saveTemp.resolve("editor-object-document-close.txt");
+        final java.nio.file.Path peer = saveTemp.resolve("editor-object-peer-scope-close.txt");
+        Files.writeString(primary, "status=PASS\nphase=document-close\n");
+        Files.writeString(peer, "status=RUNNING\nphase=waiting-for-primary\n");
+        final StringBuilder report = new StringBuilder();
+        assertTrue(WindowsParameterValidationProbe.summarizeArtifacts(
+            List.of(primary, peer), report));
+        final String text = report.toString();
+        assertTrue(text.contains("artifact.1.status=RUNNING"), text);
+        assertTrue(text.contains("terminalArtifactCount=1"), text);
+    }
+
+    @Test
+    void summarizeArtifactsFailsWithoutTerminalVerdicts() throws Exception {
+        final java.nio.file.Path peer = saveTemp.resolve("editor-object-peer-scope-close.txt");
+        Files.writeString(peer, "status=RUNNING\nphase=waiting-for-primary\n");
+        assertFalse(WindowsParameterValidationProbe.summarizeArtifacts(
+            List.of(peer), new StringBuilder()));
+        assertFalse(WindowsParameterValidationProbe.summarizeArtifacts(
+            List.of(), new StringBuilder()));
+    }
+
+    @Test
+    void summarizeArtifactsFailsOnTerminalFail() throws Exception {
+        final java.nio.file.Path artifact = saveTemp.resolve("editor-object-document-close.txt");
+        Files.writeString(artifact, "status=FAIL\nphase=document-close\n");
+        assertFalse(WindowsParameterValidationProbe.summarizeArtifacts(
+            List.of(artifact), new StringBuilder()));
+    }
+
+    @Test
     void autoNativeLabelColorModesNeverShowTheValidationWindow() {
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background"));
         assertFalse(WindowsParameterValidationProbe.showsValidationWindow("native-control-background-document-close"));
@@ -561,6 +593,10 @@ class WindowsParameterValidationProbeTest {
         assertEquals(
             WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
             WindowsParameterValidationProbe.hostCloseRoute("5302")
+        );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
+            WindowsParameterValidationProbe.hostCloseRoute("5303")
         );
         assertThrows(
             IllegalArgumentException.class,

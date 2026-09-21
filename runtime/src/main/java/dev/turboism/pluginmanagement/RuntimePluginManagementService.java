@@ -31,8 +31,12 @@ import java.util.function.Supplier;
 
 /** Runtime-owned desired-state manager; package mutation is applied only before next discovery. */
 public final class RuntimePluginManagementService implements CorePluginManagement {
+    /** Supplies the locale used to select localized plugin descriptor metadata. */
     @FunctionalInterface
     public interface MetadataLocaleProvider {
+        /**
+         * @return the locale for the current metadata read
+         */
         Locale get();
     }
     private final Path pluginsDirectory;
@@ -306,7 +310,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     @Override
     public synchronized OperationResult uninstall(final String pluginId) {
         if (CORE_PLUGIN_ID.equals(pluginId)) {
-            return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism core plugin cannot be uninstalled.");
+            return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism framework component cannot be uninstalled.");
         }
         if (pending.recoveryRequired()) return pendingRecoveryRequired();
         if (installedArchive(pluginId).isEmpty()) {
@@ -326,7 +330,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     @Override
     public synchronized OperationResult setEnabled(final String pluginId, final boolean enabled) {
         if (CORE_PLUGIN_ID.equals(pluginId)) {
-            return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism core plugin cannot be disabled.");
+            return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism framework component cannot be disabled.");
         }
         if (pending.recoveryRequired()) return pendingRecoveryRequired();
         if (installedArchive(pluginId).isEmpty()) {
@@ -442,10 +446,13 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     private static PluginInfo corePlugin() {
-        return new PluginInfo(CORE_PLUGIN_ID, "Turboism Core", "0.1.0",
-            "Built-in menu, toolbar, settings, tab, and plugin management.",
+        final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.preview.ShellManifest.descriptor();
+        return new PluginInfo(shell.id(), shell.name(), shell.version(), shell.description(),
             PluginLifecycleState.ENABLED.name(), "ENABLED", true, Optional.empty(),
-            "system", List.of(), List.of(new Author("Turboism Contributors", Optional.empty())));
+            shell.category().orElse("system"), shell.tags(),
+            shell.authors().stream()
+                .map(author -> new Author(author.name(), author.email()))
+                .toList());
     }
 
     private static PluginDetails details(
@@ -462,14 +469,38 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     private PluginDetails coreDetails(final PluginInfo plugin) {
-        final Optional<PluginArchiveMetadata> metadata = PluginArchiveMetadata.readCore(
-            RuntimePluginManagementService.class.getClassLoader(), metadataLocale.get(), metadataDiagnostics
+        final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.preview.ShellManifest.descriptor();
+        return new PluginDetails(
+            plugin, shell.turboismApi(),
+            shell.authors().stream()
+                .map(author -> new Author(author.name(), author.email()))
+                .toList(),
+            shell.license(), shell.website(),
+            shell.dependencies().stream()
+                .map(dependency -> new Dependency(
+                    dependency.id(), dependency.type(), dependency.version(),
+                    dependency.ordering(), dependency.reason()))
+                .toList(),
+            shell.permissions().stream()
+                .map(permission -> new Permission(
+                    permission.id(), permission.scope(), permission.reason()))
+                .toList(),
+            List.copyOf(shell.capabilities()), shell.environment().requiresCubism(),
+            shell.environment().ui(), List.copyOf(shell.entrypoints()),
+            List.copyOf(shell.resources()), shell.i18n().baseName(),
+            List.copyOf(shell.i18n().locales()),
+            shell.eventExports().stream()
+                .map(exported -> new EventExport(
+                    exported.id(), exported.contractVersion(), exported.eventType(),
+                    exported.abiSha256()))
+                .toList(),
+            shell.eventImports().stream()
+                .map(imported -> new EventImport(
+                    imported.providerId(), imported.eventId(), imported.contractVersion(),
+                    imported.eventType(), imported.abiSha256(), imported.required()))
+                .toList(),
+            Optional.empty()
         );
-        return metadata.map(value -> details(plugin, value)).orElseGet(() -> new PluginDetails(
-            plugin, "[0.1.0,0.2.0)", List.of(new Author("Turboism Contributors", Optional.empty())),
-            "Project License", Optional.of("https://turboism.dev"), List.of(), List.of(), List.of(),
-            false, "none", List.of(), List.of(), "", List.of(), List.of(), List.of(), Optional.empty()
-        ));
     }
 
     static void configurePluginJarChooser(final JFileChooser chooser) {

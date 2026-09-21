@@ -1,0 +1,19 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "validation-lanes",
+  "files": [
+    "dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java",
+    "dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
+    "dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
+    "dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
+    "dev/turboism/mapping/verification/StartupSuppressionVerificationManifest.java",
+    "dev/turboism/mapping/verification/TextureAtlasVerificationManifest.java"
+  ],
+  "records": [],
+  "packs": [],
+  "extraLiterals": [
+    "5.3.03"
+  ],
+  "coverageSources": [],
+  "coverage": false
+}

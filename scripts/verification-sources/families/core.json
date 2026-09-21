@@ -1,0 +1,26 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "core",
+  "records": [
+    "cubism-5.2.03-core-model-read.json",
+    "cubism-5.3.02-core-model-read.json"
+  ],
+  "packs": [
+    "cubism-5.2.03-core-moc-info-read.json",
+    "cubism-5.3.02-core-moc-info-read.json",
+    "cubism-5.2.03-core-owned-moc.json",
+    "cubism-5.3.02-core-owned-moc.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/CorePublicApiVerificationManifest.java",
+    "dev/turboism/mapping/verification/selector/CoreMocInfoSelectorContract.java",
+    "dev/turboism/mapping/verification/selector/OwnedMocSelectorContract.java"
+  ],
+  "extraLiterals": [
+    "adapter.core-model.readonly",
+    "cubism.core.moc-info.read",
+    "cubism.core.owned-moc.read"
+  ],
+  "coverageSources": [],
+  "coverage": false
+}

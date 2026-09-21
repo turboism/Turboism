@@ -60,6 +60,42 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
     }
 }
 
+val generatedVerificationRoot = layout.buildDirectory.dir(
+    "generated/sources/verification/java/main"
+)
+
+val generateVerificationSources by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Renders verification manifests and selector contracts from byte-hashed records plus family authoring files."
+    inputs.files(
+        rootProject.file("scripts/generate_verification_sources.py"),
+        fileTree(rootProject.file("scripts/verification-sources")),
+        fileTree(rootProject.file("compatibility/cubism/verification")) {
+            include("*.json")
+        },
+        fileTree(rootProject.file("compatibility/cubism/mapping-packs/draft")) {
+            include("*.json")
+        },
+        fileTree(
+            rootProject.file("runtime/src/main/java/dev/turboism/adapter/cubism")
+        ) { include("**/*.java") },
+        fileTree(rootProject.file("runtime/src/main/java/dev/turboism/ui")) {
+            include("**/*.java")
+        }
+    )
+    outputs.dir(generatedVerificationRoot)
+    doFirst {
+        commandLine(
+            "python3",
+            rootProject.file("scripts/generate_verification_sources.py"),
+            rootProject.rootDir.absolutePath,
+            "render",
+            "--out",
+            generatedVerificationRoot.get().asFile
+        )
+    }
+}
+
 val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
     group = "build"
     description = "Generates the exact Cubism Core selector/profile contract."
@@ -116,6 +152,7 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
 
 sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
+    java.srcDir(generatedVerificationRoot)
 }
 
 val frameworkVersionResource = layout.buildDirectory.file(
@@ -147,7 +184,8 @@ tasks.named<ProcessResources>("processResources") {
 tasks.named("compileJava") {
     dependsOn(
         generateCorePublicApiCatalog,
-        generateCorePublicApiSelectorContract
+        generateCorePublicApiSelectorContract,
+        generateVerificationSources
     )
 }
 
@@ -242,6 +280,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
 }
 
 tasks.named<Test>("test") {
+    @Suppress("UNCHECKED_CAST")
+    val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
+    systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
     filter {
         excludeTestsMatching(
             "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
@@ -293,9 +334,16 @@ tasks.named<ProcessResources>("processTestResources") {
     }
 }
 
-// Headless boundary gate: a small probe main runs against the runtime's PRODUCTION
-// runtimeClasspath — which must no longer carry dev.turboism.plugin.core.* — and performs a
-// full LocalPluginRuntime construct/load-real-JAR/close cycle with no core entrypoint.
+// Build a real production-runtime artifact with the framework UI physically absent.
+// The headless probe must load and close an external plugin without resolving shell classes.
+val headlessRuntimeJar by tasks.registering(Jar::class) {
+    archiveFileName.set("runtime-without-shell.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("headless-probe"))
+    from(sourceSets.main.get().output) {
+        exclude("dev/turboism/shell/**", "META-INF/turboism/shell/**")
+    }
+}
+
 sourceSets {
     create("headlessProbe") {
         java.srcDir("src/headlessProbe/java")
@@ -310,10 +358,11 @@ val headlessProbeHome = layout.buildDirectory.dir("headless-probe/home")
 
 val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
     group = "verification"
-    description = "Constructs, loads a real external plugin and closes a headless " +
-        "LocalPluginRuntime with no core classes on the production classpath."
-    dependsOn(tasks.named("classes"), "compileHeadlessProbeJava")
-    classpath = sourceSets["headlessProbe"].runtimeClasspath
+    description = "Loads and closes a real external plugin with framework shell classes " +
+        "physically absent from the production runtime artifact."
+    dependsOn(headlessRuntimeJar, "compileHeadlessProbeJava")
+    classpath = sourceSets["headlessProbe"].output + files(headlessRuntimeJar) +
+        configurations.runtimeClasspath.get()
     mainClass.set("dev.turboism.preview.HeadlessRuntimeProbeMain")
     jvmArgs("-Djava.awt.headless=true")
     doFirst {
@@ -326,7 +375,7 @@ val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
 
 dependencies {
     implementation(project(":sdk"))
-    // Internal management contracts shared with the built-in core application.
+    // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.
     implementation(project(":core-contract"))
 
@@ -342,7 +391,4 @@ dependencies {
     implementation("io.github.resilience4j:resilience4j-timelimiter:2.1.0")
     implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.1.0")
 
-    // Test scope only: runtime unit tests instantiate the real core entrypoint
-    // the same way bootstrap does in production.
-    testImplementation(project(":plugins:core"))
 }

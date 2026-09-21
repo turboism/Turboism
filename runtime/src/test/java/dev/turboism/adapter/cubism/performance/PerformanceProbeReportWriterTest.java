@@ -102,6 +102,27 @@ class PerformanceProbeReportWriterTest {
     }
 
     @Test
+    void imageReportExplicitlyNamesSampledWallTimeAndDoesNotClaimUploadBytes() throws Exception {
+        final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
+        recorder.startCapture();
+        final long token = recorder.enter(PerformanceProbeMetric.IMAGE_DECODE);
+        recorder.exit(PerformanceProbeMetric.IMAGE_DECODE, token);
+        recorder.stopCapture();
+        final Path output = temporary.resolve("images.json");
+        new PerformanceProbeReportWriter().write(output, "5.3.02", ARTIFACT_SHA,
+            AGENT_SHA, FIXTURE_SHA, "images", 1000, 2000, recorder.snapshot());
+        final JsonNode root = JSON.readTree(Files.readAllBytes(output));
+        assertEquals(2, root.path("schemaVersion").asInt());
+        assertEquals(12, root.path("metrics").size());
+        assertEquals("sampled-inclusive-method-wall-time", root.path("measurement").path("timing").asText());
+        assertEquals("not-measured", root.path("measurement").path("uploadBytes").asText());
+        final JsonNode decode = root.path("metrics").path("imageDecode");
+        assertEquals(1, decode.path("sampled").asLong());
+        assertEquals(1, decode.path("latency").path("samples").asLong());
+        assertTrue(decode.path("latency").path("p95UpperBoundNanos").asLong() >= decode.path("maxNanos").asLong());
+    }
+
+    @Test
     void reportCarriesTheExact5303ProfileIdentity() throws Exception {
         final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
         final Path output = temporary.resolve("logs/performance-probe-5303.json");

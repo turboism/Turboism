@@ -69,6 +69,52 @@ final class RetainedPluginGenerations {
     }
 
     /**
+     * @return {@code true} when no retained generation other than {@code exceptId} can still
+     *     run lifecycle work — a lane worker in flight, admitted event callbacks pending,
+     *     undrained SDK calls, or cleanup stages a re-drive has not attempted yet. A
+     *     generation retained solely because a disposal stage failed permanently reports
+     *     itself dormant through {@link RetainedGeneration#dormant}: no code of it can still
+     *     run, so it does not block the drain barrier the shell close waits behind.
+     */
+    boolean drainedExcept(final String exceptId) {
+        synchronized (monitor) {
+            for (RetainedGeneration generation : entries) {
+                if (generation.pluginId.equals(exceptId)) {
+                    continue;
+                }
+                if (!inert(generation)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Non-blocking inertness probe; never runs plugin code. Unlike {@link #ready}, a retry
+     * backoff does not make a generation "busy", but the {@code dormant} probe does:
+     * in-flight-ness alone cannot prove a pending reclaim will not still execute plugin
+     * stages, so a generation that has only idle probes left must say so explicitly.
+     * Caller holds {@link #monitor}.
+     */
+    private boolean inert(final RetainedGeneration generation) {
+        if (generation.cleanupRunning.get()) {
+            return false;
+        }
+        final CompletableFuture<Void> inFlight = generation.inFlight;
+        if (inFlight != null && !inFlight.isDone()) {
+            return false;
+        }
+        if (generation.eventOwner != null && !eventQuiesced(generation.eventOwner)) {
+            return false;
+        }
+        if (generation.guard != null && !generation.guard.drained()) {
+            return false;
+        }
+        return generation.dormant.getAsBoolean();
+    }
+
+    /**
      * Retires the watcher: no more generations are expected to arrive. When the set is (or becomes)
      * empty the drain callback runs once — releasing the lane — and the watcher exits. Generations
      * that never quiesce keep the daemon watcher alive for the JVM's remaining life rather than
@@ -230,6 +276,9 @@ final class RetainedPluginGenerations {
      *     {@code null} when nothing is running; replaced by the watcher on each dispatch
      * @param eventOwner admitted event owner to quiesce before reclaim, or {@code null}
      * @param guard admission gate whose in-flight SDK calls must drain, or {@code null}
+     * @param dormant {@code true} only when the next reclaim pass can no longer execute
+     *     lifecycle or plugin stages — every plugin-code-bearing stage already attempted —
+     *     so a still-retained generation is inert rather than merely idle between re-drives
      * @param reclaim idempotent cleanup step run on the lifecycle lane; {@code true} reclaims the
      *     generation and removes it, {@code false} keeps it retained for a later attempt
      */
@@ -238,6 +287,7 @@ final class RetainedPluginGenerations {
         volatile CompletableFuture<Void> inFlight;
         final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner;
         final PluginGenerationGuard guard;
+        final java.util.function.BooleanSupplier dormant;
         final Callable<Boolean> reclaim;
         final AtomicBoolean cleanupRunning = new AtomicBoolean();
         volatile long nextAttemptNanos;
@@ -247,12 +297,14 @@ final class RetainedPluginGenerations {
             final CompletableFuture<Void> inFlight,
             final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner,
             final PluginGenerationGuard guard,
+            final java.util.function.BooleanSupplier dormant,
             final Callable<Boolean> reclaim
         ) {
             this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
             this.inFlight = inFlight;
             this.eventOwner = eventOwner;
             this.guard = guard;
+            this.dormant = Objects.requireNonNull(dormant, "dormant");
             this.reclaim = Objects.requireNonNull(reclaim, "reclaim");
         }
     }

@@ -53,6 +53,15 @@ public interface WorkspaceService {
     CompletionStage<WorkspaceOperationResult> resetToDefault();
 
     /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
      * A service for hosts that expose no workspace control.
      *
      * <p>Every operation completes immediately with
@@ -63,38 +72,45 @@ public interface WorkspaceService {
      * @return a stateless no-op service that never touches the host
      */
     static WorkspaceService unavailable() {
-        final WorkspaceStatus status = new WorkspaceStatus(
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: calls that report outcomes complete with the structured unavailability result; and queries report empty results. */
+    enum Unavailable implements WorkspaceService {
+        INSTANCE;
+
+        private static final WorkspaceStatus STATUS = new WorkspaceStatus(
             WorkspaceStatus.Availability.UNAVAILABLE,
             Optional.empty(),
             List.of(),
             Optional.of("workspace.unavailable")
         );
-        final WorkspaceOperationResult result = new WorkspaceOperationResult(
+
+        private static final WorkspaceOperationResult RESULT = new WorkspaceOperationResult(
             WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            status,
+            STATUS,
             Optional.of("workspace.unavailable")
         );
-        return new WorkspaceService() {
-            @Override
-            public CompletionStage<WorkspaceStatus> current() {
-                return CompletableFuture.completedFuture(status);
-            }
 
-            @Override
-            public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
-                Objects.requireNonNull(workspaceId, "workspaceId");
-                return CompletableFuture.completedFuture(result);
-            }
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
-            @Override
-            public CompletionStage<WorkspaceOperationResult> updateDefault() {
-                return CompletableFuture.completedFuture(result);
-            }
+        @Override public CompletionStage<WorkspaceStatus> current() {
+            return CompletableFuture.completedFuture(STATUS);
+        }
 
-            @Override
-            public CompletionStage<WorkspaceOperationResult> resetToDefault() {
-                return CompletableFuture.completedFuture(result);
-            }
-        };
+        @Override public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
+            Objects.requireNonNull(workspaceId, "workspaceId");
+            return CompletableFuture.completedFuture(RESULT);
+        }
+
+        @Override public CompletionStage<WorkspaceOperationResult> updateDefault() {
+            return CompletableFuture.completedFuture(RESULT);
+        }
+
+        @Override public CompletionStage<WorkspaceOperationResult> resetToDefault() {
+            return CompletableFuture.completedFuture(RESULT);
+        }
     }
 }

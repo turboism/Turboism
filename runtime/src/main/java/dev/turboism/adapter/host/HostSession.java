@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
+import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
@@ -67,6 +68,19 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         textureAtlasAutoLayoutDispatch;
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
+    /**
+     * Observes edits the Cubism user interface performed, which never enter the Turboism facade.
+     * The listener itself only signals this session; every host read and publication is posted to
+     * the editor event thread, so nothing runs inside the host's undo admission. A native edit
+     * start observed at the {@code beginEdit} hook is published on the same drain, so one native
+     * action reports its start before its confirmed operation.
+     */
+    private final dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession nativeEditIngress =
+        new dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession(
+            editorObjectLifecycle.semantic()::publishObserved,
+            editorObjectLifecycle.semantic()::publishObservedStart,
+            javax.swing.SwingUtilities::invokeLater
+        );
     private final ProjectFileLifecycleCoordinator projectFileLifecycle =
         new ProjectFileLifecycleCoordinator();
     private final EditorLifecycleCoordinator editorLifecycleEvents =
@@ -125,12 +139,37 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private boolean closeRequested;
 
     public HostSession(final HostInstanceSource source) {
-        this(source, dev.turboism.i18n.CubismHostLocale.resolve());
+        this(source, dev.turboism.i18n.CubismHostLocale::resolve);
     }
 
     public HostSession(
         final HostInstanceSource source,
         final java.util.Locale effectiveLocale
+    ) {
+        this(source, fixedLocale(effectiveLocale));
+    }
+
+    /**
+     * Fixed-locale production session with a persistent store for the runtime-owned
+     * texture-atlas automatic-layout selection; a null persistence keeps selection in memory.
+     */
+    public HostSession(
+        final HostInstanceSource source,
+        final java.util.Locale effectiveLocale,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+            textureAtlasSelectionPersistence
+    ) {
+        this(source, fixedLocale(effectiveLocale), textureAtlasSelectionPersistence);
+    }
+
+    /**
+     * Production composition: receives the runtime's shared effective-locale source so
+     * host-attached UI text resolves the locale that is effective at render time — the
+     * host-verified re-resolution supersedes the provisional startup value in place.
+     */
+    public HostSession(
+        final HostInstanceSource source,
+        final java.util.function.Supplier<java.util.Locale> effectiveLocale
     ) {
         this(source, effectiveLocale, null);
     }
@@ -141,7 +180,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      */
     public HostSession(
         final HostInstanceSource source,
-        final java.util.Locale effectiveLocale,
+        final java.util.function.Supplier<java.util.Locale> effectiveLocale,
         final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
             textureAtlasSelectionPersistence
     ) {
@@ -195,6 +234,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         );
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
         registerProjectContentCleanup();
+    }
+
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
+        final java.util.Locale effectiveLocale
+    ) {
+        final java.util.Locale required = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        return () -> required;
     }
 
     HostSession(
@@ -261,8 +307,22 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     private void registerProjectContentCleanup() {
         projectFileLifecycle.registerCompletionListener(result -> {
+            if (result.succeeded()
+                && result.request().kind() == ProjectContentKind.MODEL
+                && (result.request().operation() == ProjectFileOperationType.OPEN
+                    || result.request().operation() == ProjectFileOperationType.CREATE)) {
+                // Model-open completion is the existing lifecycle signal that the late document
+                // may now expose its native undo manager. The session posts and coalesces the
+                // actual resolver/ listener work so this synchronous host callback stays bounded.
+                nativeEditIngress.retryBinding();
+            }
             if (!result.succeeded() || result.request().operation() != ProjectFileOperationType.CLOSE) return;
-            result.content().ifPresent(content -> paletteAppearanceCoordinator.removeContent(content.contentId()));
+            result.content().ifPresent(content -> {
+                paletteAppearanceCoordinator.removeContent(content.contentId());
+                if (content.kind() == dev.turboism.sdk.cubism.ProjectContentKind.MODEL) {
+                    dynamicModelAccess.releaseUnboundBorrowedModel();
+                }
+            });
         });
     }
 
@@ -308,6 +368,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             try {
                 connectionKey = ConnectionKey.from(descriptor);
             } catch (RuntimeException exception) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "host-session",
+                    "Host connection key derivation failed",
+                    exception
+                );
                 return failAfterCleanup(
                     HostSessionFailure.Code.CONNECTION_FAILED,
                     "Host adapter connection failed safely."
@@ -321,6 +386,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 reconnectSceneBridgeIfNeeded(
                     descriptor.verificationEvidence().projectWorkspace()
                 );
+                refreshActivePresentation();
                 return state();
             }
             editorUiLifecycle.replacing();
@@ -342,6 +408,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                     "connection.adapters()"
                 );
             } catch (Throwable throwable) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "host-session",
+                    "Host adapter connect threw",
+                    throwable
+                );
                 final CleanupOutcome candidateCleanup = closeCandidate(candidate);
                 if (!candidateCleanup.succeeded()) {
                     return finishCleanupFailure(candidateCleanup, false);
@@ -377,6 +448,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicAppearance.connect(candidate.appearanceProvider());
             paletteAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             bindTextureAtlasEditorSession(editorUiGeneration, candidate);
+            bindNativeEditIngress(editorUiGeneration, candidate);
             candidate.textureAtlasLayoutProvider().ifPresent(textureAtlasLayouts::connect);
             dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
@@ -422,6 +494,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                     providers
                 );
             } catch (Throwable throwable) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "host-session",
+                    "Editor UI provider install threw",
+                    throwable
+                );
                 final CleanupOutcome candidateCleanup = cleanupOwnedResources();
                 if (!candidateCleanup.succeeded()) {
                     return finishCleanupFailure(candidateCleanup, false);
@@ -704,6 +781,30 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * Binds the native edit ingress for this connection.
+     *
+     * <p>A resolver that does not admit the listener selectors, or a document that has no history
+     * manager yet, leaves the ingress inactive. That is deliberately not a connection failure: the
+     * session must still connect, and the ingress is an additive observation surface.</p>
+     */
+    private void bindNativeEditIngress(
+        final long generation,
+        final HostAdapterConnection connection
+    ) {
+        try {
+            nativeEditIngress.bind(generation, connection.editorModelResolver());
+        } catch (RuntimeException unavailable) {
+            // A connection without a usable resolver is a transient state, not a terminal one.
+            nativeEditIngress.deactivate();
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "host-session",
+                "Native edit ingress could not bind: " + unavailable.getClass().getName()
+                    + (unavailable.getMessage() == null ? "" : ": " + unavailable.getMessage())
+            );
+        }
+    }
+
     private void bindTextureAtlasEditorSession(
         final long generation,
         final HostAdapterConnection connection
@@ -715,6 +816,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * @return the texture-atlas data-model capture of the active connection
+     * @throws IllegalStateException when no verified connection is active or the active
+     *     connection cannot supply a texture-atlas capture
+     */
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture
         textureAtlasDataModelCapture() {
         synchronized (lifecycleMonitor) {
@@ -814,6 +920,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorLifecycleEvents.close();
             projectFileLifecycle.close();
             editorObjectLifecycle.close();
+            nativeEditIngress.close();
             partLifecycle.close();
             textureAtlasLayouts.close();
             textureAtlasNativeInvocations.close();
@@ -872,6 +979,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         sceneTableHost.disconnect();
         dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
         textureAtlasEditorUi.deactivate();
+        nativeEditIngress.deactivate();
         meshEditUiService.resetSession();
         meshMirrorAxisService.resetSession();
         activeConnectionKey = null;
@@ -979,6 +1087,28 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         if (sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.DISCONNECTED
             || sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.FAILED) {
             sceneTableHost.connect(evidence.verifiedArtifact(), evidence.hostClassLoader());
+        }
+    }
+
+    private void refreshActivePresentation() {
+        final HostAdapterConnection connection;
+        synchronized (lifecycleMonitor) {
+            connection = activeConnection;
+        }
+        if (connection == null) {
+            return;
+        }
+        try {
+            // The connection owns the optional resource thread boundary. The session refresh
+            // remains bootstrap-owned, but direct callers must not be able to break host health.
+            connection.refreshPresentation();
+        } catch (Throwable failure) {
+            // Presentation refresh is optional and must not destabilize an active host session.
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "host-session",
+                "Host presentation refresh failed safely",
+                failure
+            );
         }
     }
 
@@ -1200,10 +1330,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
 
+    /** Lifecycle state of a host session. */
     public enum State {
+        /** No host is attached; the session answers through safe-mode surfaces. */
         SAFE_MODE,
+        /** A verified host connection is active. */
         ACTIVE,
+        /** The session left its healthy path; the last failure is retained for diagnostics. */
         FAILED,
+        /** The session is closed and must not serve further calls. */
         CLOSED
     }
 }

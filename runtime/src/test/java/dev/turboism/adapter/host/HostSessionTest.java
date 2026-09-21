@@ -4,7 +4,11 @@ import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.editor.history.NativeEditIngressSessionTest;
+import dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest;
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
@@ -16,6 +20,8 @@ import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
@@ -40,6 +46,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -174,6 +181,169 @@ class HostSessionTest {
     }
 
     @Test
+    void modelContentCloseReleasesTheUnboundBorrowedModelThroughTheSession() {
+        final AtomicInteger releases = new AtomicInteger();
+        final HostSession session = new HostSession(
+            () -> Optional.of(descriptor("session-a")),
+            ignored -> HostAdapterConnection.of(
+                RuntimeHostAdapters.safeMode(),
+                new ReleasingModelAccess(releases)
+            )
+        );
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+
+        final ProjectFileOperation closeModel = new ProjectFileOperation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE,
+            Optional.of("content-a"), "Model A", Optional.empty()
+        );
+        final ProjectContentSnapshot modelContent = new ProjectContentSnapshot(
+            "content-a", "Model A", ProjectContentKind.MODEL, Optional.empty(), List.of(), List.of()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeModel), modelContent, true, null
+        );
+        session.projectFileLifecycle().awaitIdle();
+        assertEquals(1, releases.get(), "a successful MODEL close requests the release");
+
+        final ProjectFileOperation closeAnimation = new ProjectFileOperation(
+            ProjectContentKind.ANIMATION, ProjectFileOperationType.CLOSE,
+            Optional.of("animation-a"), "Scene", Optional.empty()
+        );
+        final ProjectContentSnapshot animationContent = new ProjectContentSnapshot(
+            "animation-a", "Scene", ProjectContentKind.ANIMATION,
+            Optional.empty(), List.of(), List.of()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeAnimation), animationContent, true, null
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeModel), modelContent, false, null
+        );
+        session.projectFileLifecycle().awaitIdle();
+        assertEquals(
+            1,
+            releases.get(),
+            "non-MODEL and failed closes never request the release"
+        );
+        session.close();
+    }
+
+    private static final class ReleasingModelAccess implements CubismModelAccess,
+        dev.turboism.adapter.cubism.BorrowedModelRelease {
+
+        private final AtomicInteger releases;
+
+        private ReleasingModelAccess(final AtomicInteger releases) {
+            this.releases = releases;
+        }
+
+        @Override
+        public CubismModel active() {
+            throw new IllegalStateException("No verified active Cubism Core model is available.");
+        }
+
+        @Override
+        public void releaseUnboundBorrowedModel() {
+            releases.incrementAndGet();
+        }
+    }
+
+    @Test
+    void successfulModelOpenAndCreateCompletionsRequestNativeIngressRecovery() throws Exception {
+        final NativeUndoIngressObserverTest.Manager opened =
+            new NativeUndoIngressObserverTest.Manager();
+        final VerifiedMemberResolver resolver =
+            NativeEditIngressSessionTest.resolverForTest(opened);
+        final NativeUndoIngressObserverTest.Manager created =
+            new NativeUndoIngressObserverTest.Manager();
+        final HostSession session = nativeHistorySession(resolver);
+        try {
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(1, opened.listenerCount());
+
+            new NativeEditIngressSessionTest.App(created);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.OPEN, true, null
+            );
+            flushEdt();
+
+            assertEquals(0, opened.listenerCount());
+            assertEquals(1, created.listenerCount(), "successful MODEL OPEN requests recovery");
+
+            final NativeUndoIngressObserverTest.Manager recreated =
+                new NativeUndoIngressObserverTest.Manager();
+            new NativeEditIngressSessionTest.App(recreated);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.CREATE, true, null
+            );
+            flushEdt();
+
+            assertEquals(0, created.listenerCount());
+            assertEquals(1, recreated.listenerCount(), "successful MODEL CREATE requests recovery");
+        } finally {
+            session.close();
+        }
+    }
+
+    @Test
+    void failedRejectedAnimationAndModelSaveCompletionsDoNotRequestNativeIngressRecovery()
+        throws Exception {
+        final NativeUndoIngressObserverTest.Manager attached =
+            new NativeUndoIngressObserverTest.Manager();
+        final VerifiedMemberResolver resolver =
+            NativeEditIngressSessionTest.resolverForTest(attached);
+        final NativeUndoIngressObserverTest.Manager failedOpen =
+            new NativeUndoIngressObserverTest.Manager();
+        final NativeUndoIngressObserverTest.Manager failedCreate =
+            new NativeUndoIngressObserverTest.Manager();
+        final NativeUndoIngressObserverTest.Manager animation =
+            new NativeUndoIngressObserverTest.Manager();
+        final NativeUndoIngressObserverTest.Manager saved =
+            new NativeUndoIngressObserverTest.Manager();
+        final HostSession session = nativeHistorySession(resolver);
+        try {
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(1, attached.listenerCount());
+
+            new NativeEditIngressSessionTest.App(failedOpen);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.OPEN, false, null
+            );
+            flushEdt();
+
+            new NativeEditIngressSessionTest.App(failedCreate);
+            completeProjectFile(
+                session,
+                ProjectContentKind.MODEL,
+                ProjectFileOperationType.CREATE,
+                true,
+                new IllegalStateException("rejected by host")
+            );
+            flushEdt();
+
+            new NativeEditIngressSessionTest.App(animation);
+            completeProjectFile(
+                session, ProjectContentKind.ANIMATION, ProjectFileOperationType.OPEN, true, null
+            );
+            flushEdt();
+
+            new NativeEditIngressSessionTest.App(saved);
+            completeProjectFile(
+                session, ProjectContentKind.MODEL, ProjectFileOperationType.SAVE, true, null
+            );
+            flushEdt();
+
+            assertEquals(1, attached.listenerCount());
+            assertEquals(0, failedOpen.listenerCount());
+            assertEquals(0, failedCreate.listenerCount());
+            assertEquals(0, animation.listenerCount());
+            assertEquals(0, saved.listenerCount());
+        } finally {
+            session.close();
+        }
+    }
+
+    @Test
     void dynamicAdaptersFollowConnectDisconnectAndCloseWithoutLeakingOldDelegate() {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         HostInstanceSource source = () -> Optional.ofNullable(current.get());
@@ -244,6 +414,59 @@ class HostSessionTest {
 
         session.refresh();
         assertEquals(2, connections.get());
+    }
+
+    @Test
+    void unchangedConnectionRefreshesPresentationWithoutReconnectingAndKeepsEdtIngressHealthy()
+        throws Exception {
+        final AtomicInteger connections = new AtomicInteger();
+        final AtomicInteger presentationRefreshes = new AtomicInteger();
+        final AtomicInteger offEdtSampling = new AtomicInteger();
+        final AtomicInteger edtPresentationRefreshes = new AtomicInteger();
+        final HostSession session = new HostSession(
+            () -> Optional.of(descriptor("session-a")),
+            ignored -> {
+                connections.incrementAndGet();
+                return new HostAdapterConnection() {
+                    @Override
+                    public RuntimeHostAdapters adapters() {
+                        return HostSessionTest.adapters("session-a");
+                    }
+
+                    @Override
+                    public void refreshPresentation() {
+                        if (SwingUtilities.isEventDispatchThread()) {
+                            edtPresentationRefreshes.incrementAndGet();
+                        } else {
+                            // The concrete connection uses this boundary to protect optional
+                            // presentation sampling; HostSession only delegates the refresh.
+                            offEdtSampling.incrementAndGet();
+                        }
+                        presentationRefreshes.incrementAndGet();
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                };
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get());
+        assertEquals(1, presentationRefreshes.get());
+        assertEquals(1, offEdtSampling.get());
+        assertEquals(0, edtPresentationRefreshes.get());
+
+        final AtomicReference<HostSession.State> edtState = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> edtState.set(session.refresh()));
+        assertEquals(HostSession.State.ACTIVE, edtState.get());
+        assertEquals(1, connections.get());
+        assertEquals(2, presentationRefreshes.get());
+        assertEquals(1, offEdtSampling.get(), "EDT ingress must not sample presentation state");
+        assertEquals(1, edtPresentationRefreshes.get());
+        session.close();
     }
 
     @Test
@@ -806,6 +1029,61 @@ class HostSessionTest {
             Thread.sleep(1);
         }
         fail("thread did not wait for the in-flight registration close");
+    }
+
+    private static HostSession nativeHistorySession(final VerifiedMemberResolver resolver) {
+        return new HostSession(
+            () -> Optional.of(descriptor("native-history")),
+            ignored -> new HostAdapterConnection() {
+                @Override public RuntimeHostAdapters adapters() {
+                    return RuntimeHostAdapters.safeMode();
+                }
+
+                @Override public VerifiedMemberResolver editorModelResolver() {
+                    return resolver;
+                }
+
+                @Override public void close() {
+                }
+            }
+        );
+    }
+
+    private static void completeProjectFile(
+        final HostSession session,
+        final ProjectContentKind kind,
+        final ProjectFileOperationType operationType,
+        final boolean succeeded,
+        final Throwable failure
+    ) {
+        final ProjectFileOperation operation = new ProjectFileOperation(
+            kind,
+            operationType,
+            Optional.empty(),
+            "Model",
+            Optional.empty()
+        );
+        final ProjectFileLifecycleCoordinator.Invocation invocation =
+            session.projectFileLifecycle().begin(operation);
+        session.projectFileLifecycle().complete(
+            invocation,
+            new ProjectContentSnapshot(
+                "content",
+                "Content",
+                kind,
+                Optional.empty(),
+                List.of(),
+                List.of()
+            ),
+            succeeded,
+            failure
+        );
+    }
+
+    private static void flushEdt() throws Exception {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeAndWait(() -> { });
+        }
     }
 
     static HostInstanceDescriptor descriptor(final String sessionId) {

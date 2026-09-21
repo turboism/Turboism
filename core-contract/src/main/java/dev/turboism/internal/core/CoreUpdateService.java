@@ -10,7 +10,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 
 /**
- * Runtime-owned update handoff consumed by the built-in core plugin.
+ * Runtime-owned update handoff consumed by the framework shell.
  *
  * <p>This is deliberately not part of the public SDK. The runtime owns network
  * transport, validation, persistence, scheduling, and cancellation; core only
@@ -22,13 +22,21 @@ public interface CoreUpdateService extends AutoCloseable {
     String MANUAL_CHECK_ACTION_ID = "turboism.core.update.check";
     String DOWNLOAD_ACTION_ID = "turboism.core.update.download";
 
+    /** Lifecycle state of the update handoff surfaced to the shell. */
     enum Status {
+        /** No check has run or the result was dismissed. */
         IDLE,
+        /** A check is in flight. */
         CHECKING,
+        /** A newer framework build is available. */
         UPDATE_AVAILABLE,
+        /** The latest check found nothing newer. */
         UP_TO_DATE,
+        /** No update implementation is present. */
         UNAVAILABLE,
+        /** Automatic checks are turned off. */
         DISABLED,
+        /** The service has been closed. */
         CLOSED
     }
 
@@ -80,6 +88,7 @@ public interface CoreUpdateService extends AutoCloseable {
         }
     }
 
+    /** The update preferences exposed to the shell: whether automatic checks may run. */
     record Preferences(boolean automaticChecksEnabled) {
     }
 
@@ -103,8 +112,14 @@ public interface CoreUpdateService extends AutoCloseable {
     /** Whether the runtime supplied a real update implementation. */
     boolean available();
 
+    /**
+     * @return the current immutable update state
+     */
     Snapshot snapshot();
 
+    /**
+     * @return the persisted update preferences
+     */
     Preferences preferences();
 
     /** Starts the delayed automatic-check lifecycle after UI contributions are ready. */
@@ -142,6 +157,10 @@ public interface CoreUpdateService extends AutoCloseable {
         return Unavailable.INSTANCE;
     }
 
+    /**
+     * Always-unavailable implementation: a fixed {@link Status#UNAVAILABLE} snapshot, no-op
+     * lifecycle, a completed manual-check stage, and preference saves that always fail.
+     */
     final class Unavailable implements CoreUpdateService {
         private static final Unavailable INSTANCE = new Unavailable();
         private static final Snapshot SNAPSHOT = new Snapshot(

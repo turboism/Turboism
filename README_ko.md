@@ -83,6 +83,12 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용하세요. 변경 사
 
 플러그인을 개발하려면 [데모 플러그인](plugins/demo/README.md), 해당 [빌드 설정](plugins/demo/build.gradle.kts) 및 [플러그인 설명 파일](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)을 참고하세요. 플러그인은 `compileOnly` 범위로 `:sdk`에 의존해야 하며, 런타임 내부 구현이나 `com.live2d.*` 클래스에 직접 의존해서는 안 됩니다.
 
+이 저장소 **외부**에서 플러그인을 개발할 때는 Turboism 자체를 빌드할 필요가 없습니다. 모든 GitHub Release에는 `turboism-sdk-<version>.jar`(`.sha256` 사이드카 포함)가 제공됩니다. [templates/plugin-template](templates/plugin-template/)을 독립 프로젝트로 복사한 뒤 SDK JAR을 `libs/` 디렉터리에 넣고 해당 README를 따르세요. 프레임워크 기여자는 SDK와 `@SubscribeEvent` 애너테이션 프로세서를 로컬 Maven 저장소에 게시한 뒤 `mavenLocal()`에서 `dev.turboism:sdk`와 `dev.turboism:event-processor`를 해석할 수도 있습니다.
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
 ```bash
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
@@ -94,6 +100,6 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용하세요. 변경 사
 - [사용자 및 개발자 문서](https://docs.turboism.dev)
 - [아키텍처](ARCHITECTURE.md)와 [로드맵](ROADMAP.md)
 - [SDK API 계약 및 호환성](sdk/api-contracts/), [SDK v10 마이그레이션 안내](sdk/api-contracts/sdk-api-v10-review.md), [SDK v9](sdk/api-contracts/sdk-api-v9-review.md)·[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) 리뷰는 이력 감사로 유지
-- [데모 플러그인](plugins/demo/README.md)
+- [데모 플러그인](plugins/demo/README.md)과 독립형 [플러그인 템플릿](templates/plugin-template/)
 - [Java 설치 프로그램 상세 안내](packaging/java-installer/README-java-installer.md)
 - [릴리스 절차](RELEASING.md)와 [변경 기록](CHANGELOG.md)

@@ -66,13 +66,16 @@ fps_resize_main() {
     [ -n "$pid" ] && break
     sleep 1
   done
-  [ -n "$pid" ] || return 0
+  [ -n "$pid" ] || { echo "FPS_DRIVER_NO_JVM selector=$selector"; return 0; }
+  echo "FPS_DRIVER_JVM pid=$pid"
   local start_ticks_before
   start_ticks_before=$(awk '{print $22}' "/proc/$pid/stat")
 
-  # 2. Wait for the visible project-titled window of that exact JVM.
+  # 2. Wait for the visible project-titled window of that exact JVM. Large
+  #    fixtures can take several minutes to open under Proton, so the window
+  #    wait must cover document load, not just JVM start.
   local win="" c t
-  for _ in $(seq 1 120); do
+  for _ in $(seq 1 "${FPS_WINDOW_WAIT_SECONDS:-600}"); do
     while read -r c; do
       t=$(xdotool getwindowname "$c" 2>/dev/null || true)
       case "$t" in
@@ -82,23 +85,31 @@ fps_resize_main() {
     [ -n "$win" ] && break
     sleep 1
   done
-  [ -n "$win" ] || return 0
+  [ -n "$win" ] || { echo "FPS_DRIVER_NO_WINDOW pid=$pid"; return 0; }
+  echo "FPS_DRIVER_WINDOW win=$win"
 
   # 3. Bounded resize bursts covering the exerciser sampling window; identity
   #    and window ownership are revalidated before every resize.
   local geometry WIDTH HEIGHT
   geometry=$(xdotool getwindowgeometry --shell "$win" 2>/dev/null) || return 0
   IFS=$'\t' read -r WIDTH HEIGHT < <(fps_parse_geometry "$geometry") || return 0
-  local end=$((SECONDS + 240))
+  local end=$((SECONDS + 240)) resizes=0
+  echo "FPS_DRIVER_DRIVING win=$win width=$WIDTH height=$HEIGHT"
   while [ "$SECONDS" -lt "$end" ]; do
-    [ -r "/proc/$pid/stat" ] || break
-    [ "$(awk '{print $22}' "/proc/$pid/stat")" = "$start_ticks_before" ] || break
-    xdotool search --onlyvisible --pid "$pid" 2>/dev/null | grep -Fxq "$win" || break
-    xdotool windowsize "$win" $((WIDTH - 40)) "$HEIGHT" 2>/dev/null || break
+    [ -r "/proc/$pid/stat" ] || { echo "FPS_DRIVER_STOP reason=pid-gone resizes=$resizes"; break; }
+    [ "$(awk '{print $22}' "/proc/$pid/stat")" = "$start_ticks_before" ] \
+      || { echo "FPS_DRIVER_STOP reason=pid-restarted resizes=$resizes"; break; }
+    xdotool search --onlyvisible --pid "$pid" 2>/dev/null | grep -Fxq "$win" \
+      || { echo "FPS_DRIVER_STOP reason=window-gone resizes=$resizes"; break; }
+    xdotool windowsize "$win" $((WIDTH - 40)) "$HEIGHT" 2>/dev/null \
+      || { echo "FPS_DRIVER_STOP reason=windowsize-failed resizes=$resizes"; break; }
     sleep 0.15
-    xdotool windowsize "$win" "$WIDTH" "$HEIGHT" 2>/dev/null || break
+    xdotool windowsize "$win" "$WIDTH" "$HEIGHT" 2>/dev/null \
+      || { echo "FPS_DRIVER_STOP reason=windowsize-failed resizes=$resizes"; break; }
     sleep 0.15
+    resizes=$((resizes + 1))
   done
+  echo "FPS_DRIVER_DONE resizes=$resizes seconds=$((SECONDS - (end - 240)))"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

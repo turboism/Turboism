@@ -22,7 +22,7 @@ Runs a credential-free MCP Streamable HTTP server on the local loopback interfac
 |---|---|
 | Version | `0.1.0` |
 | Plugin ID | `dev.turboism.plugin.mcp` |
-| Public catalog | 11 tools · 15 resources · 2 templates · 8 prompts |
+| Public catalog | 13 tools · 15 resources · 2 templates · 8 prompts |
 | Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `swing` |
@@ -112,6 +112,8 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.parameter_bindings.apply` | Applies typed parameter-binding operations and native atomic transfers. |
 | `turboism.glues.read` | Lists or reads exact-version Glue authoring state. |
 | `turboism.glues.write` | Applies one Undo-aware Glue mutation. |
+| `turboism.textures.read` | Reads bounded texture-library metadata and a fresh state token. |
+| `turboism.textures.write` | Applies one guarded texture-library operation with standalone native Undo. |
 | `turboism.history.read` | Reads the immutable native Undo-history snapshot. |
 | `turboism.history.undo` | Performs guarded Undo with generation, revision, and optional entry identities. |
 | `turboism.history.redo` | Performs guarded Redo with generation, revision, and optional entry identities. |
@@ -119,7 +121,53 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.capabilities.read` | Reads operation effects, version support, transaction eligibility, and SDK coverage. |
 | `turboism.editor_commands.execute` | Executes discoverable direct and typed non-file Editor commands. |
 
-Writes run after runtime permission and argument checks. Mixed batches can partially succeed and report per-operation results; they are not presented as transactions unless the underlying SDK batch is atomic.
+The complete batch is checked against its input schema before the first write. A malformed later entry rejects the request without applying earlier entries. Valid-shaped batches can still partially succeed when a runtime operation fails; completed results are preserved and `stopOnError` controls subsequent execution. A native atomic sub-operation does not make the whole MCP batch a transaction.
+
+##### Write outcomes and inversion migration
+
+Confirmed parameter writes retain `outcome`, `retryable: false`, and their identity even when subsequent reads fail. A detail read failure returns `APPLIED_WITH_READBACK_WARNING`. If the optional final parameter snapshot fails, `parameters` is `null` and `parameterSnapshotWarning` explains why; completed `results` remain intact. Do not retry a confirmed write just because its readback is unavailable.
+
+The ambiguous parameter-binding operation `invert` is rejected before dispatch. To explicitly reverse **every normal keyform binding** on selected targets, use:
+
+```json
+{
+  "operations": [{
+    "operation": "invert_all_bindings",
+    "scope": "all_target_bindings",
+    "targets": [{"type": "art_mesh", "id": "ArtMesh1"}]
+  }]
+}
+```
+
+This is not single-parameter inversion and does not invert blend-shape bindings. The receipt includes the scope and affected parameter IDs; successful readback includes all affected normal bindings. A `parameterId` field is not accepted for this operation. Single-parameter inversion requires a separate verified provider contract.
+
+The three `*.apply` tools remain `transactionEligible: false`; `turboism.transaction.execute` rejects them before opening a transaction. This does not imply that their individual native operations lack Undo. `turboism.capabilities.read` exposes these temporary exceptions. Its coverage ledger now tracks thirteen explicitly listed SDK owners, including model-object, parameter, binding and texture APIs; it is not whole-SDK coverage. `MCP_LEGACY_WRITE` marks exposed legacy writes without claiming grouped transaction readiness. Empty `supportedVersions` on these added ledger rows means no exact-version claim is made by the ledger; actual provider admission still applies.
+
+### Texture-library authoring
+
+Call `turboism.textures.read` with `operation: "list"`, then pass its returned **`state` object**
+unchanged as `expectedState` to `turboism.textures.write`. The separate `stateToken` string is a
+read-correlation ID, not the write precondition or authorization. Re-read `state` after any write or history movement.
+
+The five operations cover exact **5.2.03, 5.3.02 and 5.3.03**: `add_model_image_group` (`name`),
+`remove_model_image` (`id`), `add_texture_atlas` (`name`, `widthPixels`, `heightPixels`),
+`remove_texture_atlas` (`id`), and `remove_raw_image` (`id`). Every removal requires
+`confirmDelete: true`. Invalid arguments, duplicate group names and stale state are rejected before
+mutation. Groups have names, not invented GUIDs. Names and IDs are limited to 256 Unicode code
+points; atlas dimensions are 1–16384 pixels. Reads reject projections exceeding 1024 items per
+library collection or 1024 total nested model images instead of silently truncating them.
+Confirmed write receipts remain non-retryable even if observational readback fails: an unavailable
+`postState` is `null`, never a fabricated pre-write snapshot. An untyped native write exception
+returns `OUTCOME_UNKNOWN`, not a false `NOT_APPLIED`. Host exception messages are not exposed.
+Native history must be available before a guarded write is admitted.
+
+These writes have individual native Undo but remain `transactionEligible: false`.
+`MCP_WRITE_STANDALONE_UNDO` in the coverage ledger distinguishes them from grouped transaction children.
+Raw-image removal clears only the selected raw image and its input connections, retaining model
+images, ArtMeshes and atlases. Exact5.2 composes native Undo factories without opening a dialog.
+This is library CRUD, not arbitrary pixel upload, file import/export or MCP layout-plan application.
+Version metadata identifies runtime adapters and tests; exact-host acceptance is tracked separately
+and must not be inferred from a capability row or from synthetic tests alone.
 
 ### Resources
 
@@ -168,7 +216,7 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | Capability | User effect |
 |---|---|
 | `mcp.streamable-http` | Serves credential-free MCP Streamable HTTP on numeric loopback. |
-| `mcp.tools` | Publishes the eleven typed tool workflows. |
+| `mcp.tools` | Publishes the thirteen typed tool workflows. |
 | `mcp.resources` | Publishes static and templated JSON resources. |
 | `mcp.prompts` | Publishes user-controlled workflow prompts. |
 | `cubism.workspace.read` | Reads typed workspace status and dock-layout snapshots. |
@@ -223,7 +271,7 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 - Workspace switching and default-layout mutation are intentionally unavailable because the runtime currently gates them with `turboism.host.unsafe`.
 - `EditorFileCommandRequest`, import/export, save-as, backup, and other handle-based file workflows remain unavailable until an MCP session can receive a real `UserFileHandle` authorization without accepting raw paths.
 - Generic SDK invocation, reflection, arbitrary native members, shell execution, raw paths, dialog automation, and lifecycle-registration APIs are not exposed.
-- Performance sampling, canvas/profile, physics/animation, texture-atlas authoring, screenshots, and binary resources remain separate future capabilities with their own permission and exact-host evidence requirements.
+- Performance sampling, canvas/profile, physics/animation, texture pixel ingestion and atlas-layout authoring through MCP, screenshots, and binary resources remain separate future capabilities. Texture-library CRUD is provided by the typed texture tools above.
 - Delete is destructive. The default rejects referenced objects; cascade must be requested explicitly.
 
 ## Troubleshooting

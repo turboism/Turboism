@@ -15,7 +15,7 @@ import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.cubism.event.WarpDeformerGridEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;

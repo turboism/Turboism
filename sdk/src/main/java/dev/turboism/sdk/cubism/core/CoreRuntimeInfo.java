@@ -4,10 +4,13 @@ package dev.turboism.sdk.cubism.core;
 /** Permission-checked metadata for the admitted Cubism Core runtime. */
 public interface CoreRuntimeInfo {
 
+    /** Returns the admitted Cubism Core runtime version. */
     CoreVersion version();
 
+    /** Returns the feature set reported by the admitted Core runtime. */
     CoreCapabilities capabilities();
 
+    /** Returns the permission-checked MOC byte inspection service. */
     MocInspector mocInspector();
 
     /**

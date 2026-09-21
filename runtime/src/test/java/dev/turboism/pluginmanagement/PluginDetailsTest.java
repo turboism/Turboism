@@ -116,7 +116,7 @@ class PluginDetailsTest {
     }
 
     @Test
-    void builtInCoreExposesBundledDescriptorAndReadme() {
+    void builtInShellExposesSynthesizedDescriptorWithoutReadme() {
         final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
             home, List::of, () -> Locale.ENGLISH
         );
@@ -128,7 +128,8 @@ class PluginDetailsTest {
         assertTrue(details.plugin().core());
         assertEquals("Project License", details.license());
         assertEquals(Optional.of("https://turboism.dev"), details.website());
-        assertTrue(details.readme().orElseThrow().contains("# Turboism Core"));
+        assertTrue(details.readme().isEmpty(),
+            "the framework shell ships no plugin readme");
     }
 
     private CorePluginManagement.PluginDetails details(final String id, final Locale locale) {

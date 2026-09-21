@@ -10,10 +10,23 @@ import java.util.Optional;
 /** Adapter seam for the host Recent Files menu projection. */
 public interface RecentFileAdapter {
 
+    /**
+     * @return the projected Recent Files entries in host order (copied defensively by the
+     *         connected adapter); empty when the host reports none
+     */
     List<RecentFileSummary> list();
 
+    /**
+     * @return the id of the project file the host currently has open; empty when the host
+     *         reports none
+     */
     Optional<RecentFileId> current();
 
+    /**
+     * An adapter for when no host is attached.
+     *
+     * @return a host-free adapter that answers an empty list and no current file
+     */
     static RecentFileAdapter safeMode() {
         return connected(new HostOperations() {
             @Override
@@ -28,6 +41,13 @@ public interface RecentFileAdapter {
         });
     }
 
+    /**
+     * An adapter that reads through the given host operations.
+     *
+     * @param host the live host operations, non-null
+     * @return an adapter bound to that host
+     * @throws NullPointerException if {@code host} is null
+     */
     static RecentFileAdapter connected(final HostOperations host) {
         Objects.requireNonNull(host, "host");
         return new RecentFileAdapter() {
@@ -43,9 +63,16 @@ public interface RecentFileAdapter {
         };
     }
 
+    /** The raw host call surface the connected adapter delegates to. */
     interface HostOperations {
+        /**
+         * @return the host Recent Files entries in menu order; may be empty, never null
+         */
         List<RecentFileSummary> list();
 
+        /**
+         * @return the id of the project file currently open on the host; empty when none
+         */
         Optional<RecentFileId> current();
     }
 }

@@ -1,7 +1,7 @@
 package dev.turboism.validation.texture;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.objectweb.asm.*;
+import dev.turboism.agent.shaded.jackson.databind.ObjectMapper;
+import dev.turboism.agent.shaded.asm.*;
 import java.awt.geom.*;
 import java.lang.instrument.*;
 import java.lang.reflect.*;

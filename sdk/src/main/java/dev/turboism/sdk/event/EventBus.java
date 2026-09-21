@@ -23,8 +23,13 @@ import java.util.function.Consumer;
  */
 public interface EventBus {
 
+    /**
+     * Subscribes {@code listener} to events assignable to {@code type}. Closing the returned
+     * {@link Registration} unsubscribes the listener.
+     */
     <T extends TurboismEvent> Registration subscribe(Class<T> type, Consumer<T> listener);
 
+    /** Publishes {@code event} to every matching subscriber. */
     <T extends TurboismEvent> void publish(T event);
 
     /**

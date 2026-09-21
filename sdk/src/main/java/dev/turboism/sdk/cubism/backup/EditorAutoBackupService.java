@@ -103,13 +103,27 @@ public interface EditorAutoBackupService {
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     Registration registerSyncTarget(BackupSyncTarget target);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     /** Safe-mode instance: every operation fails closed to UNAVAILABLE. */
     static EditorAutoBackupService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements EditorAutoBackupService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public EditorAutoBackupSettings settings() {

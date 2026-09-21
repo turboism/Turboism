@@ -230,6 +230,10 @@ public final class PluginJarContract {
         );
     }
 
+    /**
+     * A plugin JAR violated the contract between its content and plugin.json; carries the
+     * stable violation {@link #code()} and the attributed {@link #path()}.
+     */
     public static final class PluginJarContractException extends Exception {
         private final String code;
         private final String path;

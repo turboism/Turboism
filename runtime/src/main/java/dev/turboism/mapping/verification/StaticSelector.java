@@ -256,10 +256,15 @@ public record StaticSelector(
         return value;
     }
 
+    /** Which kind of host member a selector pins. */
     public enum Kind {
+        /** A host class. */
         CLASS,
+        /** A host constructor. */
         CONSTRUCTOR,
+        /** A host method, pinned by name and descriptor. */
         METHOD,
+        /** A host field. */
         FIELD
     }
 }

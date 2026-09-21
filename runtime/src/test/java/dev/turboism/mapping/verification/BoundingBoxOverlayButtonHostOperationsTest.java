@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -208,6 +209,64 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         ))) {
             assertEquals(1, host.customButtonEntities(overlay, scene).length);
         }
+    }
+
+    @Test
+    void overlayChurnBoundsTheSideTableAndDetachesEvictedButtons() {
+        final Registration registration = install(List.of(
+            descriptor("plugin.overlay", button("only", 10))
+        ));
+        final Object scene = new SceneGraph();
+        final List<Object> buttons = new ArrayList<>();
+
+        for (int index = 0; index < 20; index++) {
+            final Object[] created = host.customButtonEntities(new OverlayHost(), scene);
+            assertEquals(1, created.length);
+            buttons.add(created[0]);
+        }
+        assertEquals(20, OverlayHost.CREATED.size());
+
+        // Only the newest 16 overlay entries stay cached; the 4 eldest were evicted and their
+        // buttons disabled and detached through the last observed scene.
+        for (int index = 0; index < 20; index++) {
+            final Object button = buttons.get(index);
+            if (index < 4) {
+                assertTrue(
+                    SceneGraph.REMOVED_VOLATILE.contains(button),
+                    "evicted overlay " + index + " detaches its button"
+                );
+                assertTrue(Entities.REMOVED.contains(button));
+            } else {
+                assertFalse(
+                    SceneGraph.REMOVED_VOLATILE.contains(button),
+                    "cached overlay " + index + " keeps its button"
+                );
+            }
+        }
+        registration.close();
+    }
+
+    @Test
+    void anEvictedOverlayRebuildsFreshButtonsOnItsNextUpdate() {
+        final Registration registration = install(List.of(
+            descriptor("plugin.overlay", button("only", 10))
+        ));
+        final Object scene = new SceneGraph();
+        final Object overlayA = new OverlayHost();
+        final Object firstButton = host.customButtonEntities(overlayA, scene)[0];
+
+        for (int index = 0; index < 16; index++) {
+            host.customButtonEntities(new OverlayHost(), scene);
+        }
+        assertTrue(
+            SceneGraph.REMOVED_VOLATILE.contains(firstButton),
+            "the eldest overlay was evicted once the table exceeded the bound"
+        );
+
+        final Object[] rebuilt = host.customButtonEntities(overlayA, scene);
+        assertEquals(1, rebuilt.length);
+        assertNotSame(firstButton, rebuilt[0], "the evicted overlay rebuilds fresh buttons");
+        registration.close();
     }
 
     @Test

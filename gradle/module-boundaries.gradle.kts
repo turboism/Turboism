@@ -20,13 +20,17 @@ private val forbiddenImportPatterns = listOf(
     "dev.turboism.core.parameter.*" to "SDK/plugins must not import runtime parameter internals",
     "dev.turboism.core.mesh.*" to "SDK/plugins must not import runtime mesh internals",
     "dev.turboism.core.psd.*" to "SDK/plugins must not import runtime PSD internals",
-    "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals"
+    "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals",
+    "dev.turboism.sdk.event.cubism.*" to
+        "SDK/plugins must not import the retired dev.turboism.sdk.event.cubism package " +
+        "(Cubism events live in dev.turboism.sdk.cubism.event)"
 )
 
-// The built-in core application is the single deliberate exception: it compiles against the
-// internal management contracts its UI drives. No other plugin or SDK module may.
-private val CORE_PLUGIN_PATH = ":plugins:core"
-private val coreContractPackagePrefix = "dev.turboism.internal.core."
+private val forbiddenPackageDeclarations = listOf(
+    Regex("""^\s*package\s+dev\.turboism\.sdk\.event\.cubism\s*;""") to
+        "Retired package dev.turboism.sdk.event.cubism must not be reintroduced " +
+        "(Cubism events live in dev.turboism.sdk.cubism.event)"
+)
 
 private val productionDependencyConfigurations = setOf(
     "api", "compileOnly", "compileOnlyApi", "implementation", "runtimeOnly", "annotationProcessor"
@@ -98,23 +102,6 @@ private fun checkProjectDependencies(subproject: Project, state: BoundaryState) 
         subproject.path == ":runtime" -> {
             checkRuntimePluginDependencies(subproject, config, state)
         }
-        subproject.path == CORE_PLUGIN_PATH -> {
-            // Deliberate built-in exception: the core application compiles against the
-            // internal management contracts implemented by :runtime. Ordinary plugins below
-            // do not get this allowance.
-            checkDeclaredBoundaryDependencies(
-                subproject,
-                setOf(":sdk", ":event-processor", ":core-contract"),
-                "Plugin",
-                state
-            )
-            checkResolvedBoundaryComponents(
-                config,
-                subproject,
-                setOf(subproject.path, ":sdk", ":core-contract"),
-                state
-            )
-        }
         subproject.path.startsWith(":plugins:") -> {
             checkDeclaredBoundaryDependencies(
                 subproject,
@@ -129,8 +116,8 @@ private fun checkProjectDependencies(subproject: Project, state: BoundaryState) 
 
 /**
  * The runtime is composition-neutral: it may carry external libraries but must never depend on
- * a plugin implementation module. The built-in core reaches it only through the entrypoint
- * contract wired by bootstrap.
+ * a plugin implementation module. The framework shell belongs to :runtime; its composition
+ * contracts live in :core-contract and are never exposed to plugin consumers.
  */
 private fun checkRuntimePluginDependencies(
     subproject: Project,
@@ -250,25 +237,34 @@ private fun scanProductionSources(root: Project, project: Project, state: Bounda
 
 private fun checkSourceFile(root: Project, project: Project, file: java.io.File, state: BoundaryState) {
     val lines = file.readLines()
+    checkForbiddenPackageDeclaration(root, file, lines, state)
     val restricted = project.path == ":sdk" || project.path.startsWith(":plugins:")
     if (restricted) {
-        checkRestrictedImports(root, project, file, lines, state)
+        checkRestrictedImports(root, file, lines, state)
         checkForbiddenQualifiedReferences(root, file, lines, state)
-        checkInternalContractReferences(root, project, file, lines, state)
+        checkInternalContractReferences(root, file, lines, state)
     }
     if (project.path.startsWith(":plugins:")) {
         checkForbiddenHostUiTraversal(root, file, lines, state)
     }
 }
 
-private fun checkRestrictedImports(
+private fun checkForbiddenPackageDeclaration(
     root: Project,
-    project: Project,
     file: java.io.File,
     lines: List<String>,
     state: BoundaryState
 ) {
-    val corePlugin = project.path == CORE_PLUGIN_PATH
+    lines.forEach { line ->
+        forbiddenPackageDeclarations.forEach { (pattern, message) ->
+            if (pattern.containsMatchIn(line)) {
+                state.reject("${file.relativeTo(root.projectDir)}: $message")
+            }
+        }
+    }
+}
+
+private fun checkRestrictedImports(root: Project, file: java.io.File, lines: List<String>, state: BoundaryState) {
     lines.forEachIndexed { index, line ->
         val trimmed = line.trim()
         if (trimmed.matches(Regex("import dev\\.turboism\\.distribution(?:\\..*)?;"))) {
@@ -276,17 +272,9 @@ private fun checkRestrictedImports(
         }
         forbiddenImportPatterns.forEach { (pattern, message) ->
             if (trimmed.matches(Regex("import $pattern;"))) {
-                // The wildcard also covers the flat dev.turboism.internal.core contract package;
-                // the built-in core application's use of that package is the documented exception
-                // enforced by checkInternalContractReferences.
-                val contractException = corePlugin && pattern == runtimeInternalImportPattern &&
-                    trimmed.removePrefix("import ").removeSuffix(";")
-                        .startsWith(coreContractPackagePrefix)
-                if (!contractException) {
-                    state.reject(
-                        "Forbidden import in ${file.relativeTo(root.projectDir)}:${index + 1}: $message"
-                    )
-                }
+                state.reject(
+                    "Forbidden import in ${file.relativeTo(root.projectDir)}:${index + 1}: $message"
+                )
             }
         }
     }
@@ -298,17 +286,14 @@ private val internalContractReferencePattern =
 /**
  * Internal management contracts ({@code dev.turboism.internal.*}) are composition-internal: the
  * SDK and ordinary plugins must never import or reference them, so built-in-only services cannot
- * leak through the plugin surface. The built-in core application alone may reference
- * {@code dev.turboism.internal.core.*} — the one documented exception.
+ * leak through the plugin surface. The framework shell lives in :runtime and needs no plugin exception.
  */
 private fun checkInternalContractReferences(
     root: Project,
-    project: Project,
     file: java.io.File,
     lines: List<String>,
     state: BoundaryState
 ) {
-    val corePlugin = project.path == CORE_PLUGIN_PATH
     lines.forEachIndexed { index, line ->
         val trimmed = line.trim()
         if (trimmed.startsWith("import ") || trimmed.startsWith("import static ")) {
@@ -317,8 +302,7 @@ private fun checkInternalContractReferences(
                 .removePrefix("static ")
                 .removeSuffix(";")
                 .trim()
-            if (imported.startsWith("dev.turboism.internal.") &&
-                !(corePlugin && imported.startsWith(coreContractPackagePrefix))) {
+            if (imported.startsWith("dev.turboism.internal.")) {
                 state.reject(
                     "Forbidden internal-contract import in " +
                         "${file.relativeTo(root.projectDir)}:${index + 1}: " +
@@ -331,13 +315,11 @@ private fun checkInternalContractReferences(
         lines.filterNot { it.trimStart().startsWith("import ") }.joinToString("\n")
     )
     internalContractReferencePattern.findAll(source).forEach { match ->
-        if (!(corePlugin && match.value.startsWith(coreContractPackagePrefix))) {
-            state.reject(
-                "Forbidden internal-contract reference '${match.value}' in " +
-                    "${file.relativeTo(root.projectDir)}: " +
-                    "internal management contracts are not a plugin API"
-            )
-        }
+        state.reject(
+            "Forbidden internal-contract reference '${match.value}' in " +
+                "${file.relativeTo(root.projectDir)}: " +
+                "internal management contracts are not a plugin API"
+        )
     }
 }
 

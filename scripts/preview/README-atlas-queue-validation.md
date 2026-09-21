@@ -65,3 +65,8 @@ Raw `uiActionToProgressClosedMs` is **instrumented wall time**, including separa
 After the four500 UI cases passed, the user explicitly requested Circle/Geometry100/1000/2500 UI runs as well. This is a new authorization for Geometry2500, not a retry of the old entry-only job. Keep the >2h cancelled historical measurement intact and record a separate UI job.
 
 The fixed UI catalogue now admits only counts100/500/1000/2500, datasetscircle/geometry and implementationsnative/new. Exact fixture hashes remain hardcoded. UI driver/result budgets are1800seconds; **submit each newly authorized job with `--timeout-seconds 1800`**, so the independent manager enforces the task hard limit (includes startup/preparation after admission, excludes queue waiting). Native timeout is not a completed layout duration or PASS and has no speedup ratio. Manager may need additional time to prove cleanup after stopping the task. No automatic retries or timeout extension. Existing500 rows are retained, not rerun. Auxiliary dependency closure and official-file boundaries are unchanged.
+
+The auxiliary validation agent and its offline assertions compile against the
+production agent’s relocated Jackson/ASM classes (`dev.turboism.agent.shaded.*`).
+They are test-only instrumentation; the probe does not add unrelocated library
+packages to the host or to the SDK/plugin classpath.

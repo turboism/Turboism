@@ -11,12 +11,16 @@ public sealed interface ModelObjectCreateRequest permits
     ModelObjectCreateRequest.WarpDeformer,
     ModelObjectCreateRequest.RotationDeformer {
 
+    /** Returns the kind of model object this request creates. */
     ModelObjectKind kind();
 
+    /** Returns the new object's display name. */
     String name();
 
+    /** Returns the intended parent, or empty to attach at the model root. */
     Optional<ModelObjectReference> parent();
 
+    /** Creates a Part; a {@code parent}, when present, must itself be a Part. */
     record Part(String name, Optional<ModelObjectReference> parent)
         implements ModelObjectCreateRequest {
         public Part {
@@ -29,6 +33,7 @@ public sealed interface ModelObjectCreateRequest permits
         }
     }
 
+    /** Creates an ArtMesh with explicit geometry under a Part or Deformer parent. */
     record ArtMesh(
         String name,
         Optional<ModelObjectReference> parent,
@@ -45,6 +50,7 @@ public sealed interface ModelObjectCreateRequest permits
         }
     }
 
+    /** Creates a Warp Deformer with the given grid under a Part or Deformer parent. */
     record WarpDeformer(
         String name,
         Optional<ModelObjectReference> parent,
@@ -61,6 +67,7 @@ public sealed interface ModelObjectCreateRequest permits
         }
     }
 
+    /** Creates a Rotation Deformer with the given keyform under a Part or Deformer parent. */
     record RotationDeformer(
         String name,
         Optional<ModelObjectReference> parent,

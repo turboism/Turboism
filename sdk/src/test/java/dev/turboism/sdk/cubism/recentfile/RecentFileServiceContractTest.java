@@ -41,7 +41,7 @@ final class RecentFileServiceContractTest {
         assertSame(RecentFileService.unavailable(), context.recentFiles());
 
         assertEquals(
-            List.of("list", "unavailable"),
+            List.of("isAvailable", "list", "unavailable"),
             Arrays.stream(RecentFileService.class.getDeclaredMethods())
                 .filter(method -> Modifier.isPublic(method.getModifiers()))
                 .map(Method::getName)

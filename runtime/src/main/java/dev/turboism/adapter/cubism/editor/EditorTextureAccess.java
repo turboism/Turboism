@@ -44,6 +44,8 @@ final class EditorTextureAccess {
     private static final String END_EDIT = "cubism.editor-model.edit-mode.end";
     private static final String UNDO_ADD = "cubism.editor-model.undo.add";
     private static final String UNDO_ADD_LISTENER = "cubism.editor-model.undo.add-listener";
+    private static final String UNDO_REVERT = "cubism.editor-model.texture-undo.undo";
+    private static final String UNDO_FORCE_REDO = "cubism.editor-model.texture-undo.force-redo";
     private static final String UNDO_LISTENER_CLASS = "cubism.editor-model.undo-listener.class";
     private static final String UPDATE_INSTANCES = "cubism.editor-model.model-source.update-instances";
     private static final String COMPLETE_PACK = "cubism.editor-model.app-controller.complete-pack";
@@ -111,10 +113,12 @@ final class EditorTextureAccess {
         if (!resolver.authorizesFeature(
             EditorTextureSelectorContract.ADAPTER_SLICE_ID,
             EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-            EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
+            resolver.cubismVersion().equals("5.2.03")
+                ? EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES
+                : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
         )) {
             throw new UnsupportedOperationException(
-                "Raw image removal is unavailable on this Cubism version (5.2.03 exposes only a dialog path)."
+                "Raw image removal is unavailable without its exact non-dialog native Undo route."
             );
         }
     }
@@ -190,10 +194,9 @@ final class EditorTextureAccess {
         boolean completed = false;
         try {
             final Object undoable = operation.apply(edit);
-            final Object accepted = resolver.invoke(UNDO_ADD, edit, undoable, Boolean.TRUE);
-            if (!(accepted instanceof Boolean acceptedValue) || !acceptedValue) {
-                throw new IllegalStateException("Cubism rejected the texture Undo entry.");
-            }
+            // Prepared 5.2 edits already belong to the root. Other native factories forceRedo
+            // before returning; compensate them if the root refuses registration.
+            if (undoable != edit) registerAppliedUndo(edit, undoable);
             final Object listener = resolver.createFunctionalProxy(
                 UNDO_LISTENER_CLASS,
                 ignored -> {
@@ -212,6 +215,22 @@ final class EditorTextureAccess {
         }
         if (!completed) {
             throw new IllegalStateException("Cubism texture edit was rolled back: " + label);
+        }
+    }
+
+    private void registerAppliedUndo(final Object edit, final Object undoable) {
+        try {
+            final Object accepted = resolver.invoke(UNDO_ADD, edit, undoable, Boolean.TRUE);
+            if (!Boolean.TRUE.equals(accepted)) {
+                throw new IllegalStateException("Cubism rejected the texture Undo entry.");
+            }
+        } catch (RuntimeException | Error failure) {
+            try {
+                resolver.invoke(UNDO_REVERT, undoable);
+            } catch (RuntimeException | Error compensation) {
+                if (compensation != failure) failure.addSuppressed(compensation);
+            }
+            throw failure;
         }
     }
 
@@ -253,6 +272,36 @@ final class EditorTextureAccess {
             }
         }
         throw new NoSuchElementException("Cubism raw image is absent: " + id.value());
+    }
+
+    private List<Object> prepareRawImageRemoval5203(final Object source, final RawImageId id) {
+        final Object guid = findRawImageGuid(source, id);
+        Object rawImage = null;
+        for (Object wrapper : list(RAW_IMAGES, textureManager(source), "raw image")) {
+            final Object image = resolver.invoke(WRAPPER_IMAGE, wrapper);
+            if (guidValue(resolver.invoke("cubism.editor-model.layered-image.guid", image), "raw image")
+                .equals(id.value())) {
+                rawImage = image;
+                break;
+            }
+        }
+        if (rawImage == null) throw new NoSuchElementException("Cubism raw image is absent: " + id.value());
+        final List<Object> undoables = new ArrayList<>();
+        final java.util.Set<Object> observed = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (Object image : list(ALL_MODEL_IMAGES, textureManager(source), "model image")) {
+            final Object environment = resolver.invoke("cubism.editor-model.model-image.input-filter-env", image);
+            final Object inputs = resolver.invoke("cubism.editor-model.model-image-filter-env.layer-input-data", environment);
+            if (inputs == null) throw new IllegalStateException("Model image layer-input map is unavailable.");
+            if (!observed.add(inputs)) continue;
+            final Object layers = resolver.invoke("cubism.editor-model.layer-selector-map.get", inputs, guid);
+            if (layers == null) continue;
+            if (!(layers instanceof List<?>)) throw new IllegalStateException("Invalid raw-image layer inputs.");
+            undoables.add(resolver.construct("cubism.editor-model.texture-undo.layer-input.create",
+                inputs, guid, null, Boolean.FALSE));
+        }
+        undoables.add(resolver.construct("cubism.editor-model.texture-undo.raw-image.create",
+            source, rawImage, -1, Boolean.FALSE));
+        return List.copyOf(undoables);
     }
 
     @FunctionalInterface
@@ -426,9 +475,24 @@ final class EditorTextureAccess {
             requireRawImageRemoval();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
-            final Object guid = findRawImageGuid(source, id);
-            envelope("Turboism: Remove Raw Image", source,
-                edit -> resolver.invoke(REMOVE_RAW_IMAGE, handler(source), guid, Boolean.FALSE));
+            if (resolver.cubismVersion().equals("5.2.03")) {
+                // Match the 5.3 handler's false branch: clear this raw image's layer inputs,
+                // then remove only its raw-image entry. Never invoke the 5.2 dialog or layer purge.
+                final List<Object> prepared = prepareRawImageRemoval5203(source, id);
+                envelope("Turboism: Remove Raw Image", source, edit -> {
+                    for (Object undoable : prepared) {
+                        if (!Boolean.TRUE.equals(resolver.invoke(UNDO_ADD, edit, undoable, Boolean.TRUE))) {
+                            throw new IllegalStateException("Cubism rejected the prepared texture Undo entry.");
+                        }
+                        resolver.invoke(UNDO_FORCE_REDO, undoable);
+                    }
+                    return edit;
+                });
+            } else {
+                final Object guid = findRawImageGuid(source, id);
+                envelope("Turboism: Remove Raw Image", source,
+                    edit -> resolver.invoke(REMOVE_RAW_IMAGE, handler(source), guid, Boolean.FALSE));
+            }
         }
     }
 }

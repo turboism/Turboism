@@ -8,6 +8,7 @@ import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContr
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
@@ -343,6 +344,11 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
                     metadata.action().orElseThrow(),
                     HistoryOrigin.hostUnattributed()
                 );
+            } else if (observedUsable(resolver, entry, metadata.observedDetail())) {
+                // The commit-time decode is the only read that could still prove this entry's own
+                // post state; a fresh decode here could not read it, so the observed projection is
+                // reused instead of recomputing a poorer one.
+                detail = metadata.observedDetail().orElseThrow();
             } else {
                 final NativeHistoryDecodeResult decoded = nativeDecoders.decode(
                     resolver,
@@ -370,6 +376,34 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         if (generation.getAsLong() != expectedGeneration) return HistorySnapshot.unavailable();
         return snapshotFor(expectedGeneration, position, entries, canUndo, canRedo,
             documentBindingId(document), managerBindingId(manager));
+    }
+
+    /**
+     * Decides whether a commit-time observed detail still describes this entry.
+     *
+     * <p>A group may have been decoded while the host was still appending children. When the live
+     * child count exceeds what the observed detail saw, the snapshot decodes again instead of
+     * presenting a stale group as complete.</p>
+     */
+    private static boolean observedUsable(
+        final VerifiedMemberResolver resolver,
+        final Object entry,
+        final Optional<HistoryEntryDetail> observed
+    ) {
+        if (observed.isEmpty()) return false;
+        final Optional<HistoryGroup> group = observed.orElseThrow().group();
+        if (group.isEmpty()) return true;
+        if (group.orElseThrow().truncated()) return false;
+        try {
+            final Object rawCount = resolver.invoke(
+                "cubism.editor-history.semantic.group.count",
+                entry
+            );
+            if (!(rawCount instanceof Number count)) return true;
+            return count.intValue() <= group.orElseThrow().observedChildCount();
+        } catch (RuntimeException unavailable) {
+            return true;
+        }
     }
 
     private String documentBindingId(final Object document) {

@@ -12,8 +12,25 @@ import java.util.Optional;
  */
 public interface StatusToolbarAdapter {
 
+    /**
+     * Posts a status-bar notification through the host.
+     *
+     * @param notification the notification to display
+     * @return an available result carrying the registration that owns the posted
+     *         notification, or an unavailable result when the capability cannot be served
+     */
     AdapterResult<Registration> notifyStatus(StatusNotification notification);
 
+    /**
+     * Posts a canvas hint notification through the host.
+     *
+     * <p>The default reports {@link Capability#CANVAS_HINT} as unavailable; only hosts that
+     * actually expose the hint surface override it.</p>
+     *
+     * @param notification the hint to display, non-null
+     * @return an available result carrying the owning registration, or an unavailable result
+     * @throws NullPointerException if {@code notification} is null
+     */
     default AdapterResult<Registration> notifyCanvasHint(final CanvasHintNotification notification) {
         Objects.requireNonNull(notification, "notification");
         return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(
@@ -21,6 +38,7 @@ public interface StatusToolbarAdapter {
         ));
     }
 
+    /** The host capabilities this adapter can be gated by. */
     enum Capability {
         STATUS_NOTIFY("ui.status.notify"),
         CANVAS_HINT("ui.canvas.hint");
@@ -37,18 +55,43 @@ public interface StatusToolbarAdapter {
         }
     }
 
+    /** The raw host call surface this adapter guards. */
     interface HostOperations {
+        /**
+         * @return the host application version string used for the reviewed-version check
+         */
         String hostVersion();
 
+        /**
+         * @param capability the capability being probed
+         * @return {@code true} when this host exposes it
+         */
         boolean supports(Capability capability);
 
+        /**
+         * @param notification the notification to display
+         * @return the registration owning the posted notification
+         */
         Registration notifyStatus(StatusNotification notification);
 
+        /**
+         * @param notification the hint to display
+         * @return the registration owning the posted hint
+         * @throws UnsupportedOperationException by default, for hosts without the hint surface
+         */
         default Registration notifyCanvasHint(final CanvasHintNotification notification) {
             throw new UnsupportedOperationException("canvas hints are not available");
         }
     }
 
+    /**
+     * The outcome of one guarded adapter call: either the produced {@code value} or the
+     * {@link SafeModeDiagnostic} explaining why it is absent.
+     *
+     * @param value the produced value, empty when the call was unavailable; never null
+     * @param diagnostic why no value could be supplied, empty when the call succeeded; never null
+     * @param <T> the produced value type
+     */
     record AdapterResult<T>(
         Optional<T> value,
         Optional<SafeModeDiagnostic> diagnostic

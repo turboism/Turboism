@@ -38,8 +38,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Runtime-owned {@link PluginLifecycleEvent} verdicts observed through the real plugin
  * load/close path: a real observer plugin declares {@code turboism.plugin.lifecycle.observe}
  * and receives the permission-filtered stream, while a trusted raw-broker subscription sees
- * every verdict including the runtime-owned core's. Individual targets are unloaded through
- * the existing {@code unloadOne} seam so the observer stays active for deferred verdicts.
+ * every verdict. The runtime-owned shell is not a plugin: even when an admission is wired it
+ * must produce no lifecycle event, so no {@code turboism.core} row may ever appear.
+ * Individual targets are unloaded through the existing {@code unloadOne} seam so the
+ * observer stays active for deferred verdicts.
  */
 class PreviewPluginLifecycleEventIntegrationTest {
 
@@ -79,7 +81,15 @@ class PreviewPluginLifecycleEventIntegrationTest {
         try (PreviewLog log = new PreviewLog(temporary.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
                 temporary, scheduler, host.adapterAccess(), log,
-                new dev.turboism.plugin.core.MainToolbarPluginEntrypoint()
+                services -> new dev.turboism.internal.core.ShellHandle() {
+                    @Override
+                    public void start(final dev.turboism.sdk.plugin.PluginContext context) {
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                }
             );
             try {
                 final RuntimeEventBroker broker = brokerOf(runtime);
@@ -91,14 +101,13 @@ class PreviewPluginLifecycleEventIntegrationTest {
                 runtime.loadAll();
 
                 awaitRows(rawEvents,
-                    CORE_ID + ":1:LOAD:SUCCEEDED",
                     OBSERVER_ID + ":1:LOAD:SUCCEEDED",
                     "dev.example.lifecycle-success:1:LOAD:SUCCEEDED",
                     "dev.example.lifecycle-fail-enable:1:LOAD:FAILED",
                     "dev.example.lifecycle-fail-ctor:" + PluginLifecycleEvent.NO_ADMITTED_GENERATION
                         + ":LOAD:FAILED");
                 // The plugin-observed stream is permission-filtered and starts only once the
-                // observer's own subscription is registered: the core loaded before it existed.
+                // observer's own subscription is registered.
                 awaitRows(pluginEvents,
                     OBSERVER_ID + ":1:LOAD:SUCCEEDED",
                     "dev.example.lifecycle-success:1:LOAD:SUCCEEDED",
@@ -108,9 +117,15 @@ class PreviewPluginLifecycleEventIntegrationTest {
                 awaitDrain(rawEvents, broker);
                 awaitPluginDrain(pluginEvents);
 
+                // The shell is not a plugin: no verdict row may carry the reserved id —
+                // not even on the trusted raw-broker stream.
+                assertFalse(
+                    snapshot(rawEvents).stream().anyMatch(row -> row.startsWith(CORE_ID)),
+                    "the runtime-owned shell must not fabricate plugin lifecycle events"
+                );
                 assertFalse(
                     snapshot(pluginEvents).stream().anyMatch(row -> row.startsWith(CORE_ID)),
-                    "the observer subscribed after the core loaded and must not see its verdict"
+                    "the observer must never see a verdict for the shell"
                 );
                 assertExactlyOnce(rawEvents, OBSERVER_ID + ":1:LOAD:SUCCEEDED");
                 assertExactlyOnce(rawEvents, "dev.example.lifecycle-success:1:LOAD:SUCCEEDED");

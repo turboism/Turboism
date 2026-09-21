@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Runtime-owned launcher preference exposed only to the built-in Core plugin.
+ * Runtime-owned launcher preference exposed only to the framework shell.
  *
  * <p>The setting selects the executable used on the next managed Cubism launch;
  * it cannot replace the JVM of the current Cubism process. Keeping this service
@@ -20,8 +20,17 @@ public interface CubismJvmSettingsService {
     String MANAGED_GRAAL_VERSION = "25.2.4";
     String MANAGED_JAVA_VERSION = "25.0.4";
 
+    /**
+     * @return the persisted JVM selection for the next managed launch
+     */
     CubismJvm read();
 
+    /**
+     * Persists the JVM selection for the next managed launch.
+     *
+     * @param value the JVM mode to persist
+     * @return the persisted value
+     */
     CubismJvm save(CubismJvm value);
 
     /** @return the optional user-configured GraalVM home or Java executable path */
@@ -44,6 +53,79 @@ public interface CubismJvmSettingsService {
         return Optional.empty();
     }
 
+    /**
+     * Opt-in session preference: when true the session start disables the
+     * host's periodic auto-backup via the verified updateSettings path
+     * (crash-recovery trades for no mid-edit backup stalls). Off by default.
+     */
+    default boolean reduceAutoBackup() {
+        return false;
+    }
+
+    /** Persists the session auto-backup reduction preference. */
+    default boolean saveReduceAutoBackup(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: when true the next managed Cubism launch
+     * adds {@code -XX:+UseZGC} to the managed JAVA_TOOL_OPTIONS block.
+     * Launch-time flag — takes effect on the next launch only.
+     * On by default; users disable it explicitly when startup speed
+     * matters more than pause latency.
+     */
+    default boolean zgc() {
+        return true;
+    }
+
+    /** Persists the ZGC launcher preference. */
+    default boolean saveZgc(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: when false the next managed Cubism launch adds
+     * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed
+     * JAVA_TOOL_OPTIONS block so the unchanged-frame skip hook is not
+     * installed. On by default; takes effect on the next launch.
+     */
+    default boolean modelUpdateSkip() {
+        return true;
+    }
+
+    /** Returns the default-on uniform-location cache preference for verified hosts. */
+    default boolean uniformLocationCache() {
+        return true;
+    }
+
+    /** Persists the uniform-location cache preference; installation changes require restart. */
+    default boolean saveUniformLocationCache(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Persists the unchanged-frame model-update skip preference. */
+    default boolean saveModelUpdateSkip(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Experimental launcher preference: explicit true adds
+     * {@code -Dturboism.optimization.incrementalUpdate=true} on the next managed
+     * launch. Off by default because complete authoring-write coverage has not
+     * been established; enabling requires an explicit user choice.
+     */
+    default boolean incrementalUpdate() {
+        return false;
+    }
+
+    /** Persists the per-object incremental model-update preference. */
+    default boolean saveIncrementalUpdate(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * @return whether {@link #graalVmJava()} currently resolves an executable
+     */
     default boolean graalVmAvailable() {
         return graalVmJava().isPresent();
     }
@@ -68,6 +150,10 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("managed GraalVM removal is unavailable");
     }
 
+    /**
+     * @return a service reporting the GraalVM default on {@link #read()} and refusing
+     *         {@link #save(CubismJvm)} with {@link IllegalStateException}
+     */
     static CubismJvmSettingsService unavailable() {
         return new CubismJvmSettingsService() {
             @Override public CubismJvm read() { return CubismJvm.GRAALVM; }
@@ -77,15 +163,28 @@ public interface CubismJvmSettingsService {
         };
     }
 
+    /** Lifecycle state of the Turboism-managed GraalVM runtime. */
     enum ManagedRuntimeState {
+        /** Nothing is installed. */
         ABSENT,
+        /** An install operation is in flight. */
         INSTALLING,
+        /** The managed runtime is installed and verified. */
         READY,
+        /** The last operation failed. */
         FAILED,
+        /** The last operation was cancelled. */
         CANCELLED,
+        /** Managed installation is not supported on this runtime. */
         UNSUPPORTED
     }
 
+    /**
+     * Point-in-time view of the managed runtime: {@code state}, detected versions and
+     * executable, transfer progress in bytes, and a stable diagnostic {@code code} with a
+     * human-readable {@code message}. Progress must satisfy
+     * {@code 0 <= completedBytes <= totalBytes}.
+     */
     record ManagedRuntimeStatus(
         ManagedRuntimeState state,
         String version,
@@ -116,12 +215,25 @@ public interface CubismJvmSettingsService {
         }
     }
 
+    /** Handle for one in-flight managed-runtime operation. */
     interface ManagedRuntimeOperation {
+        /**
+         * @return the latest observed status
+         */
         ManagedRuntimeStatus status();
+
+        /**
+         * @return a stage completing with the terminal status
+         */
         CompletionStage<ManagedRuntimeStatus> completion();
+
+        /**
+         * @return whether this call requested cancellation before terminal completion
+         */
         boolean cancel();
     }
 
+    /** Which JVM the managed launcher should start Cubism on. */
     enum CubismJvm {
         GRAALVM("graalvm"),
         BUNDLED("bundled");
