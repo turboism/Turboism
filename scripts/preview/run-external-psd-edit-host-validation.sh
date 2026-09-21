@@ -5,6 +5,7 @@
 #   EXTERNAL_PSD_PHASE          pipeline (default) | reopen | gui
 #   EXTERNAL_PSD_CYCLES         save cycles for pipeline phase
 #   EXTERNAL_PSD_PERSIST=1      append the mediated SAVE_AS persist tail (pipeline only)
+#   EXTERNAL_PSD_CONTENT_PROFILE control7 (default) | f1; passed to the validation probe
 #   EXTERNAL_PSD_WITH_PLUGIN    path to the production external-psd-edit jar (gui phase)
 #   EXTERNAL_PSD_FIXTURE_LOCAL  reopen stage: use this saved copy instead of the source
 #   EXTERNAL_PSD_POSTEDITSHA256 / EXTERNAL_PSD_POSTEDITIMAGESHA256 /
@@ -35,6 +36,11 @@ options=(
 )
 if [ -n "${EXTERNAL_PSD_CYCLES:-}" ]; then
   options+=("--jvm-option" "-Dturboism.validation.externalpsd.cycles=$EXTERNAL_PSD_CYCLES")
+fi
+if [ -n "${EXTERNAL_PSD_CONTENT_PROFILE:-}" ]; then
+  options+=(
+    "--jvm-option" "-Dturboism.validation.externalpsd.contentProfile=$EXTERNAL_PSD_CONTENT_PROFILE"
+  )
 fi
 if [ "${EXTERNAL_PSD_PERSIST:-0}" = "1" ]; then
   options+=(

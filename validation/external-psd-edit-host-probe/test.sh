@@ -87,7 +87,7 @@ def executable(path, contents):
 
 
 def run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
-                capture, extra_args=()):
+                capture, extra_args=(), content_profile=None):
     environment = os.environ.copy()
     environment.update({
         "PATH": str(stub_bin) + os.pathsep + environment.get("PATH", ""),
@@ -100,6 +100,10 @@ def run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
         environment["EXTERNAL_PSD_WITH_PLUGIN"] = str(plugin)
     else:
         environment.pop("EXTERNAL_PSD_WITH_PLUGIN", None)
+    if content_profile is None:
+        environment.pop("EXTERNAL_PSD_CONTENT_PROFILE", None)
+    else:
+        environment["EXTERNAL_PSD_CONTENT_PROFILE"] = content_profile
     completed = subprocess.run(
         ["/bin/bash", str(wrapper), *extra_args],
         cwd=sandbox,
@@ -177,6 +181,14 @@ exec /bin/bash "$@"
         assert option_values(phase_args, "--ready-marker") == [], phase_args
         assert option_values(phase_args, "--trigger") == [], phase_args
         assert option_values(phase_args, "--failure-marker") == [global_failure], phase_args
+
+    f1_args = run_wrapper(
+        sandbox, wrapper, runner, stub_bin, fixture, plugin, "pipeline",
+        sandbox / "f1.argv", content_profile="f1")
+    jvm_options = option_values(f1_args, "--jvm-option")
+    assert "-Dturboism.validation.externalpsd.contentProfile=f1" in jvm_options, jvm_options
+    assert option_values(f1_args, "--ready-marker") == [], f1_args
+    assert option_values(f1_args, "--trigger") == [], f1_args
 
 print("PASS: external PSD wrapper argv enforces GUI-only readiness and fixed trigger")
 PY

@@ -5,6 +5,28 @@ SDK only. Four phases, selected by `-Dturboism.validation.externalpsd.phase=`. T
 fixture-specific decoder is used only as validation evidence: persistence/reopen and GUI
 checks decode target RGB, while no production pixel API is involved.
 
+## Content profile
+
+The validation content profile is selected explicitly through the namespaced property
+`turboism.validation.externalpsd.contentProfile`. The thin host wrapper accepts the equivalent
+`EXTERNAL_PSD_CONTENT_PROFILE` environment variable and passes it through unchanged:
+
+```text
+control7 (default) | f1
+```
+
+`control7` retains the existing seven-layer control contract. `f1` is a separate validation-only
+contract for the prepared F1 input: PSD v1 RGB/8-bit, 2048×2048, 24 layer records consisting of
+20 paint records and 4 group records, with the target record/layer ID (`lyid`) 22 and bounds
+`(0,0)-(2048,2048)`. The same selected profile is used for baseline, written, current, old,
+incoming, Undo, Redo, persistence, GUI, and reopen RGB evidence. F1 also requires the resolved
+current ModelImage relation to contain at least two distinct `usingArtMeshIds`; that shared
+relation is checked again around each replacement. The probe binds the relation dynamically and
+does not require a fixed document, model-image, raw-image, or ArtMesh GUID.
+
+An unknown profile is rejected before readiness, export, or mutation. A reopen run must receive
+the same profile as the pipeline that produced its saved copy.
+
 ## prepare-fixture
 
 This preparation-only phase must run before the ordinary model-readiness wait:
@@ -285,15 +307,18 @@ notifications; the later fresh current-raw RGB match remains the GUI pass condit
 
 ## Validation-only decoder
 
-`PsdValidationContent` accepts only the verified fixture profile: PSD v1, RGB, 8-bit,
-1000×1000, seven layers, four channels, and PackBits/RLE1 layer/composite data. It locates
-layer 6 by its validated `(450,450)-(550,550)` bounds and 100×100 dimensions, validates the
-whole structure before mutation, and changes only decoded target RGB sample bytes. Alpha,
-composite, other layers, metadata, and the caller's input array are preserved. Its fingerprint
-hashes decoded target RGB plus bounds/dimensions/RGB channel IDs, so equivalent RLE packetization,
-alpha-only changes, layer-name changes, and composite-only changes do not masquerade as content
-changes. Raw/ZIP/16-bit, malformed, truncated, or wrong-profile data fails closed. It is not a
-production PSD reader or runtime/SDK pixel API.
+`PsdValidationContent` has two explicit validation profiles. `control7` accepts the verified
+PSD v1, RGB, 8-bit, 1000×1000, seven-layer control with four channels and PackBits/RLE1
+layer/composite data; it locates layer 6 by its validated `(450,450)-(550,550)` bounds and
+100×100 dimensions. `f1` accepts only the reviewed PSD v1, RGB, 8-bit, 2048×2048 structure
+with 24 records (20 paint and 4 group records), and locates record/`lyid` 22 by its validated
+full-canvas bounds. Both profiles validate the whole structure before mutation and change only
+decoded target RGB sample bytes. Alpha, composite, other layers, metadata, and the caller's
+input array are preserved. Their fingerprints hash decoded target RGB plus bounds, dimensions,
+and RGB channel IDs, so equivalent RLE packetization, alpha-only changes, layer-name changes,
+and composite-only changes do not masquerade as content changes. Raw/ZIP/16-bit, malformed,
+truncated, or wrong-profile data fails closed. This is not a production PSD reader or a
+runtime/SDK pixel API.
 
 ## Build / offline test
 
@@ -384,6 +409,10 @@ bash scripts/preview/run-external-psd-edit-persist-validation.sh
 
 # if A finished but its client wait failed, recover that exact job and run only B
 bash scripts/preview/run-external-psd-edit-persist-validation.sh --resume-stage-a <job-id>
+
+# F1 content profile (use the same variable for a later reopen stage)
+EXTERNAL_PSD_CONTENT_PROFILE=f1 \
+  bash scripts/preview/run-external-psd-edit-host-validation.sh
 
 # GUI: stage the production plugin jar beside the probe
 EXTERNAL_PSD_PHASE=gui EXTERNAL_PSD_WITH_PLUGIN=<external-psd-edit.jar> \
