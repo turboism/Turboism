@@ -293,10 +293,13 @@ public final class OfficialPsdFixturePreparation {
             throw new IllegalArgumentException("fixtureSha256 is not the reviewed "
                 + profile.profileName() + " PSD");
         }
-        if (profile.expectedFixtureName() != null
-            && !profile.expectedFixtureName().equals(fixtureName)) {
-            throw new IllegalArgumentException("fixtureName is not the reviewed "
-                + profile.profileName() + " PSD");
+        if (profile.f1Sharing()) {
+            final String expectedTaskFixtureName = runId + "-" + profile.expectedFixtureName();
+            if (!expectedTaskFixtureName.equals(fixtureName)
+                || !expectedTaskFixtureName.equals(lastPathPart(fixture))) {
+                throw new IllegalArgumentException("F1 fixtureName/path must be the runner task copy "
+                    + expectedTaskFixtureName);
+            }
         }
         if (profile.requiresEmptyTargetRgb() && !targetRgb.isBlank()) {
             throw new IllegalArgumentException("F1 does not accept a seven-layer target RGB hash");
