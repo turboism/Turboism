@@ -441,6 +441,10 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 // before the apply deletes it.
                 if (host.keyformBindings(source).isEmpty()) {
                     bakeConstantDeformation(session, source);
+                } else {
+                    diag(session, "bound d=" + guid
+                        + " bindings=" + host.keyformBindings(source).size()
+                        + " children=" + host.deformerChildren(source).size());
                 }
                 host.applyDeformerToParameters(context.editMode());
                 return resolveDeformer(context.liveSource(), guid) == null
@@ -487,6 +491,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         }
         final Object parentInverse =
             host.deformerParentCanvasToLocalTransform(instance, source);
+        diag(session, "bake d=" + host.deformerGuid(source)
+            + " parentInverse=" + (parentInverse != null));
         for (Object child : host.deformerChildren(source)) {
             if (!host.isArtMeshSource(child)) {
                 // A surviving deformer child cannot absorb a position bake;
@@ -497,8 +503,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (base == null) {
                 throw new SessionRejection(FLATTEN_FAILED_KEY);
             }
-            host.setArtMeshSourcePositions(
-                child, bakePositions(forward, parentInverse, base));
+            final float[] baked = bakePositions(forward, parentInverse, base);
+            if (base.length >= 2) {
+                diag(session, " child=" + host.objectGuid(child)
+                    + " base=(" + base[0] + "," + base[1] + ")"
+                    + " baked=(" + baked[0] + "," + baked[1] + ")");
+            }
+            host.setArtMeshSourcePositions(child, baked);
             for (Object keyform : host.artMeshSourceKeyforms(child)) {
                 final float[] positions = host.artMeshFormPositions(keyform);
                 if (positions == null) {
@@ -509,6 +520,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             }
         }
         host.evaluateModelInstance(instance);
+    }
+
+    private static void diag(final Session session, final String message) {
+        final StringBuilder buffer = session.flattenDiag;
+        if (buffer.length() + message.length() + 1 <= 4096) {
+            buffer.append(message).append(';');
+        }
     }
 
     private float[] bakePositions(
@@ -643,7 +661,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final String drift = ProtectedExportStaging.behaviorDrift(
             session.originalBehavior, session.behavior, guidToToken);
         if (drift != null) {
-            throw new SessionRejection(BEHAVIOR_MISMATCH_KEY, drift);
+            final String diagText = session.flattenDiag.toString();
+            throw new SessionRejection(BEHAVIOR_MISMATCH_KEY,
+                drift + (diagText.isEmpty() ? "" : " |flatten:" + diagText));
         }
         session.phase = Phase.BEHAVIOR_COMPARED;
     }
@@ -1732,6 +1752,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile List<Path> publishedFiles = List.of();
         volatile boolean originalRestored;
         volatile List<String> cleanupErrors = List.of();
+        /**
+         * Bounded flatten/bake diagnostics appended to a behavior-drift
+         * rejection detail — per-deformer binding counts and baked position
+         * samples that pinpoint which transform diverged on the real host.
+         */
+        final StringBuilder flattenDiag = new StringBuilder(4096);
         volatile Report pendingReport;
 
         Session(
