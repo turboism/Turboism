@@ -62,6 +62,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     public static final String OBFUSCATE_FAILED_KEY = "protected-export.obfuscation-failed";
     public static final String BEHAVIOR_CAPTURE_FAILED_KEY =
         "protected-export.behavior-capture-failed";
+    public static final String BEHAVIOR_MISMATCH_KEY =
+        "protected-export.behavior-mismatch";
     public static final String EXPORT_CANCELLED_KEY = "protected-export.export-cancelled";
     public static final String EXPORT_FAILED_KEY = "protected-export.export-failed";
     public static final String REVOKED_KEY = "protected-export.revoked";
@@ -83,9 +85,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         ARMED,
         PREFLIGHTED,
         COPY_BOUND,
+        SOURCE_BEHAVIOR_CAPTURED,
         FLATTENED,
         OBFUSCATED,
         BEHAVIOR_CAPTURED,
+        BEHAVIOR_COMPARED,
         EXPORT_DRIVEN,
         STAGED,
         VALIDATED,
@@ -273,9 +277,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         try {
             preflight(session);
             bindCopy(session);
+            captureOriginalBehavior(session);
             flatten(session);
             obfuscate(session);
             captureBehavior(session);
+            compareBehavior(session);
             driveExport(session);
             awaitCompletion(session);
             validate(session);
@@ -517,6 +523,23 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     /**
+     * Pre-flatten behavior baseline: on the freshly bound copy — before any
+     * deformer apply or rename — replay the deterministic parameter-sample
+     * sequence and record evaluated ArtMesh positions keyed by the authored
+     * source GUID. This is the authored-behavior half of the oracle; without it
+     * a flatten that corrupted geometry would only prove the exporter
+     * faithfully reproduces a damaged copy.
+     */
+    private void captureOriginalBehavior(final Session session) throws Exception {
+        final Map<String, String> guidKeys = new LinkedHashMap<>();
+        for (String guid : session.censusBefore.artMeshes().keySet()) {
+            guidKeys.put(guid, guid);
+        }
+        session.originalBehavior = captureBehaviorSnapshot(session, guidKeys);
+        session.phase = Phase.SOURCE_BEHAVIOR_CAPTURED;
+    }
+
+    /**
      * Behavior-oracle capture: on the disposable copy, post-flatten and
      * post-obfuscation, replay a deterministic parameter-sample sequence through
      * the host's own model evaluation and record evaluated ArtMesh positions per
@@ -529,6 +552,49 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (plan == null) {
             throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
         }
+        final Map<String, String> tokenKeys = new LinkedHashMap<>();
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
+                : plan.byGuid().entrySet()) {
+            tokenKeys.put(entry.getKey(), entry.getValue().idToken());
+        }
+        session.behavior = captureBehaviorSnapshot(session, tokenKeys);
+        session.phase = Phase.BEHAVIOR_CAPTURED;
+    }
+
+    /**
+     * Rejects publication when flatten/obfuscation changed authored behavior:
+     * the pre-flatten GUID-keyed snapshot is compared against the post-mutation
+     * token-keyed snapshot over the obfuscation plan mapping. A flatten that
+     * scaled or shifted geometry — even when the exporter would faithfully
+     * reproduce it — is a pre-export rejection, not a validated output.
+     */
+    private void compareBehavior(final Session session) {
+        final Map<String, String> guidToToken = new LinkedHashMap<>();
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
+                : session.obfuscationPlan.byGuid().entrySet()) {
+            guidToToken.put(entry.getKey(), entry.getValue().idToken());
+        }
+        final String drift = ProtectedExportStaging.behaviorDrift(
+            session.originalBehavior, session.behavior, guidToToken);
+        if (drift != null) {
+            throw new SessionRejection(BEHAVIOR_MISMATCH_KEY, drift);
+        }
+        session.phase = Phase.BEHAVIOR_COMPARED;
+    }
+
+    /**
+     * Shared sampled-behavior capture on the copy's live instance: set every
+     * parameter to its contract default, evaluate, record the baseline frame,
+     * then replay each sample (value → evaluate → frame → back to default).
+     * Every touched parameter is restored to the value it held before capture —
+     * on success and on failure — so sampling can never contaminate the export
+     * that follows. {@code guidToKey} maps authored source GUID to the frame
+     * key (the GUID itself pre-flatten, the drawable-ID token post-obfuscation).
+     */
+    private ProtectedExportStaging.BehaviorSnapshot captureBehaviorSnapshot(
+        final Session session,
+        final Map<String, String> guidToKey
+    ) throws Exception {
         final List<ProtectedExportStaging.BehaviorSample> samples =
             behaviorSamples(session.expectedParameters);
         final ProtectedExportStaging.BehaviorSnapshot snapshot = onEdt(() -> {
@@ -542,35 +608,52 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             }
             final Map<String, ProtectedExportStaging.ParameterExpectation>
                 expected = session.expectedParameters;
-            // Baseline: every parameter at its contract default, then evaluate.
+            // Record the pre-capture state of every parameter we will touch so
+            // it can be restored exactly — defaults are the sampling baseline,
+            // not necessarily the live state.
+            final Map<String, Object> params = new LinkedHashMap<>();
+            final Map<String, Float> priorValues = new LinkedHashMap<>();
             for (var expectation : expected.values()) {
-                host.setParameterInstanceValue(
-                    requireLiveParameter(session, source, expectation.id()),
-                    expectation.defaultValue());
+                final Object parameter =
+                    requireLiveParameter(session, source, expectation.id());
+                params.put(expectation.id(), parameter);
+                priorValues.put(expectation.id(),
+                    host.parameterInstanceValue(parameter));
             }
-            host.evaluateModelInstance(instance);
-            final Map<String, float[]> baseline = captureFrame(instance, plan);
-            final List<Map<String, float[]>> frames =
-                new ArrayList<>(samples.size());
-            for (var sample : samples) {
-                host.setParameterInstanceValue(
-                    requireLiveParameter(session, source, sample.parameterId()),
-                    sample.value());
+            try {
+                for (Map.Entry<String, Object> entry : params.entrySet()) {
+                    host.setParameterInstanceValue(entry.getValue(),
+                        expected.get(entry.getKey()).defaultValue());
+                }
                 host.evaluateModelInstance(instance);
-                frames.add(captureFrame(instance, plan));
-                // Isolate the next sample: return this parameter to default.
-                host.setParameterInstanceValue(
-                    requireLiveParameter(session, source, sample.parameterId()),
-                    expected.get(sample.parameterId()).defaultValue());
+                final Map<String, float[]> baseline =
+                    captureFrame(instance, guidToKey);
+                final List<Map<String, float[]>> frames =
+                    new ArrayList<>(samples.size());
+                for (var sample : samples) {
+                    host.setParameterInstanceValue(
+                        params.get(sample.parameterId()), sample.value());
+                    host.evaluateModelInstance(instance);
+                    frames.add(captureFrame(instance, guidToKey));
+                    // Isolate the next sample: return this parameter to default.
+                    host.setParameterInstanceValue(
+                        params.get(sample.parameterId()),
+                        expected.get(sample.parameterId()).defaultValue());
+                }
+                return new ProtectedExportStaging.BehaviorSnapshot(
+                    samples, baseline, frames);
+            } finally {
+                for (Map.Entry<String, Object> entry : params.entrySet()) {
+                    host.setParameterInstanceValue(
+                        entry.getValue(), priorValues.get(entry.getKey()));
+                }
+                host.evaluateModelInstance(instance);
             }
-            return new ProtectedExportStaging.BehaviorSnapshot(
-                samples, baseline, frames);
         });
         if (snapshot == null) {
             throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
         }
-        session.behavior = snapshot;
-        session.phase = Phase.BEHAVIOR_CAPTURED;
+        return snapshot;
     }
 
     /**
@@ -622,29 +705,31 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     /**
-     * Evaluated positions of every planned ArtMesh on the copy's live model
-     * instance, keyed by planned drawable-ID token. The instance ArtMesh list is
-     * re-read on every call because host evaluation may rebuild instance
-     * objects; a planned mesh that cannot be resolved or read fails the capture.
+     * Evaluated positions of every mapped ArtMesh on the copy's live model
+     * instance. {@code guidToKey} decides which authored meshes are captured
+     * and under which key (source GUID pre-flatten, drawable token
+     * post-obfuscation). The instance ArtMesh list is re-read on every call
+     * because host evaluation may rebuild instance objects; a mapped mesh that
+     * cannot be resolved or read fails the capture.
      */
     private Map<String, float[]> captureFrame(
         final Object modelInstance,
-        final ProtectedExportObfuscationPlan.Plan plan
+        final Map<String, String> guidToKey
     ) {
         final Map<String, float[]> frame = new LinkedHashMap<>();
         for (Object mesh : host.modelInstanceArtMeshes(modelInstance)) {
             final Object meshSource = host.artMeshInstanceSource(mesh);
             final String guid = meshSource == null
                 ? null : host.objectGuid(meshSource);
-            final var target = guid == null ? null : plan.byGuid().get(guid);
-            if (target == null) {
+            final String key = guid == null ? null : guidToKey.get(guid);
+            if (key == null) {
                 continue;
             }
             final float[] positions = host.evaluatedArtMeshPositions(mesh);
             if (positions == null) {
                 throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
             }
-            frame.put(target.idToken(), positions);
+            frame.put(key, positions);
         }
         return Map.copyOf(frame);
     }
@@ -1557,6 +1642,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile List<Path> stagedFiles = List.of();
         volatile Set<String> expectedDrawableIds = Set.of();
         volatile ProtectedExportObfuscationPlan.Plan obfuscationPlan;
+        volatile ProtectedExportStaging.BehaviorSnapshot originalBehavior;
         volatile ProtectedExportStaging.BehaviorSnapshot behavior;
         volatile Map<String, ProtectedExportStaging.ParameterExpectation>
             expectedParameters = Map.of();
