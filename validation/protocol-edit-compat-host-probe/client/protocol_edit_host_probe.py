@@ -223,7 +223,14 @@ class WebSocket:
                     self._send_frame(0x8, payload[:125])
                 except OSError:
                     pass
-                raise WsClosed("peer sent a close frame")
+                code = 0
+                reason = ""
+                if len(payload) >= 2:
+                    code = struct.unpack(">H", payload[:2])[0]
+                    reason = payload[2:126].decode("utf-8", "replace")
+                raise WsClosed(
+                    f"peer sent a close frame code={code} reason={reason!r}"
+                )
             if opcode == 0x9:
                 self._send_frame(0xA, payload)
                 continue
