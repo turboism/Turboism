@@ -27,6 +27,39 @@ does not require a fixed document, model-image, raw-image, or ArtMesh GUID.
 An unknown profile is rejected before readiness, export, or mutation. A reopen run must receive
 the same profile as the pipeline that produced its saved copy.
 
+## Performance observation (opt-in only)
+
+The validation-only sampler is started only when the namespaced JVM property
+`turboism.validation.externalpsd.performance=1` is present together with
+`contentProfile=f1`, `phase=pipeline`, and exactly `cycles=10`. Control7, ordinary F1 runs,
+GUI/reopen/prepare phases, and any other cycle count reject the request before readiness/export/
+mutation; absent or `=0` leaves the sampler off. The existing thin wrapper forwards an explicit
+Runner `--jvm-option`, so an observation run can be admitted without changing the wrapper:
+
+```bash
+EXTERNAL_PSD_PHASE=pipeline EXTERNAL_PSD_CONTENT_PROFILE=f1 EXTERNAL_PSD_CYCLES=10 \
+EXTERNAL_PSD_PERSIST=1 \
+  bash scripts/preview/run-external-psd-edit-host-validation.sh \
+  --jvm-option -Dturboism.validation.externalpsd.performance=1 \
+  --jvm-option -Dturboism.validation.externalpsd.performanceWarmCold=cold
+```
+
+`performanceWarmCold` records an explicit `warm`/`cold` declaration; an omitted declaration is
+recorded as `UNDECLARED`, never inferred. The sampler records a real 10ms EDT heartbeat,
+heartbeat pending/queue delay, maximum sampling gap, heap/nonheap samples and peaks, JVM/OS,
+processor count, max heap, lifecycle finish/stop, and coverage status. RSS and an exact native
+stable-refresh timestamp are `UNAVAILABLE`. `PsdFileRevision` has no stable timestamp: each
+cycle's timing is explicitly labelled as (1) write-complete → public replacement completion,
+and write-complete → fresh-current content observation, upper-bound observations, and (2)
+revision callback → that same fresh observation, a lower-bound observation. These values are not
+native-final-refresh times. Ten timing samples use nearest-rank p95, so p95 is the maximum item.
+
+Incomplete heartbeat coverage, a pending callback, a sampler failure, zero samples, or fewer than
+ten ordered timing observations cannot be reported as complete evidence. This slice records
+evidence only: `performance.gate=EVIDENCE_ONLY` and `performance.sc006=NOT_CLAIMED`; it does not
+declare SC-006 PASS or lower its thresholds. The standalone `test.sh` remains offline and does
+not start a host or enqueue a job.
+
 ## prepare-fixture
 
 This preparation-only phase must run before the ordinary model-readiness wait:
