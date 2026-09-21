@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@code b83d397d} PASS, {@code 54a01dbf}) established that native viewport
  * drags never route through the {@code DeformerHooks} grid-replace family,
  * while the SDK {@code replaceGrid} write path round-trips, fires the hook
- * family and joins native Undo/Redo. Disassembly of the reviewed 5.3.03 host
- * further located the native drag-tick dispatcher
+ * family and joins native Undo/Redo. Disassembly of the reviewed 5.2.03,
+ * 5.3.02 and 5.3.03 hosts located the native drag-tick dispatcher
  * ({@code temporaryHandler.a.b}), which Turboism now instruments with the
  * {@code WarpAltMirror} bridge: while that hook is active the mirroring happens
  * inside the native drag tick itself, giving a live mirrored preview and a

@@ -737,6 +737,8 @@ fun registerWarpAltSymmetryHostValidation(name: String, version: String) {
     }
 }
 
+registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5203", "5203")
+registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5302", "5302")
 registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5303", "5303")
 
 val buildFpsHostProbe by tasks.registering(Exec::class) {

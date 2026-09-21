@@ -5,7 +5,7 @@ import dev.turboism.sdk.plugin.Registration;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Shared plugin-policy registry consulted by the exact 5.3.03 warp drag-tick hook. */
+/** Shared plugin-policy registry consulted by the exact warp drag-tick hook. */
 public final class RuntimeWarpAltMirrorParticipation implements WarpAltMirrorParticipation {
 
     private final AtomicInteger participants = new AtomicInteger();
