@@ -35,6 +35,10 @@ Right-click ArtMeshes to edit their complete raw PSD in the operating system's d
 - Resolves each selected ArtMesh to its current raw image through the typed texture-relation graph and opens one editing session per distinct raw image; duplicated selections and already-open raw images are deduplicated.
 - Exports the complete raw PSD through Cubism's native layered-image export into a runtime-owned temporary file, then launches the operating system's default PSD application.
 - Watches the temporary file and applies Cubism's native explicit-target raw-image replacement for every stable save.
+- While a session is live, performs a bounded read-only relation refresh so Undo/Redo raw-image
+  changes are observed without queuing a replacement or replaying a save.
+- If that automatic Undo/Redo tracking is unavailable, the target is checked again before the
+  next explicit save.
 - Reports session, import, and pause status as non-blocking notifications; an uncertain native outcome pauses the session instead of guessing.
 
 ## Requirements and compatibility
@@ -96,7 +100,14 @@ Plugin lifecycle and failure records can appear in Turboism's session log with t
 - The export is Cubism's native layered-image rebuild. PSD-only constructs that Cubism does not model are not guaranteed to round-trip.
 - Only saves to the issued temporary file are imported. "Save As" to another path, closing without saving, or editing a copy does not trigger replacement.
 - A raw image shared by several model images or ArtMeshes is edited once; the replacement affects every dependent object.
+- If a save task is rejected or canceled before native replacement starts, or the current raw-image
+  relation cannot be determined, the session pauses without claiming a replacement outcome.
 - An uncertain or partially observed native outcome pauses the session rather than risking an unverified mutation.
+- A native replacement that started but cannot be verified is reported as an uncertain/partial
+  outcome; it is not treated like a save that never started.
+- A paused session can be opened again from its menu entry, but that only reopens its existing
+  file; it does not resume automatic imports. Disable and enable the plugin, then invoke the
+  entry again, to create a fresh session. Uncertain native outcomes are not retried automatically.
 - The plugin never deletes the temporary PSD and never changes system file associations.
 - The test-only validation probes used for host evidence are not packaged into release artifacts.
 
@@ -105,7 +116,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log with t
 | Symptom | What to check |
 |---|---|
 | The menu entry does nothing | The selection must contain ArtMeshes, and the captured document binding must still match the active model. |
-| Replacement stopped after a warning | The session paused on an uncertain native outcome; invoke the entry again to start a fresh session. |
+| Replacement stopped after a warning | The session paused on an uncertain native outcome; invoking the entry only reopens the existing file. Disable and enable the plugin before creating a fresh session. |
 | Edits never import | Confirm the external application saved to the same temporary file; saving under a new name is not watched. |
 | A second right-click shows "already open" | That raw image already has a live session; the existing editor window remains the active one. |
 | Nothing opened after confirming | Export can fail closed when permissions are revoked or the native export reports the raw image unavailable. |

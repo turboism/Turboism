@@ -9,6 +9,7 @@ external-psd-edit.error.model-unavailable
 external-psd-edit.error.no-selection
 external-psd-edit.error.open-failed
 external-psd-edit.error.relations-unavailable
+external-psd-edit.error.refresh-unavailable
 external-psd-edit.error.replace-failed
 external-psd-edit.error.unresolved
 external-psd-edit.error.unsupported
@@ -17,6 +18,7 @@ external-psd-edit.status.already-open
 external-psd-edit.status.applied
 external-psd-edit.status.editing
 external-psd-edit.status.paused-partial
+external-psd-edit.status.paused-reason
 external-psd-edit.warn.session-invalidated
 external-psd-edit.warn.unresolved
 plugin.description

@@ -30,6 +30,7 @@ import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -38,10 +39,20 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskRequest;
 import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.task.TaskFailure;
+import dev.turboism.sdk.task.TaskHandle;
+import dev.turboism.sdk.task.TaskOutcome;
+import dev.turboism.sdk.task.TaskOutcomeStatus;
+import dev.turboism.sdk.task.TaskProgress;
+import dev.turboism.sdk.task.TaskRejectionReason;
+import dev.turboism.sdk.task.TaskRunOutcome;
+import dev.turboism.sdk.task.TaskRunOutcomeStatus;
 import dev.turboism.sdk.task.TaskSubmission;
+import dev.turboism.sdk.task.TaskSubmissionStatus;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -67,6 +78,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -511,6 +524,228 @@ class ExternalPsdEditPluginTest {
         );
         assertTrue(context.uiHost().notifications().stream()
             .anyMatch(n -> n.id().equals("external-psd-edit.status.applied")));
+    }
+
+    @Test
+    void rejectedSaveSubmissionDoesNotRunNativeOrLeaveInFlightStuck() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        context.taskScheduler.rejectNextSubmit();
+
+        file.saveListener.accept(new TestRevision("rejected"));
+        file.saveListener.accept(new TestRevision("must-not-run"));
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.paused-reason")));
+    }
+
+    @Test
+    void acceptedTaskCanceledBeforeNativePausesWithoutFallbackDispatch() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        context.taskScheduler.autoRunSubmissions(false);
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+
+        file.saveListener.accept(new TestRevision("canceled"));
+        context.taskScheduler.lastSubmitHandle().complete(outcome(
+            context.taskScheduler.lastSubmitHandle().id(), TaskOutcomeStatus.CANCELED));
+        file.saveListener.accept(new TestRevision("after-cancel"));
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.paused-reason")));
+    }
+
+    @Test
+    void acceptedTaskFailureBeforeNativeProcessesAQueuedFreshSave() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        context.taskScheduler.autoRunSubmissions(false);
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+
+        file.saveListener.accept(new TestRevision("task-failed"));
+        final RecordingTaskHandle failedTask = context.taskScheduler.lastSubmitHandle();
+        file.saveListener.accept(new TestRevision("fresh-pending"));
+        context.taskScheduler.autoRunSubmissions(true);
+        failedTask.complete(failedOutcome(failedTask.id(), "before native"));
+
+        assertEquals(List.of("export:raw-a", "replace:raw-a:fresh-pending"),
+            context.cubism().textures().calls());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.error.replace-failed")));
+    }
+
+    @Test
+    void lateTaskFailureAfterNativeDispatchCannotCompeteWithNativeCompletion() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        context.taskScheduler.deferAutoRunCompletion();
+        final CompletableFuture<PsdReplaceResult> nativeCompletion = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(nativeCompletion);
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+
+        file.saveListener.accept(new TestRevision("native-wins"));
+        final RecordingTaskHandle task = context.taskScheduler.lastSubmitHandle();
+        task.complete(failedOutcome(task.id(), "late task terminal"));
+        nativeCompletion.complete(applied(RAW_A, RAW_A, "native-wins"));
+
+        assertEquals(List.of("export:raw-a", "replace:raw-a:native-wins"),
+            context.cubism().textures().calls());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.applied")));
+        assertTrue(context.uiHost().notifications().stream()
+            .noneMatch(n -> n.id().equals("external-psd-edit.status.paused-partial")));
+    }
+
+    @Test
+    void refreshTracksPassiveRawMigrationAndMenuReusesExistingSession() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        context.cubism().relations(singleRelation(BINDING, 7L, 2L, RAW_B));
+        context.taskScheduler.runRefreshTick();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertEquals(2, file.openCalls.get(), "menu reopen must follow refreshed current raw");
+    }
+
+    @Test
+    void refreshLateTickCannotOverwriteRawAfterNativeTransition() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final CompletableFuture<PsdReplaceResult> nativeCompletion = new CompletableFuture<>();
+        context.cubism().textures().replaceCompletions.add(nativeCompletion);
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        file.saveListener.accept(new TestRevision("native-transition"));
+        final TextureRelationsSnapshot relationA = singleRelation(BINDING, 7L, 2L, RAW_A);
+        context.cubism().relations(relationA);
+        context.cubism().textures().onNextRelationsRead(() -> {
+            context.cubism().relations(singleRelation(BINDING, 7L, 3L, RAW_B));
+            nativeCompletion.complete(applied(RAW_A, RAW_B, "native-transition"));
+        });
+
+        context.taskScheduler.runRefreshTick();
+        context.cubism().relations(TextureRelationsSnapshot.unavailable());
+        context.taskScheduler.runRefreshTick();
+
+        assertEquals(List.of("export:raw-a", "replace:raw-a:native-transition"),
+            context.cubism().textures().calls());
+        final List<StatusNotification> paused = context.uiHost().notifications().stream()
+            .filter(n -> n.id().equals("external-psd-edit.status.paused-reason"))
+            .toList();
+        assertEquals(1, paused.size(), "the follow-up diagnostic must observe one current raw");
+        assertTrue(paused.get(0).message().contains("raw-b"),
+            "the stale refresh must not overwrite the completed raw-B observation");
+        assertFalse(paused.get(0).message().contains("raw-a"),
+            "the follow-up diagnostic must not report stale raw-A");
+    }
+
+    @Test
+    void externalRefreshCancellationIsReportedAndDoesNotPretendToStayEnabled() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+
+        context.taskScheduler.cancelRefreshExternally();
+
+        assertEquals(1, context.taskScheduler.scheduleCount());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.error.refresh-unavailable")
+                && n.severity().equals("ERROR")));
+    }
+
+    @Test
+    void rejectedRefreshSubmissionIsVisibleAndDoesNotRunDirectReads() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        context.taskScheduler.rejectNextSchedule();
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final int readsAfterOpen = context.cubism().textures().relationReads();
+
+        assertEquals(1, context.taskScheduler.scheduleCount());
+        assertEquals(readsAfterOpen, context.cubism().textures().relationReads());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.error.refresh-unavailable")));
+    }
+
+    @Test
+    void disablingSessionClosesRefreshAndIgnoresLateTick() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(singleRelation(BINDING, 7L, 1L, RAW_A));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final int readsBeforeDisable = context.cubism().textures().relationReads();
+
+        plugin.disable();
+        context.taskScheduler.runRefreshTick();
+
+        assertTrue(context.taskScheduler.refreshClosed());
+        assertEquals(readsBeforeDisable, context.cubism().textures().relationReads());
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
     }
 
     @Test
@@ -1282,6 +1517,8 @@ class ExternalPsdEditPluginTest {
         private final Deque<CompletableFuture<PsdReplaceResult>> replaceCompletions =
             new ArrayDeque<>();
         private volatile TextureRelationsSnapshot relations = TextureRelationsSnapshot.unavailable();
+        private final AtomicInteger relationReads = new AtomicInteger();
+        private volatile Runnable relationReadHook;
         private volatile PsdExportResult.Status exportStatus = PsdExportResult.Status.EXPORTED;
         private volatile PsdReplaceResult.Status replaceStatus = PsdReplaceResult.Status.APPLIED;
         private volatile CompletableFuture<PsdExportResult> exportCompletion;
@@ -1291,11 +1528,23 @@ class ExternalPsdEditPluginTest {
 
         List<String> calls() { return List.copyOf(calls); }
         java.util.Map<RawImageId, FakePsdEditFile> issued() { return issued; }
+        int relationReads() { return relationReads.get(); }
+        void onNextRelationsRead(final Runnable hook) { relationReadHook = hook; }
 
         @Override public List<RawTexture> rawImages() { return List.of(); }
         @Override public List<ModelImageGroup> modelImageGroups() { return List.of(); }
         @Override public List<AtlasTexture> textureAtlases() { return List.of(); }
-        @Override public TextureRelationsSnapshot relations() { return relations; }
+        @Override
+        public TextureRelationsSnapshot relations() {
+            relationReads.incrementAndGet();
+            final TextureRelationsSnapshot sampled = relations;
+            final Runnable hook = relationReadHook;
+            relationReadHook = null;
+            if (hook != null) {
+                hook.run();
+            }
+            return sampled;
+        }
 
         @Override
         public CompletionStage<PsdExportResult> exportRawImagePsd(final RawImageId source) {
@@ -1397,6 +1646,7 @@ class ExternalPsdEditPluginTest {
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final PluginLogger logger;
         private final FixedCubismFacade cubism = new FixedCubismFacade();
+        private final RecordingTaskScheduler taskScheduler = new RecordingTaskScheduler();
 
         RecordingPluginContext(final PluginLogger logger) {
             this.logger = logger;
@@ -1405,6 +1655,16 @@ class ExternalPsdEditPluginTest {
         @Override public PluginDescriptor descriptor() { throw new UnsupportedOperationException(); }
         @Override public PluginLogger logger() { return logger; }
         @Override public PluginPaths paths() { throw new UnsupportedOperationException(); }
+        @Override public PluginLocalization localization() {
+            return new PluginLocalization() {
+                @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+                @Override public String text(final String key) { return key; }
+                @Override public String format(final String key, final Object... arguments) {
+                    return key + " " + java.util.Arrays.toString(arguments);
+                }
+                @Override public boolean contains(final String key) { return true; }
+            };
+        }
         @Override public FixedCubismFacade cubism() { return cubism; }
         @Override public List<PluginPermission> permissions() { return List.of(); }
         @Override public EventBus eventBus() { throw new UnsupportedOperationException(); }
@@ -1417,44 +1677,171 @@ class ExternalPsdEditPluginTest {
         @Override public DiagnosticReport diagnostics() { throw new UnsupportedOperationException(); }
         @Override public DisposableScope disposableScope() { return disposableScope; }
         @Override public RecordingUiHost uiHost() { return uiHost; }
-        @Override public PluginTaskScheduler tasks() {
-            return new PluginTaskScheduler() {
-                @Override
-                public TaskSubmission submit(final PluginTaskRequest request) {
-                    try {
-                        request.action().run(new dev.turboism.sdk.plugin.CancellationToken() {
-                            @Override public boolean isCancellationRequested() { return false; }
-                            @Override public void checkCanceled() { }
-                        });
-                    } catch (Exception failure) {
-                        throw new RuntimeException(failure);
-                    }
-                    return new TaskSubmission(
-                        dev.turboism.sdk.task.TaskSubmissionStatus.ACCEPTED,
-                        new dev.turboism.sdk.task.TaskHandle() {
-                            @Override public dev.turboism.sdk.task.TaskId id() {
-                                return request.id();
-                            }
-                            @Override public dev.turboism.sdk.task.TaskProgress progress() {
-                                return new dev.turboism.sdk.task.TaskProgress(
-                                    1, Optional.empty());
-                            }
-                            @Override public boolean cancel() { return true; }
-                            @Override public CompletionStage<dev.turboism.sdk.task.TaskOutcome>
-                                completion() {
-                                return CompletableFuture.completedFuture(null);
-                            }
-                            @Override public void close() { }
-                        },
-                        Optional.empty()
-                    );
-                }
-                @Override
-                public TaskSubmission scheduleWithFixedDelay(final FixedDelayTaskRequest request) {
-                    throw new UnsupportedOperationException("not used");
-                }
-            };
+        @Override public RecordingTaskScheduler tasks() { return taskScheduler; }
+    }
+
+    private static final class RecordingTaskScheduler implements PluginTaskScheduler {
+        private final List<PluginTaskRequest> submitted = new ArrayList<>();
+        private final List<RecordingTaskHandle> submitHandles = new ArrayList<>();
+        private FixedDelayTaskRequest refreshRequest;
+        private RecordingTaskHandle refreshHandle;
+        private boolean autoRunSubmissions = true;
+        private boolean completeAutoRun = true;
+        private boolean rejectNextSubmit;
+        private boolean rejectNextSchedule;
+        private int scheduleCalls;
+
+        void autoRunSubmissions(final boolean value) { autoRunSubmissions = value; }
+        void deferAutoRunCompletion() { completeAutoRun = false; }
+        void rejectNextSubmit() { rejectNextSubmit = true; }
+        void rejectNextSchedule() { rejectNextSchedule = true; }
+        int submitCount() { return submitted.size(); }
+        int scheduleCount() { return scheduleCalls; }
+        RecordingTaskHandle lastSubmitHandle() {
+            return submitHandles.get(submitHandles.size() - 1);
         }
+        boolean refreshClosed() { return refreshHandle != null && refreshHandle.closed(); }
+
+        void runRefreshTick() {
+            if (refreshRequest == null) {
+                throw new AssertionError("refresh was not scheduled");
+            }
+            try {
+                refreshRequest.action().run(neverCanceled());
+            } catch (Exception failure) {
+                throw new AssertionError("refresh action failed", failure);
+            }
+        }
+
+        void cancelRefreshExternally() {
+            if (refreshHandle == null) {
+                throw new AssertionError("refresh was not scheduled");
+            }
+            refreshHandle.complete(outcome(refreshHandle.id(), TaskOutcomeStatus.CANCELED));
+        }
+
+        @Override
+        public TaskSubmission submit(final PluginTaskRequest request) {
+            submitted.add(request);
+            final RecordingTaskHandle handle = new RecordingTaskHandle(request.id());
+            submitHandles.add(handle);
+            if (rejectNextSubmit) {
+                rejectNextSubmit = false;
+                handle.complete(rejectedOutcome(request.id()));
+                return new TaskSubmission(
+                    TaskSubmissionStatus.REJECTED,
+                    handle,
+                    Optional.of(TaskRejectionReason.BACKPRESSURE)
+                );
+            }
+            if (autoRunSubmissions) {
+                try {
+                    request.action().run(neverCanceled());
+                    if (completeAutoRun) {
+                        handle.complete(outcome(request.id(), TaskOutcomeStatus.SUCCEEDED));
+                    }
+                } catch (Exception failure) {
+                    handle.complete(failedOutcome(request.id(), failure));
+                }
+            }
+            return new TaskSubmission(
+                TaskSubmissionStatus.ACCEPTED,
+                handle,
+                Optional.empty()
+            );
+        }
+
+        @Override
+        public TaskSubmission scheduleWithFixedDelay(final FixedDelayTaskRequest request) {
+            scheduleCalls++;
+            if (rejectNextSchedule) {
+                rejectNextSchedule = false;
+                final RecordingTaskHandle rejected = new RecordingTaskHandle(request.id());
+                rejected.complete(rejectedOutcome(request.id()));
+                return new TaskSubmission(
+                    TaskSubmissionStatus.REJECTED,
+                    rejected,
+                    Optional.of(TaskRejectionReason.BACKPRESSURE)
+                );
+            }
+            refreshRequest = request;
+            refreshHandle = new RecordingTaskHandle(request.id());
+            return new TaskSubmission(
+                TaskSubmissionStatus.ACCEPTED,
+                refreshHandle,
+                Optional.empty()
+            );
+        }
+    }
+
+    private static final class RecordingTaskHandle implements TaskHandle {
+        private final dev.turboism.sdk.task.TaskId id;
+        private final CompletableFuture<TaskOutcome> completion = new CompletableFuture<>();
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        private RecordingTaskHandle(final dev.turboism.sdk.task.TaskId id) {
+            this.id = id;
+        }
+
+        boolean closed() { return closed.get(); }
+        void complete(final TaskOutcome value) { completion.complete(value); }
+
+        @Override public dev.turboism.sdk.task.TaskId id() { return id; }
+        @Override public TaskProgress progress() {
+            return new TaskProgress(0, Optional.empty());
+        }
+        @Override public boolean cancel() {
+            return completion.complete(outcome(id, TaskOutcomeStatus.CANCELED));
+        }
+        @Override public CompletionStage<TaskOutcome> completion() { return completion; }
+        @Override public void close() { closed.set(true); }
+    }
+
+    private static CancellationToken neverCanceled() {
+        return new CancellationToken() {
+            @Override public boolean isCancellationRequested() { return false; }
+            @Override public void checkCanceled() { }
+        };
+    }
+
+    private static TaskOutcome outcome(
+        final dev.turboism.sdk.task.TaskId id,
+        final TaskOutcomeStatus status
+    ) {
+        if (status == TaskOutcomeStatus.SUCCEEDED) {
+            final TaskRunOutcome run = new TaskRunOutcome(
+                1, TaskRunOutcomeStatus.SUCCEEDED, Optional.empty());
+            return new TaskOutcome(id, status, 1, Optional.of(run), Optional.empty());
+        }
+        if (status == TaskOutcomeStatus.CANCELED) {
+            return new TaskOutcome(id, status, 0, Optional.empty(), Optional.empty());
+        }
+        return failedOutcome(id, new IllegalStateException(status.name()));
+    }
+
+    private static TaskOutcome failedOutcome(
+        final dev.turboism.sdk.task.TaskId id,
+        final String message
+    ) {
+        return failedOutcome(id, new IllegalStateException(message));
+    }
+
+    private static TaskOutcome failedOutcome(
+        final dev.turboism.sdk.task.TaskId id,
+        final Throwable failure
+    ) {
+        final TaskFailure detail = new TaskFailure(
+            "TEST_FAILURE", failure.getClass().getSimpleName());
+        final TaskRunOutcome run = new TaskRunOutcome(
+            1, TaskRunOutcomeStatus.FAILED, Optional.of(detail));
+        return new TaskOutcome(
+            id, TaskOutcomeStatus.FAILED, 1, Optional.of(run), Optional.of(detail));
+    }
+
+    private static TaskOutcome rejectedOutcome(final dev.turboism.sdk.task.TaskId id) {
+        final TaskFailure detail = new TaskFailure("TEST_REJECTED", "rejected");
+        return new TaskOutcome(id, TaskOutcomeStatus.REJECTED, 0, Optional.empty(),
+            Optional.of(detail));
     }
 
     private static final class RecordingActionRegistry implements ActionRegistry {

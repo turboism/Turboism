@@ -19,10 +19,16 @@ import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.plugin.CancellationToken;
+import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskKind;
 import dev.turboism.sdk.task.PluginTaskPriority;
 import dev.turboism.sdk.task.PluginTaskRequest;
 import dev.turboism.sdk.task.TaskId;
+import dev.turboism.sdk.task.TaskHandle;
+import dev.turboism.sdk.task.TaskOutcome;
+import dev.turboism.sdk.task.TaskOutcomeStatus;
+import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
@@ -37,6 +43,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -57,6 +64,10 @@ final class ExternalPsdEditSessionManager {
     private final PluginLocalization localization;
     private final Map<SessionKey, Session> sessions = new LinkedHashMap<>();
     private final AtomicLong taskSequence = new AtomicLong();
+    private long lifecycleEpoch;
+    private long refreshAttemptedEpoch = -1L;
+    private long refreshHandleEpoch = -1L;
+    private TaskHandle refreshHandle;
     private volatile boolean stopped;
 
     ExternalPsdEditSessionManager(
@@ -274,11 +285,18 @@ final class ExternalPsdEditSessionManager {
     /** Stops every session: unsubscribes saves and stops each file without deleting it. */
     void stopAll(final String reason) {
         final List<Session> snapshot;
+        final TaskHandle refreshToClose;
         synchronized (sessions) {
             stopped = true;
+            lifecycleEpoch++;
+            refreshAttemptedEpoch = -1L;
+            refreshHandleEpoch = -1L;
+            refreshToClose = refreshHandle;
+            refreshHandle = null;
             snapshot = new ArrayList<>(sessions.values());
             sessions.clear();
         }
+        closeTaskHandle(refreshToClose);
         for (final Session session : snapshot) {
             session.stop();
         }
@@ -305,8 +323,243 @@ final class ExternalPsdEditSessionManager {
             }
             sessions.put(target.key(), session);
         }
+        ensureRefreshScheduled();
         textures.exportRawImagePsd(target.rawImageId()).whenComplete((result, failure) ->
             onExportComplete(session, result, failure));
+    }
+
+    /**
+     * Starts one read-only relation refresh for the current lifecycle epoch. Rejection is
+     * reported and never replaced with an unscheduled direct run; a later enable/reopen creates
+     * the next epoch and may try again.
+     */
+    private void ensureRefreshScheduled() {
+        final long epoch;
+        synchronized (sessions) {
+            if (stopped || !hasLiveSessionsLocked()
+                || refreshHandle != null || refreshAttemptedEpoch == lifecycleEpoch) {
+                return;
+            }
+            epoch = lifecycleEpoch;
+            refreshAttemptedEpoch = epoch;
+        }
+
+        final TaskSubmission submission;
+        try {
+            submission = context.tasks().scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                new TaskId("external-psd-edit.refresh." + epoch),
+                PluginTaskKind.COMPUTE,
+                PluginTaskPriority.NORMAL,
+                Duration.ofSeconds(1),
+                Duration.ofSeconds(1),
+                cancellation -> refreshRelations(epoch, cancellation)
+            ));
+        } catch (RuntimeException failure) {
+            reportRefreshUnavailable(epoch, "scheduler threw " + failure.getClass().getSimpleName());
+            return;
+        }
+        if (submission == null || !submission.accepted()) {
+            if (submission != null) {
+                closeTaskHandle(submission.handle());
+            }
+            final String reason = submission == null
+                ? "scheduler returned no submission"
+                : "scheduler rejected " + submission.rejectionReason().orElse(null);
+            reportRefreshUnavailable(epoch, reason);
+            return;
+        }
+
+        final TaskHandle handle = submission.handle();
+        boolean retained;
+        synchronized (sessions) {
+            retained = !stopped && lifecycleEpoch == epoch && hasLiveSessionsLocked()
+                && refreshHandle == null;
+            if (retained) {
+                refreshHandle = handle;
+                refreshHandleEpoch = epoch;
+            }
+        }
+        if (!retained) {
+            closeTaskHandle(handle);
+            return;
+        }
+        try {
+            handle.completion().whenComplete((outcome, failure) ->
+                onRefreshTerminal(epoch, handle, outcome, failure));
+        } catch (RuntimeException completionUnavailable) {
+            synchronized (sessions) {
+                if (refreshHandle == handle && refreshHandleEpoch == epoch) {
+                    refreshHandle = null;
+                    refreshHandleEpoch = -1L;
+                }
+            }
+            closeTaskHandle(handle);
+            reportRefreshUnavailable(epoch, "completion unavailable");
+        }
+    }
+
+    private void onRefreshTerminal(
+        final long epoch,
+        final TaskHandle handle,
+        final TaskOutcome outcome,
+        final Throwable failure
+    ) {
+        boolean current;
+        synchronized (sessions) {
+            current = refreshHandle == handle && refreshHandleEpoch == epoch;
+            if (current) {
+                refreshHandle = null;
+                refreshHandleEpoch = -1L;
+            }
+        }
+        if (!current) {
+            return;
+        }
+        closeTaskHandle(handle);
+        if (stopped || lifecycleEpoch != epoch) {
+            return;
+        }
+        reportRefreshUnavailable(epoch, failure == null && outcome != null
+            ? "refresh task ended " + outcome.status()
+            : "refresh task ended unexpectedly");
+    }
+
+    private void reportRefreshUnavailable(final long epoch, final String reason) {
+        synchronized (sessions) {
+            if (stopped || lifecycleEpoch != epoch || !hasLiveSessionsLocked()) {
+                return;
+            }
+        }
+        notifyStatus("external-psd-edit.error.refresh-unavailable", "ERROR", format(
+            "external-psd-edit.error.refresh-unavailable", reason));
+    }
+
+    private void refreshRelations(final long epoch, final CancellationToken cancellation) {
+        if (cancellation.isCancellationRequested()) {
+            return;
+        }
+        final List<Session> snapshot;
+        final Map<Session, Long> sampledVersions = new LinkedHashMap<>();
+        synchronized (sessions) {
+            if (stopped || lifecycleEpoch != epoch) {
+                return;
+            }
+            snapshot = sessions.values().stream()
+                .filter(Session::isRefreshCandidate)
+                .toList();
+            for (final Session session : snapshot) {
+                sampledVersions.put(session, session.transitionVersion());
+            }
+        }
+        if (snapshot.isEmpty()) {
+            stopRefreshIfNoLiveSessions();
+            return;
+        }
+
+        final CubismModel model;
+        final TextureRelationsSnapshot relations;
+        try {
+            model = context.cubism().model().active();
+            relations = model.textures().relations();
+        } catch (RuntimeException unavailable) {
+            for (final Session session : snapshot) {
+                pauseForRelationRefresh(session, sampledVersions.get(session),
+                    "relation read unavailable");
+            }
+            return;
+        }
+        if (!relations.isAvailable()) {
+            for (final Session session : snapshot) {
+                pauseForRelationRefresh(session, sampledVersions.get(session),
+                    "relations unavailable");
+            }
+            return;
+        }
+
+        final Map<Session, RawImageId> resolved = new LinkedHashMap<>();
+        final List<Session> stale = new ArrayList<>();
+        final List<Session> unavailable = new ArrayList<>();
+        for (final Session session : snapshot) {
+            final long sampledVersion = sampledVersions.get(session);
+            if (!session.isAtTransition(sampledVersion)) {
+                continue;
+            }
+            if (session.hasNativeInFlight()) {
+                continue;
+            }
+            if (!session.matchesContext(relations.binding(), model.id(), relations.generation())) {
+                stale.add(session);
+                continue;
+            }
+            final Optional<RawImageId> raw = uniqueRawForModelImages(
+                relations, session.key.modelImageIds());
+            if (raw.isEmpty()) {
+                unavailable.add(session);
+            } else {
+                resolved.put(session, raw.orElseThrow());
+            }
+        }
+        for (final Session session : stale) {
+            final long sampledVersion = sampledVersions.get(session);
+            invalidateIfAtTransition(session, sampledVersion,
+                "relation refresh found a changed document or model");
+        }
+        for (final Session session : unavailable) {
+            pauseForRelationRefresh(session, sampledVersions.get(session),
+                "model-image relation is missing or ambiguous");
+        }
+
+        final Map<RawImageId, List<Session>> byRaw = new LinkedHashMap<>();
+        for (final Map.Entry<Session, RawImageId> entry : resolved.entrySet()) {
+            byRaw.computeIfAbsent(entry.getValue(), ignored -> new ArrayList<>())
+                .add(entry.getKey());
+        }
+        for (final Map.Entry<RawImageId, List<Session>> entry : byRaw.entrySet()) {
+            final List<Session> stable = entry.getValue().stream()
+                .filter(session -> session.isAtTransition(sampledVersions.get(session)))
+                .toList();
+            if (stable.size() > 1) {
+                for (final Session session : stable) {
+                    pauseForRelationRefresh(session, sampledVersions.get(session),
+                        "multiple live sessions resolve the same raw image "
+                            + entry.getKey().value());
+                }
+            }
+        }
+        for (final Map.Entry<RawImageId, List<Session>> entry : byRaw.entrySet()) {
+            final List<Session> stable = entry.getValue().stream()
+                .filter(session -> session.isAtTransition(sampledVersions.get(session)))
+                .toList();
+            if (stable.size() != 1) {
+                continue;
+            }
+            final Session session = stable.get(0);
+            session.recordObservedRaw(
+                entry.getKey(), relations.revision(), sampledVersions.get(session));
+        }
+    }
+
+    private void stopRefreshIfNoLiveSessions() {
+        final TaskHandle handle;
+        synchronized (sessions) {
+            if (stopped || hasRefreshCandidatesLocked()) {
+                return;
+            }
+            lifecycleEpoch++;
+            refreshAttemptedEpoch = -1L;
+            refreshHandleEpoch = -1L;
+            handle = refreshHandle;
+            refreshHandle = null;
+        }
+        closeTaskHandle(handle);
+    }
+
+    private boolean hasLiveSessionsLocked() {
+        return sessions.values().stream().anyMatch(Session::isLive);
+    }
+
+    private boolean hasRefreshCandidatesLocked() {
+        return sessions.values().stream().anyMatch(Session::isRefreshCandidate);
     }
 
     private void reopenSession(final Session session) {
@@ -427,6 +680,8 @@ final class ExternalPsdEditSessionManager {
                 return;
             }
             session.inFlightRevision = revision;
+            session.inFlightTask = new RevisionTask(revision);
+            session.transitionVersion++;
             dispatch = true;
         }
         if (dispatch) {
@@ -435,15 +690,73 @@ final class ExternalPsdEditSessionManager {
     }
 
     private void submitRevision(final Session session, final PsdFileRevision revision) {
-        submit("external-psd-edit.import." + taskSequence.incrementAndGet(), () ->
-            importSave(session, revision));
+        final RevisionTask task;
+        synchronized (session) {
+            if (!session.isLive() || !session.isInFlight(revision)
+                || session.inFlightTask == null) {
+                return;
+            }
+            task = session.inFlightTask;
+        }
+        final TaskSubmission submission;
+        try {
+            submission = context.tasks().submit(new PluginTaskRequest(
+                new TaskId("external-psd-edit.import." + taskSequence.incrementAndGet()),
+                PluginTaskKind.COMPUTE,
+                PluginTaskPriority.NORMAL,
+                cancellation -> importSave(session, revision, task, cancellation)
+            ));
+        } catch (RuntimeException schedulerFailure) {
+            failTaskBeforeNative(session, task, "scheduler threw "
+                + schedulerFailure.getClass().getSimpleName(), true);
+            return;
+        }
+        if (submission == null || !submission.accepted()) {
+            if (submission != null) {
+                closeTaskHandle(submission.handle());
+            }
+            failTaskBeforeNative(session, task, submission == null
+                ? "scheduler returned no submission"
+                : "scheduler rejected " + submission.rejectionReason().orElse(null), true);
+            return;
+        }
+
+        final TaskHandle handle = submission.handle();
+        final boolean current;
+        synchronized (session) {
+            current = session.isLive() && session.inFlightTask == task
+                && session.isInFlight(revision);
+        }
+        if (!current) {
+            closeTaskHandle(handle);
+            return;
+        }
+        if (task.attachHandle(handle)) {
+            closeTaskHandle(handle);
+            return;
+        }
+        try {
+            handle.completion().whenComplete((outcome, failure) ->
+                onTaskTerminal(session, task, outcome, failure));
+        } catch (RuntimeException completionUnavailable) {
+            failTaskBeforeNative(session, task, "task completion unavailable", true);
+            closeTaskHandle(handle);
+        }
     }
 
-    private void importSave(final Session session, final PsdFileRevision revision) {
+    private void importSave(
+        final Session session,
+        final PsdFileRevision revision,
+        final RevisionTask task,
+        final CancellationToken cancellation
+    ) {
         synchronized (session) {
             if (!session.acceptsSaves() || !session.isInFlight(revision)) {
                 return;
             }
+        }
+        if (cancellation.isCancellationRequested()) {
+            return;
         }
         final TargetResolution resolution = resolveTarget(session);
         if (resolution.target().isEmpty()) {
@@ -458,12 +771,76 @@ final class ExternalPsdEditSessionManager {
             }
             file = session.file;
         }
+        if (cancellation.isCancellationRequested() || !task.beginNativeDispatch()) {
+            return;
+        }
         try {
             target.model().textures().replaceRawImagePsd(target.rawImageId(), file, revision)
                 .whenComplete((result, failure) -> onReplaceComplete(
                     session, revision, target.rawImageId(), result, failure));
         } catch (RuntimeException failure) {
             onReplaceComplete(session, revision, target.rawImageId(), null, failure);
+        }
+    }
+
+    private void onTaskTerminal(
+        final Session session,
+        final RevisionTask task,
+        final TaskOutcome outcome,
+        final Throwable failure
+    ) {
+        final boolean beforeNative = task.markTerminal();
+        if (!beforeNative) {
+            closeTaskHandle(task.handle());
+            return;
+        }
+        final String diagnostic = failure == null && outcome != null
+            ? "task ended " + outcome.status()
+            : failure == null ? "task ended without an outcome" : failure.getMessage();
+        final boolean ordinaryFailure = outcome != null
+            && outcome.status() == TaskOutcomeStatus.FAILED;
+        failTaskBeforeNative(session, task, diagnostic, !ordinaryFailure);
+        closeTaskHandle(task.handle());
+    }
+
+    private void failTaskBeforeNative(
+        final Session session,
+        final RevisionTask task,
+        final String diagnostic,
+        final boolean pause
+    ) {
+        final PsdFileRevision pending;
+        if (task.nativeDispatched()) {
+            return;
+        }
+        synchronized (session) {
+            if (!session.isLive() || session.inFlightTask != task
+                || !session.isInFlight(task.revision())) {
+                return;
+            }
+            session.inFlightRevision = null;
+            session.inFlightTask = null;
+            session.transitionVersion++;
+            pending = pause ? null : session.pendingRevision;
+            session.pendingRevision = null;
+            if (pause) {
+                session.state = State.PAUSED;
+            } else if (pending != null && session.acceptsSaves()) {
+                session.inFlightRevision = pending;
+                session.inFlightTask = new RevisionTask(pending);
+            }
+        }
+        if (pause) {
+            notifyStatus("external-psd-edit.status.paused-reason", "ERROR", format(
+                "external-psd-edit.status.paused-reason",
+                session.rawImageId().value(), diagnostic));
+        } else {
+            notifyStatus("external-psd-edit.error.replace-failed", "ERROR", format(
+                "external-psd-edit.error.replace-failed",
+                session.rawImageId().value() + " (" + diagnostic + ")"));
+        }
+        if (pending != null) {
+            submitRevision(session, pending);
         }
     }
 
@@ -534,12 +911,16 @@ final class ExternalPsdEditSessionManager {
                 return;
             }
             session.currentRawImageId = target.rawImageId();
+            session.observedRelationRevision = target.relations().revision();
             session.lastConsumedRevision = revision;
             session.inFlightRevision = null;
+            session.inFlightTask = null;
+            session.transitionVersion++;
             pending = session.pendingRevision;
             session.pendingRevision = null;
             if (pending != null && session.acceptsSaves()) {
                 session.inFlightRevision = pending;
+                session.inFlightTask = new RevisionTask(pending);
             }
         }
         notifyStatus("external-psd-edit.status.applied", "INFO",
@@ -566,12 +947,15 @@ final class ExternalPsdEditSessionManager {
                 return;
             }
             session.inFlightRevision = null;
+            session.inFlightTask = null;
+            session.transitionVersion++;
             pending = pause ? null : session.pendingRevision;
             session.pendingRevision = null;
             if (pause) {
                 session.state = State.PAUSED;
             } else if (pending != null && session.acceptsSaves()) {
                 session.inFlightRevision = pending;
+                session.inFlightTask = new RevisionTask(pending);
             }
         }
         if (pause) {
@@ -598,7 +982,9 @@ final class ExternalPsdEditSessionManager {
                 return;
             }
             session.inFlightRevision = null;
+            session.inFlightTask = null;
             session.pendingRevision = null;
+            session.transitionVersion++;
             session.state = State.PAUSED;
         }
         notifyStatus("external-psd-edit.status.paused-partial", "ERROR", format(
@@ -633,6 +1019,22 @@ final class ExternalPsdEditSessionManager {
             notifyStatus("external-psd-edit.warn.session-invalidated", "WARNING", format(
                 "external-psd-edit.warn.session-invalidated", session.rawImageId().value()));
         }
+        stopRefreshIfNoLiveSessions();
+    }
+
+    private void invalidateIfAtTransition(
+        final Session session,
+        final long expectedVersion,
+        final String reason
+    ) {
+        synchronized (session) {
+            if (!session.isLive() || session.transitionVersion != expectedVersion
+                || session.inFlightRevision != null) {
+                return;
+            }
+            session.transitionVersion++;
+        }
+        invalidate(session, reason);
     }
 
     private void failSession(final Session session, final String message) {
@@ -641,6 +1043,30 @@ final class ExternalPsdEditSessionManager {
         }
         session.stop();
         notifyStatus("external-psd-edit.error.session-failed", "ERROR", message);
+        stopRefreshIfNoLiveSessions();
+    }
+
+    private void pauseForRelationRefresh(
+        final Session session,
+        final long expectedVersion,
+        final String reason
+    ) {
+        final boolean paused;
+        synchronized (session) {
+            paused = session.isLive() && session.transitionVersion == expectedVersion
+                && session.inFlightRevision == null
+                && session.state != State.PAUSED;
+            if (paused) {
+                session.pendingRevision = null;
+                session.transitionVersion++;
+                session.state = State.PAUSED;
+            }
+        }
+        if (paused) {
+            notifyStatus("external-psd-edit.status.paused-reason", "ERROR", format(
+                "external-psd-edit.status.paused-reason",
+                session.rawImageId().value(), reason));
+        }
     }
 
     private boolean confirmMultiple(final int count) {
@@ -654,19 +1080,6 @@ final class ExternalPsdEditSessionManager {
             notifyStatus("external-psd-edit.error.confirmation-unavailable", "ERROR",
                 text("external-psd-edit.error.confirmation-unavailable"));
             return false;
-        }
-    }
-
-    private void submit(final String id, final Runnable work) {
-        try {
-            context.tasks().submit(new PluginTaskRequest(
-                new TaskId(id),
-                PluginTaskKind.COMPUTE,
-                PluginTaskPriority.NORMAL,
-                cancellation -> work.run()
-            ));
-        } catch (RuntimeException schedulerUnavailable) {
-            work.run();
         }
     }
 
@@ -822,6 +1235,17 @@ final class ExternalPsdEditSessionManager {
         }
     }
 
+    private static void closeTaskHandle(final TaskHandle handle) {
+        if (handle == null) {
+            return;
+        }
+        try {
+            handle.close();
+        } catch (RuntimeException ignored) {
+            // A terminal task handle is already outside the plugin's work boundary.
+        }
+    }
+
     private void notifyStatus(final String id, final String severity, final String message) {
         try {
             context.uiHost().notifyStatus(new StatusNotification(id, severity, message));
@@ -844,6 +1268,50 @@ final class ExternalPsdEditSessionManager {
         ACTIVE,
         PAUSED,
         STOPPED
+    }
+
+    private static final class RevisionTask {
+        private final PsdFileRevision revision;
+        private TaskHandle handle;
+        private boolean nativeDispatched;
+        private boolean terminal;
+
+        private RevisionTask(final PsdFileRevision revision) {
+            this.revision = Objects.requireNonNull(revision, "revision");
+        }
+
+        private synchronized boolean beginNativeDispatch() {
+            if (terminal) {
+                return false;
+            }
+            nativeDispatched = true;
+            return true;
+        }
+
+        private synchronized boolean markTerminal() {
+            if (terminal) {
+                return false;
+            }
+            terminal = true;
+            return !nativeDispatched;
+        }
+
+        private synchronized boolean attachHandle(final TaskHandle value) {
+            handle = Objects.requireNonNull(value, "handle");
+            return terminal;
+        }
+
+        private synchronized boolean nativeDispatched() {
+            return nativeDispatched;
+        }
+
+        private PsdFileRevision revision() {
+            return revision;
+        }
+
+        private synchronized TaskHandle handle() {
+            return handle;
+        }
     }
 
     private record SessionKey(
@@ -898,8 +1366,11 @@ final class ExternalPsdEditSessionManager {
         private volatile PsdEditFile file;
         private volatile Registration saveRegistration;
         private PsdFileRevision inFlightRevision;
+        private RevisionTask inFlightTask;
         private PsdFileRevision pendingRevision;
         private PsdFileRevision lastConsumedRevision;
+        private long observedRelationRevision = -1L;
+        private long transitionVersion;
 
         private Session(final TargetSeed target) {
             this.key = target.key();
@@ -916,6 +1387,37 @@ final class ExternalPsdEditSessionManager {
 
         private synchronized boolean acceptsSaves() {
             return (state == State.ACTIVE || state == State.OPENING) && file != null;
+        }
+
+        private synchronized boolean isRefreshCandidate() {
+            return state != State.STOPPED && state != State.PAUSED;
+        }
+
+        private synchronized boolean hasNativeInFlight() {
+            return inFlightRevision != null;
+        }
+
+        private synchronized long transitionVersion() {
+            return transitionVersion;
+        }
+
+        private synchronized boolean isAtTransition(final long expectedVersion) {
+            return transitionVersion == expectedVersion;
+        }
+
+        private synchronized boolean recordObservedRaw(
+            final RawImageId raw,
+            final long relationRevision,
+            final long expectedVersion
+        ) {
+            if (state == State.STOPPED || state == State.PAUSED || inFlightRevision != null
+                || transitionVersion != expectedVersion) {
+                return false;
+            }
+            currentRawImageId = Objects.requireNonNull(raw, "raw");
+            observedRelationRevision = relationRevision;
+            transitionVersion++;
+            return true;
         }
 
         private synchronized boolean isInFlight(final PsdFileRevision revision) {
@@ -953,7 +1455,10 @@ final class ExternalPsdEditSessionManager {
                 return;
             }
             state = State.STOPPED;
+            transitionVersion++;
             inFlightRevision = null;
+            final RevisionTask task = inFlightTask;
+            inFlightTask = null;
             pendingRevision = null;
             final Registration registration = saveRegistration;
             saveRegistration = null;
@@ -972,6 +1477,9 @@ final class ExternalPsdEditSessionManager {
                 } catch (RuntimeException ignored) {
                     // best effort: temporary file is retained by contract
                 }
+            }
+            if (task != null) {
+                closeTaskHandle(task.handle());
             }
         }
     }
