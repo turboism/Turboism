@@ -19,7 +19,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
 
     @Test
     void transformsOnlyTheExactReviewedDragMoveMethod() {
-        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5303();
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final WarpAltMirrorNativeMethodTransformer transformer =
             new WarpAltMirrorNativeMethodTransformer(profile, null);
 
@@ -51,7 +51,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
 
     @Test
     void unrelatedMethodOnTheTargetOwnerIsLeftAlone() {
-        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5303();
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final WarpAltMirrorNativeMethodTransformer transformer =
             new WarpAltMirrorNativeMethodTransformer(profile, null);
 
@@ -64,7 +64,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
 
     @Test
     void rejectsRetransformationFailClosed() {
-        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5303();
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final WarpAltMirrorNativeMethodTransformer transformer =
             new WarpAltMirrorNativeMethodTransformer(profile, null);
         final List<String> diagnostics = new ArrayList<>();
@@ -83,7 +83,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
 
     @Test
     void pinsTheFirstAdmittedLoaderAndRejectsEveryOtherLoader() throws Exception {
-        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5303();
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final ClassLoader first = new ClassLoader() { };
         final ClassLoader second = new ClassLoader() { };
         final WarpAltMirrorNativeMethodTransformer transformer =
@@ -104,7 +104,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
 
     @Test
     void rejectsBootstrapLoaderWhenAnExpectationIsDeclared() {
-        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5303();
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final WarpAltMirrorNativeMethodTransformer transformer =
             new WarpAltMirrorNativeMethodTransformer(
                 profile, null, java.nio.file.Path.of("/tmp/warp-alt-mirror-expected.jar"), ignored -> { });
@@ -119,7 +119,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
 
     @Test
     void rejectsArtifactsFromAnUnexpectedCodeSource() throws Exception {
-        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5303();
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final java.nio.file.Path expected = java.nio.file.Path.of("/tmp/warp-alt-mirror-expected.jar");
         final java.nio.file.Path other = java.nio.file.Path.of("/tmp/warp-alt-mirror-other.jar");
         final WarpAltMirrorNativeMethodTransformer transformer =
@@ -135,6 +135,43 @@ final class WarpAltMirrorNativeMethodTransformerTest {
         ));
         assertEquals(
             WarpAltMirrorNativeMethodTransformer.Outcome.ARTIFACT_MISMATCH, transformer.outcome());
+    }
+
+    @Test
+    void stripMountSelectorFollowsTheProfileVersion() {
+        final WarpAltMirrorHostProfile p5203 = WarpAltMirrorHostProfile.reviewed5203();
+        final WarpAltMirrorHostProfile p53 = WarpAltMirrorHostProfile.reviewed5302And5303();
+
+        // 5.2.03 mounts at L()V; the 5.3.x name R()V is an unrelated delegate there
+        // and must not be instrumented.
+        final WarpAltMirrorNativeMethodTransformer wrongName =
+            new WarpAltMirrorNativeMethodTransformer(p5203, null);
+        assertNull(wrongName.transform(
+            null, null, p5203.stripOwner(), null, null,
+            stripFixture(p5203, "R")
+        ));
+        assertEquals(
+            WarpAltMirrorNativeMethodTransformer.Outcome.TARGET_UNCHANGED,
+            wrongName.outcome());
+
+        final WarpAltMirrorNativeMethodTransformer rightName =
+            new WarpAltMirrorNativeMethodTransformer(p5203, null);
+        final byte[] mounted = rightName.transform(
+            null, null, p5203.stripOwner(), null, null,
+            stripFixture(p5203, "L")
+        );
+        assertNotNull(mounted);
+        assertTrue(containsBridgeCall(mounted, "mountViewContextMenu",
+            "(Ljava/lang/Object;)V"));
+
+        // 5.3.x mounts at R()V and must not touch a 5.2.03-style L()V member.
+        final WarpAltMirrorNativeMethodTransformer otherName =
+            new WarpAltMirrorNativeMethodTransformer(p53, null);
+        assertNull(otherName.transform(
+            null, null, p53.stripOwner(), null, null, stripFixture(p53, "L")));
+        assertEquals(
+            WarpAltMirrorNativeMethodTransformer.Outcome.TARGET_UNCHANGED,
+            otherName.outcome());
     }
 
     private static boolean containsBridgeCall(
@@ -183,6 +220,17 @@ final class WarpAltMirrorNativeMethodTransformerTest {
             method(writer, profile.dragTickMethod(), profile.dragTickDescriptor(), Opcodes.RETURN);
         }
         method(writer, "unrelated", "()V", Opcodes.RETURN);
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    /** Strip-owner class carrying a single no-arg void method with the given name. */
+    private static byte[] stripFixture(
+        final WarpAltMirrorHostProfile profile, final String methodName
+    ) {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, profile.stripOwner(), null, "java/lang/Object", null);
+        method(writer, methodName, "()V", Opcodes.RETURN);
         writer.visitEnd();
         return writer.toByteArray();
     }
