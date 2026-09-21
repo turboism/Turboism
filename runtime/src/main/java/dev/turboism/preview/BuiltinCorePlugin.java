@@ -17,100 +17,221 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
-/** Runtime-owned built-in core admission; external discovery cannot construct this path. */
+/**
+ * Runtime-owned built-in core admission; external discovery cannot construct this path.
+ *
+ * <p>The core runs on the same bounded lifecycle lane and under the same deadline as external
+ * plugins so a stuck core cannot stall {@code loadAll} indefinitely, and its generation is fenced
+ * and retained through the same mechanisms on timeout.</p>
+ */
 final class BuiltinCorePlugin {
     private static final String DESCRIPTOR = "META-INF/turboism/core-plugin.json";
+    private static final String CORE_ID =
+        dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID;
 
     private BuiltinCorePlugin() { }
 
     static LocalPluginRuntime.LoadedPlugin load(
         final PreviewPluginContextFactory contexts,
         final CorePluginServices services,
-        final PreviewLog log
+        final PreviewLog log,
+        final PluginLifecycleLane lane,
+        final PluginLifecyclePolicy policy,
+        final RetainedPluginGenerations retention
     ) throws Exception {
-        final ClassLoader loader = MainToolbarPlugin.class.getClassLoader();
-        final URLClassLoader resources = resourceLoader(loader);
-        DisposableScope scope = null;
-        PluginContextBundle context = null;
-        TurboismPlugin plugin = null;
-        boolean enabled = false;
-        try {
-            final PluginDescriptor descriptor;
-            try (InputStream input = descriptorStream(loader)) {
-                if (input == null) throw new IllegalStateException("built-in core descriptor is missing");
-                descriptor = new PluginDescriptorParser().parse(input);
+        final CoreLoad state = new CoreLoad();
+        final PluginLifecycleLease lease = new PluginLifecycleLease(CORE_ID);
+        final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation =
+            lane.submit(CORE_ID, "load", () -> {
+                try {
+                    return loadOnLane(contexts, services, log, state, lease);
+                } catch (Throwable failure) {
+                    state.cleanupComplete = cleanupCore(state, log, policy, true);
+                    throw failure;
+                }
+            });
+        final PluginLifecycleLane.AwaitResult<LocalPluginRuntime.LoadedPlugin> result =
+            lane.await(invocation, policy.loadTimeout(), lease);
+        switch (result.outcome) {
+            case SUCCEEDED -> {
+                return result.value;
             }
-            if (!dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
-                throw new IllegalStateException("built-in core descriptor identity mismatch");
+            case FAILED -> {
+                throw propagate(result.failure);
             }
-            log.info(
-                descriptor.id(),
-                "Plugin lifecycle: built-in load started version=" + descriptor.version()
-            );
-            final PluginRuntime runtime = new PluginRuntime(descriptor.id(), descriptor);
-            runtime.transitionTo(PluginLifecycleState.RESOLVED);
-            runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
-            scope = new DisposableScope();
-            context = contexts.create(descriptor, resources, scope);
-            plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
-            runtime.setEntrypoints(List.of(plugin));
-            final var eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
-                List.of(plugin),
-                loader
-            );
-            if (!eventSubscribers.isEmpty()) {
-                requireEventSubscribePermission(descriptor);
-                EventSubscriptionPermissionCatalog.requireDeclared(
-                    descriptor,
-                    eventSubscribers
+            case REJECTED -> {
+                fence(state, log);
+                throw new IllegalStateException(
+                    "Built-in core load rejected: lifecycle lane is saturated or closed"
                 );
             }
-            context.eventOwner().registerAnnotated(eventSubscribers, List.of(plugin));
-            runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
-            context.eventOwner().beginInitializing();
-            plugin.init(context.context());
-            runtime.transitionTo(PluginLifecycleState.LOADED);
-            log.info(descriptor.id(), "Plugin lifecycle: initialized entrypoints=1");
-            context.eventOwner().beginEnabling();
-            log.info(descriptor.id(), "Plugin lifecycle: enable started");
-            plugin.enable();
-            enabled = true;
-            runtime.transitionTo(PluginLifecycleState.ENABLED);
-            context.eventOwner().activate();
+            default -> {
+                fence(state, log);
+                if (!state.cleanupComplete) {
+                    retention.retain(new RetainedPluginGenerations.RetainedGeneration(
+                        CORE_ID,
+                        invocation.workerDone,
+                        state.context == null ? null : state.context.eventOwner(),
+                        state.guard,
+                        () -> cleanupCore(state, log, policy, false)
+                    ));
+                }
+                throw new IllegalStateException(
+                    "Built-in core load exceeded " + policy.loadTimeout(),
+                    new TimeoutException("core lifecycle deadline expired")
+                );
+            }
+        }
+    }
+
+    /** Immediate non-blocking fence for a timed-out core generation. */
+    private static void fence(final CoreLoad state, final PreviewLog log) {
+        if (state.guard != null) {
+            state.guard.fence();
+        }
+        if (state.context != null) {
+            try {
+                state.context.eventOwner().beginClosing();
+            } catch (Throwable failure) {
+                log.error(CORE_ID, "Built-in core event fencing failed safely", failure);
+            }
+        }
+        if (state.scope != null) {
+            state.scope.seal();
+        }
+    }
+
+    private static Exception propagate(final Throwable failure) {
+        if (failure instanceof Exception exception) {
+            return exception;
+        }
+        if (failure instanceof Error error) {
+            throw error;
+        }
+        return new IllegalStateException("Built-in core load failed", failure);
+    }
+
+    private static LocalPluginRuntime.LoadedPlugin loadOnLane(
+        final PreviewPluginContextFactory contexts,
+        final CorePluginServices services,
+        final PreviewLog log,
+        final CoreLoad state,
+        final PluginLifecycleLease lease
+    ) throws Exception {
+        final ClassLoader loader = MainToolbarPlugin.class.getClassLoader();
+        state.resources = resourceLoader(loader);
+        final PluginDescriptor descriptor;
+        try (InputStream input = descriptorStream(loader)) {
+            if (input == null) throw new IllegalStateException("built-in core descriptor is missing");
+            descriptor = new PluginDescriptorParser().parse(input);
+        }
+        if (!CORE_ID.equals(descriptor.id())) {
+            throw new IllegalStateException("built-in core descriptor identity mismatch");
+        }
+        log.info(
+            descriptor.id(),
+            "Plugin lifecycle: built-in load started version=" + descriptor.version()
+        );
+        final PluginRuntime runtime = new PluginRuntime(descriptor.id(), descriptor);
+        runtime.transitionTo(PluginLifecycleState.RESOLVED);
+        runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
+        state.guard = new PluginGenerationGuard(descriptor.id());
+        state.scope = new DisposableScope();
+        state.context = contexts.create(descriptor, state.resources, state.scope);
+        state.plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
+        runtime.setEntrypoints(List.of(state.plugin));
+        final var eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
+            List.of(state.plugin),
+            loader
+        );
+        if (!eventSubscribers.isEmpty()) {
+            requireEventSubscribePermission(descriptor);
+            EventSubscriptionPermissionCatalog.requireDeclared(
+                descriptor,
+                eventSubscribers
+            );
+        }
+        state.context.eventOwner().registerAnnotated(eventSubscribers, List.of(state.plugin));
+        runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
+        state.context.eventOwner().beginInitializing();
+        lease.checkpoint();
+        state.plugin.init(state.guard.wrap(state.context.context()));
+        runtime.transitionTo(PluginLifecycleState.LOADED);
+        log.info(descriptor.id(), "Plugin lifecycle: initialized entrypoints=1");
+        state.context.eventOwner().beginEnabling();
+        log.info(descriptor.id(), "Plugin lifecycle: enable started");
+        lease.checkpoint();
+        state.plugin.enable();
+        state.enabled = true;
+        runtime.transitionTo(PluginLifecycleState.ENABLED);
+        final URL source = coreSource(loader);
+        final Path artifact = Path.of(source.toURI()).toAbsolutePath().normalize();
+        return lease.commit(() -> {
+            state.context.eventOwner().activate();
             log.info(descriptor.id(), "Plugin lifecycle: enable succeeded entrypoints=1");
-            final URL source = coreSource(loader);
-            final Path artifact = Path.of(source.toURI()).toAbsolutePath().normalize();
             log.info(
                 descriptor.id(),
                 "Plugin lifecycle: built-in load succeeded version=" + descriptor.version()
             );
             return new LocalPluginRuntime.LoadedPlugin(
-                artifact, runtime, List.of(plugin), scope, resources,
-                context.localization(), context.cleanupEvidence(), context.eventOwner(),
-                context.context()
+                artifact, runtime, List.of(state.plugin), state.scope, state.resources,
+                state.context.localization(), state.context.cleanupEvidence(),
+                state.context.eventOwner(), state.context.context(), state.guard
             );
-        } catch (Throwable failure) {
-            final boolean eventQuiesced = closeEventOwner(context, log);
-            cleanupPlugin(plugin, enabled, log);
-            final boolean scopeClosed = closeScope(scope, log);
-            if (eventQuiesced && scopeClosed) {
-                closeResources(resources, log);
+        });
+    }
+
+    /**
+     * Idempotent teardown for a failed or fenced core generation. Returns {@code true} when every
+     * step completed; {@code false} leaves the generation retained for a later re-drive.
+     */
+    private static boolean cleanupCore(
+        final CoreLoad state,
+        final PreviewLog log,
+        final PluginLifecyclePolicy policy,
+        final boolean awaitEvents
+    ) {
+        // Every failed core generation is fenced — ordinary failures too — so its guarded
+        // context stops admitting work before rollback runs.
+        fence(state, log);
+        if (state.context != null && !state.eventOwnerClosed) {
+            state.context.eventOwner().beginClosing();
+            if (!state.context.eventOwner().awaitQuiescence(
+                awaitEvents ? policy.eventQuiescenceTimeout() : Duration.ZERO
+            )) {
+                return false;
+            }
+            state.context.eventOwner().close();
+            state.eventOwnerClosed = true;
+        }
+        if (!state.pluginCleaned) {
+            state.pluginCleaned = true;
+            cleanupPlugin(state.plugin, state.enabled, log);
+        }
+        // Disposal waits for SDK calls admitted before the fence to drain, matching the
+        // external-plugin loader path.
+        if (state.guard != null && !state.guard.drained()) {
+            return false;
+        }
+        if (!state.scopeClosed) {
+            state.scopeClosed = closeScope(state.scope, log);
+        }
+        if (!state.resourcesClosed) {
+            if (state.scopeClosed) {
+                closeResources(state.resources, log);
+                state.resourcesClosed = true;
             } else {
                 log.error(
-                    dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                    CORE_ID,
                     "Built-in core classloader retained because cleanup did not quiesce",
                     new IllegalStateException("Built-in core cleanup is incomplete")
                 );
+                return false;
             }
-            if (failure instanceof Exception exception) {
-                throw exception;
-            }
-            if (failure instanceof Error error) {
-                throw error;
-            }
-            throw new IllegalStateException("Built-in core load failed", failure);
         }
+        return true;
     }
 
     private static void requireEventSubscribePermission(final PluginDescriptor descriptor) {
@@ -128,30 +249,6 @@ final class BuiltinCorePlugin {
         }
     }
 
-    private static boolean closeEventOwner(
-        final PluginContextBundle context,
-        final PreviewLog log
-    ) {
-        if (context == null) {
-            return true;
-        }
-        try {
-            context.eventOwner().beginClosing();
-            if (!context.eventOwner().awaitQuiescence(Duration.ofSeconds(5))) {
-                return false;
-            }
-            context.eventOwner().close();
-            return true;
-        } catch (Throwable failure) {
-            log.error(
-                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
-                "Built-in core event cleanup failed safely",
-                failure
-            );
-            return false;
-        }
-    }
-
     private static void cleanupPlugin(
         final TurboismPlugin plugin,
         final boolean enabled,
@@ -165,7 +262,7 @@ final class BuiltinCorePlugin {
                 plugin.disable();
             } catch (Throwable failure) {
                 log.error(
-                    dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                    CORE_ID,
                     "Built-in core enable rollback failed safely",
                     failure
                 );
@@ -175,7 +272,7 @@ final class BuiltinCorePlugin {
             plugin.shutdown();
         } catch (Throwable failure) {
             log.error(
-                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                CORE_ID,
                 "Built-in core shutdown rollback failed safely",
                 failure
             );
@@ -194,7 +291,7 @@ final class BuiltinCorePlugin {
             return true;
         } catch (Throwable failure) {
             log.error(
-                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                CORE_ID,
                 "Built-in core scope cleanup failed safely",
                 failure
             );
@@ -206,11 +303,14 @@ final class BuiltinCorePlugin {
         final URLClassLoader resources,
         final PreviewLog log
     ) {
+        if (resources == null) {
+            return;
+        }
         try {
             resources.close();
         } catch (Throwable failure) {
             log.error(
-                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                CORE_ID,
                 "Built-in core classloader cleanup failed safely",
                 failure
             );
@@ -266,5 +366,20 @@ final class BuiltinCorePlugin {
         } catch (java.io.IOException failure) {
             throw new IllegalStateException("built-in core descriptor is unreadable", failure);
         }
+    }
+
+    /** Mutable per-attempt state so a timeout fence and retained cleanup can reach the resources. */
+    private static final class CoreLoad {
+        volatile URLClassLoader resources;
+        volatile DisposableScope scope;
+        volatile PluginContextBundle context;
+        volatile PluginGenerationGuard guard;
+        volatile TurboismPlugin plugin;
+        volatile boolean enabled;
+        volatile boolean cleanupComplete;
+        volatile boolean eventOwnerClosed;
+        volatile boolean pluginCleaned;
+        volatile boolean scopeClosed;
+        volatile boolean resourcesClosed;
     }
 }
