@@ -188,19 +188,20 @@ record PreviewPluginRuntimeResources(
                 // (unavailable), so the reason belongs in the log rather than nowhere at all.
                 message -> log.warn("updates", message)
             );
+        final PreviewPluginShutdown shutdown = new PreviewPluginShutdown(
+            log,
+            Objects.requireNonNull(pluginCloseHook, "pluginCloseHook"),
+            parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
+            projectLifecycleHookRegistry
+        );
         return new PreviewPluginRuntimeResources(
             lane, failureCollector,
             new PreviewPluginLoadCoordinator(
-                home, home.resolve("plugins"), contextFactory, log, loaded,
+                home, home.resolve("plugins"), contextFactory, log, loaded, shutdown,
                 parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
                 projectLifecycleHookRegistry
             ),
-            new PreviewPluginShutdown(
-                log,
-                Objects.requireNonNull(pluginCloseHook, "pluginCloseHook"),
-                parameterHookRegistry, partHookRegistry, editorObjectHookRegistry,
-                projectLifecycleHookRegistry
-            ),
+            shutdown,
             pluginManagement,
             contextFactory,
             runtimeSettings,
