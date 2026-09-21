@@ -67,7 +67,14 @@ public final class SwingEditSessionDialogPrimitives implements EditSessionDialog
         logArea.setEditable(false);
         final JProgressBar progressBar = new JProgressBar(0, 1000);
         final JButton cancelButton = new JButton("Cancel");
-        cancelButton.addActionListener(event -> context.cancelRequest().run());
+        cancelButton.addActionListener(event -> {
+            // A disposed or never-shown dialog can still receive synthetic clicks
+            // (Window.getWindows() lists disposed shells until GC); only a live
+            // dialog may raise the session's cancel request.
+            if (dialog.isShowing()) {
+                context.cancelRequest().run();
+            }
+        });
         dialog.getContentPane().setLayout(new BorderLayout());
         dialog.getContentPane().add(new JScrollPane(logArea), BorderLayout.CENTER);
         dialog.getContentPane().add(progressBar, BorderLayout.NORTH);

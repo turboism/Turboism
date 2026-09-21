@@ -15723,8 +15723,8 @@
       "main": "b8c09b5a",
       "entryUnionCount": 384
     },
-    "selectorCount": 766,
-    "capabilityCount": 100,
+    "selectorCount": 773,
+    "capabilityCount": 101,
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -15817,6 +15817,7 @@
       "cubism.editor-model.statistics.read",
       "cubism.editor-model.texture.read",
       "cubism.editor-model.texture.write",
+      "cubism.editor-model.undo.revert",
       "cubism.editor-model.warp-deformer.parameter-bindings.write",
       "cubism.editor-model.warp-deformer.write",
       "cubism.editor-model.write",
@@ -15827,6 +15828,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "71e820ca90a1bc6d3c05c8eba48dc1d58154d050bac7a1883cf8c79bfa2fd815"
+    "verificationRecordSha256": "08f90ebfb2443590ecff2dd52ea92963592bc490dca38035bf06c19adf285f6e"
   }
 }

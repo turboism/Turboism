@@ -125,12 +125,58 @@ public final class EditorEditParameterStructureSelectorContract {
     );
 
     /**
-     * {@code EditParameter}: the definition-update path covers NewId/Name/Min/Max/Default plus
-     * the repeat toggle.
+     * {@code EditParameter}: direct {@code CParameterSource} setters under a session-owned
+     * {@code SimpleUndo} snapshot so the write stays inside the session's edit bracket. The
+     * former property-editor path ({@code update-definition}) opened its own history entry —
+     * r4 host evidence showed it bypassing the session {@code GroupUndo}. {@code NewId} rides
+     * on {@link #EDIT_PARAMETER_NEW_ID_ALIASES}.
      */
     public static final Set<String> EDIT_PARAMETER_REQUIRED_ALIASES = unionAll(
-        EditorParameterDefinitionWriteSelectorContract.REQUIRED_ALIASES,
-        Set.of("cubism.editor-model.parameter-source.set-repeat")
+        EditorEditSessionSelectorContract.EDIT_SESSION_WRITE_ENVELOPE_ALIASES,
+        Set.of(
+            "cubism.editor-model.model.parameter-set",
+            "cubism.editor-model.parameter-set.parameters",
+            "cubism.editor-model.parameter.source",
+            "cubism.editor-model.parameter-source.id",
+            "cubism.editor-model.id.value",
+            "cubism.editor-model.parameter-source.guid",
+            "cubism.editor-model.parameter-source.name",
+            "cubism.editor-model.parameter-source.minimum",
+            "cubism.editor-model.parameter-source.maximum",
+            "cubism.editor-model.parameter-source.default",
+            "cubism.editor-model.parameter-source.repeat",
+            "cubism.editor-model.app-controller.main-frame",
+            "cubism.editor-model.main-frame.parameter-palette",
+            "cubism.editor-model.parameter-palette.view",
+            "cubism.editor-model.parameter-palette-view.operation",
+            "cubism.editor-model.parameter-operation.class",
+            "cubism.editor-model.parameter-operation.validator",
+            "cubism.editor-model.parameter-validator.class",
+            "cubism.editor-model.parameter-validator.keys-outside-range",
+            "cubism.editor-model.parameter-validator.allow-repeat",
+            "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
+            "cubism.editor-model.parameter-source.set-name",
+            "cubism.editor-model.parameter-source.set-minimum",
+            "cubism.editor-model.parameter-source.set-maximum",
+            "cubism.editor-model.parameter-source.set-default",
+            "cubism.editor-model.parameter-source.set-repeat",
+            "cubism.editor-model.simple-undo.create",
+            "cubism.editor-model.complete-pack.update-parameter"
+        )
+    );
+
+    /**
+     * Extended set for {@code EditParameter} requests that rename the parameter identifier
+     * ({@code NewId}): the verified {@code parameter-source.set-id} member plus the id
+     * constructor and the host's id validator.
+     */
+    public static final Set<String> EDIT_PARAMETER_NEW_ID_ALIASES = unionAll(
+        EDIT_PARAMETER_REQUIRED_ALIASES,
+        Set.of(
+            "cubism.editor-model.parameter-source.set-id",
+            "cubism.editor-model.parameter-id.create",
+            "cubism.editor-model.parameter-validator.valid-id"
+        )
     );
 
     /**

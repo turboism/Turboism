@@ -196,6 +196,20 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     }
 
     @Override
+    public void undoEditGroup(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final Object edit
+    ) {
+        synchronized (editLock) {
+            if (!sessionEdits.containsKey(Objects.requireNonNull(edit, "edit"))) {
+                throw new IllegalArgumentException(
+                    "Editor edit session token is invalid or closed");
+            }
+        }
+        resolver.invoke("cubism.editor-model.undo.group-undo", edit);
+    }
+
+    @Override
     public boolean undoRevertVerified(final EditorAuthoringTransactionCoordinator.Binding binding) {
         Objects.requireNonNull(binding, "binding");
         try {

@@ -22,10 +22,11 @@ import java.util.Objects;
  * {@code DeleteParameter}, {@code DeleteParameterGroup}, {@code MoveParameter}, and
  * {@code MoveParameterGroup}.
  *
- * <p>Write orchestrations mirror the verified paths in {@code EditorParameterStructureAccess}
- * and the parameter-definition write in {@code EditorBackedCubismModelAccess}: creates register
- * the handler-returned undo payload on the session edit token, renames capture a simple-undo,
- * and every write finishes with the refresh envelope.</p>
+ * <p>Write orchestrations keep every mutation inside the session's own edit bracket: creates
+ * register the handler-returned undo payload on the session edit token, renames and
+ * {@code EditParameter} definition writes capture a {@code SimpleUndo} snapshot before
+ * mutating through the verified {@code CParameterSource} setters, and every write finishes
+ * with the refresh envelope.</p>
  *
  * <p>{@code EditParameterGroup.newId} rides on the {@code parameter-group.set-id} row, which is
  * declared but absent from every verification record — requests carrying it fail closed.
@@ -149,7 +150,16 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                 EditorEditParameterStructureSelectorContract.EDIT_PARAMETER_CAPABILITY_ID,
                 EditorEditParameterStructureSelectorContract.EDIT_PARAMETER_REQUIRED_ALIASES,
                 "EditParameter");
-            updateDefinition(access, ops.requireParameterSource(access, request.id()), request);
+            if (request.newId().isPresent()) {
+                ops.require(
+                    access,
+                    EditorEditParameterStructureSelectorContract
+                        .EDIT_PARAMETER_CAPABILITY_ID,
+                    EditorEditParameterStructureSelectorContract
+                        .EDIT_PARAMETER_NEW_ID_ALIASES,
+                    "EditParameter(newId)");
+            }
+            updateParameter(access, ops.requireParameterSource(access, request.id()), request);
             ops.finishWrite(access, true, true);
             return true;
         });
@@ -301,63 +311,50 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                 + "entry guid required by parameter-group.remove");
     }
 
-    private void updateDefinition(
+    /**
+     * Applies one parameter-definition edit inside the session's own edit bracket: validate
+     * against the host's parameter validator, snapshot the source into a {@code SimpleUndo}
+     * before mutating, apply the verified {@code CParameterSource} setters, and register the
+     * undoable on the session edit token. This replaces the former property-editor path
+     * ({@code update-definition}), which committed its own history entry outside the session
+     * {@code GroupUndo}.
+     */
+    private void updateParameter(
         final EditSessionOpsAccess access,
         final Object source,
         final EditParameter request
     ) {
-        final Object app = ops.app(access);
-        final Object mainFrame =
-            access.invoke("cubism.editor-model.app-controller.main-frame", app);
-        final Object palette = access.invoke(
-            "cubism.editor-model.main-frame.parameter-palette", mainFrame);
-        final Object paletteView =
-            access.invoke("cubism.editor-model.parameter-palette.view", palette);
-        final Object operation = access.invoke(
-            "cubism.editor-model.parameter-palette-view.operation", paletteView);
-        final Object propertyEditor = access.invokeStatic(
-            "cubism.editor-model.parameter-operation.property-editor", operation);
-        final Object validator = access.invokeStatic(
-            "cubism.editor-model.parameter-operation.validator", operation);
-
-        final String currentId = ops.parameterSourceId(access, source);
-        final String nextId = request.newId().map(ParameterId::value).orElse(currentId);
-        if (!nextId.equals(currentId)
-            && !ops.flag(access.invoke(
-                    "cubism.editor-model.parameter-validator.valid-id", validator, nextId),
-                "Editor parameter ID validation is unavailable.")) {
-            throw new IllegalArgumentException(
-                "Editor rejected the parameter ID: " + nextId);
+        if (request.newId().isEmpty()
+            && request.name().isEmpty()
+            && request.min().isEmpty()
+            && request.defaultValue().isEmpty()
+            && request.max().isEmpty()
+            && request.repeat().isEmpty()) {
+            return;
         }
+        final Object validator = parameterValidator(access);
 
-        final float minimum = request.min()
-            .orElseGet(() -> ops.number(
-                access.invoke("cubism.editor-model.parameter-source.minimum", source),
-                "Editor parameter minimum"))
-            .floatValue();
-        final float maximum = request.max()
-            .orElseGet(() -> ops.number(
-                access.invoke("cubism.editor-model.parameter-source.maximum", source),
-                "Editor parameter maximum"))
-            .floatValue();
-        final float defaultValue = request.defaultValue()
-            .orElseGet(() -> ops.number(
-                access.invoke("cubism.editor-model.parameter-source.default", source),
-                "Editor parameter default"))
-            .floatValue();
-        final String name = request.name()
-            .orElseGet(() -> ops.text(
-                access.invoke("cubism.editor-model.parameter-source.name", source),
-                "Editor parameter name"));
-        final boolean repeat = request.repeat()
-            .orElseGet(() -> ops.flag(
-                access.invoke("cubism.editor-model.parameter-source.repeat", source),
-                "Editor parameter repeat flag is invalid."));
-        final boolean morphTarget = ops.flag(
-            access.invoke("cubism.editor-model.parameter-source.morph-target", source),
-            "Editor parameter type is invalid.");
-
+        if (request.newId().isPresent()) {
+            final String nextId = request.newId().get().value();
+            if (!nextId.equals(ops.parameterSourceId(access, source))
+                && !ops.flag(access.invoke(
+                        "cubism.editor-model.parameter-validator.valid-id", validator, nextId),
+                    "Editor parameter ID validation is unavailable.")) {
+                throw new IllegalArgumentException(
+                    "Editor rejected the parameter ID: " + nextId);
+            }
+        }
         if (request.min().isPresent() || request.max().isPresent()) {
+            final float minimum = request.min()
+                .orElseGet(() -> ops.number(
+                    access.invoke("cubism.editor-model.parameter-source.minimum", source),
+                    "Editor parameter minimum"))
+                .floatValue();
+            final float maximum = request.max()
+                .orElseGet(() -> ops.number(
+                    access.invoke("cubism.editor-model.parameter-source.maximum", source),
+                    "Editor parameter maximum"))
+                .floatValue();
             final Object parameterGuid =
                 access.invoke("cubism.editor-model.parameter-source.guid", source);
             if (ops.flag(access.invoke(
@@ -376,7 +373,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                     "cubism.editor-model.parameter-validator.allow-repeat",
                     validator,
                     source,
-                    Boolean.valueOf(repeat)),
+                    request.repeat().get()),
                     "Editor parameter repeat validation is unavailable.")) {
             throw new IllegalStateException(
                 "The Editor rejected the requested repeat setting.");
@@ -386,36 +383,61 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                     "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
                     validator,
                     source,
-                    Float.valueOf(defaultValue)),
+                    Float.valueOf(request.defaultValue().get().floatValue())),
                     "Editor morph-target default validation is unavailable.")) {
             throw new IllegalStateException(
                 "Changing this default would affect existing morph-target keyforms.");
         }
 
-        final Object refreshCallback = access.construct(
-            "cubism.editor-model.parameter-refresh-callback.create", operation);
-        final Object updated = access.invoke(
-            "cubism.editor-model.parameter-property-editor.update-definition",
-            propertyEditor,
+        final Object undo = access.construct(
+            "cubism.editor-model.simple-undo.create",
+            "Turboism: Edit Parameter",
             source,
-            name,
-            Float.valueOf(minimum),
-            Float.valueOf(maximum),
-            Float.valueOf(defaultValue),
-            nextId,
-            Boolean.valueOf(repeat),
-            Boolean.FALSE,
-            Boolean.valueOf(morphTarget),
-            refreshCallback);
-        if (!ops.flag(updated, "Editor parameter definition update is unavailable.")) {
-            throw new IllegalStateException(
-                "The Editor rejected the parameter definition update.");
-        }
-        access.invoke(
-            "cubism.editor-model.parameter-property-editor.rebuild-keep-value",
-            propertyEditor);
-        access.invoke(
-            "cubism.editor-model.parameter-operation.refresh", operation, Boolean.TRUE);
+            null);
+        request.name().ifPresent(name ->
+            access.invoke("cubism.editor-model.parameter-source.set-name", source, name));
+        request.min().ifPresent(minimum ->
+            access.invoke(
+                "cubism.editor-model.parameter-source.set-minimum",
+                source,
+                Float.valueOf(minimum.floatValue())));
+        request.max().ifPresent(maximum ->
+            access.invoke(
+                "cubism.editor-model.parameter-source.set-maximum",
+                source,
+                Float.valueOf(maximum.floatValue())));
+        request.defaultValue().ifPresent(defaultValue ->
+            access.invoke(
+                "cubism.editor-model.parameter-source.set-default",
+                source,
+                Float.valueOf(defaultValue.floatValue())));
+        request.repeat().ifPresent(repeat ->
+            access.invoke(
+                "cubism.editor-model.parameter-source.set-repeat",
+                source,
+                repeat));
+        request.newId()
+            .map(ParameterId::value)
+            .filter(nextId -> !nextId.equals(ops.parameterSourceId(access, source)))
+            .ifPresent(nextId -> access.invoke(
+                "cubism.editor-model.parameter-source.set-id",
+                source,
+                access.construct("cubism.editor-model.parameter-id.create", nextId)));
+        ops.addUndo(access, undo, "Turboism: Edit Parameter");
+    }
+
+    /** The host parameter validator reached through the parameter palette's operation. */
+    private Object parameterValidator(final EditSessionOpsAccess access) {
+        final Object mainFrame = access.invoke(
+            "cubism.editor-model.app-controller.main-frame", ops.app(access));
+        final Object palette = access.invoke(
+            "cubism.editor-model.main-frame.parameter-palette", mainFrame);
+        final Object paletteView =
+            access.invoke("cubism.editor-model.parameter-palette.view", palette);
+        final Object operation = access.invoke(
+            "cubism.editor-model.parameter-palette-view.operation", paletteView);
+        return access.invokeStatic(
+            "cubism.editor-model.parameter-operation.validator", operation);
     }
 
     private Object groupHandler(final EditSessionOpsAccess access, final Object group) {

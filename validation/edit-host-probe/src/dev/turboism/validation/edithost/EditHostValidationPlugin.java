@@ -768,6 +768,18 @@ public final class EditHostValidationPlugin implements TurboismPlugin {
             } catch (Exception failure) {
                 record("S5.deformerStructure", "fail", singleLine(failure));
             }
+            // Glue objects are not part/deformer tree nodes — the SDK exposes them
+            // through CubismModel.glues() only.
+            try {
+                final List<String> glueIds = onEdt(() ->
+                    context.cubism().model().active().glues().all().stream()
+                        .map(glue -> glue.id().value())
+                        .toList());
+                byKind.get(EditObjectKind.GLUE).addAll(glueIds);
+                observe("S5.glueIds", "count=" + glueIds.size() + " " + glueIds);
+            } catch (Exception failure) {
+                observe("S5.glueIds", "unavailable " + singleLine(failure));
+            }
 
             // On 5.2.03 the extended part/art-mesh readers are expected to fail closed;
             // on 5.3.02+ they must return typed payloads.
@@ -1124,17 +1136,12 @@ public final class EditHostValidationPlugin implements TurboismPlugin {
     }
 
     private String parameterNameOf(final ParameterId id) throws Exception {
+        // Read through the same active-model path the baseline capture and key-count
+        // checks use — the ModelSnapshot read surface reports no name on this host.
         return onEdt(() -> {
-            final Optional<ModelSnapshot> snapshot = context.cubism().activeModel();
-            if (snapshot.isPresent()) {
-                for (final ParameterSnapshot parameter
-                    : snapshot.orElseThrow().parameters()) {
-                    if (parameter.id().equals(id.value())) {
-                        return parameter.name();
-                    }
-                }
-            }
-            return null;
+            final Parameter parameter =
+                parameterById(context.cubism().model().active(), id);
+            return parameter == null ? null : parameter.name().orElse(id.value());
         });
     }
 
@@ -1427,23 +1434,33 @@ public final class EditHostValidationPlugin implements TurboismPlugin {
     }
 
     private JDialog statusDialog() {
-        for (final Window window : Window.getWindows()) {
-            if (window instanceof JDialog dialog
-                && STATUS_DIALOG_TITLE.equals(dialog.getTitle())) {
-                return dialog;
-            }
-        }
-        return null;
+        return dialogTitled(STATUS_DIALOG_TITLE);
     }
 
     private JDialog invisibleModalDialog() {
+        return dialogTitled(INVISIBLE_MODAL_TITLE);
+    }
+
+    /**
+     * Finds the live dialog carrying a session title. {@code Window.getWindows()}
+     * keeps disposed dialogs listed until the GC sweeps their weak entries, so a
+     * hidden shell left over from an earlier session must not shadow the live one —
+     * the showing match wins; a lingering non-showing match is only returned when no
+     * showing dialog exists (it keeps the release diagnostics honest).
+     */
+    private JDialog dialogTitled(final String title) {
+        JDialog stale = null;
         for (final Window window : Window.getWindows()) {
-            if (window instanceof JDialog dialog
-                && INVISIBLE_MODAL_TITLE.equals(dialog.getTitle())) {
-                return dialog;
+            if (window instanceof JDialog dialog && title.equals(dialog.getTitle())) {
+                if (dialog.isShowing()) {
+                    return dialog;
+                }
+                if (stale == null) {
+                    stale = dialog;
+                }
             }
         }
-        return null;
+        return stale;
     }
 
     private JButton findButton(final Container root, final String text) {
