@@ -19,7 +19,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
   echo "usage: run-protected-export-host-validation.sh <5302> [run-label] [phase] [runner-options...]" >&2
-  echo "  phase: dialog (default) | copy-binding | flatten | export | comma combinations" >&2
+  echo "  phase: dialog (default) | copy-binding | flatten | export | expect-reject | comma combinations" >&2
   exit 2
 fi
 
@@ -39,7 +39,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 case "$phase" in
-  dialog | copy-binding | flatten | export | dialog,copy-binding \
+  dialog | copy-binding | flatten | export | expect-reject | dialog,copy-binding \
     | copy-binding,flatten | dialog,copy-binding,flatten) ;;
   *)
     echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, flatten, export, or a comma combination)" >&2

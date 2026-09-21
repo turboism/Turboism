@@ -321,6 +321,88 @@ class OwnedMocRuntimeTest {
     }
 
     @Test
+    void writerWritesThroughLiveCoreValuesArray() {
+        final MocLoader loader = loader("5.3.02");
+        final TestCoreApiFixture.Model model = modelWithCanvas();
+        TestCoreApiFixture.Moc.prepare(model, 42L);
+        final OwnedModel owned = loader
+            .load(MocData.copyOf(new byte[]{6, 1}))
+            .instantiateModel();
+        assertEquals(1.5f, owned.parameters().get(0).currentValue());
+
+        assertTrue(loader instanceof OwnedModelParameterWriter);
+        final OwnedModelParameterWriter writer =
+            (OwnedModelParameterWriter) loader;
+        writer.writeParameterValue(owned, "ParamA", 7.25f);
+
+        // The write lands on the live values array the read projection uses.
+        assertEquals(7.25f, owned.parameters().get(0).currentValue());
+        // And remains visible across a Core update cycle.
+        owned.update();
+        assertEquals(1, model.updateCount());
+        assertEquals(7.25f, owned.parameters().get(0).currentValue());
+    }
+
+    @Test
+    void writerRejectsModelOwnedByAnotherRuntime() {
+        final MocLoader loaderA = loader("5.3.02");
+        final MocLoader loaderB = loader("5.3.02");
+        final TestCoreApiFixture.Model model = modelWithCanvas();
+        TestCoreApiFixture.Moc.prepare(model, 42L);
+        final OwnedModel ownedByB = loaderB
+            .load(MocData.copyOf(new byte[]{6, 1}))
+            .instantiateModel();
+
+        final OwnedModelParameterWriter writerA =
+            (OwnedModelParameterWriter) loaderA;
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> writerA.writeParameterValue(ownedByB, "ParamA", 1f));
+        assertTrue(failure.getMessage().contains("not owned"));
+        // A model that is not an owned-runtime model at all rejects identically.
+        assertThrows(IllegalStateException.class,
+            () -> writerA.writeParameterValue(null, "ParamA", 1f));
+    }
+
+    @Test
+    void writerRejectsClosedModelAndAbsentParameter() {
+        final MocLoader loader = loader("5.3.02");
+        TestCoreApiFixture.Moc.prepare(modelWithCanvas(), 42L);
+        final OwnedModel owned = loader
+            .load(MocData.copyOf(new byte[]{6, 1}))
+            .instantiateModel();
+        final OwnedModelParameterWriter writer =
+            (OwnedModelParameterWriter) loader;
+
+        owned.close();
+        assertThrows(IllegalStateException.class,
+            () -> writer.writeParameterValue(owned, "ParamA", 1f));
+    }
+
+    @Test
+    void writerRejectsAbsentParameterAndNonFiniteValues() {
+        final MocLoader loader = loader("5.3.02");
+        TestCoreApiFixture.Moc.prepare(modelWithCanvas(), 42L);
+        final OwnedModel owned = loader
+            .load(MocData.copyOf(new byte[]{6, 1}))
+            .instantiateModel();
+        final OwnedModelParameterWriter writer =
+            (OwnedModelParameterWriter) loader;
+
+        final IllegalStateException absent = assertThrows(
+            IllegalStateException.class,
+            () -> writer.writeParameterValue(owned, "ParamAbsent", 1f));
+        assertTrue(absent.getMessage().contains("ParamAbsent"));
+        assertThrows(IllegalArgumentException.class,
+            () -> writer.writeParameterValue(owned, "ParamA", Float.NaN));
+        assertThrows(IllegalArgumentException.class,
+            () -> writer.writeParameterValue(owned, "ParamA",
+                Float.POSITIVE_INFINITY));
+        // Rejections must not have disturbed the live value.
+        assertEquals(1.5f, owned.parameters().get(0).currentValue());
+    }
+
+    @Test
     void ownedSurfaceNeverExposesCoreWrites() {
         final Class<?> ownedModel = OwnedModel.class;
         final Class<?> ownedMoc = OwnedMoc.class;

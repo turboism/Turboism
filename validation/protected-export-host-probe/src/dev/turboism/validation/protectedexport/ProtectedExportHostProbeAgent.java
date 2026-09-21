@@ -161,6 +161,9 @@ public final class ProtectedExportHostProbeAgent {
             if (phases.contains("export")) {
                 phaseExport(controller, appCtrl, stateDir, evidence);
             }
+            if (phases.contains("expect-reject")) {
+                phaseExpectReject(controller, appCtrl, stateDir, evidence);
+            }
             bridge.report(evidence);
         } catch (Throwable failure) {
             evidence.fail("PROBE_FAILURE:" + failure.getClass().getName() + ":" + text(failure));
@@ -1006,6 +1009,208 @@ public final class ProtectedExportHostProbeAgent {
             evidence.put(prefix + "stagingLeftovers",
                 String.join(",", leftovers.subList(0, Math.min(10, leftovers.size()))));
         }
+    }
+
+    /**
+     * Expected-rejection phase: drive the checked option on a fixture the
+     * session must refuse, then prove the refusal. Unlike the positive path —
+     * where a missing inner dialog is a transport failure — here the session's
+     * own terminal report is the assertion surface: {@code reached=FAILED},
+     * {@code published=false}, the configured failure key, the original file
+     * hash and document invariants unchanged, zero staging residue, and no
+     * inner export dialog ever raised. Normal host exit is still enforced by
+     * the runner's exit-marker gate.
+     */
+    private static void phaseExpectReject(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        final String prefix = "rej.";
+        final String expectedFailure = System.getProperty(
+            "turboism.validation.protectedExport.expectFailure",
+            "protected-export.preflight-failed"
+        );
+        evidence.put(prefix + "expectedFailure", expectedFailure);
+        try {
+            final Object original = readNoArg(controller, "getCurrentDoc");
+            if (original == null || !isA(original.getClass(), MODELING_DOCUMENT)) {
+                evidence.fail("REJ_NO_MODELING_DOCUMENT");
+                return;
+            }
+            final Object content = readNoArg(original, "getFileContent");
+            final Object fileObj =
+                content == null ? null : readNoArg(content, "getFile");
+            if (!(fileObj instanceof File originalFile) || !originalFile.isFile()) {
+                evidence.fail("REJ_ORIGINAL_FILE_MISSING");
+                return;
+            }
+            final Object modifiedCheck = readNoArg(content, "isModifiedAfterSaving");
+            if (Boolean.TRUE.equals(modifiedCheck)) {
+                evidence.fail("REJ_ORIGINAL_DIRTY");
+                return;
+            }
+            ensureTextureAtlas(controller, evidence);
+            final DocumentState before =
+                snapshotDocument(original, evidence, prefix + "orig");
+            evidence.put(prefix + "origFile", originalFile.getAbsolutePath());
+            evidence.put(prefix + "origFileSha256", sha256(originalFile));
+
+            // The session terminal lands as a "protected-export" line in the
+            // runtime log; only lines appended after the trigger count.
+            final Path turboismLog = turboismLogPath(stateDir);
+            evidence.put(prefix + "runtimeLog", turboismLog.toString());
+            final long logMark = Files.isRegularFile(turboismLog)
+                ? Files.size(turboismLog) : 0L;
+
+            final Set<Window> alreadyVisible = visibleWindows();
+            if (!triggerExport(controller, appCtrl, evidence)) {
+                return;
+            }
+            final JDialog outer = awaitExportSettingsDialog(
+                alreadyVisible, stateDir, evidence, "rejOuter"
+            );
+            if (outer == null) {
+                evidence.fail("REJ_OUTER_DIALOG_NOT_OBSERVED");
+                return;
+            }
+            final List<JCheckBox> injected = injectedCheckBoxes(outer);
+            evidence.put(prefix + "outerInjectedCheckBoxCount",
+                Integer.toString(injected.size()));
+            if (injected.isEmpty()) {
+                evidence.fail("REJ_OUTER_OPTION_MISSING");
+                dismiss(outer);
+                return;
+            }
+            onEdt(() -> {
+                for (JCheckBox box : injected) {
+                    box.doClick(0);
+                }
+                return null;
+            });
+            evidence.put(prefix + "optionChecked", "true");
+            final AbstractButton outerConfirm = findButton(outer, CONFIRM_ACTION);
+            if (outerConfirm == null) {
+                evidence.fail("REJ_OUTER_CONFIRM_MISSING");
+                dismiss(outer);
+                return;
+            }
+            onEdt(() -> {
+                outerConfirm.doClick(0);
+                return null;
+            });
+            evidence.put(prefix + "outerConfirmed", "true");
+            waitForHidden(outer);
+
+            // Await the session's own terminal line. Any inner export dialog or
+            // unexpected window observed meanwhile is evidence AGAINST the
+            // rejection expectation (recorded, then dismissed so the EDT and
+            // the session can unwind).
+            final Map<Window, Integer> seenDialogs = new LinkedHashMap<>();
+            for (Window window : visibleWindows()) {
+                seenDialogs.put(window, Integer.MAX_VALUE);
+            }
+            final List<String> unexpected = new ArrayList<>();
+            final long deadline = System.currentTimeMillis() + 150_000L;
+            String terminal = null;
+            while (System.currentTimeMillis() < deadline && terminal == null) {
+                clickSettledDialogs(seenDialogs, unexpected, stateDir, evidence,
+                    prefix, "rejWait");
+                terminal = sessionTerminalLine(turboismLog, logMark);
+                sleep(POLL_MILLIS);
+            }
+            evidence.put(prefix + "unexpectedDialogs",
+                String.join(" -> ", unexpected));
+            if (terminal == null) {
+                evidence.fail("REJ_SESSION_TERMINAL_MISSING");
+                return;
+            }
+            evidence.put(prefix + "sessionTerminal", terminal);
+            evidence.put(prefix + "sessionFailed",
+                Boolean.toString(terminal.contains("reached=FAILED")));
+            evidence.put(prefix + "sessionPublished",
+                Boolean.toString(terminal.contains("published=true")));
+            final String failure = terminalField(terminal, "failure=");
+            evidence.put(prefix + "sessionFailureKey",
+                failure == null ? "" : failure);
+            evidence.put(prefix + "failureMatched",
+                Boolean.toString(expectedFailure.equals(failure)));
+
+            final Object restored = readNoArg(controller, "getCurrentDoc");
+            if (restored != null) {
+                final DocumentState after =
+                    snapshotDocument(restored, evidence, prefix + "restored");
+                evidence.put(prefix + "sameLiveDocument",
+                    Boolean.toString(after.docId == before.docId));
+                evidence.put(prefix + "modifiedPreserved",
+                    Boolean.toString(after.modified == before.modified));
+                evidence.put(prefix + "undoPreserved",
+                    Boolean.toString(
+                        after.undoSignature.equals(before.undoSignature)));
+                evidence.put(prefix + "selectionPreserved",
+                    Boolean.toString(after.selectionSignature
+                        .equals(before.selectionSignature)));
+            }
+            evidence.put(prefix + "fileSha256Preserved",
+                Boolean.toString(sha256(originalFile)
+                    .equals(evidence.values.get(prefix + "origFileSha256"))));
+            reportStagingResidue(stateDir, evidence, prefix);
+        } catch (Throwable failure) {
+            evidence.fail("REJ_PHASE_FAILURE:" + failure.getClass().getName()
+                + ":" + text(failure));
+        }
+    }
+
+    /** {@code <home>/logs/turboism.log} beside the probe state directory. */
+    private static Path turboismLogPath(final Path stateDir) {
+        final Path state = stateDir.getParent();
+        final Path home = state == null ? null : state.getParent();
+        return home == null
+            ? stateDir.resolve("turboism.log")
+            : home.resolve("logs").resolve("turboism.log");
+    }
+
+    /**
+     * First {@code protected-export} session-terminal line appended to the
+     * runtime log after {@code mark}; null while the session is still running.
+     */
+    private static String sessionTerminalLine(final Path log, final long mark) {
+        try {
+            if (!Files.isRegularFile(log) || Files.size(log) <= mark) {
+                return null;
+            }
+            final String appended;
+            try (var channel = Files.newByteChannel(log)) {
+                channel.position(mark);
+                final var buffer = java.nio.ByteBuffer.allocate(
+                    (int) Math.min(Files.size(log) - mark, 1 << 20));
+                channel.read(buffer);
+                appended = new String(
+                    buffer.array(), 0, buffer.position(), StandardCharsets.UTF_8);
+            }
+            for (String line : appended.split("\\R")) {
+                if (line.contains("protected-export")
+                    && line.contains("session=") && line.contains("reached=")) {
+                    return line.strip();
+                }
+            }
+        } catch (IOException unavailable) {
+            // Keep polling until the deadline.
+        }
+        return null;
+    }
+
+    /** {@code key=value} field of a whitespace-delimited log line, or null. */
+    private static String terminalField(final String line, final String key) {
+        final int start = line.indexOf(key);
+        if (start < 0) {
+            return null;
+        }
+        final int end = line.indexOf(' ', start + key.length());
+        return end < 0
+            ? line.substring(start + key.length())
+            : line.substring(start + key.length(), end);
     }
 
     /**
@@ -3011,6 +3216,41 @@ public final class ProtectedExportHostProbeAgent {
             }
             if (intOf(evidence, "exp.stagingResidue") != 0) {
                 unmet.add("task-owned staging residue remains");
+            }
+        }
+        if (phases.contains("expect-reject")) {
+            if (!"true".equals(evidence.values.get("rej.outerConfirmed"))) {
+                unmet.add("expected-rejection drive never confirmed the outer dialog");
+            }
+            if (!"true".equals(evidence.values.get("rej.sessionFailed"))) {
+                unmet.add("session did not terminate FAILED");
+            }
+            if ("true".equals(evidence.values.get("rej.sessionPublished"))) {
+                unmet.add("a rejected fixture still published output");
+            }
+            if (!"true".equals(evidence.values.get("rej.failureMatched"))) {
+                unmet.add("session failure key differs from the expected rejection");
+            }
+            if (intOf(evidence, "rej.outerInjectedCheckBoxCount") < 1) {
+                unmet.add("contributed option missing from the outer dialog");
+            }
+            if (!evidence.values.getOrDefault("rej.unexpectedDialogs", "").isEmpty()) {
+                unmet.add("rejected session still raised windows");
+            }
+            if (!"true".equals(evidence.values.get("rej.sameLiveDocument"))) {
+                unmet.add("original was not the live document after rejection");
+            }
+            if (!"true".equals(evidence.values.get("rej.fileSha256Preserved"))) {
+                unmet.add("original file bytes changed across the rejection");
+            }
+            if (!"true".equals(evidence.values.get("rej.modifiedPreserved"))) {
+                unmet.add("original dirty flag changed across the rejection");
+            }
+            if (!"true".equals(evidence.values.get("rej.undoPreserved"))) {
+                unmet.add("original undo state changed across the rejection");
+            }
+            if (intOf(evidence, "rej.stagingResidue") != 0) {
+                unmet.add("task-owned staging residue remains after rejection");
             }
         }
         if (!unmet.isEmpty()) {

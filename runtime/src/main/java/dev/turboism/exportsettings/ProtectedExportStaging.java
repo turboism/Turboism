@@ -16,6 +16,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -85,12 +86,15 @@ public final class ProtectedExportStaging {
     }
 
     /**
-     * Host-side evaluated geometry captured on the disposable copy AFTER flatten
-     * (the exact state the native exporter serializes). {@code baseline} holds
-     * post-flatten positions at parameter defaults; {@code frames} holds, per
-     * sample step in {@code samples}, drawable-token → evaluated vertex
-     * positions. Validation replays the identical sequence on the staged
-     * {@code .moc3} through the owned Core runtime and compares element-wise.
+     * Host-side evaluated geometry captured on the disposable copy under a
+     * caller-chosen stable key: the pre-flatten snapshot keys frames by the
+     * authored ArtMesh source GUID, the post-flatten/post-obfuscation snapshot
+     * (the exact state the native exporter serializes) keys frames by the
+     * planned drawable-ID token. {@code baseline} holds positions at parameter
+     * defaults; {@code frames} holds, per sample step in {@code samples},
+     * key → evaluated vertex positions. Validation replays the identical
+     * sequence on the staged {@code .moc3} through the owned Core runtime and
+     * compares element-wise.
      */
     public record BehaviorSnapshot(
         List<BehaviorSample> samples,
@@ -424,12 +428,13 @@ public final class ProtectedExportStaging {
                     "sample=" + index + " param=" + sample.parameterId()
                         + " value=" + sample.value(),
                     snapshot.frames().get(index), model, compared);
+                // Isolate the next sample — and never leave a sampled value
+                // behind on the failure path either.
+                parameterWriter.writeParameterValue(
+                    model, sample.parameterId(), defaults.get(sample.parameterId()));
                 if (failure != null) {
                     return failure;
                 }
-                // Isolate the next sample: return this parameter to default.
-                parameterWriter.writeParameterValue(
-                    model, sample.parameterId(), defaults.get(sample.parameterId()));
             }
             if (compared[0] == 0) {
                 return new MocFailure(
@@ -443,6 +448,18 @@ public final class ProtectedExportStaging {
                 "protected-export.moc3-behavior-eval-failed",
                 failure.getClass().getSimpleName() + ": " + (message == null
                     ? "" : message.substring(0, Math.min(160, message.length()))));
+        } finally {
+            // Restore every touched parameter to its default so a rejected or
+            // partially replayed validation cannot leave sampled values behind.
+            for (Map.Entry<String, Float> entry : defaults.entrySet()) {
+                try {
+                    parameterWriter.writeParameterValue(
+                        model, entry.getKey(), entry.getValue());
+                } catch (RuntimeException ignored) {
+                    // Best-effort restore: the staged model is task-owned and
+                    // discarded after validation either way.
+                }
+            }
         }
     }
 
@@ -494,6 +511,80 @@ public final class ProtectedExportStaging {
             return new MocFailure(
                 "protected-export.moc3-behavior-drift",
                 label + " drawable=" + worstDrawable + " maxDelta=" + worst);
+        }
+        return null;
+    }
+
+    /**
+     * Compares the pre-flatten snapshot (keyed by authored source GUID) against
+     * the post-flatten/post-obfuscation snapshot (keyed by drawable token) over
+     * the GUID→token mapping. Returns null when behavior is equivalent within
+     * {@link #BEHAVIOR_TOLERANCE}, otherwise a bounded drift detail. Fail-closed:
+     * every authored GUID must resolve and appear on the transformed side, no
+     * unmapped transformed drawable is accepted, and at least one drawable must
+     * actually be compared.
+     */
+    public static String behaviorDrift(
+        final BehaviorSnapshot original,
+        final BehaviorSnapshot transformed,
+        final Map<String, String> guidToToken
+    ) {
+        if (original == null || transformed == null || guidToToken == null) {
+            return "snapshot-or-mapping-absent";
+        }
+        if (!original.samples().equals(transformed.samples())) {
+            return "sample-sequence-mismatch";
+        }
+        final int[] compared = {0};
+        String drift = frameDrift(
+            "baseline", original.baseline(), transformed.baseline(),
+            guidToToken, compared);
+        for (int i = 0; drift == null && i < original.frames().size(); i++) {
+            drift = frameDrift(
+                "sample=" + i, original.frames().get(i),
+                transformed.frames().get(i), guidToToken, compared);
+        }
+        if (drift == null && compared[0] == 0) {
+            drift = "no-comparable-drawables";
+        }
+        return drift;
+    }
+
+    private static String frameDrift(
+        final String label,
+        final Map<String, float[]> original,
+        final Map<String, float[]> transformed,
+        final Map<String, String> guidToToken,
+        final int[] compared
+    ) {
+        for (Map.Entry<String, float[]> entry : original.entrySet()) {
+            final String token = guidToToken.get(entry.getKey());
+            if (token == null) {
+                return label + " guid=" + entry.getKey() + " unmapped";
+            }
+            final float[] actual = transformed.get(token);
+            if (actual == null) {
+                return label + " drawable=" + token + " missing-transformed";
+            }
+            compared[0]++;
+            final float[] expected = entry.getValue();
+            if (actual.length != expected.length) {
+                return label + " drawable=" + token + " vertex-count "
+                    + actual.length + "!=" + expected.length;
+            }
+            for (int i = 0; i < expected.length; i++) {
+                final float delta = Math.abs(actual[i] - expected[i]);
+                if (delta > BEHAVIOR_TOLERANCE) {
+                    return label + " drawable=" + token + " index=" + i
+                        + " delta=" + delta;
+                }
+            }
+        }
+        final Set<String> mapped = new HashSet<>(guidToToken.values());
+        for (String key : transformed.keySet()) {
+            if (!mapped.contains(key)) {
+                return label + " drawable=" + key + " unexpected-transformed";
+            }
         }
         return null;
     }

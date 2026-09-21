@@ -203,6 +203,50 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
+    @Test
+    void rejectsWhenFlattenChangesEvaluatedGeometry() throws Exception {
+        // The pre-flatten baseline is captured on the bound copy before any
+        // mutation; a flatten bake that diverges from it must reject BEFORE the
+        // native export runs — proving the exporter faithfully serializes a
+        // corrupted copy is not acceptance.
+        final Fixture fixture = new Fixture();
+        fixture.host.flattenCorruptsGeometry = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY,
+            report.failureKey());
+        assertEquals(ProtectedExportOrchestrator.Phase.FAILED, report.reached());
+        assertFalse(report.published());
+        assertNull(fixture.host.exportedModel,
+            "native export must not run when flatten changed behavior");
+        assertTrue(report.originalRestored());
+        assertTrue(report.cleanupErrors().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void restoresSampledParametersAfterCapture() throws Exception {
+        // Sampling writes live parameter values on the copy; a document saved
+        // with non-default values must get them back — the real export has to
+        // run from the restored state, not from the last sample point.
+        final Fixture fixture = new Fixture();
+        fixture.host.copyParameterStartsOffDefault = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertTrue(report.published(),
+            "expected publish, failed with " + report.failureKey());
+        for (FakeParameter parameter : fixture.host.copy.model.parameters) {
+            assertEquals(parameter.max, parameter.currentValue,
+                "parameter " + parameter.id + " must be restored to its"
+                    + " pre-capture value");
+        }
+        orchestrator.close();
+    }
+
     // ------------------------------------------------------------------
     // Admission and identity gates
     // ------------------------------------------------------------------
@@ -1251,6 +1295,8 @@ class ProtectedExportOrchestratorTest {
         volatile boolean attachedExtension;
         volatile boolean revokeBindingOnNativeExport;
         volatile boolean bumpGenerationOnNativeExport;
+        volatile boolean flattenCorruptsGeometry;
+        volatile boolean copyParameterStartsOffDefault;
         volatile boolean removeOriginalOnNativeExport;
         volatile boolean removeCopyOnNativeExport;
         final AtomicInteger applyCalls = new AtomicInteger();
@@ -1367,6 +1413,12 @@ class ProtectedExportOrchestratorTest {
                 fresh.model.parameters.add(new FakeParameter(parameter.id,
                     parameter.min, parameter.max, parameter.defaultValue,
                     parameter.repeat));
+            }
+            if (copyParameterStartsOffDefault) {
+                // A document saved with non-default parameter values: sampling
+                // must restore these, not leave the last sample behind.
+                fresh.model.parameters.forEach(
+                    parameter -> parameter.currentValue = parameter.max);
             }
             for (FakePart part : original.model.parts) {
                 fresh.model.parts.add(new FakePart(part.guid, part.id, part.name,
@@ -1527,12 +1579,19 @@ class ProtectedExportOrchestratorTest {
                     .filter(d -> doc.selector.selected.contains(d))
                     .toList();
                 doc.model.deformers.removeAll(removed);
-                // Bake: a removed deformer's key positions move onto a surviving
-                // binding of the same parameter, and its membership leaves every
-                // part's child list — the union per parameter is preserved.
+                // Bake: a removed deformer's bindings move onto every ArtMesh it
+                // deformed (the fake treats every deformer as deforming every
+                // mesh). Appending — rather than unioning key positions — keeps
+                // the fake's evaluation exactly invariant under the move, which
+                // is what a correct host bake guarantees. The parameter key
+                // union the census records is preserved either way.
                 for (FakeDeformer deformer : removed) {
-                    for (FakeBinding binding : deformer.bindings) {
-                        mergeBinding(doc.model, binding);
+                    for (FakeArtMesh mesh : doc.model.artMeshes) {
+                        for (FakeBinding binding : deformer.bindings) {
+                            mesh.bindings.add(new FakeBinding(
+                                binding.parameterId,
+                                new ArrayList<>(binding.keys)));
+                        }
                     }
                     for (FakePart part : doc.model.parts) {
                         part.childGuids.remove(deformer.guid);
@@ -1542,25 +1601,6 @@ class ProtectedExportOrchestratorTest {
             }
             doc.modified = true;
             doc.selector.selected.clear();
-        }
-
-        private void mergeBinding(final FakeModel model, final FakeBinding binding) {
-            for (FakeArtMesh mesh : model.artMeshes) {
-                for (FakeBinding target : mesh.bindings) {
-                    if (target.parameterId.equals(binding.parameterId)) {
-                        final List<Float> merged = new ArrayList<>(target.keys);
-                        for (Float key : binding.keys) {
-                            if (!merged.contains(key)) {
-                                merged.add(key);
-                            }
-                        }
-                        mesh.bindings.remove(target);
-                        mesh.bindings.add(new FakeBinding(
-                            binding.parameterId, merged));
-                        return;
-                    }
-                }
-            }
         }
 
         @Override
@@ -1688,7 +1728,23 @@ class ProtectedExportOrchestratorTest {
                 values.put(parameter.id, parameter.currentValue);
             }
             for (FakeArtMesh mesh : model.artMeshes) {
-                mesh.evaluatedPositions = evalPositions(mesh.bindings, values);
+                // Deformer bindings deform every mesh they contain; the fake
+                // models the worst case (all meshes) so a bake that appends
+                // those bindings onto the mesh keeps evaluation identical.
+                final List<FakeBinding> effective =
+                    new ArrayList<>(mesh.bindings);
+                for (FakeDeformer deformer : model.deformers) {
+                    effective.addAll(deformer.bindings);
+                }
+                mesh.evaluatedPositions = evalPositions(effective, values);
+                if (flattenCorruptsGeometry && model.deformers.isEmpty()) {
+                    // A flatten bake that damaged geometry: evaluated positions
+                    // diverge from the pre-flatten snapshot even though the
+                    // exporter would faithfully reproduce them.
+                    for (int i = 0; i < mesh.evaluatedPositions.length; i++) {
+                        mesh.evaluatedPositions[i] *= 1.5f;
+                    }
+                }
             }
         }
 
