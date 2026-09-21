@@ -120,7 +120,7 @@ final class SessionDeformerOps implements DeformerOps {
             attach(access, created, request.parentId().orElse(null),
                 request.targetObjectIds(), request.mode(),
                 "Turboism: Add Rotation Deformer");
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -182,7 +182,7 @@ final class SessionDeformerOps implements DeformerOps {
             attach(access, created, request.parentId().orElse(null),
                 request.targetObjectIds(), request.mode(),
                 "Turboism: Add Warp Deformer");
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -240,7 +240,7 @@ final class SessionDeformerOps implements DeformerOps {
                         Float.valueOf(request.scale().get().floatValue()));
                 }
             }
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -293,7 +293,7 @@ final class SessionDeformerOps implements DeformerOps {
                     source,
                     Integer.valueOf(request.warpDivV().get()));
             }
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }

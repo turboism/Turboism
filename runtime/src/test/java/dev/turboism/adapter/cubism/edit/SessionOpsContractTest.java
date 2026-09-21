@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.sdk.cubism.edit.CancelSource;
 import dev.turboism.sdk.cubism.edit.DeformerOps;
 import dev.turboism.sdk.cubism.edit.EditAlphaBlend;
 import dev.turboism.sdk.cubism.edit.EditArtMeshData;
@@ -17,14 +18,18 @@ import dev.turboism.sdk.cubism.edit.EditParameterNode;
 import dev.turboism.sdk.cubism.edit.EditPartData;
 import dev.turboism.sdk.cubism.edit.EditRotationDeformerData;
 import dev.turboism.sdk.cubism.edit.EditSession;
+import dev.turboism.sdk.cubism.edit.EditSessionCloseOutcome;
+import dev.turboism.sdk.cubism.edit.EditSessionCloseResult;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditSessionOptions;
+import dev.turboism.sdk.cubism.edit.EditSessionState;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.edit.EditWarpDeformerData;
 import dev.turboism.sdk.cubism.edit.ParameterKeyOps;
 import dev.turboism.sdk.cubism.edit.ParameterStructureOps;
 import dev.turboism.sdk.cubism.edit.PartObjectOps;
 import dev.turboism.sdk.cubism.edit.SelectionOps;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -90,7 +95,7 @@ final class SessionOpsContractTest {
             List.of("AddParameterKey"),
             fixture.host.opsDispatchLabels());
         assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
-        assertRefreshRan(fixture.access, true);
+        assertRefreshRan(fixture.access);
     }
 
     @Test
@@ -149,7 +154,7 @@ final class SessionOpsContractTest {
             fixture.access.callsOf(
                 "cubism.editor-model.parameter-group-handler.add-parameter-child").size());
         assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
-        assertRefreshRan(fixture.access, true);
+        assertRefreshRan(fixture.access);
     }
 
     @Test
@@ -181,7 +186,7 @@ final class SessionOpsContractTest {
         assertFalse(fixture.access.called(
             "cubism.editor-model.parameter-property-editor.update-definition"));
         assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
-        assertRefreshRan(fixture.access, true);
+        assertRefreshRan(fixture.access);
     }
 
     @Test
@@ -315,7 +320,7 @@ final class SessionOpsContractTest {
         assertEquals(1, removed.size());
         assertEquals(List.of(fixture.mesh), removed.get(0).arguments().get(0));
         assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
-        assertRefreshRan(fixture.access, false);
+        assertRefreshRan(fixture.access);
     }
 
     @Test
@@ -393,7 +398,7 @@ final class SessionOpsContractTest {
         assertEquals(1, renames.size());
         assertEquals("Renamed", renames.get(0).arguments().get(0));
         assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
-        assertRefreshRan(fixture.access, false);
+        assertRefreshRan(fixture.access);
     }
 
     @Test
@@ -471,6 +476,189 @@ final class SessionOpsContractTest {
                     Optional.empty(), Optional.empty(), Optional.empty(),
                     List.of(), true)));
         assertFalse(fixture.host.opsDispatchLabels().contains("AddPart"));
+    }
+
+    @Test
+    void addPartSeedsAnInitialKeyformAndRegistersUndoOnTheSessionToken()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        assertTrue(session.partObjects().addPart(
+            new PartObjectOps.AddPart(
+                Optional.of("Probe Part"), Optional.empty(), Optional.empty(),
+                List.of(), false)));
+
+        // The official AddPart sequence seeds a CPartForm bound through a fresh CFormGuid
+        // and a KeyformGridSource primed by setInitialKeyform — the first instance update
+        // must find the initial keyform instead of dereferencing an empty binding table.
+        assertTrue(fixture.access.constructed("cubism.editor-model.part-form.create"));
+        assertTrue(fixture.access.constructed("cubism.editor-model.form-guid.create"));
+        assertTrue(fixture.access.called("cubism.editor-model.form.set-guid"));
+        assertTrue(fixture.access.called("cubism.editor-model.part-source.keyforms"));
+        assertTrue(fixture.access.called("cubism.editor-model.c-array-list.add"));
+        assertTrue(fixture.access.constructed(
+            "cubism.editor-model.keyform-grid-source.create"));
+        assertTrue(fixture.access.called(
+            "cubism.editor-model.keyform-grid-source.set-initial-keyform"));
+        assertTrue(fixture.access.called(
+            "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source"));
+        assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
+        assertRefreshRan(fixture.access);
+    }
+
+    // ------------------------------------------------------------------
+    // session bracket invariants (T7)
+    // ------------------------------------------------------------------
+
+    @Test
+    void sessionOperationsNeverCommitHistoryWhileTheSessionIsOpen()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+        final HistorySnapshot before = fixture.host.snapshot();
+
+        session.parameterStructure().editParameter(new ParameterStructureOps.EditParameter(
+            new ParameterId("AngleZ"), Optional.empty(), Optional.of("Renamed"),
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        session.parameterKeys().addParameterKey(new ParameterKeyOps.AddParameterKey(
+            new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1"),
+            new ParameterId("AngleZ"), 0.5));
+        session.partObjects().addPart(new PartObjectOps.AddPart(
+            Optional.of("Probe Part"), Optional.empty(), Optional.empty(),
+            List.of(), false));
+
+        // Official session semantics: EditEnd commits exactly one entry — while the
+        // session is open the history position and entry list stay untouched, because no
+        // session operation opens or closes a native edit bracket of its own.
+        assertEquals(before, fixture.host.snapshot());
+        assertEquals(0, fixture.host.position);
+        assertTrue(fixture.host.entries.isEmpty());
+        assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
+    }
+
+    @Test
+    void commitLandsExactlyOneHistoryEntry() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+        session.partObjects().addPart(new PartObjectOps.AddPart(
+            Optional.of("Probe Part"), Optional.empty(), Optional.empty(),
+            List.of(), false));
+
+        final EditSessionCloseResult result = session.close();
+
+        assertEquals(EditSessionCloseOutcome.COMMITTED, result.outcome());
+        assertEquals(EditSessionState.CLOSED, session.state());
+        assertEquals(1, fixture.host.entries.size());
+        assertEquals(1, fixture.host.position);
+    }
+
+    @Test
+    void cancelRestoresHistoryWhenTheSessionGroupStaysCurrent()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        final EditSession session = fixture.open();
+        final HistorySnapshot before = fixture.host.snapshot();
+        session.partObjects().addPart(new PartObjectOps.AddPart(
+            Optional.of("Probe Part"), Optional.empty(), Optional.empty(),
+            List.of(), false));
+
+        final EditSessionCloseResult result = session.cancel();
+
+        // Official path: the session group commits (endEdit(false)) and revert() pops it —
+        // net effect is the exact pre-session snapshot.
+        assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
+        assertEquals(EditSessionState.CANCELLED, session.state());
+        assertEquals(before, fixture.host.snapshot());
+        assertEquals(0, fixture.host.position);
+        assertTrue(fixture.host.entries.isEmpty());
+        assertEquals(List.of("revert"), fixture.host.revertedLabels);
+    }
+
+    @Test
+    void cancelReconcilesACommittedForeignGroupThroughRevert() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        final EditSession session = fixture.open();
+        final HistorySnapshot before = fixture.host.snapshot();
+        session.partObjects().addPart(new PartObjectOps.AddPart(
+            Optional.of("Probe Part"), Optional.empty(), Optional.empty(),
+            List.of(), false));
+        // A host-side edit displaced the session's group and committed its own entry —
+        // the deferred palette edit pattern observed on the real host.
+        fixture.host.displaceSessionGroup(true);
+
+        final EditSessionCloseResult result = session.cancel();
+
+        assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
+        assertEquals(EditSessionState.CANCELLED, session.state());
+        assertEquals(before, fixture.host.snapshot());
+        assertEquals(0, fixture.host.position);
+        assertTrue(fixture.host.entries.isEmpty());
+        assertEquals(List.of("revert"), fixture.host.revertedLabels);
+    }
+
+    @Test
+    void cancelReconcilesAnOpenForeignGroupAndCommittedTail() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        final EditSession session = fixture.open();
+        final HistorySnapshot before = fixture.host.snapshot();
+        // A foreign edit displaced the session group, committed its entry, then a second
+        // host edit is still holding the bracket open at cancel time.
+        fixture.host.displaceSessionGroup(true);
+        fixture.host.displaceSessionGroup(false);
+
+        final EditSessionCloseResult result = session.cancel();
+
+        assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
+        assertEquals(before, fixture.host.snapshot());
+        assertEquals(0, fixture.host.position);
+        assertTrue(fixture.host.entries.isEmpty());
+        assertEquals(List.of("revert"), fixture.host.revertedLabels);
+    }
+
+    @Test
+    void cancelWithoutVerifiedRevertMovesTheCursorWithUndoRedoTo()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        // revert unverified → the compensating strategy reconciles the committed tail at
+        // the cursor (undoRedoTo); entries cannot be dropped, so the exact-snapshot check
+        // reports the residual entry as a typed recovery failure.
+        final EditSession session = fixture.open();
+        session.partObjects().addPart(new PartObjectOps.AddPart(
+            Optional.of("Probe Part"), Optional.empty(), Optional.empty(),
+            List.of(), false));
+        fixture.host.displaceSessionGroup(true);
+
+        final EditSessionCloseResult result = session.cancel();
+
+        assertEquals(EditSessionCloseOutcome.FAILED, result.outcome());
+        assertEquals(List.of(0), fixture.host.cursorMoves);
+        assertEquals(0, fixture.host.position);
+        assertEquals(EditSessionState.CANCELLED, session.state());
+    }
+
+    @Test
+    void closeOnADisplacedSessionReconcilesAndReportsFailure() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        final EditSession session = fixture.open();
+        final HistorySnapshot before = fixture.host.snapshot();
+        session.partObjects().addPart(new PartObjectOps.AddPart(
+            Optional.of("Probe Part"), Optional.empty(), Optional.empty(),
+            List.of(), false));
+        fixture.host.displaceSessionGroup(true);
+
+        final EditSessionCloseResult result = session.close();
+
+        // Committing would push the foreign group — the session restores the pre-session
+        // snapshot and reports failure instead.
+        assertEquals(EditSessionCloseOutcome.FAILED, result.outcome());
+        assertEquals(before, fixture.host.snapshot());
+        assertEquals(0, fixture.host.position);
+        assertTrue(fixture.host.entries.isEmpty());
     }
 
     // ------------------------------------------------------------------
@@ -552,7 +740,7 @@ final class SessionOpsContractTest {
         assertEquals(1, renames.size());
         assertEquals("Renamed", renames.get(0).arguments().get(0));
         assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
-        assertRefreshRan(fixture.access, false);
+        assertRefreshRan(fixture.access);
     }
 
     // ------------------------------------------------------------------
@@ -987,15 +1175,16 @@ final class SessionOpsContractTest {
     }
 
     private static void assertRefreshRan(
-        final FakeOpsAccess access,
-        final boolean parameterPalette
+        final FakeOpsAccess access
     ) {
         assertTrue(access.called("cubism.editor-model.model-source.update-instances"));
         assertTrue(access.called("cubism.editor-model.modeling-document.mark-dirty"));
-        assertTrue(access.called("cubism.editor-model.complete-pack.repaint-canvas"));
-        assertEquals(
-            parameterPalette,
-            access.called("cubism.editor-model.complete-pack.update-parameter"));
+        // Palette/canvas refreshes post deferred UI callbacks that can displace the
+        // session's undo group — they run once at session end, never mid-operation.
+        assertFalse(access.called("cubism.editor-model.complete-pack.repaint-canvas"));
+        assertFalse(access.called("cubism.editor-model.complete-pack.update-parameter"));
+        assertFalse(access.called("cubism.editor-model.complete-pack.update-part-palette"));
+        assertFalse(access.called("cubism.editor-model.complete-pack.update-deformer-palette"));
     }
 
     // ------------------------------------------------------------------
@@ -1169,7 +1358,11 @@ final class SessionOpsContractTest {
 
     private static final class PartSource extends HostSource {
         final List<Object> children = new ArrayList<>();
-        PartSource(final String id, final String guid) { super(id, guid); }
+        final List<Object> keyforms = new ArrayList<>();
+        PartSource(final String id, final String guid) {
+            super(id, guid);
+            handler = new PartHandler();
+        }
     }
 
     private static final class WarpSource extends HostSource {
@@ -1556,10 +1749,31 @@ final class SessionOpsContractTest {
             on("cubism.editor-model.guid.value", (t, a) -> ((HostGuid) t).value());
             on("cubism.editor-model.keyform-grid.add-key", (t, a) -> null);
             on("cubism.editor-model.keyform-grid.bindings", (t, a) -> List.of());
+            on("cubism.editor-model.keyform-grid-source.set-initial-keyform",
+                (t, a) -> null);
+            on("cubism.editor-model.parameter-controllable-source.set-keyform-grid-source",
+                (t, a) -> {
+                    ((HostSource) t).grid = a[0];
+                    return null;
+                });
+            on("cubism.editor-model.c-array-list.add",
+                (t, a) -> Boolean.valueOf(((List<Object>) t).add(a[0])));
+            on("cubism.editor-model.part-source.keyforms",
+                (t, a) -> ((PartSource) t).keyforms);
             on("cubism.editor-model.part-source.id", (t, a) -> ((PartSource) t).id);
             on("cubism.editor-model.part-source.children",
                 (t, a) -> ((PartSource) t).children);
+            on("cubism.editor-model.part-source.handler",
+                (t, a) -> ((PartSource) t).handler);
+            on("cubism.editor-model.part-handler.add-part-child",
+                (t, a) -> {
+                    rootPart.children.add(a[0]);
+                    return undo;
+                });
+            on("cubism.editor-model.part-source.set-id", (t, a) -> null);
+            on("cubism.editor-model.part-source.set-guid", (t, a) -> null);
             on("cubism.editor-model.part-source.set-local-name", (t, a) -> null);
+            on("cubism.editor-model.part-source.set-default-order", (t, a) -> null);
             on("cubism.editor-model.parameter-group.children",
                 (t, a) -> ((Group) t).children);
             on("cubism.editor-model.parameter-group.id", (t, a) -> ((Group) t).id);
@@ -1603,6 +1817,7 @@ final class SessionOpsContractTest {
                 (t, a) -> Boolean.TRUE);
             on("cubism.editor-model.parameter-validator.default-change-affects-morph-target",
                 (t, a) -> Boolean.FALSE);
+            on("cubism.editor-model.form.set-guid", (t, a) -> null);
             on("cubism.editor-model.parameter-source.set-name", (t, a) -> null);
             on("cubism.editor-model.parameter-source.set-minimum", (t, a) -> null);
             on("cubism.editor-model.parameter-source.set-maximum", (t, a) -> null);
@@ -1627,8 +1842,13 @@ final class SessionOpsContractTest {
                 a -> new HostId((String) a[0]));
             onConstruct("cubism.editor-model.parameter-group-guid.create",
                 a -> new HostGuid("g-new"));
+            onConstruct("cubism.editor-model.part-source.create",
+                a -> new PartSource("created", "g-created"));
             onConstruct("cubism.editor-model.part-id.create", a -> new HostId((String) a[0]));
             onConstruct("cubism.editor-model.part-guid.create", a -> new HostGuid("g-new"));
+            onConstruct("cubism.editor-model.part-form.create", a -> new PartForm());
+            onConstruct("cubism.editor-model.form-guid.create", a -> new HostGuid("g-form"));
+            onConstruct("cubism.editor-model.keyform-grid-source.create", a -> new Object());
             onConstruct("cubism.editor-model.simple-undo.create", a -> undo);
 
             isInstanceOf("cubism.editor-model.part-source.class", PartSource.class);
@@ -1775,12 +1995,27 @@ final class SessionOpsContractTest {
      * Fake session host: the lifecycle members mirror {@code RuntimeEditSessionManagerTest}'s
      * fake; {@link #opsAccess} hands out the scripted member surface so routed operations can
      * run. {@link #dispatch} records labels and runs inline.
+     *
+     * <p>The host models the native edit-mode/history semantics the session relies on:
+     * {@code beginEdit} installs the returned token as the current undo group (a second
+     * {@code beginEdit} REPLACES it without closing the first — exactly like the host's
+     * deferred palette edits), {@code endEdit(false)} commits the current group as one history
+     * entry, {@code endEdit(true)} discards it, {@code revert()} pops the entry at the cursor,
+     * and {@code undoRedoTo} only moves the cursor. Session operations never call
+     * {@code beginEdit}/{@code endEdit}, so an open session must leave the history position and
+     * entry list untouched.</p>
      */
     private static final class FakeOpsHost implements EditorEditSessionHost {
         final EditorAuthoringTransactionCoordinator.Binding binding =
             new EditorAuthoringTransactionCoordinator.Binding(
                 "plugin.test", "document-1", 1, "model-1", 1, Thread.currentThread());
         final Object editToken = new Object();
+        final List<Object> entries = new ArrayList<>();
+        final List<String> revertedLabels = new ArrayList<>();
+        final List<Integer> cursorMoves = new ArrayList<>();
+        int position;
+        Object currentGroup;
+        boolean revertVerified;
         private final FakeOpsAccess access;
         private final List<String> dispatchLabels = new ArrayList<>();
 
@@ -1794,6 +2029,37 @@ final class SessionOpsContractTest {
                     && !label.equals("edit-session.close")
                     && !label.equals("edit-session.cancel"))
                 .toList();
+        }
+
+        /**
+         * Simulates a host-side edit displacing the session's undo group: a foreign {@code
+         * GroupUndo} replaces {@code currentGroup} (native {@code beginEdit} semantics); with
+         * {@code commit} it is additionally pushed to history, as the foreign edit's own
+         * {@code endEdit(false)} would.
+         */
+        void displaceSessionGroup(final boolean commit) {
+            final Object foreign = new Object();
+            currentGroup = foreign;
+            if (commit) {
+                entries.add(foreign);
+                position = entries.size();
+                currentGroup = null;
+            }
+        }
+
+        HistorySnapshot snapshot() {
+            final List<HistoryEntry> rows = new ArrayList<>();
+            for (int i = 0; i < entries.size(); i++) {
+                rows.add(new HistoryEntry(i, "entry-" + i, true));
+            }
+            return new HistorySnapshot(
+                HistorySnapshot.Availability.AVAILABLE,
+                1,
+                7,
+                position,
+                rows,
+                position > 0,
+                position < entries.size());
         }
 
         @Override
@@ -1815,8 +2081,7 @@ final class SessionOpsContractTest {
 
         @Override
         public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding expected) {
-            return new HistorySnapshot(
-                HistorySnapshot.Availability.AVAILABLE, 1, 7, 0, List.of(), false, false);
+            return snapshot();
         }
 
         @Override
@@ -1824,6 +2089,7 @@ final class SessionOpsContractTest {
             final EditorAuthoringTransactionCoordinator.Binding expected,
             final String label
         ) {
+            currentGroup = editToken;
             return editToken;
         }
 
@@ -1833,6 +2099,18 @@ final class SessionOpsContractTest {
             final Object edit,
             final boolean cancel
         ) {
+            if (!cancel && currentGroup != null) {
+                entries.add(currentGroup);
+                position = entries.size();
+            }
+            currentGroup = null;
+        }
+
+        @Override
+        public Object currentEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected
+        ) {
+            return currentGroup;
         }
 
         @Override
@@ -1843,14 +2121,37 @@ final class SessionOpsContractTest {
         }
 
         @Override
+        public void undoGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object group
+        ) {
+        }
+
+        @Override
+        public void undoRedoTo(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final int target
+        ) {
+            cursorMoves.add(target);
+            position = Math.min(target, entries.size());
+        }
+
+        @Override
         public boolean undoRevertVerified(
             final EditorAuthoringTransactionCoordinator.Binding expected
         ) {
-            return false;
+            return revertVerified;
         }
 
         @Override
         public void revert(final EditorAuthoringTransactionCoordinator.Binding expected) {
+            revertedLabels.add("revert");
+            if (position > 0) {
+                // CUndoManager.revert: undo the entry at the cursor, then drop it and every
+                // entry above — position and the entry list both shrink.
+                entries.subList(position - 1, entries.size()).clear();
+                position--;
+            }
         }
 
         @Override

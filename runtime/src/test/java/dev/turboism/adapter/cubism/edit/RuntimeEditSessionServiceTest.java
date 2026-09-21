@@ -142,6 +142,7 @@ final class RuntimeEditSessionServiceTest {
             new EditorAuthoringTransactionCoordinator.Binding(
                 "plugin.test", "document-1", 1, "model-1", 1, Thread.currentThread()));
         boolean admitted = true;
+        private Object currentGroup;
         private final HistorySnapshot history = new HistorySnapshot(
             HistorySnapshot.Availability.AVAILABLE, 1, 1, 0, java.util.List.of(), false, false);
 
@@ -180,7 +181,8 @@ final class RuntimeEditSessionServiceTest {
             final EditorAuthoringTransactionCoordinator.Binding expected,
             final String label
         ) {
-            return new Object();
+            currentGroup = new Object();
+            return currentGroup;
         }
 
         @Override
@@ -189,12 +191,34 @@ final class RuntimeEditSessionServiceTest {
             final Object edit,
             final boolean cancel
         ) {
+            currentGroup = null;
         }
 
         @Override
         public void undoEditGroup(
             final EditorAuthoringTransactionCoordinator.Binding expected,
             final Object edit
+        ) {
+        }
+
+        @Override
+        public Object currentEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected
+        ) {
+            return currentGroup;
+        }
+
+        @Override
+        public void undoGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object group
+        ) {
+        }
+
+        @Override
+        public void undoRedoTo(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final int position
         ) {
         }
 

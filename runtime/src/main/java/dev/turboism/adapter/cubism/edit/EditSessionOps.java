@@ -673,31 +673,18 @@ final class EditSessionOps {
     }
 
     /**
-     * The verified post-write refresh: model instances update, palette refresh for the affected
-     * surfaces, dirty marking, canvas repaint. Runs inside the session's own edit bracket — the
-     * session already owns the outer edit mode, so no nested begin/end is opened here.
+     * The verified post-write refresh: the synchronous model-instance update plus dirty
+     * marking only. Palette and canvas refreshes deliberately do NOT run mid-session — the
+     * host posts them as deferred UI-thread callbacks whose listeners can open a native edit
+     * that displaces the session's current undo group (native {@code beginEdit} replaces the
+     * current group instead of nesting). The full refresh runs once after the session bracket
+     * closes through {@link EditorEditSessionHost#refreshAfterSession} — matching the official
+     * route, which refreshes at session end rather than per operation.
      */
-    void finishWrite(
-        final EditSessionOpsAccess access,
-        final boolean parameterPalette,
-        final boolean objectPalettes
-    ) {
+    void finishWrite(final EditSessionOpsAccess access) {
         access.invoke(
             "cubism.editor-model.model-source.update-instances", access.modelSource());
-        final Object pack = completePack(access);
-        if (parameterPalette) {
-            access.invoke(
-                "cubism.editor-model.complete-pack.update-parameter", pack, Boolean.TRUE);
-        }
-        if (objectPalettes) {
-            access.invoke(
-                "cubism.editor-model.complete-pack.update-part-palette", pack, Boolean.TRUE);
-            access.invoke(
-                "cubism.editor-model.complete-pack.update-deformer-palette", pack, Boolean.TRUE);
-        }
         access.invoke("cubism.editor-model.modeling-document.mark-dirty", access.document());
-        access.invoke(
-            "cubism.editor-model.complete-pack.repaint-canvas", pack, Boolean.TRUE);
     }
 
     // ------------------------------------------------------------------

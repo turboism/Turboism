@@ -131,7 +131,7 @@ final class SessionPartObjectOps implements PartObjectOps {
                 access.model(),
                 Boolean.TRUE);
             ops.addUndo(access, undo, "Turboism: Delete Object");
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -164,7 +164,7 @@ final class SessionPartObjectOps implements PartObjectOps {
                     "cubism.edit.op-unverified",
                     "MoveObjectOnPartsPalette reparenting is not verified on this Cubism host");
             }
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -217,6 +217,7 @@ final class SessionPartObjectOps implements PartObjectOps {
                 "cubism.editor-model.part-source.set-default-order",
                 created,
                 Integer.valueOf(request.drawOrder().orElse(0)));
+            initializePartKeyform(access, created);
             final Object rootHandler = partHandler(access, root);
             final int index = ops.list(
                 access.invoke("cubism.editor-model.part-source.children", root),
@@ -227,7 +228,7 @@ final class SessionPartObjectOps implements PartObjectOps {
                 created,
                 Integer.valueOf(index));
             ops.addUndo(access, undo, "Turboism: Add Part");
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -307,7 +308,7 @@ final class SessionPartObjectOps implements PartObjectOps {
                         source),
                     request.labelColor().get());
             }
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -442,7 +443,7 @@ final class SessionPartObjectOps implements PartObjectOps {
                         source),
                     request.labelColor().get());
             }
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -479,7 +480,7 @@ final class SessionPartObjectOps implements PartObjectOps {
                         source),
                     request.labelColor().get());
             }
-            ops.finishWrite(access, false, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -1038,6 +1039,35 @@ final class SessionPartObjectOps implements PartObjectOps {
             throw ops.unavailable("Editor part handler is unavailable.");
         }
         return handler;
+    }
+
+    /**
+     * Seeds the created part's keyform state the way the official {@code AddPart} route and the
+     * host's own source setup do: a fresh {@code CPartForm} with a new {@code CFormGuid}
+     * registered on the source's keyform list, then a {@code KeyformGridSource} primed by
+     * {@code setInitialKeyform} so the grid holds one initial keyform bound to that form.
+     * Without it the first {@code updateModelInstances} reaches part-form interpolation with an
+     * empty binding table and dereferences a null keyform.
+     */
+    private void initializePartKeyform(
+        final EditSessionOpsAccess access,
+        final Object partSource
+    ) {
+        final Object form = access.construct(
+            "cubism.editor-model.part-form.create", partSource, null);
+        final Object formGuid = access.construct("cubism.editor-model.form-guid.create");
+        access.invoke("cubism.editor-model.form.set-guid", form, formGuid);
+        final Object keyforms = access.invoke(
+            "cubism.editor-model.part-source.keyforms", partSource);
+        access.invoke("cubism.editor-model.c-array-list.add", keyforms, form);
+        final Object grid = access.construct(
+            "cubism.editor-model.keyform-grid-source.create", partSource);
+        access.invoke(
+            "cubism.editor-model.keyform-grid-source.set-initial-keyform", grid, formGuid);
+        access.invoke(
+            "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source",
+            partSource,
+            grid);
     }
 
     private Object partForm(final EditSessionOpsAccess access, final Object partSource) {

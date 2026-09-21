@@ -97,7 +97,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                 hostSource,
                 Integer.valueOf(ops.groupChildren(access, parent).size()));
             ops.addUndo(access, undo, "Turboism: Add Parameter");
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -136,7 +136,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                 hostGroup,
                 Integer.valueOf(ops.groupChildren(access, root).size()));
             ops.addUndo(access, undo, "Turboism: Add Parameter Group");
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -160,7 +160,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                     "EditParameter(newId)");
             }
             updateParameter(access, ops.requireParameterSource(access, request.id()), request);
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -208,7 +208,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                     access.invoke("cubism.editor-model.parameter-group.label-color", group),
                     labelColor);
             }
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -234,7 +234,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                 parameterSet,
                 Boolean.TRUE);
             ops.addUndo(access, undo, "Turboism: Delete Parameter");
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -268,7 +268,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                 Boolean.TRUE,
                 Boolean.TRUE);
             ops.addUndo(access, undo, "Turboism: Delete Parameter Group");
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -293,7 +293,7 @@ final class SessionParameterStructureOps implements ParameterStructureOps {
                 current,
                 Integer.valueOf(index));
             ops.addUndo(access, undo, "Turboism: Move Parameter");
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }

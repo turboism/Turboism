@@ -159,7 +159,16 @@ public final class RuntimeEditSessionManager {
                     "recovery selector result"
                 );
                 recovery.recover(host, new EditSessionRecoveryRequest(
-                    session.binding(), session.editToken(), session.historyBefore()));
+                    session.binding(),
+                    session.editToken(),
+                    session.historyBefore(),
+                    message -> {
+                        try {
+                            session.uiLock().log(message);
+                        } catch (RuntimeException ignored) {
+                            // diagnostics must never mask the recovery outcome
+                        }
+                    }));
                 result = EditSessionCloseResult.cancelled(source);
             } catch (EditSessionException | RuntimeException failure) {
                 result = EditSessionCloseResult.failed(
@@ -189,6 +198,47 @@ public final class RuntimeEditSessionManager {
                 active = null;
             }
             try {
+                // A host-side beginEdit during the session (deferred palette/selection
+                // callbacks included) replaces currentUndo without closing the session's
+                // group — committing now would push the foreign group and orphan the
+                // session's undoables. Restore the pre-session state and report failure.
+                final Object currentGroup = host.currentEditGroup(session.binding());
+                if (currentGroup != session.editToken()) {
+                    try {
+                        session.uiLock().log(
+                            "edit-session close: the session undo group was displaced by a "
+                                + "host-side edit; reconciling to the pre-session state");
+                    } catch (RuntimeException ignored) {
+                        // diagnostics must never mask the close outcome
+                    }
+                    try {
+                        EditSessionRecoveries.reconcileToStart(
+                            host,
+                            new EditSessionRecoveryRequest(
+                                session.binding(),
+                                session.editToken(),
+                                session.historyBefore(),
+                                message -> {
+                                    try {
+                                        session.uiLock().log(message);
+                                    } catch (RuntimeException ignored) {
+                                        // diagnostics are advisory
+                                    }
+                                }));
+                    } catch (EditSessionException | RuntimeException reconcileFailure) {
+                        disengage(session);
+                        editScopeGate.set(false);
+                        return EditSessionCloseResult.failed(
+                            host.diagnosticId(CODE_CLOSE_FAILED, reconcileFailure));
+                    }
+                    disengage(session);
+                    editScopeGate.set(false);
+                    return EditSessionCloseResult.failed(
+                        host.diagnosticId(
+                            CODE_CLOSE_FAILED,
+                            new IllegalStateException(
+                                "Editor edit session group was displaced by a host-side edit")));
+                }
                 host.endEdit(session.binding(), session.editToken(), false);
             } catch (RuntimeException failure) {
                 try {

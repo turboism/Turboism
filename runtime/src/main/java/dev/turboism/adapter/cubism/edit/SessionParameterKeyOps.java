@@ -56,7 +56,7 @@ final class SessionParameterKeyOps implements ParameterKeyOps {
                 grid,
                 Float.valueOf((float) request.keyValue()),
                 guid);
-            ops.finishWrite(access, true, true);
+            ops.finishWrite(access);
             return true;
         });
     }
@@ -126,7 +126,7 @@ final class SessionParameterKeyOps implements ParameterKeyOps {
                 }
             }
             if (deleted) {
-                ops.finishWrite(access, true, true);
+                ops.finishWrite(access);
             }
             return deleted;
         });
@@ -199,7 +199,7 @@ final class SessionParameterKeyOps implements ParameterKeyOps {
                 }
             }
             if (moved) {
-                ops.finishWrite(access, true, true);
+                ops.finishWrite(access);
             }
             return moved;
         });
