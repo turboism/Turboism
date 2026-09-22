@@ -60,7 +60,8 @@
   "dev/turboism/mapping/verification/selector/EditorEditParameterStructureSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorEditSelectionSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorEditPartObjectSelectorContract.java",
-  "dev/turboism/mapping/verification/selector/EditorEditDeformerSelectorContract.java"
+  "dev/turboism/mapping/verification/selector/EditorEditDeformerSelectorContract.java",
+  "dev/turboism/mapping/verification/selector/EditorIntegrationWebSocketSelectorContract.java"
  ],
  "coverage": true,
  "coverageSources": [],

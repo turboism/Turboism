@@ -22,6 +22,7 @@ import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContr
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorIntegrationWebSocketSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
@@ -211,7 +212,8 @@ public final class EditorModelVerificationManifest {
         EditorEditDeformerSelectorContract.ADD_ROTATION_DEFORMER_CAPABILITY_ID,
         EditorEditDeformerSelectorContract.ADD_WARP_DEFORMER_CAPABILITY_ID,
         EditorEditDeformerSelectorContract.EDIT_ROTATION_DEFORMER_CAPABILITY_ID,
-        EditorEditDeformerSelectorContract.EDIT_WARP_DEFORMER_CAPABILITY_ID
+        EditorEditDeformerSelectorContract.EDIT_WARP_DEFORMER_CAPABILITY_ID,
+        EditorIntegrationWebSocketSelectorContract.DISPATCH_CAPABILITY_ID
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
@@ -750,7 +752,10 @@ public final class EditorModelVerificationManifest {
                     EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES,
                     union(
                         EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES,
-                        TEXTURE_ATLAS_ALIASES
+                        union(
+                            TEXTURE_ATLAS_ALIASES,
+                            EditorIntegrationWebSocketSelectorContract.REQUIRED_ALIASES
+                        )
                     )
                 )
             )

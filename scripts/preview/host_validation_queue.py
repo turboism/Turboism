@@ -579,9 +579,11 @@ def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) ->
             index += 2
         else:
             raise QueueError(f"unsupported normalized runner option: {flag}")
-    if not any(flag in options for flag in ("--client-script", "--client-python")):
-        if not task_spec.startswith("mcp:") and options.get("--name") != ["mcp"]:
-            return None
+    if not task_spec.startswith("mcp:") and options.get("--name") != ["mcp"]:
+        # Another task family; its own reviewer decides whether its client is
+        # admitted. A client flag with no claiming reviewer is still rejected
+        # downstream in _capture.
+        return None
     versions = options.get("--version", [])
     if (options.get("--name") != ["mcp"] or len(versions) != 1
             or versions[0] not in {"5203", "5302", "5303"}
@@ -604,6 +606,48 @@ def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) ->
             or not interpreter.is_file() or not os.access(interpreter, os.X_OK)):
         raise QueueError("MCP client requires the preparing Python interpreter")
     return {"option": "mcp-client-python", "path": str(interpreter),
+            "sha256": runtime_digest(interpreter)}
+
+
+def edit_protocol_client_dependency(argv: list[str], source_root: Path, task_spec: str) -> dict[str, str] | None:
+    """Admit only the reviewed edit-protocol stdlib WebSocket client."""
+    options: dict[str, list[str]] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag in BOOLEAN_FLAGS:
+            options.setdefault(flag, []).append("")
+            index += 1
+        elif flag in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS and index + 1 < len(argv):
+            options.setdefault(flag, []).append(argv[index + 1])
+            index += 2
+        else:
+            raise QueueError(f"unsupported normalized runner option: {flag}")
+    if not task_spec.startswith("edit-protocol:") and options.get("--name") != ["edit-protocol"]:
+        return None
+    versions = options.get("--version", [])
+    if (options.get("--name") != ["edit-protocol"] or len(versions) != 1
+            or versions[0] not in {"5203", "5302", "5303"}
+            or task_spec not in {"direct-runner", "edit-protocol:" + versions[0]}):
+        raise QueueError("custom client requires reviewed dependency inventory for the exact edit-protocol task")
+    client = (source_root / "validation/protocol-edit-compat-host-probe"
+              / "client/protocol_edit_host_probe.py")
+    expected = {
+        "--client-script": [str(client) + ":protocol-edit-host-probe.py"],
+        "--result-file": ["state/edit-protocol-host-validation-result.properties"],
+        "--require-fixture-unchanged": [""],
+    }
+    if any(options.get(flag) != values for flag, values in expected.items()):
+        raise QueueError("edit-protocol client requires exact unshadowed dependency inventory and result protocol")
+    if any(flag in options for flag in ("--remote-pre-launch", "--remote-post-launch",
+            "--remote-pre-cleanup", "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+            "--focus-editor-window")):
+        raise QueueError("edit-protocol client dependency inventory cannot include extra hooks or desktop focus control")
+    interpreter = Path(sys.executable).resolve(strict=True)
+    if (options.get("--client-python") != [str(interpreter)]
+            or not interpreter.is_file() or not os.access(interpreter, os.X_OK)):
+        raise QueueError("edit-protocol client requires the preparing Python interpreter")
+    return {"option": "edit-protocol-client-python", "path": str(interpreter),
             "sha256": runtime_digest(interpreter)}
 
 
@@ -632,6 +676,7 @@ class PreparedStore:
         source_root = source_root.resolve(strict=True)
         memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
         mcp_dependency = mcp_client_dependency(argv, source_root, task_spec)
+        edit_protocol_dependency = edit_protocol_client_dependency(argv, source_root, task_spec)
         if self.store.production and "--host-root" in argv:
             from host_validation_retention import check_space
             check_space(self.store.root, (Path(argv[argv.index("--host-root") + 1]),))
@@ -654,7 +699,8 @@ class PreparedStore:
             rendered: list[str] = []
             source_inputs: list[dict[str, Any]] = []
             host_dependencies: list[dict[str, str]] = [
-                item for item in (memory_dependency, mcp_dependency) if item is not None
+                item for item in (memory_dependency, mcp_dependency, edit_protocol_dependency)
+                if item is not None
             ]
             index = 0
             while index < len(argv):
@@ -669,7 +715,8 @@ class PreparedStore:
                 index += 2
                 if flag == "--transport" and value != "local":
                     raise QueueError("only local host execution is supported")
-                if flag == "--client-script" and mcp_dependency is None:
+                if flag in ("--client-script", "--client-python") \
+                        and mcp_dependency is None and edit_protocol_dependency is None:
                     raise QueueError("custom client requires reviewed dependency inventory")
                 if flag in {"--proton-wrapper", "--proton-runner"}:
                     dependency = Path(value)
