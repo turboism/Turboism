@@ -97,6 +97,19 @@ public interface CubismFacade {
     }
 
     /**
+     * Returns the external-application editing session service.
+     *
+     * <p>The default fails closed: sessions opened through it admit no operations until a
+     * Runtime backend with verified editor bindings is installed.</p>
+     *
+     * @return the editing session service
+     */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default dev.turboism.sdk.cubism.edit.EditSessionService edit() {
+        return dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
+    }
+
+    /**
      * Returns the legacy queued command transaction manager for Preview compatibility.
      *
      * <p>This queue is not the implementation of {@link #authoringTransactions()}.</p>

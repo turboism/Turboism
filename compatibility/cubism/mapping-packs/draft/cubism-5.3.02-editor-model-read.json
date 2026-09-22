@@ -1483,6 +1483,60 @@
       "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/CEPaletteCtrl_Param;"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.main_window",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.main-frame.main-window",
+      "runtime": "getMainFrame",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/ui/window/CFrame;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.main-frame.main-window",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.main_window",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; T7 session UI-lock binding"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.main_frame_jframe",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.main-frame.jframe",
+      "runtime": "getJFrame",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/window/CFrame",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljavax/swing/JFrame;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.main-frame.jframe",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.main_frame_jframe",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; T7 session UI-lock binding"
+      }
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.class.parameter_palette",
       "kind": "class",
       "owner": "editor-model-readwrite",
@@ -15775,8 +15829,707 @@
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification"
       }
-    }
-  ],
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.art_mesh_source_color_composition",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.art-mesh-source.color-composition",
+      "runtime": "getColorComposition",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.art-mesh-source.color-composition",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.art_mesh_source_color_composition",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.art_mesh_source_alpha_composition",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.art-mesh-source.alpha-composition",
+      "runtime": "getAlphaComposition",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/AlphaComposition;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.art-mesh-source.alpha-composition",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.art_mesh_source_alpha_composition",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.float_color_hex_rgb",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.float-color.hex-rgb",
+      "runtime": "getHexRGB",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CFloatColor",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/String;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.float-color.hex-rgb",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.float_color_hex_rgb",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_name_or_id_string",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-controllable-source.name-or-id-string",
+      "runtime": "getNameOrIdString",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/String;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-controllable-source.name-or-id-string",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_name_or_id_string",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_target_deformer_id",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-controllable-source.target-deformer-id",
+      "runtime": "getTargetDeformerId",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/id/CDeformerId;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-controllable-source.target-deformer-id",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_source_target_deformer_id",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_interpolated_form",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-controllable.interpolated-form",
+      "runtime": "getInterpolatedForm",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllable",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-controllable.interpolated-form",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_controllable_interpolated_form",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.part_form_draw_order",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.part-form.draw-order",
+      "runtime": "getDrawOrder",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartForm",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.part-form.draw-order",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.part_form_draw_order",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.part_form_multiply_color",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.part-form.multiply-color",
+      "runtime": "getMultiplyColor",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartForm",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/type/CFloatColor;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.part-form.multiply-color",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.part_form_multiply_color",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.part_form_screen_color",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.part-form.screen-color",
+      "runtime": "getScreenColor",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartForm",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/type/CFloatColor;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.part-form.screen-color",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.part_form_screen_color",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.part_source_enable_draw_order_group",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.part-source.enable-draw-order-group",
+      "runtime": "getEnableDrawOrderGroup",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Z",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.part-source.enable-draw-order-group",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.part_source_enable_draw_order_group",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.part_source_invert_clipping_mask",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.part-source.invert-clipping-mask",
+      "runtime": "getInvertClippingMask",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Z",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.part-source.invert-clipping-mask",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.part_source_invert_clipping_mask",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.part_source_color_composition",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.part-source.color-composition",
+      "runtime": "getColorComposition",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.part-source.color-composition",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.part_source_color_composition",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.selection_guid_list",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.update-manager.selection-guid-list",
+      "runtime": "getSelectionGuidList",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEUpdateManager",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.update-manager.selection-guid-list",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.selection_guid_list",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.warp_bezier_extension",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.warp-bezier-extension.class",
+      "runtime": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.warp-bezier-extension.class",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.class.warp_bezier_extension",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_edit_level",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.warp-bezier-extension.edit-level",
+      "runtime": "getEditLevel",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.warp-bezier-extension.edit-level",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_edit_level",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_bezier_col",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.warp-bezier-extension.bezier-col",
+      "runtime": "getBezierCol",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.warp-bezier-extension.bezier-col",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_bezier_col",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_bezier_row",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.warp-bezier-extension.bezier-row",
+      "runtime": "getBezierRow",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.warp-bezier-extension.bezier-row",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_bezier_extension_bezier_row",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_history.method.revert",
+          "kind": "method",
+          "owner": "editor-history-read",
+          "name": "cubism.editor-history.manager.revert",
+          "runtime": "revert",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/undo/CUndoManager",
+                "requiredAccessFlags": 49,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "()V",
+          "x.review": {
+                "recordAlias": "cubism.editor-history.manager.revert",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_history.method.revert",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.edit_mode_current_undo",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.edit-mode.current-undo",
+          "runtime": "getCurrentUndo",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/ACEditMode",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "()Lcom/live2d/undo/GroupUndo;",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.edit-mode.current-undo",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.edit_mode_current_undo",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.keyform_grid_set_initial_keyform",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.keyform-grid-source.set-initial-keyform",
+          "runtime": "setInitialKeyform",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(Lcom/live2d/type/CFormGuid;)V",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.keyform-grid-source.set-initial-keyform",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.keyform_grid_set_initial_keyform",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_default",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.parameter-source.set-default",
+          "runtime": "setDefaultValue",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(F)V",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.parameter-source.set-default",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_default",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_maximum",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.parameter-source.set-maximum",
+          "runtime": "setMaxValue",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(F)V",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.parameter-source.set-maximum",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_maximum",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_id",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.parameter-source.set-id",
+          "runtime": "setId",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(Lcom/live2d/cubism/doc/model/id/CParameterId;)V",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.parameter-source.set-id",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_id",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_minimum",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.parameter-source.set-minimum",
+          "runtime": "setMinValue",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(F)V",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.parameter-source.set-minimum",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_minimum",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_name",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.parameter-source.set-name",
+          "runtime": "setName",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+                "requiredAccessFlags": 1,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(Ljava/lang/String;)V",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.parameter-source.set-name",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.parameter_source_set_name",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_02.editor_model.method.undo_group_undo",
+          "kind": "method",
+          "owner": "editor-model-readwrite",
+          "name": "cubism.editor-model.undo.group-undo",
+          "runtime": "undo",
+          "profile": "cubism-5.3.02",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/undo/GroupUndo",
+                "requiredAccessFlags": 1,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "()V",
+          "x.review": {
+                "recordAlias": "cubism.editor-model.undo.group-undo",
+                "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.undo_group_undo",
+                "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "provenance": "exact 5.3.02 classfile verification; spec 046 edit-session record-parity backfill"
+          }
+    }  ],
   "metadata": {
     "inventoryRef": "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
     "artifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
@@ -15786,8 +16539,8 @@
       "main": "b8c09b5a",
       "entryUnionCount": 393
     },
-    "selectorCount": 774,
-    "capabilityCount": 64,
+    "selectorCount": 802,
+    "capabilityCount": 101,
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -15809,6 +16562,42 @@
       "cubism.editor-model.deformer-inspector.write",
       "cubism.editor-model.edit-level.read",
       "cubism.editor-model.edit-level.write",
+      "cubism.editor-model.edit.deformer.add-rotation-deformer",
+      "cubism.editor-model.edit.deformer.add-warp-deformer",
+      "cubism.editor-model.edit.deformer.edit-rotation-deformer",
+      "cubism.editor-model.edit.deformer.edit-warp-deformer",
+      "cubism.editor-model.edit.deformer.get-deformer-structure",
+      "cubism.editor-model.edit.parameter-key.add-parameter-key",
+      "cubism.editor-model.edit.parameter-key.delete-parameter-key",
+      "cubism.editor-model.edit.parameter-key.get-objects-by-parameter-keys",
+      "cubism.editor-model.edit.parameter-key.get-parameter-keys",
+      "cubism.editor-model.edit.parameter-key.move-parameter-key",
+      "cubism.editor-model.edit.parameter-structure.add-parameter",
+      "cubism.editor-model.edit.parameter-structure.add-parameter-group",
+      "cubism.editor-model.edit.parameter-structure.delete-parameter",
+      "cubism.editor-model.edit.parameter-structure.delete-parameter-group",
+      "cubism.editor-model.edit.parameter-structure.edit-parameter",
+      "cubism.editor-model.edit.parameter-structure.edit-parameter-group",
+      "cubism.editor-model.edit.parameter-structure.get-parameter-structure",
+      "cubism.editor-model.edit.parameter-structure.move-parameter",
+      "cubism.editor-model.edit.parameter-structure.move-parameter-group",
+      "cubism.editor-model.edit.part-object.add-part",
+      "cubism.editor-model.edit.part-object.delete-object",
+      "cubism.editor-model.edit.part-object.edit-art-mesh",
+      "cubism.editor-model.edit.part-object.edit-glue",
+      "cubism.editor-model.edit.part-object.edit-part",
+      "cubism.editor-model.edit.part-object.get-object",
+      "cubism.editor-model.edit.part-object.get-part-structure",
+      "cubism.editor-model.edit.part-object.move-object-on-parts-palette",
+      "cubism.editor-model.edit.selection.add-selected-objects",
+      "cubism.editor-model.edit.selection.clear-selected-objects",
+      "cubism.editor-model.edit.selection.get-selected-objects",
+      "cubism.editor-model.edit.session.edit-begin",
+      "cubism.editor-model.edit.session.edit-end",
+      "cubism.editor-model.edit.session.edit-send-log",
+      "cubism.editor-model.edit.session.edit-send-progress",
+      "cubism.editor-model.edit.session.get-is-edit-approval",
+      "cubism.editor-model.edit.session.notify-undo-cancel",
       "cubism.editor-model.glue-inspector.write",
       "cubism.editor-model.model-instance.read",
       "cubism.editor-model.model-name.write",
@@ -15844,6 +16633,7 @@
       "cubism.editor-model.statistics.read",
       "cubism.editor-model.texture.read",
       "cubism.editor-model.texture.write",
+      "cubism.editor-model.undo.revert",
       "cubism.editor-model.warp-deformer.parameter-bindings.write",
       "cubism.editor-model.warp-deformer.write",
       "cubism.editor-model.write",
@@ -15854,6 +16644,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "049da8b96678e4563f6c788f1ed0ebe14df0e165aa2e1e2f4f5cb121d63551cc"
+    "verificationRecordSha256": "943da932caee7fb17079b20031fba533c8544f008ae7128277e86d80625d09c0"
   }
 }

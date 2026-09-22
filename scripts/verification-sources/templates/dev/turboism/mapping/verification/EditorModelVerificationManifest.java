@@ -9,6 +9,12 @@ import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorCont
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditDeformerSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditParameterKeySelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditParameterStructureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditPartObjectSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
@@ -168,7 +174,44 @@ public final class EditorModelVerificationManifest {
         EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
         "cubism.editor-model.part-inspector.write",
         "cubism.editor-model.deformer-inspector.write",
-        "cubism.editor-model.glue-inspector.write"
+        "cubism.editor-model.glue-inspector.write",
+        EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditSelectionSelectorContract.ADD_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditSelectionSelectorContract.CLEAR_SELECTED_OBJECTS_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.GET_OBJECT_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.GET_IS_EDIT_APPROVAL_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_END_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_SEND_LOG_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.EDIT_SEND_PROGRESS_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.NOTIFY_UNDO_CANCEL_CAPABILITY_ID,
+        EditorEditSessionSelectorContract.UNDO_REVERT_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.ADD_PARAMETER_KEY_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.DELETE_PARAMETER_KEY_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.MOVE_PARAMETER_KEY_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.GET_PARAMETER_KEYS_CAPABILITY_ID,
+        EditorEditParameterKeySelectorContract.GET_OBJECTS_BY_PARAMETER_KEYS_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.GET_PARAMETER_STRUCTURE_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.ADD_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.ADD_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.EDIT_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.EDIT_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.DELETE_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.DELETE_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.MOVE_PARAMETER_CAPABILITY_ID,
+        EditorEditParameterStructureSelectorContract.MOVE_PARAMETER_GROUP_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.GET_PART_STRUCTURE_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.DELETE_OBJECT_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.MOVE_OBJECT_ON_PARTS_PALETTE_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.ADD_PART_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.EDIT_PART_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.EDIT_ART_MESH_CAPABILITY_ID,
+        EditorEditPartObjectSelectorContract.EDIT_GLUE_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.GET_DEFORMER_STRUCTURE_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.ADD_ROTATION_DEFORMER_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.ADD_WARP_DEFORMER_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.EDIT_ROTATION_DEFORMER_CAPABILITY_ID,
+        EditorEditDeformerSelectorContract.EDIT_WARP_DEFORMER_CAPABILITY_ID
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
@@ -214,6 +257,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-source-set.get-by-id",
         "cubism.editor-model.parameter-source.create",
         "cubism.editor-model.parameter-source.param-type",
+        "cubism.editor-model.parameter-source.set-id",
         "cubism.editor-model.parameter-source.set-repeat",
         "cubism.editor-model.parameter-source.type-morph-target",
         "cubism.editor-model.parameter-source.type-normal",
@@ -303,6 +347,10 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-source.maximum",
         "cubism.editor-model.parameter-source.default",
         "cubism.editor-model.parameter-source.name",
+        "cubism.editor-model.parameter-source.set-name",
+        "cubism.editor-model.parameter-source.set-minimum",
+        "cubism.editor-model.parameter-source.set-maximum",
+        "cubism.editor-model.parameter-source.set-default",
         "cubism.editor-model.parameter-source.repeat",
         "cubism.editor-model.parameter-source.morph-target",
         "cubism.editor-model.parameter-source.combined",
@@ -315,6 +363,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.app-controller.complete-pack",
         "cubism.editor-model.main-frame.class",
         "cubism.editor-model.app-controller.main-frame",
+        "cubism.editor-model.main-frame.main-window",
+        "cubism.editor-model.main-frame.jframe",
         "cubism.editor-model.main-frame.parameter-palette",
         "cubism.editor-model.parameter-palette.class",
         "cubism.editor-model.parameter-palette.view",
@@ -329,9 +379,12 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.modeling-document.mark-dirty",
         "cubism.editor-model.edit-mode.class",
         "cubism.editor-model.edit-mode.begin",
+        "cubism.editor-model.edit-mode.current-undo",
         "cubism.editor-model.edit-mode.end",
         "cubism.editor-model.undo.class",
         "cubism.editor-model.undo.add",
+        "cubism.editor-model.undo.group-undo",
+        "cubism.editor-history.manager.revert",
         "cubism.editor-model.undo.local-simple-factory-instance",
         "cubism.editor-model.undo.local-simple-factory-create",
         "cubism.editor-model.simple-undo.create",
@@ -356,6 +409,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.all-objects",
         "cubism.editor-model.parameter-controllable.class",
         "cubism.editor-model.parameter-controllable.keyform-grid",
+        "cubism.editor-model.parameter-controllable.interpolated-form",
         "cubism.editor-model.keyform-grid.class",
         "cubism.editor-model.keyform-grid.contains-parameter",
         "cubism.editor-model.parameter-controllable.morph-target-set",
@@ -392,6 +446,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.color.green",
         "cubism.editor-model.color.blue",
         "cubism.editor-model.color.alpha",
+        "cubism.editor-model.float-color.hex-rgb",
         "cubism.editor-model.undo-listener.class",
         "cubism.editor-model.parameter-source.set-combined",
         "cubism.editor-model.parameter-source.parent-group",
@@ -402,6 +457,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.parts",
         "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.model-source.update-visible-lock-hierarchy",
+        "cubism.editor-model.update-manager.selection-guid-list",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
         "cubism.editor-model.part.source",
@@ -419,11 +475,17 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-source.create-undo-for-basic-settings",
         "cubism.editor-model.part-source.parent",
         "cubism.editor-model.part-source.use-offscreen",
+        "cubism.editor-model.part-source.enable-draw-order-group",
+        "cubism.editor-model.part-source.invert-clipping-mask",
+        "cubism.editor-model.part-source.color-composition",
         "cubism.editor-model.part-source.handler",
         "cubism.editor-model.part-handler.class",
         "cubism.editor-model.part-handler.create-undo-for-all-edit",
         "cubism.editor-model.part-form.class",
+        "cubism.editor-model.part-form.draw-order",
         "cubism.editor-model.part-form.opacity",
+        "cubism.editor-model.part-form.multiply-color",
+        "cubism.editor-model.part-form.screen-color",
         "cubism.editor-model.part-form.set-opacity",
         "cubism.editor-model.part-id.class",
         "cubism.editor-model.part-id.value",
@@ -439,6 +501,9 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
         "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
         "cubism.editor-model.parameter-controllable-source.target-deformer-source",
+        "cubism.editor-model.parameter-controllable-source.target-deformer-id",
+        "cubism.editor-model.parameter-controllable-source.name-or-id-string",
+        "cubism.editor-model.parameter-controllable-source.extensions",
         "cubism.editor-model.art-mesh.source",
         "cubism.editor-model.art-mesh.current-keyform",
         "cubism.editor-model.drawable-form.opacity",
@@ -452,6 +517,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.art-mesh-source.inverted-mask",
         "cubism.editor-model.art-mesh-source.guid",
         "cubism.editor-model.art-mesh-source.clip-guid-list",
+        "cubism.editor-model.art-mesh-source.color-composition",
+        "cubism.editor-model.art-mesh-source.alpha-composition",
         "cubism.editor-model.art-mesh-source.texture",
         "cubism.editor-model.texture.guid",
         "cubism.editor-model.art-mesh-source.set-clip-guid-list",
@@ -498,6 +565,10 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.warp-source.col",
         "cubism.editor-model.warp-source.quad-transform",
         "cubism.editor-model.warp-form.positions",
+        "cubism.editor-model.warp-bezier-extension.class",
+        "cubism.editor-model.warp-bezier-extension.edit-level",
+        "cubism.editor-model.warp-bezier-extension.bezier-col",
+        "cubism.editor-model.warp-bezier-extension.bezier-row",
         "cubism.editor-model.rotation-source.base-angle",
         "cubism.editor-model.rotation-form.angle",
         "cubism.editor-model.rotation-form.origin-x",
@@ -630,6 +701,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid.reverse-parameter",
         "cubism.editor-model.keyform-grid.change-parameter",
         "cubism.editor-model.keyform-grid.add-key",
+        "cubism.editor-model.keyform-grid-source.set-initial-keyform",
         "cubism.editor-model.keyform-grid.remove-key",
         "cubism.editor-model.keyform-grid.remove-all-key",
         "cubism.editor-model.keyform-grid.rearrange-keys"
@@ -738,6 +810,27 @@ public final class EditorModelVerificationManifest {
     );
 
     /**
+     * GetObject extended read members that exist only on Cubism 5.3.02+ hosts
+     * (offscreen/clipping/blend part reads, part-form visual reads, and the
+     * alpha-composition enum carriers); absent from the 5.2 record, so they are
+     * removed from the 5.2 manifest alias set and GetObject Part/ArtMesh reads
+     * stay fail-closed there.
+     */
+    private static final Set<String> GET_OBJECT_5302_ONLY_ALIASES = Set.of(
+        "cubism.editor-model.part-source.use-offscreen",
+        "cubism.editor-model.part-source.clip-guid-list",
+        "cubism.editor-model.part-source.invert-clipping-mask",
+        "cubism.editor-model.part-source.color-composition",
+        "cubism.editor-model.part-source.alpha-composition",
+        "cubism.editor-model.art-mesh-source.alpha-composition",
+        "cubism.editor-model.alpha-composition.values",
+        "cubism.editor-model.part-form.class",
+        "cubism.editor-model.part-form.opacity",
+        "cubism.editor-model.part-form.multiply-color",
+        "cubism.editor-model.part-form.screen-color"
+    );
+
+    /**
      * @param artifact digest of the host jar
      * @return the profile suffix used to name this slice's bundled resources
      *     (for example {@code 5.3.02}), derived from the reviewed record rather
@@ -819,8 +912,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.parameter-controllable-source.internal-set-parent",
             "cubism.editor-model.parameter-group.guid",
             "cubism.editor-model.part-source.remove-child",
-            "cubism.editor-model.part.id",
-            "cubism.editor-model.update-manager.selection-guid-list"
+            "cubism.editor-model.part.id"
         ));
         return Set.copyOf(values);
     }
@@ -1595,6 +1687,7 @@ public final class EditorModelVerificationManifest {
         values.addAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES);
         values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
         values.addAll(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES);
+        values.removeAll(GET_OBJECT_5302_ONLY_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         return Set.copyOf(values);
     }
