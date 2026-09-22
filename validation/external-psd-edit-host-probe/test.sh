@@ -24,6 +24,8 @@ javac --release 17 -Xlint:all -cp "${sdk[0]}:build/external-psd-edit-host-probe.
   validation/external-psd-edit-host-probe/test/com/live2d/ui/treeTable/j.java
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.PsdValidationContentTest
+java -Xmx192m -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
+  dev.turboism.validation.externalpsd.PsdValidationContentTest --bounded-f1
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.PsdStructuralStateTest
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
