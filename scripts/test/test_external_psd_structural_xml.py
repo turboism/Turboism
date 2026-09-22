@@ -67,16 +67,26 @@ class StructuralXmlTests(unittest.TestCase):
                          self.observe(document("sdk", "new-b")))
         self.assertNotEqual(self.observe(document()), self.observe(document(layer="other")))
 
-    def test_affine_clipping_and_record_order_are_visible(self):
+    def test_affine_and_record_order_are_visible(self):
         translated = RECORD.replace('m02="0"', 'm02="2"')
-        clipped = RECORD.replace('<null xs.n="clippingOnTexturePx" />',
-            '<CRect xs.n="clippingOnTexturePx"><i xs.n="x">1</i><i xs.n="y">2</i>'
-            '<i xs.n="width">3</i><i xs.n="height">4</i></CRect>')
         baseline = self.observe(document())
         self.assertNotEqual(baseline, self.observe(document(records=[translated])))
-        self.assertNotEqual(baseline, self.observe(document(records=[clipped])))
         self.assertNotEqual(self.observe(document(records=[RECORD, translated])),
                             self.observe(document(records=[translated, RECORD])))
+
+    def test_unverified_non_null_clipping_and_malformed_null_are_rejected(self):
+        # The exact host field is AClip, not CRect. Only null has been verified
+        # in saved archives; the live ClipByMesh reader is a separate observer.
+        for value in (
+            '<CRect xs.n="clippingOnTexturePx"><i xs.n="x">1</i><i xs.n="y">2</i>'
+            '<i xs.n="width">3</i><i xs.n="height">4</i></CRect>',
+            '<ClipByMesh xs.n="clippingOnTexturePx"/>',
+            '<null xs.n="clippingOnTexturePx"><ClipByMesh/></null>',
+            '<null xs.n="clippingOnTexturePx">unexpected</null>',
+        ):
+            with self.subTest(value=value), self.assertRaises(xml.InvalidStructure):
+                self.observe(document(records=[RECORD.replace(
+                    '<null xs.n="clippingOnTexturePx" />', value)]))
 
     def test_empty_binding_is_preserved_and_missing_reference_rejected(self):
         empty = self.observe(document(records=[]))
