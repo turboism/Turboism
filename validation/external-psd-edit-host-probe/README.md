@@ -540,6 +540,24 @@ The public SDK lacks raw input affine/clipping values: these remain explicitly u
 until supplemented by independent read-only serialized/native evidence. Final viewport
 presentation is also unavailable. Collection PASS alone cannot satisfy F5 or SC-006.
 
+Compare two collected task directories with:
+
+```bash
+python3 validation/external-psd-edit-host-probe/structural_compare.py NATIVE_DIRECTORY SDK_DIRECTORY
+```
+
+Each directory must contain `bound-job.json`, `lifecycle-result.json` and the SHA-bound
+`external-psd-edit-result.properties`. The auditor checks independent successful task identities,
+safe cleanup, unchanged fixture/official JAR, staged artifact hashes, the same probe and variant
+input, command/revision completion and all five observation stages. Agent hashes are reported
+separately so a runtime fix can be compared with an earlier official baseline.
+Only cross-task history object identities and exact scope declarations are excluded; each history
+identity must remain stable within its task. Names, order, colors and geometry differences remain
+visible. Exit 0 means `OBSERVED_FIELDS_MATCH`, 1 means `OBSERVED_FIELDS_MISMATCH`, and 2 means
+rejected/incomplete evidence. Every result retains `F5=NOT_CLAIMED`; live input affine/clipping,
+dirty state and final viewport presentation still need independent evidence. Synthetic auditor
+regressions: `python3 scripts/test/test_external_psd_structural_compare.py`.
+
 For an independent saved-input supplement, extract `main.xml` with the official ArchiveReader
 and run `python3 validation/external-psd-edit-host-probe/structural_xml.py BASELINE.xml SAVED.xml`.
 It resolves serializer references and `FilterValueId.idstr`, preserves ordered input records
