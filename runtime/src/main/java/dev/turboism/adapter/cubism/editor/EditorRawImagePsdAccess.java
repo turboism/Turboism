@@ -135,7 +135,8 @@ final class EditorRawImagePsdAccess {
      * {@link IOException} so the caller can classify it without inspecting native text.</p>
      *
      * @param stage runtime-owned non-empty staged PSD
-     * @param name target raw-image name, so Cubism's native matcher sees the expected identity
+     * @param name runtime-issued edit file basename, matching official file-open naming semantics;
+     *             explicit document/raw identity selects the target independently of this name
      */
     Object parseStageOnHostThread(final Path stage, final String name) throws IOException {
         Objects.requireNonNull(stage, "stage");

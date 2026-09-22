@@ -190,6 +190,7 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
                 host.replaceWithStagedPsd(
                     target,
                     stage.path(),
+                    registry.requireFile(binding, handle).fileName(),
                     () -> {
                         requireOperational();
                         checkPermissions();
