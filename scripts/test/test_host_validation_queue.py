@@ -351,6 +351,23 @@ class PreparedStoreTest(unittest.TestCase):
         self.assertEqual(first["digest"], second["digest"])
         self.assertEqual(1, len(list((self.store.root / "prepared").iterdir())))
 
+    def test_graphics_device_is_snapshotted_and_changes_the_prepared_digest(self) -> None:
+        digests = []
+        for device in ("inherit", "nvidia"):
+            request = {**self.request, "argv": [*self.request["argv"], "--graphics-device", device]}
+            prepared = self.prepared.capture(request, self.source, "test:5302")
+            command = self.prepared.command(prepared["digest"], self.base / "evidence")
+            self.assertEqual(device, command[command.index("--graphics-device") + 1])
+            digests.append(prepared["digest"])
+        self.assertNotEqual(*digests)
+
+    def test_unknown_graphics_device_cannot_enter_a_prepared_job(self) -> None:
+        for device in ("", "auto", "NVIDIA", "nvidia; false", "nvidia\nfalse"):
+            request = {**self.request, "argv": [*self.request["argv"], "--graphics-device", device]}
+            with self.assertRaises(queue.QueueError):
+                self.prepared.capture(request, self.source, "test:5302")
+        self.assertEqual([], self.store.jobs())
+
     def test_prepared_tampering_rejected(self) -> None:
         prepared = self.prepared.capture(self.request, self.source, "test:5302")
         command = self.prepared.command(prepared["digest"], self.base / "evidence")

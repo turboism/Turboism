@@ -164,6 +164,14 @@ redundant scalar/single-matrix writes; it is not enabled by the location factor.
 counts, and native framebuffer parity. Its latency is wheel dispatch through the
 native repaint's EDT barrier, **not physical screen presentation or mouse-to-photon**.
 
+For the production narrow-hook and matrix factors, all four same-camera pixel
+controls now paint within a single EDT turn. `uniformCache.parity.*.atomicEdt=true`
+records this boundary. This prevents queued hover/action changes from separating
+native controls; it neither drops queued events nor masks pixel differences.
+The legacy GL-proxy readback remains asynchronous and reports `atomicEdt=false`.
+`CanvasWheelParityTest` exercises the real wheel parity path with a queued paint
+state change and separately requires a one-pixel cached-image error to fail.
+
 Pixel parity uses real glReadPixels output, excludes pack padding and preserves
 the supplied buffer's position. It rejects blank frames, requires different images
 at two zoom states, and compares native/native/cached/native at each fixed camera
@@ -375,3 +383,37 @@ warmup/measuring phase. A partial summary is not proof of a stalled Editor. Do n
 cancel a running full-size slow-control leg merely because it has not flushed its
 summary yet. Failures are written before attempting UI cleanup, and no terminal
 success is accepted without supervisor cleanup evidence.
+
+## Upload-target attribution (observation only)
+
+Use the existing `modelSkip` wheel factor with
+`-Dturboism.validation.modelUpdateGlCalls=true` and optionally
+`-Dturboism.validation.modelUpdateUploadPayloads=true`. Keep the production
+uniform cache explicitly OFF for this GL3-decorated attribution; this is not an
+unproxied narrow-hook comparison. The diagnostic factor keeps model skip ON and
+runs one measured leg. Leave calibration off for 200 events after readiness.
+
+`glUploads.ARRAY_BUFFER`, `.ELEMENT_ARRAY_BUFFER` and `.OTHER` partition the
+`glCalls.glBufferSubData` totals, using the very same delegate timestamps.
+They are not additional time to add to that total. Counts include exceptional
+calls; bytes are counted on normal return, which alone does not prove GL success.
+Every native call, argument, exception and caller buffer view remains unchanged.
+
+`glDuplicateUploads` is a further subset of normally returned uploads whose full
+client payload matches the previous observed payload for that buffer/range.
+`uploadPayload.arrayScanNanos` and `.elementScanNanos` partition CPU comparison
+cost, including baseline copying. Element bindings are known only after an
+explicit bind and are forgotten on VAO bind/deletion or direct element-binding
+mutation; no VAO map or extra GL query
+is used. Buffer identity shares the OpenGL buffer-name namespace across targets.
+Context changes, buffer deletion/reallocation and unsupported writer families
+retain conservative invalidation. Bounded mirrors are released on stop.
+
+Neither identical submitted bytes nor a void GL return proves unchanged GPU
+contents. Shared-context, mapped, shader and unobserved writes are not excluded;
+`gpuResidencyVerified=false` and `completeWriteCoverage=false` remain authoritative.
+No upload is omitted by this probe. Payload scans, reflection and timers perturb
+execution, so these runs locate candidates rather than certify end-to-end speedup.
+Short calibration timings can include compilation effects: record the full-size
+observation as well, and never discard slow samples or replace production A/B
+with these diagnostic numbers.
