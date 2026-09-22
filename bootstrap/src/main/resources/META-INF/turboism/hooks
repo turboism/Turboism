@@ -20,6 +20,7 @@ dev.turboism.bootstrap.IncrementalUpdateHookContributor
 dev.turboism.bootstrap.UniformLocationCacheHookContributor
 dev.turboism.bootstrap.MatrixScratchHookContributor
 dev.turboism.bootstrap.NativeEditBeginHookContributor
+dev.turboism.bootstrap.EditApiDispatchHookContributor
 dev.turboism.bootstrap.TextureAtlasDataModelHookContributor
 dev.turboism.bootstrap.TextureAtlasAutoLayoutHookContributor
 dev.turboism.bootstrap.PerformanceProbeHookContributor

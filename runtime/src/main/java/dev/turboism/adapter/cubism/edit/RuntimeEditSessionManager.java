@@ -377,7 +377,19 @@ public final class RuntimeEditSessionManager {
                         )),
                         "ui lock"
                     );
-                    uiLock.engage(options.silent());
+                    try {
+                        uiLock.engage(options.silent());
+                    } catch (RuntimeException engageFailure) {
+                        // A partially engaged lock still owns the main-window disable and
+                        // any dialog or pulse timer it already created — release it before
+                        // aborting the native edit.
+                        try {
+                            uiLock.disengage();
+                        } catch (RuntimeException disengageFailure) {
+                            engageFailure.addSuppressed(disengageFailure);
+                        }
+                        throw engageFailure;
+                    }
                 } catch (RuntimeException failure) {
                     try {
                         host.endEdit(binding, editToken, true);
@@ -389,8 +401,26 @@ public final class RuntimeEditSessionManager {
                         "The edit session UI lock could not engage: " + failure.getMessage()
                     );
                 }
-                final RuntimeEditSession session = new RuntimeEditSession(
-                    this, binding, editToken, document, options, uiLock, before);
+                final RuntimeEditSession session;
+                try {
+                    session = new RuntimeEditSession(
+                        this, binding, editToken, document, options, uiLock, before);
+                } catch (RuntimeException | Error failure) {
+                    // The session never reaches `active`, so no close path will ever
+                    // disengage the engaged lock — release it and abort the native edit
+                    // bracket before reporting the admission failure.
+                    try {
+                        uiLock.disengage();
+                    } catch (RuntimeException disengageFailure) {
+                        failure.addSuppressed(disengageFailure);
+                    }
+                    try {
+                        host.endEdit(binding, editToken, true);
+                    } catch (RuntimeException abortFailure) {
+                        failure.addSuppressed(abortFailure);
+                    }
+                    throw failure;
+                }
                 pending.set(session);
                 active = session;
                 return session;
