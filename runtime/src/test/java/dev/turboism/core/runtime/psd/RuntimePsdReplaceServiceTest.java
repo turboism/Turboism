@@ -126,6 +126,34 @@ class RuntimePsdReplaceServiceTest {
     }
 
     @Test
+    void stageFailureDetailsStaySanitizedAndLeaveTheRevisionUsable() throws Exception {
+        final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
+        try {
+            for (final var detail : List.of(new PsdReplaceHost.Failure("CONSTRUCT", "OUT_OF_MEMORY"),
+                new PsdReplaceHost.Failure("/private/path", "native.Type: private-value"))) {
+                final PsdReplaceHost host = (target, stage, admission) -> {
+                    admission.run();
+                    return new PsdReplaceHost.Replacement("STAGE_UNREADABLE", true, false, false, false,
+                        false, Optional.empty(), "safe", Optional.of(detail));
+                };
+                final var result = await(fixture.service.replaceRawImagePsd(
+                    host, TARGET, fixture.file, fixture.revision));
+                assertEquals(PsdReplaceResult.Status.FAILED, result.status());
+                assertTrue(result.consumedRevision().isEmpty());
+                final boolean unknown = detail.phase().startsWith("/");
+                assertEquals("PSD_NATIVE_REPLACE;status=STAGE_UNREADABLE;phase="
+                    + (unknown ? "UNKNOWN" : "CONSTRUCT") + ";category="
+                    + (unknown ? "UNKNOWN" : "OUT_OF_MEMORY"), result.diagnostic());
+            }
+            assertEquals(PsdReplaceResult.Status.APPLIED, await(fixture.service.replaceRawImagePsd(
+                (target, stage, admission) -> { admission.run(); return applied(); },
+                TARGET, fixture.file, fixture.revision)).status());
+        } finally {
+            fixture.close();
+        }
+    }
+
+    @Test
     void aStagedRevisionSurvivesExternalDeletionOfTheLiveFile() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final AtomicBoolean stageExisted = new AtomicBoolean();

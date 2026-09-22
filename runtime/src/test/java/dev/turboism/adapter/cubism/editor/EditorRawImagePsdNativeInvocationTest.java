@@ -182,6 +182,35 @@ class EditorRawImagePsdNativeInvocationTest {
     }
 
     @Test
+    void stagedReadFailuresRetainPhaseAndCategoryWithoutMutation(@TempDir final Path temp) throws Exception {
+        final Path stage = temp.resolve("staged.psd");
+        Files.writeString(stage, "synthetic-psd");
+        final var access = access(resolver("5.3.02", true), (identity, model) -> { });
+        EditorRawImagePsdNativeFixture.throwOnParse = true;
+        final var parseFailure = EditorHostThread.dispatch("stage test", () ->
+            assertThrows(java.io.IOException.class, () -> access.parseStageOnHostThread(stage, "source")));
+        final var parsed = EditorRawImagePsdAccess.unreadableStage(parseFailure);
+        assertEquals("PARSE", parsed.failure().orElseThrow().phase());
+        assertEquals("ILLEGAL_STATE", parsed.failure().orElseThrow().category());
+        EditorRawImagePsdNativeFixture.throwOnParse = false;
+        EditorRawImagePsdNativeFixture.constructFailure = () -> {
+            throw new OutOfMemoryError("private-host-path");
+        };
+        final var constructFailure = EditorHostThread.dispatch("stage test", () ->
+            assertThrows(java.io.IOException.class, () -> access.parseStageOnHostThread(stage, "source")));
+        final var constructed = EditorRawImagePsdAccess.unreadableStage(constructFailure);
+        assertEquals("CONSTRUCT", constructed.failure().orElseThrow().phase());
+        assertEquals("OUT_OF_MEMORY", constructed.failure().orElseThrow().category());
+        for (final var outcome : List.of(parsed, constructed)) {
+            assertEquals("STAGE_UNREADABLE", outcome.nativeStatus());
+            assertFalse(outcome.nativeReturned());
+            assertFalse(outcome.mutationUnknown());
+            assertFalse(outcome.toString().contains("private-host-path"));
+        }
+        assertEquals(null, constructFailure.getCause());
+    }
+
+    @Test
     void rejectsExistingNonEmptyTargetBeforeNativeSave(@TempDir final Path temp) throws Exception {
         final Path target = temp.resolve("existing.psd");
         Files.writeString(target, "old-psd");

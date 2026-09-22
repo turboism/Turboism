@@ -36,6 +36,7 @@ public interface PsdReplaceHost {
      * @param relationsAvailable whether current state was re-read successfully after the attempt
      * @param afterRawImageId raw image observed for the affected model images when available
      * @param detail sanitized explanation
+     * @param failure optional bounded failure phase and category
      */
     record Replacement(
         String nativeStatus,
@@ -45,15 +46,24 @@ public interface PsdReplaceHost {
         boolean editingRejected,
         boolean relationsAvailable,
         Optional<RawImageId> afterRawImageId,
-        String detail
+        String detail,
+        Optional<Failure> failure
     ) {
         public Replacement {
             Objects.requireNonNull(nativeStatus, "nativeStatus");
             Objects.requireNonNull(afterRawImageId, "afterRawImageId");
             Objects.requireNonNull(detail, "detail");
+            Objects.requireNonNull(failure, "failure");
             if (nativeReturned && mutationUnknown) {
                 throw new IllegalArgumentException("a returned native call cannot also be unknown");
             }
+        }
+
+        public Replacement(final String nativeStatus, final boolean sessionCurrent,
+            final boolean nativeReturned, final boolean mutationUnknown, final boolean editingRejected,
+            final boolean relationsAvailable, final Optional<RawImageId> afterRawImageId, final String detail) {
+            this(nativeStatus, sessionCurrent, nativeReturned, mutationUnknown, editingRejected,
+                relationsAvailable, afterRawImageId, detail, Optional.empty());
         }
 
         /** Unsupported projections must not invoke native operations. */
@@ -62,6 +72,14 @@ public interface PsdReplaceHost {
                 "UNAVAILABLE", false, false, false, false, false, Optional.empty(),
                 "The current model projection cannot perform a native PSD replacement."
             );
+        }
+    }
+
+    /** Fixed adapter tokens only; runtime sanitizes them again before SDK publication. */
+    record Failure(String phase, String category) {
+        public Failure {
+            Objects.requireNonNull(phase, "phase");
+            Objects.requireNonNull(category, "category");
         }
     }
 }
