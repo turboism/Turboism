@@ -105,6 +105,21 @@ public interface CubismFacade {
         );
     }
 
+    /**
+     * Returns polygon-aware texture-atlas layout access when installed.
+     *
+     * <p>Snapshots carry item outlines from the host's model-image contour source
+     * (or a flagged bounds fallback), per-item layout policies and issued
+     * transforms; {@code apply} writes arbitrary-angle, scaled placements through
+     * the same affine/undo boundary as the rectangle service.</p>
+     */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService textureAtlasPolygonLayouts() {
+        throw new UnsupportedOperationException(
+            "Texture atlas polygon layout service is unavailable"
+        );
+    }
+
     /** Returns read access to the active native texture-atlas editor session. */
     @dev.turboism.sdk.CubismEditor({"5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
