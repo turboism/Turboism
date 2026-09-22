@@ -1048,7 +1048,7 @@ class ProtectedExportOrchestratorTest {
 
                 @Override
                 public OwnedCanvasInfo canvasInfo() {
-                    return new OwnedCanvasInfo(1f, 1f, 0f, 0f, 1f);
+                    return new OwnedCanvasInfo(1000f, 1000f, 500f, 500f, 1000f);
                 }
 
                 @Override
@@ -1113,9 +1113,11 @@ class ProtectedExportOrchestratorTest {
                         final float[] stagedPositions = host.exportWritesEmptyGeometry
                             ? new float[0]
                             : positions;
+                        // Serialize in moc model space like the real exporter:
+                        // moc = (canvas - origin) / ppu, origin-centered.
                         final List<Float> vertexPositions = new ArrayList<>();
-                        for (float position : stagedPositions) {
-                            vertexPositions.add(position);
+                        for (int i = 0; i < stagedPositions.length; i++) {
+                            vertexPositions.add((stagedPositions[i] - 500f) / 1000f);
                         }
                         projected.add(new OwnedDrawable(
                             host.exportKeepsOriginalDrawableIds
