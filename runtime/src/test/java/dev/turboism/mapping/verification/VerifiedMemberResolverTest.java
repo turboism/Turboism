@@ -378,6 +378,56 @@ class VerifiedMemberResolverTest {
 
         assertEquals("fixture.failure", failure.alias());
         assertFalse(failure.getMessage().contains("private-host-detail"));
+        assertEquals(VerifiedAccessException.HostFailureCategory.ILLEGAL_STATE,
+            failure.hostFailureCategory());
+        assertEquals(null, failure.getCause());
+    }
+
+    @Test
+    void preservesOnlyBoundedFailureCategoriesFromMethodAndConstructor() {
+        final var resolver = new VerifiedMemberResolver(plan(
+            StaticSelector.method("fixture.nested-failure", internalName(FailingHost.class),
+                "fail", "()V", StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.constructor("fixture.failed-constructor", internalName(FailingHost.class),
+                "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC)), FailingHost.class.getClassLoader());
+        final var methodFailure = assertThrows(VerifiedAccessException.class,
+            () -> resolver.invoke("fixture.nested-failure", new FailingHost()));
+        final var constructorFailure = assertThrows(VerifiedAccessException.class,
+            () -> resolver.construct("fixture.failed-constructor", "private-host-detail"));
+        assertEquals(VerifiedAccessException.HostFailureCategory.OUT_OF_MEMORY,
+            methodFailure.hostFailureCategory());
+        assertEquals(VerifiedAccessException.HostFailureCategory.IO,
+            constructorFailure.hostFailureCategory());
+        for (final var failure : List.of(methodFailure, constructorFailure)) {
+            assertEquals(null, failure.getCause());
+            assertEquals(0, failure.getSuppressed().length);
+            assertFalse(failure.toString().contains("private-host-detail"));
+            assertFalse(failure.toString().contains(FailingHost.class.getName()));
+        }
+    }
+
+    @Test
+    void unknownCyclicAndOverlongCausesRemainUnknown() {
+        final var cycle = new RuntimeException("private-host-detail");
+        final var nested = new IllegalStateException(cycle);
+        cycle.initCause(nested);
+        Throwable overlong = new OutOfMemoryError("private-host-detail");
+        for (int i = 0; i < 20; i++) overlong = new IllegalStateException(overlong);
+        for (final var cause : List.of(cycle, overlong, new AssertionError("private-host-detail"))) {
+            final var failure = VerifiedAccessException.invocationFailure("fixture.failure", "safe", cause);
+            assertEquals(VerifiedAccessException.HostFailureCategory.UNKNOWN, failure.hostFailureCategory());
+            assertEquals(null, failure.getCause());
+        }
+    }
+
+    public static final class FailingHost {
+        public FailingHost() { }
+        public FailingHost(final String detail) {
+            throw new IllegalStateException(new java.io.IOException(detail));
+        }
+        public void fail() {
+            throw new IllegalStateException(new OutOfMemoryError("private-host-detail"));
+        }
     }
 
     private static VerifiedAccessPlan plan(final StaticSelector... selectors) {

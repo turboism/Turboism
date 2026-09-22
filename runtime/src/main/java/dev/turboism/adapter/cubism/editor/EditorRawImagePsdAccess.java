@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.VerifiedAccessException;
+import dev.turboism.core.runtime.psd.PsdExportHost;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
 import dev.turboism.sdk.cubism.id.RawImageId;
 
@@ -12,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Package-private T003/T011 seam for PSD raw-image targeting and native export validation.
@@ -437,7 +440,8 @@ final class EditorRawImagePsdAccess {
         FailurePhase failurePhase,
         String failureType,
         String failureMessage,
-        EditorRawImagePsdIntegrityAccess.Verification integrityVerification
+        EditorRawImagePsdIntegrityAccess.Verification integrityVerification,
+        VerifiedAccessException.HostFailureCategory failureCategory
     ) {
         ExportResult {
             Objects.requireNonNull(status, "status");
@@ -446,6 +450,26 @@ final class EditorRawImagePsdAccess {
             Objects.requireNonNull(layerCompleteness, "layerCompleteness");
             Objects.requireNonNull(failurePhase, "failurePhase");
             Objects.requireNonNull(integrityVerification, "integrityVerification");
+            Objects.requireNonNull(failureCategory, "failureCategory");
+        }
+
+        ExportResult(
+            final ExportStatus status, final Path target, final TargetPathSafety targetPathSafety,
+            final boolean saveReturned, final boolean outputReadable, final LayerCompleteness layerCompleteness,
+            final FailurePhase failurePhase, final String failureType, final String failureMessage,
+            final EditorRawImagePsdIntegrityAccess.Verification integrityVerification
+        ) {
+            this(status, target, targetPathSafety, saveReturned, outputReadable, layerCompleteness,
+                failurePhase, failureType, failureMessage, integrityVerification,
+                VerifiedAccessException.HostFailureCategory.UNKNOWN);
+        }
+
+        PsdExportHost.Observation observation() {
+            return new PsdExportHost.Observation(status.name(), integrityVerification.status().name(),
+                outputReadable, integrityVerification.rootNameMatches() && integrityVerification.dimensionsMatch()
+                    && integrityVerification.layerTreeMatches(),
+                failurePhase == FailurePhase.NONE ? Optional.empty() : Optional.of(new PsdExportHost.Failure(
+                    failurePhase.name(), failureCategory.name(), saveReturned)));
         }
 
         ExportResult(
@@ -656,7 +680,11 @@ final class EditorRawImagePsdAccess {
                 LayerCompleteness.UNVERIFIED,
                 phase,
                 failure.getClass().getName(),
-                message(failure)
+                message(failure),
+                EditorRawImagePsdIntegrityAccess.Verification.unavailable(
+                    "export integrity was not captured for this result"),
+                failure instanceof VerifiedAccessException verified
+                    ? verified.hostFailureCategory() : VerifiedAccessException.HostFailureCategory.UNKNOWN
             );
         }
     }
