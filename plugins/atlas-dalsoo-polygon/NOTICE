@@ -1,0 +1,26 @@
+Atlas Dalsoo Polygon Packing
+=============================
+
+This module contains an independent Java port of the irregular-shape bin-packing
+kernel from
+
+    Dalsoo-Bin-Packing
+    https://github.com/whitegreen/Dalsoo-Bin-Packing
+    Copyright (c) 2018 Hao Hua
+    MIT License (see LICENSE in this directory)
+    Upstream commit ported: bde2a3e
+
+Upstream documentation notes: "Algorithms are adapted from the papers of
+Abeysooriya 2018 and Dalalah 2014."
+
+Ported files live under src/main/java/dev/turboism/plugin/atlasdalsoo/dalsoo/ and
+carry the upstream attribution header. The port removes the JTS/jafama
+dependencies (replaced by pure-JDK outline dilation and strict overlap tests) and
+adds Turboism-specific extensions (per-item transform locks, fixed-position
+obstacles, progress callbacks, cancellation, deterministic parallel variants) in
+separate classes.
+
+No Cubism/Live2D proprietary code was used. Cubism Editor 5.4 alpha artifacts
+were consulted read-only to confirm algorithm family and behavioral semantics
+(rotation candidate counts, lock flags, auto/fixed scale entry points); the
+implementation here is derived solely from the MIT-licensed upstream project.
