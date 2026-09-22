@@ -21,9 +21,10 @@ public interface PsdReplaceHost {
      *
      * @param target exact raw image to replace inside the projected model session
      * @param stage runtime-owned staged PSD that must be used as the incoming content
+     * @param sourceFileName basename of the runtime-issued edit file, used as the incoming raw name
      * @param admission revalidates permission and scope immediately before native entry
      */
-    Replacement replaceWithStagedPsd(RawImageId target, Path stage, Runnable admission);
+    Replacement replaceWithStagedPsd(RawImageId target, Path stage, String sourceFileName, Runnable admission);
 
     /**
      * Factual outcome of one replace attempt.
