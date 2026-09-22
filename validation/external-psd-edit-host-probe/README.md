@@ -534,3 +534,11 @@ identities, empty bindings, layer/input/group ordering and mesh geometry remain 
 The public SDK lacks raw input affine/clipping values: these remain explicitly unavailable
 until supplemented by independent read-only serialized/native evidence. Final viewport
 presentation is also unavailable. Collection PASS alone cannot satisfy F5 or SC-006.
+
+For an independent saved-input supplement, extract `main.xml` with the official ArchiveReader
+and run `python3 validation/external-psd-edit-host-probe/structural_xml.py BASELINE.xml SAVED.xml`.
+It resolves serializer references and `FilterValueId.idstr`, preserves ordered input records
+and empty bindings, and rejects unknown/missing/ambiguous structure. It reads only XML and
+prints JSON; it does not modify a CMO or reconstruct bindings. Serialized values supplement
+the saved stage only; live Undo input details remain `NOT_OBSERVED`. Focused checks:
+`python3 scripts/test/test_external_psd_structural_xml.py`.
