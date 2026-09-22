@@ -61,7 +61,8 @@
   "dev/turboism/mapping/verification/selector/EditorEditSelectionSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorEditPartObjectSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorEditDeformerSelectorContract.java",
-  "dev/turboism/mapping/verification/selector/EditorIntegrationWebSocketSelectorContract.java"
+  "dev/turboism/mapping/verification/selector/EditorIntegrationWebSocketSelectorContract.java",
+  "dev/turboism/mapping/verification/selector/EditorIntegrationSettingsDialogSelectorContract.java"
  ],
  "coverage": true,
  "coverageSources": [],
@@ -107,7 +108,11 @@
   "cubism.editor-history.manager.revert",
   "cubism.editor-model.main-frame.main-window",
   "cubism.editor-model.main-frame.jframe",
-  "cubism.editor-model.parameter-group.set-id"
+  "cubism.editor-model.parameter-group.set-id",
+  "cubism.integration.external-app-settings.edit-toggle",
+  "cubism.integration.external-app-settings.dialog.class",
+  "cubism.integration.external-app-settings.dialog.remote-checkbox",
+  "cubism.integration.external-app-settings.checkbox.jcheckbox"
  ],
  "coverageSourceGlobs": [
   "runtime/src/main/java/dev/turboism/adapter/cubism/**/*.java",
