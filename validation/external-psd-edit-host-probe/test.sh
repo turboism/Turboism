@@ -17,6 +17,7 @@ trap 'rm -rf "$out"' EXIT
 javac --release 17 -Xlint:all -cp "${sdk[0]}:build/external-psd-edit-host-probe.jar" -d "$out" \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/PsdValidationContentTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/PsdStructuralStateTest.java \
+  validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/PsdStructuralControlTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbeTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExternalPsdPerformanceSamplerTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExactHostRowTargetTest.java \
@@ -25,6 +26,8 @@ java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-p
   dev.turboism.validation.externalpsd.PsdValidationContentTest
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.PsdStructuralStateTest
+java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
+  dev.turboism.validation.externalpsd.PsdStructuralControlTest
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.ExternalPsdEditHostProbeTest
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
@@ -93,7 +96,8 @@ def executable(path, contents):
 
 
 def run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
-                capture, extra_args=(), content_profile=None):
+                capture, extra_args=(), content_profile=None, structural_variant=None,
+                expected_code=0):
     environment = os.environ.copy()
     environment.update({
         "PATH": str(stub_bin) + os.pathsep + environment.get("PATH", ""),
@@ -110,6 +114,11 @@ def run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
         environment.pop("EXTERNAL_PSD_CONTENT_PROFILE", None)
     else:
         environment["EXTERNAL_PSD_CONTENT_PROFILE"] = content_profile
+    for name in ("EXTERNAL_PSD_STRUCTURE_SOURCE", "EXTERNAL_PSD_STRUCTURE_VARIANT"):
+        environment.pop(name, None)
+    if structural_variant is not None:
+        environment["EXTERNAL_PSD_STRUCTURE_VARIANT"] = structural_variant
+        environment["EXTERNAL_PSD_STRUCTURE_SOURCE"] = str(sandbox / "variant.psd")
     completed = subprocess.run(
         ["/bin/bash", str(wrapper), *extra_args],
         cwd=sandbox,
@@ -119,10 +128,13 @@ def run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
         stderr=subprocess.PIPE,
         check=False,
     )
-    assert completed.returncode == 0, (
+    assert completed.returncode == expected_code, (
         f"{phase} wrapper failed: rc={completed.returncode}\n"
         f"stdout={completed.stdout}\nstderr={completed.stderr}"
     )
+    if expected_code:
+        assert not capture.exists(), "rejected structural request invoked Runner"
+        return []
     assert capture.is_file(), f"{phase} did not invoke the shared Runner stub"
     return capture.read_text(encoding="utf-8").splitlines()
 
@@ -196,5 +208,20 @@ exec /bin/bash "$@"
     assert option_values(f1_args, "--ready-marker") == [], f1_args
     assert option_values(f1_args, "--trigger") == [], f1_args
 
-print("PASS: external PSD wrapper argv enforces GUI-only readiness and fixed trigger")
+    (sandbox / "variant.psd").write_bytes(b"fixed test-only input")
+    for phase in ("structure-native", "structure-sdk"):
+        for variant in ("add", "delete", "merge", "canvas"):
+            args = run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
+                sandbox / f"{phase}-{variant}.argv", content_profile="f1", structural_variant=variant)
+            assert option_values(args, "--home-file") == [
+                str(sandbox / "variant.psd") + ":structural-input/external-edit.psd"], args
+            assert "-Dturboism.validation.externalpsd.structureVariant=" + variant in option_values(args, "--jvm-option")
+            assert "-Dturboism.preview.userFileFixedGrant={HOME}/persisted-document.cmo3" in option_values(args, "--jvm-option")
+            assert not option_values(args, "--trigger"), args
+        for profile, variant in (("control7", "add"), ("f1", "unknown"), ("f1", None)):
+            run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
+                sandbox / f"reject-{phase}-{profile}-{variant}.argv", content_profile=profile,
+                structural_variant=variant, expected_code=2)
+
+print("PASS: external PSD wrapper argv enforces GUI readiness and separate structural controls")
 PY

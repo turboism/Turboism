@@ -221,6 +221,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private volatile ExternalPsdPerformanceSampler performanceSampler;
     private OfficialPsdReplacementBaseline.CompositionReader compositionReader;
     private OfficialPsdReplacementBaseline.CompositionObservation baselineComposition;
+    private volatile String structuralRunId = "";
 
     @Override public void init(final PluginContext context) { this.context = context; }
 
@@ -296,6 +297,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         case "reopen" -> runReopen(result);
                         case "gui" -> runGui(result);
                         case "pipeline" -> runPipeline(result, cycles, performanceTimings);
+                        case "structure-native", "structure-sdk" -> runStructuralControl(result, phase);
                         default -> throw new IllegalStateException("unknown probe phase " + phase);
                     }
                 }
@@ -1321,6 +1323,258 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static boolean hostOptionLabel(final String label, final char suffix) {
         return label != null && label.trim().endsWith("(" + suffix + ")");
     }
+
+    /** Collects one F5 variant; a separate audit compares independent native/SDK task copies. */
+    private void runStructuralControl(final Properties result, final String phase) throws Exception {
+        if (contentProfile != PsdValidationContent.Profile.F1_2048_20) throw new IllegalArgumentException(
+            "structural control requires the F1 content profile");
+        structuralRunId = result.getProperty("runId", "");
+        if (structuralRunId.isBlank()) throw new IllegalStateException("structural task identity is missing");
+        final String variant = System.getProperty("turboism.validation.externalpsd.structureVariant", "");
+        final String expectedSha = PsdStructuralControl.variantSha256(variant);
+        final Path home = context.paths().stateDir().toAbsolutePath().normalize().getParent().getParent();
+        requireNoSymlinkPath(home, "structural task home");
+        final Path source = home.resolve("structural-input/external-edit.psd");
+        requireNoSymlinkPath(source, "structural source");
+        if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) throw new IllegalStateException(
+            "fixed structural source is missing");
+        final byte[] incoming = Files.readAllBytes(source);
+        if (!expectedSha.equals(sha256(incoming))) throw new IllegalStateException(
+            "structural source SHA differs from the fixed official-writer asset");
+        result.setProperty("structure.variant", variant);
+        result.setProperty("structure.source.sha256", expectedSha);
+        result.setProperty("structure.comparison", "NOT_RUN: compare independent native and SDK evidence");
+        result.setProperty("structure.finalViewport", "UNAVAILABLE");
+        final Target target = resolveTarget(result);
+        hostWindowAccess = prepareHostWindowAccess();
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(240L);
+        final PsdStructuralState.Basis basis = structuralEdt(deadline, () -> {
+            final CubismModel model = requireStructuralModelOnEdt(target);
+            return PsdStructuralState.basis(model, model.textures().relations());
+        });
+        final StructuralObservation before = structuralObservation(target, basis, deadline);
+        PsdStructuralControl.requireHistory(before.history());
+        recordStructuralObservation(result, "before", before);
+        final TempTracker tracker = new TempTracker();
+        Throwable primary = null;
+        try {
+            final TrackedExport issued = exportTracked(result, target.raw(), tracker, "structureBaseline");
+            targetFingerprint(Files.readAllBytes(issued.path()), "structural F1 baseline", contentProfile);
+            Optional<RawImageId> expectedAfter = Optional.empty();
+            if ("structure-native".equals(phase)) {
+                final var identityReader = OfficialPsdReplacementBaseline.prepareIdentityReader(
+                    context, target.raw().value());
+                final var identity = structuralEdt(deadline, () -> {
+                    requireStructuralModelOnEdt(target);
+                    return identityReader.observe();
+                });
+                final var nativeResult = OfficialPsdReplacementBaseline.replace(context, () -> stopped,
+                    () -> structuralTaskActive(deadline),
+                    new OfficialPsdReplacementBaseline.ReplacementRequest(source, home, expectedSha,
+                        "external-edit.psd", identity.documentId(), identity.modelId(), identity.rawGuid(),
+                        identity.modelingDocument(), identity.layeredImage(), guiBoundWindow,
+                        identityReader, remainingStructuralMillis(deadline)));
+                nativeResult.evidence().forEach((key, value) ->
+                    result.setProperty("structure.native." + key, value));
+                result.setProperty("structure.native.chooserComplete",
+                    Boolean.toString(nativeResult.chooserOperationComplete()));
+            } else {
+                final Deque<RevisionEvent> revisions = new ArrayDeque<>();
+                final Registration subscription = issued.file().observeSaves(revision -> {
+                    synchronized (revisions) {
+                        revisions.add(new RevisionEvent(revision, System.nanoTime()));
+                        revisions.notifyAll();
+                    }
+                });
+                try {
+                    assertNoRevision(revisions, 500L, "structural baseline revision replayed");
+                    requireTargetBinding(result, target, "structure.beforeWrite", 0L);
+                    if (!structuralTaskActive(deadline)) throw new IllegalStateException(
+                        "structural write cancelled");
+                    Files.write(issued.path(), incoming);
+                    final PsdFileRevision revision = awaitRevision(revisions, 20).revision();
+                    // Revisions are opaque. Prove the task-owned file bytes independently, then
+                    // require that this exact issued token was consumed by the bound operation.
+                    if (!expectedSha.equals(sha256(Files.readAllBytes(issued.path())))) {
+                        throw new IllegalStateException("structural issued file changed unexpectedly");
+                    }
+                    final CompletionStage<PsdReplaceResult> replaceStage = structuralEdt(deadline, () -> {
+                        final CubismModel model = requireStructuralModelOnEdt(target);
+                        requireTargetBinding(result, target, "structure.replaceAdmission", 0L);
+                        return model.textures().replaceRawImagePsd(target.raw(), issued.file(), revision);
+                    });
+                    final PsdReplaceResult replaced = replaceStage.toCompletableFuture().get(
+                        remainingStructuralMillis(deadline), TimeUnit.MILLISECONDS);
+                    recordImportCompletion(result, "structure.sdk", replaced);
+                    if (replaced.status() != PsdReplaceResult.Status.APPLIED
+                        || !replaced.before().equals(target.raw())
+                        || !replaced.consumedRevision().equals(Optional.of(revision))) {
+                        throw new IllegalStateException("structural SDK replacement was not APPLIED/consumed");
+                    }
+                    expectedAfter = replaced.after();
+                    result.setProperty("structure.sdk.afterRaw", expectedAfter
+                        .map(RawImageId::value).orElse(UNAVAILABLE_VALUE));
+                    assertNoRevision(revisions, 500L, "structural revision was delivered twice");
+                } finally {
+                    subscription.close();
+                }
+            }
+            final StructuralObservation after = awaitStructuralCommit(target, basis, before, expectedAfter, deadline);
+            recordStructuralObservation(result, "after", after);
+            structuralEdt(deadline, () -> {
+                requireStructuralModelOnEdt(target);
+                requireHistoryMoved(context.cubism().history().moveTo(after.history(),
+                    before.history().position()), "structural undo");
+                return Boolean.TRUE;
+            });
+            final StructuralObservation undo = structuralObservation(target, basis, deadline);
+            recordStructuralObservation(result, "undo", undo);
+            structuralEdt(deadline, () -> {
+                requireStructuralModelOnEdt(target);
+                requireHistoryMoved(context.cubism().history().moveTo(undo.history(),
+                    after.history().position()), "structural redo");
+                return Boolean.TRUE;
+            });
+            final StructuralObservation redo = structuralObservation(target, basis, deadline);
+            recordStructuralObservation(result, "redo", redo);
+            if (!after.values().equals(redo.values())) throw new IllegalStateException(
+                "structural redo differs from the observed native post state");
+            // Structural edits may remove the original image. Bind a fresh surviving target only
+            // for SAVE_AS; the complete before/after graph remains in the comparison evidence.
+            final Target saveTarget = structuralEdt(deadline, () -> {
+                final CubismModel model = requireStructuralModelOnEdt(target);
+                final TextureRelationsSnapshot relations = model.textures().relations();
+                final Target picked = pickTarget(relations, PsdValidationContent.Profile.SEVEN_LAYER_CONTROL)
+                    .orElseThrow(() -> new IllegalStateException("no surviving SAVE_AS anchor"));
+                return new Target(picked.artMesh(), picked.modelImage(), picked.raw(), picked.rawReplaced(),
+                    new TargetIdentity(target.identity().documentId(), model.id().value(),
+                        relations.binding(), relations.generation(), picked.modelImage().value(),
+                        picked.artMesh().id().value(), picked.raw().value()));
+            });
+            if (!structuralTaskActive(deadline)) throw new IllegalStateException(
+                "structural save cancelled before admission");
+            saveBoundDocumentCopy(result, saveTarget, deadline, () -> structuralTaskActive(deadline));
+            recordStructuralObservation(result, "saved", structuralObservation(target, basis, deadline));
+            result.setProperty("structure.collection", "PASS");
+            result.setProperty("expected", "one structural native/SDK observation and SAVE_AS");
+            result.setProperty("actual", "history commit, public graph, Undo/Redo and SAVE_AS collected; comparison pending");
+        } catch (Exception | Error failure) {
+            primary = failure;
+            throw failure;
+        } finally {
+            stopAllPreservingPrimary(tracker, result, primary);
+        }
+    }
+
+    private boolean structuralTaskActive(final long deadline) {
+        return !stopped && !Thread.currentThread().isInterrupted() && System.nanoTime() < deadline
+            && structuralRunId.equals(System.getProperty("turboism.validation.externalpsd.runId"));
+    }
+
+    private CubismModel requireStructuralModelOnEdt(final Target original) {
+        if (!SwingUtilities.isEventDispatchThread() || stopped
+            || !structuralRunId.equals(System.getProperty("turboism.validation.externalpsd.runId"))) throw new IllegalStateException(
+            "structural observation is off EDT or stopped");
+        if (officialCurrentHostWindowOnEdt() != guiBoundWindow) throw new IllegalStateException(
+            "structural host window changed");
+        final var document = context.cubism().activeDocument().orElseThrow();
+        final CubismModel model = context.cubism().model().active();
+        final TextureRelationsSnapshot relations = model.textures().relations();
+        if (!original.identity().documentId().equals(document.documentId())
+            || !original.identity().modelId().equals(model.id().value())
+            || !relations.isAvailable() || !original.identity().binding().equals(relations.binding())
+            || original.identity().generation() != relations.generation()) {
+            throw new IllegalStateException("structural document/model generation changed");
+        }
+        return model;
+    }
+
+    private StructuralObservation structuralObservation(final Target original,
+        final PsdStructuralState.Basis basis, final long deadline) throws Exception {
+        return structuralEdt(deadline, () -> {
+            final CubismModel model = requireStructuralModelOnEdt(original);
+            final TextureRelationsSnapshot relations = model.textures().relations();
+            final Map<String, String> values = PsdStructuralState.capture(model, relations, basis);
+            final var history = context.cubism().history().snapshot();
+            boolean modal = false;
+            for (final Window window : Window.getWindows()) {
+                if (!(window instanceof Dialog dialog) || !dialog.isModal() || !dialog.isShowing()) continue;
+                Window owner = dialog.getOwner();
+                while (owner != null && owner != guiBoundWindow) owner = owner.getOwner();
+                if (owner == guiBoundWindow) modal = true;
+            }
+            return new StructuralObservation(values, history,
+                relations.rawImages().stream().map(raw -> raw.id().value()).collect(java.util.stream.Collectors.toSet()),
+                modal);
+        });
+    }
+
+    private StructuralObservation awaitStructuralCommit(final Target target,
+        final PsdStructuralState.Basis basis, final StructuralObservation before,
+        final Optional<RawImageId> expectedAfter, final long deadline) throws Exception {
+        StructuralObservation previous = null;
+        int stable = 0;
+        while (!stopped && System.nanoTime() < deadline) {
+            final StructuralObservation current = structuralObservation(target, basis, deadline);
+            if (PsdStructuralControl.oneReplacementEntry(before.history(), current.history())
+                && !current.modalShowing()) {
+                final Set<String> added = new HashSet<>(current.rawIds());
+                added.removeAll(before.rawIds());
+                if (added.size() != 1 || expectedAfter.isPresent()
+                    && !added.contains(expectedAfter.orElseThrow().value())) throw new IllegalStateException(
+                    "structural replacement must expose the single observed incoming raw identity");
+                stable = previous != null && previous.values().equals(current.values()) ? stable + 1 : 1;
+                if (stable >= 3) return current;
+                previous = current;
+            } else {
+                previous = null;
+                stable = 0;
+            }
+            Thread.sleep(Math.min(200L, remainingStructuralMillis(deadline)));
+        }
+        throw new IllegalStateException("structural native history/graph observation timed out");
+    }
+
+    private static void recordStructuralObservation(final Properties result, final String stage,
+        final StructuralObservation value) {
+        value.values().forEach((key, observed) -> result.setProperty("structure." + stage + "." + key, observed));
+        result.setProperty("structure." + stage + ".historyPosition", Integer.toString(value.history().position()));
+        result.setProperty("structure." + stage + ".historyEntries", Integer.toString(value.history().entries().size()));
+        result.setProperty("structure." + stage + ".historyDocument", value.history().documentBindingId());
+        result.setProperty("structure." + stage + ".historyManager", value.history().managerBindingId());
+    }
+
+    private <T> T structuralEdt(final long deadline, final Callable<T> operation) throws Exception {
+        return structuralEdt(deadline, () -> structuralTaskActive(deadline), operation);
+    }
+
+    static <T> T structuralEdt(final long deadline, final BooleanSupplier taskActive,
+        final Callable<T> operation) throws Exception {
+        final AtomicBoolean active = new AtomicBoolean(true);
+        try {
+            final EdtCall<T> call = invokeEdtBounded(() -> {
+                if (!taskActive.getAsBoolean() || !active.get() || System.nanoTime() >= deadline) throw new IllegalStateException(
+                    "structural operation cancelled before EDT entry");
+                return operation.call();
+            }, remainingStructuralMillis(deadline));
+            if (!call.completed()) throw new IllegalStateException("structural EDT deadline exhausted");
+            if (call.failure() != null) throw new IllegalStateException("structural EDT operation failed", call.failure());
+            if (!taskActive.getAsBoolean() || System.nanoTime() >= deadline) throw new IllegalStateException("structural deadline exhausted");
+            return Objects.requireNonNull(call.value(), "structural observation");
+        } finally {
+            active.set(false);
+        }
+    }
+
+    private static long remainingStructuralMillis(final long deadline) {
+        final long remaining = deadline - System.nanoTime();
+        if (remaining <= 0L) throw new IllegalStateException("structural deadline exhausted");
+        return Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining));
+    }
+
+    private record StructuralObservation(Map<String, String> values,
+        dev.turboism.sdk.cubism.history.HistorySnapshot history, Set<String> rawIds,
+        boolean modalShowing) { }
 
     /** Full save→replace→undo→stop→recover pipeline plus optional persist tail. */
     private void runPipeline(final Properties result, final int cycles,
@@ -6281,7 +6535,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * this method never waits for a lifecycle event while running on the EDT.
      */
     private SaveAsExecution executeSaveAsIfAdmittedOnEdt(final Target target,
-        final UserFileHandle handle, final AtomicLong lifecycleSequence) throws Exception {
+        final UserFileHandle handle, final AtomicLong lifecycleSequence,
+        final BooleanSupplier taskActive) throws Exception {
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(handle, "handle");
         Objects.requireNonNull(lifecycleSequence, "lifecycleSequence");
@@ -6301,7 +6556,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         before.set(state);
                         return state;
                     },
-                    () -> stopped,
+                    () -> stopped || !taskActive.getAsBoolean(),
                     () -> {
                         // No await or callback is allowed between this sequence capture and the
                         // native command.  The shared seam has just rechecked all task state.
@@ -6817,6 +7072,52 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         requireChangedPost(baselineFingerprint, preSavePost);
 
+        saveBoundDocumentCopy(result, target);
+
+        // A second fresh native export after SAVE_AS is the durable post fingerprint. The
+        // legacy full-file/composite values are retained only as optional diagnostics.
+        requireTargetBinding(result, target,
+            "export.postAfterSave.targetBinding.before", 0L);
+        final TrackedExport postExport = exportTracked(
+            result, target.raw(), tracker, "postAfterSave");
+        Throwable postExportFailure = null;
+        try {
+            requireTargetBinding(result, target,
+                "export.postAfterSave.targetBinding.after", 0L);
+            final byte[] postBytes = Files.readAllBytes(postExport.path());
+            final PsdValidationContent.Fingerprint post = targetFingerprint(
+                postBytes, "persist post-save target", contentProfile);
+            recordTargetFingerprint(result, "persist.postEditTargetRgb", post);
+            result.setProperty("persist.postEditTargetRgbSha256", post.sha256());
+            result.setProperty("persist.postEditBytes", Integer.toString(postBytes.length));
+            result.setProperty("persist.postEditSha256", sha256(postBytes));
+            result.setProperty("persist.postEditImageSha256", imageDataSha256(postBytes));
+            if (!preSavePost.equals(post)) {
+                throw new IllegalStateException(
+                    "fresh post-save target RGB fingerprint differs from pre-SAVE_AS state");
+            }
+            requireChangedPost(baselineFingerprint, post);
+            result.setProperty("persist.targetContentChanged", "true");
+        } catch (Exception failure) {
+            postExportFailure = failure;
+            throw failure;
+        } catch (Error failure) {
+            postExportFailure = failure;
+            throw failure;
+        } finally {
+            stopPreservingPrimary(tracker, postExport, result, postExportFailure);
+        }
+        tracker.quarantine(result, context.paths().stateDir());
+        requirePersistEvidence(result);
+    }
+
+    /** Same typed SAVE_AS and exact lifecycle/owner gates for all validation phases. */
+    private void saveBoundDocumentCopy(final Properties result, final Target target) throws Exception {
+        saveBoundDocumentCopy(result, target, Long.MAX_VALUE, () -> !stopped);
+    }
+
+    private void saveBoundDocumentCopy(final Properties result, final Target target,
+        final long deadline, final BooleanSupplier taskActive) throws Exception {
         final UnusedRawDialogProof dialogProof = prepareUnusedRawDialogProof();
         result.setProperty("persist.dialogProof.status",
             dialogProof.available() ? "PROVEN" : "UNAVAILABLE");
@@ -6859,17 +7160,24 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     List.of("cmo3"),
                     UserFileMode.WRITE,
                     UserFileLifetime.ONE_OPERATION))
-                .toCompletableFuture().get(60, TimeUnit.SECONDS);
+                .toCompletableFuture().get(Math.min(60_000L, remainingStructuralMillis(deadline)),
+                    TimeUnit.MILLISECONDS);
+            if (!taskActive.getAsBoolean()) throw new IllegalStateException("SAVE_AS task expired during grant");
             result.setProperty("persist.grant.status", granted.status().name());
             final UserFileHandle handle = granted.handle().orElseThrow(() ->
                 new IllegalStateException("No write grant issued: " + granted.status()));
             final DialogAnswerWatcher watcher = new DialogAnswerWatcher(guiBoundWindow, target,
-                dialogProof);
+                dialogProof, taskActive);
             final SaveAsExecution execution;
             try {
-                watcher.start();
-                execution = executeSaveAsIfAdmittedOnEdt(
-                    target, handle, lifecycleSequence);
+                if (deadline == Long.MAX_VALUE) {
+                    watcher.start();
+                    execution = executeSaveAsIfAdmittedOnEdt(target, handle, lifecycleSequence, taskActive);
+                } else {
+                    structuralEdt(deadline, () -> { watcher.start(); return Boolean.TRUE; });
+                    execution = structuralEdt(deadline, () -> executeSaveAsIfAdmittedOnEdt(
+                        target, handle, lifecycleSequence, taskActive));
+                }
             } finally {
                 watcher.close();
             }
@@ -6891,7 +7199,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("persist.save.executeBeforeSequence",
                 Long.toString(execution.executeBeforeSequence()));
             awaitSaveAfterSequence(saves,
-                execution.executeBeforeSequence(), 15_000L);
+                execution.executeBeforeSequence(), Math.min(15_000L, remainingStructuralMillis(deadline)));
             result.setProperty("persist.saveEvents", Integer.toString(saves.size()));
             result.setProperty("persist.beforeEvents", Integer.toString(beforeEvents.get()));
             result.setProperty("persist.onEvents", Integer.toString(onEvents.get()));
@@ -6921,41 +7229,6 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 pathBasename(afterSave.relativePath()));
             result.setProperty("documentPersistence", "SAVE_AS executed + SAVE event confirmed");
 
-            // A second fresh native export after SAVE_AS is the durable post fingerprint. The
-            // legacy full-file/composite values are retained only as optional diagnostics.
-            requireTargetBinding(result, target,
-                "export.postAfterSave.targetBinding.before", 0L);
-            final TrackedExport postExport = exportTracked(
-                result, target.raw(), tracker, "postAfterSave");
-            Throwable postExportFailure = null;
-            try {
-                requireTargetBinding(result, target,
-                    "export.postAfterSave.targetBinding.after", 0L);
-                final byte[] postBytes = Files.readAllBytes(postExport.path());
-                final PsdValidationContent.Fingerprint post = targetFingerprint(
-                    postBytes, "persist post-save target", contentProfile);
-                recordTargetFingerprint(result, "persist.postEditTargetRgb", post);
-                result.setProperty("persist.postEditTargetRgbSha256", post.sha256());
-                result.setProperty("persist.postEditBytes", Integer.toString(postBytes.length));
-                result.setProperty("persist.postEditSha256", sha256(postBytes));
-                result.setProperty("persist.postEditImageSha256", imageDataSha256(postBytes));
-                if (!preSavePost.equals(post)) {
-                    throw new IllegalStateException(
-                        "fresh post-save target RGB fingerprint differs from pre-SAVE_AS state");
-                }
-                requireChangedPost(baselineFingerprint, post);
-                result.setProperty("persist.targetContentChanged", "true");
-            } catch (Exception failure) {
-                postExportFailure = failure;
-                throw failure;
-            } catch (Error failure) {
-                postExportFailure = failure;
-                throw failure;
-            } finally {
-                stopPreservingPrimary(tracker, postExport, result, postExportFailure);
-            }
-            tracker.quarantine(result, context.paths().stateDir());
-            requirePersistEvidence(result);
         } finally {
             subscription.close();
             beforeSub.close();
@@ -7906,6 +8179,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         private final Window boundWindow;
         private final Target target;
         private final UnusedRawDialogProof dialogProof;
+        private final BooleanSupplier taskActive;
         private final Set<Window> baseline = Collections.newSetFromMap(new IdentityHashMap<>());
         private final Set<Window> observed = Collections.newSetFromMap(new IdentityHashMap<>());
         final List<String> actions = new CopyOnWriteArrayList<>();
@@ -7914,10 +8188,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         private volatile String diagnostic = "";
 
         DialogAnswerWatcher(final Window boundWindow, final Target target,
-            final UnusedRawDialogProof dialogProof) {
+            final UnusedRawDialogProof dialogProof, final BooleanSupplier taskActive) {
             this.boundWindow = boundWindow;
             this.target = Objects.requireNonNull(target, "target");
             this.dialogProof = Objects.requireNonNull(dialogProof, "dialogProof");
+            this.taskActive = Objects.requireNonNull(taskActive, "taskActive");
             timer = new Timer(250, ignored -> inspectOnEdt());
             timer.setRepeats(true);
         }
@@ -7935,13 +8210,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (!SwingUtilities.isEventDispatchThread()) {
                 throw new IllegalStateException("save dialog inspection must run on EDT");
             }
-            if (closed.get() || stopped) return;
+            if (closed.get() || stopped || !taskActive.getAsBoolean()) return;
             final String boundIdentity = componentIdentity(boundWindow);
             PersistDocumentState state = null;
             SaveAsAdmission admission = SaveAsAdmission.rejected("task state unavailable");
             try {
                 state = currentPersistDocumentStateOnEdt(target.identity());
-                admission = saveAsAdmission(target.identity(), boundIdentity, state, stopped);
+                admission = saveAsAdmission(target.identity(), boundIdentity, state, stopped || !taskActive.getAsBoolean());
             } catch (RuntimeException unavailable) {
                 diagnostic = "save dialog task state unavailable: " + unavailable;
             }
@@ -7985,7 +8260,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     admission.admitted(), messageProven ? UNUSED_RAW_MESSAGE_KEY : "",
                     messageProven, buttonEvidence.actionToken(), buttonEvidence.proven(), messages,
                     buttons,
-                    actionCommands, candidateCount, stopped, closed.get());
+                    actionCommands, candidateCount, stopped || !taskActive.getAsBoolean(), closed.get());
                 final SaveDialogDecision decision = classifySaveDialogForTest(snapshot);
                 diagnostic = decision.diagnostic();
                 actions.add("observed outcome=" + decision.outcome() + " " + snapshot.diagnostic());
@@ -8001,7 +8276,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 throw new IllegalStateException("save dialog action must be queued on EDT");
             }
             SwingUtilities.invokeLater(() -> {
-                if (closed.get() || stopped || !dialog.isShowing() || !dialog.isDisplayable()) {
+                if (closed.get() || stopped || !taskActive.getAsBoolean() || !dialog.isShowing() || !dialog.isDisplayable()) {
                     actions.add("keep action skipped after close/stop/dialog change");
                     return;
                 }
@@ -8021,7 +8296,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     final PersistDocumentState state = currentPersistDocumentStateOnEdt(
                         target.identity());
                     final SaveAsAdmission admission = saveAsAdmission(
-                        target.identity(), componentIdentity(boundWindow), state, stopped);
+                        target.identity(), componentIdentity(boundWindow), state, stopped || !taskActive.getAsBoolean());
                     if (!admission.admitted()) {
                         actions.add("keep action skipped after task identity change: "
                         + admission.diagnostic());
@@ -8050,6 +8325,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                     actions.add("keep action skipped because exact action is no longer operable");
                     return;
                 }
+                if (closed.get() || stopped || !taskActive.getAsBoolean()) return;
                 currentAction.doClick();
                 actions.add("clicked proven CUB3-3054 keep action");
             });

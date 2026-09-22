@@ -2,10 +2,12 @@
 # Test-only 025 external PSD edit pipeline probe, through the shared local queue.
 #
 # Environment controls (all optional):
-#   EXTERNAL_PSD_PHASE          pipeline (default) | reopen | gui
+#   EXTERNAL_PSD_PHASE          pipeline (default) | reopen | gui | structure-native | structure-sdk
 #   EXTERNAL_PSD_CYCLES         save cycles for pipeline phase
 #   EXTERNAL_PSD_PERSIST=1      append the mediated SAVE_AS persist tail (pipeline only)
 #   EXTERNAL_PSD_CONTENT_PROFILE control7 (default) | f1; passed to the validation probe
+#   EXTERNAL_PSD_STRUCTURE_VARIANT add | delete | merge | canvas (structural phases only)
+#   EXTERNAL_PSD_STRUCTURE_SOURCE  fixed official-writer PSD staged under task home
 #   EXTERNAL_PSD_WITH_PLUGIN    path to the production external-psd-edit jar (gui phase)
 #   EXTERNAL_PSD_FIXTURE_LOCAL  reopen stage: use this saved copy instead of the source
 #   EXTERNAL_PSD_POSTEDITSHA256 / EXTERNAL_PSD_POSTEDITIMAGESHA256 /
@@ -34,6 +36,29 @@ options=(
   "--jvm-option" "-Dturboism.validation.externalpsd.phase=$phase"
   "--jvm-option" '-Dturboism.validation.externalpsd.runId={TASK_ID}'
 )
+structural_input=()
+case "$phase" in
+  structure-native|structure-sdk)
+    [[ ${EXTERNAL_PSD_CONTENT_PROFILE:-} == f1 ]] || {
+      echo 'structural controls require EXTERNAL_PSD_CONTENT_PROFILE=f1' >&2; exit 2;
+    }
+    case "${EXTERNAL_PSD_STRUCTURE_VARIANT:-}" in
+      add|delete|merge|canvas) ;;
+      *) echo 'unknown structural variant' >&2; exit 2 ;;
+    esac
+    [[ ${EXTERNAL_PSD_STRUCTURE_SOURCE:-} == /* && -f $EXTERNAL_PSD_STRUCTURE_SOURCE ]] || {
+      echo 'structural controls require an absolute PSD source file' >&2; exit 2;
+    }
+    [[ -z ${EXTERNAL_PSD_WITH_PLUGIN:-} ]] || {
+      echo 'structural controls do not run the production GUI plugin' >&2; exit 2;
+    }
+    structural_input=(--home-file "$EXTERNAL_PSD_STRUCTURE_SOURCE:structural-input/external-edit.psd")
+    options+=(
+      --jvm-option "-Dturboism.validation.externalpsd.structureVariant=$EXTERNAL_PSD_STRUCTURE_VARIANT"
+      --jvm-option '-Dturboism.preview.userFileFixedGrant={HOME}/persisted-document.cmo3'
+    )
+    ;;
+esac
 if [ -n "${EXTERNAL_PSD_CYCLES:-}" ]; then
   options+=("--jvm-option" "-Dturboism.validation.externalpsd.cycles=$EXTERNAL_PSD_CYCLES")
 fi
@@ -77,6 +102,7 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --agent "$root/build/preview/$id/turboism-agent.jar" \
   "${plugins[@]}" \
   "${fixture[@]}" \
+  "${structural_input[@]}" \
   --fixture-name external-psd-edit-025.cmo3 \
   --remote-pre-launch "$root/scripts/preview/external-psd-edit-psd-association-pre-launch.sh" \
   "${options[@]}" \

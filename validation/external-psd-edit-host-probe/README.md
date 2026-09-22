@@ -510,3 +510,27 @@ composition enums and target version. It requires the requested old/new blend fa
 compares every ArtMesh ID/GUID/composition after each replacement and Undo/Redo with the
 baseline. Missing coverage or changed mode fails the phase. This is opt-in live evidence;
 earlier serialized XML audits are not relabelled as live observations.
+
+## Structural comparison controls (F5)
+
+`EXTERNAL_PSD_PHASE=structure-native|structure-sdk` collects one fixed structural variant
+on a fresh copy of the prepared F1 CMO. Both phases require `EXTERNAL_PSD_CONTENT_PROFILE=f1`,
+`EXTERNAL_PSD_STRUCTURE_VARIANT=add|delete|merge|canvas` and an absolute
+`EXTERNAL_PSD_STRUCTURE_SOURCE` path. The shared Runner stages that input at
+`{HOME}/structural-input/external-edit.psd`; the probe verifies its fixed official-writer SHA.
+The wrapper grants WRITE only to `{HOME}/persisted-document.cmo3`.
+
+The native phase uses official `command_open` and the reviewed model/raw choosers. The SDK
+phase writes the runtime-issued edit file, awaits an opaque revision, and requires APPLIED,
+the requested before raw and consumption of that exact token. Both observe one new native
+history entry, a unique incoming raw, stable public structure, Undo/Redo and SAVE_AS.
+Task/document/model/window/stop and deadline admission precede mutations; queued expired
+EDT work cannot execute. A native chooser return alone does not complete the observation.
+
+`structure.collection=PASS` means only that this task collected its observations.
+`structure.comparison=NOT_RUN` remains until independent native and SDK tasks are compared
+for the same variant and baseline. Generated raw/image/layer GUIDs are normalized; original
+identities, empty bindings, layer/input/group ordering and mesh geometry remain observable.
+The public SDK lacks raw input affine/clipping values: these remain explicitly unavailable
+until supplemented by independent read-only serialized/native evidence. Final viewport
+presentation is also unavailable. Collection PASS alone cannot satisfy F5 or SC-006.
