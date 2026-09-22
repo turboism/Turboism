@@ -6,8 +6,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -109,6 +112,95 @@ class CubismJvmSettingsFileServiceTest {
             final String saved = Files.readString(home.resolve("config.json"));
             assertTrue(saved.contains("cubismJvm"));
             assertFalse(saved.contains("zgc"));
+        }
+    }
+
+    @Test
+    void memoryProfileDefaultsToSystem() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
+        }
+    }
+
+    @Test
+    void memoryProfileRoundTripsThroughLauncherConfig() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.BALANCED_4G);
+            assertEquals(CubismJvmSettingsService.MemoryProfile.BALANCED_4G, service.memoryProfile());
+            assertTrue(Files.readString(home.resolve("config.json"))
+                .contains("\"memoryProfile\" : \"balanced4g\""));
+            service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT);
+            assertEquals(
+                CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT,
+                service.memoryProfile()
+            );
+            assertTrue(Files.readString(home.resolve("config.json"))
+                .contains("\"memoryProfile\" : \"balanced4gFastSoft\""));
+            service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.SYSTEM);
+            assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
+            assertFalse(Files.readString(home.resolve("config.json")).contains("memoryProfile"));
+        }
+    }
+
+    @Test
+    void memoryProfileSurvivesReopenBesideOtherLauncherFields() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            service.saveZgc(false);
+            service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT);
+        }
+        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
+                new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
+            assertEquals(
+                CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT,
+                reopened.memoryProfile()
+            );
+            assertFalse(reopened.zgc(), "unrelated launcher preference is preserved");
+        }
+    }
+
+    @Test
+    void malformedMemoryProfileFailsClosedToSystemWithDiagnostic() throws Exception {
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "jvm-settings-test",
+              "pluginDirs": ["plugins"],
+              "logLevel": "INFO",
+              "safeMode": false,
+              "launcher": {"memoryProfile": "extreme16g"},
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        final List<String> diagnostics = new ArrayList<>();
+        try (CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
+                new RuntimeConfigRepository(home, diagnostics::add), home, Map.of())) {
+            assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
+            assertTrue(diagnostics.contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("extreme16g"),
+                "the corrupt persisted value stays on disk until an explicit save");
+        }
+    }
+
+    @Test
+    void nonTextualMemoryProfileFailsClosedToSystemWithDiagnostic() throws Exception {
+        Files.writeString(home.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "jvm-settings-test",
+              "pluginDirs": ["plugins"],
+              "logLevel": "INFO",
+              "safeMode": false,
+              "launcher": {"memoryProfile": 42},
+              "hooks": {"disabledIds": [], "denylistedClasses": [], "startup": {}}
+            }
+            """);
+        final List<String> diagnostics = new ArrayList<>();
+        try (CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
+                new RuntimeConfigRepository(home, diagnostics::add), home, Map.of())) {
+            assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
+            assertTrue(diagnostics.contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
         }
     }
 

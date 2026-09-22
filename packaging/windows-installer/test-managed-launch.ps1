@@ -155,6 +155,30 @@ if ($JdkParserOnly) {
         Assert-ManagedLaunch $uniformInvalid "non-boolean uniform preference fails closed"
         $reconciled = Remove-TurboismJdkOptions '-Xmx2g -Dturboism.optimization.uniformLocationCache=true -Dapp.test=kept -Dturboism.optimization.uniformLocationCache=false'
         Assert-ManagedLaunch ($reconciled -eq '-Xmx2g -Dapp.test=kept') "stale uniform options removed without losing unrelated JVM options"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
+        Assert-ManagedLaunch ((Read-CubismMemoryProfile -TurboismHome $zgcHome) -eq "system") "absent launcher.memoryProfile defaults to system"
+        Assert-ManagedLaunch ((Read-CubismMemoryProfile -TurboismHome "") -eq "system") "missing home resolves the memory profile to system"
+        Assert-ManagedLaunch ((Read-CubismMemoryProfile) -eq "system") "absent argument resolves the memory profile to system"
+        $systemTokens = @(Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome)
+        Assert-ManagedLaunch (@($systemTokens | Where-Object { $_ -match '(?i)^-Xmx|SoftRefLRUPolicy' }).Count -eq 0) "system memory profile emits no heap or soft-reference option"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"memoryProfile":"system"}}')
+        Assert-ManagedLaunch (@((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) | Where-Object { $_ -match '(?i)^-Xmx|SoftRefLRUPolicy' }).Count -eq 0) "explicit system profile still emits no heap option so the official BAT sizing stands"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"memoryProfile":"balanced4g"}}')
+        $balancedTokens = @(Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome)
+        Assert-ManagedLaunch (($balancedTokens -contains '-Xmx4g') -and ($balancedTokens -notcontains '-XX:SoftRefLRUPolicyMSPerMB=100')) "balanced4g emits -Xmx4g without soft-reference tuning"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"memoryProfile":"balanced4gFastSoft","zgc":true}}')
+        $fastSoftTokens = @(Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome)
+        Assert-ManagedLaunch (($fastSoftTokens -contains '-Xmx4g') -and ($fastSoftTokens -contains '-XX:SoftRefLRUPolicyMSPerMB=100') -and ($fastSoftTokens -contains '-XX:+UseZGC')) "balanced4gFastSoft composes with ZGC and adds soft-reference tuning"
+        foreach ($brokenProfile in @('"extreme16g"', '42', 'null')) {
+            [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), ('{"launcher":{"memoryProfile":' + $brokenProfile + '}}'))
+            $brokenTokens = @(Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome)
+            Assert-ManagedLaunch (@($brokenTokens | Where-Object { $_ -match '(?i)^-Xmx|SoftRefLRUPolicy' }).Count -eq 0) "malformed memory profile fails closed to system"
+        }
+        Assert-ManagedLaunch (Test-CubismBatExplicitHeapLimit -Text ("set MAXMEMORY=-Xmx6000m`r`n%JAVA_EXE% -showversion")) "an un-remmed BAT -Xmx is detected as an explicit heap limit"
+        Assert-ManagedLaunch (Test-CubismBatExplicitHeapLimit -Text ("%JAVA_EXE% -XX:MaxHeapSize=6g -showversion")) "an explicit MaxHeapSize flag is detected"
+        Assert-ManagedLaunch (-not (Test-CubismBatExplicitHeapLimit -Text ("rem set MAXMEMORY=-Xmx%MAX_MEMORY%m`r`nset MAXMEMORY=-XX:MaxRAMPercentage=100`r`n:: -Xmx8g"))) "the stock remmed -Xmx hint does not suppress the managed profile"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"memoryProfile":"balanced4g"}}')
+        Assert-ManagedLaunch (((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) | Where-Object { $_ -match 'add-exports=' }).Count -eq 0) "memory profile does not reintroduce obsolete ASM exports"
     }
     finally { Remove-Item -LiteralPath $zgcHome -Recurse -Force -ErrorAction SilentlyContinue }
     Write-Host "MANAGED_LAUNCH_PARSER_ONLY=PASS"
@@ -817,6 +841,69 @@ try {
     Assert-ManagedLaunch (@(Compare-Object $rootEntriesBeforeOverride $rootEntriesAfterOverride).Count -eq 0) "GraalVM override creates no Cubism-root entries"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $bat -Algorithm SHA256).Hash -eq $beforeBat) "GraalVM override leaves the official BAT byte-identical"
 
+    $profileConfig = [ordered]@{
+        format = "turboism.runtime.config"
+        schemaVersion = 1
+        worktreeId = "turboism-runtime"
+        pluginDirs = @("plugins")
+        launcher = [ordered]@{ cubismJvm = "graalvm"; memoryProfile = "balanced4gFastSoft"; zgc = $true }
+    }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($profileConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    try {
+        $profileBat = New-CubismManagedOptionsBat `
+            -OfficialBat $bat `
+            -CubismRoot $root53 `
+            -TurboismHome $turboismHome `
+            -Agent $agent
+        try {
+            $profileText = [System.IO.File]::ReadAllText($profileBat)
+            Assert-ManagedLaunch ($profileText -match '"-Xmx4g"') "managed BAT carries the balanced4gFastSoft heap limit"
+            Assert-ManagedLaunch ($profileText -match '"-XX:SoftRefLRUPolicyMSPerMB=100"') "managed BAT carries the soft-reference policy"
+            Assert-ManagedLaunch ($profileText -match '"-XX:\+UseZGC"') "the memory profile composes with ZGC"
+        }
+        finally {
+            if (Test-Path -LiteralPath $profileBat -PathType Leaf) { Remove-Item -LiteralPath $profileBat -Force -ErrorAction SilentlyContinue }
+        }
+        $explicitBat = Join-Path $temp "explicit-heap.bat"
+        Set-Content -LiteralPath $explicitBat -Encoding ASCII -Value @(
+            "@echo off",
+            'cd /d "%~dp0"',
+            'set JAVA_EXE=app\jre\bin\java.cmd',
+            'set MAXMEMORY=-Xmx6000m',
+            '%JAVA_EXE% ^',
+            '  -showversion ^',
+            '  %MAXMEMORY% ^',
+            '  com.live2d.cubism.CECubismEditorApp ^',
+            '  "%~f1"',
+            'exit /b %ERRORLEVEL%'
+        )
+        $explicitManaged = New-CubismManagedOptionsBat `
+            -OfficialBat $explicitBat `
+            -CubismRoot $root53 `
+            -TurboismHome $turboismHome `
+            -Agent $agent
+        try {
+            $explicitText = [System.IO.File]::ReadAllText($explicitManaged)
+            Assert-ManagedLaunch ($explicitText -notmatch '"-Xmx4g"') "an explicit BAT -Xmx stays authoritative over the managed profile"
+            Assert-ManagedLaunch ($explicitText -match '-Xmx6000m') "the BAT's own heap limit is preserved"
+            Assert-ManagedLaunch ($explicitText -match '"-XX:SoftRefLRUPolicyMSPerMB=100"') "soft-reference tuning still applies beside an explicit -Xmx"
+        }
+        finally {
+            if (Test-Path -LiteralPath $explicitManaged -PathType Leaf) { Remove-Item -LiteralPath $explicitManaged -Force -ErrorAction SilentlyContinue }
+        }
+    }
+    finally {
+        [System.IO.File]::WriteAllText(
+            (Join-Path $turboismHome "config.json"),
+            ($defaultConfig | ConvertTo-Json -Depth 4 -Compress),
+            (New-Object System.Text.UTF8Encoding($false))
+        )
+    }
+
     $ps = $currentPowerShell
     Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
     Assert-ManagedLaunch (-not (Test-Path -LiteralPath $statePath)) "explicit root remains independent of missing state"
@@ -1111,6 +1198,7 @@ try {
     $batManaged = [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
     Assert-ManagedLaunch ($batManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $batManaged -match '-javaagent:.*turboism-agent\.jar') "official BAT receives current owned Turboism arguments"
     Assert-ManagedLaunch ($batManaged -match '(?m)^set "JAVA_TOOL_OPTIONS=.*-javaagent:' -and $batManaged -notmatch '(?m)^set "JDK_JAVA_OPTIONS=') "official BAT integration uses JVM-parsed tool options instead of cmd-expanded JDK options"
+    Assert-ManagedLaunch ($batManaged -match '(?m)^set "JAVA_TOOL_OPTIONS=.* %JAVA_TOOL_OPTIONS%"') "inherited tool options parse after managed tokens so an explicit -Xmx stays authoritative"
     $batHash = Get-CubismSha256 $batCandidate.OfficialBat
     $batRecords2 = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate) -ExistingRecords $batRecords)
     Assert-ManagedLaunch ((Get-CubismSha256 $batCandidate.OfficialBat) -eq $batHash -and $batRecords2[0].ManagedSha256 -eq $batHash) "current update skips unnecessary BAT rewrite"

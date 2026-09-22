@@ -1775,6 +1775,20 @@ function Get-CubismManagedJdkOptionTokens {
     if (Read-CubismZgcPreference -TurboismHome $TurboismHome) {
         $tokens += "-XX:+UseZGC"
     }
+    # Memory-profile tiers are opt-in: "system" emits nothing, so the official
+    # BAT's -XX:MaxRAMPercentage=100 remains the only heap sizing and a default
+    # install is byte-identical in behavior. The capped tiers set an explicit
+    # MaxHeapSize, which HotSpot honors ahead of the BAT's percentage, and they
+    # compose with -XX:+UseZGC. An explicit -Xmx already present in the launch
+    # command still wins over the profile (see New-CubismManagedOptionsBat, and
+    # JAVA_TOOL_OPTIONS ordering in Get-CubismBatIntegrationText).
+    switch (Read-CubismMemoryProfile -TurboismHome $TurboismHome) {
+        "balanced4g" { $tokens += "-Xmx4g" }
+        "balanced4gFastSoft" {
+            $tokens += "-Xmx4g"
+            $tokens += "-XX:SoftRefLRUPolicyMSPerMB=100"
+        }
+    }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "modelUpdateSkip")) {
         $tokens += "-Dturboism.optimization.modelUpdateSkip=false"
     }
@@ -1830,6 +1844,34 @@ function Read-CubismZgcPreference {
     if ($null -eq $zgcProperty -or $null -eq $zgcProperty.Value) { return $true }
     if ($zgcProperty.Value -isnot [bool]) { throw "Turboism launcher.zgc setting is invalid" }
     return [bool]$zgcProperty.Value
+}
+
+function Read-CubismMemoryProfile {
+    param([string]$TurboismHome)
+    # "system" is the default: the official BAT's -XX:MaxRAMPercentage=100
+    # stands untouched and the managed option block emits no heap flags. An
+    # absent home/config/field resolves to system. A malformed value also
+    # resolves to system (fail-closed, with a warning for diagnostics) rather
+    # than aborting the launch — matching the runtime's read-time tolerance
+    # that drops an unsupported launcher.memoryProfile with
+    # RUNTIME_CONFIG_BAD_MEMORY_PROFILE.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return "system" }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return "system" }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return "system" }
+    $profileProperty = $launcherProperty.Value.PSObject.Properties["memoryProfile"]
+    if ($null -eq $profileProperty -or $null -eq $profileProperty.Value) { return "system" }
+    $value = $profileProperty.Value
+    if ($value -isnot [string] -or
+        @("system", "balanced4g", "balanced4gFastSoft") -notcontains [string]$value) {
+        Write-Warning "Turboism launcher.memoryProfile setting is invalid; falling back to system"
+        return "system"
+    }
+    return [string]$value
 }
 
 function ConvertTo-JdkOptionToken {
@@ -2079,6 +2121,21 @@ function New-CubismJavaOverrideBat {
     }
 }
 
+function Test-CubismBatExplicitHeapLimit {
+    param([string]$Text)
+    # An explicit -Xmx/-XX:MaxHeapSize already on the official command line
+    # (e.g. an un-remmed "set MAXMEMORY=-Xmx..." line) must stay authoritative:
+    # managed option lines are inserted after the BAT's own options and
+    # HotSpot honors the last heap flag it parses. Comment lines are skipped
+    # so the stock "rem set MAXMEMORY=-Xmx%MAX_MEMORY%m" hint does not count.
+    foreach ($line in ($Text -split "`r?`n")) {
+        $probe = $line.TrimStart()
+        if ($probe -match '(?i)^(rem\b|::)') { continue }
+        if ($probe -match '(?i)-Xmx[^\s^]*' -or $probe -match '(?i)-XX:MaxHeapSize=') { return $true }
+    }
+    return $false
+}
+
 function New-CubismManagedOptionsBat {
     param(
         [string]$OfficialBat,
@@ -2118,6 +2175,15 @@ function New-CubismManagedOptionsBat {
     $text = [System.IO.File]::ReadAllText($source, $encoding)
     $legacy = '(?ims)^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?END)?\s*$\r?\n?'
     $text = [regex]::Replace($text, $legacy, '')
+
+    if (Test-CubismBatExplicitHeapLimit -Text $text) {
+        # The BAT already carries an explicit heap limit; keep it authoritative
+        # over the managed memory profile's -Xmx (soft-reference tuning is
+        # orthogonal and still applies).
+        $managedOptions = @($managedOptions | Where-Object {
+            $_ -notmatch '(?i)^-Xmx' -and $_ -notmatch '(?i)^-XX:MaxHeapSize='
+        })
+    }
 
     $workingDirectoryPattern = '(?im)^cd[ \t]+/d[ \t]+"[^"\r\n]+"[ \t]*(?:\r?\n|$)'
     if ([regex]::Matches($text, $workingDirectoryPattern).Count -ne 1) {

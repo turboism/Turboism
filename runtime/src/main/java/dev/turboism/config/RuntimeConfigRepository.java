@@ -147,6 +147,16 @@ public final class RuntimeConfigRepository {
                 report("RUNTIME_CONFIG_BAD_LOCALE");
                 object.remove("locale");
             }
+            // Same read-mode tolerance for the launcher memory profile: an unsupported
+            // persisted tier reads as absent (fail-closed to the system default) with a
+            // structured diagnostic; the file stays untouched until an explicit save.
+            if (object.path("launcher") instanceof ObjectNode launcher
+                && launcher.has("memoryProfile")
+                && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator
+                    .isAllowedMemoryProfile(launcher.path("memoryProfile").asText(""))) {
+                report("RUNTIME_CONFIG_BAD_MEMORY_PROFILE");
+                launcher.remove("memoryProfile");
+            }
             return object.deepCopy();
         } catch (IOException failure) {
             throw failure("RUNTIME_CONFIG_UNREADABLE", failure);
