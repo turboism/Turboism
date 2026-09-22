@@ -1,7 +1,10 @@
+import {releaseNotes} from './release-notes.mjs';
 /** Public distribution contract. No dependency on the retired Updates service. */
 export const REPOSITORY='turboism/Turboism';
 export const ORIGIN='https://api.turboism.dev';
 export const CHANNELS=['stable','beta','nightly'];
+export const SNAPSHOT_REFRESH_MS=15*60*1000;
+export const SNAPSHOT_MAX_STALE_MS=24*60*60*1000;
 const sha=/^[a-f0-9]{64}$/;
 function require(value,message){if(!value)throw new Error(message);}
 export function versionParts(version) {
@@ -52,22 +55,26 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
   const url=`https://github.com/${REPOSITORY}/releases/download/${raw.tag_name}/${a.name}`;
   require(a.browser_download_url===url,'Untrusted asset URL');
   const digest=a.digest.slice(7),key=`files/${digest}/${a.name}`;
-  assets.set(a.name,{name:a.name,key,url,mediaType:a.name.endsWith('.zip')?'application/zip':'application/octet-stream',size:a.size,sha256:digest,assetId:a.id});
+  assets.set(a.name,{name:a.name,key,url,mediaType:a.name.endsWith('.zip')?'application/zip':'application/octet-stream',size:a.size,sha256:digest,assetId:a.id,downloadCount:Number.isSafeInteger(a.download_count)&&a.download_count>=0?a.download_count:null});
  }
  return {releaseId:raw.id,version,tag:raw.tag_name,channel,buildNumber:receipt?.buildNumber??null,sourceRevision,publishedAt:new Date(raw.published_at).toISOString(),githubReleaseUrl:raw.html_url,changelogUrl:raw.html_url,
   provenance:receipt?{repository:REPOSITORY,workflow:'.github/workflows/release.yml',runId:receipt.runId,runAttempt:receipt.runAttempt}:{repository:REPOSITORY,workflow:null,runId:null,runAttempt:null},
-  compatibility:null,notes:String(raw.body??'').replace(/<!-- turboism-build-v1 [\s\S]*? -->/g,'').trim().slice(0,24000),
+  compatibility:null,...releaseNotes(raw,sourceRevision),
   assets:names.map((name,i)=>({...assets.get(name),kind:['windows-installer','java-installer','full','lite'][i],platform:i===0?'windows':null,architecture:null,checksum:assets.get(name+'.sha256'),sources:[{id:'github',url:assets.get(name).url}]}))};
 }
 export function chooseLatest(releases,channel){
  require(CHANNELS.includes(channel),'Unknown channel');
  return releases.filter(r=>r.channel===channel).sort((a,b)=>compareVersions(b.version,a.version))[0]??null;
 }
+export function snapshotAge(snapshot){const t=Date.parse(snapshot?.syncedAt??'');return Number.isFinite(t)?Date.now()-t:Infinity;}
+export function snapshotUsable(snapshot){return Boolean(snapshot&&!snapshot.error&&snapshotAge(snapshot)<=SNAPSHOT_MAX_STALE_MS);}
 export function documentFor(snapshot,channel){
  require(CHANNELS.includes(channel),'Unknown channel');
  const common={schemaVersion:1,channel,metadataUrl:`${ORIGIN}/v1/releases/${channel}.json`};
- if(!snapshot||snapshot.error||snapshot.errors?.[channel]||Date.now()-Date.parse(snapshot.syncedAt)>30*60*1000)return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
- const release=chooseLatest(snapshot.releases,channel);
+ if(!snapshotUsable(snapshot))return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
+ const selected=chooseLatest(snapshot.releases,channel);
+ if(snapshot.errors?.[channel]&&!selected)return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
+ const release=selected&&!selected.notesByLanguage?{...selected,...releaseNotes({id:selected.releaseId,tag_name:selected.tag,body:selected.notes},selected.sourceRevision)}:selected;
  return {...common,status:release?'ready':'not_published',updatedAt:snapshot.syncedAt,source:{repository:REPOSITORY,synchronizedAt:snapshot.syncedAt},release};
 }
 export async function jsonResponse(request,value,status=200){

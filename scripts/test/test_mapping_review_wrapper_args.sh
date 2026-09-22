@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Mutation fixtures are independent builds, not the enclosing CI product candidate.
+# Do not inherit its release identity into sandbox Gradle invocations.
+unset TURBOISM_NIGHTLY_VERSION TURBOISM_BUILD_NUMBER TURBOISM_SOURCE_REVISION TURBOISM_BUILD_VERSION TURBOISM_BUILD_CHANNEL ORG_GRADLE_PROJECT_turboismRelease
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd -P)"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/turboism-mapping-review-wrapper.XXXXXX")"

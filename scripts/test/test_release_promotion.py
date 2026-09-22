@@ -38,7 +38,23 @@ class FakeGitHub:
             if path == "releases/latest":
                 return copy.deepcopy(self.latest)
             if path.startswith("releases/tags/"):
+                # GitHub hides unpublished drafts from this endpoint (HTTP 404),
+                # so a draft is only observable through the paginated list API.
+                if self.release is None or self.release.get("draft") is True:
+                    if optional:
+                        return None
+                    raise p.ReleaseError(f"GitHub GET {path} failed (HTTP 404)")
+                if path != "releases/tags/" + self.release["tag_name"]:
+                    raise AssertionError(path)
                 return copy.deepcopy(self.release)
+            if path.startswith("releases?per_page="):
+                return [] if self.release is None else [copy.deepcopy(self.release)]
+            if path.startswith("releases/"):
+                if self.release is not None and path == f"releases/{self.release['id']}":
+                    return copy.deepcopy(self.release)
+                if optional:
+                    return None
+                raise p.ReleaseError(f"GitHub GET {path} failed (HTTP 404)")
             raise AssertionError(path)
         self.writes.append((method, path, copy.deepcopy(data)))
         if path == "git/tags":
@@ -52,9 +68,11 @@ class FakeGitHub:
             self.release = {"id": 42, "tag_name": data["tag_name"], "draft": True,
                             "prerelease": False, "assets": []}
             return self.release
-        if path == "releases/42":
-            self.release.update(data)
-            return self.release
+        if path.startswith("releases/"):
+            if self.release is not None and path == f"releases/{self.release['id']}":
+                self.release.update(data)
+                return self.release
+            raise AssertionError(path)
         raise AssertionError(path)
 
     def upload(self, tag, path):

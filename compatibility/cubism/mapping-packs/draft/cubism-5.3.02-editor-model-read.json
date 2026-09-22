@@ -7113,6 +7113,26 @@
       "descriptor": "()I"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.texture_atlas.native_item_scale",
+      "kind": "method",
+      "owner": "texture-atlas-authoring",
+      "name": "cubism.texture-atlas.native.item.scale",
+      "runtime": "c",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/a/b",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "()D"
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.texture_atlas.native_item_transform",
       "kind": "method",
       "owner": "texture-atlas-authoring",
@@ -9782,6 +9802,27 @@
       "owner": "editor-model-read",
       "name": "cubism.editor-model.app-controller.command-delete",
       "runtime": "command_delete",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.app_command_delete_deformer_and_set_param",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
+      "runtime": "command_deleteDeformerAndSetParam",
       "profile": "cubism-5.3.02",
       "status": "DRAFT",
       "stability": "experimental",

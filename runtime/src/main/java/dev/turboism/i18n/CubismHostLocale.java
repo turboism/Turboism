@@ -3,7 +3,15 @@ package dev.turboism.i18n;
 import java.util.Locale;
 
 /**
- * Resolves the Cubism Editor UI language (host JVM locale).
+ * Resolves the Cubism Editor UI language for the running host.
+ *
+ * <p>Cubism applies the language chosen in {@code File → Environment Settings →
+ * General → Language} to the process default locale while starting up: the
+ * persisted {@code Locale.Editor} value is read from its own settings store and
+ * written through {@code Locale.setDefault(new Locale(language, bootCountry))}
+ * (5.2, 5.3 and 5.4 behave this way). The launcher's {@code -Duser.language}
+ * only selects the language version of the build, so it does <b>not</b> track
+ * that setting; the process default locale does.</p>
  */
 public final class CubismHostLocale {
 
@@ -11,26 +19,40 @@ public final class CubismHostLocale {
     }
 
     /**
-     * Resolves the current Cubism UI language from the host JVM properties.
+     * Resolves the current Cubism UI language from the host process.
      *
-     * <p>Cubism 语言版本：CubismEditor5.bat 设置 -Duser.language=zh（5.2/5.3 一致）。</p>
-     * <p>DISPLAY locale 在 Proton/Wine 下会被环境改写（zh-US），不可依赖。</p>
+     * <p>Sources, in order: the locale Cubism applied to the process default
+     * ({@code Locale.setDefault}), the host JVM {@code user.language}/{@code
+     * user.country} properties when the process default carries no language, and
+     * finally the DISPLAY locale. Wine/Proton may rewrite the raw country (e.g.
+     * {@code zh-US}), which is why the result is passed through
+     * {@code PluginLocaleResolver.normalize}: script-less {@code zh} is mapped by
+     * country to {@code zh-Hans}/{@code zh-Hant} (unknown or blank country →
+     * {@code zh-Hans}), non-zh languages are returned unchanged. Normalization is
+     * idempotent, so an already-scripted {@code zh-Hans}/{@code zh-Hant} passes
+     * through untouched.</p>
      *
-     * <p>返回 Cubism 的<b>生效 UI 语言</b>：解析结果经
-     * {@code PluginLocaleResolver.normalize} 统一归一化，原始 JVM locale 可能是 Wine
-     * 改写（如 zh-US），无 script 的 zh 语言按 country
-     * 归一到 zh-Hans/zh-Hant（zh-US → zh-Hans，zh-CN → zh-Hans，zh-TW → zh-Hant）；
-     * 非 zh 语言原样返回。归一化幂等：已带 script 的 zh-Hans/zh-Hant 输入原样返回。</p>
-     *
-     * @return the effective Cubism UI language; falls back to the DISPLAY locale when
-     *     {@code user.language} is blank, never {@code null}
+     * @return the effective Cubism UI language, never {@code null}
      */
     public static Locale resolve() {
+        return PluginLocaleResolver.normalize(appliedDefaultLocale());
+    }
+
+    private static Locale appliedDefaultLocale() {
+        // The host has already applied Environment Settings → General → Language
+        // before the runtime attaches (Cubism applies it while starting the
+        // editor app, before CEAppCtrl is constructed), so the process default is
+        // the language Cubism is actually showing. Before that call it still holds
+        // the launcher's language version, which is the value the raw JVM
+        // properties would report anyway.
+        final Locale applied = Locale.getDefault();
+        if (!applied.getLanguage().isBlank()) {
+            return applied;
+        }
         final String language = System.getProperty("user.language", "");
-        final String country = System.getProperty("user.country", "");
-        final Locale resolved = language.isBlank()
-            ? Locale.getDefault(Locale.Category.DISPLAY)
-            : new Locale(language, country);
-        return PluginLocaleResolver.normalize(resolved);
+        if (!language.isBlank()) {
+            return new Locale(language, System.getProperty("user.country", ""));
+        }
+        return Locale.getDefault(Locale.Category.DISPLAY);
     }
 }

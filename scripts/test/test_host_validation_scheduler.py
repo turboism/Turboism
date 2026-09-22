@@ -36,7 +36,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "dialog-automation", "fps", "host-locale", "parameter",
             "parameter-batch-transfer", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
-            "startup-suppression", "status-bar", "theme", "workspace",
+            "startup-suppression", "status-bar", "theme", "update-check", "workspace",
         }
         self.assertEqual(expected, set(self.manifest.tasks))
         self.assertEqual(1, self.manifest.resources["host-slot"].capacity)

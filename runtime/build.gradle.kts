@@ -125,17 +125,15 @@ val frameworkVersionResource = layout.buildDirectory.file(
 val generateFrameworkVersionResource by tasks.registering {
     group = "build"
     description = "Generates the framework version resource packaged into the runtime."
-    inputs.property(
-        "turboismFrameworkVersion",
-        rootProject.extra["turboismFrameworkVersion"] as String
-    )
+    @Suppress("UNCHECKED_CAST")
+    val metadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
+    inputs.properties(metadata)
     outputs.file(frameworkVersionResource)
     doLast {
         val file = frameworkVersionResource.get().asFile
         file.parentFile.mkdirs()
-        file.writeText(
-            "version=${rootProject.extra["turboismFrameworkVersion"] as String}\n"
-        )
+        // Stable order and no generated timestamp: rebuilding identical inputs is reproducible.
+        file.writeText(metadata.entries.joinToString("\n", postfix = "\n") { (key, value) -> "$key=$value" })
     }
 }
 

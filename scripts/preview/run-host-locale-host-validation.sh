@@ -9,11 +9,11 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [--fixture-sha256 <64-hex>] [runner-options...]" >&2
+  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--environment-language en|ja|ko|zh] [--fixture <remote-path>] [--fixture-sha256 <64-hex>] [runner-options...]" >&2
   exit 2
 fi
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
-  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--fixture <remote-path>] [--fixture-sha256 <64-hex>] [runner-options...]"
+  echo "usage: run-host-locale-host-validation.sh <5302|5203> [run-label] [--locale system|en|ja|ko|zh-Hans|zh-Hant] [--environment-language en|ja|ko|zh] [--fixture <remote-path>] [--fixture-sha256 <64-hex>] [runner-options...]"
   exit 0
 fi
 version="$1"
@@ -30,6 +30,7 @@ fi
 locale=''
 fixture_override=''
 fixture_sha256_override=''
+environment_language=''
 runner_options=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -39,6 +40,19 @@ while [ "$#" -gt 0 ]; do
       case "$locale" in
         system|en|ja|ko|zh-Hans|zh-Hant) ;;
         *) echo "error: locale must be system, en, ja, ko, zh-Hans, or zh-Hant" >&2; exit 2 ;;
+      esac
+      shift 2
+      ;;
+    --environment-language)
+      # Seeds File -> Environment Settings -> General -> Language in the cloned
+      # prefix, so the runtime must follow the host setting instead of the
+      # launcher's -Duser.language language version.
+      [ "$#" -ge 2 ] || { echo "error: missing value for --environment-language" >&2; exit 2; }
+      environment_language="$2"
+      case "$environment_language" in
+        en|ja|ko|zh) ;;
+        zh-Hans|zh-Hant) environment_language=zh ;;
+        *) echo "error: environment language must be en, ja, ko, or zh" >&2; exit 2 ;;
       esac
       shift 2
       ;;
@@ -92,6 +106,25 @@ locale_option=()
 if [ -n "$locale" ]; then
   locale_option=(--jvm-option "-Dturboism.locale=$locale")
 fi
+
+# Environment Settings language seeding: the hook writes the cloned prefix's
+# Locale.Editor store before launch and records the precondition (seeded value,
+# launcher -Duser.language, discriminating) as evidence. Every other host
+# language becomes a failure marker, so the runtime's own "Using startup locale"
+# line must name the seeded language for the run to pass.
+environment_option=()
+if [ -n "$environment_language" ]; then
+  hook="$repo_root/scripts/preview/host-locale-environment-language-hook.sh"
+  [ -f "$hook" ] || { echo "error: environment-language hook not found: $hook" >&2; exit 1; }
+  # The language travels as a hook argument: the durable queue re-executes the
+  # runner with no ambient environment, so an exported variable never arrives.
+  environment_option+=(--remote-pre-launch-arg "$environment_language")
+  environment_option+=(--remote-pre-launch "$hook")
+  for other in en ja ko zh; do
+    [ "$other" = "$environment_language" ] && continue
+    environment_option+=(--failure-marker "Using startup locale $other")
+  done
+fi
 exec bash "$runner" \
   --name host-locale \
   --version "$version" \
@@ -113,4 +146,5 @@ exec bash "$runner" \
   --result-timeout 600 \
   --exit-timeout 120 \
   "${locale_option[@]}" \
+  "${environment_option[@]}" \
   "${runner_options[@]}"
