@@ -56,6 +56,25 @@ class RssObservationTests(unittest.TestCase):
         with self.assertRaises(rss.IdentityChanged):
             self.scope.sample()
 
+    def test_ambiguous_process_error_preserves_bound_candidates(self):
+        self.process(456, 789)
+        for pid, command in ((123, "java.exe"), (456, "wine-preloader")):
+            process = self.proc / str(pid)
+            (process / "comm").write_text(command + "\n")
+            (process / "exe").symlink_to("/test/" + command)
+            (process / "maps").write_text("1000-2000 r-xp 0000 01:01 1 /test/jvm.dll\n")
+        (self.scope_path / "cgroup.procs").write_text("123\n456\n")
+        with self.assertRaises(rss.IdentityChanged) as failure:
+            self.scope.sample()
+        candidates = failure.exception.diagnostics["candidates"]
+        self.assertEqual([(123, 456), (456, 789)],
+                         [(row["pid"], row["processStartTicks"]) for row in candidates])
+        self.assertTrue(all(row["rssBytes"] == 120 * 1024 for row in candidates))
+        self.assertTrue(all("argv" not in row and "environment" not in row for row in candidates))
+        self.assertEqual(["java.exe", "wine-preloader"], [row["comm"] for row in candidates])
+        self.assertTrue(all(row["jvmMappings"] == ["/test/jvm.dll"] for row in candidates))
+        self.assertTrue(all("diagnosticError" not in row for row in candidates))
+
     def test_scope_and_process_membership_change_rejected(self):
         (self.proc / "123/cgroup").write_text("0::/unrelated.scope\n")
         with self.assertRaises(rss.IdentityChanged):
