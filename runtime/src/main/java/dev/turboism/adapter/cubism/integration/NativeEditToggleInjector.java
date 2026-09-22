@@ -30,22 +30,26 @@ import java.util.Set;
  * window (evidence: {@code y.b(owner)} disposes the cached {@code window.m} and re-parents
  * the static controls into a fresh {@code CHBox}). {@link #ensureInjected()} therefore
  * locates the row by {@code remoteJCheckBox.getParent()} on every call, treats a same-parent
- * injected checkbox as already installed, and re-adds after rebuilds. Callers invoke it on
- * the EDT after each dialog open; the Phase-2 seam for automating that is the
- * {@code y.a(V|X)} show-entry hook recorded in the mapping candidates.</p>
+ * injected checkbox as already installed, and re-adds after rebuilds. Phase 2 automates the
+ * call: {@link VerifiedEditToggleHookInstaller} instruments the return of {@code y.b(owner)}
+ * — the seam chosen over the {@code y.a} show entry because the modal show blocks until the
+ * dialog closes — so the checkbox is (re)installed on the EDT before every open.</p>
  *
  * <p>Admission is fail-closed: {@link #fromVerifiedResolver} requires an exact reviewed
  * version and the complete capability/alias set from
- * {@link EditorIntegrationSettingsDialogSelectorContract}. While the mapping stays a
- * candidate (not applied to any verified record), admission returns {@link Optional#empty()}
+ * {@link EditorIntegrationSettingsDialogSelectorContract} — injection members, the
+ * {@code y.b} hook seam, and the {@code UUConfig} persistence triple, all-or-nothing. While
+ * any piece is missing from the verified record, admission returns {@link Optional#empty()}
  * and nothing is injected — the native dialog is byte-for-byte untouched, which is also the
  * kill-switch ({@value #ENABLED_PROPERTY}{@code =false}) behaviour.</p>
  *
- * <p>Phase 1 does not persist the checkbox state and does not change any native control,
- * close, or persistence behaviour: the injected component is a plain {@link JCheckBox}
- * whose {@link java.awt.event.ItemListener} forwards the selection into
- * {@link EditToggleState}; {@link EditToggleApprovalGate} is the not-yet-wired
- * {@link EditApprovalGate} attachment point.</p>
+ * <p>The injected component is a plain {@link JCheckBox} whose
+ * {@link java.awt.event.ItemListener} forwards the selection into {@link EditToggleState};
+ * {@link EditToggleApprovalGate} answers the 050 protocol bridge's approval queries from that
+ * state (live-state semantics — no prompt, instant flip), and
+ * {@link EditToggleConfigStore} persists it under the host-domain UUConfig key
+ * {@code CExternalAppSettingDialog.EditEnabled}. No native control, close, or persistence
+ * behaviour is changed.</p>
  */
 public final class NativeEditToggleInjector {
 
@@ -53,7 +57,13 @@ public final class NativeEditToggleInjector {
     public static final String ENABLED_PROPERTY =
         "dev.turboism.integration.edit-toggle.enabled";
 
-    /** Label shown by the injected checkbox — the 5.4 row's edit toggle text. */
+    /**
+     * Label shown by the injected checkbox — the 5.4 row's edit toggle text. Phase-2
+     * decision (evidence §12.4): no standalone edit key exists in the artifacts'
+     * {@code res/i18n/I18N_cubism3*} catalogs — every CUB3 key with edit semantics is a
+     * compound label — so the label stays hardcoded rather than resolving through the
+     * {@code b/c.a} localization chain.
+     */
     public static final String EDIT_LABEL = "编辑";
 
     /** Client-property marker on the injected checkbox; diagnostics and tests. */
