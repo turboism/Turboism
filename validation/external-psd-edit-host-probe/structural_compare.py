@@ -125,6 +125,10 @@ def load_collection(directory, phase):
     require(observed.get("contentProfile") == "f1", "wrong structural content profile")
     require(observed.get("structure.variant") in ("add", "delete", "merge", "canvas"), "unknown variant")
     require(sha(observed.get("structure.source.sha256")), "missing structural source SHA")
+    input_version = observed.get("structure.inputDetails.version", "0")
+    require(input_version in ("0", "1"), "unknown input detail schema")
+    if input_version == "1":
+        require(sha(observed.get("structure.savedCmo.sha256")), "missing saved CMO SHA")
     if phase == "structure-native":
         require(observed.get("structure.native.chooserComplete") == "true"
                 and observed.get("structure.native.command.invocations") == "1"
@@ -139,7 +143,12 @@ def load_collection(directory, phase):
     for stage in STAGES:
         prefix = "structure." + stage + "."
         values = {k[len(prefix):]: v for k, v in observed.items() if k.startswith(prefix)}
-        for key, value in DECLARATIONS.items():
+        declarations = dict(DECLARATIONS)
+        if input_version == "1":
+            declarations.update(rawInputTransformAndClipping="OFFICIAL_LIVE_INPUT_DETAILS_V1")
+            declarations["inputs.scope"] = "official Editor selector records and cached local-to-canvas; null is observed absence"
+            require(values.get("modifiedAfterSaving") in ("true", "false"), "missing live dirty state")
+        for key, value in declarations.items():
             require(values.pop(key, None) == value, "missing/changed observation scope: " + stage + "." + key)
         identities.append((values.pop("historyDocument", ""), values.pop("historyManager", "")))
         require(all(identities[-1]), "unbound history")
@@ -155,6 +164,11 @@ def load_collection(directory, phase):
             for obj in objects:
                 require(all(obj + "." + field in values for field in fields),
                         "incomplete " + kind + " observation")
+                if kind == "image" and input_version == "1":
+                    require(all(obj + "." + field in values
+                                for field in ("selectorPresent", "cachedLocalToCanvas", "inputDetails")),
+                            "incomplete live input observation")
+                    require(values[obj + ".selectorPresent"] in ("true", "false"), "missing selector presence")
                 if kind == "mesh":
                     require("inputs." + obj[len("mesh."):] in values, "missing ArtMesh inputs")
         stages[stage] = values
@@ -167,14 +181,16 @@ def load_collection(directory, phase):
                 "wrong history entry count: " + stage)
     return {"jobId": job["job_id"], "runId": job["run_id"], "terminalSha256": terminal["sha256"],
             "fixtureSha256": fixture, "variant": observed["structure.variant"],
-            "sourceSha256": observed["structure.source.sha256"], "artifacts": artifacts, "stages": stages}
+            "sourceSha256": observed["structure.source.sha256"], "artifacts": artifacts,
+            "inputDetailsVersion": input_version, "savedCmoSha256": observed.get("structure.savedCmo.sha256"),
+            "stages": stages}
 
 
 def compare(native_dir, sdk_dir):
     native = load_collection(native_dir, "structure-native")
     sdk = load_collection(sdk_dir, "structure-sdk")
     require(native["jobId"] != sdk["jobId"] and native["runId"] != sdk["runId"], "tasks must be independent")
-    for key in ("fixtureSha256", "variant", "sourceSha256"):
+    for key in ("fixtureSha256", "variant", "sourceSha256", "inputDetailsVersion"):
         require(native[key] == sdk[key], "comparison inputs differ: " + key)
     require(native["artifacts"]["external-psd-edit-host-probe.jar"]
             == sdk["artifacts"]["external-psd-edit-host-probe.jar"], "collection probe differs")
@@ -185,7 +201,8 @@ def compare(native_dir, sdk_dir):
                               for k in sorted(left.keys() | right.keys()) if left.get(k) != right.get(k)}
     return {"status": "OBSERVED_FIELDS_MISMATCH" if any(differences.values()) else "OBSERVED_FIELDS_MATCH",
             "F5": "NOT_CLAIMED", "SC006": "NOT_CLAIMED",
-            "unobserved": ["live input affine/clipping", "dirty state", "final viewport presentation"],
+            "unobserved": (["live input affine/clipping", "dirty state"]
+                           if native["inputDetailsVersion"] == "0" else []) + ["final viewport presentation"],
             "native": {k: v for k, v in native.items() if k != "stages"},
             "sdk": {k: v for k, v in sdk.items() if k != "stages"},
             "fieldCounts": {s: len(native["stages"][s]) for s in STAGES}, "differences": differences}

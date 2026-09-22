@@ -536,9 +536,16 @@ ArtMeshes by GUID on the same EDT observation with document/model generation che
 The helper verifies the defining loader, official JAR SHA and exact method shapes before use;
 missing colors or incomplete/ambiguous mesh coverage fail. These are authoring colors, not
 evaluated public Core colors. The separate Editor-to-Core receiver mismatch remains unresolved.
-The public SDK lacks raw input affine/clipping values: these remain explicitly unavailable
-until supplemented by independent read-only serialized/native evidence. Final viewport
-presentation is also unavailable. Collection PASS alone cannot satisfy F5 or SC-006.
+`structure.inputDetails.version=1` adds a validation-only native observer for all selector
+records: six affine components and null or exact `ClipByMesh` positions/indices, preserving
+record order. ModelImage/raw/layer GUID coverage and detail presence must match the SDK graph.
+It reads the cached local-to-canvas field directly; the lazy getter would initialize a cache.
+All classes, getters and fields pass the defining-loader/code-source/official SHA checks;
+unknown shapes, non-finite components and identity changes reject the observation.
+Each stage also records the exact current document's `isModifiedAfterSaving()`. SAVE_AS binds
+the saved CMO SHA in the terminal for subsequent read-only archive auditing.
+Older collections lack these live fields and cannot be compared with version 1.
+Final viewport presentation remains unavailable. Collection PASS alone cannot satisfy F5 or SC-006.
 
 Compare two collected task directories with:
 
@@ -554,8 +561,8 @@ separately so a runtime fix can be compared with an earlier official baseline.
 Only cross-task history object identities and exact scope declarations are excluded; each history
 identity must remain stable within its task. Names, order, colors and geometry differences remain
 visible. Exit 0 means `OBSERVED_FIELDS_MATCH`, 1 means `OBSERVED_FIELDS_MISMATCH`, and 2 means
-rejected/incomplete evidence. Every result retains `F5=NOT_CLAIMED`; live input affine/clipping,
-dirty state and final viewport presentation still need independent evidence. Synthetic auditor
+rejected/incomplete evidence. Every result retains `F5=NOT_CLAIMED`; incomplete older collections
+retain their live input/dirty gaps, and final viewport presentation is always unobserved. Synthetic auditor
 regressions: `python3 scripts/test/test_external_psd_structural_compare.py`.
 
 For an independent saved-input supplement, extract `main.xml` with the official ArchiveReader

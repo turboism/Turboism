@@ -24,6 +24,7 @@ public final class OfficialPsdReplacementBaselineTest {
         testWrappedOptionSelection();
         testNativeRawResolution();
         testAuthoringColors();
+        testInputDetails();
         testOfficialJarShape();
         System.out.println("PASS: OfficialPsdReplacementBaselineTest");
     }
@@ -342,6 +343,80 @@ public final class OfficialPsdReplacementBaselineTest {
     private record ColorMesh(NativeGuid guid, ColorForm form) { }
     private record ColorForm(NativeColor multiply, NativeColor screen) { }
     private record NativeColor(float red, float green, float blue, float alpha) { }
+
+    private static void testInputDetails() throws Exception {
+        final var positions = InputClip.class.getDeclaredField("positions");
+        final var indices = InputClip.class.getDeclaredField("indices");
+        positions.setAccessible(true);
+        indices.setAccessible(true);
+        final var cachedTransform = InputImage.class.getDeclaredField("local");
+        cachedTransform.setAccessible(true);
+        final var components = new java.util.ArrayList<Method>();
+        for (final String name : List.of("a", "b", "c", "d", "e", "f")) {
+            components.add(InputAffine.class.getDeclaredMethod(name));
+        }
+        final var access = new OfficialPsdReplacementBaseline.InputDetailAccess(
+            InputImage.class, InputEnv.class, InputSelector.class, InputRecord.class, InputLayer.class,
+            InputAffine.class, InputClip.class, null, null,
+            InputImage.class.getDeclaredMethod("guid"), InputImage.class.getDeclaredMethod("env"),
+            cachedTransform, InputEnv.class.getDeclaredMethod("present"),
+            InputEnv.class.getDeclaredMethod("selector"), InputSelector.class.getDeclaredMethod("map"),
+            InputRecord.class.getDeclaredMethod("layer"), InputLayer.class.getDeclaredMethod("guid"),
+            InputLayer.class.getDeclaredMethod("owner"), InputRecord.class.getDeclaredMethod("affine"),
+            InputRecord.class.getDeclaredMethod("clip"), components, positions, indices);
+        final Method guid = NativeGuid.class.getDeclaredMethod("value");
+        final Method rawGuid = NativeImage.class.getDeclaredMethod("guid");
+        final var raw = new NativeGuid("raw");
+        final var layer = new InputLayer(new NativeGuid("layer"), new NativeImage(raw));
+        final var affine = new InputAffine(1f, 0f, 2f, 0f, 1f, -3f);
+        final var nullClip = new InputRecord(layer, affine, null);
+        final var clipped = new InputRecord(layer, affine, new InputClip(new float[] {1, 2, 3, 4}, new int[] {1, 0}));
+        final var original = inputImage(raw, affine, List.of(nullClip, clipped));
+        expectColorReject(() -> OfficialPsdReplacementBaseline.collectInputDetails(List.of(original), access, guid, rawGuid));
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            try {
+                final var first = OfficialPsdReplacementBaseline.collectInputDetails(List.of(original), access, guid, rawGuid);
+                final var observed = first.get("image");
+                assertTrue(observed.selectorPresent(), "selector presence is observed");
+                final var records = observed.bindings().get("raw");
+                assertEquals("null", records.get(0).clipping(), "null clipping is explicit absence");
+                assertEquals("[0x1.0p0, 0x0.0p0, 0x1.0p1, 0x0.0p0, 0x1.0p0, -0x1.8p1]",
+                    records.get(0).affine(), "all six affine components survive in fixed order");
+                assertTrue(records.get(1).clipping().contains("indices=[1, 0]"), "clip indices retain order");
+                final var reversed = OfficialPsdReplacementBaseline.collectInputDetails(
+                    List.of(inputImage(raw, affine, List.of(clipped, nullClip))), access, guid, rawGuid);
+                assertFalse(first.equals(reversed), "input record order changes must remain visible");
+                final var empty = OfficialPsdReplacementBaseline.collectInputDetails(
+                    List.of(inputImage(raw, affine, List.of())), access, guid, rawGuid);
+                assertEquals(List.of(), empty.get("image").bindings().get("raw"), "empty raw binding retained");
+                final var absent = OfficialPsdReplacementBaseline.collectInputDetails(List.of(
+                    new InputImage(new NativeGuid("image"), new InputEnv(false, null), affine)), access, guid, rawGuid);
+                assertFalse(empty.equals(absent), "absent selector differs from an empty binding");
+                for (final List<?> invalid : List.of(List.of(original, original), List.of(new Object()),
+                    List.of(inputImage(raw, affine, List.of(new InputRecord(
+                        new InputLayer(layer.guid(), new NativeImage(new NativeGuid("wrong-owner"))), affine, null)))),
+                    List.of(inputImage(raw, affine, List.of(new InputRecord(layer, affine, new Object())))),
+                    List.of(inputImage(raw, affine, List.of(new InputRecord(layer,
+                        new InputAffine(Float.NaN, 0, 0, 0, 0, 0), null)))),
+                    List.of(inputImage(raw, affine, List.of(new InputRecord(layer, affine,
+                        new InputClip(new float[] {Float.POSITIVE_INFINITY}, new int[] {}))))))) {
+                    expectColorReject(() -> OfficialPsdReplacementBaseline.collectInputDetails(invalid, access, guid, rawGuid));
+                }
+            } catch (Exception failure) { throw new AssertionError(failure); }
+        });
+    }
+
+    private static InputImage inputImage(final NativeGuid raw, final InputAffine affine, final List<InputRecord> records) {
+        return new InputImage(new NativeGuid("image"), new InputEnv(true,
+            new InputSelector(Map.of(raw, records))), affine);
+    }
+    private record InputImage(NativeGuid guid, InputEnv env, InputAffine local) { }
+    private record InputEnv(boolean present, InputSelector selector) { }
+    private record InputSelector(Map<NativeGuid, List<InputRecord>> map) { }
+    private record InputRecord(InputLayer layer, InputAffine affine, Object clip) { }
+    private record InputLayer(NativeGuid guid, NativeImage owner) { }
+    private record InputAffine(float a, float b, float c, float d, float e, float f) { }
+    private record InputClip(float[] positions, int[] indices) { }
 
     private static String sha256(final Path path) throws Exception {
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");
