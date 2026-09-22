@@ -1,6 +1,0 @@
-{
-  "worktree": {
-    "setup": "codegraph init",
-    "teardown": "codegraph unlock"
-  }
-}

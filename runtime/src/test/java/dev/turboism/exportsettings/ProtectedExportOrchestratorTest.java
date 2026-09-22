@@ -713,13 +713,23 @@ class ProtectedExportOrchestratorTest {
         // The supervisor probe reproduced the gap: a place-move failure that
         // also breaks the rollback restore retains the scratch backup as the
         // only surviving copy of the user's original bytes — but the report
-        // must name that recovery location, not a bare publish-failed key.
+        // must name that recovery location verbatim, under a path long enough
+        // to break the generic diagnostic bound and past the suppressed cap.
         final Fixture fixture = new Fixture();
-        Files.writeString(fixture.realPick.toPath(), "ORIGINAL-USER-BYTES");
+        final Path destination = Files.createDirectories(tempDir.resolve(
+            "destination-with-a-deliberately-long-segment-name-".repeat(5)));
+        fixture.host.realPick = destination.resolve("model.moc3").toFile();
+        Files.writeString(fixture.host.realPick.toPath(), "ORIGINAL-USER-BYTES");
+        Files.writeString(destination.resolve("model.model3.json"),
+            "ORIGINAL-JSON-BYTES");
         fixture.publishMoveOp = (source, target) -> {
             if (source.toString().contains("incoming")
                 && target.getFileName().toString().endsWith(".json")) {
-                throw new IOException("injected place failure");
+                final IOException place = new IOException("injected place failure");
+                for (int i = 0; i < 6; i++) {
+                    place.addSuppressed(new IOException("injected diagnostic " + i));
+                }
+                throw place;
             }
             if (source.toString().contains("backups")) {
                 throw new IOException("injected rollback failure");
@@ -735,16 +745,19 @@ class ProtectedExportOrchestratorTest {
         final String detail = report.failureDetail();
         assertNotNull(detail, "publish failure must carry diagnostics");
         assertTrue(detail.contains("suppressed:"), detail);
-        assertTrue(detail.contains(".turboism-publish-"),
-            "retained recovery path must reach the report: " + detail);
+        assertTrue(detail.contains("more suppressed"),
+            "eight generic suppressed entries must overflow the cap: " + detail);
+        assertTrue(detail.contains("recovery-path: "), detail);
 
         // The retained scratch under the destination still holds the user's
-        // original bytes — the reported path is real, not a truncated stub.
-        final Path destination = fixture.realPick.toPath().getParent();
+        // original bytes — and the report must contain its full path verbatim,
+        // not a stub truncated by the generic describe() bound.
+        boolean pathReported = false;
+        boolean recovered = false;
         try (DirectoryStream<Path> scratches =
                 Files.newDirectoryStream(destination, ".turboism-publish-*")) {
-            boolean recovered = false;
             for (Path scratch : scratches) {
+                pathReported |= detail.contains(scratch.toString());
                 try (var walk = Files.walk(scratch)) {
                     recovered |= walk.filter(Files::isRegularFile).anyMatch(path -> {
                         try {
@@ -756,9 +769,11 @@ class ProtectedExportOrchestratorTest {
                     });
                 }
             }
-            assertTrue(recovered,
-                "retained scratch must hold the user's original bytes");
         }
+        assertTrue(pathReported,
+            "report must contain the actual retained scratch path verbatim: " + detail);
+        assertTrue(recovered,
+            "retained scratch must still hold the user's original bytes");
         orchestrator.close();
     }
 
