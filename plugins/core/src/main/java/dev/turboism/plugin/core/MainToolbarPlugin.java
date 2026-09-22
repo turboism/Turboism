@@ -5,9 +5,11 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.DialogRequest;
 
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /** Built-in, non-removable Turboism core plugin. */
@@ -23,6 +25,19 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.Registration historyProviderRegistration;
     private CoreWindows windows;
+    private volatile boolean closed;
+    private final AtomicLong updateUiGeneration = new AtomicLong();
+    /** Keyed hint id: re-issuing the same key refreshes the native hint instead of stacking one. */
+    private static final String UPDATE_HINT_ID = "turboism-update-available";
+    private static final String CHECK_RESULT_HINT_ID = "turboism-update-check-result";
+    private static final float CHECK_RESULT_HINT_SECONDS = 5.0f;
+    /** Sits after the core menu items, which occupy 10..13. */
+    private static final int UPDATE_MENU_ORDER = 14;
+    private Registration updateHint;
+    /** Identity currently shown by the hint, so a newer build replaces the message. */
+    private String updateHintIdentity;
+    /** Identity the user dismissed, so acknowledging a build does not make it reappear. */
+    private String dismissedHintIdentity;
 
     public MainToolbarPlugin() {
         services = CorePluginServices.consume();
@@ -36,6 +51,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         this.settings = runtimeSettings.read();
         this.fileChooserHistory = context.fileChooserHistory();
         this.plugins = services.plugins();
+        this.closed = false;
         this.homeEntryService = new MainToolbarHomeEntryService(
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
             runtimeSettings, plugins
@@ -71,6 +87,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
         ));
+        registerUpdateFeatures();
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);
@@ -82,6 +99,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(homeEntryService.registerLogsMenu());
         context.disposableScope().register(homeEntryService.registerAboutMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
+        if (services.update().available()) services.update().start();
         logger.info("Turboism main toolbar icon mode selected: "
             + (settings.useTextIcon() ? "text" : "installer"));
         logger.info("Turboism core enabled");
@@ -91,11 +109,224 @@ public final class MainToolbarPlugin implements TurboismPlugin {
 
     @Override
     public void shutdown() {
+        closed = true;
+        updateUiGeneration.incrementAndGet();
+        closeUpdateHint();
         if (historyProviderRegistration != null) {
             historyProviderRegistration.unregister();
             historyProviderRegistration = null;
         }
         logger.info("Turboism core shutdown");
+    }
+
+    private void registerUpdateFeatures() {
+        final CoreUpdateService updates = services.update();
+        if (!updates.available()) return;
+        registerAction(
+            CoreUpdateService.MANUAL_CHECK_ACTION_ID,
+            localized("updates.check", "Check for updates"),
+            ignored -> updates.checkManual()
+        );
+        try {
+            final String root = localized("common.turboism", "Turboism");
+            context.disposableScope().register(context.menus().contribute(
+                new dev.turboism.sdk.menu.MenuRegistry.MenuContribution() {
+                    @Override public String menuPath() {
+                        return root + "/" + localized("updates.check", "Check for updates");
+                    }
+                    @Override public String actionId() {
+                        return CoreUpdateService.MANUAL_CHECK_ACTION_ID;
+                    }
+                    @Override public int order() {
+                        return UPDATE_MENU_ORDER;
+                    }
+                }
+            ));
+        } catch (RuntimeException unavailable) {
+            logger.warn("Update menu contribution unavailable; continuing without it");
+        }
+        try {
+            context.disposableScope().register(context.uiHost().contributeSettings(
+                CoreUpdateSettingsContribution.create(localization(context), updates)
+            ));
+        } catch (RuntimeException unavailable) {
+            logger.warn("Update preference contribution unavailable; continuing without it");
+        }
+        context.disposableScope().register(updates.subscribe(this::onUpdateSnapshot));
+    }
+
+    private void onUpdateSnapshot(final CoreUpdateService.Snapshot snapshot) {
+        if (closed) return;
+        final long expectedUiGeneration = updateUiGeneration.incrementAndGet();
+        try {
+            context.disposableScope().register(context.uiScheduler().runOnUiThread(
+                () -> applyUpdateSnapshot(snapshot, expectedUiGeneration)
+            ));
+        } catch (RuntimeException rejected) {
+            logger.warn("Update UI dispatch was rejected safely");
+        }
+    }
+
+    /**
+     * Presents the update state in the host's own drawing-area hint.
+     *
+     * <p>An available update is a condition, not an event: the hint is issued through the
+     * condition watch so it stays on the drawing area while the update is still offered and clears
+     * itself once it is not, and a click on it opens the download page. A user-visible check result
+     * that is not an update is a one-shot notification, so it is sent dismissible and expires on its
+     * own. Nothing is added to the docked panel or to the plugin tabs.</p>
+     */
+    private void applyUpdateSnapshot(
+        final CoreUpdateService.Snapshot snapshot,
+        final long expectedUiGeneration
+    ) {
+        if (!isDeliverable(snapshot, expectedUiGeneration)) return;
+        try {
+            switch (snapshot.status()) {
+                case UPDATE_AVAILABLE -> showUpdateHint(snapshot);
+                case UP_TO_DATE, UNAVAILABLE -> {
+                    // The current result no longer claims an update is available, so the hint must
+                    // go at once rather than linger on a stale "click to download".
+                    closeUpdateHint();
+                    if (snapshot.userInitiated()) showCheckResultHint(snapshot);
+                }
+                case DISABLED, CLOSED -> closeUpdateHint();
+                // A check in flight proves nothing about the update, so the hint the user is
+                // already reading stays put instead of flickering away and back.
+                case IDLE, CHECKING -> { }
+            }
+        } catch (RuntimeException unavailable) {
+            logger.warn("Update canvas hint was unavailable");
+        }
+    }
+
+    /**
+     * Keeps one keyed hint on the drawing area while the update is worth showing.
+     *
+     * <p>The hint is informational and click-to-dismiss: clicking it acknowledges the message, it
+     * does not open anything. The hint is replaced rather than duplicated when the offered identity
+     * changes, so a newer build never leaves the previous build's message on screen, and a dismissal
+     * is remembered per identity so the message does not reappear the moment it is dismissed.</p>
+     */
+    private void showUpdateHint(final CoreUpdateService.Snapshot snapshot) {
+        final String identity = snapshot.availableIdentity().orElse("a newer version");
+        if (identity.equals(dismissedHintIdentity)) return;
+        if (updateHint != null && identity.equals(updateHintIdentity)) return;
+        closeUpdateHint();
+        updateHintIdentity = identity;
+        // The hint states that an update exists; the exact build stays in the log and the state
+        // file, where it is diagnostics rather than something to read over the drawing area.
+        final String message = localized("updates.hint.available", "Turboism update available");
+        updateHint = context.uiHost().showCanvasHintWhile(
+            context.uiScheduler(),
+            new CanvasHintNotification(
+                UPDATE_HINT_ID,
+                message,
+                CanvasHintNotification.UNTIL_DISMISSED,
+                java.util.Optional.of(this::dismissUpdateHint)
+            ),
+            this::updateHintStillWorthShowing
+        );
+        logger.info("UPDATE_HINT_SENT id=" + UPDATE_HINT_ID + " identity=" + identity);
+    }
+
+    /** Retires the hint because the user clicked it; the same identity is not shown again. */
+    private void dismissUpdateHint() {
+        dismissedHintIdentity = updateHintIdentity;
+        logger.info("UPDATE_HINT_DISMISSED identity=" + dismissedHintIdentity);
+        closeUpdateHint();
+    }
+
+    /**
+     * Whether the hint the user is reading should stay up.
+     *
+     * <p>An update that is still offered obviously stays. A check in flight also stays: it has not
+     * disproved the update yet, and dropping the message for the second or two a manual check takes
+     * would make it flicker away and come straight back. Any settled non-update result clears it.</p>
+     *
+     * <p>This is the watch's own condition, so it also has to retire our bookkeeping when it says
+     * "no": once the watch dismisses the hint we no longer hold a live one, and a later update must
+     * be able to show a new hint.</p>
+     */
+    private boolean updateHintStillWorthShowing() {
+        boolean keep = false;
+        if (!closed) {
+            try {
+                final CoreUpdateService.Status status = services.update().snapshot().status();
+                keep = status == CoreUpdateService.Status.UPDATE_AVAILABLE
+                    || status == CoreUpdateService.Status.CHECKING;
+            } catch (RuntimeException unavailable) {
+                keep = false;
+            }
+        }
+        if (!keep) {
+            updateHint = null;
+            updateHintIdentity = null;
+        }
+        return keep;
+    }
+
+    private void closeUpdateHint() {
+        final Registration hint = updateHint;
+        updateHint = null;
+        updateHintIdentity = null;
+        if (hint == null) return;
+        try {
+            hint.close();
+        } catch (RuntimeException failure) {
+            logger.warn("Update canvas hint cleanup failed safely");
+        }
+    }
+
+    /** One-shot, click-to-dismiss result of a check the user asked for. */
+    private void showCheckResultHint(final CoreUpdateService.Snapshot snapshot) {
+        final String message = switch (snapshot.status()) {
+            case UP_TO_DATE -> format(
+                "updates.up-to-date",
+                "Turboism " + snapshot.localVersion() + " is up to date.",
+                snapshot.localVersion()
+            );
+            case UNAVAILABLE -> localized(
+                "updates.unavailable", "Turboism updates are currently unavailable."
+            );
+            default -> null;
+        };
+        if (message == null) return;
+        context.disposableScope().register(context.uiHost().notifyDismissibleCanvasHint(
+            new CanvasHintNotification(
+                CHECK_RESULT_HINT_ID,
+                message,
+                CHECK_RESULT_HINT_SECONDS
+            )
+        ));
+        logger.info("UPDATE_CHECK_RESULT_HINT_SENT status=" + snapshot.status());
+    }
+
+    private boolean isDeliverable(
+        final CoreUpdateService.Snapshot snapshot,
+        final long expectedUiGeneration
+    ) {
+        if (closed || updateUiGeneration.get() != expectedUiGeneration) return false;
+        try {
+            return services.update().snapshot() == snapshot;
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    private void openUpdatePage() {
+        if (!windows.openUpdateDownloadPage()) {
+            logger.warn("Update download page could not be opened");
+        }
+    }
+
+    private String format(final String key, final String fallback, final Object... arguments) {
+        try {
+            final String value = localization(context).format(key, arguments);
+            return key.equals(value) ? fallback : value;
+        } catch (RuntimeException unavailable) {
+            return fallback;
+        }
     }
 
     /**

@@ -5,9 +5,21 @@ on:
       expected_source_sha:
         required: true
         type: string
+      channel:
+        required: false
+        type: string
+        default: stable
+      version:
+        required: false
+        type: string
+        default: ''
     outputs:
       build_number:
         value: ${{ jobs.allocate.outputs.build_number }}
+      build_version:
+        value: ${{ jobs.allocate.outputs.build_version }}
+      build_channel:
+        value: ${{ jobs.allocate.outputs.build_channel }}
       run_attempt:
         value: ${{ jobs.allocate.outputs.run_attempt }}
 permissions:
@@ -19,6 +31,8 @@ jobs:
     outputs:
       build_number: ${{ steps.identity.outputs.build_number }}
       run_attempt: ${{ github.run_attempt }}
+      build_version: ${{ steps.identity.outputs.build_version }}
+      build_channel: ${{ steps.identity.outputs.build_channel }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -29,6 +43,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
         run: |
           test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
-          python3 scripts/release/build-identity.py allocate --source "$GITHUB_SHA"
+          args=(--source "$GITHUB_SHA" --channel "$CHANNEL")
+          if [ -n "$VERSION" ]; then args+=(--version "$VERSION"); fi
+          if [ "$CHANNEL" = nightly ]; then args+=(--nightly); fi
+          python3 scripts/release/build-identity.py allocate "${args[@]}"

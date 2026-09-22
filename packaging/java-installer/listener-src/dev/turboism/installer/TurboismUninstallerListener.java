@@ -4,6 +4,7 @@ import com.izforge.izpack.api.event.AbstractUninstallerListener;
 import com.izforge.izpack.api.event.ProgressListener;
 
 import javax.swing.JOptionPane;
+import javax.swing.UIManager;
 import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.io.IOException;
@@ -28,8 +29,8 @@ import java.util.zip.ZipEntry;
  *  - config.json is removed only when the user (or the
  *    {@code turboism.uninstall.deleteConfig} system property, used by
  *    non-interactive verification) selects deletion; the interactive
- *    confirmation defaults to delete and is localized en/zh/ja; closing the
- *    confirmation without choosing preserves config.json;
+ *    confirmation defaults to keeping config.json and is localized
+ *    en/zh/ja/ko; closing the confirmation without choosing preserves it;
  *  - installed agent, installer-owned plugin JARs, installer-owned
  *    launch/configuration files and the generated uninstaller are removed by
  *    the IzPack uninstaller itself (they are all installer-owned pack files);
@@ -285,9 +286,9 @@ public final class TurboismUninstallerListener extends AbstractUninstallerListen
 
     /**
      * Deletion decision for config.json: explicit system property for
-     * non-interactive runs, otherwise an en/zh/ja GUI confirmation that
-     * defaults to delete; closing the dialog without choosing preserves the
-     * config; console/headless runs without the property default to delete.
+     * non-interactive runs, otherwise an en/zh/ja/ko GUI confirmation that
+     * defaults to keeping the config; closing the dialog without choosing also
+     * preserves it; console/headless runs without the property keep it too.
      */
     static boolean resolveDeleteConfig() {
         String value = System.getProperty(DELETE_CONFIG_PROPERTY);
@@ -305,14 +306,24 @@ public final class TurboismUninstallerListener extends AbstractUninstallerListen
             } else if (lang.startsWith("ja")) {
                 message = "config.json（ユーザー設定）も削除しますか？";
                 title = "Turboism のアンインストール";
+            } else if (lang.startsWith("ko")) {
+                message = "config.json(사용자 설정)도 삭제할까요?";
+                title = "Turboism 제거";
             }
-            int choice = JOptionPane.showConfirmDialog(null, message, title,
-                    JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-            // Yes is the default selection (first button); closing the dialog
-            // (CLOSED_OPTION) must preserve config.json.
+            // "No" (keep) is the default button, matching the EXE installer's
+            // keep-config.json checkbox. showConfirmDialog has no initialValue
+            // overload, and showOptionDialog ignores initialValue when options is
+            // null, so the localized buttons must be passed explicitly.
+            Object deleteButton = UIManager.getString("OptionPane.yesButtonText");
+            Object keepButton = UIManager.getString("OptionPane.noButtonText");
+            int choice = JOptionPane.showOptionDialog(null, message, title,
+                    JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+                    new Object[]{deleteButton, keepButton}, keepButton);
+            // The first option (Yes) deletes; closing the dialog (CLOSED_OPTION)
+            // must preserve config.json.
             return choice == JOptionPane.YES_OPTION;
         }
-        return true; // default: delete
+        return false; // default: keep config.json
     }
 
     private static boolean isConsoleRun() {

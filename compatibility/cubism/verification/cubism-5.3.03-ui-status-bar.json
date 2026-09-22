@@ -4,7 +4,8 @@
   "verificationId": "cubism-5.3.03.ui-status-bar.static",
   "adapterSliceId": "adapter.editor-ui.status-bar",
   "capabilityIds": [
-    "ui.status.notify"
+    "ui.status.notify",
+    "ui.canvas.hint"
   ],
   "cubismVersion": "5.3.03",
   "profileId": "cubism-5.3.03",
@@ -19,7 +20,7 @@
   "status": "VERIFIED_STATIC",
   "verifiedBy": "turboism-editor-ui-status-bar-static-verifier",
   "verifiedAt": "2026-08-15T00:00:00Z",
-  "safeMode": "Fail closed and keep native bottom-status notifications unavailable when the exact artifact, classloader, application controller, main frame, CX content root, unique memory-viewer anchor, label constructor, or reversible container operations do not match.",
+  "safeMode": "Fail closed and keep native bottom-status notifications and canvas hints unavailable when the exact artifact, classloader, application controller, current view context, CEViewContext.showHint route, main frame, CX content root, unique memory-viewer anchor, label constructor, or reversible container operations do not match.",
   "selectors": [
     {
       "mappingId": "cubism.mapping.v5_3_02.ui_status_bar.class.app_ctrl",
@@ -250,6 +251,72 @@
       "descriptor": null,
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.ui_status_bar.class.canvas_view_context",
+      "alias": "cubism.ui-canvas-hint.view-context.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.ui_status_bar.method.app_ctrl_current_view_context",
+      "alias": "cubism.ui-canvas-hint.app-controller.current-view-context",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "getCurrentViewContext",
+      "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.ui_status_bar.method.view_context_show_hint",
+      "alias": "cubism.ui-canvas-hint.view-context.show-hint",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": "showHint",
+      "descriptor": "(Ljava/lang/String;FLjava/lang/String;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.ui_status_bar.method.view_context_show_hint_with_action",
+      "alias": "cubism.ui-canvas-hint.view-context.show-hint-with-action",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": "showHintWithFunc",
+      "descriptor": "(Ljava/lang/String;FLjava/lang/String;Lkotlin/jvm/functions/Function1;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/cubism/view/context/HintEntity;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.ui_status_bar.class.canvas_hint_position",
+      "alias": "cubism.ui-canvas-hint.position.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.ui_status_bar.constructor.canvas_hint_position",
+      "alias": "cubism.ui-canvas-hint.position.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+      "memberName": "<init>",
+      "descriptor": "(FF)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     }
   ]

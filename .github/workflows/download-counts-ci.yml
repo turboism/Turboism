@@ -1,0 +1,22 @@
+name: Verify release download statistics
+on:
+  push:
+    branches: [feat/download-counts-20260911]
+  pull_request:
+    paths: ['distribution/**', '.github/workflows/download-counts-ci.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - run: node --test distribution/test/*.test.mjs
+      - run: git diff --check
+      - run: npx --yes wrangler@4.127.0 deploy --dry-run --config distribution/wrangler.json --outdir /tmp/worker-bundle

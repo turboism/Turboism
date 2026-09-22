@@ -1,7 +1,9 @@
 package dev.turboism.adapter.ui;
 
-import java.util.List;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 
+import java.util.List;
 /**
  * Narrow runtime-internal seam isolating the exact CX widget mapping for the
  * platform-owned bottom status region.
@@ -46,4 +48,9 @@ interface CxStatusBarHostAccess {
 
     /** revalidate + repaint. */
     void refresh(Object widget);
+
+    /** Shows a native Cubism drawing-area hint and returns its dismissal handle. */
+    default Registration showCanvasHint(final CanvasHintNotification notification) {
+        throw new UnsupportedOperationException("CX canvas hints are unavailable");
+    }
 }

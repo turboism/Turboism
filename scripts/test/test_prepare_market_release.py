@@ -135,26 +135,26 @@ class Fixture:
         self.build_id = build_id
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "fixture"\n'
-            'include("plugins:mcp", "plugins:backup", "plugins:metrics", "plugins:core")\n')
+            'include("plugins:mcp", "plugins:webdav-backup", "plugins:metrics", "plugins:core")\n')
         self.mcp_descriptor = make_module(
             root, "mcp", "dev.turboism.plugin.mcp", requires_cubism=True,
             en_description="Loopback MCP server for \\u0054urboism \\\n  automation.")
         self.backup_descriptor = make_module(
-            root, "backup", "dev.turboism.plugin.backup", requires_cubism=True)
+            root, "webdav-backup", "dev.turboism.plugin.webdav", requires_cubism=True)
         self.metrics_descriptor = make_module(
             root, "metrics", "dev.turboism.plugin.metrics", requires_cubism=False)
         self.write_manifest([
-            {"project": ":plugins:backup", "channel": "stable",
-             "cubismVersions": ["5.2.03", "5.3.02"],
-             "repository": "https://example.invalid/backup",
-             "support": "https://example.invalid/backup/support"},
             {"project": ":plugins:mcp", "channel": "preview",
              "cubismVersions": ["5.3.02"],
              "repository": "https://example.invalid/mcp",
              "support": "https://example.invalid/mcp/support"},
+            {"project": ":plugins:webdav-backup", "channel": "stable",
+             "cubismVersions": ["5.2.03", "5.3.02"],
+             "repository": "https://example.invalid/webdav-backup",
+             "support": "https://example.invalid/webdav-backup/support"},
         ])
         self.build_modules([("mcp", self.mcp_descriptor.read_bytes()),
-                            ("backup", self.backup_descriptor.read_bytes())])
+                            ("webdav-backup", self.backup_descriptor.read_bytes())])
 
     def write_manifest(self, plugins: list) -> Path:
         return write_manifest(self.root, plugins)
@@ -251,9 +251,9 @@ class ManifestValidationTest(unittest.TestCase):
 
     def test_unsorted_entries_rejected(self):
         result = self.plan([
-            {"project": ":plugins:mcp", "channel": "stable", "cubismVersions": ["5.3.02"],
+            {"project": ":plugins:webdav-backup", "channel": "stable", "cubismVersions": ["5.3.02"],
              "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
-            {"project": ":plugins:backup", "channel": "stable",
+            {"project": ":plugins:mcp", "channel": "stable",
              "cubismVersions": ["5.2.03"],
              "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
         ], expect_ok=False)
@@ -545,15 +545,15 @@ class StagingTest(unittest.TestCase):
     def test_stage_outputs_and_sidecar(self):
         self.stage()
         names = sorted(path.name for path in self.output.iterdir())
-        self.assertEqual(names, ["backup-0.1.0.jar", "market-release.json", "mcp-0.1.0.jar"])
+        self.assertEqual(names, ["market-release.json", "mcp-0.1.0.jar", "webdav-backup-0.1.0.jar"])
         sidecar = json.loads((self.output / "market-release.json").read_text())
         self.assertEqual(sidecar["schemaVersion"], 1)
         self.assertEqual(sidecar["format"], "turboism.market-release")
         self.assertEqual(sidecar["source"], {"revision": GIT_SHA})
         artifacts = sidecar["artifacts"]
         self.assertEqual([a["project"] for a in artifacts],
-                         [":plugins:backup", ":plugins:mcp"])
-        mcp = artifacts[1]
+                         [":plugins:mcp", ":plugins:webdav-backup"])
+        mcp = artifacts[0]
         self.assertEqual(mcp["module"], "mcp")
         self.assertEqual(mcp["asset"], "mcp-0.1.0.jar")
         self.assertEqual(mcp["size"],
@@ -579,7 +579,7 @@ class StagingTest(unittest.TestCase):
                          "Loopback MCP server for Turboism automation.")
         self.assertEqual(mcp["localizations"]["zh-Hans"]["name"], "zh-Hans mcp plugin")
         self.assertEqual(mcp["localizations"]["ja"]["name"], "ja mcp plugin")
-        backup = artifacts[0]
+        backup = artifacts[1]
         self.assertEqual(backup["policy"]["channel"], "stable")
         self.assertEqual(backup["policy"]["cubismVersions"], ["5.2.03", "5.3.02"])
 
@@ -652,8 +652,8 @@ class StagingTest(unittest.TestCase):
         self.stage()
         second = {p.name: p.read_bytes() for p in self.output.iterdir()}
         self.assertEqual(first, second)
-        self.assertEqual(sorted(first), ["backup-0.1.0.jar", "market-release.json",
-                                         "mcp-0.1.0.jar"])
+        self.assertEqual(sorted(first), ["market-release.json", "mcp-0.1.0.jar",
+                                         "webdav-backup-0.1.0.jar"])
 
     def test_deterministic_across_directories(self):
         self.stage()
@@ -700,9 +700,9 @@ class StagingTest(unittest.TestCase):
         self.assertFalse(self.output.exists())
 
     def test_missing_jar_rejected(self):
-        shutil.rmtree(self.tmp / "build/market-publish/backup")
+        shutil.rmtree(self.tmp / "build/market-publish/webdav-backup")
         result = self.stage(expect_ok=False)
-        self.assertIn("backup", result.stderr)
+        self.assertIn("webdav-backup", result.stderr)
         self.assertFalse(self.output.exists())
         self.assertFalse(self.output.exists())
 
@@ -772,7 +772,7 @@ class StagingTest(unittest.TestCase):
         self.assertIn("source-revision", result.stderr)
 
     def test_failure_leaves_no_partial_output(self):
-        shutil.rmtree(self.tmp / "build/market-publish/backup")
+        shutil.rmtree(self.tmp / "build/market-publish/webdav-backup")
         result = self.stage(expect_ok=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.output.exists())
