@@ -568,7 +568,10 @@ regressions: `python3 scripts/test/test_external_psd_structural_compare.py`.
 For an independent saved-input supplement, extract `main.xml` with the official ArchiveReader
 and run `python3 validation/external-psd-edit-host-probe/structural_xml.py BASELINE.xml SAVED.xml`.
 It resolves serializer references and `FilterValueId.idstr`, preserves ordered input records
-and empty bindings, and rejects unknown/missing/ambiguous structure. It reads only XML and
+and empty bindings, and rejects unknown/missing/ambiguous structure. Saved clipping currently
+supports only an observed empty `null` element. Non-null clipping is rejected until its exact
+serialized shape is verified; the live `ClipByMesh` reader does not establish that XML shape,
+and `CRect` is not the host field type. It reads only XML and
 prints JSON; it does not modify a CMO or reconstruct bindings. Serialized values supplement
 the saved stage only; live Undo input details remain `NOT_OBSERVED`. Focused checks:
 `python3 scripts/test/test_external_psd_structural_xml.py`.

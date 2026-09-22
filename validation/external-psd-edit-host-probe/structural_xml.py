@@ -114,18 +114,15 @@ def affine(node):
     return [value.hex() for value in values]
 
 
-def clipping(doc, node):
+def clipping(node):
+    # Exact-host CLayerInputData stores AClip (including ClipByMesh), not CRect.
+    # Only null has verified serialized evidence. Never infer a mesh's XML
+    # representation from the separate live field reader.
     if node.tag == "null":
+        if len(node) or (node.text or "").strip():
+            raise InvalidStructure("malformed null clipping")
         return None
-    if node.tag != "CRect":
-        raise InvalidStructure("unknown clipping rectangle type: " + node.tag)
-    result = []
-    for key in ("x", "y", "width", "height"):
-        field = doc.field(node, key)
-        if field.tag != "i":
-            raise InvalidStructure("clipping component is not an integer")
-        result.append(int(field.text))
-    return result
+    raise InvalidStructure("unverified serialized clipping type: " + node.tag)
 
 
 def saved_input_details(baseline_xml, saved_xml):
@@ -165,7 +162,7 @@ def saved_input_details(baseline_xml, saved_xml):
                 records.append(dict(layerPath=layers[raw_guid, layer_guid],
                     originalLayerGuid=layer_guid if raw_guid in baseline_raws else None,
                     affine=affine(saved.field(data, "affine")),
-                    clipping=clipping(saved, saved.field(data, "clippingOnTexturePx"))))
+                    clipping=clipping(saved.field(data, "clippingOnTexturePx"))))
             unique(bindings, raw_roles[raw_guid], records)
         current = values["mi_currentImageGuid"]
         if current.tag == "null":
