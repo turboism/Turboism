@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
 import dev.turboism.sdk.cubism.id.RawImageId;
 
@@ -139,6 +140,7 @@ final class EditorRawImagePsdAccess {
     Object parseStageOnHostThread(final Path stage, final String name) throws IOException {
         Objects.requireNonNull(stage, "stage");
         Objects.requireNonNull(name, "name");
+        FailurePhase phase = FailurePhase.PARSE;
         try {
             final Object companion = requireNativeValue(
                 "cubism.editor-model.psd-document.companion",
@@ -155,6 +157,7 @@ final class EditorRawImagePsdAccess {
                 EditorRawImagePsdSelectorContract.PSD_DOCUMENT_CLASS_ALIAS, parsed)) {
                 throw new IOException("staged PSD parser returned a value outside the verified type");
             }
+            phase = FailurePhase.CONSTRUCT;
             final Object reconstructed = resolver.construct(
                 "cubism.editor-model.layered-image.from-psd",
                 parsed,
@@ -166,10 +169,26 @@ final class EditorRawImagePsdAccess {
                 throw new IOException("staged PSD did not reconstruct as a verified layered image");
             }
             return reconstructed;
-        } catch (IOException failure) {
-            throw failure;
-        } catch (RuntimeException failure) {
-            throw new IOException("staged PSD could not be parsed: " + message(failure), failure);
+        } catch (IOException | RuntimeException failure) {
+            throw new StageReadFailure(phase, failure);
+        }
+    }
+
+    static PsdReplaceHost.Replacement unreadableStage(final Throwable failure) {
+        final Optional<PsdReplaceHost.Failure> detail = failure instanceof StageReadFailure stage
+            ? Optional.of(stage.detail) : Optional.empty();
+        return new PsdReplaceHost.Replacement("STAGE_UNREADABLE", true, false, false, false, false,
+            Optional.empty(), "The staged PSD could not be parsed into a verified native layered image.", detail);
+    }
+
+    private static final class StageReadFailure extends IOException {
+        private final PsdReplaceHost.Failure detail;
+
+        private StageReadFailure(final FailurePhase phase, final Throwable failure) {
+            super("staged PSD could not be parsed into a verified layered image");
+            final String category = failure instanceof VerifiedAccessException verified
+                ? verified.hostFailureCategory().name() : "UNKNOWN";
+            detail = new PsdReplaceHost.Failure(phase.name(), category);
         }
     }
 

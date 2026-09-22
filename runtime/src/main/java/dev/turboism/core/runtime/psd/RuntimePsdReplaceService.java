@@ -240,7 +240,11 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
             if (replacement.mutationUnknown()) {
                 return partialFailure(target, "NATIVE_MUTATION_UNKNOWN");
             }
-            return failed(target, status);
+            final String detail = replacement.failure().map(failure ->
+                ";phase=" + safeToken(failure.phase()) + ";category=" + safeToken(failure.category())).orElse("");
+            return new PsdReplaceResult(PsdReplaceResult.Status.FAILED,
+                "PSD_NATIVE_REPLACE;status=" + status + detail, target, Optional.empty(), Optional.empty(),
+                Optional.empty());
         }
         if (!replacement.sessionCurrent()) {
             // The session changed across the native call: the outcome cannot be attributed.
