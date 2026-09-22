@@ -55,7 +55,8 @@ public final class MainToolbarHomeEntryService {
     private static final String PLUGINS_MENU_LABEL_KEY = "main-toolbar.plugins-menu.label";
     private static final String LOGS_MENU_LABEL_KEY = "main-toolbar.logs-menu.label";
     private static final String ABOUT_MENU_LABEL_KEY = "main-toolbar.about-menu.label";
-    private static final String TURBOISM_MENU_ROOT_KEY = "common.turboism";
+    private static final String TURBOISM_MENU_ROOT_KEY = "main-toolbar.menu-root.label";
+    private static final String TURBOISM_PANEL_TITLE_KEY = "common.turboism";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
     private static final String INSTALLER_ICON_RESOURCE_PATH = "icons/main-toolbar-installer.png";
     private static final int ORDER = 10;
@@ -116,7 +117,7 @@ public final class MainToolbarHomeEntryService {
      */
     public Registration registerTurboismPanel() {
         return uiHost.contributeEmbeddedPanel(new EmbeddedPanelContribution(
-            TURBOISM_PANEL_ID.value(), localized(TURBOISM_MENU_ROOT_KEY, "Turboism"), "right", 0,
+            TURBOISM_PANEL_ID.value(), localized(TURBOISM_PANEL_TITLE_KEY, "Turboism"), "right", 0,
             panelView()
         ));
     }
@@ -205,7 +206,7 @@ public final class MainToolbarHomeEntryService {
     }
 
     private Registration menu(final String label, final String actionId, final int order) {
-        final String menuPath = localized(TURBOISM_MENU_ROOT_KEY, "Turboism") + "/" + label;
+        final String menuPath = localized(TURBOISM_MENU_ROOT_KEY, "Plugins") + "/" + label;
         return menus.contribute(new MenuRegistry.MenuContribution() {
             @Override public String menuPath() { return menuPath; }
             @Override public String actionId() { return actionId; }
