@@ -33,10 +33,10 @@ class HostValidationSchedulerTest(unittest.TestCase):
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
             "animation-timeline", "atlas", "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
-            "dialog-automation", "edit", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
+            "dialog-automation", "edit", "edit-protocol", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
             "parameter-batch-transfer", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
-            "startup-suppression", "status-bar", "theme", "update-check", "workspace",
+            "startup-suppression", "status-bar", "theme", "update-check", "warp-deformer-alt-symmetry", "workspace",
         }
         self.assertEqual(expected, set(self.manifest.tasks))
         self.assertEqual(1, self.manifest.resources["host-slot"].capacity)
