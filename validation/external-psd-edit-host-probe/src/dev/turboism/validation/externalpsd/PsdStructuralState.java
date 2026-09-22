@@ -42,7 +42,8 @@ final class PsdStructuralState {
 
     /** Caller must bind document/model/window and invoke this whole observation on EDT. */
     static Map<String, String> capture(final CubismModel model,
-        final TextureRelationsSnapshot relations, final Basis basis) {
+        final TextureRelationsSnapshot relations, final Basis basis,
+        final Map<String, OfficialPsdReplacementBaseline.AuthoringColors> colors) {
         requireEdt();
         final Map<String, String> values = new TreeMap<>(relations(relations, basis));
         final var canvas = model.canvas();
@@ -66,15 +67,21 @@ final class PsdStructuralState {
             values.put(key + "masks", mesh.maskIds().toString());
             values.put(key + "invertedMask", Boolean.toString(mesh.invertedMask()));
             values.put(key + "culling", Boolean.toString(mesh.culling()));
-            values.put(key + "multiply", mesh.multiplyColor().toString());
-            values.put(key + "screen", mesh.screenColor().toString());
+            final var color = colors.get(id);
+            if (color == null || !mesh.guid().equals(color.guid())) throw new IllegalStateException(
+                "authoring colors do not match ArtMesh identity");
+            values.put(key + "multiply", color.multiply().toString());
+            values.put(key + "screen", color.screen().toString());
         }
         values.put("mesh.count", Integer.toString(meshIds.size()));
+        if (!meshIds.equals(colors.keySet())) throw new IllegalStateException(
+            "authoring color coverage differs from ArtMesh metadata");
         if (!meshIds.equals(relations.artMeshInputs().stream().map(mesh -> mesh.id().value())
             .collect(java.util.stream.Collectors.toSet()))) throw new IllegalStateException(
                 "ArtMesh metadata and relation coverage differ");
         // Keep this observation's exact limits explicit; these are not guessed zero values.
         values.put("scope", "current-keyform geometry, authoring state, public texture relations");
+        values.put("colors.scope", "official Editor current-keyform RGBA; not evaluated Core colors");
         values.put("rawInputTransformAndClipping", "SDK_DETAILS_UNAVAILABLE");
         values.put("excluded", "observation revision/binding, import/source timestamps, generated GUID values");
         return Map.copyOf(values);
