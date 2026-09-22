@@ -53,6 +53,7 @@ public final class PsdStructuralStateTest {
             List.of(nativeState.modelImages().get(0), image("new-b", "native", "layer-new", 0, false, false)));
         equal(observe(newA), observe(newB), "one unambiguous new image matches by bound structure");
         captureChecks(nativeState);
+        inputDetailChecks(nativeState, automatic);
         System.out.println("PASS: PsdStructuralStateTest");
     }
 
@@ -87,6 +88,51 @@ public final class PsdStructuralStateTest {
         final String guid, final float red) {
         return Map.of("mesh", new OfficialPsdReplacementBaseline.AuthoringColors(guid,
             new Color(red, 1f, 1f, 1f), new Color(0f, 0f, 0f, 1f)));
+    }
+
+    private static void inputDetailChecks(final TextureRelationsSnapshot nativeState,
+        final TextureRelationsSnapshot sdkState) throws Exception {
+        final var nativeDetails = inputDetails("native", "layer-new", "identity", "null", false);
+        final var sdkDetails = inputDetails("automatic", "other-new", "identity", "null", false);
+        equal(PsdStructuralState.relations(nativeState, BASIS, nativeDetails),
+            PsdStructuralState.relations(sdkState, BASIS, sdkDetails), "live inputs normalize generated identities");
+        for (final var changed : List.of(inputDetails("native", "layer-new", "translated", "null", false))) {
+            different(PsdStructuralState.relations(nativeState, BASIS, nativeDetails),
+                PsdStructuralState.relations(nativeState, BASIS, changed), "live affine/clipping must be compared");
+        }
+        for (final var invalid : List.of(inputDetails("wrong-raw", "layer-new", "identity", "null", false),
+            inputDetails("native", "wrong-layer", "identity", "null", false),
+            inputDetails("native", "layer-new", "identity", "clip-mesh", false),
+            new OfficialPsdReplacementBaseline.InputDetails(false, Map.of()))) {
+            expectRejected(() -> PsdStructuralState.relations(nativeState, BASIS, invalid));
+        }
+        expectRejected(() -> PsdStructuralState.relations(
+            state("native", "layer-old", "layer-new", 1, false, false), BASIS, nativeDetails));
+        final var image = nativeState.modelImages().get(0);
+        final var binding = image.inputsByRawImage().get(new RawImageId("native")).get(0);
+        final var clippedImage = new ModelImageRelation(image.id(), image.modelImage(), image.linkedRawImageIds(),
+            image.currentRawImageId(), Map.of(new RawImageId("native"), List.of(new RawLayerBinding(
+                binding.rawImageId(), binding.rawLayerId(), 0, binding.transformAvailability(),
+                RawLayerBinding.DetailAvailability.AVAILABLE))), image.usingArtMeshIds());
+        different(PsdStructuralState.relations(nativeState, BASIS, nativeDetails),
+            PsdStructuralState.relations(copy(nativeState, nativeState.rawImages(), List.of(clippedImage)), BASIS,
+                inputDetails("native", "layer-new", "identity", "clip-mesh", false)), "clipping content is retained");
+        SwingUtilities.invokeAndWait(() -> {
+            final var before = PsdStructuralState.capture(model(0f), nativeState, BASIS, colors("mesh-guid", 1f), nativeDetails);
+            final var after = PsdStructuralState.capture(model(0f), nativeState, BASIS, colors("mesh-guid", 1f),
+                inputDetails("native", "layer-new", "identity", "null", true));
+            different(before, after, "dirty state is independently observable");
+            equal("false", before.get("modifiedAfterSaving"), "unmodified state is explicit");
+            equal("true", after.get("modifiedAfterSaving"), "modified state is explicit");
+            equal("OFFICIAL_LIVE_INPUT_DETAILS_V1", before.get("rawInputTransformAndClipping"), "live scope is versioned");
+        });
+    }
+
+    private static OfficialPsdReplacementBaseline.InputDetails inputDetails(final String raw,
+        final String layer, final String affine, final String clip, final boolean dirty) {
+        return new OfficialPsdReplacementBaseline.InputDetails(dirty, Map.of("image",
+            new OfficialPsdReplacementBaseline.ImageInputDetails(true, "local-to-canvas", Map.of(raw,
+                List.of(new OfficialPsdReplacementBaseline.LayerInputDetail(layer, affine, clip))))));
     }
 
     private static CubismModel model(final float x) {

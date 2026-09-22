@@ -44,8 +44,15 @@ final class PsdStructuralState {
     static Map<String, String> capture(final CubismModel model,
         final TextureRelationsSnapshot relations, final Basis basis,
         final Map<String, OfficialPsdReplacementBaseline.AuthoringColors> colors) {
+        return capture(model, relations, basis, colors, null);
+    }
+
+    static Map<String, String> capture(final CubismModel model,
+        final TextureRelationsSnapshot relations, final Basis basis,
+        final Map<String, OfficialPsdReplacementBaseline.AuthoringColors> colors,
+        final OfficialPsdReplacementBaseline.InputDetails details) {
         requireEdt();
-        final Map<String, String> values = new TreeMap<>(relations(relations, basis));
+        final Map<String, String> values = new TreeMap<>(relations(relations, basis, details));
         final var canvas = model.canvas();
         values.put("canvas", List.of(canvas.widthPixels(), canvas.heightPixels(),
             canvas.originXPixels(), canvas.originYPixels(), canvas.pixelsPerUnit()).toString());
@@ -82,14 +89,25 @@ final class PsdStructuralState {
         // Keep this observation's exact limits explicit; these are not guessed zero values.
         values.put("scope", "current-keyform geometry, authoring state, public texture relations");
         values.put("colors.scope", "official Editor current-keyform RGBA; not evaluated Core colors");
-        values.put("rawInputTransformAndClipping", "SDK_DETAILS_UNAVAILABLE");
+        values.put("rawInputTransformAndClipping", details == null
+            ? "SDK_DETAILS_UNAVAILABLE" : "OFFICIAL_LIVE_INPUT_DETAILS_V1");
+        if (details != null) {
+            values.put("modifiedAfterSaving", Boolean.toString(details.modifiedAfterSaving()));
+            values.put("inputs.scope", "official Editor selector records and cached local-to-canvas; null is observed absence");
+        }
         values.put("excluded", "observation revision/binding, import/source timestamps, generated GUID values");
         return Map.copyOf(values);
     }
 
     static Map<String, String> relations(final TextureRelationsSnapshot relations,
         final Basis basis) {
+        return relations(relations, basis, null);
+    }
+
+    static Map<String, String> relations(final TextureRelationsSnapshot relations,
+        final Basis basis, final OfficialPsdReplacementBaseline.InputDetails details) {
         requireRelations(relations);
+        if (details != null) OfficialPsdReplacementBaseline.requireInputCoverage(details, relations);
         final Map<String, String> values = new TreeMap<>();
         final Map<String, String> rawKeys = new HashMap<>();
         final Map<String, String> layerKeys = new HashMap<>();
@@ -146,6 +164,22 @@ final class PsdStructuralState {
                     java.util.stream.Collectors.toList(), PsdStructuralState::pack)));
             values.put(prefix + "users", image.usingArtMeshIds().stream()
                 .map(mesh -> mesh.value()).sorted().toList().toString());
+            if (details != null) {
+                final var observed = details.images().get(id);
+                values.put(prefix + "selectorPresent", Boolean.toString(observed.selectorPresent()));
+                values.put(prefix + "cachedLocalToCanvas", observed.localToCanvas());
+                final List<String> orderedInputs = new ArrayList<>();
+                for (final var entry : observed.bindings().entrySet()) {
+                    final List<String> ordered = new ArrayList<>();
+                    for (final var input : entry.getValue()) {
+                        ordered.add(pack(List.of(required(layerKeys, entry.getKey() + "/" + input.layerGuid()),
+                            input.affine(), input.clipping())));
+                    }
+                    orderedInputs.add(token(required(rawKeys, entry.getKey())) + pack(ordered));
+                }
+                java.util.Collections.sort(orderedInputs);
+                values.put(prefix + "inputDetails", pack(orderedInputs));
+            }
         }
         for (final var mesh : relations.artMeshInputs()) {
             final List<String> inputs = mesh.inputs().stream().map(input -> input.kind() + ":"

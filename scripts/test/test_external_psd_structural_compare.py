@@ -209,6 +209,43 @@ class StructuralCompareTests(unittest.TestCase):
         (self.sdk / "external-psd-edit-result.properties").write_bytes(b"changed")
         self.assertEqual("REJECTED", run(2)["status"])
 
+    def enable_live_inputs(self):
+        for props, _ in (self.left, self.right):
+            props["structure.inputDetails.version"] = "1"
+            props["structure.savedCmo.sha256"] = "e" * 64
+            for stage in audit.STAGES:
+                prefix = "structure." + stage + "."
+                props[prefix + "rawInputTransformAndClipping"] = "OFFICIAL_LIVE_INPUT_DETAILS_V1"
+                props[prefix + "inputs.scope"] = "official Editor selector records and cached local-to-canvas; null is observed absence"
+                props[prefix + "modifiedAfterSaving"] = str(stage in ("after", "redo")).lower()
+                props[prefix + "image.object.selectorPresent"] = "true"
+                props[prefix + "image.object.cachedLocalToCanvas"] = "identity"
+                props[prefix + "image.object.inputDetails"] = "ordered affine/clipping"
+
+    def test_live_inputs_dirty_and_saved_hash_are_required_and_compared(self):
+        self.enable_live_inputs()
+        result = self.compare()
+        self.assertEqual(["final viewport presentation"], result["unobserved"])
+        self.assertEqual("e" * 64, result["sdk"]["savedCmoSha256"])
+        for field in ("modifiedAfterSaving", "image.object.inputDetails", "image.object.cachedLocalToCanvas"):
+            self.enable_live_inputs()
+            self.right[0]["structure.undo." + field] = "true" if field == "modifiedAfterSaving" else "changed"
+            self.assertIn(field, self.compare()["differences"]["undo"])
+        self.enable_live_inputs()
+        del self.right[0]["structure.savedCmo.sha256"]
+        with self.assertRaisesRegex(ValueError, "saved CMO SHA"):
+            self.compare()
+        self.enable_live_inputs()
+        del self.right[0]["structure.before.image.object.inputDetails"]
+        with self.assertRaisesRegex(ValueError, "live input"):
+            self.compare()
+
+    def test_different_observation_versions_cannot_be_compared(self):
+        self.enable_live_inputs()
+        self.right = self.collection("sdk")
+        with self.assertRaisesRegex(ValueError, "inputDetailsVersion"):
+            self.compare()
+
 
 if __name__ == "__main__":
     unittest.main()

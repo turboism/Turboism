@@ -221,6 +221,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private volatile ExternalPsdPerformanceSampler performanceSampler;
     private OfficialPsdReplacementBaseline.CompositionReader compositionReader;
     private OfficialPsdReplacementBaseline.AuthoringColorReader structuralColorReader;
+    private OfficialPsdReplacementBaseline.InputDetailReader structuralInputReader;
     private OfficialPsdReplacementBaseline.CompositionObservation baselineComposition;
     private volatile String structuralRunId = "";
 
@@ -270,6 +271,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 stableSharedModelImageUsers = List.of();
                 compositionReader = null;
                 structuralColorReader = null;
+                structuralInputReader = null;
                 baselineComposition = null;
                 contentProfile = parseContentProfile(requestedContentProfile);
                 result.setProperty("contentProfile", contentProfileName(contentProfile));
@@ -1350,6 +1352,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final Target target = resolveTarget(result);
         hostWindowAccess = prepareHostWindowAccess();
         structuralColorReader = OfficialPsdReplacementBaseline.prepareAuthoringColorReader(context);
+        structuralInputReader = OfficialPsdReplacementBaseline.prepareInputDetailReader(context);
+        result.setProperty("structure.inputDetails.version", "1");
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(240L);
         final PsdStructuralState.Basis basis = structuralEdt(deadline, () -> {
             final CubismModel model = requireStructuralModelOnEdt(target);
@@ -1458,6 +1462,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "structural save cancelled before admission");
             saveBoundDocumentCopy(result, saveTarget, deadline, () -> structuralTaskActive(deadline));
             recordStructuralObservation(result, "saved", structuralObservation(target, basis, deadline));
+            final Path saved = home.resolve("persisted-document.cmo3");
+            requireNoSymlinkPath(saved, "structural saved CMO");
+            if (!Files.isRegularFile(saved, LinkOption.NOFOLLOW_LINKS)) throw new IllegalStateException(
+                "structural saved CMO is missing");
+            result.setProperty("structure.savedCmo.sha256", sha256(saved));
             result.setProperty("structure.collection", "PASS");
             result.setProperty("expected", "one structural native/SDK observation and SAVE_AS");
             result.setProperty("actual", "history commit, public graph, Undo/Redo and SAVE_AS collected; comparison pending");
@@ -1498,7 +1507,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             final CubismModel model = requireStructuralModelOnEdt(original);
             final TextureRelationsSnapshot relations = model.textures().relations();
             final var colors = structuralColorReader.observe();
-            final Map<String, String> values = PsdStructuralState.capture(model, relations, basis, colors);
+            final var inputs = structuralInputReader.observe();
+            final Map<String, String> values = PsdStructuralState.capture(model, relations, basis, colors, inputs);
             requireStructuralModelOnEdt(original);
             final var history = context.cubism().history().snapshot();
             boolean modal = false;

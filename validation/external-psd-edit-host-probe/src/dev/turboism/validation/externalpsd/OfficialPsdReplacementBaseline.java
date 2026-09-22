@@ -420,6 +420,223 @@ public final class OfficialPsdReplacementBaseline {
         Method currentForm, Method multiply, Method screen, Method red, Method green,
         Method blue, Method alpha) { }
 
+    /** Read-only native input details, including explicit null clipping, on the caller's EDT. */
+    public static InputDetailReader prepareInputDetailReader(final PluginContext context) throws Exception {
+        final HostAccess host = new OfficialPsdReplacementBaseline(
+            context, () -> false, () -> true).preflightOfficialHost();
+        final TargetAccess target = preflightTargetAccess(host);
+        final InputDetailAccess access = preflightInputDetailAccess(host);
+        return () -> {
+            requireInputEdt();
+            final var document = context.cubism().activeDocument().orElseThrow();
+            final var model = context.cubism().model().active();
+            final var relations = model.textures().relations();
+            if (!relations.isAvailable()) throw new IllegalStateException("input relations unavailable");
+            final Object app = host.appInstance().invoke(null);
+            final Object nativeDocument = target.currentDocument().invoke(app);
+            requireExactValue(nativeDocument, target.documentClass());
+            final Object source = target.modelSource().invoke(nativeDocument);
+            if (!model.id().value().equals(host.guidStringGetter().invoke(target.modelGuid().invoke(source)))) {
+                throw new IllegalStateException("input observation model GUID differs");
+            }
+            final Object manager = target.textureManager().invoke(source);
+            final Object all = access.allImages().invoke(manager);
+            if (!(all instanceof List<?> images)) throw new IllegalStateException("model image list unavailable");
+            final InputDetails result = new InputDetails(
+                (Boolean) access.modified().invoke(nativeDocument),
+                collectInputDetails(images, access, host.guidStringGetter(), host.rawGuidGetter()));
+            requireInputCoverage(result, relations);
+            final var fresh = context.cubism().model().active();
+            final var freshRelations = fresh.textures().relations();
+            if (!document.documentId().equals(context.cubism().activeDocument().orElseThrow().documentId())
+                || !model.id().equals(fresh.id()) || !freshRelations.isAvailable()
+                || !relations.binding().equals(freshRelations.binding())
+                || relations.generation() != freshRelations.generation()
+                || target.currentDocument().invoke(app) != nativeDocument
+                || target.modelSource().invoke(nativeDocument) != source
+                || target.textureManager().invoke(source) != manager) {
+                throw new IllegalStateException("input observation identity changed");
+            }
+            requireInputCoverage(result, freshRelations);
+            return result;
+        };
+    }
+
+    private static InputDetailAccess preflightInputDetailAccess(final HostAccess host) throws Exception {
+        final ClassLoader loader = host.loader();
+        final String inputPackage = "com.live2d.cubism.doc.model.extension.textureInput.inputFilter.";
+        final Class<?> manager = loadExact(loader, "com.live2d.cubism.doc.model.texture.CTextureManager");
+        final Class<?> image = loadExact(loader, "com.live2d.cubism.doc.model.texture.modelImage.CModelImage");
+        final Class<?> env = loadExact(loader, inputPackage + "ModelImageFilterEnv");
+        final Class<?> selector = loadExact(loader, inputPackage + "CLayerSelectorMap");
+        final Class<?> input = loadExact(loader, inputPackage + "CLayerInputData");
+        final Class<?> layer = loadExact(loader, "com.live2d.cubism.doc.resources.CLayer");
+        final Class<?> entry = loadExact(loader, "com.live2d.cubism.doc.resources.ACLayerEntry");
+        final Class<?> imageGuid = loadExact(loader, "com.live2d.type.CModelImageGuid");
+        final Class<?> layerGuid = loadExact(loader, "com.live2d.type.CLayerGuid");
+        final Class<?> affine = loadExact(loader, "com.live2d.type.CAffine");
+        final Class<?> clip = loadExact(loader, "com.live2d.graphics.filter.concreteFilter.clip.AClip");
+        final Class<?> clipMesh = loadExact(loader, "com.live2d.graphics.filter.concreteFilter.clip.ClipByMesh");
+        final Class<?> document = loadExact(loader, MODEL_DOCUMENT);
+        final Class<?> raw = loadExact(loader, LAYERED_IMAGE);
+        for (final Class<?> type : List.of(manager, image, env, selector, input, layer, entry,
+            imageGuid, layerGuid, affine, clip, clipMesh, document, raw)) {
+            verifyClassArtifact(type, loader, host.artifact());
+        }
+        final List<Method> components = new ArrayList<>();
+        for (final String name : List.of("getM00", "getM01", "getM02", "getM10", "getM11", "getM12")) {
+            components.add(exactMethod(affine, name, float.class, false));
+        }
+        return new InputDetailAccess(image, env, selector, input, layer, affine, clipMesh,
+            exactMethod(manager, "getAllModelImages", List.class, false),
+            exactMethod(document, "isModifiedAfterSaving", boolean.class, false),
+            exactMethod(image, "getGuid", imageGuid, false),
+            exactMethod(image, "getInputFilterEnv", env, false),
+            exactReadField(image, "_materialLocalToCanvasTransform", affine, false),
+            exactMethod(env, "getHasLayerInputData", boolean.class, false),
+            exactMethod(env, "getLayerInputData", selector, false),
+            exactMethod(selector, "getImageToLayerInput", Map.class, false),
+            exactMethod(input, "getLayer", layer, false),
+            exactMethod(entry, "getGuid", layerGuid, false),
+            exactMethod(entry, "get_layeredImage", raw, false),
+            exactMethod(input, "getAffine", affine, false),
+            exactMethod(input, "getClippingOnTexturePx", clip, false), List.copyOf(components),
+            exactReadField(clipMesh, "positions", float[].class, true),
+            exactReadField(clipMesh, "indices", int[].class, true));
+    }
+
+    private static Field exactReadField(final Class<?> type, final String name, final Class<?> value,
+        final boolean isFinal)
+        throws Exception {
+        final Field field = type.getDeclaredField(name);
+        if (field.getType() != value || Modifier.isStatic(field.getModifiers())
+            || Modifier.isFinal(field.getModifiers()) != isFinal) throw new IllegalStateException("input field shape differs");
+        field.setAccessible(true);
+        return field;
+    }
+
+    static Map<String, ImageInputDetails> collectInputDetails(final List<?> images,
+        final InputDetailAccess access, final Method guidString, final Method rawGuid) throws Exception {
+        requireInputEdt();
+        final Map<String, ImageInputDetails> result = new java.util.TreeMap<>();
+        for (final Object image : images) {
+            requireExactValue(image, access.imageClass());
+            final String id = (String) guidString.invoke(access.imageGuid().invoke(image));
+            requireText(id, "model image GUID");
+            final Object env = access.environment().invoke(image);
+            requireExactValue(env, access.envClass());
+            final boolean present = (Boolean) access.hasSelector().invoke(env);
+            final Map<String, List<LayerInputDetail>> bindings = new java.util.TreeMap<>();
+            if (present) {
+                final Object selector = access.selector().invoke(env);
+                requireExactValue(selector, access.selectorClass());
+                final Object value = access.bindings().invoke(selector);
+                if (!(value instanceof Map<?, ?> map)) throw new IllegalStateException("selector map unavailable");
+                for (final var item : map.entrySet()) {
+                    final String raw = (String) guidString.invoke(item.getKey());
+                    requireText(raw, "raw GUID");
+                    if (!(item.getValue() instanceof List<?> records)) throw new IllegalStateException("input list unavailable");
+                    final List<LayerInputDetail> details = new ArrayList<>();
+                    for (final Object record : records) {
+                        requireExactValue(record, access.inputClass());
+                        final Object layer = access.layer().invoke(record);
+                        requireExactValue(layer, access.layerClass());
+                        final String layerId = (String) guidString.invoke(access.layerGuid().invoke(layer));
+                        requireText(layerId, "layer GUID");
+                        final Object owner = access.layerOwner().invoke(layer);
+                        if (!raw.equals(guidString.invoke(rawGuid.invoke(owner)))) throw new IllegalStateException(
+                            "input layer belongs to a different raw");
+                        details.add(new LayerInputDetail(layerId,
+                            readAffine(access.affine().invoke(record), access),
+                            readClip(access.clip().invoke(record), access)));
+                    }
+                    if (bindings.put(raw, List.copyOf(details)) != null) throw new IllegalStateException("duplicate input raw");
+                }
+            }
+            if (result.put(id, new ImageInputDetails(present,
+                readAffine(access.localToCanvas().get(image), access), Map.copyOf(bindings))) != null) {
+                throw new IllegalStateException("duplicate model image");
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    static void requireInputCoverage(final InputDetails details,
+        final dev.turboism.sdk.cubism.model.TextureRelationsSnapshot relations) {
+        if (!relations.isAvailable()) throw new IllegalStateException("input relations unavailable");
+        final var remaining = new java.util.HashSet<>(details.images().keySet());
+        for (final var image : relations.modelImages()) {
+            final String id = image.id().value();
+            final var actual = details.images().get(id);
+            if (!remaining.remove(id) || actual == null) throw new IllegalStateException("input image coverage differs");
+            final var rawIds = new java.util.HashSet<>(actual.bindings().keySet());
+            for (final var binding : image.inputsByRawImage().entrySet()) {
+                final String raw = binding.getKey().value();
+                final var inputs = actual.bindings().get(raw);
+                if (!rawIds.remove(raw) || inputs == null || inputs.size() != binding.getValue().size()) {
+                    throw new IllegalStateException("input raw/record coverage differs");
+                }
+                for (int index = 0; index < inputs.size(); index++) {
+                    final var expected = binding.getValue().get(index);
+                    if (!raw.equals(expected.rawImageId().value()) || expected.inputOrder() != index
+                        || !inputs.get(index).layerGuid().equals(expected.rawLayerId().value())
+                        || ("null".equals(inputs.get(index).affine())
+                            == (expected.transformAvailability()
+                                == dev.turboism.sdk.cubism.model.RawLayerBinding.DetailAvailability.AVAILABLE))
+                        || ("null".equals(inputs.get(index).clipping())
+                            == (expected.clippingAvailability()
+                                == dev.turboism.sdk.cubism.model.RawLayerBinding.DetailAvailability.AVAILABLE))) {
+                        throw new IllegalStateException("input layer identity/order differs");
+                    }
+                }
+            }
+            if (!rawIds.isEmpty()) throw new IllegalStateException("extra native input raw");
+        }
+        if (!remaining.isEmpty()) throw new IllegalStateException("extra native model image");
+    }
+
+    private static String readAffine(final Object value, final InputDetailAccess access) throws Exception {
+        if (value == null) return "null";
+        requireExactValue(value, access.affineClass());
+        final List<String> result = new ArrayList<>();
+        for (final Method component : access.components()) result.add(finiteHex((Float) component.invoke(value)));
+        return result.toString();
+    }
+
+    private static String readClip(final Object value, final InputDetailAccess access) throws Exception {
+        if (value == null) return "null";
+        requireExactValue(value, access.clipMeshClass());
+        final float[] positions = ((float[]) Objects.requireNonNull(access.positions().get(value))).clone();
+        final int[] indices = ((int[]) Objects.requireNonNull(access.indices().get(value))).clone();
+        final List<String> points = new ArrayList<>();
+        for (final float position : positions) points.add(finiteHex(position));
+        return "ClipByMesh:positions=" + points + ";indices=" + java.util.Arrays.toString(indices);
+    }
+
+    private static String finiteHex(final float value) {
+        if (!Float.isFinite(value)) throw new IllegalStateException("non-finite native input component");
+        return Float.toHexString(value);
+    }
+
+    private static void requireExactValue(final Object value, final Class<?> type) {
+        if (value == null || value.getClass() != type) throw new IllegalStateException("native input shape differs");
+    }
+
+    private static void requireInputEdt() {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("input observation requires EDT");
+    }
+
+    public interface InputDetailReader { InputDetails observe() throws Exception; }
+    public record InputDetails(boolean modifiedAfterSaving, Map<String, ImageInputDetails> images) { }
+    public record ImageInputDetails(boolean selectorPresent, String localToCanvas,
+        Map<String, List<LayerInputDetail>> bindings) { }
+    public record LayerInputDetail(String layerGuid, String affine, String clipping) { }
+    record InputDetailAccess(Class<?> imageClass, Class<?> envClass, Class<?> selectorClass,
+        Class<?> inputClass, Class<?> layerClass, Class<?> affineClass, Class<?> clipMeshClass,
+        Method allImages, Method modified, Method imageGuid, Method environment, Field localToCanvas,
+        Method hasSelector, Method selector, Method bindings, Method layer, Method layerGuid,
+        Method layerOwner, Method affine, Method clip, List<Method> components, Field positions, Field indices) { }
+
     static Object uniqueRawImage(final List<?> wrappers, final Class<?> wrapperClass,
         final Method imageGetter, final Method guidGetter, final Method guidString,
         final String expectedGuid) throws Exception {
@@ -849,6 +1066,7 @@ public final class OfficialPsdReplacementBaseline {
         preflightTargetAccess(host);
         preflightCompositionAccess(host);
         preflightAuthoringColorAccess(host);
+        preflightInputDetailAccess(host);
         return new HostShapeSummary(host.artifact().toString(), host.sha256(),
             host.commandOpen().toGenericString(), host.modelGetter().toGenericString(),
             host.rawGetter().toGenericString(), host.rawGuidGetter().toGenericString());
