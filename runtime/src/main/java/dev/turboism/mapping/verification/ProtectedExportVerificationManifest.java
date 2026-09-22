@@ -19,7 +19,7 @@ public final class ProtectedExportVerificationManifest {
 
     public static final String VERIFICATION_ID_53 = "cubism-5.3.02.protected-export.static";
     public static final String RECORD_SHA256_53 =
-        "d8c04be6758bca93bff5488c90767f28f4a4e2281cb5e3f2d59cccb9d10c2e2f";
+        "753120bffa37a5479c77d0faa0d76b5a02ee265b957952b5a69371cbf2fb1f30";
     public static final String CUBISM_VERSION_53 = "5.3.02";
     public static final String PROFILE_ID_53 = "cubism-5.3.02";
     public static final long ARTIFACT_SIZE_53 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
@@ -37,13 +37,9 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.art-mesh.class",
         "cubism.protected-export.art-mesh-form.class",
         "cubism.protected-export.art-mesh-form.positions",
-        "cubism.protected-export.art-mesh-form.set-positions",
         "cubism.protected-export.art-mesh-instance.calculated-form",
         "cubism.protected-export.art-mesh-instance.class",
         "cubism.protected-export.art-mesh-instance.source",
-        "cubism.protected-export.art-mesh-source.keyforms",
-        "cubism.protected-export.art-mesh-source.positions",
-        "cubism.protected-export.art-mesh-source.set-positions",
         "cubism.protected-export.deformer-source.children",
         "cubism.protected-export.deformer-source.class",
         "cubism.protected-export.deformer.guid",
@@ -124,7 +120,6 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.model-source.root-part",
         "cubism.protected-export.model.class",
         "cubism.protected-export.model.all-art-meshes",
-        "cubism.protected-export.model.deformer-transform",
         "cubism.protected-export.model.parameter-set",
         "cubism.protected-export.model.reinit-instance-exe",
         "cubism.protected-export.morph-target-set.class",
@@ -164,9 +159,6 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.source.keyform-grid",
         "cubism.protected-export.source.local-name",
         "cubism.protected-export.source.set-local-name",
-        "cubism.protected-export.transform.apply-array",
-        "cubism.protected-export.transform.create-canvas-to-local",
-        "cubism.protected-export.transform.create-local-to-canvas",
         "cubism.protected-export.undo-manager.can-undo",
         "cubism.protected-export.undo-manager.class",
         "cubism.protected-export.undo-manager.edit-count",

@@ -18,8 +18,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -252,7 +254,7 @@ class ProtectedExportOrchestratorTest {
     @Test
     void rejectsWhenFlattenChangesEvaluatedGeometry() throws Exception {
         // The pre-flatten baseline is captured on the bound copy before any
-        // mutation; a flatten bake that diverges from it must reject BEFORE the
+        // mutation; a flatten that diverges from it must reject BEFORE the
         // native export runs — proving the exporter faithfully serializes a
         // corrupted copy is not acceptance.
         final Fixture fixture = new Fixture();
@@ -707,6 +709,60 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
+    void publishRollbackFailureReportsRecoveryLocation() throws Exception {
+        // The supervisor probe reproduced the gap: a place-move failure that
+        // also breaks the rollback restore retains the scratch backup as the
+        // only surviving copy of the user's original bytes — but the report
+        // must name that recovery location, not a bare publish-failed key.
+        final Fixture fixture = new Fixture();
+        Files.writeString(fixture.realPick.toPath(), "ORIGINAL-USER-BYTES");
+        fixture.publishMoveOp = (source, target) -> {
+            if (source.toString().contains("incoming")
+                && target.getFileName().toString().endsWith(".json")) {
+                throw new IOException("injected place failure");
+            }
+            if (source.toString().contains("backups")) {
+                throw new IOException("injected rollback failure");
+            }
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        };
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PUBLISH_FAILED_KEY, report.failureKey());
+        assertFalse(report.published());
+        final String detail = report.failureDetail();
+        assertNotNull(detail, "publish failure must carry diagnostics");
+        assertTrue(detail.contains("suppressed:"), detail);
+        assertTrue(detail.contains(".turboism-publish-"),
+            "retained recovery path must reach the report: " + detail);
+
+        // The retained scratch under the destination still holds the user's
+        // original bytes — the reported path is real, not a truncated stub.
+        final Path destination = fixture.realPick.toPath().getParent();
+        try (DirectoryStream<Path> scratches =
+                Files.newDirectoryStream(destination, ".turboism-publish-*")) {
+            boolean recovered = false;
+            for (Path scratch : scratches) {
+                try (var walk = Files.walk(scratch)) {
+                    recovered |= walk.filter(Files::isRegularFile).anyMatch(path -> {
+                        try {
+                            return Files.readString(path)
+                                .equals("ORIGINAL-USER-BYTES");
+                        } catch (IOException failure) {
+                            return false;
+                        }
+                    });
+                }
+            }
+            assertTrue(recovered,
+                "retained scratch must hold the user's original bytes");
+        }
+        orchestrator.close();
+    }
+
+    @Test
     void rejectsWhenCopyHandleCannotBeReleased() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.host.releaseCopyHandle = false;
@@ -915,6 +971,8 @@ class ProtectedExportOrchestratorTest {
         final BlockingQueue<ProtectedExportOrchestrator.Report> reports =
             new LinkedBlockingQueue<>();
         volatile boolean mocLoads = true;
+        /** Injected into the staging move seam — drives real rollback paths. */
+        volatile ProtectedExportStaging.MoveOp publishMoveOp;
         ProtectedExportOrchestrator orchestrator;
 
         Fixture() throws IOException {
@@ -960,7 +1018,10 @@ class ProtectedExportOrchestratorTest {
                     host,
                     new ProtectedExportStaging(
                         data -> mocLoads ? fakeMoc() : null,
-                        this::writeFakeParameter),
+                        this::writeFakeParameter,
+                        publishMoveOp != null ? publishMoveOp
+                            : (source, target) -> Files.move(source, target,
+                                StandardCopyOption.REPLACE_EXISTING)),
                     stagingRoot,
                     "dev.turboism.plugin.protected-export",
                     "protected-export",
@@ -1098,9 +1159,9 @@ class ProtectedExportOrchestratorTest {
                             positions[i] += mesh.basePositions[i];
                         }
                         if (host.exportDriftsGeometry) {
-                            // The exporter's bake diverges from live evaluation —
-                            // contracts still match, only the behavior oracle can
-                            // see the positional drift.
+                            // The exporter's serialized geometry diverges from
+                            // live evaluation — contracts still match, only the
+                            // behavior oracle can see the positional drift.
                             for (int i = 0; i < positions.length; i++) {
                                 positions[i] *= 1.5f;
                             }
@@ -1194,8 +1255,8 @@ class ProtectedExportOrchestratorTest {
          * contains — the fake's stand-in for a deformer-local transform. A
          * bound deformer carries it into the meshes' keyform shapes when the
          * host apply runs; an unbound deformer's constant is silently dropped
-         * by apply, mirroring the real host gap that requires the
-         * orchestrator's pre-bake.
+         * by apply, mirroring the real host gap the behavior oracle must
+         * fail closed on.
          */
         final float constant;
 
@@ -1224,33 +1285,13 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
-    /** One baked keyform shape: just the position array the bake rewrites. */
-    private static final class FakeArtMeshForm {
-        float[] positions;
-
-        FakeArtMeshForm(final float[] positions) {
-            this.positions = positions.clone();
-        }
-    }
-
-    /** Marker transform carrying the deformer's constant deformation. */
-    private static final class FakeTransform {
-        final float constant;
-
-        FakeTransform(final float constant) {
-            this.constant = constant;
-        }
-    }
-
     private static final class FakeArtMesh {
         final String guid;
         String name;
         String drawableId;
         final List<FakeBinding> bindings;
-        /** Authored base shape; the constant-deformation bake rewrites it. */
+        /** Authored base shape contribution added into evaluated positions. */
         float[] basePositions = new float[4];
-        /** Authored keyform shapes; the bake rewrites every entry. */
-        final List<FakeArtMeshForm> keyforms = new ArrayList<>();
         /** Post-evaluation vertex positions, filled by {@code evaluateModelInstance}. */
         float[] evaluatedPositions;
 
@@ -1355,7 +1396,7 @@ class ProtectedExportOrchestratorTest {
      * Deterministic evaluated geometry shared by the fake host (post-evaluation
      * positions) and the fake staged model (Core-side vertex positions): every
      * bound parameter's current value contributes, weighted by that binding's
-     * key count — a dropped or re-baked binding changes the output.
+     * key count — a dropped or duplicated binding changes the output.
      */
     private static float[] evalPositions(
         final List<FakeBinding> bindings,
@@ -1423,9 +1464,8 @@ class ProtectedExportOrchestratorTest {
         volatile boolean copyParameterStartsOffDefault;
         /**
          * Constant deformation carried by the unbound fixture deformer —
-         * nonzero exercises the orchestrator's constant-deformation bake for
-         * real: without the bake the apply step silently drops it and the
-         * behavior oracle must reject.
+         * nonzero exercises the real host gap: the apply step silently drops
+         * it, and the post-flatten behavior oracle must fail closed.
          */
         volatile float unboundDeformerConstant;
         volatile boolean removeOriginalOnNativeExport;
@@ -1439,8 +1479,8 @@ class ProtectedExportOrchestratorTest {
                 List.of(new FakeBinding("param-1", List.of(0f, 0.5f, 1f)))));
             original.model.deformers.add(new FakeDeformer("g-root", null,
                 List.of(new FakeBinding("param-1", List.of(0f, 1f)))));
-            // Nested under g-root so the bake exercises the parent
-            // canvas-to-local re-expression, not just the root identity path.
+            // Nested under g-root so flattening order and reparenting are
+            // exercised for an unbound deformer too.
             original.model.deformers.add(new FakeDeformer("g-unbound", "g-root",
                 List.of(), unboundDeformerConstant));
             original.model.artMeshes.add(
@@ -1547,8 +1587,6 @@ class ProtectedExportOrchestratorTest {
                 final FakeArtMesh copyMesh = new FakeArtMesh(
                     mesh.guid, mesh.name, mesh.drawableId, mesh.bindings);
                 copyMesh.basePositions = mesh.basePositions.clone();
-                mesh.keyforms.forEach(form ->
-                    copyMesh.keyforms.add(new FakeArtMeshForm(form.positions)));
                 fresh.model.artMeshes.add(copyMesh);
             }
             for (FakeParameter parameter : original.model.parameters) {
@@ -1721,11 +1759,11 @@ class ProtectedExportOrchestratorTest {
                     .filter(d -> doc.selector.selected.contains(d))
                     .toList();
                 doc.model.deformers.removeAll(removed);
-                // Bake: a removed deformer's bindings move onto every ArtMesh it
+                // A removed deformer's bindings move onto every ArtMesh it
                 // deformed (the fake treats every deformer as deforming every
                 // mesh). Appending — rather than unioning key positions — keeps
-                // the fake's evaluation exactly invariant under the move, which
-                // is what a correct host bake guarantees. The parameter key
+                // the fake's evaluation exactly invariant under the move, as
+                // the real keyform-transfer apply does. The parameter key
                 // union the census records is preserved either way.
                 for (FakeDeformer deformer : removed) {
                     for (FakeArtMesh mesh : doc.model.artMeshes) {
@@ -1735,11 +1773,10 @@ class ProtectedExportOrchestratorTest {
                                 new ArrayList<>(binding.keys)));
                         }
                         if (!deformer.bindings.isEmpty()) {
-                            // The host bakes the evaluated child shape at the
-                            // bound key positions, so a bound deformer's
-                            // constant deformation survives apply. An unbound
-                            // deformer's constant is silently dropped — the
-                            // real-host gap the orchestrator's pre-bake covers.
+                            // Bound deformers preserve their constant
+                            // contribution through the bound keyforms; an
+                            // unbound deformer's constant is silently dropped —
+                            // the real-host gap the behavior oracle must catch.
                             for (int i = 0; i < mesh.basePositions.length; i++) {
                                 mesh.basePositions[i] += deformer.constant;
                             }
@@ -1881,7 +1918,7 @@ class ProtectedExportOrchestratorTest {
             }
             for (FakeArtMesh mesh : model.artMeshes) {
                 // Deformer bindings deform every mesh they contain; the fake
-                // models the worst case (all meshes) so a bake that appends
+                // models the worst case (all meshes) so an apply that appends
                 // those bindings onto the mesh keeps evaluation identical.
                 final List<FakeBinding> effective =
                     new ArrayList<>(mesh.bindings);
@@ -1896,7 +1933,7 @@ class ProtectedExportOrchestratorTest {
                     }
                 }
                 if (flattenCorruptsGeometry && model.deformers.isEmpty()) {
-                    // A flatten bake that damaged geometry: evaluated positions
+                    // A flatten that damaged geometry: evaluated positions
                     // diverge from the pre-flatten snapshot even though the
                     // exporter would faithfully reproduce them.
                     for (int i = 0; i < mesh.evaluatedPositions.length; i++) {
@@ -1934,87 +1971,6 @@ class ProtectedExportOrchestratorTest {
             // mesh, so an unbound deformer's constant reaches all of them.
             // Flatten operates on the bound copy, which is the active doc.
             return List.copyOf(((FakeDoc) activeDoc).model.artMeshes);
-        }
-
-        @Override
-        public Object deformerLocalToCanvasTransform(
-            final Object modelInstance,
-            final Object deformerSource
-        ) {
-            // The deformer's canvas-space deformation map: the fake models it
-            // as a flat offset equal to this deformer's constant contribution.
-            return new FakeTransform(((FakeDeformer) deformerSource).constant);
-        }
-
-        @Override
-        public Object deformerParentCanvasToLocalTransform(
-            final Object modelInstance,
-            final Object deformerSource
-        ) {
-            final FakeDeformer deformer = (FakeDeformer) deformerSource;
-            if (deformer.targetGuid == null) {
-                return null;
-            }
-            return new FakeTransform(-chainConstant(parentOf(deformer)));
-        }
-
-        private FakeDeformer parentOf(final FakeDeformer deformer) {
-            final FakeModel model = ((FakeDoc) activeDoc).model;
-            return model.deformers.stream()
-                .filter(d -> d.guid.equals(deformer.targetGuid))
-                .findFirst().orElse(null);
-        }
-
-        private float chainConstant(final FakeDeformer deformer) {
-            float sum = 0f;
-            for (FakeDeformer d = deformer; d != null; d = parentOf(d)) {
-                sum += d.constant;
-            }
-            return sum;
-        }
-
-        @Override
-        public float[] transformPositions(
-            final Object transform,
-            final float[] positions
-        ) {
-            final float[] transformed = positions.clone();
-            final float constant = ((FakeTransform) transform).constant;
-            for (int i = 0; i < transformed.length; i++) {
-                transformed[i] += constant;
-            }
-            return transformed;
-        }
-
-        @Override
-        public float[] artMeshSourcePositions(final Object artMeshSource) {
-            return ((FakeArtMesh) artMeshSource).basePositions.clone();
-        }
-
-        @Override
-        public void setArtMeshSourcePositions(
-            final Object artMeshSource,
-            final float[] positions
-        ) {
-            ((FakeArtMesh) artMeshSource).basePositions = positions.clone();
-        }
-
-        @Override
-        public List<?> artMeshSourceKeyforms(final Object artMeshSource) {
-            return List.copyOf(((FakeArtMesh) artMeshSource).keyforms);
-        }
-
-        @Override
-        public float[] artMeshFormPositions(final Object keyform) {
-            return ((FakeArtMeshForm) keyform).positions.clone();
-        }
-
-        @Override
-        public void setArtMeshFormPositions(
-            final Object keyform,
-            final float[] positions
-        ) {
-            ((FakeArtMeshForm) keyform).positions = positions.clone();
         }
 
         @Override

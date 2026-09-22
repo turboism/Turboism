@@ -140,6 +140,7 @@ public final class ProtectedExportStaging {
 
     private final MocLoader mocLoader;
     private final CoreParameterWriter parameterWriter;
+    private final MoveOp moveOp;
     private final ObjectMapper json = new ObjectMapper();
 
     public ProtectedExportStaging(final MocLoader mocLoader) {
@@ -150,8 +151,20 @@ public final class ProtectedExportStaging {
         final MocLoader mocLoader,
         final CoreParameterWriter parameterWriter
     ) {
+        this(mocLoader, parameterWriter,
+            (source, target) -> Files.move(source, target,
+                StandardCopyOption.REPLACE_EXISTING));
+    }
+
+    /** Test seam: drives the atomic publish through an injected move. */
+    ProtectedExportStaging(
+        final MocLoader mocLoader,
+        final CoreParameterWriter parameterWriter,
+        final MoveOp moveOp
+    ) {
         this.mocLoader = mocLoader; // may be null; validated lazily when a moc3 is staged
         this.parameterWriter = parameterWriter; // null disables the behavior oracle
+        this.moveOp = Objects.requireNonNull(moveOp, "moveOp");
     }
 
     /**
@@ -807,9 +820,7 @@ public final class ProtectedExportStaging {
         final List<Path> stagedFiles,
         final File realPick
     ) throws IOException {
-        return publish(stagedPick, stagedFiles, realPick,
-            (source, target) -> Files.move(source, target,
-                StandardCopyOption.REPLACE_EXISTING));
+        return publish(stagedPick, stagedFiles, realPick, moveOp);
     }
 
     List<Path> publish(

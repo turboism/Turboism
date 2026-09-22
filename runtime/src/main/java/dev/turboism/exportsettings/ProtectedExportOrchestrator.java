@@ -944,7 +944,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             session.publishedFiles =
                 staging.publish(session.stagedPick, session.stagedFiles, session.realPick);
         } catch (IOException failure) {
-            throw new SessionRejection(PUBLISH_FAILED_KEY);
+            throw new SessionRejection(
+                PUBLISH_FAILED_KEY, describePublishFailure(failure));
         }
         session.phase = Phase.PUBLISHED;
     }
@@ -1687,9 +1688,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile boolean originalRestored;
         volatile List<String> cleanupErrors = List.of();
         /**
-         * Bounded flatten/bake diagnostics appended to a behavior-drift
-         * rejection detail — per-deformer binding counts and baked position
-         * samples that pinpoint which transform diverged on the real host.
+         * Bounded flatten diagnostics appended to a behavior-drift rejection
+         * detail — per-deformer binding and children counts that pinpoint
+         * which deformer diverged on the real host.
          */
         final StringBuilder flattenDiag = new StringBuilder(4096);
         volatile Report pendingReport;
@@ -1773,6 +1774,31 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             this.failureKey = failureKey;
             this.detail = detail;
         }
+    }
+
+    /**
+     * Bounded detail for a failed publish: the primary IOException plus each
+     * suppressed diagnostic (rollback failures and the retained-recovery
+     * location). Suppressed entries get a larger bound than {@link #describe}
+     * because the recovery path must survive intact to be usable; the entry
+     * count is capped so the report stays bounded.
+     */
+    private static String describePublishFailure(final IOException failure) {
+        final StringBuilder detail = new StringBuilder(describe(failure));
+        final Throwable[] suppressed = failure.getSuppressed();
+        final int reported = Math.min(suppressed.length, 4);
+        for (int i = 0; i < reported; i++) {
+            String text = describe(suppressed[i]);
+            if (text.length() > 512) {
+                text = text.substring(0, 512);
+            }
+            detail.append(" | suppressed: ").append(text);
+        }
+        if (suppressed.length > reported) {
+            detail.append(" | +").append(suppressed.length - reported)
+                .append(" more suppressed");
+        }
+        return detail.toString();
     }
 
     /**
