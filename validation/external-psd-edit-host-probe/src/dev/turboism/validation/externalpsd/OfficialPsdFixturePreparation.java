@@ -1313,16 +1313,22 @@ public final class OfficialPsdFixturePreparation {
     private ModelState awaitInitialModel(final InputIdentity input,
         final PreparationProfile profile, final long timeoutMillis,
         final Window boundWindow) throws Exception {
-        final ModelState state = awaitModel(input, timeoutMillis, "model.beforeSave", boundWindow);
-        final EdtCall<InitialSourceObservation> call = invokeEdtBounded(
-            () -> verifyInitialSourceOnEdt(input, state, profile),
-            Math.min(EDT_CALL_TIMEOUT_MILLIS, timeoutMillis));
-        if (!call.completed()) throw new IllegalStateException(
-            "initial PSD source verification EDT timed out");
-        if (call.failure() != null) throw asException(call.failure());
-        final InitialSourceObservation source = call.value();
-        if (source == null) throw new IllegalStateException(
-            "initial PSD source verification returned no result");
+        final AtomicReference<String> last = new AtomicReference<>("no model yet");
+        final InitialSourceObservation source = awaitVerifiedEdtObservation(timeoutMillis,
+            () -> checkStoppedAndTask(input), () -> {
+                try {
+                    return currentModelObservationOnEdt();
+                } catch (RuntimeException unavailable) {
+                    last.set(summarize(unavailable));
+                    recordModelWaitDialogsOnEdt(boundWindow);
+                    return null;
+                }
+            }, current -> {
+                final InitialSourceObservation verified = verifyInitialSourceOnEdt(
+                    input, current.state(), profile);
+                recordModelBlendVersionMode("model.beforeSave", current.model());
+                return verified;
+            }, "initial PSD source readiness timed out: ", last);
         recordSourceIdentity(source.state(), source.source());
         return source.state();
     }
@@ -1432,6 +1438,39 @@ public final class OfficialPsdFixturePreparation {
         throw new IllegalStateException(timeoutPrefix + last.get());
     }
 
+    /** Readiness and its identity proof share one EDT turn and the original total deadline. */
+    static <T, R> R awaitVerifiedEdtObservation(final long timeoutMillis,
+        final Runnable checkActive, final EdtOperation<T> readiness,
+        final java.util.function.Function<T, R> verify, final String timeoutPrefix,
+        final AtomicReference<String> last) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final Runnable checkWithinBudget = () -> {
+            checkActive.run();
+            if (!active.get()) throw new IllegalStateException("EDT observation cancelled");
+            remainingEdtMillis(deadline);
+        };
+        try {
+            return awaitEdtObservation(timeoutMillis, checkWithinBudget, () -> {
+                checkWithinBudget.run();
+                final T ready = readiness.call();
+                if (ready == null) return null;
+                checkWithinBudget.run();
+                final R verified = Objects.requireNonNull(verify.apply(ready), "identity proof");
+                checkWithinBudget.run();
+                return verified;
+            }, timeoutPrefix, last);
+        } finally {
+            active.set(false);
+        }
+    }
+
+    private static long remainingEdtMillis(final long deadline) {
+        final long remaining = deadline - System.nanoTime();
+        if (remaining <= 0L) throw new IllegalStateException("EDT observation deadline exhausted");
+        return Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining));
+    }
+
     /** Package-private focused seam using the same total-budget EDT coordinator as awaitModel. */
     static <T> T awaitEdtObservationForTest(final long timeoutMillis,
         final BooleanSupplier stopped, final BooleanSupplier taskBound,
@@ -1497,7 +1536,10 @@ public final class OfficialPsdFixturePreparation {
         final long timeoutMillis) throws Exception {
         final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         final EdtCall<CurrentModelObservation> initialCall = invokeEdtBounded(
-            () -> currentModelObservationOnEdt(), EDT_CALL_TIMEOUT_MILLIS);
+            () -> {
+                checkStoppedAndTask(input);
+                return currentModelObservationOnEdt();
+            }, remainingEdtMillis(deadline));
         if (!initialCall.completed()) throw blocked("F1 initial relation observation timed out");
         if (initialCall.failure() != null) throw asException(initialCall.failure());
         final CurrentModelObservation initial = initialCall.value();
@@ -1514,7 +1556,10 @@ public final class OfficialPsdFixturePreparation {
         while (System.nanoTime() < deadline) {
             checkStoppedAndTask(input);
             final EdtCall<List<F1TableRef>> tablesCall = invokeEdtBounded(
-                () -> reviewedF1TablesOnEdt(window), EDT_CALL_TIMEOUT_MILLIS);
+                () -> {
+                    checkStoppedAndTask(input);
+                    return reviewedF1TablesOnEdt(window);
+                }, remainingEdtMillis(deadline));
             if (!tablesCall.completed()) throw blocked("F1 host table observation timed out");
             if (tablesCall.failure() != null) throw asException(tablesCall.failure());
             final List<F1TableRef> tables = tablesCall.value() == null
@@ -1614,7 +1659,7 @@ public final class OfficialPsdFixturePreparation {
                         "F1 document/model identity changed after PASTE");
                 }
                 return current;
-            }, Math.min(EDT_CALL_TIMEOUT_MILLIS, remainingMillis));
+            }, remainingMillis);
             if (!call.completed()) throw blocked("F1 post-PASTE relation observation timed out");
             if (call.failure() != null) {
                 lastFailure = summarize(call.failure());
@@ -2806,7 +2851,7 @@ public final class OfficialPsdFixturePreparation {
     }
 
     @FunctionalInterface
-    private interface EdtOperation<T> { T call() throws Exception; }
+    interface EdtOperation<T> { T call() throws Exception; }
 
     private record HostAccess(ClassLoader loader, Path artifact, String sha256,
         Class<?> app, Method appInstance, Method mainFrame, Method cFrameGetter,

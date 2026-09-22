@@ -68,6 +68,7 @@ public final class OfficialPsdFixturePreparationTest {
         testPostSaveModelGate();
         testSaveCommandAdmission();
         testAwaitEdtObservationBudget();
+        testInitialSourceSharesReadinessBudget();
         testInterruptedEdtObservationDoesNotReadLate();
         testSaveAfterIdentityGate();
         testOfficialJarAccessorShape();
@@ -605,6 +606,68 @@ public final class OfficialPsdFixturePreparationTest {
         }
         assertEquals(0, lateObservations.get(),
             "total-budget timeout cancels the queued observation with no late read");
+    }
+
+    private static void testInitialSourceSharesReadinessBudget() {
+        final AtomicInteger proofs = new AtomicInteger();
+        final java.util.concurrent.atomic.AtomicReference<String> last =
+            new java.util.concurrent.atomic.AtomicReference<>("waiting");
+        try {
+            final String verified = OfficialPsdFixturePreparation.awaitVerifiedEdtObservation(
+                5_000L, () -> { }, () -> {
+                    assertTrue(SwingUtilities.isEventDispatchThread(), "readiness runs on EDT");
+                    Thread.sleep(2_250L);
+                    return "same-model";
+                }, ready -> {
+                    assertTrue(SwingUtilities.isEventDispatchThread(), "source proof runs on EDT");
+                    proofs.incrementAndGet();
+                    return ready + "-verified";
+                }, "source timed out: ", last);
+            assertEquals("same-model-verified", verified,
+                "initial source proof survives the old two-second limit");
+            assertEquals(1, proofs.get(), "one source proof follows readiness");
+        } catch (Exception failure) {
+            throw new AssertionError("initial source shares the readiness budget", failure);
+        }
+
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        final AtomicInteger lateProofs = new AtomicInteger();
+        try {
+            OfficialPsdFixturePreparation.awaitVerifiedEdtObservation(100L, () -> { }, () -> {
+                release.await(5, TimeUnit.SECONDS);
+                return "late-model";
+            }, ready -> {
+                lateProofs.incrementAndGet();
+                return ready;
+            }, "source timed out: ", last);
+            throw new AssertionError("source observation exceeded its total budget");
+        } catch (IllegalStateException expected) {
+            // Readiness may already be running; its late return still must not read PSD identity.
+        } catch (Exception failure) {
+            throw new AssertionError("wrong initial source timeout failure", failure);
+        } finally {
+            release.countDown();
+        }
+        onEdt(() -> { });
+        assertEquals(0, lateProofs.get(), "no source proof after the readiness deadline");
+
+        final AtomicInteger stoppedProofs = new AtomicInteger();
+        final java.util.concurrent.atomic.AtomicBoolean stopped =
+            new java.util.concurrent.atomic.AtomicBoolean();
+        try {
+            OfficialPsdFixturePreparation.awaitVerifiedEdtObservation(1_000L, () -> {
+                if (stopped.get()) throw new IllegalStateException("stopped");
+            }, () -> { stopped.set(true); return "model"; }, ready -> {
+                stoppedProofs.incrementAndGet();
+                return ready;
+            }, "source timed out: ", last);
+            throw new AssertionError("stopped initial source proof accepted");
+        } catch (IllegalStateException expected) {
+            // The task stopped between readiness and source verification.
+        } catch (Exception failure) {
+            throw new AssertionError("wrong stopped source failure", failure);
+        }
+        assertEquals(0, stoppedProofs.get(), "stop prevents the next identity read");
     }
 
     private static void testInterruptedEdtObservationDoesNotReadLate() {
