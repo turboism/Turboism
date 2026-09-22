@@ -98,8 +98,14 @@ public final class PsdValidationContent {
     public static byte[] invertTargetLayerRgb(final byte[] psd, final Profile profile) {
         final ParsedDocument document = parse(psd, profile);
         final byte[] mutated = psd.clone();
-        for (final int sampleOffset : document.targetRgbSampleOffsets) {
-            mutated[sampleOffset] ^= (byte) 0xff;
+        final Layer target = document.target;
+        for (final Channel channel : target.channels) {
+            if (channel.id >= 0 && channel.id <= 2) {
+                // Revisit only the three validated RGB channels. Keep offsets as bounded channel
+                // ranges rather than millions of boxed sample indices, including for fingerprints.
+                parseLayerChannel(psd, channel.start, channel.start + channel.declaredLength,
+                    target.width(), target.height(), target.index, channel.id, mutated, null, false);
+            }
         }
         return mutated;
     }
@@ -233,12 +239,9 @@ public final class PsdValidationContent {
             }
         }
 
-        final List<Integer> sampleOffsets = new ArrayList<>();
-        for (final Channel channel : target.channels) {
-            if (channel.id >= 0 && channel.id <= 2) sampleOffsets.addAll(channel.sampleOffsets);
-        }
-        if (sampleOffsets.isEmpty()) throw invalid("target RGB channels contain no samples");
-        return new ParsedDocument(target, sampleOffsets);
+        // The profile requires nonempty target bounds and all RGB channels; each row was
+        // completely decoded above, so no separate per-sample index is needed to prove coverage.
+        return new ParsedDocument(target);
     }
 
     private static List<Layer> parseLayerInfo(final Cursor layer, final int canvasWidth,
@@ -311,9 +314,10 @@ public final class PsdValidationContent {
                     && channel.id >= 0 && channel.id <= 2;
                 final byte[] decodedSamples = collect
                     ? new byte[parsedLayer.width() * parsedLayer.height()] : null;
+                channel.start = start;
                 parseLayerChannel(layer.bytes, start, end, parsedLayer.width(),
                     parsedLayer.height(), parsedLayer.index, channel.id,
-                    collect ? channel.sampleOffsets : null, decodedSamples,
+                    null, decodedSamples,
                     profile.groupType(parsedLayer.index) != 0);
                 channel.decodedSamples = decodedSamples;
                 layer.pos = end;
@@ -413,7 +417,7 @@ public final class PsdValidationContent {
 
     private static void parseLayerChannel(final byte[] bytes, final int start, final int end,
         final int width, final int height, final int layerIndex, final int channelId,
-        final List<Integer> sampleOffsets, final byte[] decodedSamples, final boolean group) {
+        final byte[] mutation, final byte[] decodedSamples, final boolean group) {
         final Cursor channel = new Cursor(bytes, start, end);
         final int compression = channel.u16("layer " + layerIndex + " channel " + channelId
             + " compression");
@@ -435,7 +439,7 @@ public final class PsdValidationContent {
             final int rowStart = channel.pos;
             final int rowEnd = checkedEnd(rowStart, rowLengths[row], channel.limit,
                 "layer row data");
-            decodePackBits(bytes, rowStart, rowEnd, width, sampleOffsets,
+            decodePackBits(bytes, rowStart, rowEnd, width, mutation,
                 decodedSamples, row * width,
                 "layer " + layerIndex + " channel " + channelId + " row " + row);
             channel.pos = rowEnd;
@@ -476,7 +480,7 @@ public final class PsdValidationContent {
     }
 
     private static void decodePackBits(final byte[] bytes, final int start, final int end,
-        final int expectedSamples, final List<Integer> sampleOffsets,
+        final int expectedSamples, final byte[] mutation,
         final byte[] decodedSamples, final int decodedOffset, final String label) {
         int pos = start;
         int decoded = 0;
@@ -491,9 +495,9 @@ public final class PsdValidationContent {
                 if (count > expectedSamples - decoded) {
                     throw invalid("%s literal packet decodes beyond row length", label);
                 }
-                if (sampleOffsets != null) {
+                if (mutation != null) {
                     for (int offset = 0; offset < count; offset++) {
-                        sampleOffsets.add(pos + offset);
+                        mutation[pos + offset] ^= (byte) 0xff;
                     }
                 }
                 if (decodedSamples != null) {
@@ -507,7 +511,7 @@ public final class PsdValidationContent {
                 if (count > expectedSamples - decoded) {
                     throw invalid("%s repeat packet decodes beyond row length", label);
                 }
-                if (sampleOffsets != null) sampleOffsets.add(pos);
+                if (mutation != null) mutation[pos] ^= (byte) 0xff;
                 if (decodedSamples != null) {
                     for (int offset = 0; offset < count; offset++) {
                         decodedSamples[decodedOffset + decoded + offset] = bytes[pos];
@@ -626,11 +630,9 @@ public final class PsdValidationContent {
 
     private static final class ParsedDocument {
         private final Layer target;
-        private final List<Integer> targetRgbSampleOffsets;
 
-        private ParsedDocument(final Layer target, final List<Integer> targetRgbSampleOffsets) {
+        private ParsedDocument(final Layer target) {
             this.target = target;
-            this.targetRgbSampleOffsets = targetRgbSampleOffsets;
         }
     }
 
@@ -660,7 +662,7 @@ public final class PsdValidationContent {
     private static final class Channel {
         private final int id;
         private final int declaredLength;
-        private final List<Integer> sampleOffsets = new ArrayList<>();
+        private int start;
         private byte[] decodedSamples;
 
         private Channel(final int id, final int declaredLength) {

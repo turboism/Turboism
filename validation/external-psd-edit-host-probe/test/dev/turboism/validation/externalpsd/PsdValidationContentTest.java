@@ -22,6 +22,11 @@ public final class PsdValidationContentTest {
     private static final int CANVAS_SIZE = 1000;
 
     public static void main(final String[] args) throws Exception {
+        if (args.length == 1 && args[0].equals("--bounded-f1")) {
+            testLiteralF1WithinBoundedHeap();
+            System.out.println("PASS: literal F1 fingerprint/mutation in 192 MiB heap");
+            return;
+        }
         testMutationAndFingerprint();
         testFingerprintIgnoresNameAndComposite();
         testFingerprintUsesDecodedRgbAndIgnoresAlphaEncoding();
@@ -101,6 +106,23 @@ public final class PsdValidationContentTest {
         int groupTypeOffset, int alphaSampleOffset) { }
 
     private static F1Fixture f1Fixture() {
+        return f1Fixture(false);
+    }
+
+    private static void testLiteralF1WithinBoundedHeap() {
+        final byte[] original = f1Fixture(true).bytes();
+        final var profile = PsdValidationContent.Profile.F1_2048_20;
+        final var before = PsdValidationContent.targetLayerRgbFingerprint(original, profile);
+        final byte[] changed = PsdValidationContent.invertTargetLayerRgb(original, profile);
+        final var after = PsdValidationContent.targetLayerRgbFingerprint(changed, profile);
+        assertTrue(!before.sha256().equals(after.sha256()), "literal F1 RGB changed");
+        assertArrayEquals(original, PsdValidationContent.invertTargetLayerRgb(changed, profile),
+            "literal F1 exact byte round trip");
+        assertEquals(before.sha256(), PsdValidationContent.targetLayerRgbFingerprint(original, profile).sha256(),
+            "literal F1 source unchanged");
+    }
+
+    private static F1Fixture f1Fixture(final boolean literalTarget) {
         final int size = 2048;
         final Bytes channel = new Bytes();
         channel.u16(1);
@@ -109,6 +131,16 @@ public final class PsdValidationContentTest {
             for (int x = 0; x < 16; x++) { channel.u8(129); channel.u8(64); }
         }
         final byte[] channelBytes = channel.toByteArray();
+        final Bytes literal = new Bytes();
+        literal.u16(1);
+        for (int y = 0; y < size; y++) literal.u16(16 * 129);
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < 16; x++) {
+                literal.u8(127);
+                for (int n = 0; n < 128; n++) literal.u8((n + x + y) & 255);
+            }
+        }
+        final byte[] literalBytes = literal.toByteArray();
         final Bytes records = new Bytes();
         final Bytes pixels = new Bytes();
         records.u16(24);
@@ -122,7 +154,8 @@ public final class PsdValidationContentTest {
             records.u16(4);
             for (int c = 0; c < 4; c++) {
                 records.u16(c == 3 ? -1 : c);
-                records.u32(group == 0 ? channelBytes.length : 2);
+                records.u32(group == 0
+                    ? (literalTarget && i == 22 && c < 3 ? literalBytes.length : channelBytes.length) : 2);
             }
             records.ascii("8BIM"); records.ascii("norm");
             records.u8(255); records.zeros(3);
@@ -140,7 +173,8 @@ public final class PsdValidationContentTest {
             records.bytes(extra.toByteArray());
             if (i == 22) targetDataOffset = pixels.size();
             for (int c = 0; c < 4; c++) {
-                if (group == 0) pixels.bytes(channelBytes); else pixels.u16(0);
+                if (group == 0) pixels.bytes(literalTarget && i == 22 && c < 3 ? literalBytes : channelBytes);
+                else pixels.u16(0);
             }
         }
         final Bytes file = new Bytes();
