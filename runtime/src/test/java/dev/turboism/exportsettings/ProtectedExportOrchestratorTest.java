@@ -1935,10 +1935,9 @@ class ProtectedExportOrchestratorTest {
             final Object modelInstance,
             final Object deformerSource
         ) {
-            // A deformer's local-to-canvas transform carries its own constant
-            // plus every surviving ancestor's — the full path to canvas.
-            return new FakeTransform(
-                chainConstant((FakeDeformer) deformerSource));
+            // The deformer's canvas-space deformation map: the fake models it
+            // as a flat offset equal to this deformer's constant contribution.
+            return new FakeTransform(((FakeDeformer) deformerSource).constant);
         }
 
         @Override
