@@ -1777,26 +1777,29 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     /**
-     * Bounded detail for a failed publish: the primary IOException plus each
-     * suppressed diagnostic (rollback failures and the retained-recovery
-     * location). Suppressed entries get a larger bound than {@link #describe}
-     * because the recovery path must survive intact to be usable; the entry
-     * count is capped so the report stays bounded.
+     * Bounded detail for a failed publish: the primary IOException plus up to
+     * four suppressed diagnostics. A suppressed {@link
+     * ProtectedExportStaging.RetainedRecoveryException} is instead emitted as
+     * {@code recovery-path:} with the path verbatim — the recovery location must
+     * stay complete to be usable and is never displaced by the suppressed cap.
      */
     private static String describePublishFailure(final IOException failure) {
         final StringBuilder detail = new StringBuilder(describe(failure));
-        final Throwable[] suppressed = failure.getSuppressed();
-        final int reported = Math.min(suppressed.length, 4);
-        for (int i = 0; i < reported; i++) {
-            String text = describe(suppressed[i]);
-            if (text.length() > 512) {
-                text = text.substring(0, 512);
+        int reported = 0;
+        int omitted = 0;
+        for (final Throwable entry : failure.getSuppressed()) {
+            if (entry
+                instanceof ProtectedExportStaging.RetainedRecoveryException retained) {
+                detail.append(" | recovery-path: ").append(retained.retainedPath());
+            } else if (reported < 4) {
+                reported++;
+                detail.append(" | suppressed: ").append(describe(entry));
+            } else {
+                omitted++;
             }
-            detail.append(" | suppressed: ").append(text);
         }
-        if (suppressed.length > reported) {
-            detail.append(" | +").append(suppressed.length - reported)
-                .append(" more suppressed");
+        if (omitted > 0) {
+            detail.append(" | +").append(omitted).append(" more suppressed");
         }
         return detail.toString();
     }
