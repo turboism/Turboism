@@ -97,6 +97,7 @@ public final class ExternalPsdEditHostProbeTest {
         testGuiEnableAndEdtAreNonBlocking();
         testGuiWindowBinding();
         testPrepareFixturePhaseDispatch();
+        testStructuralQueuedWorkCannotRunAfterExpiryOrStop();
         testNativeCloseDialogHandling();
         testCloseTimingDeadlineCoordinator();
         testCloseDiagnosticBudgets();
@@ -3879,6 +3880,52 @@ public final class ExternalPsdEditHostProbeTest {
             "", "", false, false);
         assertTrue(!hiddenBeforeBinding.bindNow() && !hiddenBeforeBinding.waitForBoundWindow(),
             "without an established target window no window is selected blindly");
+    }
+
+    private static void testStructuralQueuedWorkCannotRunAfterExpiryOrStop() throws Exception {
+        for (final boolean stop : List.of(false, true)) {
+            final java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+            final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+            final java.util.concurrent.atomic.AtomicBoolean allowed = new java.util.concurrent.atomic.AtomicBoolean(true);
+            final AtomicInteger actions = new AtomicInteger();
+            final java.util.concurrent.atomic.AtomicReference<Throwable> rejected = new java.util.concurrent.atomic.AtomicReference<>();
+            SwingUtilities.invokeLater(() -> {
+                entered.countDown();
+                try { release.await(); } catch (InterruptedException failure) { Thread.currentThread().interrupt(); }
+            });
+            assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS), "EDT fixture entered");
+            final Thread worker = new Thread(() -> {
+                try {
+                    ExternalPsdEditHostProbe.structuralEdt(System.nanoTime()
+                        + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(stop ? 2000 : 100), allowed::get,
+                        () -> actions.incrementAndGet());
+                } catch (Throwable failure) { rejected.set(failure); }
+            });
+            try {
+                worker.start();
+                if (stop) {
+                    allowed.set(false);
+                    release.countDown();
+                }
+                worker.join(2000);
+                assertTrue(!worker.isAlive(), "structural wait remains bounded");
+                assertTrue(rejected.get() != null, "expired work is rejected");
+                if (stop) assertContains(rejected.get().toString(), "EDT operation failed",
+                    "task stop rejects the callback before the unexpired deadline");
+            } finally {
+                release.countDown();
+            }
+            SwingUtilities.invokeAndWait(() -> { });
+            assertEquals(0, actions.get(), "stop/deadline prevents queued native mutation");
+        }
+        final AtomicInteger actions = new AtomicInteger();
+        final int result = ExternalPsdEditHostProbe.structuralEdt(System.nanoTime()
+            + java.util.concurrent.TimeUnit.SECONDS.toNanos(2), () -> true,
+            () -> {
+                assertTrue(SwingUtilities.isEventDispatchThread(), "structural action uses EDT");
+                return actions.incrementAndGet();
+            });
+        assertEquals(1, result, "eligible structural work executes once");
     }
 
     private static void testPrepareFixturePhaseDispatch() {
