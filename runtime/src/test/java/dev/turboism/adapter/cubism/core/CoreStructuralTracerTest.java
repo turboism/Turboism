@@ -247,6 +247,24 @@ class CoreStructuralTracerTest {
     }
 
     @Test
+    void selectorFailureIdentifiesTheAdmittedAliasWithoutNativeExceptionText() {
+        final var data = validModelData();
+        final var model = new TestCoreApiFixture.Model(null, data.parameters, () -> {
+            throw new IllegalStateException("private-host-path", new NullPointerException("private-value"));
+        });
+        try (Harness harness = harness("5.3.02", model)) {
+            final var result = harness.tracer.trace(harness.lease);
+            assertTrue(result.value().isEmpty());
+            final var failure = result.failure().orElseThrow();
+            assertEquals(CoreProviderFailure.Code.INVOCATION_FAILED, failure.code());
+            assertTrue(failure.message().contains("selector=" + CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO));
+            assertTrue(failure.message().contains("kind=INVOCATION;category=NULL_POINTER"));
+            assertFalse(failure.message().contains("private"));
+            assertFalse(failure.message().contains("java.lang"));
+        }
+    }
+
+    @Test
     void closedAndStaleLeasesHaveDistinctSanitizedFailures() {
         final VerifiedMemberResolver resolver =
             TestCoreApiFixture.resolver("5.2.03");
