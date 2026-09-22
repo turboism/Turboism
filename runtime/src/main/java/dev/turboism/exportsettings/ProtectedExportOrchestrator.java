@@ -471,16 +471,15 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     /**
      * Bakes an unbound deformer's constant deformation into every ArtMesh child.
-     * Child positions are authored in the deformer's local space; once the
-     * deformer is deleted they are interpreted in the surviving parent's local
-     * space, so each authored position is first mapped to its evaluated canvas
-     * position through the deformer's own local-to-canvas transform and then
-     * re-expressed in the parent's local space through the parent's
-     * canvas-to-local transform (identity when the deformer is root-level).
-     * Rewriting both the base positions and every keyform's positions keeps the
-     * rendered shape unchanged under whatever ancestors remain. Runs on the
-     * copy's live model instance; called only inside the flatten EDT block after
-     * the deformer's selection identity was verified.
+     * ArtMesh positions are authored in canvas space, and the deformer's
+     * local-to-canvas transform is the canvas-space deformation map it applies
+     * at evaluation — verified on the real host (r31: forward-only bake keeps
+     * pre/post-flatten evaluation identical; re-expressing into the parent's
+     * local space breaks it). Rewriting both the base positions and every
+     * keyform's positions keeps the rendered shape unchanged once the deformer
+     * is deleted. Runs on the copy's live model instance; called only inside
+     * the flatten EDT block after the deformer's selection identity was
+     * verified.
      */
     private void bakeConstantDeformation(final Session session, final Object source) {
         final Object instance = session.copyModelInstance;
@@ -489,10 +488,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (forward == null) {
             throw new SessionRejection(FLATTEN_FAILED_KEY);
         }
-        final Object parentInverse =
-            host.deformerParentCanvasToLocalTransform(instance, source);
-        diag(session, "bake d=" + host.deformerGuid(source)
-            + " parentInverse=" + (parentInverse != null));
+        diag(session, "bake d=" + host.deformerGuid(source));
         for (Object child : host.deformerChildren(source)) {
             if (!host.isArtMeshSource(child)) {
                 // A surviving deformer child cannot absorb a position bake;
@@ -503,7 +499,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (base == null) {
                 throw new SessionRejection(FLATTEN_FAILED_KEY);
             }
-            final float[] baked = bakePositions(forward, parentInverse, base);
+            final float[] baked = host.transformPositions(forward, base);
             if (base.length >= 2) {
                 diag(session, " child=" + host.objectGuid(child)
                     + " base=(" + base[0] + "," + base[1] + ")"
@@ -516,7 +512,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     throw new SessionRejection(FLATTEN_FAILED_KEY);
                 }
                 host.setArtMeshFormPositions(
-                    keyform, bakePositions(forward, parentInverse, positions));
+                    keyform, host.transformPositions(forward, positions));
             }
         }
         host.evaluateModelInstance(instance);
@@ -527,16 +523,6 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (buffer.length() + message.length() + 1 <= 4096) {
             buffer.append(message).append(';');
         }
-    }
-
-    private float[] bakePositions(
-        final Object forward,
-        final Object parentInverse,
-        final float[] positions
-    ) {
-        final float[] canvas = host.transformPositions(forward, positions);
-        return parentInverse == null
-            ? canvas : host.transformPositions(parentInverse, canvas);
     }
 
     /**
