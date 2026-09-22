@@ -399,7 +399,7 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--cubism-java", "--cubism-java-console-marker", "--run-label", "--agent-timeout",
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
-    "--proton-wrapper", "--proton-runner", "--local-evidence-dir", "--transport",
+    "--proton-wrapper", "--proton-runner", "--graphics-device", "--local-evidence-dir", "--transport",
     "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python"})
 
 # Reviewed pre-launch hook inventory: hook file name -> (protocol flags the
@@ -715,6 +715,8 @@ class PreparedStore:
                 index += 2
                 if flag == "--transport" and value != "local":
                     raise QueueError("only local host execution is supported")
+                if flag == "--graphics-device" and value not in {"inherit", "nvidia"}:
+                    raise QueueError("graphics device must be inherit or nvidia")
                 if flag in ("--client-script", "--client-python") \
                         and mcp_dependency is None and edit_protocol_dependency is None:
                     raise QueueError("custom client requires reviewed dependency inventory")
