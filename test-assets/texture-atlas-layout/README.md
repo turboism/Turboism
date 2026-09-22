@@ -25,7 +25,9 @@
 
 已接收用户上传的 `/tmp/circle.7z`，解压完整性检查通过，按数据集单独归档，未覆盖分类目录中已有的同名文件。
 
-已接收 `/tmp/geometry.7z`，另归档到 `psd/geometry/` 和 `cmo3/geometry/`，文件清单见 [geometry-manifest.md](geometry-manifest.md)。Geometry 有100/500/1000对应CMO3；2500仅有PSD，不属于本次实机测试范围。
+已接收 `/tmp/geometry.7z`，另归档到 `psd/geometry/` 和 `cmo3/geometry/`，文件清单见 [geometry-manifest.md](geometry-manifest.md)。最初提供100/500/1000对应CMO3及2500 PSD，随后补齐2500 CMO3。
+
+2026-09-22 接收合并基准包 `/tmp/atlas.7z`，恢复 Circle、Geometry 两套模型和 PSD，并新增 Geometry500x2 工程。全部17份文件已按上述分类归档，原有16份资产的大小和 SHA-256 均与登记一致；来源与新增文件见 [atlas-manifest.md](atlas-manifest.md)。
 
 **两套分布不同（用户提供的说明）：Circle 的每个模型内是大小相同的圆形；Geometry 是大小、形状各不相同的几何图像。** Circle偏向同尺寸基线，Geometry用于检验异尺寸、异长宽比输入。分开报告，不能把Circle加速比直接外推到Geometry。
 
