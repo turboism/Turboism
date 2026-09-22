@@ -2,9 +2,9 @@
   "format": "turboism.plugin.meta",
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.protected-export",
-  "name": "Protected Export Candidate",
+  "name": "Protected Export",
   "version": "0.1.0",
-  "description": "Candidate read-only preflight contribution; protected export is currently unavailable until disposable-copy and native-export orchestration is admitted.",
+  "description": "Optional protected runtime-model export: works on a task-owned copy, flattens Warp/Rotation deformers, obfuscates ArtMesh identities, validates the complete staged output, then publishes atomically. Admitted only on reviewed Cubism versions and eligible models.",
   "entrypoints": [
     "dev.turboism.plugin.protectedexport.ProtectedExportPlugin"
   ],
@@ -24,7 +24,7 @@
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "Run a read-only diagnostic on the active Cubism model only when the candidate option is selected; no export or model write is performed."
+      "reason": "Read the active Cubism model for protected-export preflight and the runtime orchestration's model census; the authoring document is never written."
     }
   ],
   "capabilities": [],

@@ -14,12 +14,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Registers the default-off protected-export candidate option.
+ * Registers the default-off protected-export option.
  *
  * <p>The option is deliberately a narrow SDK-only seam. An unchecked export is a native
- * passthrough. A checked export may perform a read-only, identity-bound planner diagnostic, but
- * it always rejects because disposable-copy and native-export orchestration has not been admitted.
- * This class never names a path, mutates a model, or performs an export.</p>
+ * passthrough. A checked export vetoes the plain native flow and performs a read-only,
+ * identity-bound planner diagnostic; when the runtime authority has armed the protected
+ * orchestrator for this plugin's option, that veto is what hands control to the
+ * orchestrated copy/flatten/obfuscate/validate/publish pipeline. This class never names
+ * a path, mutates a model, or performs an export.</p>
  */
 public final class ProtectedExportPlugin implements TurboismPlugin {
 
