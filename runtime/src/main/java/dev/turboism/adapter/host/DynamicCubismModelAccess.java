@@ -589,6 +589,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         public dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement replaceWithStagedPsd(
             final dev.turboism.sdk.cubism.id.RawImageId target,
             final java.nio.file.Path stage,
+            final String sourceFileName,
             final Runnable admission
         ) {
             Objects.requireNonNull(admission, "admission");
@@ -597,7 +598,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                     return dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement.unavailable();
                 }
                 return host.replaceWithStagedPsd(
-                    target, stage, () -> guardedVoid(generation, admission));
+                    target, stage, sourceFileName, () -> guardedVoid(generation, admission));
             });
         }
         @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {

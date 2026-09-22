@@ -57,6 +57,11 @@ final class PsdTemporaryFile {
         return file;
     }
 
+    /** Immutable display metadata; grants no path access and does not reopen the live file. */
+    String fileName() {
+        return file.getFileName().toString();
+    }
+
     private static void validateDirectory(final Path path, final Object expectedKey)
         throws IOException {
         final BasicFileAttributes current = attributes(path);

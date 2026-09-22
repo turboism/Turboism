@@ -643,18 +643,20 @@ final class EditorTextureAccess {
         public Replacement replaceWithStagedPsd(
             final RawImageId target,
             final Path stage,
+            final String sourceFileName,
             final Runnable admission
         ) {
             Objects.requireNonNull(admission, "admission");
             return EditorHostThread.dispatch(
                 "Cubism PSD raw-image replace",
-                () -> replaceOnHostThread(target, stage, admission)
+                () -> replaceOnHostThread(target, stage, sourceFileName, admission)
             );
         }
 
         private Replacement replaceOnHostThread(
             final RawImageId target,
             final Path stage,
+            final String sourceFileName,
             final Runnable admission
         ) {
             admission.run();
@@ -685,7 +687,7 @@ final class EditorTextureAccess {
 
             final Object incoming;
             try {
-                incoming = psdAccess.parseStageOnHostThread(stage, binding.candidate().name());
+                incoming = psdAccess.parseStageOnHostThread(stage, sourceFileName);
             } catch (IOException | RuntimeException parseFailure) {
                 return EditorRawImagePsdAccess.unreadableStage(parseFailure);
             }

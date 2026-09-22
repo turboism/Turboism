@@ -46,11 +46,14 @@ class RuntimePsdReplaceServiceTest {
     void observedApplicationAppliesAndConsumesTheRevisionExactlyOnce() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final AtomicInteger nativeCalls = new AtomicInteger();
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             admission.run();
             nativeCalls.incrementAndGet();
             assertEquals(TARGET, target);
             assertTrue(Files.exists(stage));
+            assertEquals("external-edit.psd", sourceFileName);
+            assertFalse(stage.getFileName().toString().equals(sourceFileName),
+                "the native source name must not expose a revision staging filename");
             return applied();
         };
 
@@ -79,7 +82,7 @@ class RuntimePsdReplaceServiceTest {
         final java.util.concurrent.CountDownLatch releaseFirst = new java.util.concurrent.CountDownLatch(1);
         final AtomicInteger nativeCalls = new AtomicInteger();
         final List<String> stageContents = new ArrayList<>();
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             admission.run();
             try {
                 stageContents.add(Files.readString(stage));
@@ -131,7 +134,7 @@ class RuntimePsdReplaceServiceTest {
         try {
             for (final var detail : List.of(new PsdReplaceHost.Failure("CONSTRUCT", "OUT_OF_MEMORY"),
                 new PsdReplaceHost.Failure("/private/path", "native.Type: private-value"))) {
-                final PsdReplaceHost host = (target, stage, admission) -> {
+                final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
                     admission.run();
                     return new PsdReplaceHost.Replacement("STAGE_UNREADABLE", true, false, false, false,
                         false, Optional.empty(), "safe", Optional.of(detail));
@@ -146,7 +149,7 @@ class RuntimePsdReplaceServiceTest {
                     + (unknown ? "UNKNOWN" : "OUT_OF_MEMORY"), result.diagnostic());
             }
             assertEquals(PsdReplaceResult.Status.APPLIED, await(fixture.service.replaceRawImagePsd(
-                (target, stage, admission) -> { admission.run(); return applied(); },
+                (target, stage, sourceFileName, admission) -> { admission.run(); return applied(); },
                 TARGET, fixture.file, fixture.revision)).status());
         } finally {
             fixture.close();
@@ -157,7 +160,7 @@ class RuntimePsdReplaceServiceTest {
     void aStagedRevisionSurvivesExternalDeletionOfTheLiveFile() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final AtomicBoolean stageExisted = new AtomicBoolean();
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             admission.run();
             stageExisted.set(Files.exists(stage));
             return applied();
@@ -178,7 +181,7 @@ class RuntimePsdReplaceServiceTest {
     void foreignHandleAndForgedRevisionAreRejectedBeforeAnyNativeCall() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final AtomicInteger nativeCalls = new AtomicInteger();
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             nativeCalls.incrementAndGet();
             return applied();
         };
@@ -205,7 +208,7 @@ class RuntimePsdReplaceServiceTest {
             },
             new AtomicBoolean(true));
         final AtomicInteger nativeCalls = new AtomicInteger();
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             nativeCalls.incrementAndGet();
             return applied();
         };
@@ -231,7 +234,7 @@ class RuntimePsdReplaceServiceTest {
     void hostEditingRejectionLeavesTheRevisionAvailableForRetry() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final AtomicBoolean editing = new AtomicBoolean(true);
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             admission.run();
             if (editing.get()) {
                 return new PsdReplaceHost.Replacement(
@@ -271,7 +274,7 @@ class RuntimePsdReplaceServiceTest {
 
         for (final PsdReplaceHost.Replacement outcome : outcomes) {
             final PsdReplaceResult result = await(fixture.service.replaceRawImagePsd(
-                (target, stage, admission) -> outcome,
+                (target, stage, sourceFileName, admission) -> outcome,
                 TARGET,
                 fixture.file,
                 fixture.revision
@@ -288,7 +291,7 @@ class RuntimePsdReplaceServiceTest {
     void nativeReturnWithoutVerifiedIncomingRawLeavesRevisionAvailable() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final AtomicInteger nativeCalls = new AtomicInteger();
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             admission.run();
             nativeCalls.incrementAndGet();
             return new PsdReplaceHost.Replacement(
@@ -317,7 +320,7 @@ class RuntimePsdReplaceServiceTest {
     void aThrowingHostIsReportedAsPartialFailureNotAsSuccess() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final PsdReplaceResult result = await(fixture.service.replaceRawImagePsd(
-            (target, stage, admission) -> {
+            (target, stage, sourceFileName, admission) -> {
                 throw new IllegalStateException("native exploded");
             },
             TARGET,
@@ -334,7 +337,7 @@ class RuntimePsdReplaceServiceTest {
     void unavailableProjectionIsReportedWithoutConsumingTheRevision() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final PsdReplaceResult result = await(fixture.service.replaceRawImagePsd(
-            (target, stage, admission) -> PsdReplaceHost.Replacement.unavailable(),
+            (target, stage, sourceFileName, admission) -> PsdReplaceHost.Replacement.unavailable(),
             TARGET,
             fixture.file,
             fixture.revision
@@ -350,7 +353,7 @@ class RuntimePsdReplaceServiceTest {
         final AtomicBoolean allowed = new AtomicBoolean(true);
         final List<String> calls = new ArrayList<>();
         final Fixture fixture = fixture(permissionChecker(allowed, calls), new AtomicBoolean(true));
-        final PsdReplaceHost host = (target, stage, admission) -> {
+        final PsdReplaceHost host = (target, stage, sourceFileName, admission) -> {
             allowed.set(false);
             admission.run();
             return applied();

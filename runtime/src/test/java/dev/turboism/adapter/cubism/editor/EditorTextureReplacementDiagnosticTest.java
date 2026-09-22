@@ -243,6 +243,10 @@ class EditorTextureReplacementDiagnosticTest {
         assertEquals("NATIVE_RETURNED", result.nativeStatus());
         assertTrue(result.nativeReturned());
         assertEquals(1, CallSiteNativeProcess.calls);
+        assertEquals("external-edit.psd", fixture.wrappers.get(1).image.getName(),
+            "incoming name must describe the issued edit file, not the old raw or staging file");
+        assertEquals(fixture.stage.toFile(), fixture.wrappers.get(1).image.getPsdFile(),
+            "native parsing must still use the stable stage");
         assertEquals(2, CallSiteFilterEnv.hasReads, "only the ordinary before/after projection reads");
         assertFalse(Files.exists(diagnosticArtifact()));
     }
@@ -274,7 +278,7 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     @Test
-    void replacementCallSiteReportsTheExactIncomingRawOnlyAfterAffectedImagesSwitch() throws Exception {
+    void replacementCallSiteDoesNotClaimApplicationForAnEmptySelector() throws Exception {
         System.setProperty("turboism.home", tempDir.toString());
         final CallSiteFixture fixture = callSiteFixture();
 
@@ -282,7 +286,8 @@ class EditorTextureReplacementDiagnosticTest {
 
         assertEquals("NATIVE_RETURNED", result.nativeStatus());
         assertTrue(result.nativeReturned());
-        assertEquals(Optional.of(new RawImageId("incoming")), result.afterRawImageId());
+        assertTrue(result.afterRawImageId().isEmpty(),
+            "this diagnostic fixture switches current/linked raw but its selector map stays empty");
         assertEquals(1, CallSiteNativeProcess.calls);
     }
 
@@ -1271,6 +1276,7 @@ class EditorTextureReplacementDiagnosticTest {
         final PsdReplaceHost.Replacement result = ((PsdReplaceHost) textures).replaceWithStagedPsd(
             new RawImageId("old"),
             fixture.stage,
+            "external-edit.psd",
             () -> { }
         );
         return result;
