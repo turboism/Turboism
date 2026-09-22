@@ -22,6 +22,7 @@ import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContr
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorIntegrationWebSocketSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
@@ -213,7 +214,8 @@ public final class EditorModelVerificationManifest {
         EditorEditDeformerSelectorContract.ADD_WARP_DEFORMER_CAPABILITY_ID,
         EditorEditDeformerSelectorContract.EDIT_ROTATION_DEFORMER_CAPABILITY_ID,
         EditorEditDeformerSelectorContract.EDIT_WARP_DEFORMER_CAPABILITY_ID,
-        EditorIntegrationWebSocketSelectorContract.DISPATCH_CAPABILITY_ID
+        EditorIntegrationWebSocketSelectorContract.DISPATCH_CAPABILITY_ID,
+        EditorIntegrationSettingsDialogSelectorContract.EDIT_TOGGLE_CAPABILITY_ID
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
@@ -754,7 +756,10 @@ public final class EditorModelVerificationManifest {
                         EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES,
                         union(
                             TEXTURE_ATLAS_ALIASES,
-                            EditorIntegrationWebSocketSelectorContract.REQUIRED_ALIASES
+                            union(
+                                EditorIntegrationWebSocketSelectorContract.REQUIRED_ALIASES,
+                                EditorIntegrationSettingsDialogSelectorContract.BOUND_ALIASES
+                            )
                         )
                     )
                 )

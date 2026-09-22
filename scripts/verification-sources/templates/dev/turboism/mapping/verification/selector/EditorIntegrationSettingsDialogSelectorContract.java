@@ -12,15 +12,19 @@ import java.util.Set;
  * descriptor, and access flags observed on the exact Cubism 5.2.03, 5.3.02, and 5.3.03 host
  * artifacts, evidenced in {@code host-evidence/native-edit-toggle/native-toggle-internals.md}
  * and reviewed in {@code host-evidence/native-edit-toggle/mapping-candidates.json}. The
- * capability id is candidate-only until the mapping lands on the reviewed records; any member
- * a record drops still fails the feature closed and the injector stays inert.</p>
+ * capability admits the whole Phase-2 feature — injection, the show-time re-injection hook,
+ * and the persisted toggle state — all-or-nothing: any member a record drops still fails the
+ * feature closed and the injector stays inert.</p>
  *
- * <p>The injector needs exactly three members: the dialog class (admission evidence), the
- * {@code y.p} static remote-connect checkbox field (anchor for the current row container),
- * and {@code CCheckBox.getJCheckBox()} (unwrap to the Swing component whose parent is the
- * CHBox backing panel). The Phase-2 reinjection seam {@code y.a(V|X)} — the dialog-show
- * entry whose descriptor differs by version — is recorded in the candidate file but is not
- * part of this admission set.</p>
+ * <p>Members: the dialog class (admission evidence), the {@code y.p} static remote-connect
+ * checkbox field (anchor for the current row container), {@code CCheckBox.getJCheckBox()}
+ * (unwrap to the Swing component whose parent is the CHBox backing panel), the private
+ * {@code y.b(owner)} dialog build/reuse method whose return is the re-injection seam, and the
+ * {@code UUConfig} singleton field plus its {@code a(String,Object)} read /
+ * {@code b(String,Object)} write pair that persist the toggle under
+ * {@code CExternalAppSettingDialog.EditEnabled}. The public {@code y.a(owner)} show entry is
+ * bound in the records as reviewed evidence only: its return fires after the modal dialog
+ * closes, so it is not the injection seam — {@code y.b}'s return is.</p>
  */
 public final class EditorIntegrationSettingsDialogSelectorContract {
 
@@ -31,14 +35,36 @@ public final class EditorIntegrationSettingsDialogSelectorContract {
         "cubism.integration.external-app-settings.edit-toggle";
 
     /**
-     * The complete member set the edit-toggle injection needs on the host: the dialog
-     * singleton class, its remote-connect checkbox field, and the Swing-unwrap accessor.
+     * The complete member set the edit-toggle feature needs on the host: the dialog
+     * singleton class, its remote-connect checkbox field, the Swing-unwrap accessor, the
+     * build-method re-injection seam, and the {@code UUConfig} persistence triple.
      * Admission checks this set under {@link #EDIT_TOGGLE_CAPABILITY_ID}.
      */
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.integration.external-app-settings.dialog.class",
         "cubism.integration.external-app-settings.dialog.remote-checkbox",
-        "cubism.integration.external-app-settings.checkbox.jcheckbox"
+        "cubism.integration.external-app-settings.checkbox.jcheckbox",
+        "cubism.integration.external-app-settings.dialog.build",
+        "cubism.integration.external-app-settings.config.instance",
+        "cubism.integration.external-app-settings.config.read",
+        "cubism.integration.external-app-settings.config.write"
+    );
+
+    /**
+     * The complete alias set bound in the reviewed records: {@link #REQUIRED_ALIASES} plus
+     * {@link #SHOW_ALIAS}, which is recorded as reviewed evidence only (the modal show
+     * blocks until close, so it cannot seed the first open). The editor-model manifests
+     * match record selectors exactly, so they declare this union.
+     */
+    public static final Set<String> BOUND_ALIASES = Set.of(
+        "cubism.integration.external-app-settings.dialog.class",
+        "cubism.integration.external-app-settings.dialog.remote-checkbox",
+        "cubism.integration.external-app-settings.checkbox.jcheckbox",
+        "cubism.integration.external-app-settings.dialog.show",
+        "cubism.integration.external-app-settings.dialog.build",
+        "cubism.integration.external-app-settings.config.instance",
+        "cubism.integration.external-app-settings.config.read",
+        "cubism.integration.external-app-settings.config.write"
     );
 
     /** Alias of the {@code y.p} static field holding the remote-connect {@code CCheckBox}. */
@@ -48,6 +74,34 @@ public final class EditorIntegrationSettingsDialogSelectorContract {
     /** Alias of {@code CCheckBox.getJCheckBox()} returning the row-anchored JCheckBox. */
     public static final String JCHECKBOX_ALIAS =
         "cubism.integration.external-app-settings.checkbox.jcheckbox";
+
+    /**
+     * Alias of the private {@code y.b(owner)} dialog build/reuse method — the Phase-2
+     * re-injection seam. Its return runs after the row container is (re)built and before
+     * the modal show call blocks, unlike {@code y.a}'s return which fires post-close.
+     */
+    public static final String BUILD_HOOK_ALIAS =
+        "cubism.integration.external-app-settings.dialog.build";
+
+    /** Alias of the {@code UUConfig.a} static singleton field. */
+    public static final String CONFIG_INSTANCE_ALIAS =
+        "cubism.integration.external-app-settings.config.instance";
+
+    /** Alias of {@code UUConfig.a(String,Object)} — the defaulting config read. */
+    public static final String CONFIG_READ_ALIAS =
+        "cubism.integration.external-app-settings.config.read";
+
+    /** Alias of {@code UUConfig.b(String,Object)} — the config write-back. */
+    public static final String CONFIG_WRITE_ALIAS =
+        "cubism.integration.external-app-settings.config.write";
+
+    /**
+     * Alias of the public {@code y.a(owner)} dialog-show entry, bound in the records as
+     * reviewed evidence. Not part of {@link #REQUIRED_ALIASES}: the modal show blocks until
+     * the dialog closes, so its return cannot seed the checkbox for the first open.
+     */
+    public static final String SHOW_ALIAS =
+        "cubism.integration.external-app-settings.dialog.show";
 
     private EditorIntegrationSettingsDialogSelectorContract() {
     }
