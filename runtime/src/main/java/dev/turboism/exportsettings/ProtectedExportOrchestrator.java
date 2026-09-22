@@ -432,20 +432,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     || host.selectedCount(context.selector()) != 1) {
                     throw new SessionRejection(FLATTEN_FAILED_KEY);
                 }
-                // A deformer with no keyform bindings contributes a constant
-                // deformation that the host's delete-and-reflect command does
-                // NOT preserve: it bakes keyforms only at bound parameter keys,
-                // so an empty binding list silently drops the deformation.
-                // Bake that constant into each child ArtMesh's base and keyform
-                // positions through the deformer's own local-to-canvas transform
-                // before the apply deletes it.
-                if (host.keyformBindings(source).isEmpty()) {
-                    bakeConstantDeformation(session, source);
-                } else {
-                    diag(session, "bound d=" + guid
-                        + " bindings=" + host.keyformBindings(source).size()
-                        + " children=" + host.deformerChildren(source).size());
-                }
+                // A deformer with no keyform bindings contributes nothing the
+                // apply can drop: the host's delete-and-reflect command copies
+                // bindings at bound keys only, and an unbound deformer at rest
+                // deforms nothing (verified r30 — evaluation stays invariant
+                // without a bake). A genuinely deformed unbound deformer would
+                // be caught by the post-flatten behavior oracle — there is no
+                // correct position-rewrite primitive for it (the deformer
+                // transform operates in grid-local space, not canvas space).
+                diag(session, "deformer d=" + guid
+                    + " bindings=" + host.keyformBindings(source).size()
+                    + " children=" + host.deformerChildren(source).size());
                 host.applyDeformerToParameters(context.editMode());
                 return resolveDeformer(context.liveSource(), guid) == null
                     ? Boolean.TRUE : Boolean.FALSE;
@@ -467,55 +464,6 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             throw new SessionRejection(FLATTEN_FAILED_KEY);
         }
         session.phase = Phase.FLATTENED;
-    }
-
-    /**
-     * Bakes an unbound deformer's constant deformation into every ArtMesh child.
-     * ArtMesh positions are authored in canvas space, and the deformer's
-     * local-to-canvas transform is the canvas-space deformation map it applies
-     * at evaluation — verified on the real host (r31: forward-only bake keeps
-     * pre/post-flatten evaluation identical; re-expressing into the parent's
-     * local space breaks it). Rewriting both the base positions and every
-     * keyform's positions keeps the rendered shape unchanged once the deformer
-     * is deleted. Runs on the copy's live model instance; called only inside
-     * the flatten EDT block after the deformer's selection identity was
-     * verified.
-     */
-    private void bakeConstantDeformation(final Session session, final Object source) {
-        final Object instance = session.copyModelInstance;
-        final Object forward =
-            host.deformerLocalToCanvasTransform(instance, source);
-        if (forward == null) {
-            throw new SessionRejection(FLATTEN_FAILED_KEY);
-        }
-        diag(session, "bake d=" + host.deformerGuid(source));
-        for (Object child : host.deformerChildren(source)) {
-            if (!host.isArtMeshSource(child)) {
-                // A surviving deformer child cannot absorb a position bake;
-                // leaf-to-root order should have deleted it first — fail closed.
-                throw new SessionRejection(FLATTEN_FAILED_KEY);
-            }
-            final float[] base = host.artMeshSourcePositions(child);
-            if (base == null) {
-                throw new SessionRejection(FLATTEN_FAILED_KEY);
-            }
-            final float[] baked = host.transformPositions(forward, base);
-            if (base.length >= 2) {
-                diag(session, " child=" + host.objectGuid(child)
-                    + " base=(" + base[0] + "," + base[1] + ")"
-                    + " baked=(" + baked[0] + "," + baked[1] + ")");
-            }
-            host.setArtMeshSourcePositions(child, baked);
-            for (Object keyform : host.artMeshSourceKeyforms(child)) {
-                final float[] positions = host.artMeshFormPositions(keyform);
-                if (positions == null) {
-                    throw new SessionRejection(FLATTEN_FAILED_KEY);
-                }
-                host.setArtMeshFormPositions(
-                    keyform, host.transformPositions(forward, positions));
-            }
-        }
-        host.evaluateModelInstance(instance);
     }
 
     private static void diag(final Session session, final String message) {

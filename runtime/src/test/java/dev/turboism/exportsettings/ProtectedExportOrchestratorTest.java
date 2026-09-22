@@ -273,20 +273,23 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
-    void bakesUnboundDeformerConstantBeforeApply() throws Exception {
-        // A deformer with no keyform bindings still contributes a constant
-        // deformation on the real host; the native apply command only preserves
-        // deformation at bound keys, so the orchestrator pre-bakes it into the
-        // children's authored shapes. If the bake were skipped the fake's
-        // apply would drop the constant and the behavior oracle would reject.
+    void rejectsWhenUnboundDeformerDropsDeformation() throws Exception {
+        // A deformer with no keyform bindings contributes nothing the host's
+        // apply can preserve: bindings are copied at bound keys only, so an
+        // unbound deformer with real deformation is silently dropped and the
+        // behavior oracle must fail closed rather than publish a divergent
+        // model.
         final Fixture fixture = new Fixture();
         fixture.host.unboundDeformerConstant = 7f;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertTrue(report.published(),
-            "expected publish, failed with " + report.failureKey());
+        assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY,
+            report.failureKey());
+        assertFalse(report.published());
+        assertNull(fixture.host.exportedModel,
+            "native export must not run when flatten changed behavior");
         orchestrator.close();
     }
 
