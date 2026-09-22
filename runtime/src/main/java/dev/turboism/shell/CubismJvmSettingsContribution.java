@@ -191,6 +191,78 @@ final class CubismJvmSettingsContribution {
         );
     }
 
+    /**
+     * Launch-time preference: the managed launcher's memory tier for the next
+     * Cubism start. {@code system} emits nothing so the official BAT keeps its
+     * {@code -XX:MaxRAMPercentage=100} sizing; the capped tiers append
+     * {@code -Xmx4g} (plus a shorter soft-reference LRU clock for the fast-soft
+     * variant) to the managed JVM options. No live apply — the running JVM
+     * cannot resize its heap. The tiers compose with the ZGC toggle; an
+     * explicit {@code -Xmx} already present in the launch command wins over the
+     * profile's heap limit.
+     */
+    static SettingsContribution createMemoryProfile(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        return new SettingsContribution(
+            "cubism-memory-profile",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(130),
+            new SettingsControl.Choice(
+                "cubism-memory-profile",
+                i18n.text("settings.cubism-jvm.memory-profile")
+                    + " ("
+                    + i18n.text("settings.locale.restart-required")
+                    + ")",
+                List.of(
+                    new SettingsControl.Option(
+                        CubismJvmSettingsService.MemoryProfile.SYSTEM.configValue(),
+                        i18n.text("settings.cubism-jvm.memory-profile.system")
+                    ),
+                    new SettingsControl.Option(
+                        CubismJvmSettingsService.MemoryProfile.BALANCED_4G.configValue(),
+                        i18n.text("settings.cubism-jvm.memory-profile.balanced4g")
+                    ),
+                    new SettingsControl.Option(
+                        CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT.configValue(),
+                        i18n.text("settings.cubism-jvm.memory-profile.balanced4g-fast-soft")
+                    )
+                ),
+                SettingsBinding.of(
+                    () -> settings.memoryProfile().configValue(),
+                    value -> settings.saveMemoryProfile(
+                        CubismJvmSettingsService.MemoryProfile.fromConfig(value)
+                    )
+                )
+            )
+        );
+    }
+
+    /** Memory-profile semantics note under the selector; no binding, display only. */
+    static SettingsContribution createMemoryProfileNote(final PluginLocalization i18n) {
+        Objects.requireNonNull(i18n, "i18n");
+        return new SettingsContribution(
+            "cubism-memory-profile-note",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(131),
+            new SettingsControl.Note(
+                "cubism-memory-profile-note",
+                i18n.text("settings.cubism-jvm.memory-profile-note")
+            )
+        );
+    }
+
     /** Small header note on the Performance tab; no binding, display only. */
     static SettingsContribution createPerformanceNote(final PluginLocalization i18n) {
         Objects.requireNonNull(i18n, "i18n");

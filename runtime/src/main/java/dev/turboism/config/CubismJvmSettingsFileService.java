@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /** Persists the managed launcher's Cubism JVM choice in the canonical config. */
 public final class CubismJvmSettingsFileService implements CubismJvmSettingsService, AutoCloseable {
@@ -28,8 +29,15 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     private final dev.turboism.graal.ManagedGraalRuntimeService managedRuntime;
 
     public CubismJvmSettingsFileService(final Path turboismHome) {
+        this(turboismHome, ignored -> { });
+    }
+
+    public CubismJvmSettingsFileService(
+        final Path turboismHome,
+        final Consumer<String> configDiagnostic
+    ) {
         this(
-            new RuntimeConfigRepository(turboismHome, ignored -> { }),
+            new RuntimeConfigRepository(turboismHome, configDiagnostic),
             turboismHome,
             System.getenv()
         );
@@ -177,6 +185,30 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
             return root;
         });
         return value;
+    }
+
+    @Override
+    public MemoryProfile memoryProfile() {
+        // The repository already drops an unsupported persisted value on read
+        // (RUNTIME_CONFIG_BAD_MEMORY_PROFILE diagnostic); the lenient parse is
+        // the second fail-closed layer for non-validating config sources.
+        final JsonNode value = config.read().path("launcher").path("memoryProfile");
+        return MemoryProfile.fromConfigOrSystem(value.isTextual() ? value.asText() : null);
+    }
+
+    @Override
+    public MemoryProfile saveMemoryProfile(final MemoryProfile value) {
+        final MemoryProfile requested = Objects.requireNonNull(value, "value");
+        config.update(root -> {
+            if (requested == MemoryProfile.SYSTEM) {
+                // Absent means the system default; only explicit tiers persist.
+                root.withObject("launcher").remove("memoryProfile");
+            } else {
+                root.withObject("launcher").put("memoryProfile", requested.configValue());
+            }
+            return root;
+        });
+        return requested;
     }
 
     @Override
