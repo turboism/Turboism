@@ -182,7 +182,10 @@ record PreviewPluginRuntimeResources(
         log.setMinimumLevel(settings.logLevel());
         log.setMaxStorageMiB(settings.maxLogStorageMiB());
         final dev.turboism.config.CubismJvmSettingsFileService cubismJvmSettings =
-            new dev.turboism.config.CubismJvmSettingsFileService(home);
+            new dev.turboism.config.CubismJvmSettingsFileService(
+                home,
+                message -> log.warn("config", message)
+            );
         final dev.turboism.config.MeshTriangulationSettingsFileService meshTriangulationSettings =
             new dev.turboism.config.MeshTriangulationSettingsFileService(home);
         final dev.turboism.config.AtlasTileBboxSettingsFileService atlasTileBboxSettings =

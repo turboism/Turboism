@@ -176,6 +176,89 @@ class DeclarativeSettingsRendererTest {
     }
 
     @Test
+    void memoryProfileChoiceRendersEveryTierWithRestartWordingAndPersistsOnSave() throws Exception {
+        final java.util.concurrent.atomic.AtomicReference<CubismJvmSettingsService.MemoryProfile>
+            stored = new java.util.concurrent.atomic.AtomicReference<>(
+                CubismJvmSettingsService.MemoryProfile.SYSTEM
+            );
+        final CubismJvmSettingsService service = new CubismJvmSettingsService() {
+            @Override public CubismJvm read() { return CubismJvm.BUNDLED; }
+            @Override public CubismJvm save(CubismJvm value) { return value; }
+            @Override public CubismJvmSettingsService.MemoryProfile memoryProfile() {
+                return stored.get();
+            }
+            @Override public CubismJvmSettingsService.MemoryProfile saveMemoryProfile(
+                final CubismJvmSettingsService.MemoryProfile value
+            ) { stored.set(value); return value; }
+        };
+        final CoreWindows windows = new CoreWindows(
+            localization(),
+            settings(),
+            () -> List.of(new SettingsSnapshot.Tab(
+                "performance",
+                "Performance",
+                OptionalInt.of(200),
+                List.of(
+                    new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        CubismJvmSettingsContribution.createMemoryProfile(localization(), service)
+                    ),
+                    new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        CubismJvmSettingsContribution.createMemoryProfileNote(localization())
+                    )
+                )
+            )),
+            plugins(),
+            RuntimeLogReader.unavailable()
+        );
+        final Map<String, CoreWindows.BuiltinTab> builtins = new LinkedHashMap<>();
+        builtins.put(
+            "performance",
+            new CoreWindows.BuiltinTab("Performance", 200, new JPanel(new GridBagLayout()))
+        );
+        final Method render = CoreWindows.class.getDeclaredMethod(
+            "renderSettings", JDialog.class, Map.class
+        );
+        render.setAccessible(true);
+        final CoreWindows.RenderedSettings rendered =
+            (CoreWindows.RenderedSettings) render.invoke(windows, null, builtins);
+        final JPanel performance = formInTab(rendered.tabs(), 0);
+        final JComboBox<?> combo = java.util.Arrays.stream(performance.getComponents())
+            .filter(JComboBox.class::isInstance)
+            .map(JComboBox.class::cast)
+            .findFirst()
+            .orElseThrow();
+        assertEquals(3, combo.getItemCount());
+        assertEquals(
+            List.of("system", "balanced4g", "balanced4gFastSoft"),
+            java.util.stream.IntStream.range(0, combo.getItemCount())
+                .mapToObj(index -> ((SettingsControl.Option) combo.getItemAt(index)).value())
+                .toList()
+        );
+        final javax.swing.JLabel label = java.util.Arrays.stream(performance.getComponents())
+            .filter(javax.swing.JLabel.class::isInstance)
+            .map(javax.swing.JLabel.class::cast)
+            .filter(candidate -> candidate.getText() != null
+                && candidate.getText().startsWith("settings.cubism-jvm.memory-profile "))
+            .findFirst()
+            .orElseThrow();
+        assertTrue(label.getText().contains("settings.locale.restart-required"),
+            "the rendered label states the restart requirement");
+        assertEquals("system", ((SettingsControl.Option) combo.getSelectedItem()).value());
+
+        for (int index = 0; index < combo.getItemCount(); index++) {
+            if (((SettingsControl.Option) combo.getItemAt(index)).value()
+                .equals("balanced4gFastSoft")) {
+                combo.setSelectedIndex(index);
+                break;
+            }
+        }
+        assertTrue(rendered.save().getAsBoolean());
+        assertEquals(CubismJvmSettingsService.MemoryProfile.BALANCED_4G_FAST_SOFT, stored.get());
+    }
+
+    @Test
     void customGraalVmPathUsesAVisibleHomeDirectoryPlaceholder() throws Exception {
         final CoreWindows windows = new CoreWindows(
             localization(), settings(), List::of, plugins(), RuntimeLogReader.unavailable()

@@ -341,6 +341,42 @@ function Read-PreviewZgcPreference {
     return [bool]$zgcProperty.Value
 }
 
+function Read-PreviewMemoryProfile {
+    param([string]$Home)
+    # Matches the managed launcher's fail-closed semantics: absent
+    # config/field means "system" (this launcher's own -XX:MaxRAMPercentage=100
+    # stays the only heap sizing, same as the official BAT). A malformed value
+    # warns and falls back to system instead of aborting the launch.
+    $config = Join-Path $Home "config.json"
+    if (-not (Test-Path -LiteralPath $config -PathType Leaf)) {
+        return "system"
+    }
+    if ((Get-Item -LiteralPath $config).Length -gt 65536) {
+        throw "Turboism config exceeds 64 KiB: $config"
+    }
+    try {
+        $document = Get-Content -LiteralPath $config -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw "Turboism config is invalid: $config"
+    }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) {
+        return "system"
+    }
+    $profileProperty = $launcherProperty.Value.PSObject.Properties["memoryProfile"]
+    if ($null -eq $profileProperty -or $null -eq $profileProperty.Value) {
+        return "system"
+    }
+    $value = $profileProperty.Value
+    if ($value -isnot [string] -or
+        @("system", "balanced4g", "balanced4gFastSoft") -notcontains [string]$value) {
+        Write-Warning "Turboism launcher.memoryProfile setting is invalid; falling back to system"
+        return "system"
+    }
+    return [string]$value
+}
+
 $classPath = Read-OfficialClassPath -Root $cubism
 $nativePath = "app\dll64;app\dll64\windows-amd64"
 $javaArgs = @(
@@ -349,12 +385,37 @@ $javaArgs = @(
     "-Djogamp.gluegen.UseTempJarCache=false",
     "-Dsun.java2d.d3d=false",
     "-Duser.language=zh",
-    "-XX:MaxRAMPercentage=100",
     "-showversion",
     "-Dturboism.home=$previewRoot",
     "-javaagent:$agent=home=$previewRoot;timeoutSeconds=120",
     "-Djava.locale.providers=CLDR,SPI"
 )
+# Memory profile: "system" keeps the same -XX:MaxRAMPercentage=100 the
+# official BAT uses, so a default install is unchanged. The capped tiers swap
+# it for an explicit -Xmx4g (plus a shorter soft-reference LRU clock for the
+# fast-soft variant) and compose with ZGC. An explicit -Xmx/-XX:MaxHeapSize
+# already supplied through the Java option environment variables stays
+# authoritative over the profile.
+$externalHeapLimit = $false
+foreach ($name in @("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")) {
+    $inherited = [Environment]::GetEnvironmentVariable($name, "Process")
+    if (-not [string]::IsNullOrWhiteSpace($inherited) -and
+        ($inherited -match '(?i)(^|\s)-Xmx' -or $inherited -match '(?i)-XX:MaxHeapSize=')) {
+        $externalHeapLimit = $true
+    }
+}
+switch (Read-PreviewMemoryProfile -Home $previewRoot) {
+    "balanced4g" {
+        if ($externalHeapLimit) { $javaArgs += "-XX:MaxRAMPercentage=100" }
+        else { $javaArgs += "-Xmx4g" }
+    }
+    "balanced4gFastSoft" {
+        if ($externalHeapLimit) { $javaArgs += "-XX:MaxRAMPercentage=100" }
+        else { $javaArgs += "-Xmx4g" }
+        $javaArgs += "-XX:SoftRefLRUPolicyMSPerMB=100"
+    }
+    default { $javaArgs += "-XX:MaxRAMPercentage=100" }
+}
 if (Read-PreviewZgcPreference -Home $previewRoot) {
     $javaArgs += "-XX:+UseZGC"
 }

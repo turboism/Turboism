@@ -113,6 +113,37 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsEverySupportedMemoryProfile() {
+        for (final String profile : new String[] {"system", "balanced4g", "balanced4gFastSoft"}) {
+            final ObjectNode root = base();
+            root.withObject("launcher").put("memoryProfile", profile);
+            assertTrue(validator.validate(root, "test.json").isEmpty(), profile);
+        }
+    }
+
+    @Test
+    void rejectsUnsupportedOrNonTextualMemoryProfileOnWrite() {
+        final ObjectNode unknown = base();
+        unknown.withObject("launcher").put("memoryProfile", "extreme16g");
+        final ObjectNode nonText = base();
+        nonText.withObject("launcher").put("memoryProfile", 42);
+
+        assertTrue(codes(unknown).contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
+        assertTrue(codes(nonText).contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
+    }
+
+    @Test
+    void toleratesUnsupportedMemoryProfileOnRead() {
+        final ObjectNode unknown = base();
+        unknown.withObject("launcher").put("memoryProfile", "extreme16g");
+        final ObjectNode nonText = base();
+        nonText.withObject("launcher").put("memoryProfile", 42);
+
+        assertTrue(validator.validateForRead(unknown, "test.json").isEmpty());
+        assertTrue(validator.validateForRead(nonText, "test.json").isEmpty());
+    }
+
+    @Test
     void rejectsNonBooleanOptimizationLauncherFlags() {
         final ObjectNode root = base();
         root.withObject("launcher").put("modelUpdateSkip", "no");
