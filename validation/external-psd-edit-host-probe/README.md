@@ -523,7 +523,7 @@ The wrapper grants WRITE only to `{HOME}/persisted-document.cmo3`.
 The native phase uses official `command_open` and the reviewed model/raw choosers. The SDK
 phase writes the runtime-issued edit file, awaits an opaque revision, and requires APPLIED,
 the requested before raw and consumption of that exact token. Both observe one new native
-history entry, a unique incoming raw, stable public structure, Undo/Redo and SAVE_AS.
+history entry, a unique incoming raw, stable authoring structure, Undo/Redo and SAVE_AS.
 Task/document/model/window/stop and deadline admission precede mutations; queued expired
 EDT work cannot execute. A native chooser return alone does not complete the observation.
 
@@ -531,6 +531,11 @@ EDT work cannot execute. A native chooser return alone does not complete the obs
 `structure.comparison=NOT_RUN` remains until independent native and SDK tasks are compared
 for the same variant and baseline. Generated raw/image/layer GUIDs are normalized; original
 identities, empty bindings, layer/input/group ordering and mesh geometry remain observable.
+Multiply/screen RGBA comes from official Editor current-keyform getters, matched to SDK
+ArtMeshes by GUID on the same EDT observation with document/model generation checks.
+The helper verifies the defining loader, official JAR SHA and exact method shapes before use;
+missing colors or incomplete/ambiguous mesh coverage fail. These are authoring colors, not
+evaluated public Core colors. The separate Editor-to-Core receiver mismatch remains unresolved.
 The public SDK lacks raw input affine/clipping values: these remain explicitly unavailable
 until supplemented by independent read-only serialized/native evidence. Final viewport
 presentation is also unavailable. Collection PASS alone cannot satisfy F5 or SC-006.

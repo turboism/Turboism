@@ -58,18 +58,35 @@ public final class PsdStructuralStateTest {
 
     private static void captureChecks(final TextureRelationsSnapshot relations) throws Exception {
         final CubismModel model = model(0f);
-        expectRejected(() -> PsdStructuralState.capture(model, relations, BASIS));
+        final var colors = colors("mesh-guid", 1f);
+        expectRejected(() -> PsdStructuralState.capture(model, relations, BASIS, colors));
         expectRejected(() -> PsdStructuralState.basis(model, relations));
         final AtomicReference<Map<String, String>> first = new AtomicReference<>();
         final AtomicReference<Map<String, String>> moved = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
             final var basis = PsdStructuralState.basis(model, relations);
-            first.set(PsdStructuralState.capture(model, relations, basis));
-            moved.set(PsdStructuralState.capture(model(1f), relations, basis));
+            first.set(PsdStructuralState.capture(model, relations, basis, colors));
+            moved.set(PsdStructuralState.capture(model(1f), relations, basis, colors));
+            different(first.get(), PsdStructuralState.capture(model, relations, basis,
+                colors("mesh-guid", .5f)), "current-keyform color changes must be observed");
+            expectRejected(() -> PsdStructuralState.capture(model, relations, basis, Map.of()));
+            expectRejected(() -> PsdStructuralState.capture(model, relations, basis,
+                colors("wrong-guid", 1f)));
+            final var extra = new java.util.HashMap<>(colors);
+            extra.put("extra-mesh", colors.get("mesh"));
+            expectRejected(() -> PsdStructuralState.capture(model, relations, basis, extra));
         });
         different(first.get(), moved.get(), "authoring vertex movement must be observed");
         equal("SDK_DETAILS_UNAVAILABLE", first.get().get("rawInputTransformAndClipping"),
             "missing transform/clipping details remain explicit");
+        equal("official Editor current-keyform RGBA; not evaluated Core colors",
+            first.get().get("colors.scope"), "authoring color semantics are explicit");
+    }
+
+    private static Map<String, OfficialPsdReplacementBaseline.AuthoringColors> colors(
+        final String guid, final float red) {
+        return Map.of("mesh", new OfficialPsdReplacementBaseline.AuthoringColors(guid,
+            new Color(red, 1f, 1f, 1f), new Color(0f, 0f, 0f, 1f)));
     }
 
     private static CubismModel model(final float x) {
@@ -80,8 +97,7 @@ public final class PsdStructuralStateTest {
             Map.entry("parentPartId", Optional.empty()), Map.entry("parentDeformerId", Optional.empty()),
             Map.entry("visible", true), Map.entry("locked", false), Map.entry("getOpacity", 1f),
             Map.entry("drawOrder", 0), Map.entry("maskIds", List.of()), Map.entry("invertedMask", false),
-            Map.entry("culling", false), Map.entry("multiplyColor", new Color(1f, 1f, 1f, 1f)),
-            Map.entry("screenColor", new Color(0f, 0f, 0f, 1f))));
+            Map.entry("culling", false)));
         final Drawables drawables = proxy(Drawables.class, Map.of("all", List.of(mesh)));
         final Canvas canvas = proxy(Canvas.class, Map.of("widthPixels", 2048f,
             "heightPixels", 2048f, "originXPixels", 0f, "originYPixels", 0f, "pixelsPerUnit", 100f));

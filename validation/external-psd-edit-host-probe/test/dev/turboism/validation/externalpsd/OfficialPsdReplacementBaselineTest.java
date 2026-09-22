@@ -23,6 +23,7 @@ public final class OfficialPsdReplacementBaselineTest {
         testChooserActionBoundary();
         testWrappedOptionSelection();
         testNativeRawResolution();
+        testAuthoringColors();
         testOfficialJarShape();
         System.out.println("PASS: OfficialPsdReplacementBaselineTest");
     }
@@ -285,6 +286,62 @@ public final class OfficialPsdReplacementBaselineTest {
             }
         }
     }
+
+    private static void testAuthoringColors() throws Exception {
+        final var access = new OfficialPsdReplacementBaseline.AuthoringColorAccess(
+            Object.class, ColorMesh.class, ColorForm.class, NativeColor.class, null, null,
+            ColorMesh.class.getDeclaredMethod("guid"), ColorMesh.class.getDeclaredMethod("form"),
+            ColorForm.class.getDeclaredMethod("multiply"), ColorForm.class.getDeclaredMethod("screen"),
+            NativeColor.class.getDeclaredMethod("red"), NativeColor.class.getDeclaredMethod("green"),
+            NativeColor.class.getDeclaredMethod("blue"), NativeColor.class.getDeclaredMethod("alpha"));
+        final Method guidString = NativeGuid.class.getDeclaredMethod("value");
+        final NativeColor multiply = new NativeColor(.125f, .25f, .5f, .75f);
+        final NativeColor screen = new NativeColor(.2f, .4f, .6f, .8f);
+        final ColorMesh first = new ColorMesh(new NativeGuid("guid-a"), new ColorForm(multiply, screen));
+        final ColorMesh second = new ColorMesh(new NativeGuid("guid-b"), new ColorForm(screen, multiply));
+        final Map<String, String> ids = Map.of("guid-a", "mesh-a", "guid-b", "mesh-b");
+        expectColorReject(() -> OfficialPsdReplacementBaseline.collectAuthoringColors(
+            List.of(first, second), ids, access, guidString));
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            try {
+                final var colors = OfficialPsdReplacementBaseline.collectAuthoringColors(
+                    List.of(second, first), ids, access, guidString);
+                assertEquals("guid-a", colors.get("mesh-a").guid(), "colors match by GUID, not index");
+                assertEquals(new dev.turboism.sdk.cubism.model.Color(.125f, .25f, .5f, .75f),
+                    colors.get("mesh-a").multiply(), "all multiply channels survive");
+                assertEquals(new dev.turboism.sdk.cubism.model.Color(.2f, .4f, .6f, .8f),
+                    colors.get("mesh-a").screen(), "all screen channels survive");
+                for (final List<?> invalid : List.of(List.of(first), List.of(first, first),
+                    List.of(new Object()), List.of(new ColorMesh(new NativeGuid("unknown"), first.form())),
+                    List.of(new ColorMesh(first.guid(), null)),
+                    List.of(new ColorMesh(first.guid(), new ColorForm(null, screen))),
+                    List.of(new ColorMesh(first.guid(), new ColorForm(new NativeColor(
+                        Float.NaN, 0f, 0f, 1f), screen))),
+                    List.of(new ColorMesh(first.guid(), new ColorForm(multiply, new NativeColor(
+                        0f, 0f, 0f, Float.POSITIVE_INFINITY)))))) {
+                    expectColorReject(() -> OfficialPsdReplacementBaseline.collectAuthoringColors(
+                        invalid, ids, access, guidString));
+                }
+                expectColorReject(() -> OfficialPsdReplacementBaseline.collectAuthoringColors(
+                    List.of(first, second), Map.of("guid-a", "same-id", "guid-b", "same-id"),
+                    access, guidString));
+                expectColorReject(() -> OfficialPsdReplacementBaseline.collectAuthoringColors(
+                    List.of(), Map.of(), access, guidString));
+            } catch (Exception failure) {
+                throw new AssertionError(failure);
+            }
+        });
+    }
+
+    private static void expectColorReject(final ThrowingOperation operation) throws Exception {
+        try { operation.run(); }
+        catch (IllegalArgumentException | IllegalStateException expected) { return; }
+        throw new AssertionError("unavailable or mismatched authoring colors were accepted");
+    }
+
+    private record ColorMesh(NativeGuid guid, ColorForm form) { }
+    private record ColorForm(NativeColor multiply, NativeColor screen) { }
+    private record NativeColor(float red, float green, float blue, float alpha) { }
 
     private static String sha256(final Path path) throws Exception {
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");

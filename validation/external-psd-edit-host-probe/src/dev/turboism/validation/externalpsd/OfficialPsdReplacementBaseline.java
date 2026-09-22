@@ -278,6 +278,148 @@ public final class OfficialPsdReplacementBaseline {
         return entry.name();
     }
 
+    /** Reads Editor current-keyform colors, not evaluated public Core colors. */
+    public static AuthoringColorReader prepareAuthoringColorReader(final PluginContext context)
+        throws Exception {
+        Objects.requireNonNull(context, "context");
+        final HostAccess host = new OfficialPsdReplacementBaseline(
+            context, () -> false, () -> true).preflightOfficialHost();
+        final TargetAccess target = preflightTargetAccess(host);
+        final AuthoringColorAccess access = preflightAuthoringColorAccess(host);
+        return () -> {
+            if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+                "official authoring color observation requires EDT");
+            final var document = context.cubism().activeDocument().orElseThrow();
+            final var model = context.cubism().model().active();
+            final var relations = model.textures().relations();
+            if (!relations.isAvailable()) throw new IllegalStateException(
+                "authoring color model generation unavailable");
+            final Object app = host.appInstance().invoke(null);
+            final Object nativeDocument = target.currentDocument().invoke(app);
+            if (nativeDocument == null || nativeDocument.getClass() != target.documentClass()) {
+                throw new IllegalStateException("official current modeling document unavailable");
+            }
+            final Object source = target.modelSource().invoke(nativeDocument);
+            final String modelGuid = (String) host.guidStringGetter().invoke(
+                target.modelGuid().invoke(source));
+            if (!model.id().value().equals(modelGuid)) throw new IllegalStateException(
+                "SDK and authoring color model GUID differ");
+            final Object instance = access.currentModel().invoke(source);
+            if (instance == null || instance.getClass() != access.modelClass()) {
+                throw new IllegalStateException("official authoring model shape differs");
+            }
+            final Map<String, String> sdkMeshes = new java.util.TreeMap<>();
+            for (final var mesh : model.drawables().all()) {
+                if (sdkMeshes.put(mesh.guid(), mesh.id().value()) != null) {
+                    throw new IllegalStateException("SDK ArtMesh GUID is ambiguous");
+                }
+            }
+            final Object all = access.allMeshes().invoke(instance);
+            if (!(all instanceof List<?> meshes)) throw new IllegalStateException(
+                "official authoring ArtMesh collection unavailable");
+            final Map<String, AuthoringColors> colors = collectAuthoringColors(
+                meshes, sdkMeshes, access, host.guidStringGetter());
+            final var freshModel = context.cubism().model().active();
+            final var freshRelations = freshModel.textures().relations();
+            if (!document.documentId().equals(context.cubism().activeDocument()
+                    .orElseThrow().documentId())
+                || !model.id().equals(freshModel.id()) || !freshRelations.isAvailable()
+                || !relations.binding().equals(freshRelations.binding())
+                || relations.generation() != freshRelations.generation()
+                || target.currentDocument().invoke(app) != nativeDocument
+                || target.modelSource().invoke(nativeDocument) != source
+                || access.currentModel().invoke(source) != instance) {
+                throw new IllegalStateException("authoring color identity changed during observation");
+            }
+            return colors;
+        };
+    }
+
+    private static AuthoringColorAccess preflightAuthoringColorAccess(final HostAccess host)
+        throws Exception {
+        final ClassLoader loader = host.loader();
+        final Class<?> source = loadExact(loader, "com.live2d.cubism.doc.model.CModelSource");
+        final Class<?> model = loadExact(loader, "com.live2d.cubism.doc.model.CModel");
+        final Class<?> mesh = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.artMesh.CArtMesh");
+        final Class<?> form = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm");
+        final Class<?> drawableForm = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.ACDrawableForm");
+        final Class<?> guid = loadExact(loader, "com.live2d.type.CDrawableGuid");
+        final Class<?> color = loadExact(loader, "com.live2d.type.CFloatColor");
+        for (final Class<?> type : List.of(source, model, mesh, form, drawableForm, guid, color)) {
+            verifyClassArtifact(type, loader, host.artifact());
+        }
+        return new AuthoringColorAccess(model, mesh, form, color,
+            exactMethod(source, "getCurrentInstance", model, false),
+            exactMethod(model, "getAllArtMeshes", List.class, false),
+            exactMethod(mesh, "getArtMeshGuid", guid, false),
+            exactMethod(mesh, "getCurrentKeyform", form, false),
+            exactMethod(drawableForm, "getMultiplyColor", color, false),
+            exactMethod(drawableForm, "getScreenColor", color, false),
+            exactMethod(color, "getR", float.class, false),
+            exactMethod(color, "getG", float.class, false),
+            exactMethod(color, "getB", float.class, false),
+            exactMethod(color, "getA", float.class, false));
+    }
+
+    static Map<String, AuthoringColors> collectAuthoringColors(final List<?> meshes,
+        final Map<String, String> sdkGuidToId, final AuthoringColorAccess access,
+        final Method guidString) throws Exception {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "official authoring color observation requires EDT");
+        final Map<String, String> remaining = new java.util.TreeMap<>(sdkGuidToId);
+        final Map<String, AuthoringColors> result = new java.util.TreeMap<>();
+        for (final Object mesh : meshes) {
+            if (mesh == null || mesh.getClass() != access.meshClass()) throw new IllegalStateException(
+                "official authoring ArtMesh shape differs");
+            final String guid = (String) guidString.invoke(access.meshGuid().invoke(mesh));
+            final String id = remaining.remove(guid);
+            if (id == null) throw new IllegalStateException(
+                "official authoring ArtMesh has no unique SDK counterpart");
+            final Object form = access.currentForm().invoke(mesh);
+            if (form == null || form.getClass() != access.formClass()) throw new IllegalStateException(
+                "official current keyform unavailable");
+            final AuthoringColors colors = new AuthoringColors(guid,
+                readAuthoringColor(access.multiply().invoke(form), access),
+                readAuthoringColor(access.screen().invoke(form), access));
+            if (result.put(id, colors) != null) throw new IllegalStateException(
+                "official authoring ArtMesh ID is ambiguous");
+        }
+        if (result.isEmpty() || !remaining.isEmpty()) throw new IllegalStateException(
+            "official/SDK authoring color coverage differs or is empty");
+        return Map.copyOf(result);
+    }
+
+    private static dev.turboism.sdk.cubism.model.Color readAuthoringColor(final Object color,
+        final AuthoringColorAccess access) throws Exception {
+        if (color == null || color.getClass() != access.colorClass()) throw new IllegalStateException(
+            "official authoring color shape differs");
+        return new dev.turboism.sdk.cubism.model.Color((Float) access.red().invoke(color),
+            (Float) access.green().invoke(color), (Float) access.blue().invoke(color),
+            (Float) access.alpha().invoke(color));
+    }
+
+    public interface AuthoringColorReader {
+        Map<String, AuthoringColors> observe() throws Exception;
+    }
+
+    public record AuthoringColors(String guid, dev.turboism.sdk.cubism.model.Color multiply,
+        dev.turboism.sdk.cubism.model.Color screen) {
+        public AuthoringColors {
+            requireText(guid, "ArtMesh GUID");
+            // SDK Color rejects non-finite channels at construction.
+            Objects.requireNonNull(multiply, "multiply");
+            Objects.requireNonNull(screen, "screen");
+        }
+    }
+
+    record AuthoringColorAccess(Class<?> modelClass, Class<?> meshClass, Class<?> formClass,
+        Class<?> colorClass, Method currentModel, Method allMeshes, Method meshGuid,
+        Method currentForm, Method multiply, Method screen, Method red, Method green,
+        Method blue, Method alpha) { }
+
     static Object uniqueRawImage(final List<?> wrappers, final Class<?> wrapperClass,
         final Method imageGetter, final Method guidGetter, final Method guidString,
         final String expectedGuid) throws Exception {
@@ -706,6 +848,7 @@ public final class OfficialPsdReplacementBaseline {
             new ShapeOnlyContext(), () -> false, () -> true).preflightOfficialHost();
         preflightTargetAccess(host);
         preflightCompositionAccess(host);
+        preflightAuthoringColorAccess(host);
         return new HostShapeSummary(host.artifact().toString(), host.sha256(),
             host.commandOpen().toGenericString(), host.modelGetter().toGenericString(),
             host.rawGetter().toGenericString(), host.rawGuidGetter().toGenericString());

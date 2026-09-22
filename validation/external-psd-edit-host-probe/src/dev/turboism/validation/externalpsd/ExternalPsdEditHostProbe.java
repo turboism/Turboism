@@ -220,6 +220,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     /** Validation-only sampler; disable closes it before interrupting the worker. */
     private volatile ExternalPsdPerformanceSampler performanceSampler;
     private OfficialPsdReplacementBaseline.CompositionReader compositionReader;
+    private OfficialPsdReplacementBaseline.AuthoringColorReader structuralColorReader;
     private OfficialPsdReplacementBaseline.CompositionObservation baselineComposition;
     private volatile String structuralRunId = "";
 
@@ -268,6 +269,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             try {
                 stableSharedModelImageUsers = List.of();
                 compositionReader = null;
+                structuralColorReader = null;
                 baselineComposition = null;
                 contentProfile = parseContentProfile(requestedContentProfile);
                 result.setProperty("contentProfile", contentProfileName(contentProfile));
@@ -1347,6 +1349,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("structure.finalViewport", "UNAVAILABLE");
         final Target target = resolveTarget(result);
         hostWindowAccess = prepareHostWindowAccess();
+        structuralColorReader = OfficialPsdReplacementBaseline.prepareAuthoringColorReader(context);
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(240L);
         final PsdStructuralState.Basis basis = structuralEdt(deadline, () -> {
             final CubismModel model = requireStructuralModelOnEdt(target);
@@ -1494,7 +1497,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return structuralEdt(deadline, () -> {
             final CubismModel model = requireStructuralModelOnEdt(original);
             final TextureRelationsSnapshot relations = model.textures().relations();
-            final Map<String, String> values = PsdStructuralState.capture(model, relations, basis);
+            final var colors = structuralColorReader.observe();
+            final Map<String, String> values = PsdStructuralState.capture(model, relations, basis, colors);
+            requireStructuralModelOnEdt(original);
             final var history = context.cubism().history().snapshot();
             boolean modal = false;
             for (final Window window : Window.getWindows()) {
