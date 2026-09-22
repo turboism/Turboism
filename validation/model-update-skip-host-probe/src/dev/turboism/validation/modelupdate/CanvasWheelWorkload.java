@@ -98,6 +98,10 @@ final class CanvasWheelWorkload {
             report.append("allocationProfiling=").append(allocations).append('\n');
             final boolean gpuWait = Boolean.getBoolean("turboism.validation.modelUpdateGpuWait");
             final boolean glCalls = Boolean.getBoolean("turboism.validation.modelUpdateGlCalls");
+            final boolean glCategories = Boolean.getBoolean("turboism.validation.modelUpdateGlCallCategories");
+            if (glCategories && !glCalls) {
+                throw new IllegalArgumentException("glCallCategories requires the modelUpdateGlCalls probe");
+            }
             final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues") || factor.equals("uniformSuite");
             final boolean resourceTelemetry = Boolean.getBoolean("turboism.validation.resources");
             report.append("resourceTelemetry=").append(resourceTelemetry).append('\n');
@@ -139,7 +143,8 @@ final class CanvasWheelWorkload {
             if (gpuWait) gpuProbe = onEdt(() -> new GpuCompletionProbe(canvas));
             report.append("profiling=").append(profile).append('\n')
                 .append("diagnosticOnly=").append(profile || glCalls || gpuWait || probe || uniformShadow).append('\n')
-                .append("gpuCompletion.enabled=").append(gpuWait).append('\n');
+                .append("gpuCompletion.enabled=").append(gpuWait).append('\n')
+                .append("glCallCategories=").append(glCategories).append('\n');
             final boolean diagnostic = probe || profile || gpuWait || glCalls || uniformShadow;
             if (factor.equals("uniformSuite") && diagnostic) throw new IllegalArgumentException("suite requires diagnostic profilers OFF");
             final int[] variants = factor.equals("uniformSuite") ? new int[]{0, 1, 2, 2, 1, 0}
