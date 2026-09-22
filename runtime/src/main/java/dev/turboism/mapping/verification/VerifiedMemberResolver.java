@@ -159,6 +159,9 @@ public final class VerifiedMemberResolver {
         }
         try {
             final Field field = resolveField(selector);
+            if (!field.canAccess(null) && !field.trySetAccessible()) {
+                throw resolutionFailure(alias, "Verified host field is not accessible.");
+            }
             return field.get(null);
         } catch (VerifiedAccessException exception) {
             throw exception;

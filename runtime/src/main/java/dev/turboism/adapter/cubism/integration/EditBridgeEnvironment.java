@@ -105,11 +105,32 @@ public final class EditBridgeEnvironment {
         final Supplier<Optional<DocumentId>> activeDocument,
         final Supplier<Optional<Object>> mainWindow
     ) {
+        return production(
+            resolver, editSessions, pluginContext, activeDocument,
+            new SwingEditApprovalGate(mainWindow));
+    }
+
+    /**
+     * {@return the production environment composition with an explicit approval gate}
+     *
+     * <p>Same composition as the Swing-dialog variant, but the caller picks the
+     * {@link EditApprovalGate}: {@link EditToggleApprovalGate} when the native edit checkbox
+     * is admitted and installed (051 approval source — the connection-time prompt degrades
+     * to nothing because the checkbox IS the grant), {@link SwingEditApprovalGate} on the
+     * 050 fallback path.</p>
+     */
+    public static EditBridgeEnvironment production(
+        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
+        final EditSessionService editSessions,
+        final PluginContext pluginContext,
+        final Supplier<Optional<DocumentId>> activeDocument,
+        final EditApprovalGate approvalGate
+    ) {
         return new EditBridgeEnvironment(
             new VerifiedEditConnectionInspector(
                 Objects.requireNonNull(resolver, "resolver")),
             editSessions, pluginContext, activeDocument,
-            new SwingEditApprovalGate(mainWindow));
+            Objects.requireNonNull(approvalGate, "approvalGate"));
     }
 
     /**
@@ -126,6 +147,22 @@ public final class EditBridgeEnvironment {
         final Supplier<Optional<Object>> mainWindow
     ) {
         return production(resolver, editSessions, UNWIRED_CONTEXT, activeDocument, mainWindow);
+    }
+
+    /**
+     * {@return the production composition under the bridge's own plugin identity with an
+     *          explicit approval gate}
+     *
+     * <p>The 051 wiring path: the bootstrap passes {@link EditToggleApprovalGate} when the
+     * native edit checkbox is admitted, otherwise the Swing prompt.</p>
+     */
+    public static EditBridgeEnvironment production(
+        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
+        final EditSessionService editSessions,
+        final Supplier<Optional<DocumentId>> activeDocument,
+        final EditApprovalGate approvalGate
+    ) {
+        return production(resolver, editSessions, UNWIRED_CONTEXT, activeDocument, approvalGate);
     }
 
     /** Minimal context for the fail-closed environment; no method is ever invoked. */
