@@ -39,6 +39,60 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class EditorTextureRelationsAccessTest {
 
     @Test
+    void replacementObservationAllowsNativeToKeepUnmatchedImagesOnTheOriginalRaw() {
+        final TextureRelationsSnapshot snapshot = replacementSnapshot();
+        final ModelImageRelation untouched = snapshot.modelImage(new ModelImageId("model-b")).orElseThrow();
+        final ModelImageRelation retained = new ModelImageRelation(untouched.id(), untouched.modelImage(),
+            List.of(new RawImageId("raw-b")), Optional.of(new RawImageId("raw-b")), Map.of(),
+            untouched.usingArtMeshIds());
+        final TextureRelationsSnapshot after = withReplacementImages(snapshot,
+            List.of(snapshot.modelImage(new ModelImageId("model-a")).orElseThrow(), retained));
+        assertEquals(Optional.of(new RawImageId("raw-a")), EditorTextureAccess.observedRawImage(
+            after, List.of(new ModelImageId("model-a"), new ModelImageId("model-b")),
+            new RawImageId("raw-a")), "official matching may retain an unmatched original image");
+    }
+
+    @Test
+    void replacementObservationRequiresAnOriginalImageWithCompleteIncomingBinding() {
+        final TextureRelationsSnapshot snapshot = replacementSnapshot();
+        final ModelImageRelation image = snapshot.modelImage(new ModelImageId("model-a")).orElseThrow();
+        final List<ModelImageId> affected = List.of(image.id());
+        final RawImageId incoming = new RawImageId("raw-a");
+        assertEquals(Optional.of(incoming), EditorTextureAccess.observedRawImage(snapshot, affected, incoming));
+        for (final ModelImageRelation invalid : List.of(
+            new ModelImageRelation(image.id(), image.modelImage(), image.linkedRawImageIds(),
+                image.currentRawImageId(), Map.of(), image.usingArtMeshIds()),
+            new ModelImageRelation(image.id(), image.modelImage(), List.of(),
+                image.currentRawImageId(), image.inputsByRawImage(), image.usingArtMeshIds()),
+            new ModelImageRelation(image.id(), image.modelImage(), image.linkedRawImageIds(),
+                Optional.empty(), image.inputsByRawImage(), image.usingArtMeshIds()),
+            new ModelImageRelation(image.id(), image.modelImage(), image.linkedRawImageIds(),
+                image.currentRawImageId(), Map.of(incoming, List.of()), image.usingArtMeshIds()))) {
+            assertEquals(Optional.empty(), EditorTextureAccess.observedRawImage(
+                withReplacementImages(snapshot, List.of(invalid)), affected, incoming));
+        }
+        assertEquals(Optional.empty(), EditorTextureAccess.observedRawImage(snapshot,
+            List.of(new ModelImageId("model-b")), incoming), "an unrelated incoming binding proves nothing");
+        assertEquals(Optional.empty(), EditorTextureAccess.observedRawImage(snapshot, affected,
+            new RawImageId("raw-d")), "an added raw alone is not application evidence");
+        assertEquals(Optional.empty(), EditorTextureAccess.observedRawImage(snapshot, List.of(), incoming));
+        assertEquals(Optional.empty(), EditorTextureAccess.observedRawImage(
+            TextureRelationsSnapshot.unavailable(), affected, incoming));
+    }
+
+    private static TextureRelationsSnapshot replacementSnapshot() {
+        final Fixture fixture = new Fixture();
+        return new EditorTextureRelationsAccess(resolver("5.3.02", true),
+            (identity, model) -> { }, () -> 1L).relations("session", fixture.source, fixture.model);
+    }
+
+    private static TextureRelationsSnapshot withReplacementImages(final TextureRelationsSnapshot original,
+        final List<ModelImageRelation> images) {
+        return new TextureRelationsSnapshot(original.availability(), original.binding(), original.generation(),
+            original.revision(), original.rawImages(), images, original.groups(), original.artMeshInputs());
+    }
+
+    @Test
     void projectsTheVerifiedManyToManyRelationGraphWithoutLeakingHostObjects() {
         final Fixture fixture = new Fixture();
         final AtomicInteger guardCalls = new AtomicInteger();

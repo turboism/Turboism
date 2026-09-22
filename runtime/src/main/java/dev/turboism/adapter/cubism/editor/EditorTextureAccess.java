@@ -314,8 +314,11 @@ final class EditorTextureAccess {
         return List.copyOf(affected);
     }
 
-    /** The raw image currently bound to every previously affected model image, when consistent. */
-    private static Optional<RawImageId> observedRawImage(
+    /**
+     * Proves an incoming binding on a previously targeted model image. Native structural matching
+     * may retain or remove unmatched images; agreement of every old image is not its contract.
+     */
+    static Optional<RawImageId> observedRawImage(
         final TextureRelationsSnapshot after,
         final List<ModelImageId> affected,
         final RawImageId expectedIncoming
@@ -323,23 +326,23 @@ final class EditorTextureAccess {
         if (after == null || !after.isAvailable() || affected.isEmpty() || expectedIncoming == null) {
             return Optional.empty();
         }
-        if (after.rawImages().stream().noneMatch(raw -> expectedIncoming.equals(raw.id()))) {
+        if (after.rawImages().stream().filter(raw -> expectedIncoming.equals(raw.id())).count() != 1L) {
             return Optional.empty();
         }
-        RawImageId observed = null;
+        boolean observed = false;
         for (final ModelImageId id : affected) {
             final Optional<ModelImageRelation> relation = after.modelImage(id);
-            if (relation.isEmpty()) return Optional.empty();
-            final Optional<RawImageId> current = relation.orElseThrow().currentRawImageId();
-            if (current.isEmpty()) return Optional.empty();
-            if (observed == null) {
-                observed = current.orElseThrow();
-            } else if (!observed.equals(current.orElseThrow())) {
-                // The affected model images no longer agree; the outcome is not attributable.
+            if (relation.isEmpty() || relation.orElseThrow().currentRawImageId()
+                .filter(expectedIncoming::equals).isEmpty()) continue;
+            final ModelImageRelation image = relation.orElseThrow();
+            if (!image.linkedRawImageIds().contains(expectedIncoming)
+                || image.inputsByRawImage().getOrDefault(expectedIncoming, List.of()).isEmpty()) {
+                // A dangling current pointer or an empty selector is not application evidence.
                 return Optional.empty();
             }
+            observed = true;
         }
-        return expectedIncoming.equals(observed) ? Optional.of(expectedIncoming) : Optional.empty();
+        return observed ? Optional.of(expectedIncoming) : Optional.empty();
     }
 
     private static String message(final Throwable failure) {
@@ -801,7 +804,7 @@ final class EditorTextureAccess {
                 true,
                 observedRawImage(after, modelImagesUsing(before, target), incomingRaw),
                 "The native replacement returned and current state was re-read; application evidence "
-                    + "requires every previously affected model image to use the verified incoming raw."
+                    + "requires an observed incoming binding on a previously targeted model image."
             );
         }
 
