@@ -100,6 +100,7 @@
     "cubism.editor-model.warp-deformer.write",
     "cubism.editor-model.write",
     "cubism.integration.edit-api-bridge.dispatch",
+    "cubism.integration.external-app-settings.edit-toggle",
     "cubism.texture-atlas.auto-layout-hook",
     "cubism.texture-atlas.data-model-hook",
     "cubism.texture-atlas.dialog-injection",
@@ -9094,6 +9095,95 @@
       "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
       "memberName": "a",
       "descriptor": "()Lcom/live2d/cubism/doc/webSocket/l;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    }
+,
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.class.y_class",
+      "alias": "cubism.integration.external-app-settings.dialog.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_field_p",
+      "alias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+      "memberName": "p",
+      "descriptor": "Lcom/live2d/ui/control/CCheckBox;",
+      "requiredAccessFlags": 26,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.method.CCheckBox_getJCheckBox",
+      "alias": "cubism.integration.external-app-settings.checkbox.jcheckbox",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CCheckBox",
+      "memberName": "getJCheckBox",
+      "descriptor": "()Lcom/live2d/ui/control/CCheckBox$a;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.method.y_a",
+      "alias": "cubism.integration.external-app-settings.dialog.show",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+      "memberName": "a",
+      "descriptor": "(Lcom/live2d/ui/window/V;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.method.y_b",
+      "alias": "cubism.integration.external-app-settings.dialog.build",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+      "memberName": "b",
+      "descriptor": "(Lcom/live2d/ui/window/V;)V",
+      "requiredAccessFlags": 18,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_field_a",
+      "alias": "cubism.integration.external-app-settings.config.instance",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/util/UUConfig",
+      "memberName": "a",
+      "descriptor": "Lcom/live2d/util/UUConfig;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.method.UUConfig_a",
+      "alias": "cubism.integration.external-app-settings.config.read",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/util/UUConfig",
+      "memberName": "a",
+      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.method.UUConfig_b",
+      "alias": "cubism.integration.external-app-settings.config.write",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/util/UUConfig",
+      "memberName": "b",
+      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
