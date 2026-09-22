@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
-import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
@@ -462,9 +461,17 @@ public final class OfficialPsdFixturePreparation {
         final Class<?> localizer = loadExact(loader, LOCALIZER);
         final Class<?> home = loadExact(loader, "com.live2d.cubism.appCtrlImpl.ui.e.a");
         final Class<?> homeWindow = loadExact(loader, "com.live2d.ui.window.m");
+        final Class<?> documentInterface = loadExact(loader, "com.live2d.cubism.doc.IDocument");
+        final Class<?> selector = loadExact(loader, "com.live2d.doc.selection.ISelector");
+        final Class<?> selectionBase = loadExact(loader,
+            "com.live2d.cubism.doc.selection.ACGuidSelection");
+        final Class<?> meshSelection = loadExact(loader,
+            "com.live2d.cubism.doc.model.drawable.artMesh.ArtMeshSelection");
+        final Class<?> guid = loadExact(loader, "com.live2d.type.Guid");
         for (final Class<?> type : List.of(app, mainFrameController, cFrame, windowBase, option,
             previewOption, modelDocument, renderer, hostList, hostButton, hostButtonSubclass,
-            action, localizer, home, homeWindow)) {
+            action, localizer, home, homeWindow, documentInterface, selector, selectionBase,
+            meshSelection, guid)) {
             verifyClassArtifact(type, loader, artifact);
         }
         if (!JList.class.isAssignableFrom(hostList)
@@ -486,6 +493,14 @@ public final class OfficialPsdFixturePreparation {
             exactMethod(home, "e", home, true), exactMethod(home, "a", app, false),
             exactMethod(home, "a", homeWindow, true, home),
             exactMethod(homeWindow, "getJDialog", javax.swing.JDialog.class, false));
+        final NativeSelectionAccess selectionAccess = new NativeSelectionAccess(
+            modelDocument, meshSelection,
+            exactMethod(app, "getCurrentDoc", documentInterface, false),
+            exactMethod(modelDocument, "getSelector", selector, false),
+            exactMethod(selector, "getSelected", List.class, false),
+            exactMethod(selector, "getSelectedCount", int.class, false),
+            exactMethod(selectionBase, "getGuid", guid, false),
+            exactMethod(guid, "getUuidString", String.class, false));
         final Field localizerInstance = localizer.getDeclaredField("a");
         if (!Modifier.isPublic(localizerInstance.getModifiers())
             || !Modifier.isStatic(localizerInstance.getModifiers())
@@ -514,7 +529,7 @@ public final class OfficialPsdFixturePreparation {
         return new HostAccess(loader, artifact, digest, app, appInstance, mainFrame, cFrameGetter,
             swingWindow, swingFrame, option, optionModel, optionLabel, previewOption, previewLabel,
             previewRatio, renderer, hostList, hostButton, hostButtonSubclass, action, firstLabel,
-            secondLabel, title, message, previewTitle, previewMessage, homeAccess);
+            secondLabel, title, message, previewTitle, previewMessage, homeAccess, selectionAccess);
     }
 
     private static String localized(final Method localize, final Object instance,
@@ -1672,10 +1687,7 @@ public final class OfficialPsdFixturePreparation {
                 }
 
                 @Override public F1SelectionObservation selection() {
-                    final SelectionSnapshot selection = context.cubism().runtime().selection();
-                    if (selection == null) return null;
-                    return new F1SelectionObservation(selection.selectedObjectIds(),
-                        selection.activeArtMeshId());
+                    return observeF1NativeSelectionOnEdt(host);
                 }
 
                 @Override public EditorCommandResult copy() {
@@ -1691,6 +1703,60 @@ public final class OfficialPsdFixturePreparation {
                     return after.stream().anyMatch(dialog -> !dialogsBefore.contains(dialog));
                 }
             });
+    }
+
+    private F1SelectionObservation observeF1NativeSelectionOnEdt(final HostAccess host) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
+            "F1 native selection observation requires EDT");
+        try {
+            final NativeSelectionAccess access = host.selectionAccess();
+            final Object app = host.appInstance().invoke(null);
+            final Object document = access.document().invoke(app);
+            if (document == null || document.getClass() != access.documentClass()) {
+                throw new IllegalStateException("F1 native modeling document is unavailable");
+            }
+            final Object selector = access.selector().invoke(document);
+            final Object value = access.selected().invoke(selector);
+            if (!(value instanceof List<?> selected)
+                || (Integer) access.count().invoke(selector) != selected.size()) {
+                throw new IllegalStateException("F1 native selection list/count differ");
+            }
+            final List<String> guids = new ArrayList<>();
+            for (final Object entry : selected) {
+                if (entry == null || entry.getClass() != access.meshSelectionClass()) {
+                    throw new IllegalStateException("F1 selection contains a non-ArtMesh object");
+                }
+                guids.add((String) access.uuid().invoke(access.guid().invoke(entry)));
+            }
+            final Map<String, String> idsByGuid = new java.util.LinkedHashMap<>();
+            for (final var mesh : context.cubism().model().active().drawables().all()) {
+                if (idsByGuid.put(mesh.guid(), mesh.id().value()) != null) {
+                    throw new IllegalStateException("F1 SDK ArtMesh GUID is duplicated");
+                }
+            }
+            final List<String> ids = bindSelectionGuids(guids, idsByGuid);
+            properties.setProperty("prepare.f1.selection.source", "official ISelector.getSelected");
+            properties.setProperty("prepare.f1.selection.nativeGuids", guids.toString());
+            properties.setProperty("prepare.f1.selection.sdkIds", ids.toString());
+            return new F1SelectionObservation(ids, Optional.empty());
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("F1 native selection observation failed", failure);
+        }
+    }
+
+    static List<String> bindSelectionGuids(final List<String> selected,
+        final Map<String, String> sdkIdsByGuid) {
+        final Set<String> unique = new LinkedHashSet<>(selected);
+        if (unique.size() != selected.size()) throw new IllegalStateException(
+            "F1 native selection has duplicated GUIDs");
+        final List<String> ids = new ArrayList<>();
+        for (final String guid : selected) {
+            final String id = sdkIdsByGuid.get(guid);
+            if (id == null || id.isBlank()) throw new IllegalStateException(
+                "F1 native selection GUID has no SDK ArtMesh counterpart");
+            ids.add(id);
+        }
+        return List.copyOf(ids);
     }
 
     /** Close only the official home singleton's own dialog, as its title-bar close does. */
@@ -1936,7 +2002,7 @@ public final class OfficialPsdFixturePreparation {
                 pasteExecuted);
             selection = actions.selection();
             if (!f1SelectionMatches(selection, artMeshId)) return F1CopyPasteResult.rejected(
-                "F1 SDK selection is empty or not exactly the selected ArtMesh", selection,
+                "F1 verified selection is empty or not exactly the selected ArtMesh", selection,
                 copyExecuted, pasteExecuted);
             failure = f1PreCommandFailure(expected, expectedWindow, currentWindow,
                 currentState, stopped, taskBound);
@@ -2748,10 +2814,15 @@ public final class OfficialPsdFixturePreparation {
         Method optionLabel, Class<?> previewOption, Method previewLabel, Method previewRatio,
         Class<?> renderer, Class<?> hostList, Class<?> hostButton, Class<?> hostButtonSubclass,
         Class<?> action, String firstLabel, String secondLabel, String title, String message,
-        String previewTitle, String previewMessage, HomeAccess homeAccess) { }
+        String previewTitle, String previewMessage, HomeAccess homeAccess,
+        NativeSelectionAccess selectionAccess) { }
 
     private record HomeAccess(Method instance, Method controller, Method window,
         Method dialog) { }
+
+    private record NativeSelectionAccess(Class<?> documentClass, Class<?> meshSelectionClass,
+        Method document, Method selector, Method selected, Method count, Method guid,
+        Method uuid) { }
 
     private record PreparedInput(InputIdentity identity, PreparationProfile profile) { }
 

@@ -62,6 +62,7 @@ public final class OfficialPsdFixturePreparationTest {
         testWindowBindingAndChooserGate();
         testPreviewChooserGate();
         testPreviewBeforeModelExists();
+        testNativeSelectionGuidBinding();
         testChooserCandidateRenderer();
         testInitialSourceGate();
         testPostSaveModelGate();
@@ -708,9 +709,17 @@ public final class OfficialPsdFixturePreparationTest {
             final Class<?> localizer = load(loader, "b.c");
             final Class<?> home = load(loader, "com.live2d.cubism.appCtrlImpl.ui.e.a");
             final Class<?> homeWindow = load(loader, "com.live2d.ui.window.m");
+            final Class<?> documentInterface = load(loader, "com.live2d.cubism.doc.IDocument");
+            final Class<?> selector = load(loader, "com.live2d.doc.selection.ISelector");
+            final Class<?> selectionBase = load(loader,
+                "com.live2d.cubism.doc.selection.ACGuidSelection");
+            final Class<?> meshSelection = load(loader,
+                "com.live2d.cubism.doc.model.drawable.artMesh.ArtMeshSelection");
+            final Class<?> guid = load(loader, "com.live2d.type.Guid");
             for (final Class<?> type : List.of(app, mainFrameController, cFrame, windowBase,
                 option, previewOption, modelDocument, renderer, list, button, buttonSubclass,
-                cButton, action, localizer, home, homeWindow)) {
+                cButton, action, localizer, home, homeWindow, documentInterface, selector,
+                selectionBase, meshSelection, guid)) {
                 assertSame(loader, type.getClassLoader(), "all shape classes use one loader");
                 assertEquals(configuredJar, codeSource(type),
                     "shape class code source is the reviewed JAR: " + type.getName());
@@ -732,6 +741,12 @@ public final class OfficialPsdFixturePreparationTest {
             exactMethod(home, "a", app, false);
             exactMethod(home, "a", homeWindow, true, home);
             exactMethod(homeWindow, "getJDialog", javax.swing.JDialog.class, false);
+            exactMethod(app, "getCurrentDoc", documentInterface, false);
+            exactMethod(modelDocument, "getSelector", selector, false);
+            exactMethod(selector, "getSelected", List.class, false);
+            exactMethod(selector, "getSelectedCount", int.class, false);
+            exactMethod(selectionBase, "getGuid", guid, false);
+            exactMethod(guid, "getUuidString", String.class, false);
             assertTrue(AbstractButton.class.isAssignableFrom(button),
                 "exact j button is a Swing button");
             assertTrue(AbstractButton.class.isAssignableFrom(buttonSubclass),
@@ -886,6 +901,21 @@ public final class OfficialPsdFixturePreparationTest {
             "wrong legacy label does not select");
         assertEquals(beforeLegacyClicked, legacyClicked.get(),
             "wrong legacy label does not click");
+    }
+
+    private static void testNativeSelectionGuidBinding() {
+        assertEquals(List.of("ArtMesh"), OfficialPsdFixturePreparation.bindSelectionGuids(
+            List.of("guid-a"), Map.of("guid-a", "ArtMesh", "guid-b", "ArtMesh2")),
+            "native GUID binds to the exact SDK ArtMesh domain ID");
+        assertEquals(List.of(), OfficialPsdFixturePreparation.bindSelectionGuids(
+            List.of(), Map.of("guid-a", "ArtMesh")), "empty selection remains empty");
+        for (final List<String> invalid : List.of(List.of("other"), List.of("guid-a", "guid-a"))) {
+            try {
+                OfficialPsdFixturePreparation.bindSelectionGuids(invalid,
+                    Map.of("guid-a", "ArtMesh"));
+                throw new AssertionError("unbound or duplicate selected GUID accepted");
+            } catch (IllegalStateException expected) { }
+        }
     }
 
     private static void testPreviewBeforeModelExists() {
