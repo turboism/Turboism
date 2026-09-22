@@ -132,6 +132,28 @@ class EditorRawImagePsdNativeInvocationTest {
         assertNotNull(result.failureType());
         assertNotNull(result.failureMessage());
         assertEquals(List.of("progress", "name", "save"), EditorRawImagePsdNativeFixture.events());
+        final var failure = result.observation().failure().orElseThrow();
+        assertEquals("SAVE", failure.phase());
+        assertEquals("ILLEGAL_STATE", failure.category());
+        assertFalse(failure.saveReturned());
+    }
+
+    @Test
+    void retainsWrappedNativeSaveCategoryAcrossTheProductionObservationBridge(@TempDir final Path temp) {
+        EditorRawImagePsdNativeFixture.saveFailure = () -> {
+            throw new IllegalStateException("private native wrapper", new OutOfMemoryError("private path"));
+        };
+        final var result = access(resolver("5.3.02", true), (identity, model) -> { })
+            .exportBoundPsd("session-a", new Object(),
+                new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"), temp.resolve("failed.psd"));
+        final var observation = result.observation();
+        assertEquals("NATIVE_FAILURE", observation.nativeStatus());
+        assertFalse(observation.readable());
+        assertEquals("SAVE", observation.failure().orElseThrow().phase());
+        assertEquals("OUT_OF_MEMORY", observation.failure().orElseThrow().category());
+        assertFalse(observation.failure().orElseThrow().saveReturned());
+        assertFalse(observation.toString().contains("private"));
+        assertEquals(List.of("progress", "name", "save"), EditorRawImagePsdNativeFixture.events());
     }
 
     @Test
@@ -150,6 +172,9 @@ class EditorRawImagePsdNativeInvocationTest {
         assertEquals(EditorRawImagePsdAccess.ExportStatus.PARSE_FAILED, result.status());
         assertTrue(result.saveReturned());
         assertEquals(EditorRawImagePsdAccess.FailurePhase.PARSE, result.failurePhase());
+        assertEquals("PARSE", result.observation().failure().orElseThrow().phase());
+        assertEquals("ILLEGAL_STATE", result.observation().failure().orElseThrow().category());
+        assertTrue(result.observation().failure().orElseThrow().saveReturned());
         assertEquals(
             List.of("progress", "name", "save", "parse"),
             EditorRawImagePsdNativeFixture.events()

@@ -227,11 +227,10 @@ public final class VerifiedMemberResolver {
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (InvocationTargetException exception) {
-            throw new VerifiedAccessException(
+            throw VerifiedAccessException.invocationFailure(
                 alias,
-                VerifiedAccessException.FailureKind.INVOCATION,
                 "Verified host constructor execution failed safely.",
-                null
+                exception.getCause()
             );
         } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException
                  | IllegalAccessException | IllegalArgumentException | LinkageError
@@ -650,11 +649,10 @@ public final class VerifiedMemberResolver {
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (InvocationTargetException exception) {
-            throw new VerifiedAccessException(
+            throw VerifiedAccessException.invocationFailure(
                 selector.alias(),
-                VerifiedAccessException.FailureKind.INVOCATION,
                 "Verified host method execution failed safely.",
-                null
+                exception.getCause()
             );
         } catch (IllegalAccessException | IllegalArgumentException | LinkageError exception) {
             throw new VerifiedAccessException(

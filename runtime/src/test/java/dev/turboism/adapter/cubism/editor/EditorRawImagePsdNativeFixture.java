@@ -21,6 +21,7 @@ public final class EditorRawImagePsdNativeFixture {
     public static SyntheticProgress lastProgress;
     public static final SyntheticProgress DEFAULT_PROGRESS = new SyntheticProgress();
     public static Runnable afterSave = () -> {};
+    public static Runnable saveFailure = () -> {};
 
     private EditorRawImagePsdNativeFixture() {
     }
@@ -40,6 +41,7 @@ public final class EditorRawImagePsdNativeFixture {
         constructedName = null;
         lastProgress = null;
         afterSave = () -> {};
+        saveFailure = () -> {};
     }
 
     public static List<String> events() {
@@ -133,6 +135,7 @@ public final class EditorRawImagePsdNativeFixture {
         public void save(final File file, final SyntheticProgress progress) {
             record("save");
             lastProgress = progress;
+            saveFailure.run();
             if (progress == null) {
                 throw new IllegalStateException("fixture progress was null");
             }

@@ -601,7 +601,7 @@ final class EditorTextureAccess {
                     // post native read; the finish method records UNAVAILABLE without reading host.
                     session.finish(false, "export-post-guard-not-observed");
                 }
-                return exportObservation(result);
+                return result.observation();
             } catch (RuntimeException | LinkageError exportFailure) {
                 final EditorTextureReplacementDiagnostic.ExportSession session =
                     diagnosticSession.getAndSet(null);
@@ -624,11 +624,6 @@ final class EditorTextureAccess {
             }
         }
 
-        private Observation exportObservation(final EditorRawImagePsdAccess.ExportResult result) {
-            final var integrity = result.integrityVerification();
-            return new Observation(result.status().name(), integrity.status().name(), result.outputReadable(),
-                integrity.rootNameMatches() && integrity.dimensionsMatch() && integrity.layerTreeMatches());
-        }
         @Override
         public String sessionIdentity() {
             modelGuard.requireCurrent(identity, model);
