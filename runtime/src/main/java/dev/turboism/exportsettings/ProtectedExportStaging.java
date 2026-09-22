@@ -484,9 +484,10 @@ public final class ProtectedExportStaging {
             positions.put(drawable.id(), drawable.vertexPositions());
         }
         // Host-evaluated frames are captured in canvas pixels; Core drawable
-        // vertex positions live in moc model space (origin-centered units).
-        // Verified r35: canvas = moc * ppu + origin reproduced the host value
-        // to float precision (0.32898822*1000+500 = 828.98822).
+        // vertex positions live in origin-centered moc model space with Y
+        // pointing up (canvas Y points down). Verified r35/r36:
+        //   canvasX =  mocX*ppu + originX   (0.32898822*1000+500 = 828.98822)
+        //   canvasY = -mocY*ppu + originY   (-0.4159348*1000+500 = 84.0652)
         final OwnedCanvasInfo canvas = model.canvasInfo();
         final float ppu = canvas.pixelsPerUnit();
         final float originX = canvas.originXPixels();
@@ -535,8 +536,9 @@ public final class ProtectedExportStaging {
                         label + " drawable=" + entry.getKey()
                             + " non-finite-output-index=" + i);
                 }
-                final float projected =
-                    actualValue * ppu + ((i & 1) == 0 ? originX : originY);
+                final float projected = (i & 1) == 0
+                    ? actualValue * ppu + originX
+                    : -actualValue * ppu + originY;
                 final float delta = Math.abs(projected - expectedPositions[i]);
                 if (delta > worst) {
                     worst = delta;
