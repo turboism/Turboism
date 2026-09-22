@@ -268,7 +268,13 @@ public final class RuntimePsdExportService implements AutoCloseable {
             return unavailable(source, nativeStatus, integrityStatus);
         }
         if (!observation.readable()) {
-            return failed(source, nativeStatus, integrityStatus, false, observation.structureMatches());
+            final String detail = observation.failure().map(failure ->
+                ";phase=" + safeStatus(failure.phase())
+                    + ";category=" + safeStatus(failure.category())
+                    + ";saveReturned=" + failure.saveReturned()).orElse("");
+            return new PsdExportResult(PsdExportResult.Status.FAILED,
+                diagnostic(nativeStatus, integrityStatus, false, observation.structureMatches()) + detail,
+                source, Optional.empty(), Optional.empty());
         }
         if (!(host instanceof PsdSessionBoundHost bound)) {
             // Fail closed: without a runtime-issued session identity a handle could be replayed

@@ -419,6 +419,34 @@ class RuntimePsdExportServiceTest {
 
     private interface SessionBoundExportHost extends PsdExportHost, PsdSessionBoundHost { }
 
+    @Test
+    void publishesSafeFailureDetailsWithoutIssuingHandles() throws Exception {
+        final var service = service(new AtomicBoolean(true), allowAll(), Runnable::run);
+        try {
+            for (final var detail : List.of(
+                new PsdExportHost.Failure("SAVE", "OUT_OF_MEMORY", false),
+                new PsdExportHost.Failure("PARSE", "IO", true),
+                new PsdExportHost.Failure("/private/path", "native.class: secret", false))) {
+                final PsdExportHost host = (source, destination, admission) -> {
+                    admission.run();
+                    return new PsdExportHost.Observation("NATIVE_FAILURE", "UNAVAILABLE", false, false,
+                        java.util.Optional.of(detail));
+                };
+                final var result = awaitCompletion(service.exportRawImagePsd(host, SOURCE));
+                assertEquals(PsdExportResult.Status.FAILED, result.status());
+                assertTrue(result.file().isEmpty());
+                assertTrue(result.initialRevision().isEmpty());
+                final String phase = detail.phase().startsWith("/") ? "UNKNOWN" : detail.phase();
+                final String category = phase.equals("UNKNOWN") ? "UNKNOWN" : detail.category();
+                assertEquals("PSD_NATIVE_EXPORT;status=NATIVE_FAILURE;integrity=UNAVAILABLE;readable=false"
+                    + ";structure=false;phase=" + phase + ";category=" + category
+                    + ";saveReturned=" + detail.saveReturned(), result.diagnostic());
+            }
+        } finally {
+            service.close();
+        }
+    }
+
     private RuntimePsdExportService service(
         final AtomicBoolean active,
         final PermissionChecker permissionChecker,
