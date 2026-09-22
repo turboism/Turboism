@@ -64,6 +64,27 @@ public final class ProtectedExportStaging {
     }
 
     /**
+     * Suppressed diagnostic attached to a publish failure when the rollback
+     * could not prove full restoration: carries the retained scratch directory
+     * verbatim so a report can surface a usable recovery location regardless of
+     * generic diagnostic truncation or suppressed-entry caps.
+     */
+    static final class RetainedRecoveryException extends IOException {
+        private static final long serialVersionUID = 1L;
+        private final String retainedPath;
+
+        RetainedRecoveryException(final Path retainedPath) {
+            super("protected-export rollback incomplete; recovery material retained at "
+                + retainedPath);
+            this.retainedPath = retainedPath.toString();
+        }
+
+        String retainedPath() {
+            return retainedPath;
+        }
+    }
+
+    /**
      * Runtime-private parameter write seam on an owned Core model. Production
      * wires the adapter's owned-Moc runtime; the public SDK projection stays
      * read-only. Implementations must throw when the model is foreign, closed,
@@ -806,8 +827,8 @@ public final class ProtectedExportStaging {
      * directory is removed on success and after a complete rollback. When rollback
      * itself fails the scratch directory is retained instead — its {@code backups}
      * tree may hold the only surviving copy of the user's original bytes — and the
-     * publish exception carries a suppressed {@link IOException} naming the
-     * retained recovery path. A scratch-cleanup failure on the failure path is
+     * publish exception carries a suppressed {@link RetainedRecoveryException}
+     * naming the retained recovery path. A scratch-cleanup failure on the failure path is
      * likewise recorded as suppressed rather than silently masked.</p>
      *
      * @param stagedPick the staged pick (basename carried to the real destination)
@@ -905,9 +926,7 @@ public final class ProtectedExportStaging {
             // The scratch backups may now hold the only surviving originals, so the
             // directory is retained and its path reported instead of deleted.
             if (failure != null) {
-                failure.addSuppressed(new IOException(
-                    "protected-export rollback incomplete; recovery material retained at "
-                        + scratch));
+                failure.addSuppressed(new RetainedRecoveryException(scratch));
             }
         } else {
             try {
