@@ -252,7 +252,7 @@ class MappingPackDraftImportTest {
             "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
             metadata.path("artifactSha256").asText()
         );
-        assertEquals(620, root.path("entries").size());
+        assertEquals(621, root.path("entries").size());
         assertEquals(58, metadata.path("capabilityCount").asInt());
         final Set<String> capabilities = asStringSet(metadata.path("capabilityIds"));
         assertEquals(metadata.path("capabilityCount").asInt(), capabilities.size());

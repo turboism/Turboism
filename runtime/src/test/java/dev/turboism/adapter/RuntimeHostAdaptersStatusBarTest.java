@@ -74,7 +74,7 @@ class RuntimeHostAdaptersStatusBarTest {
     }
 
     @Test
-    void withVerifiedStatusBarAcceptsBothReviewedExactVersions() {
+    void withVerifiedStatusBarAcceptsAllReviewedExactVersions() {
         RuntimeHostAdapters base = RuntimeHostAdapters.safeMode();
         for (String reviewedVersion : StatusBarVerificationManifest.reviewedCubismVersions()) {
             VerifiedMemberResolver reviewed = TestVerifiedResolvers.create(

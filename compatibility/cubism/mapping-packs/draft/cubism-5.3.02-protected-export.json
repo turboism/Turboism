@@ -2050,7 +2050,7 @@
       "kind": "class",
       "owner": "protected-export",
       "name": "cubism.protected-export.art-mesh-form.class",
-      "runtime": "CArtMeshForm",
+      "runtime": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
       "profile": "cubism-5.3.02",
       "status": "DRAFT",
       "stability": "experimental",
@@ -2110,7 +2110,7 @@
       "kind": "class",
       "owner": "protected-export",
       "name": "cubism.protected-export.art-mesh-instance.class",
-      "runtime": "CArtMesh",
+      "runtime": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
       "profile": "cubism-5.3.02",
       "status": "DRAFT",
       "stability": "experimental",
@@ -2226,7 +2226,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_advanced_blend",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_advanced_blend",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-advanced-blend",
@@ -2246,7 +2246,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_alias",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_alias",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-alias",
@@ -2266,7 +2266,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_art_path",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_art_path",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-art-path",
@@ -2286,7 +2286,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_invert_clipping",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_invert_clipping",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-invert-clipping",
@@ -2306,7 +2306,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_morph_target",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_morph_target",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-morph-target",
@@ -2326,7 +2326,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_morph_target_enhancement",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_morph_target_enhancement",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-morph-target-enhancement",
@@ -2346,7 +2346,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_motion_sync",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_motion_sync",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-motion-sync",
@@ -2366,7 +2366,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_motion_sync_correction",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_motion_sync_correction",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-motion-sync-correction",
@@ -2386,7 +2386,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_multiply_color",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_multiply_color",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-multiply-color",
@@ -2406,7 +2406,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_offscreen_rendering",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_offscreen_rendering",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-offscreen-rendering",
@@ -2426,7 +2426,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_quad_transform",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_quad_transform",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-quad-transform",
@@ -2446,7 +2446,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source_contain_screen_color",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.model_source.contain_screen_color",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.model-source.contain-screen-color",
@@ -2510,7 +2510,7 @@
       "kind": "class",
       "owner": "protected-export",
       "name": "cubism.protected-export.morph-target-set.class",
-      "runtime": "KeyFormMorphTargetSet",
+      "runtime": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
       "profile": "cubism-5.3.02",
       "status": "DRAFT",
       "stability": "experimental",
@@ -2526,7 +2526,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.morph_target_set_morph_targets",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.morph_target_set.morph_targets",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.morph-target-set.morph-targets",
@@ -2666,7 +2666,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source_extended_morph_target_set",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source.extended_morph_target_set",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.source.extended-morph-target-set",
@@ -2686,7 +2686,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source_extensions",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source.extensions",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.source.extensions",
@@ -2706,7 +2706,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source_keyform_morph_target_set",
+      "semanticName": "cubism.mapping.v5_3_02.protected_export.method.source.keyform_morph_target_set",
       "kind": "method",
       "owner": "protected-export",
       "name": "cubism.protected-export.source.keyform-morph-target-set",
