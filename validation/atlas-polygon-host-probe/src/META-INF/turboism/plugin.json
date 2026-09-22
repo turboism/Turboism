@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.atlas-polygon",
+  "name": "Atlas Polygon Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the dalsoo polygon texture-atlas auto-layout exact-host path: callback installation, dialog contribution, outline evidence, write-back, undo/redo, persistence and cleanup.",
+  "entrypoints": [
+    "dev.turboism.validation.atlaspolygon.AtlasPolygonHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Validation"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the texture-atlas authoring snapshot and model identity on the exact host for validation evidence."
+    }
+  ],
+  "capabilities": [
+    "cubism.texture-atlas.layout"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "category": "analysis",
+  "tags": [
+    "validation",
+    "texture-atlas",
+    "polygon"
+  ]
+}
