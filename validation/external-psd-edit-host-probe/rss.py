@@ -19,7 +19,9 @@ PERIOD_SECONDS = 0.05
 
 
 class IdentityChanged(RuntimeError):
-    pass
+    def __init__(self, message, diagnostics=None):
+        super().__init__(message)
+        self.diagnostics = diagnostics or {}
 
 
 def process_start_ticks(text: str) -> int:
@@ -62,6 +64,38 @@ def process_observation(proc: Path, pid: int, group: str):
     return pid, before, rss, hwm
 
 
+def candidate_diagnostic(proc: Path, value: tuple, group: str) -> dict:
+    """Failure-only metadata; never used to select a process or relax admission."""
+    pid, ticks, rss, hwm = value
+    result = dict(pid=pid, processStartTicks=ticks, rssBytes=rss, highWaterRssBytes=hwm)
+    process = proc / str(pid)
+    try:
+        stat = (process / "stat").read_text()
+        if process_start_ticks(stat) != ticks or (process / "cgroup").read_text().splitlines() != ["0::" + group]:
+            raise IdentityChanged("candidate changed before diagnostic read")
+        fields = stat[stat.rfind(")") + 1:].split()
+        result.update(state=fields[0], parentPid=int(fields[1]))
+        # Do not copy full command lines or environments into reports.
+        result["executableArgument"] = (process / "cmdline").read_bytes().split(b"\0", 1)[0].decode("utf-8", "replace")
+        for name in ("comm", "exe", "maps"):
+            try:
+                if name == "exe":
+                    result["executableLink"] = os.readlink(process / name)
+                elif name == "maps":
+                    result["jvmMappings"] = sorted({line.split(None, 5)[5] for line in
+                        (process / name).read_text().splitlines() if len(line.split(None, 5)) == 6
+                        and Path(line.split(None, 5)[5]).name.lower() in ("jvm.dll", "libjvm.so")})
+                else:
+                    result[name] = (process / name).read_text().strip()
+            except OSError as failure:
+                result[name + "Error"] = type(failure).__name__
+        if process_start_ticks((process / "stat").read_text()) != ticks or (process / "cgroup").read_text().splitlines() != ["0::" + group]:
+            raise IdentityChanged("candidate changed during diagnostic read")
+    except (OSError, ValueError, IdentityChanged) as failure:
+        result["diagnosticError"] = str(failure)
+    return result
+
+
 class Scope:
     def __init__(self, metadata: dict, group_root=Path("/sys/fs/cgroup"), proc=Path("/proc")):
         self.metadata, self.proc = metadata, proc
@@ -94,7 +128,10 @@ class Scope:
                 candidates.append(value)
         self.check()
         if len(candidates) > 1:
-            raise IdentityChanged("multiple Cubism main-class processes in task scope")
+            raise IdentityChanged("multiple Cubism main-class processes in task scope", {
+                "candidates": [candidate_diagnostic(self.proc, value, self.group) for value in candidates],
+                "boundIdentity": expected,
+            })
         if not candidates:
             return None
         value = candidates[0]
@@ -214,6 +251,8 @@ def main(argv: list[str]) -> int:
         except Exception as failure:
             report = {"observationStatus": "UNAVAILABLE", "complete": False,
                       "error": type(failure).__name__ + ": " + str(failure)}
+            if isinstance(failure, IdentityChanged) and failure.diagnostics:
+                report["diagnostics"] = failure.diagnostics
             report.update(expected)
             json.dump(report, stream, indent=2)
             stream.write("\n")
