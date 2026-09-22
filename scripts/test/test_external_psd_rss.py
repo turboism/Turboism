@@ -39,7 +39,8 @@ class RssObservationTests(unittest.TestCase):
         # Field 3 is state; ticks occupy field 22, after 19 fields starting at state.
         (path / "stat").write_text(f"{pid} (java (test) exe) " + " ".join(["S"] + ["0"] * 18 + [str(ticks)]))
         (path / "cgroup").write_text("0::" + self.group + "\n")
-        (path / "cmdline").write_bytes(b"java.exe\0" + (rss.MAIN_CLASS if argv is None else argv) + b"\0")
+        (path / "cmdline").write_bytes(b"app\\jre\\bin\\java.exe\0" + (rss.MAIN_CLASS if argv is None else argv) + b"\0")
+        (path / "comm").write_text("java.exe\n")
         (path / "status").write_text("VmRSS:\t120 kB\nVmHWM:\t150 kB\n")
 
     def test_exact_process_and_memory_units(self):
@@ -56,9 +57,37 @@ class RssObservationTests(unittest.TestCase):
         with self.assertRaises(rss.IdentityChanged):
             self.scope.sample()
 
+    def test_export_worker_fork_is_not_another_editor(self):
+        self.process(456, 789)
+        # Captured host pattern: a fork inherits the Java argv while its comm is
+        # the calling export worker's thread name, before exec clears/replaces argv.
+        (self.proc / "456/comm").write_text("turboism.psd-ex\n")
+        (self.scope_path / "cgroup.procs").write_text("123\n456\n")
+        self.assertEqual(123, self.scope.sample((123, 456))[0])
+        # A second real editor must still be rejected, even when one is bound.
+        (self.proc / "456/comm").write_text("java.exe\n")
+        with self.assertRaises(rss.IdentityChanged):
+            self.scope.sample((123, 456))
+
+    def test_bound_executable_mismatch_is_missing_not_rebound(self):
+        (self.proc / "123/cmdline").write_bytes(b"other.exe\0" + rss.MAIN_CLASS + b"\0")
+        self.assertIsNone(self.scope.sample((123, 456)))
+
+    def test_exec_during_memory_read_is_not_sampled(self):
+        original = Path.read_text
+
+        def read_and_exec(path, *args, **kwargs):
+            result = original(path, *args, **kwargs)
+            if path == self.proc / "123/status":
+                (self.proc / "123/cmdline").write_bytes(b"replacement.exe\0")
+            return result
+
+        with patch.object(Path, "read_text", read_and_exec):
+            self.assertIsNone(self.scope.sample())
+
     def test_ambiguous_process_error_preserves_bound_candidates(self):
         self.process(456, 789)
-        for pid, command in ((123, "java.exe"), (456, "wine-preloader")):
+        for pid, command in ((123, "java.exe"), (456, "java.exe")):
             process = self.proc / str(pid)
             (process / "comm").write_text(command + "\n")
             (process / "exe").symlink_to("/test/" + command)
@@ -71,7 +100,7 @@ class RssObservationTests(unittest.TestCase):
                          [(row["pid"], row["processStartTicks"]) for row in candidates])
         self.assertTrue(all(row["rssBytes"] == 120 * 1024 for row in candidates))
         self.assertTrue(all("argv" not in row and "environment" not in row for row in candidates))
-        self.assertEqual(["java.exe", "wine-preloader"], [row["comm"] for row in candidates])
+        self.assertEqual(["java.exe", "java.exe"], [row["comm"] for row in candidates])
         self.assertTrue(all(row["jvmMappings"] == ["/test/jvm.dll"] for row in candidates))
         self.assertTrue(all("diagnosticError" not in row for row in candidates))
 

@@ -3,7 +3,11 @@
 `rss.py` is an optional Linux observer for the queued F1 pipeline. Pass it as the generic
 Runner's `--remote-post-launch` hook. It uses the Runner's eleven context arguments and the
 queue's containment record. It reads only the admitted cgroup and binds the unique exact
-`com.live2d.cubism.CECubismEditorApp` process by PID and Linux start ticks.
+`com.live2d.cubism.CECubismEditorApp` process by PID and Linux start ticks. Admission also
+requires the pinned BAT's `app\jre\bin\java.exe` argv0 and the `java.exe` Linux comm, with
+command line and comm rechecked around the memory read. This excludes an export-worker fork
+that temporarily inherits JVM arguments before exec. Two admitted JVMs still fail collection;
+a bound process that ceases to match is a missing sample, never grounds for rebinding.
 
 The hook samples `VmRSS` every 50 ms until the probe writes its bound terminal result. It also
 records `VmHWM`, whose interval starts at process creation. The report explicitly includes
