@@ -684,10 +684,7 @@ final class EditorTextureAccess {
             try {
                 incoming = psdAccess.parseStageOnHostThread(stage, binding.candidate().name());
             } catch (IOException | RuntimeException parseFailure) {
-                return new Replacement(
-                    "STAGE_UNREADABLE", true, false, false, false, false, Optional.empty(),
-                    "The staged PSD could not be parsed into a verified native layered image."
-                );
+                return EditorRawImagePsdAccess.unreadableStage(parseFailure);
             }
 
             final RawImageId incomingRaw;

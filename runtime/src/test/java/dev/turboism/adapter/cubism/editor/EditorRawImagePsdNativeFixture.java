@@ -22,6 +22,7 @@ public final class EditorRawImagePsdNativeFixture {
     public static final SyntheticProgress DEFAULT_PROGRESS = new SyntheticProgress();
     public static Runnable afterSave = () -> {};
     public static Runnable saveFailure = () -> {};
+    public static Runnable constructFailure = () -> {};
 
     private EditorRawImagePsdNativeFixture() {
     }
@@ -42,6 +43,7 @@ public final class EditorRawImagePsdNativeFixture {
         lastProgress = null;
         afterSave = () -> {};
         saveFailure = () -> {};
+        constructFailure = () -> {};
     }
 
     public static List<String> events() {
@@ -160,6 +162,7 @@ public final class EditorRawImagePsdNativeFixture {
             final String name
         ) {
             record("construct");
+            constructFailure.run();
             if (parsed == null || parsed.source() != file) {
                 throw new IllegalStateException("fixture constructor received the wrong parsed file");
             }
