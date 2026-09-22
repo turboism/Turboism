@@ -1114,10 +1114,11 @@ class ProtectedExportOrchestratorTest {
                             ? new float[0]
                             : positions;
                         // Serialize in moc model space like the real exporter:
-                        // moc = (canvas - origin) / ppu, origin-centered.
+                        // origin-centered units, Y flipped (moc Y points up).
                         final List<Float> vertexPositions = new ArrayList<>();
                         for (int i = 0; i < stagedPositions.length; i++) {
-                            vertexPositions.add((stagedPositions[i] - 500f) / 1000f);
+                            vertexPositions.add(((i & 1) == 0 ? 1f : -1f)
+                                * (stagedPositions[i] - 500f) / 1000f);
                         }
                         projected.add(new OwnedDrawable(
                             host.exportKeepsOriginalDrawableIds
