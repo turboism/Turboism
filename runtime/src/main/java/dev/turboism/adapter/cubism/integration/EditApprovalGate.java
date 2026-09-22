@@ -30,6 +30,21 @@ public interface EditApprovalGate {
      */
     boolean requestApproval(EditConnectionInfo connection);
 
+    /**
+     * {@return whether this gate answers a mutable global state rather than a per-connection
+     * decision}
+     *
+     * <p>{@code true} marks the 051 approval source: the native integration-settings dialog's
+     * 「编辑」 checkbox is a single global flag that may flip at any time, so the bridge
+     * re-consults the gate on every gated request and {@code GetIsEditApproval} answers the
+     * live state instead of the per-connection latch. {@code false} keeps the 050 semantics:
+     * the first gated request resolves the grant once (interactive prompt) and the decision
+     * latches on the connection state.</p>
+     */
+    default boolean isLiveState() {
+        return false;
+    }
+
     /** {@return a gate that never grants editing — the fail-closed default} */
     static EditApprovalGate denyAll() {
         return new EditApprovalGate() {
