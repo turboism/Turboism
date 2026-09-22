@@ -45,6 +45,14 @@ class NativeEditToggleInjectorTest {
         "cubism.integration.external-app-settings.dialog.remote-checkbox";
     private static final String JCHECKBOX_ALIAS =
         "cubism.integration.external-app-settings.checkbox.jcheckbox";
+    private static final String BUILD_ALIAS =
+        "cubism.integration.external-app-settings.dialog.build";
+    private static final String CONFIG_INSTANCE_ALIAS =
+        "cubism.integration.external-app-settings.config.instance";
+    private static final String CONFIG_READ_ALIAS =
+        "cubism.integration.external-app-settings.config.read";
+    private static final String CONFIG_WRITE_ALIAS =
+        "cubism.integration.external-app-settings.config.write";
 
     @AfterEach
     void resetKillSwitch() {
@@ -122,16 +130,17 @@ class NativeEditToggleInjectorTest {
             NativeEditToggleInjector.fromVerifiedResolver(missingAlias));
 
         // Kind drift: the remote-checkbox alias resolves to a method, not a static field.
+        // Every other required alias stays admitted, so the drift is what closes the gate.
+        final java.util.List<StaticSelector> drifted = new ArrayList<>(
+            selectors(internal(FakeDialogY.class), internal(FakeCheckBox.class)));
+        drifted.removeIf(selector -> REMOTE_CHECKBOX_ALIAS.equals(selector.alias()));
+        drifted.add(StaticSelector.method(REMOTE_CHECKBOX_ALIAS, internal(FakeDialogY.class),
+            "p", "()L" + internal(FakeCheckBox.class) + ";", StaticSelector.ACCESS_PUBLIC));
         final VerifiedMemberResolver kindDrift = TestVerifiedResolvers.create(
             "5.3.02",
             "adapter.editor-model.readwrite",
             Set.of(CAPABILITY),
-            List.of(
-                StaticSelector.classSelector(DIALOG_CLASS_ALIAS, internal(FakeDialogY.class)),
-                StaticSelector.method(REMOTE_CHECKBOX_ALIAS, internal(FakeDialogY.class),
-                    "p", "()L" + internal(FakeCheckBox.class) + ";", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.method(JCHECKBOX_ALIAS, internal(FakeCheckBox.class),
-                    "getJCheckBox", "()Ljavax/swing/JCheckBox;", StaticSelector.ACCESS_PUBLIC)),
+            drifted,
             FakeHost.class.getClassLoader()
         );
         assertEquals(Optional.empty(),
@@ -226,6 +235,8 @@ class NativeEditToggleInjectorTest {
         assertFalse(gate.isApproved(connection));
         assertFalse(gate.requestApproval(connection),
             "the checkbox surface never prompts; unchecked denies");
+        assertTrue(gate.isLiveState(),
+            "the toggle is a live global state, not a latched per-connection decision");
 
         state.setEnabled(true);
         assertTrue(gate.isApproved(connection));
@@ -283,12 +294,23 @@ class NativeEditToggleInjectorTest {
     }
 
     private static List<StaticSelector> selectors(final String y, final String checkBox) {
+        final String config = internal(FakeUUConfig.class);
         return List.of(
             StaticSelector.classSelector(DIALOG_CLASS_ALIAS, y),
             StaticSelector.field(REMOTE_CHECKBOX_ALIAS, y,
                 "p", "L" + checkBox + ";", 0x001A),
             StaticSelector.method(JCHECKBOX_ALIAS, checkBox,
-                "getJCheckBox", "()Ljavax/swing/JCheckBox;", StaticSelector.ACCESS_PUBLIC)
+                "getJCheckBox", "()Ljavax/swing/JCheckBox;", StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method(BUILD_ALIAS, y,
+                "b", "(Lcom/live2d/ui/window/V;)V", 0x0012),
+            StaticSelector.field(CONFIG_INSTANCE_ALIAS, config,
+                "a", "L" + config + ";", 0x0019),
+            StaticSelector.method(CONFIG_READ_ALIAS, config,
+                "a", "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method(CONFIG_WRITE_ALIAS, config,
+                "b", "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                StaticSelector.ACCESS_PUBLIC)
         );
     }
 
@@ -311,6 +333,27 @@ class NativeEditToggleInjectorTest {
         private static FakeCheckBox p;
     }
 
+    /**
+     * Stands in for {@code com.live2d.util.UUConfig}: the singleton field plus the
+     * {@code a(String,Object)} read / {@code b(String,Object)} write pair over an in-memory
+     * map, so the config store's verified invocations run end to end.
+     */
+    static final class FakeUUConfig {
+        @SuppressWarnings("unused")
+        public static final FakeUUConfig a = new FakeUUConfig();
+
+        final java.util.Map<String, Object> values = new java.util.HashMap<>();
+
+        public Object a(final String key, final Object fallback) {
+            return values.getOrDefault(key, fallback);
+        }
+
+        public Object b(final String key, final Object value) {
+            values.put(key, value);
+            return value;
+        }
+    }
+
     /** Fake host: the native row already parented, mirroring the built dialog state. */
     static final class FakeHost {
         final FakeCheckBox remote = new FakeCheckBox();
@@ -318,6 +361,7 @@ class NativeEditToggleInjectorTest {
 
         FakeHost() {
             FakeDialogY.p = remote;
+            FakeUUConfig.a.values.clear();
             row.add(new JComboBox<String>());   // port
             row.add(new JToggleButton());       // server toggle
             row.add(new JPanel());              // hgrow spacer
