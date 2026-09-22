@@ -26,10 +26,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
 import dev.turboism.adapter.cubism.editor.history.NativeEditBeginBridge;
 import dev.turboism.adapter.cubism.editor.history.VerifiedNativeEditBeginHookInstaller;
+import dev.turboism.adapter.cubism.integration.EditApprovalGate;
 import dev.turboism.adapter.cubism.integration.EditBridgeEnvironment;
 import dev.turboism.adapter.cubism.integration.EditProtocolBridge;
 import dev.turboism.adapter.cubism.integration.EditSocketWriter;
+import dev.turboism.adapter.cubism.integration.EditToggleApprovalGate;
+import dev.turboism.adapter.cubism.integration.EditToggleConfigStore;
+import dev.turboism.adapter.cubism.integration.EditToggleState;
+import dev.turboism.adapter.cubism.integration.NativeEditToggleInjector;
+import dev.turboism.adapter.cubism.integration.SwingEditApprovalGate;
 import dev.turboism.adapter.cubism.integration.VerifiedEditApiDispatchInstaller;
+import dev.turboism.adapter.cubism.integration.VerifiedEditToggleHookInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
 
@@ -56,6 +63,10 @@ public final class TurboismAgent {
         EDIT_API_DISPATCH_HOOK = new AtomicReference<>();
     private static final AtomicReference<EditProtocolBridge>
         EDIT_API_DISPATCH_BRIDGE = new AtomicReference<>();
+    private static final AtomicReference<VerifiedEditToggleHookInstaller>
+        EDIT_TOGGLE_HOOK = new AtomicReference<>();
+    private static final AtomicReference<NativeEditToggleInjector>
+        EDIT_TOGGLE_INJECTOR = new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
@@ -2055,13 +2066,19 @@ public final class TurboismAgent {
                         "turboism.edit-api-bridge",
                         () -> editApiActiveDocument(runtime))
                     : dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
+            // 051 P2: the native 「编辑」 checkbox replaces the connection-time approval
+            // prompt whenever the verified injector surface is admitted. The toggle state
+            // is loaded from the host-domain UUConfig key before the bridge gate is chosen.
+            final EditApprovalGate approvalGate = installNativeEditToggle(
+                instrumentation, runtime.editorModelResolver(), host)
+                .orElseGet(() -> new SwingEditApprovalGate(java.util.Optional::empty));
             final EditProtocolBridge bridge = new EditProtocolBridge(
                 EditSocketWriter.reflective(),
                 EditBridgeEnvironment.production(
                     runtime.editorModelResolver(),
                     editSessions,
                     () -> editApiActiveDocument(runtime),
-                    java.util.Optional::empty));
+                    approvalGate));
             if (!installer.install(bridge.receiver())) {
                 return;
             }
@@ -2084,6 +2101,68 @@ public final class TurboismAgent {
             }
             runtimeWarn("Turboism edit-protocol dispatch hook disabled safely: "
                 + failure.getClass().getName() + ": " + failure.getMessage());
+        }
+    }
+
+    /**
+     * Wires the native 「编辑」 edit checkbox (spec 051, Phase 2) when the verified surface
+     * is admitted.
+     *
+     * <p>On success this installs the {@code y.b} return hook (re-injection before every
+     * dialog open), loads the persisted state from the host-domain UUConfig key
+     * {@code CExternalAppSettingDialog.EditEnabled}, registers the write-back listener, and
+     * returns the live-state {@link EditToggleApprovalGate} the protocol bridge consults —
+     * the checkbox IS the grant, so the 050 connection-time Swing prompt is not installed on
+     * this path. Every failure — missing admission, kill switch, hook failure — returns
+     * {@code Optional.empty()} and the caller falls back to the 050 prompt gate; nothing is
+     * left half-installed and the native dialog stays untouched.</p>
+     */
+    private static java.util.Optional<EditApprovalGate> installNativeEditToggle(
+        final Instrumentation instrumentation,
+        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
+        final HostClassLocator.LocatedHost host
+    ) {
+        if ("false".equalsIgnoreCase(
+            System.getProperty(NativeEditToggleInjector.ENABLED_PROPERTY))) {
+            return java.util.Optional.empty();
+        }
+        final EditToggleState state = new EditToggleState();
+        final java.util.Optional<NativeEditToggleInjector> injector =
+            NativeEditToggleInjector.fromVerifiedResolver(resolver, state);
+        if (injector.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        EditToggleConfigStore.fromVerifiedResolver(resolver).ifPresent(store -> {
+            state.setEnabled(store.load());
+            state.addListener(store::store);
+        });
+        VerifiedEditToggleHookInstaller hook = null;
+        try {
+            hook = VerifiedEditToggleHookInstaller.fromVerifiedResolver(
+                instrumentation, resolver, host.classLoader());
+            if (!hook.install(() -> injector.get().ensureInjectedOnEdt())) {
+                return java.util.Optional.empty();
+            }
+            if (!EDIT_TOGGLE_HOOK.compareAndSet(null, hook)) {
+                hook.close();
+                return java.util.Optional.empty();
+            }
+            EDIT_TOGGLE_INJECTOR.set(injector.get());
+            runtimeInfo(
+                "TURBOISM_EDIT_TOGGLE_HOOK installation=COMPLETE retransformed="
+                    + String.join(",", hook.transformedClassNames()));
+            return java.util.Optional.of(new EditToggleApprovalGate(state));
+        } catch (Throwable failure) {
+            if (hook != null) {
+                try {
+                    hook.close();
+                } catch (Throwable ignored) {
+                    // cleanup is best effort
+                }
+            }
+            runtimeWarn("Turboism native edit-toggle hook disabled safely: "
+                + failure.getClass().getName());
+            return java.util.Optional.empty();
         }
     }
 
@@ -2115,6 +2194,7 @@ public final class TurboismAgent {
         final PreviewRuntime runtime,
         final String phase
     ) {
+        closeNativeEditToggle(phase);
         EDIT_API_DISPATCH_BRIDGE.set(null);
         final VerifiedEditApiDispatchInstaller installer = EDIT_API_DISPATCH_HOOK.getAndSet(null);
         if (installer == null) return;
@@ -2123,6 +2203,31 @@ public final class TurboismAgent {
             runtimeInfo("TURBOISM_EDIT_API_DISPATCH cleanup=COMPLETE phase=" + phase);
         } catch (Throwable failure) {
             runtimeWarn("Turboism edit-protocol dispatch hook cleanup failed safely: phase=" + phase);
+        }
+    }
+
+    /**
+     * Removes the native edit-toggle wiring: the {@code y.b} hook is uninstalled and the
+     * injected checkbox detached on the EDT so the dialog returns to its exact native row.
+     */
+    private static void closeNativeEditToggle(final String phase) {
+        final VerifiedEditToggleHookInstaller hook = EDIT_TOGGLE_HOOK.getAndSet(null);
+        if (hook != null) {
+            try {
+                hook.close();
+                runtimeInfo("TURBOISM_EDIT_TOGGLE_HOOK cleanup=COMPLETE phase=" + phase);
+            } catch (Throwable failure) {
+                runtimeWarn("Turboism native edit-toggle hook cleanup failed safely: phase="
+                    + phase);
+            }
+        }
+        final NativeEditToggleInjector injector = EDIT_TOGGLE_INJECTOR.getAndSet(null);
+        if (injector != null) {
+            try {
+                javax.swing.SwingUtilities.invokeLater(injector::removeInjected);
+            } catch (Throwable ignored) {
+                // best-effort detach; the checkbox carries no host-visible side effects
+            }
         }
     }
 
