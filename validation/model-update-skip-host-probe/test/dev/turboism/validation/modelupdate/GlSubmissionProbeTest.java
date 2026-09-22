@@ -12,6 +12,7 @@ public final class GlSubmissionProbeTest {
         int glGetError();
         void glBufferSubData(int target, long offset, long size, java.nio.Buffer data);
         void glDrawElements(int mode, int count, int type, long indices);
+        void glUniform1i(int location, int v0);
         void glReadPixels(int x, int y, int width, int height, int format, int type, java.nio.Buffer data);
         void glFail();
     }
@@ -34,6 +35,7 @@ public final class GlSubmissionProbeTest {
             if (size < 0) throw expected;
         }
         @Override public void glDrawElements(int mode, int count, int type, long indices) { }
+        @Override public void glUniform1i(int location, int v0) { }
         @Override public void glReadPixels(int x, int y, int width, int height, int format, int type, java.nio.Buffer data) { }
         @Override public void glFail() { throw expected; }
     }
@@ -69,6 +71,8 @@ public final class GlSubmissionProbeTest {
         check(report.contains("glCalls.glBufferSubData.bytes=96\n"), "exact upload bytes");
         check(report.contains("glCalls.glGetError.calls=1\n"), "query count");
         check(!report.contains("glCalls.getGL2ES2"), "view accessors are not GL calls");
+        check(report.contains("glCategories.enabled=false\n"), "category attribution defaults off");
+        check(!report.contains("glCategories.draw.calls"), "disabled categories emit no partition lines");
         boolean incompleteRejected = false;
         try { probe.requireValid(); } catch (IllegalStateException incomplete) { incompleteRejected = true; }
         check(incompleteRejected, "upload-only observation cannot certify renderer and readback coverage");
@@ -86,7 +90,9 @@ public final class GlSubmissionProbeTest {
         probe.close();
         repeatedUploadObservation();
         uploadTargetAccounting();
-        System.out.println("GlSubmissionProbeTest PASS (forwarding, views, intervals, bytes, exceptions, exact-payload observation, target reconciliation)");
+        categoryAttribution();
+        categoryAttributionAllocation();
+        System.out.println("GlSubmissionProbeTest PASS (forwarding, views, intervals, bytes, exceptions, exact-payload observation, target reconciliation, category partition, allocation neutrality)");
     }
     private static void repeatedUploadObservation() throws Exception {
         String property = "turboism.validation.modelUpdateUploadPayloads";
@@ -187,6 +193,106 @@ public final class GlSubmissionProbeTest {
             }
             probe.start(); probe.stop();
             check(!probe.report().contains("glUploads.ARRAY_BUFFER.calls"), "start resets target metrics");
+        }
+    }
+
+    private static void categoryAttribution() throws Exception {
+        String property = "turboism.validation.modelUpdateGlCallCategories";
+        String prior = System.getProperty(property);
+        System.setProperty(property, "true");
+        try {
+            NativeGL nativeGl = new NativeGL();
+            try (GlSubmissionProbe probe = new GlSubmissionProbe(TestGL.class, nativeGl)) {
+                TestGL gl = (TestGL) probe.wrapped();
+                gl.glDrawElements(4, 3, 5125, 0); // outside the measured window
+                probe.start();
+                gl.glBindBuffer(34962, 7);
+                gl.glBufferSubData(34962, 0, 32, null);
+                gl.glBufferData(34962, 64, null, 35048);
+                gl.glUniform1i(3, 0);
+                gl.glGetError();
+                gl.glDrawElements(4, 3, 5125, 0);
+                gl.glReadPixels(0, 0, 1, 1, 6408, 5121, null);
+                probe.stop();
+                gl.glDrawElements(4, 3, 5125, 0); // stopped; not attributed
+                String report = probe.report();
+                check(report.contains("glCategories.enabled=true\n"), "opt-in flag honored");
+                check(report.contains("glCategories.draw.calls=1\n"), "draw partition");
+                check(report.contains("glCategories.upload.calls=2\n"), "upload partition");
+                check(report.contains("glCategories.query.calls=1\n"), "query partition");
+                check(report.contains("glCategories.uniformWrite.calls=1\n"), "uniform-write partition");
+                check(report.contains("glCategories.state.calls=1\n"), "state partition");
+                check(report.contains("glCategories.readback.calls=1\n"), "readback partition");
+                check(report.contains("glCategories.other.calls=0\n"), "uncategorized family disclosed");
+                check(report.contains("glCategories.observedCalls=7\n"), "partition covers measured calls only");
+                check(report.contains("glCategories.observedNanos="), "delegate totals emitted");
+                check(report.contains("glCategories.observerNanos="), "observer overhead exported separately");
+                check(report.contains("glCalls.glDrawElements.calls=1\n"), "per-method counts unchanged");
+                probe.requireValid();
+                probe.start();
+                try { gl.glFail(); throw new AssertionError("exception was swallowed"); }
+                catch (IllegalStateException expected) { check(expected == nativeGl.expected, "exception identity kept"); }
+                probe.stop();
+                report = probe.report();
+                check(report.contains("glCategories.other.calls=1\n"), "exceptional calls join their category");
+                check(report.contains("glCategories.observedCalls=1\n"), "start resets category metrics");
+                boolean rejected = false;
+                try { probe.requireValid(); } catch (IllegalStateException expected) { rejected = true; }
+                check(rejected, "exceptional window still fails validity");
+            }
+        } finally {
+            if (prior == null) System.clearProperty(property); else System.setProperty(property, prior);
+        }
+    }
+
+    /**
+     * The category path must not add per-call container allocation over the
+     * existing probe: same delegate calls, only bookkeeping differs.
+     */
+    private static void categoryAttributionAllocation() throws Exception {
+        var bean = java.lang.management.ManagementFactory.getThreadMXBean();
+        if (!(bean instanceof com.sun.management.ThreadMXBean counters)
+            || !counters.isThreadAllocatedMemorySupported()) {
+            System.out.println("category allocation check skipped: thread allocation counter unavailable");
+            return;
+        }
+        boolean wasEnabled = counters.isThreadAllocatedMemoryEnabled();
+        if (!wasEnabled) counters.setThreadAllocatedMemoryEnabled(true);
+        String property = "turboism.validation.modelUpdateGlCallCategories";
+        String prior = System.getProperty(property);
+        try {
+            long offBytes = allocatedPerCalls(counters, false);
+            long onBytes = allocatedPerCalls(counters, true);
+            check(onBytes <= offBytes + ALLOCATION_CALLS * 32L,
+                "category attribution must not add hot allocation: off=" + offBytes + " on=" + onBytes);
+        } finally {
+            if (prior == null) System.clearProperty(property); else System.setProperty(property, prior);
+            if (!wasEnabled) counters.setThreadAllocatedMemoryEnabled(false);
+        }
+    }
+
+    private static final int ALLOCATION_CALLS = 20_000;
+
+    private static long allocatedPerCalls(com.sun.management.ThreadMXBean counters, boolean categories)
+            throws Exception {
+        if (categories) System.setProperty("turboism.validation.modelUpdateGlCallCategories", "true");
+        else System.clearProperty("turboism.validation.modelUpdateGlCallCategories");
+        NativeGL nativeGl = new NativeGL();
+        try (GlSubmissionProbe probe = new GlSubmissionProbe(TestGL.class, nativeGl)) {
+            TestGL gl = (TestGL) probe.wrapped();
+            probe.start();
+            for (int i = 0; i < ALLOCATION_CALLS; i++) gl.glBindBuffer(34962, i);
+            long before = counters.getThreadAllocatedBytes(Thread.currentThread().getId());
+            for (int i = 0; i < ALLOCATION_CALLS; i++) {
+                gl.glBindBuffer(34962, i);
+                gl.glBufferSubData(34962, 0, 4, null);
+                gl.glDrawElements(4, 3, 5125, 0);
+            }
+            long allocated = counters.getThreadAllocatedBytes(Thread.currentThread().getId()) - before;
+            probe.stop();
+            check(nativeGl.uploads == ALLOCATION_CALLS, "measured window forwarded every call");
+            check(allocated >= 0L, "allocation counter readable");
+            return allocated;
         }
     }
 

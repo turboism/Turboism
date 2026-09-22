@@ -20,16 +20,26 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         long calls, nanos, maximum, bytes, exceptions, nonzeroErrors;
         void clear() { calls = nanos = maximum = bytes = exceptions = nonzeroErrors = 0L; }
     }
+    private static final class CallSite {
+        final Metric metric;
+        final int category;
+        CallSite(Metric metric, int category) { this.metric = metric; this.category = category; }
+    }
     private final Object downstream;
     private final Object pipeline;
     private final String apiName;
     private final UploadPayloadObserver payloads;
     private final Method contextGetter;
     private final Map<String, Metric> metrics = new TreeMap<>();
-    private final Map<Method, Metric> methods = new LinkedHashMap<>();
+    private final Map<Method, CallSite> methods = new LinkedHashMap<>();
     private static final String[] UPLOAD_TARGET_NAMES = {"ARRAY_BUFFER", "ELEMENT_ARRAY_BUFFER", "OTHER"};
     private final Metric[] uploadTargets = {new Metric(), new Metric(), new Metric()};
     private final Metric[] duplicateUploadTargets = {new Metric(), new Metric(), new Metric()};
+    // Opt-in per-category delegate-time partition. Null keeps the call path
+    // identical to the pre-attribution probe: no lookup, counter or timestamp
+    // beyond the existing per-method accounting is added when disabled.
+    private final Metric[] categories;
+    private long observerNanos;
     private volatile boolean collecting;
     private Component drawable;
     private Method getGl, setGl;
@@ -50,9 +60,16 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
             }
         }
         contextGetter = getContext;
+        boolean attribute = Boolean.getBoolean("turboism.validation.modelUpdateGlCallCategories");
+        categories = attribute ? new Metric[GlCallCategory.values().length] : null;
+        if (categories != null) {
+            for (int index = 0; index < categories.length; index++) categories[index] = new Metric();
+        }
         for (Method method : api.getMethods()) {
             if (method.getName().startsWith("gl")) {
-                methods.put(method, metrics.computeIfAbsent(method.getName(), key -> new Metric()));
+                methods.put(method, new CallSite(
+                    metrics.computeIfAbsent(method.getName(), key -> new Metric()),
+                    categories == null ? -1 : GlCallCategory.of(method.getName()).ordinal()));
             }
         }
         pipeline = Proxy.newProxyInstance(api.getClassLoader(), new Class<?>[]{api}, this);
@@ -97,7 +114,12 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
                 default -> method.invoke(downstream, args);
             };
         }
-        Metric metric = collecting ? methods.get(method) : null;
+        boolean active = collecting;
+        // With categories enabled this timestamp bounds the wrapper bookkeeping
+        // interval; the delegate interval itself is unchanged.
+        long entered = active && categories != null ? System.nanoTime() : 0L;
+        CallSite site = active ? methods.get(method) : null;
+        Metric metric = site == null ? null : site.metric;
         Metric uploadMetric = metric != null && method.getName().equals("glBufferSubData")
             ? uploadTargets[uploadTarget(args)] : null;
         boolean identicalPayload = false;
@@ -148,7 +170,8 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
             throw failure.getCause();
         } finally {
             if (metric != null) {
-                long elapsed = (returnedAt == 0L ? System.nanoTime() : returnedAt) - started;
+                long completedAt = returnedAt == 0L ? System.nanoTime() : returnedAt;
+                long elapsed = completedAt - started;
                 metric.calls++;
                 metric.nanos += elapsed;
                 metric.maximum = Math.max(metric.maximum, elapsed);
@@ -157,6 +180,18 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
                     uploadMetric.calls++;
                     uploadMetric.nanos += elapsed;
                     uploadMetric.maximum = Math.max(uploadMetric.maximum, elapsed);
+                }
+                if (categories != null) {
+                    // Same delegate interval again: categories partition the
+                    // per-method totals and never measure an extra call.
+                    Metric category = categories[site.category];
+                    category.calls++;
+                    category.nanos += elapsed;
+                    category.maximum = Math.max(category.maximum, elapsed);
+                    // Wrapper bookkeeping outside the native delegate interval.
+                    // Includes the payload-scan section when that observer is
+                    // also enabled; it is never subtracted from delegate time.
+                    observerNanos += (started - entered) + (System.nanoTime() - completedAt);
                 }
             }
         }
@@ -187,6 +222,8 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         metrics.values().forEach(Metric::clear);
         for (Metric metric : uploadTargets) metric.clear();
         for (Metric metric : duplicateUploadTargets) metric.clear();
+        if (categories != null) for (Metric metric : categories) metric.clear();
+        observerNanos = 0L;
         if (payloads != null) payloads.start();
         collecting = true;
     }
@@ -205,6 +242,27 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         for (int index = 0; index < uploadTargets.length; index++) {
             appendMetric(out, "glUploads." + UPLOAD_TARGET_NAMES[index] + ".", uploadTargets[index]);
             appendMetric(out, "glDuplicateUploads." + UPLOAD_TARGET_NAMES[index] + ".", duplicateUploadTargets[index]);
+        }
+        out.append("glCategories.enabled=").append(categories != null).append('\n');
+        if (categories != null) {
+            out.append("glCategories.meaning=partition-of-glCalls-delegate-time-not-additional-time\n")
+                .append("glCategories.observerMeaning=wrapper-bookkeeping-outside-delegate-intervals"
+                    + "-includes-payload-scan-when-enabled\n");
+            long observedCalls = 0L, observedNanos = 0L;
+            for (GlCallCategory category : GlCallCategory.values()) {
+                Metric metric = categories[category.ordinal()];
+                observedCalls += metric.calls;
+                observedNanos += metric.nanos;
+                out.append("glCategories.").append(category.reportKey())
+                    .append(".calls=").append(metric.calls).append('\n')
+                    .append("glCategories.").append(category.reportKey())
+                    .append(".nanos=").append(metric.nanos).append('\n')
+                    .append("glCategories.").append(category.reportKey())
+                    .append(".maxNanos=").append(metric.maximum).append('\n');
+            }
+            out.append("glCategories.observedCalls=").append(observedCalls).append('\n')
+                .append("glCategories.observedNanos=").append(observedNanos).append('\n')
+                .append("glCategories.observerNanos=").append(observerNanos).append('\n');
         }
         if (payloads != null) out.append(payloads.report());
         return out.toString();
@@ -233,6 +291,14 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         if (calls == 0 || errors != 0 || uploads == 0 || draws == 0 || readbacks == 0) {
             throw new IllegalStateException("GL attribution: calls=" + calls + " errors=" + errors
                 + " uploads=" + uploads + " draws=" + draws + " readbacks=" + readbacks);
+        }
+        if (categories != null) {
+            long categorized = 0L;
+            for (Metric category : categories) categorized += category.calls;
+            if (categorized != calls) {
+                throw new IllegalStateException("GL category partition incomplete: calls=" + calls
+                    + " categorized=" + categorized);
+            }
         }
     }
 

@@ -417,3 +417,24 @@ execution, so these runs locate candidates rather than certify end-to-end speedu
 Short calibration timings can include compilation effects: record the full-size
 observation as well, and never discard slow samples or replace production A/B
 with these diagnostic numbers.
+
+### Per-category GL delegate attribution (observation only)
+
+Add `-Dturboism.validation.modelUpdateGlCallCategories=true` together with
+`modelUpdateGlCalls=true`; the flag alone fails fast instead of silently running
+without the GL probe. Each forwarded `gl*` call's delegate interval is added to
+exactly one category — `draw`, `upload`, `query`, `uniformWrite`, `state`,
+`readback` or `other` — classified once per method by the single prefix table
+in `GlCallCategory` at probe construction, not per call. The report emits
+per-category `calls`/`nanos`/`maxNanos`, `observedCalls`/`observedNanos`
+partition totals, and `observerNanos`: wrapper bookkeeping outside the native
+delegate intervals, including the payload-scan section when that observer is
+also enabled. `glCategories.*` partitions the same `glCalls.*` delegate time;
+it is not additional time to add to those totals. `requireValid` additionally
+rejects a partition that does not cover every counted call. No `glGetError`,
+sequential log or per-call payload record is added, and every call keeps its
+original order, arguments, return value and exception identity. The flag is off
+by default; when off, no category storage is allocated and the call path is
+identical to the pre-attribution probe. The `glCategories.*` keys are additive:
+existing report consumers are unaffected. These numbers decompose instrumented
+delegate time only; they remain attribution evidence, not a paired speedup.
