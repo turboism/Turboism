@@ -483,6 +483,14 @@ public final class ProtectedExportStaging {
         for (var drawable : model.drawables()) {
             positions.put(drawable.id(), drawable.vertexPositions());
         }
+        // Host-evaluated frames are captured in canvas pixels; Core drawable
+        // vertex positions live in moc model space (origin-centered units).
+        // Verified r35: canvas = moc * ppu + origin reproduced the host value
+        // to float precision (0.32898822*1000+500 = 828.98822).
+        final OwnedCanvasInfo canvas = model.canvasInfo();
+        final float ppu = canvas.pixelsPerUnit();
+        final float originX = canvas.originXPixels();
+        final float originY = canvas.originYPixels();
         float worst = 0f;
         String worstDrawable = null;
         int worstIndex = -1;
@@ -527,19 +535,20 @@ public final class ProtectedExportStaging {
                         label + " drawable=" + entry.getKey()
                             + " non-finite-output-index=" + i);
                 }
-                final float delta = Math.abs(actualValue - expectedPositions[i]);
+                final float projected =
+                    actualValue * ppu + ((i & 1) == 0 ? originX : originY);
+                final float delta = Math.abs(projected - expectedPositions[i]);
                 if (delta > worst) {
                     worst = delta;
                     worstDrawable = entry.getKey();
                     worstIndex = i;
                     worstExpected = expectedPositions[i];
-                    worstActual = actualValue;
+                    worstActual = projected;
                     driftedTotal++;
                 }
             }
         }
         if (worst > BEHAVIOR_TOLERANCE) {
-            final OwnedCanvasInfo canvas = model.canvasInfo();
             return new MocFailure(
                 "protected-export.moc3-behavior-drift",
                 label + " drawable=" + worstDrawable + " index=" + worstIndex
