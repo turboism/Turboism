@@ -11,6 +11,7 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 javac --release 17 -Xlint:all -cp "${sdk[0]}" -d "$out" \
   "$src/dev/turboism/validation/externalpsd/PsdValidationContent.java" \
+  "$src/dev/turboism/validation/externalpsd/PsdStructuralState.java" \
   "$src/dev/turboism/validation/externalpsd/ExactHostRowTarget.java" \
   "$src/dev/turboism/validation/externalpsd/OfficialPsdFixturePreparation.java" \
   "$src/dev/turboism/validation/externalpsd/ExternalPsdPerformanceSampler.java" \

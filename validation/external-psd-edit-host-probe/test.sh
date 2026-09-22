@@ -16,12 +16,15 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 javac --release 17 -Xlint:all -cp "${sdk[0]}:build/external-psd-edit-host-probe.jar" -d "$out" \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/PsdValidationContentTest.java \
+  validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/PsdStructuralStateTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbeTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExternalPsdPerformanceSamplerTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExactHostRowTargetTest.java \
   validation/external-psd-edit-host-probe/test/com/live2d/ui/treeTable/j.java
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.PsdValidationContentTest
+java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
+  dev.turboism.validation.externalpsd.PsdStructuralStateTest
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.ExternalPsdEditHostProbeTest
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
