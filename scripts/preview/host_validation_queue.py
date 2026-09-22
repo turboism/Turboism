@@ -439,6 +439,40 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
     ),
 }
 
+# Standard-library-only Linux /proc reader. No checkout-relative imports, subprocesses,
+# signals, or external data dependencies; writes one exclusive task evidence report.
+EXTERNAL_PSD_RSS_HOOK = Path("validation/external-psd-edit-host-probe/rss.py")
+
+
+def require_external_psd_rss_protocol(argv: list[str]) -> None:
+    options: dict[str, str] = {}
+    jvm: dict[str, str] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        index += 1
+        if flag in BOOLEAN_FLAGS:
+            options[flag] = "true"
+            continue
+        if flag not in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS or index >= len(argv):
+            raise QueueError("invalid RSS hook runner protocol")
+        value = argv[index]
+        index += 1
+        options[flag] = value
+        if flag == "--jvm-option" and value.startswith("-D"):
+            key, _, setting = value[2:].partition("=")
+            jvm[key] = setting
+    expected = {"phase": "pipeline", "contentProfile": "f1", "cycles": "10", "performance": "1"}
+    if (options.get("--name") != "external-psd-edit-pipeline"
+            or options.get("--version") != "5302"
+            or options.get("--result-file") !=
+                "state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties"
+            or any(jvm.get("turboism.validation.externalpsd." + key) != value
+                   for key, value in expected.items())
+            or any(flag in options for flag in ("--trigger", "--remote-pre-launch-arg",
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only"))):
+        raise QueueError("RSS hook requires the reviewed synchronous F1 ten-cycle pipeline protocol")
+
 
 def file_digest(path: Path) -> str:
     digest = hashlib.sha256()
@@ -602,11 +636,16 @@ class PreparedStore:
                         reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
                                     if flag == "--remote-pre-launch"
                                     and source.parent == source_root / "scripts/preview" else None)
-                        if reviewed is None:
+                        rss_hook = (flag == "--remote-post-launch"
+                                    and source == source_root / EXTERNAL_PSD_RSS_HOOK)
+                        if rss_hook:
+                            require_external_psd_rss_protocol(argv)
+                        elif reviewed is None:
                             raise QueueError("custom hook requires reviewed dependency inventory")
-                        required_flags, description = reviewed
-                        if not required_flags.issubset(argv):
-                            raise QueueError(description)
+                        else:
+                            required_flags, description = reviewed
+                            if not required_flags.issubset(argv):
+                                raise QueueError(description)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
                     source_inputs.append({"source": str(source), "path": relative.as_posix(),

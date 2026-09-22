@@ -471,6 +471,43 @@ class PreparedStoreTest(unittest.TestCase):
                 {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
                 self.source, "host-locale:5302")
 
+    def test_external_psd_rss_hook_protocol_and_dependency_snapshot(self) -> None:
+        hook = self.source / queue.EXTERNAL_PSD_RSS_HOOK
+        hook.parent.mkdir(parents=True)
+        hook.write_text("# self-contained reviewed RSS test fixture; never executed\n")
+        argv = ["--name", "external-psd-edit-pipeline", "--version", "5302",
+                "--agent", str(self.input), "--remote-post-launch", str(hook),
+                "--result-file", "state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties"]
+        for key, value in (("phase", "pipeline"), ("contentProfile", "f1"),
+                           ("cycles", "10"), ("performance", "1")):
+            argv += ["--jvm-option", f"-Dturboism.validation.externalpsd.{key}={value}"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "external-psd:5302")
+        command = self.prepared.command(prepared["digest"], self.base / "evidence")
+        frozen = Path(command[command.index("--remote-post-launch") + 1])
+        self.assertEqual(hook.read_bytes(), frozen.read_bytes())
+        hook.write_text("# later source change\n")
+        self.assertNotEqual(hook.read_bytes(), frozen.read_bytes())
+        self.prepared.load(prepared["digest"])
+        for suffix in (["--jvm-option", "-Dturboism.validation.externalpsd.phase=gui"],
+                       ["--jvm-option", "-Dturboism.validation.externalpsd.contentProfile=control7"],
+                       ["--jvm-option", "-Dturboism.validation.externalpsd.cycles=1"],
+                       ["--jvm-option", "-Dturboism.validation.externalpsd.performance=0"],
+                       ["--trigger", "gui-ready.flag"], ["--version", "5303"],
+                       ["--remote-pre-launch-arg", "extra"], ["--remote-pre-launch-background"]):
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(queue.QueueError, "RSS hook requires"):
+                self.prepared.capture({**self.request, "argv": [*argv, *suffix]}, self.source, "external-psd:5302")
+        for flag in ("--remote-pre-launch", "--remote-pre-cleanup"):
+            changed = list(argv)
+            changed[changed.index("--remote-post-launch")] = flag
+            with self.subTest(flag=flag), self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+                self.prepared.capture({**self.request, "argv": changed}, self.source, "external-psd:5302")
+        outside = self.preview / "rss.py"
+        outside.write_text("# unreviewed location\n")
+        changed = list(argv)
+        changed[changed.index(str(hook))] = str(outside)
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture({**self.request, "argv": changed}, self.source, "external-psd:5302")
+
     def test_real_runner_prepare_snapshot_and_replay_are_host_side_effect_free(self) -> None:
         tools = Path(__file__).resolve().parents[1] / "preview"
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
