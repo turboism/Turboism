@@ -50,7 +50,12 @@ associated with the job. Golden/official installation and Proton are separately
 revalidated host dependencies, not redistributed input bundles.
 
 Unknown custom hook dependencies are rejected, not executed speculatively.
-The only admitted custom hook inventory is the FPS resize driver. The history
+Reviewed pre-launch inventories cover the FPS resize driver, host locale environment
+hook, and external PSD task-local file association. The standard-library-only
+`validation/external-psd-edit-host-probe/rss.py` is admitted only as a synchronous
+post-launch observer for the 5.3.02 F1 ten-cycle performance pipeline, with no GUI
+trigger or extra hook arguments. Its source is snapshotted like every other input;
+it reads the bound cgroup/proc identity and writes only its task RSS report. The history
 baseline wrapper's `collect-history-validation-evidence.sh` cleanup hook, FX hooks,
 MCP clients and generated plugin-chooser hooks remain blocked at snapshot admission
 until their complete dependencies are explicitly reviewed; do not bypass the queue.
