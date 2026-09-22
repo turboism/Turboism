@@ -27,6 +27,9 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
     private final Method contextGetter;
     private final Map<String, Metric> metrics = new TreeMap<>();
     private final Map<Method, Metric> methods = new LinkedHashMap<>();
+    private static final String[] UPLOAD_TARGET_NAMES = {"ARRAY_BUFFER", "ELEMENT_ARRAY_BUFFER", "OTHER"};
+    private final Metric[] uploadTargets = {new Metric(), new Metric(), new Metric()};
+    private final Metric[] duplicateUploadTargets = {new Metric(), new Metric(), new Metric()};
     private volatile boolean collecting;
     private Component drawable;
     private Method getGl, setGl;
@@ -95,6 +98,8 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
             };
         }
         Metric metric = collecting ? methods.get(method) : null;
+        Metric uploadMetric = metric != null && method.getName().equals("glBufferSubData")
+            ? uploadTargets[uploadTarget(args)] : null;
         boolean identicalPayload = false;
         if (metric != null && payloads != null && observesBufferState(method.getName())) {
             try { identicalPayload = payloads.before(contextGetter.invoke(downstream), method.getName(), args); }
@@ -108,7 +113,9 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
             if (metric != null) returnedAt = System.nanoTime();
             if (metric != null) {
                 if (method.getName().equals("glBufferSubData") && args != null && args.length > 2) {
-                    metric.bytes += ((Number) args[2]).longValue();
+                    long bytes = ((Number) args[2]).longValue();
+                    metric.bytes += bytes;
+                    uploadMetric.bytes += bytes;
                 } else if (method.getName().equals("glBufferData") && args != null && args.length > 1) {
                     metric.bytes += ((Number) args[1]).longValue();
                 } else if (method.getName().equals("glGetError") && result instanceof Number value
@@ -117,7 +124,14 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
                     if (payloads != null) payloads.nativeFailure();
                 }
                 if (identicalPayload) {
-                    payloads.completed(true, ((Number) args[2]).longValue(), returnedAt - started);
+                    long bytes = ((Number) args[2]).longValue();
+                    long nanos = returnedAt - started;
+                    payloads.completed(true, bytes, nanos);
+                    Metric duplicate = duplicateUploadTargets[uploadTarget(args)];
+                    duplicate.calls++;
+                    duplicate.bytes += bytes;
+                    duplicate.nanos += nanos;
+                    duplicate.maximum = Math.max(duplicate.maximum, nanos);
                 }
             }
             // JOGL's GL view accessors must keep calls in this decorator. Root/context
@@ -128,6 +142,7 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
         } catch (InvocationTargetException failure) {
             if (metric != null) {
                 metric.exceptions++;
+                if (uploadMetric != null) uploadMetric.exceptions++;
                 if (payloads != null) payloads.nativeFailure();
             }
             throw failure.getCause();
@@ -137,12 +152,29 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
                 metric.calls++;
                 metric.nanos += elapsed;
                 metric.maximum = Math.max(metric.maximum, elapsed);
+                if (uploadMetric != null) {
+                    // Same delegate interval, not another timer or a second native call.
+                    uploadMetric.calls++;
+                    uploadMetric.nanos += elapsed;
+                    uploadMetric.maximum = Math.max(uploadMetric.maximum, elapsed);
+                }
             }
         }
     }
 
+    private static int uploadTarget(Object[] args) {
+        if (args == null || args.length == 0 || !(args[0] instanceof Number target)) return 2;
+        return switch (target.intValue()) {
+            case 34962 -> 0;
+            case 34963 -> 1;
+            default -> 2;
+        };
+    }
+
     private static boolean observesBufferState(String name) {
         return name.startsWith("glBindBuffer") || name.startsWith("glBuffer")
+            || name.startsWith("glBindVertexArray") || name.startsWith("glDeleteVertexArrays")
+            || name.startsWith("glVertexArrayElementBuffer")
             || name.startsWith("glDeleteBuffers") || name.startsWith("glNamedBuffer")
             || name.startsWith("glMap") || name.startsWith("glUnmap")
             || name.startsWith("glFlushMapped") || name.startsWith("glCopyBuffer")
@@ -153,6 +185,8 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
 
     void start() {
         metrics.values().forEach(Metric::clear);
+        for (Metric metric : uploadTargets) metric.clear();
+        for (Metric metric : duplicateUploadTargets) metric.clear();
         if (payloads != null) payloads.start();
         collecting = true;
     }
@@ -164,19 +198,26 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
     String report() {
         StringBuilder out = new StringBuilder("glCalls.instrumented=true\n")
             .append("glCalls.api=").append(apiName).append('\n')
-            .append("glCalls.delegate=").append(downstream.getClass().getName()).append('\n');
-        metrics.forEach((name, metric) -> {
-            if (metric.calls == 0) return;
-            String prefix = "glCalls." + name + ".";
-            out.append(prefix).append("calls=").append(metric.calls).append('\n')
-                .append(prefix).append("nanos=").append(metric.nanos).append('\n')
-                .append(prefix).append("maxNanos=").append(metric.maximum).append('\n')
-                .append(prefix).append("bytes=").append(metric.bytes).append('\n')
-                .append(prefix).append("exceptions=").append(metric.exceptions).append('\n')
-                .append(prefix).append("nonzeroErrors=").append(metric.nonzeroErrors).append('\n');
-        });
+            .append("glCalls.delegate=").append(downstream.getClass().getName()).append('\n')
+            .append("glUploads.meaning=partition-of-glBufferSubData-not-additional-time\n")
+            .append("glDuplicateUploads.meaning=subset-with-identical-client-data-not-safe-to-omit\n");
+        metrics.forEach((name, metric) -> appendMetric(out, "glCalls." + name + ".", metric));
+        for (int index = 0; index < uploadTargets.length; index++) {
+            appendMetric(out, "glUploads." + UPLOAD_TARGET_NAMES[index] + ".", uploadTargets[index]);
+            appendMetric(out, "glDuplicateUploads." + UPLOAD_TARGET_NAMES[index] + ".", duplicateUploadTargets[index]);
+        }
         if (payloads != null) out.append(payloads.report());
         return out.toString();
+    }
+
+    private static void appendMetric(StringBuilder out, String prefix, Metric metric) {
+        if (metric.calls == 0) return;
+        out.append(prefix).append("calls=").append(metric.calls).append('\n')
+            .append(prefix).append("nanos=").append(metric.nanos).append('\n')
+            .append(prefix).append("maxNanos=").append(metric.maximum).append('\n')
+            .append(prefix).append("bytes=").append(metric.bytes).append('\n')
+            .append(prefix).append("exceptions=").append(metric.exceptions).append('\n')
+            .append(prefix).append("nonzeroErrors=").append(metric.nonzeroErrors).append('\n');
     }
 
     void requireValid() {

@@ -14,7 +14,8 @@ public final class UploadPayloadObserverTest {
         viewBoundsAndOrder();
         resourceBoundaries();
         boundedMirrors();
-        System.out.println("UploadPayloadObserverTest PASS (raw bits, ranges, views, resources, bounds, release)");
+        elementBindingsFollowExplicitBindAndVaoChanges();
+        System.out.println("UploadPayloadObserverTest PASS (raw bits, ranges, views, resources, bounds, release, element/VAO boundaries)");
     }
 
     private static boolean upload(UploadPayloadObserver observer, Object context,
@@ -109,6 +110,39 @@ public final class UploadPayloadObserverTest {
         observer.start();
         check(observer.report().contains("uploadPayload.observedCalls=0\n"), "fresh window resets counts");
         observer.stop();
+    }
+
+    private static void elementBindingsFollowExplicitBindAndVaoChanges() {
+        UploadPayloadObserver observer = new UploadPayloadObserver();
+        observer.start();
+        IntBuffer data = IntBuffer.wrap(new int[]{0, 1, 2, 2, 3, 0});
+        Object[] update = {34963, 0L, 24L, data};
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "unknown element binding is not guessed");
+        observer.before(CONTEXT, "glBindBuffer", new Object[]{34963, 8});
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "first element baseline");
+        check(observer.before(CONTEXT, "glBufferSubData", update), "explicitly bound element duplicate");
+        observer.before(CONTEXT, "glBindVertexArray", new Object[]{3});
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "VAO switch retires known element binding");
+        observer.before(CONTEXT, "glBindBuffer", new Object[]{34963, 9});
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "new element buffer baseline");
+        data.put(5, 4);
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "element tail change");
+        check(observer.before(CONTEXT, "glBufferSubData", update), "complete new element equality");
+        observer.before(CONTEXT, "glVertexArrayElementBuffer", new Object[]{3, 10});
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "direct VAO element mutation retires known binding");
+        observer.before(CONTEXT, "glBindBuffer", new Object[]{34963, 9});
+        observer.before(CONTEXT, "glDeleteVertexArrays", new Object[]{1, new int[]{3}, 0});
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "VAO deletion retires known element binding");
+        observer.before(CONTEXT, "glBindBuffer", new Object[]{34963, 9});
+        observer.before(CONTEXT, "glBufferData", new Object[]{34963, 24L, data, 35048});
+        check(!observer.before(CONTEXT, "glBufferSubData", update), "element storage replacement clears baseline");
+        check(!upload(observer, CONTEXT, 10, 0, 24, data), "independent array baseline");
+        observer.before(CONTEXT, "glBindVertexArray", new Object[]{4});
+        check(upload(observer, CONTEXT, 10, 0, 24, data), "VAO binding does not reset array binding");
+        check(data.position() == 0 && data.limit() == 6, "index buffer view preserved");
+        check(observer.report().contains("uploadPayload.gpuResidencyVerified=false\n"), "no safe-omission claim");
+        observer.stop();
+        check(observer.report().contains("uploadPayload.retainedBytes=0\n"), "element mirrors released");
     }
 
     private static void check(boolean condition, String message) {
