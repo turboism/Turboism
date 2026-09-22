@@ -834,6 +834,23 @@
         "display-input": 1
       }
     },
+    "edit-protocol": {
+      "description": "Cubism 5.4-compat external edit API protocol bridge validation: a task-local stdlib WebSocket client replays the official 1.1.0 wire sequence (RegisterPlugin, token persistence, approval polling, EditBegin/End, S1-S6 matrix) against the host's own loopback service on port 22033, then a native 1.0.x regression stage; the probe plugin enables the external-app service, pre-seeds native token authorization and auto-answers the Turboism edit-approval dialog under a kill-switch file.",
+      "command": "scripts/preview/run-edit-protocol-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
     "animation-timeline": {
       "description": "Animation workspace SDK validation (enumeration, timeline, playback, scene ops, keyframe/easing writes, evaluated bake, native undo).",
       "command": "scripts/preview/run-animation-timeline-host-validation.sh",

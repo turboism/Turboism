@@ -194,8 +194,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "5c4ac44ab2e3dec6b4e8da2cfda0dd1ce5a8c5915193600e74d1c05899777dd7",
-            782,
+            "d86c638610ae27210dd9c27b8628bb299c1e5d3963965f14d552417a4d7ede49",
+            797,
             EditorModelVerificationManifest.cubism52Aliases(),
             EditorModelVerificationManifest.cubism52Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
@@ -217,7 +217,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            802,
+            817,
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -320,7 +320,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-clipmask" ->
                 "c17a6596497b148fb71e9d9074b97d2967a9697d38e7222848f154e44fb5a597";
             case "cubism-5.3.03-editor-model" ->
-                "625ef9342537b9c35aea9be2c0f06a00495dbeecc43d75cfa7a0292b05b65406";
+                "8a41b31adb93460ccb692b13105b75b2d1f47b2d249989dc37e3db2ec4463436";
             case "cubism-5.3.03-performance-render-scene" ->
                 "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
             case "cubism-5.3.03-project-workspace" ->
