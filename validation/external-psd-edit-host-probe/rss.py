@@ -15,6 +15,10 @@ import sys
 import time
 
 MAIN_CLASS = b"com.live2d.cubism.CECubismEditorApp"
+# Exact relative executable in the pinned 5.3.02 official BAT. An export-worker
+# fork can briefly inherit Java argv, but carries the calling thread's comm.
+JAVA_EXECUTABLE = b"app\\jre\\bin\\java.exe"
+JAVA_COMM = b"java.exe\n"
 PERIOD_SECONDS = 0.05
 
 
@@ -54,13 +58,18 @@ def process_observation(proc: Path, pid: int, group: str):
     before = process_start_ticks((process / "stat").read_text())
     if (process / "cgroup").read_text().splitlines() != ["0::" + group]:
         raise IdentityChanged("process left the admitted cgroup")
-    argv = (process / "cmdline").read_bytes().split(b"\0")
-    if MAIN_CLASS not in argv:
+    command = (process / "cmdline").read_bytes()
+    argv = command.split(b"\0")
+    if argv[0] != JAVA_EXECUTABLE or MAIN_CLASS not in argv:
+        return None
+    if (process / "comm").read_bytes() != JAVA_COMM:
         return None
     rss, hwm = memory_bytes((process / "status").read_text())
     after = process_start_ticks((process / "stat").read_text())
     if before != after or (process / "cgroup").read_text().splitlines() != ["0::" + group]:
         raise IdentityChanged("process identity changed during RSS read")
+    if (process / "cmdline").read_bytes() != command or (process / "comm").read_bytes() != JAVA_COMM:
+        return None  # exec can change the process image without changing PID/start ticks.
     return pid, before, rss, hwm
 
 
@@ -189,6 +198,7 @@ def collect(scope: Scope, terminal: Path, run_id: str, timeout: int) -> dict:
               "sampleCount": 0, "missedAfterBinding": 0, "peakSampledRssBytes": 0,
               "processLifetimeHighWaterRssBytes": 0, "maximumSampleGapNanos": 0,
               "measurement": "Linux VmRSS sampled; VmHWM since Cubism process startup",
+              "processAdmission": "pinned BAT java argv0 + java.exe comm + exact main-class argument; rechecked around memory read",
               "scope": "post-launch through probe terminal; includes startup when observed",
               "performanceStatus": "NOT_EVALUATED"}
     bound, last, terminal = None, None, Path(terminal)
