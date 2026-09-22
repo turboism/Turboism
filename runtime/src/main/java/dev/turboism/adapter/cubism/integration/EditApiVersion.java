@@ -51,6 +51,7 @@ public final class EditApiVersion implements Comparable<EditApiVersion> {
         return new EditApiVersion(values[0], values[1], values[2]);
     }
 
+    /** {@return whether this version is at or above {@code floor}} */
     public boolean atLeast(final EditApiVersion floor) {
         return compareTo(Objects.requireNonNull(floor, "floor")) >= 0;
     }

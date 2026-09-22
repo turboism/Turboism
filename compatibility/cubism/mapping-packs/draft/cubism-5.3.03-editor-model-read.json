@@ -21582,6 +21582,220 @@
                 "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
                 "provenance": "exact 5.3.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
           }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.class.y_class",
+          "kind": "class",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.dialog.class",
+          "runtime": "com/live2d/cubism/doc/webSocket/y",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.dialog.class",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.class.y_class",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.field.y_field_p",
+          "kind": "field",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.dialog.remote-checkbox",
+          "runtime": "p",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+                "requiredAccessFlags": 26,
+                "forbiddenAccessFlags": 0
+          },
+          "intermediary": "",
+          "descriptor": "Lcom/live2d/ui/control/CCheckBox;",
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.field.y_field_p",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.method.CCheckBox_getJCheckBox",
+          "kind": "method",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.checkbox.jcheckbox",
+          "runtime": "getJCheckBox",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/ui/control/CCheckBox",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "()Lcom/live2d/ui/control/CCheckBox$a;",
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.checkbox.jcheckbox",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.method.CCheckBox_getJCheckBox",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.method.y_a",
+          "kind": "method",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.dialog.show",
+          "runtime": "a",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(Lcom/live2d/ui/window/V;)V",
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.dialog.show",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.method.y_a",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.method.y_b",
+          "kind": "method",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.dialog.build",
+          "runtime": "b",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
+                "requiredAccessFlags": 18,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(Lcom/live2d/ui/window/V;)V",
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.dialog.build",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.method.y_b",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.field.UUConfig_field_a",
+          "kind": "field",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.config.instance",
+          "runtime": "a",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/util/UUConfig",
+                "requiredAccessFlags": 25,
+                "forbiddenAccessFlags": 0
+          },
+          "intermediary": "",
+          "descriptor": "Lcom/live2d/util/UUConfig;",
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.config.instance",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.field.UUConfig_field_a",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.method.UUConfig_a",
+          "kind": "method",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.config.read",
+          "runtime": "a",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/util/UUConfig",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.config.read",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.method.UUConfig_a",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
+    },
+    {
+          "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.method.UUConfig_b",
+          "kind": "method",
+          "owner": "edit-toggle",
+          "name": "cubism.integration.external-app-settings.config.write",
+          "runtime": "b",
+          "profile": "cubism-5.3.03",
+          "status": "DRAFT",
+          "stability": "experimental",
+          "source": "exact-public-classfile-observation",
+          "verifiedBy": "none",
+          "verifiedAt": null,
+          "confidence": "high",
+          "x.verification": {
+                "ownerInternalName": "com/live2d/util/UUConfig",
+                "requiredAccessFlags": 17,
+                "forbiddenAccessFlags": 8
+          },
+          "intermediary": "",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+          "x.review": {
+                "recordAlias": "cubism.integration.external-app-settings.config.write",
+                "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.method.UUConfig_b",
+                "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
+          }
     }
   ],
   "metadata": {
@@ -21591,10 +21805,10 @@
     "artifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
     "profileId": "cubism-5.3.03",
     "verificationId": "cubism-5.3.03.editor-model.static",
-    "selectorCount": 836,
-    "capabilityCount": 102,
+    "selectorCount": 844,
+    "capabilityCount": 103,
     "validationNotes": "DRAFT only. Every selector is statically checked against the exact 5.3.03 JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-    "verificationRecordSha256": "8a41b31adb93460ccb692b13105b75b2d1f47b2d249989dc37e3db2ec4463436",
+    "verificationRecordSha256": "97e3a085e8569ac1a35f61dcb9798e1aaa6ca8645088e4fb6baa7000fe742141",
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -21692,6 +21906,7 @@
       "cubism.editor-model.warp-deformer.write",
       "cubism.editor-model.write",
       "cubism.integration.edit-api-bridge.dispatch",
+      "cubism.integration.external-app-settings.edit-toggle",
       "cubism.texture-atlas.auto-layout-hook",
       "cubism.texture-atlas.data-model-hook",
       "cubism.texture-atlas.dialog-injection",
