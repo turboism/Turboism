@@ -163,6 +163,22 @@ final class EditApiRouter {
         final EditConnectionState state,
         final EditConnectionInfo info
     ) throws EditApiFailure {
+        if (env.approvalGate().isLiveState()) {
+            // 051: the native 「编辑」 checkbox is a mutable global state — every gated
+            // request resolves against it live, so a flip takes effect on the next call in
+            // both directions. The per-connection latch below belongs to the one-shot
+            // prompt decision and does not apply here.
+            final boolean live;
+            try {
+                live = env.approvalGate().requestApproval(info);
+            } catch (RuntimeException failure) {
+                throw new EditApiFailure(EditApiErrorCode.INVALID_EDIT_OPERATION);
+            }
+            if (!live) {
+                throw new EditApiFailure(EditApiErrorCode.INVALID_EDIT_OPERATION);
+            }
+            return;
+        }
         if (state.approval() == EditConnectionState.Approval.APPROVED) {
             return;
         }
@@ -577,8 +593,21 @@ final class EditApiRouter {
     // ------------------------------------------------------------------
 
     private JsonNode getIsEditApproval(final Exchange exchange) {
-        final boolean granted = exchange.state.approval()
-            == EditConnectionState.Approval.APPROVED;
+        // 051: under a live-state gate the answer is the current checkbox, not the latch —
+        // a registered client sees the flip the moment it asks.
+        final boolean granted;
+        if (env.approvalGate().isLiveState()) {
+            boolean live;
+            try {
+                live = env.approvalGate().isApproved(exchange.info());
+            } catch (RuntimeException failure) {
+                live = false;
+            }
+            granted = live;
+        } else {
+            granted = exchange.state.approval()
+                == EditConnectionState.Approval.APPROVED;
+        }
         boolean admitted = false;
         if (granted) {
             try {
