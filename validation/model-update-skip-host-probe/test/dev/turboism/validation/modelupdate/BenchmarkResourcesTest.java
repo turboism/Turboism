@@ -11,6 +11,12 @@ public final class BenchmarkResourcesTest {
         check(BenchmarkResources.cpuPercent(2_000_000, 1_000_000, 1) == 200.0, "CPU can exceed one core");
         check(BenchmarkResources.cpuPercent(2_000_000, 1_000_000, 4) == 50.0, "machine denominator");
         check(BenchmarkResources.cpuPercent(-1, 1, 1) == -1.0, "unsupported CPU stays unknown");
+        // An idle fresh JVM can report zero used heap before its first accounting
+        // update. Establish an observable live fixture for this OFFLINE smoke test.
+        // This collection happens before sampling; real host workloads are unchanged.
+        byte[] heapFixture = new byte[8 * 1024 * 1024];
+        heapFixture[0] = 1;
+        System.gc();
         try (var sample = new BenchmarkResources(BenchmarkResourcesTest.class.getClassLoader(),
                 Thread.currentThread().getId())) {
             sample.start();
@@ -18,7 +24,7 @@ public final class BenchmarkResourcesTest {
             sample.stop();
             var result = sample.snapshot();
             check(((Number) result.get("samples")).longValue() >= 2, "actual samples");
-            check(((Number) result.get("heapUsedSamplePeakBytes")).longValue() > 0,
+            check(((Number) result.get("heapUsedSamplePeakBytes")).longValue() >= heapFixture.length,
                 "heap observed: " + result + "; directMXBean="
                     + java.lang.management.ManagementFactory.getMemoryMXBean().getHeapMemoryUsage());
             check(((Number) result.get("wallNanos")).longValue() > 0, "monotonic window");
@@ -28,6 +34,8 @@ public final class BenchmarkResourcesTest {
             long count = ((Number) result.get("samples")).longValue();
             Thread.sleep(20L);
             check(((Number) sample.snapshot().get("samples")).longValue() == count, "sampler stopped");
+        } finally {
+            java.lang.ref.Reference.reachabilityFence(heapFixture);
         }
         System.out.println("BenchmarkResourcesTest PASS (denominators, unknowns, memory, stop, PSAPI layout)");
     }
