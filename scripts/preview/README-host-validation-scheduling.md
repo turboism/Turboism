@@ -200,9 +200,10 @@ an automatic Paseo callback or arbitrary webhook/shell executor.
 
 ### Administrative disposition of cross-boot orphans
 
-A historical `active` record whose supervisor died with an earlier boot can
-never produce a final supervisor verdict. After manual review, an operator may
-register it `abandoned` so the queue is no longer administratively blocked:
+A started attempt from an earlier boot with no final supervisor verdict may be
+eligible for administrative disposition. After manual review, an operator may
+register it `abandoned` so conservative preflight no longer treats it as active.
+This does not prove historical cleanup or grant admission to another run:
 
 ```bash
 python3 scripts/preview/host_validation.py abandon --inspect JOB_ID --json
@@ -218,7 +219,18 @@ python3 scripts/preview/host_validation.py abandon --confirm JOB_ID \
 - `--confirm` rechecks everything under the existing
   worker → storage → admission lock order and commits one row update plus one
   `operator-abandoned` audit event atomically. An identical retry replays the
-  original receipt read-only; a conflicting request is refused.
+  original receipt read-only, including while new work owns the host. A
+  conflicting request is refused.
+- Exit codes: `0` means an executable administrative candidate (`--inspect`) or
+  a completed/replayed administrative registration (`--confirm`); `75` means
+  refusal, conflict or contention; `2` means invalid arguments or unsupported
+  input. None of these codes is a host-validation PASS.
+- Before the first real confirmation, coordinate the adopted revision of every
+  queue writer, worker, status/wait consumer and retention tool. A new state and
+  audit contract require this coordination even without a schema migration; do
+  not mix old and new tools. Drain only in a separately approved window, let
+  running work finish normally, and review each fresh digest/reason before
+  confirmation. Do not switch a running checkout or release host ownership.
 - `abandoned` is an administrative marker, not a verification result:
   `verificationAccepted` stays `false`, the host row is never touched, evidence
   is preserved byte-for-byte, and retention protects the job, task, prefix,
