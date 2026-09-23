@@ -86,9 +86,10 @@ final class TextureAtlasPolygonAutoLayoutService {
             + " rotationMode=" + snapshot.constraints().rotationMode()
             + " requestedScale=" + snapshot.constraints().requestedScale()
             + " state=" + stateDigest(items));
-        // the session's issued bounds win: the host dialog asked for
-        // rotationMode/requestedScale, so a wider plugin rotation degrades
-        // honestly and a fixed session scale is honored exactly
+        // the session's issued bounds win: the issued rotationMode is the write
+        // capability (FREE once the host dialog grants rotation, since the
+        // polygon write-back composes full T·R·S affines), so a wider plugin
+        // rotation only degrades when the session forbids rotation entirely
         var rotation = policy.rotation();
         if (rotation.ordinal() > snapshot.constraints().rotationMode().ordinal()) {
             logger.accept("dalsoo rotation " + rotation + " degraded to "
@@ -108,7 +109,9 @@ final class TextureAtlasPolygonAutoLayoutService {
             policy.quality());
         final TextureAtlasPolygonPlan plan;
         try {
-            plan = new DalsooPolygonPlanner().plan(items, constraints, parallel);
+            plan = new DalsooPolygonPlanner(null, null, null, policy.useAbey(),
+                policy.autoScaleTolerance(), policy.autoScaleMaxTry())
+                .plan(items, constraints, parallel);
         } catch (RuntimeException failure) {
             return TextureAtlasLayoutApplyResult.failed(
                 TextureAtlasLayoutFailureCode.PLAN_INVALID,

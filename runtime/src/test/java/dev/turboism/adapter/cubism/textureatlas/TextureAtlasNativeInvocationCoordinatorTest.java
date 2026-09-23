@@ -338,6 +338,93 @@ class TextureAtlasNativeInvocationCoordinatorTest {
     }
 
     @Test
+    void polygonSessionGrantsFreeRotationAndWritesArbitraryAnglesWithUndo() {
+        final Fixture fixture = new Fixture();
+        fixture.receiver.b.rotate = true;
+        final AffineTransform firstBefore = new AffineTransform(fixture.first.f);
+        final TextureAtlasNativeInvocationCoordinator nativeInvocations =
+            new TextureAtlasNativeInvocationCoordinator();
+        nativeInvocations.connect(resolver());
+        final RuntimeTextureAtlasLayoutService service = service(
+            new TextureAtlasLayoutCoordinator(), nativeInvocations);
+        final var observed = new java.util.concurrent.atomic.AtomicReference<
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot>();
+
+        final boolean handled = nativeInvocations.ingress(() -> {
+            final var snapshot = service.currentPolygon().orElseThrow();
+            observed.set(snapshot);
+            // the host dialog granted rotation: the issued polygon bound is FREE
+            assertEquals(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.FREE,
+                snapshot.constraints().rotationMode());
+            // a 15° placement: only valid under FREE; overflow the second item
+            final var plan =
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan(
+                    32, 16, 1.0, List.of(
+                        new dev.turboism.sdk.cubism.textureatlas
+                            .TextureAtlasPolygonPlacement(
+                                "native-item-0", 2, 2, 15, 1.0)),
+                    List.of("native-item-1"),
+                    dev.turboism.sdk.cubism.textureatlas
+                        .TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                    java.util.Map.of("rotationMode", "FREE"));
+            final var result = service.apply(snapshot.target(), plan);
+            assertTrue(result.status().isPresent(), () -> result.toString());
+            // arbitrary angle written through the full affine path
+            assertEquals(-Math.sin(Math.toRadians(15)),
+                fixture.first.f.getShearX(), 1e-9);
+            assertEquals(Math.cos(Math.toRadians(15)),
+                fixture.first.f.getScaleX(), 1e-9);
+            assertEquals(List.of(fixture.second), fixture.receiver.i);
+            return false; // unhandled: everything must restore (undo)
+        }).test(fixture.receiver);
+
+        assertFalse(handled);
+        assertEquals(firstBefore, fixture.first.f);
+        assertEquals(firstBefore, fixture.firstRef.transform);
+        assertTrue(fixture.receiver.i.isEmpty());
+        assertTrue(service.currentPolygon().isEmpty());
+    }
+
+    @Test
+    void polygonSessionForbidsRotationWhenNativeDialogDisallowsIt() {
+        final Fixture fixture = new Fixture();
+        fixture.receiver.b.rotate = false;
+        final TextureAtlasNativeInvocationCoordinator nativeInvocations =
+            new TextureAtlasNativeInvocationCoordinator();
+        nativeInvocations.connect(resolver());
+        final RuntimeTextureAtlasLayoutService service = service(
+            new TextureAtlasLayoutCoordinator(), nativeInvocations);
+
+        final boolean handled = nativeInvocations.ingress(() -> {
+            final var snapshot = service.currentPolygon().orElseThrow();
+            assertEquals(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.NONE,
+                snapshot.constraints().rotationMode());
+            // a rotated placement must be rejected before any host write
+            final var plan =
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan(
+                    32, 16, 1.0, List.of(
+                        new dev.turboism.sdk.cubism.textureatlas
+                            .TextureAtlasPolygonPlacement(
+                                "native-item-0", 2, 2, 15, 1.0)),
+                    List.of("native-item-1"),
+                    dev.turboism.sdk.cubism.textureatlas
+                        .TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                    java.util.Map.of("rotationMode", "FREE"));
+            final var result = service.apply(snapshot.target(), plan);
+            assertTrue(result.failureCode().isPresent());
+            assertEquals("PLAN_INVALID", result.failureCode().orElseThrow().name());
+            return true;
+        }).test(fixture.receiver);
+
+        // nothing was applied: the invocation is unhandled and the native
+        // fallback runs - the invalid plan never reached the host
+        assertFalse(handled);
+        assertTrue(fixture.receiver.i.isEmpty());
+    }
+
+    @Test
     void nestedInvocationDeclinesWithoutRunningNestedCallback() {
         final Fixture fixture = new Fixture();
         final AtomicInteger nestedCalls = new AtomicInteger();

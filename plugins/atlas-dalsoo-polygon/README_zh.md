@@ -79,9 +79,31 @@ interface: none
 ## 使用方式
 
 1. 打开 Cubism 纹理集编辑器，选择自动排版工作流。
-2. 选择 `dalsoo` 算法；可选开启并行变体搜索。
+2. 选择 `dalsoo` 算法；选中时对话框会暴露下述打包控件，选择其他算法时
+   这些控件被禁用且其取值被忽略。
 3. 运行自动排版；插件先校验完整计划再应用，并报告诊断信息（后端、轮廓、
    回退、洞、倍率、溢出）。
+
+## 对话框选项与持久化设置
+
+选中 `dalsoo` 时，自动排版对话框提供以下控件。所有取值经桥接写入持久化
+策略（`texture-atlas-dalsoo/layout.cfg`），在下一次运行时生效。
+
+| 对话框控件 | 设置键 | Cubism 5.4 对应 | 说明 |
+|---|---|---|---|
+| 旋转档位：`NONE` / `QUARTER` / `FREE` | `rotation` | 旋转粒度下拉 | `FREE` 按 18 个候选角（20° 步进）规划并经完整 affine 路径写回；矩形回退路径诚实降级为 `QUARTER`。 |
+| 锁定预设：`NONE` / `ALL` / `ANGLE` / `SCALE` / `ANGLE_SCALE` / `POS_ANGLE` | `lock-preset` | `AutoLayoutLock`（`fixPosition`/`fixRotate`/`fixScale`） | 全局默认层；显式逐项策略（`item-policies`）仍可覆盖。 |
+| 缩放模式：自动 / 固定 | `auto-scale`、`fixed-scale-percent` | 自动/固定缩放入口 | 固定缩放以百分比输入（1-800）；自动缩放绝不超过 1（`s = min(1, ·)`）。 |
+| 缩放容差 | `auto-scale-tolerance-permille` | `AUTO_SCALE_TOLERANCE` | 缩放搜索的相对步进下界；默认 `0.005`（按千分比存储）。 |
+| 缩放最大尝试 | `auto-scale-max-try` | `AUTO_SCALE_MAX_TRY` | 尝试上限；`0` 表示按质量档推导（`FAST` 8、`BALANCED` 12、`DENSE` 20）。 |
+| 内核：Abey / Dalalah | `use-abey` | - | 规划器使用的 Dalsoo 内核变体。 |
+| 并行搜索 | `parallel` | - | 确定性并行变体；由算法的 `supportsParallel` 能力声明门控。 |
+
+Cubism 5.4 的纹理压缩预设（`PRESET_COMPRESSION`、`IMAGE_QUALITY`、
+`CUSTOM`）与打包正交，本插件有意不实现。
+
+默认值保持改动前行为：旋转 `QUARTER`、锁定预设 `NONE`、自动缩放
+（容差 `0.005`）、按质量档推导的尝试上限、Abey 内核、串行规划。
 
 ## 能力
 

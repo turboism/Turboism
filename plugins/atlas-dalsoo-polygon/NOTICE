@@ -24,3 +24,6 @@ No Cubism/Live2D proprietary code was used. Cubism Editor 5.4 alpha artifacts
 were consulted read-only to confirm algorithm family and behavioral semantics
 (rotation candidate counts, lock flags, auto/fixed scale entry points); the
 implementation here is derived solely from the MIT-licensed upstream project.
+
+The upstream MIT license text is also provided under the Cubism 5.4 naming
+convention in Dalsoo-Bin-Packing.LICENSE.txt in this directory.

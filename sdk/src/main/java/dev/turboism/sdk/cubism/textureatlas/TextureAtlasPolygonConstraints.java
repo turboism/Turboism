@@ -37,6 +37,7 @@ public record TextureAtlasPolygonConstraints(
         Objects.requireNonNull(quality, "quality");
     }
 
+    /** True when the caller asked for automatic scale ({@code requestedScale == 0}). */
     public boolean automaticScale() {
         return requestedScale == 0;
     }

@@ -28,6 +28,7 @@ public final class OutlineGeometry {
     /** Flattened ring decomposition of one or more shapes. */
     public record Rings(List<double[][]> outerRings, List<double[][]> holeRings,
         boolean hasHoles) {
+        /** This decomposition as an outline; hole rings are filled by construction. */
         public TextureAtlasOutline toOutline() {
             return new TextureAtlasOutline(outerRings);
         }

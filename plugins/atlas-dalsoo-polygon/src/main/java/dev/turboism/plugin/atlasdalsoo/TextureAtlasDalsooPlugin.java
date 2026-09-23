@@ -1,5 +1,6 @@
 package dev.turboism.plugin.atlasdalsoo;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 
@@ -8,6 +9,7 @@ import dev.turboism.plugin.atlasdalsoo.layout.RectPathPolygonPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
@@ -27,6 +29,13 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
         "dev.turboism.texture-atlas.auto-layout.callback";
     static final String DIALOG_ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
     static final String DIALOG_PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
+    static final String DIALOG_ROTATION_KEY = "dev.turboism.texture-atlas.dialog.rotation";
+    static final String DIALOG_LOCK_PRESET_KEY = "dev.turboism.texture-atlas.dialog.lock-preset";
+    static final String DIALOG_AUTO_SCALE_KEY = "dev.turboism.texture-atlas.dialog.auto-scale";
+    static final String DIALOG_FIXED_SCALE_PERCENT_KEY = "dev.turboism.texture-atlas.dialog.fixed-scale-percent";
+    static final String DIALOG_AUTO_SCALE_TOLERANCE_KEY = "dev.turboism.texture-atlas.dialog.auto-scale-tolerance";
+    static final String DIALOG_AUTO_SCALE_MAX_TRY_KEY = "dev.turboism.texture-atlas.dialog.auto-scale-max-try";
+    static final String DIALOG_KERNEL_KEY = "dev.turboism.texture-atlas.dialog.kernel";
     static final String ALGORITHM_DALSOO = "dalsoo";
 
     private PluginContext context;
@@ -71,6 +80,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
                     ALGORITHM_DALSOO,
                     context.localization().text("texture-atlas.algorithm.dalsoo"),
                     true,
+                    true,
                     new RectPathPolygonPlanner(() -> settings.confirmed())
                 )
             ));
@@ -95,6 +105,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
             final boolean parallel = "true".equals(
                 System.getProperty(DIALOG_PARALLEL_KEY, "false"));
             if (ALGORITHM_DALSOO.equals(algorithm)) {
+                syncDialogState();
                 final TextureAtlasLayoutApplyResult result =
                     polygonService.applyAutomaticLayout(parallel);
                 if (result.status().isPresent()) {
@@ -127,11 +138,118 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
     }
 
     private void publishDialogState() {
+        final PolygonLayoutSettings confirmed = settings.confirmed();
         if (System.getProperty(DIALOG_ALGORITHM_KEY) == null) {
             System.getProperties().put(DIALOG_ALGORITHM_KEY, ALGORITHM_DALSOO);
         }
         System.getProperties().putIfAbsent(DIALOG_PARALLEL_KEY,
-            String.valueOf(settings.confirmed().parallel()));
+            String.valueOf(confirmed.parallel()));
+        System.getProperties().putIfAbsent(DIALOG_ROTATION_KEY,
+            confirmed.rotation().name());
+        System.getProperties().putIfAbsent(DIALOG_LOCK_PRESET_KEY,
+            confirmed.lockPreset().name());
+        System.getProperties().putIfAbsent(DIALOG_AUTO_SCALE_KEY,
+            String.valueOf(confirmed.automaticScale()));
+        System.getProperties().putIfAbsent(DIALOG_FIXED_SCALE_PERCENT_KEY,
+            String.valueOf((int) Math.round(confirmed.fixedScale() * 100)));
+        System.getProperties().putIfAbsent(DIALOG_AUTO_SCALE_TOLERANCE_KEY,
+            String.valueOf((int) Math.round(confirmed.autoScaleTolerance() * 1000)));
+        System.getProperties().putIfAbsent(DIALOG_AUTO_SCALE_MAX_TRY_KEY,
+            String.valueOf(confirmed.autoScaleMaxTry()));
+        System.getProperties().putIfAbsent(DIALOG_KERNEL_KEY,
+            confirmed.useAbey() ? "abey" : "dalalah");
+    }
+
+    /**
+     * Reads the dialog bridge properties (malformed values fall back to the
+     * confirmed setting) and persists the merged policy.
+     */
+    private void syncDialogState() {
+        final PolygonLayoutSettings confirmed = settings.confirmed();
+        final String kernel = System.getProperty(DIALOG_KERNEL_KEY, "");
+        final int tolerancePermille = intProperty(DIALOG_AUTO_SCALE_TOLERANCE_KEY,
+            0, 1000, (int) Math.round(confirmed.autoScaleTolerance() * 1000));
+        final PolygonLayoutSettings merged = new PolygonLayoutSettings(
+            confirmed.backend(),
+            enumProperty(DIALOG_ROTATION_KEY, TextureAtlasRotationMode.class,
+                confirmed.rotation()),
+            confirmed.quality(),
+            booleanProperty(DIALOG_AUTO_SCALE_KEY, confirmed.automaticScale()),
+            intProperty(DIALOG_FIXED_SCALE_PERCENT_KEY, 1, 800,
+                (int) Math.round(confirmed.fixedScale() * 100)) / 100.0,
+            "abey".equalsIgnoreCase(kernel) ? true
+                : "dalalah".equalsIgnoreCase(kernel) ? false
+                    : confirmed.useAbey(),
+            booleanProperty(DIALOG_PARALLEL_KEY, confirmed.parallel()),
+            enumProperty(DIALOG_LOCK_PRESET_KEY, PolygonLayoutLockPreset.class,
+                confirmed.lockPreset()),
+            tolerancePermille <= 0
+                ? PolygonLayoutSettings.DEFAULT_AUTO_SCALE_TOLERANCE
+                : tolerancePermille / 1000.0,
+            intProperty(DIALOG_AUTO_SCALE_MAX_TRY_KEY, 0, 64,
+                confirmed.autoScaleMaxTry()),
+            confirmed.itemPolicies());
+        // join so the layout below observes the merged policy
+        settings.update(merged).toCompletableFuture().join();
+        if (context != null && context.localization().contains(
+            "texture-atlas.dalsoo.policy")) {
+            context.logger().info(context.localization().format(
+                "texture-atlas.dalsoo.policy", merged.rotation().name(),
+                merged.lockPreset().name(),
+                merged.automaticScale() ? "auto" : String.valueOf(merged.fixedScale()),
+                merged.useAbey() ? "abey" : "dalalah",
+                String.valueOf(merged.parallel())));
+        }
+    }
+
+    private static boolean booleanProperty(final String key,
+        final boolean fallback) {
+        final String value = System.getProperty(key);
+        if (value == null) {
+            return fallback;
+        }
+        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+            case "true", "1", "yes", "on" -> true;
+            case "false", "0", "no", "off" -> false;
+            default -> fallback;
+        };
+    }
+
+    private static int intProperty(final String key, final int min,
+        final int max, final int fallback) {
+        final String value = System.getProperty(key);
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            final int parsed = Integer.parseInt(value.trim());
+            return parsed >= min && parsed <= max ? parsed : fallback;
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static <E extends Enum<E>> E enumProperty(final String key,
+        final Class<E> type, final E fallback) {
+        final String value = System.getProperty(key);
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Enum.valueOf(type, value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
+    }
+
+    /** Persists an externally produced policy update. */
+    void updateSettings(final PolygonLayoutSettings value) {
+        settings.update(value);
+    }
+
+    /** The last confirmed (persisted or defaulted) layout policy. */
+    PolygonLayoutSettings confirmedSettings() {
+        return settings.confirmed();
     }
 
     @Override

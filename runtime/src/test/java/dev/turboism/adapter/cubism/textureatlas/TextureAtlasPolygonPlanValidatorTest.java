@@ -173,6 +173,54 @@ class TextureAtlasPolygonPlanValidatorTest {
     }
 
     @Test
+    void declaredRotationModeCannotExceedIssuedSession() {
+        final var items = List.of(item("a", 50, 50, null, false));
+        final var p = new TextureAtlasPolygonPlacement("a", 100, 100, 45, 1.0);
+        // a plan produced under a caller-requested FREE must not be applied
+        // when the issued session only grants QUARTER
+        var violations = TextureAtlasPolygonPlanValidator.validate(items,
+            constraints(200, 200, 0, TextureAtlasRotationMode.QUARTER),
+            new TextureAtlasPolygonPlan(200, 200, 1.0, List.of(p), List.of(),
+                TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                java.util.Map.of("rotationMode", "FREE")));
+        assertTrue(violations.stream().anyMatch(v -> v.code().equals("rotation-mode")),
+            "violations: " + violations);
+    }
+
+    @Test
+    void declaredRotationModeNarrowsEffectiveCheck() {
+        final var items = List.of(item("a", 50, 50, null, false));
+        final var p = new TextureAtlasPolygonPlacement("a", 100, 100, 45, 1.0);
+        // declared QUARTER under an issued FREE session still rejects 45°
+        var violations = TextureAtlasPolygonPlanValidator.validate(items,
+            constraints(200, 200, 0, TextureAtlasRotationMode.FREE),
+            new TextureAtlasPolygonPlan(200, 200, 1.0, List.of(p), List.of(),
+                TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                java.util.Map.of("rotationMode", "QUARTER")));
+        assertTrue(violations.stream().anyMatch(v -> v.code().equals("rotation-mode")),
+            "violations: " + violations);
+        // declared FREE under FREE accepts the arbitrary angle
+        violations = TextureAtlasPolygonPlanValidator.validate(items,
+            constraints(200, 200, 0, TextureAtlasRotationMode.FREE),
+            new TextureAtlasPolygonPlan(200, 200, 1.0, List.of(p), List.of(),
+                TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                java.util.Map.of("rotationMode", "FREE")));
+        assertTrue(violations.isEmpty(), "violations: " + violations);
+    }
+
+    @Test
+    void unknownDeclaredRotationModeRejected() {
+        final var items = List.of(item("a", 50, 50, null, false));
+        final var violations = TextureAtlasPolygonPlanValidator.validate(items,
+            constraints(200, 200, 0, TextureAtlasRotationMode.FREE),
+            new TextureAtlasPolygonPlan(200, 200, 1.0, List.of(at("a", 0, 0)),
+                List.of(), TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                java.util.Map.of("rotationMode", "DIAGONAL")));
+        assertTrue(violations.stream().anyMatch(v -> v.code().equals("rotation-mode")),
+            "violations: " + violations);
+    }
+
+    @Test
     void lockedAngleMustKeepIssuedAngle() {
         final double[] matrix = {0.8660254, 0.5, -0.5, 0.8660254, 10, 10};
         final var locked = new TextureAtlasPolygonItem("lk", 40, 40,

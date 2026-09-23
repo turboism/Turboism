@@ -38,6 +38,7 @@ public record TextureAtlasPolygonPlan(
         diagnostics = Map.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
     }
 
+    /** The placement for one texture, empty when it overflowed. */
     public Optional<TextureAtlasPolygonPlacement> placementFor(final String textureId) {
         Objects.requireNonNull(textureId, "textureId");
         return placements.stream().filter(p -> p.textureId().equals(textureId)).findFirst();
