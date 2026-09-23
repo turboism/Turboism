@@ -98,16 +98,18 @@ def _identity(raw: Any, source: str) -> dict[str, Any]:
 
 def _member(path: Path) -> tuple[dict[str, Any], bytes | None]:
     """One bounded read of one fixed member: the identity/hash record and the
-    bytes it describes come from the same opened file, never two snapshots."""
+    bytes it describes come from the same opened file, never two snapshots.
+    O_NONBLOCK keeps a FIFO/device from suspending the open; a present
+    non-regular member is refused, never inventoried as evidence."""
     checked_path(path)
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except FileNotFoundError:
         return {"exists": False}, None
     try:
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode):
-            return {"exists": True, "type": stat.S_IFMT(info.st_mode)}, None
+            raise queue.QueueError(f"non-regular metadata member: {path}")
         if info.st_uid != os.getuid() or info.st_size > MAX_METADATA_BYTES:
             raise queue.QueueError(f"unsafe or oversized metadata: {path}")
         with os.fdopen(fd, "rb", closefd=False) as source:
@@ -492,6 +494,14 @@ def _number(value: Any) -> bool:
     return type(value) in (int, float) and math.isfinite(value)
 
 
+def _valid_reason(value: Any) -> bool:
+    """The stored operator reason must still satisfy the normal form applied at
+    confirmation time; no coercion, no lossy re-normalization."""
+    return (type(value) is str and value == value.strip()
+            and 0 < len(value) <= MAX_REASON
+            and not any(unicodedata.category(character) == "Cc" for character in value))
+
+
 def _refusal(job_id: str, code: str, detail: str) -> Rejected:
     return Rejected({"schemaVersion": SCHEMA_VERSION, "jobId": job_id,
                      "blockers": [_block(code, detail)],
@@ -524,26 +534,38 @@ def _verify_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
         and set(payload) == AUDIT_KEYS
         and type(payload["schemaVersion"]) is int
         and payload["schemaVersion"] == SCHEMA_VERSION
+        and type(payload["disposition"]) is str
         and payload["disposition"] == DISPOSITION
+        and type(payload["toState"]) is str
         and payload["toState"] == queue.ADMINISTRATIVE_STATE
+        and type(payload["fromState"]) is str
         and payload["fromState"] in queue.ACTIVE
+        and type(payload["preservation"]) is str
         and payload["preservation"] == PRESERVATION
         and payload["verificationAccepted"] is False
         and type(payload["operatorUid"]) is int
         and payload["operatorUid"] == os.getuid()
-        and JOB_ID.fullmatch(payload["jobId"] or "")
-        and JOB_ID.fullmatch(payload["attemptId"] or "")
-        and RUN_ID.fullmatch(payload["runId"] or "")
-        and APPROVAL.fullmatch(payload["preparedDigest"] or "")
-        and APPROVAL.fullmatch(payload["approvalDigest"] or "")
-        and JOB_ID.fullmatch(payload["historicalBootId"] or "")
-        and JOB_ID.fullmatch(payload["currentBootId"] or "")
+        and type(payload["jobId"]) is str
+        and JOB_ID.fullmatch(payload["jobId"]) is not None
+        and type(payload["attemptId"]) is str
+        and JOB_ID.fullmatch(payload["attemptId"]) is not None
+        and type(payload["runId"]) is str
+        and RUN_ID.fullmatch(payload["runId"]) is not None
+        and type(payload["preparedDigest"]) is str
+        and APPROVAL.fullmatch(payload["preparedDigest"]) is not None
+        and type(payload["approvalDigest"]) is str
+        and APPROVAL.fullmatch(payload["approvalDigest"]) is not None
+        and type(payload["historicalBootId"]) is str
+        and JOB_ID.fullmatch(payload["historicalBootId"]) is not None
+        and type(payload["currentBootId"]) is str
+        and JOB_ID.fullmatch(payload["currentBootId"]) is not None
         and payload["historicalBootId"] != payload["currentBootId"]
         and _number(payload["recordedAt"])
         and (payload["previousReason"] is None or type(payload["previousReason"]) is str)
         and (payload["previousUpdatedAt"] is None or _number(payload["previousUpdatedAt"]))
-        and type(payload["reason"]) is str
+        and _valid_reason(payload["reason"])
         and isinstance(payload["evidenceInventory"], dict)
+        and isinstance(payload["rootIdentity"], list)
         and payload["rootIdentity"] == list(view.identity)
     )
     if not valid:
@@ -604,7 +626,7 @@ def _existing_lock(path: Path) -> Iterator[int]:
     """Acquire an already-created coordination lock; never recreates or
     silently adopts a replacement."""
     checked_path(path)
-    fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW)
+    fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         info = os.fstat(fd)
         current = path.lstat()
@@ -641,7 +663,7 @@ def _verify_held(locks: tuple[tuple[Path, int], ...]) -> None:
 def _open_existing(root: Path) -> sqlite3.Connection:
     """Attach to the pinned existing database file; mode=rw can never create."""
     database = checked_path(root / "queue.sqlite3")
-    pin = os.open(database, os.O_RDWR | os.O_NOFOLLOW)
+    pin = os.open(database, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         pinned = os.fstat(pin)
         if not stat.S_ISREG(pinned.st_mode) or pinned.st_uid != os.getuid():
