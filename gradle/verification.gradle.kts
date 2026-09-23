@@ -1026,7 +1026,8 @@ val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
                 .named("main").get().runtimeClasspath.asPath,
             "--java", file("${codeQualityJavaHome.get()}/bin/java").absolutePath,
             "--work-dir",
-            layout.buildDirectory.dir("tmp/external-plugin-template/selftest").get().asFile.absolutePath
+            layout.buildDirectory.dir("tmp/external-plugin-template/selftest").get().asFile.absolutePath,
+            "--shared-gradle-home", gradle.gradleUserHomeDir.absolutePath
         )
     }
 }
@@ -1059,7 +1060,8 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
                 .named("main").get().runtimeClasspath.asPath,
             "--java", file("${codeQualityJavaHome.get()}/bin/java").absolutePath,
             "--work-dir",
-            layout.buildDirectory.dir("tmp/external-plugin-template/check").get().asFile.absolutePath
+            layout.buildDirectory.dir("tmp/external-plugin-template/check").get().asFile.absolutePath,
+            "--shared-gradle-home", gradle.gradleUserHomeDir.absolutePath
         )
     }
 }
