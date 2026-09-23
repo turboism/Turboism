@@ -5,7 +5,9 @@ import java.util.Objects;
 
 /** Immutable read-only inspection output; lifecycle preflight must revalidate all bound bytes. */
 public final class PluginInstallPlan {
+    /** The obligation a caller must honour before acting on this plan. */
     public enum Requirement {
+        /** Every byte bound by this plan must be revalidated before the plugin is published. */
         INSPECTION_PREFLIGHT_REVALIDATION_REQUIRED
     }
 

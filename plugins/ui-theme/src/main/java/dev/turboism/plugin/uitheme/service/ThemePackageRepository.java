@@ -137,12 +137,14 @@ public final class ThemePackageRepository {
         return themeId;
     }
 
+    /** Outcome of a {@link ThemePackageRepository#save} attempt: written, refused because the id exists, or failed. */
     public enum SaveOutcome {
         SAVED,
         CONFLICT,
         FAILED
     }
 
+    /** Outcome of a {@link ThemePackageRepository#delete} attempt: removed, already absent, or failed. */
     public enum DeleteOutcome {
         DELETED,
         NOT_FOUND,

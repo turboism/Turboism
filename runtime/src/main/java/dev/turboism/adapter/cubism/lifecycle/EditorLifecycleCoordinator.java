@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.sdk.event.cubism.EditorExitEvent;
-import dev.turboism.sdk.event.cubism.EditorStartupEvent;
+import dev.turboism.sdk.cubism.event.EditorExitEvent;
+import dev.turboism.sdk.cubism.event.EditorStartupEvent;
 
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.EditorExitResult;

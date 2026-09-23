@@ -59,6 +59,7 @@ class SchemaFixtureValidationTest {
         "parameter-read.json, permission-v1, permission",
         "mesh-read.json, permission-v1, permission",
         "dialog-automate.json, permission-v1, permission",
+        "cubism-edit.json, permission-v1, permission",
         "default.json, runtime-config-v1, runtime-config",
         "minimal.json, diagnostic-report-v1, diagnostic-report",
         "draft.json, mapping-pack-v1, mapping-pack",

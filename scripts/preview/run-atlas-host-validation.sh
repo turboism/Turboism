@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Fixed Geometry current-page task. Generic queued Runner owns all host lifecycle.
+# Fixed current-page layout task. Generic queued Runner owns all host lifecycle.
+# Admitted cases: ui-{circle,geometry}-{100,500,1000,2500}-{native,new,polygon}
+# plus the historical non-UI geometry-{100,500,1000,2500}-{native,new} set.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$root/scripts/preview/host-validation-env.sh"
-[[ $# -ge 3 && "$1" == 5303 ]] || { echo 'usage: atlas 5303 run-label geometry-{100,500,1000,2500}-{native,new} [--prepare-dir DIR|--dry-run]' >&2; exit 2; }
+[[ $# -ge 3 && "$1" =~ ^(5203|5302|5303)$ ]] || { echo 'usage: atlas <5203|5302|5303> run-label {ui-}{circle,geometry}-{100,500,1000,2500}-{native,new,polygon} [--prepare-dir DIR|--dry-run]' >&2; exit 2; }
 version="$1"; label="$2"; variant="$3"; shift 3
 parallel=false
 case "$variant" in
@@ -12,29 +14,44 @@ case "$variant" in
 esac
 dataset=geometry; ui_timing=false
 case "$variant" in
-  ui-circle-*-native|ui-circle-*-new) dataset=circle; ui_timing=true ;;
-  ui-geometry-*-native|ui-geometry-*-new) ui_timing=true ;;
+  ui-circle-*-native|ui-circle-*-new|ui-circle-*-polygon) dataset=circle; ui_timing=true ;;
+  ui-geometry-*-native|ui-geometry-*-new|ui-geometry-*-polygon) ui_timing=true ;;
 esac
+circle_100=2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e
+circle_500=54ce27647bd8d63d16fc643eb209ef2016fda0d975779b5b07943da303478b50
+circle_1000=5a1a4d0e1f27dbffe09eafc5d5f8626776bcad35fab8fcd06c6ecc34b68959f9
+circle_2500=3cbd3d8ef91166010c90d5f96d872ef527841b36aadb9e634368cab3d159a239
+geometry_100=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff
+geometry_500=99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b
+geometry_1000=2f64a7f5fd4f2abc4cdd0036d1943f8382f30581228ea5f87143b5b367abd3e2
+geometry_2500=4bb38d8073cf339b32047bf186514dc7d3709cbfb90dbe665b0a5b0a76daf24b
+count=""
 case "$variant" in
-  geometry-100-native|geometry-100-new) count=100; hash=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff ;;
-  geometry-500-native|geometry-500-new) count=500; hash=99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b ;;
-  ui-geometry-500-native|ui-geometry-500-new) count=500; hash=99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b ;;
-  ui-circle-500-native|ui-circle-500-new) count=500; hash=54ce27647bd8d63d16fc643eb209ef2016fda0d975779b5b07943da303478b50 ;;
-  ui-circle-100-native|ui-circle-100-new) count=100; hash=2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e ;;
-  ui-circle-1000-native|ui-circle-1000-new) count=1000; hash=5a1a4d0e1f27dbffe09eafc5d5f8626776bcad35fab8fcd06c6ecc34b68959f9 ;;
-  ui-circle-2500-native|ui-circle-2500-new) count=2500; hash=3cbd3d8ef91166010c90d5f96d872ef527841b36aadb9e634368cab3d159a239 ;;
-  ui-geometry-100-native|ui-geometry-100-new) count=100; hash=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff ;;
-  ui-geometry-1000-native|ui-geometry-1000-new) count=1000; hash=2f64a7f5fd4f2abc4cdd0036d1943f8382f30581228ea5f87143b5b367abd3e2 ;;
-  ui-geometry-2500-native|ui-geometry-2500-new) count=2500; hash=4bb38d8073cf339b32047bf186514dc7d3709cbfb90dbe665b0a5b0a76daf24b ;;
-  geometry-1000-native|geometry-1000-new) count=1000; hash=2f64a7f5fd4f2abc4cdd0036d1943f8382f30581228ea5f87143b5b367abd3e2 ;;
-  geometry-2500-native|geometry-2500-new) count=2500; hash=4bb38d8073cf339b32047bf186514dc7d3709cbfb90dbe665b0a5b0a76daf24b ;;
+  *-100-native|*-100-new|*-100-polygon) count=100; hash=$circle_100 ;;
+  *-500-native|*-500-new|*-500-polygon) count=500; hash=$circle_500 ;;
+  *-1000-native|*-1000-new|*-1000-polygon) count=1000; hash=$circle_1000 ;;
+  *-2500-native|*-2500-new|*-2500-polygon) count=2500; hash=$circle_2500 ;;
+esac
+if [[ "$dataset" == geometry && -n "$count" ]]; then
+  case "$count" in
+    100) hash=$geometry_100 ;; 500) hash=$geometry_500 ;;
+    1000) hash=$geometry_1000 ;; 2500) hash=$geometry_2500 ;;
+  esac
+fi
+[[ -n "$count" ]] || { echo 'Unadmitted Atlas case' >&2; exit 2; }
+case "$variant" in
+  *-native|*-new|*-polygon) implementation="${variant##*-}" ;;
   *) echo 'Unadmitted Atlas case' >&2; exit 2 ;;
 esac
-implementation="${variant##*-}"
 result_timeout=7500
 [[ "$count" != 2500 ]] || result_timeout=21900
-# UI matrix uses a 30-minute result ceiling; submit with manager hard timeout 1800 as well.
+# UI matrix uses a 30-minute result ceiling, except geometry-1000-native whose
+# measured 5303 method time alone was ~1635 s; allow 45 minutes for that case.
 [[ "$ui_timing" != true ]] || result_timeout=1800
+layout_deadline=1800
+if [[ "$ui_timing" == true && "$variant" == ui-geometry-1000-native ]]; then
+  result_timeout=2700; layout_deadline=2700
+fi
 # No fixture/Agent/JVM/hook overrides through this capability wrapper.
 extra=()
 if [[ $# == 2 && "$1" == --prepare-dir ]]; then extra=(--prepare-dir "$2")
@@ -46,15 +63,17 @@ bundle="$root/build/preview/$id"
 agent="$bundle/turboism-agent.jar"
 probe="$root/build/atlas-queue-probe/atlas-queue-probe.jar"
 shopt -s nullglob
-plugins=("$root/build/worktree/$id/atlas-maxrects-bssf/libs/"*.jar)
-[[ ${#plugins[@]} == 1 && -f "$probe" && -f "$agent" ]] || { echo 'Build previewBundle, Atlas jar and package-atlas-queue-probe.sh first' >&2; exit 2; }
+maxrects=("$root/build/worktree/$id/atlas-maxrects-bssf/libs/"*.jar)
+dalsoo=("$root/build/worktree/$id/atlas-dalsoo-polygon/libs/"*.jar)
+[[ ${#maxrects[@]} == 1 && ${#dalsoo[@]} == 1 && -f "$probe" && -f "$agent" ]] || { echo 'Build previewBundle, both Atlas plugin jars and package-atlas-queue-probe.sh first' >&2; exit 2; }
 fixture_name="atlas_mapping_geometry_$count.cmo3"
 [[ "$dataset" != circle ]] || fixture_name="atlas_mapping_$count.cmo3"
 fixture="$root/test-assets/texture-atlas-layout/cmo3/$dataset/$fixture_name"
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --name atlas --version "$version" --run-label "$label-$variant-parallel-$parallel" \
   --bundle-root "$bundle" --agent "$agent" \
-  --plugin "${plugins[0]}:atlas-maxrects-bssf.jar" \
+  --plugin "${maxrects[0]}:atlas-maxrects-bssf.jar" \
+  --plugin "${dalsoo[0]}:atlas-dalsoo-polygon.jar" \
   --aux-agent "$probe:atlas-queue-probe.jar" \
   --fixture-local "$fixture" --fixture-sha256 "$hash" --require-fixture-unchanged \
   --fixture-name "$fixture_name" \
@@ -63,6 +82,7 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --jvm-option "-Dturboism.validation.atlas.dataset=$dataset" \
   --jvm-option "-Dturboism.validation.atlas.uiTiming=$ui_timing" \
   --jvm-option "-Dturboism.validation.atlas.parallel=$parallel" \
+  --jvm-option "-Dturboism.validation.atlas.layoutDeadlineSeconds=$layout_deadline" \
   --jvm-option '-Dturboism.validation.atlas.fixtureName={FIXTURE_NAME}' \
   --result-file state/atlas-validation/result.txt \
   --result-timeout "$result_timeout" --exit-timeout 120 \

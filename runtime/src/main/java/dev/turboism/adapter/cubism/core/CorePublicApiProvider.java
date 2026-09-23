@@ -8,14 +8,36 @@ package dev.turboism.adapter.cubism.core;
  */
 public interface CorePublicApiProvider {
 
+    /**
+     * @return the stable identity of this provider implementation
+     */
     String providerId();
 
+    /**
+     * @return the exact artifact profile this provider was admitted for (for example
+     *         {@code "5.3.02"}); selector evidence is admitted per profile
+     */
     String artifactProfile();
 
+    /**
+     * @return {@code true} when the provider is attached to a usable Core; when
+     *         {@code false} operations answer failed results instead of touching Core
+     */
     boolean available();
 
+    /**
+     * @return the observed Core runtime version, or a failed result when it cannot be read
+     */
     CoreProviderResult<CoreRuntimeVersion> runtimeVersion();
 
+    /**
+     * The capability flags for this provider's artifact profile.
+     *
+     * <p>The default derives them from {@link #artifactProfile()}: owned-Moc support only
+     * for the {@code "5.3.02"} profile and MOC metadata always assumed readable.</p>
+     *
+     * @return the capability flags; never null
+     */
     default dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
         return new dev.turboism.sdk.cubism.core.CoreCapabilities(
             "5.3.02".equals(artifactProfile()),
@@ -24,14 +46,35 @@ public interface CorePublicApiProvider {
         );
     }
 
+    /**
+     * The newest MOC format version the Core runtime accepts.
+     *
+     * <p>The default fails closed with {@code ADAPTER_UNAVAILABLE}; profiles that admit the
+     * MOC metadata selectors override it.</p>
+     *
+     * @return the version constant, or a failed result when the selectors are not admitted
+     */
     default CoreProviderResult<Integer> latestMocVersion() {
         return unavailableMocOperation();
     }
 
+    /**
+     * The MOC format version carried by raw MOC bytes.
+     *
+     * @param bytes the serialized MOC data to inspect
+     * @return the version constant, or a failed result when the selectors are not admitted
+     */
     default CoreProviderResult<Integer> mocVersion(final byte[] bytes) {
         return unavailableMocOperation();
     }
 
+    /**
+     * Whether raw MOC bytes pass the Core consistency check.
+     *
+     * @param bytes the serialized MOC data to check
+     * @return the consistency verdict, or a failed result when the selectors are not
+     *         admitted
+     */
     default CoreProviderResult<Boolean> hasMocConsistency(final byte[] bytes) {
         return unavailableMocOperation();
     }
@@ -101,6 +144,12 @@ public interface CorePublicApiProvider {
         ));
     }
 
+    /**
+     * A provider for when no Core is attached.
+     *
+     * @return the fail-closed provider: {@link #available()} is {@code false} and reads
+     *         answer failed {@code ADAPTER_UNAVAILABLE} results
+     */
     static CorePublicApiProvider safeMode() {
         return UnavailableCorePublicApiProvider.INSTANCE;
     }

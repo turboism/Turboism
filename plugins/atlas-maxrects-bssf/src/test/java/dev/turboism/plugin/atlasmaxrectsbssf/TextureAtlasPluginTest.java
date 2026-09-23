@@ -4,6 +4,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.plugin.atlasmaxrectsbssf.test.DefaultPluginConfigRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
@@ -18,10 +19,10 @@ import dev.turboism.sdk.ui.UiScheduler;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,8 +35,7 @@ class TextureAtlasPluginTest {
         plugin.init(context);
         plugin.enable();
         try {
-            assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT,
-                TextureAtlasPlugin.ALGORITHM_MAXRECTS, false)));
+            assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT)));
             final var planner = context.registry.find(TextureAtlasPlugin.ALGORITHM_MAXRECTS).orElseThrow().planner();
             final var plan = planner.plan(java.util.List.of(
                 new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("first", 10, 10),
@@ -50,7 +50,7 @@ class TextureAtlasPluginTest {
     }
 
     @Test
-    void registeredPlannerHonorsParallelChangesWithoutReenablingThePlugin() {
+    void registeredPlannerHonorsTheRuntimeParallelHintAndTwoArgCompatibility() {
         final ShellPluginContext context = new ShellPluginContext();
         final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
         plugin.init(context);
@@ -61,14 +61,15 @@ class TextureAtlasPluginTest {
             final var constraints = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints.currentPage(64, 64, 1, false, 1);
             final var planner = context.registry.find(TextureAtlasPlugin.ALGORITHM_MAXRECTS).orElseThrow().planner();
             final var serial = planner.plan(items, constraints);
-            assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT,
-                TextureAtlasPlugin.ALGORITHM_MAXRECTS, true)));
-            final var parallel = planner.plan(items, constraints);
-            org.junit.jupiter.api.Assertions.assertNotEquals(serial, parallel);
+            // The three-argument hint supplied by native dispatch is honored directly.
+            final var hinted = planner.plan(items, constraints, true);
+            org.junit.jupiter.api.Assertions.assertNotEquals(serial, hinted);
             assertEquals(new dev.turboism.plugin.atlasmaxrectsbssf.layout.CurrentPageTextureAtlasPlanner()
-                .plan(items, constraints, true), parallel);
-            assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT,
-                TextureAtlasPlugin.ALGORITHM_MAXRECTS, false)));
+                .plan(items, constraints, true), hinted);
+            // Two-argument calls read the runtime-owned selection's parallel flag.
+            context.registry.select(new TextureAtlasLayoutSelection("maxrects", true));
+            assertEquals(hinted, planner.plan(items, constraints));
+            context.registry.select(new TextureAtlasLayoutSelection("maxrects", false));
             assertEquals(serial, planner.plan(items, constraints));
         } finally {
             plugin.shutdown();
@@ -108,32 +109,45 @@ class TextureAtlasPluginTest {
 
         assertEquals(TextureAtlasSettingsBinding.CONFIG_ID, context.config.lastSchema().configId());
         assertEquals(TextureAtlasSettingsBinding.CONFIG_PATH, context.config.lastSchema().relativePath());
+        assertEquals(4, context.config.lastSchema().version());
         plugin.shutdown();
     }
 
     @Test
-    void lifecycleComposesAutomaticLayoutServiceAndRevokesCapturedAccessWhenDisabled() {
-        TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+    void enableRegistersTheAlgorithmAndScopeCloseUnregistersIt() throws Exception {
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        final ShellPluginContext context = new ShellPluginContext();
 
         assertThrows(IllegalStateException.class, plugin::enable);
-        plugin.init(new ShellPluginContext());
-        assertThrows(IllegalStateException.class, plugin::autoLayoutService);
+        plugin.init(context);
         plugin.enable();
 
         assertTrue(plugin.isEnabled());
-        final TextureAtlasAutoLayoutService captured = plugin.autoLayoutService();
-        assertTrue(captured != null);
+        assertTrue(context.registry.find(TextureAtlasPlugin.ALGORITHM_MAXRECTS).isPresent());
+        // Registering must not force a runtime selection.
+        assertTrue(context.registry.selection().isNative());
+
         plugin.disable();
         assertFalse(plugin.isEnabled());
-        assertThrows(IllegalStateException.class, plugin::autoLayoutService);
-        assertEquals(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.RUNTIME_CLOSED, captured.applyAutomaticLayout().failureCode().orElseThrow());
-
-        plugin.enable();
-        assertTrue(plugin.autoLayoutService() == captured);
+        // Disabling the owning scope detaches the registration without an explicit close.
+        context.scope.close();
+        assertTrue(context.registry.find(TextureAtlasPlugin.ALGORITHM_MAXRECTS).isEmpty());
         plugin.shutdown();
-        assertFalse(plugin.isEnabled());
-        assertEquals(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.RUNTIME_CLOSED, captured.applyAutomaticLayout().failureCode().orElseThrow());
-        assertThrows(IllegalStateException.class, plugin::autoLayoutService);
+    }
+
+    @Test
+    void enablePublishesNoPluginOwnedSystemProperties() {
+        final ShellPluginContext context = new ShellPluginContext();
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        plugin.init(context);
+        plugin.enable();
+        try {
+            assertNull(System.getProperty("dev.turboism.texture-atlas.auto-layout.callback"));
+            assertNull(System.getProperty("dev.turboism.texture-atlas.dialog.algorithm"));
+            assertNull(System.getProperty("dev.turboism.texture-atlas.dialog.parallel"));
+        } finally {
+            plugin.shutdown();
+        }
     }
 
     @Test
@@ -143,7 +157,7 @@ class TextureAtlasPluginTest {
         plugin.enable();
 
         assertEquals(TextureAtlasLayoutMode.PART_BUCKET, plugin.settings().layoutMode());
-        assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT, TextureAtlasPlugin.ALGORITHM_MAXRECTS, false)));
+        assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT)));
         assertEquals(TextureAtlasLayoutMode.COMPACT, plugin.settings().layoutMode());
 
         plugin.disable();
@@ -153,47 +167,85 @@ class TextureAtlasPluginTest {
     }
 
     @Test
-    void nativeEntryPublishesOneLifecycleBoundCallbackAndFallsBackOnFailure() {
-        final RecordingLayoutService layouts = new RecordingLayoutService(
-            java.util.Optional.of(snapshot())
-        );
-        final ShellPluginContext context = new ShellPluginContext(layouts);
-        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+    void legacySelectionIsMigratedOnlyWhileTheRuntimeSelectionIsUnset() {
+        // A stored v3 document carrying the user's algorithm preference upgrades to v4;
+        // the migration captures the legacy values for the one-time hand-off.
+        final TextureAtlasSettingsBinding binding = new TextureAtlasSettingsBinding();
+        upgradeFrom(binding, new dev.turboism.sdk.config.ConfigDocument(
+            3,
+            java.util.Map.of(
+                "algorithm", "maxrects",
+                "parallel", "true",
+                "layout-mode", "COMPACT")));
+
+        final ShellPluginContext context = new ShellPluginContext();
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin(binding);
         plugin.init(context);
-
         plugin.enable();
-        final Object published = System.getProperties().get(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
-        assertTrue(published instanceof BooleanSupplier);
-        assertTrue(((BooleanSupplier) published).getAsBoolean());
-        assertEquals(1, layouts.applyCalls);
-        assertTrue(context.infoMessages.contains(
-            "Texture Atlas native automatic-layout result status=APPLIED"
-        ));
-
-        layouts.result = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.noChange();
-        assertTrue(((BooleanSupplier) published).getAsBoolean());
-        assertTrue(context.infoMessages.contains(
-            "Texture Atlas native automatic-layout result status=NO_CHANGE"
-        ));
-
-        layouts.result = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.failed(
-            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.PROVIDER_FAILED,
-            "failed"
-        );
-        assertFalse(((BooleanSupplier) published).getAsBoolean());
-        assertTrue(context.warnMessages.contains(
-            "Texture Atlas native automatic-layout result failureCode=PROVIDER_FAILED"
-        ));
-
-        final BooleanSupplier replacement = () -> true;
-        System.getProperties().put(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY, replacement);
-        plugin.disable();
-        assertTrue(System.getProperties().get(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY) == replacement);
-        assertFalse(((BooleanSupplier) published).getAsBoolean());
-        plugin.shutdown();
-        assertTrue(System.getProperties().get(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY) == replacement);
-        System.getProperties().remove(TextureAtlasPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY, replacement);
+        try {
+            // Nothing was ever selected, so the migrated preference is applied once.
+            assertEquals(
+                new TextureAtlasLayoutSelection("maxrects", true),
+                context.registry.selection());
+        } finally {
+            plugin.shutdown();
+        }
     }
+
+    @Test
+    void explicitNativeRuntimeSelectionSurvivesALegacyUpgrade() {
+        final TextureAtlasSettingsBinding binding = new TextureAtlasSettingsBinding();
+        upgradeFrom(binding, new dev.turboism.sdk.config.ConfigDocument(
+            3,
+            java.util.Map.of(
+                "algorithm", "maxrects",
+                "parallel", "true",
+                "layout-mode", "COMPACT")));
+
+        final ShellPluginContext context = new ShellPluginContext();
+        // An explicit native choice was already recorded before the upgrade ran.
+        context.registry.select(new TextureAtlasLayoutSelection(
+            TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+            false));
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin(binding);
+        plugin.init(context);
+        plugin.enable();
+        try {
+            assertEquals(
+                TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+                context.registry.selection().algorithmId());
+            assertTrue(context.registry.selection().isNative());
+        } finally {
+            plugin.shutdown();
+        }
+    }
+
+    /**
+     * Drives the binding's registered migration chain over a stored document the
+     * way the config service does during read, so the legacy algorithm/parallel
+     * values land in the pending hand-off slot.
+     */
+    private static void upgradeFrom(
+        final TextureAtlasSettingsBinding binding,
+        dev.turboism.sdk.config.ConfigDocument stored
+    ) {
+        final DefaultPluginConfigRegistry registry = new DefaultPluginConfigRegistry();
+        binding.init(registry).toCompletableFuture().join();
+        while (stored.schemaVersion() < 4) {
+            for (final dev.turboism.sdk.config.ConfigMigration migration :
+                registry.lastMigrations()) {
+                if (migration.fromVersion() == stored.schemaVersion()) {
+                    try {
+                        stored = migration.migrate(stored);
+                    } catch (dev.turboism.sdk.config.ConfigMigrationException failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private static final class ShellPluginContext implements PluginContext {
         private final java.util.List<String> infoMessages = new java.util.ArrayList<>();
         private final java.util.List<String> warnMessages = new java.util.ArrayList<>();
@@ -204,22 +256,13 @@ class TextureAtlasPluginTest {
             @Override public void error(String message) {}
             @Override public void error(String message, Throwable throwable) {}
         };
-        private final TextureAtlasLayoutService layouts;
-        private final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
-            new TestAlgorithmRegistry();
-
-        private ShellPluginContext() {
-            this(new RecordingLayoutService(java.util.Optional.empty()));
-        }
-
-        private ShellPluginContext(final TextureAtlasLayoutService layouts) {
-            this.layouts = layouts;
-        }
+        private final TextureAtlasLayoutService layouts = new EmptyLayoutService();
+        private final DisposableScope scope = new DisposableScope();
+        private final TestAlgorithmRegistry registry = new TestAlgorithmRegistry(scope);
+        private final DefaultPluginConfigRegistry config = new DefaultPluginConfigRegistry();
 
         @Override public PluginDescriptor descriptor() { throw unused(); }
         @Override public PluginLogger logger() { return logger; }
-        private final DefaultPluginConfigRegistry config = new DefaultPluginConfigRegistry();
-
         @Override public PluginPaths paths() { throw unused(); }
         @Override public PluginConfigRegistry config() { return config; }
         @Override public CubismFacade cubism() {
@@ -252,50 +295,17 @@ class TextureAtlasPluginTest {
         @Override public MenuRegistry menus() { throw unused(); }
         @Override public UiScheduler uiScheduler() { throw unused(); }
         @Override public DiagnosticReport diagnostics() { throw unused(); }
-        private final DisposableScope scope = new DisposableScope();
         @Override public DisposableScope disposableScope() { return scope; }
 
         private static UnsupportedOperationException unused() {
-            return new UnsupportedOperationException("not used by a migration shell");
+            return new UnsupportedOperationException("not used by this plugin");
         }
     }
 
-    private static dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot snapshot() {
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target =
-            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget() { };
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints constraints =
-            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints(16, 16, 0, 0, 1, false, false);
-        final java.util.List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem> items = java.util.List.of(
-            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("texture-a", 4, 4)
-        );
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan =
-            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan(
-                16,
-                16,
-                1,
-                java.util.List.of(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement(
-                    "texture-a", 0, 0, 0, 4, 4, false
-                ))
-            );
-        return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot(
-            target, "document-a", "model-a", "atlas-a", constraints, items, plan
-        );
-    }
-    private static final class RecordingLayoutService implements TextureAtlasLayoutService {
-        private final java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> snapshot;
-        private dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult result =
-            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.applied();
-        private int applyCalls;
-
-        private RecordingLayoutService(
-            final java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> snapshot
-        ) {
-            this.snapshot = snapshot;
-        }
-
+    private static final class EmptyLayoutService implements TextureAtlasLayoutService {
         @Override
         public java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> current() {
-            return snapshot;
+            return java.util.Optional.empty();
         }
 
         @Override
@@ -303,21 +313,37 @@ class TextureAtlasPluginTest {
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan
         ) {
-            applyCalls++;
-            return result;
+            return dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult.failed(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE,
+                "no atlas"
+            );
         }
     }
 
+    /**
+     * Stand-in for the production facade registry: registrations are bound to the
+     * owning plugin scope the same way {@code CubismFacadeImpl} ties them, so a scope
+     * close detaches them even when the plugin never closes explicitly.
+     */
     private static final class TestAlgorithmRegistry
         implements dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry {
         private final java.util.Map<String, dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm>
             algorithms = new java.util.LinkedHashMap<>();
+        private final DisposableScope ownerScope;
+        private TextureAtlasLayoutSelection selection = TextureAtlasLayoutSelection.nativeDefault();
+
+        private TestAlgorithmRegistry(final DisposableScope ownerScope) {
+            this.ownerScope = ownerScope;
+        }
 
         @Override public dev.turboism.sdk.plugin.Registration register(
             dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm algorithm
         ) {
             algorithms.put(algorithm.id(), algorithm);
-            return () -> algorithms.remove(algorithm.id(), algorithm);
+            final dev.turboism.sdk.plugin.Registration close =
+                () -> algorithms.remove(algorithm.id(), algorithm);
+            ownerScope.register(close);
+            return close;
         }
 
         @Override public java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm>
@@ -327,6 +353,14 @@ class TextureAtlasPluginTest {
 
         @Override public java.util.List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm> algorithms() {
             return java.util.List.copyOf(algorithms.values());
+        }
+
+        @Override public TextureAtlasLayoutSelection selection() {
+            return selection;
+        }
+
+        @Override public void select(final TextureAtlasLayoutSelection next) {
+            selection = next;
         }
     }
 }

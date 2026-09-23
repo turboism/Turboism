@@ -2,10 +2,10 @@ package dev.turboism.tests.runtime;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.adapter.cubism.SelectionObservation;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.WorkBudget;
@@ -135,7 +135,8 @@ class SelectionQueryIsolationTest {
                 new CubismFacadeImpl(source, permissionGate),
                 permissionGate,
                 broker,
-                new AtomicReference<SelectionSummary>()
+                new AtomicReference<SelectionObservation>(),
+                source
             ),
             broker,
             observer

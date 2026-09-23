@@ -17,7 +17,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
-import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
@@ -82,12 +81,10 @@ final class RuntimeChoiceDialogs {
 
     private static DialogResult show(final ChoiceDialogRequest request) {
         final Window owner = activeOwner();
-        final JDialog dialog = owner instanceof Frame frame
-            ? new JDialog(frame, request.title(), true)
-            : owner instanceof Dialog parent
-                ? new JDialog(parent, request.title(), true)
-                : new JDialog((Frame) null, request.title(), true);
-        TurboismWindowFactory.style(dialog);
+        final JDialog dialog = TurboismWindowFactory.dialog(owner, request.title(), true);
+        if (dialog == null) {
+            return DialogResult.decode(null);
+        }
         final AtomicReference<String> selected = new AtomicReference<>();
         final JPanel content = new JPanel(new BorderLayout(0, 10));
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));

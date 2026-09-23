@@ -12,6 +12,13 @@ import java.util.List;
  */
 public interface PaletteFilterVisibilitySink {
 
+    /**
+     * Delivers one plugin's current filter contribution snapshot.
+     *
+     * @param pluginId the plugin whose contributions changed
+     * @param contributions the plugin's complete contribution list; empty removes the plugin's
+     *        contributions
+     */
     void onPaletteFilterVisibilityChanged(
         String pluginId,
         List<PaletteFilterRegistry.PaletteFilterContribution> contributions

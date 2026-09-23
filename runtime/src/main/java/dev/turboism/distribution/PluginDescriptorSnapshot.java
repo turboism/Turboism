@@ -26,6 +26,7 @@ public final class PluginDescriptorSnapshot {
     private final List<String> tags;
     private final List<EventExport> eventExports;
     private final List<EventImport> eventImports;
+    private final List<EventContract> eventContracts;
 
     static PluginDescriptorSnapshot copyOf(final PluginDescriptor source) {
         return new PluginDescriptorSnapshot(source);
@@ -69,6 +70,11 @@ public final class PluginDescriptorSnapshot {
             .map(value -> new EventImport(
                 value.providerId(), value.eventId(), value.contractVersion(), value.eventType(),
                 value.abiSha256(), value.required()
+            ))
+            .toList();
+        eventContracts = source.eventContracts().stream()
+            .map(value -> new EventContract(
+                value.id(), value.version(), value.artifact(), value.sha256()
             ))
             .toList();
     }
@@ -129,6 +135,9 @@ public final class PluginDescriptorSnapshot {
 
     /** @return dependency-owned public event contracts consumed by the plugin */
     public List<EventImport> eventImports() { return eventImports; }
+
+    /** @return published public event contract artifacts embedded in the plugin JAR */
+    public List<EventContract> eventContracts() { return eventContracts; }
 
     /**
      * One declared plugin author.
@@ -197,6 +206,15 @@ public final class PluginDescriptorSnapshot {
         String eventType,
         String abiSha256,
         boolean required
+    ) {
+    }
+
+    /** Published public event contract artifact embedded in the plugin JAR. */
+    public record EventContract(
+        String id,
+        String version,
+        String artifact,
+        String sha256
     ) {
     }
 

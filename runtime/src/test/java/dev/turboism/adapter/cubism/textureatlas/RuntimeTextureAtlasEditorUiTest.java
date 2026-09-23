@@ -150,8 +150,8 @@ class RuntimeTextureAtlasEditorUiTest {
     private static VerifiedMemberResolver resolver() {
         return TestVerifiedResolvers.create(
             "5.3.02",
-            VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-            Set.of(VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID),
+            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            Set.of(VerifiedTextureAtlasSelectorContract.CAPABILITY_ID),
             List.of(StaticSelector.classSelector("test.ui", Object.class.getName().replace('.', '/'))),
             RuntimeTextureAtlasEditorUiTest.class.getClassLoader()
         );

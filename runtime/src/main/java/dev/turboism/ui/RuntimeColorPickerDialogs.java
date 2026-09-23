@@ -7,8 +7,6 @@ import javax.swing.JColorChooser;
 import javax.swing.JDialog;
 import javax.swing.SwingUtilities;
 import java.awt.Color;
-import java.awt.Dialog;
-import java.awt.Frame;
 import java.awt.Window;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,16 +45,12 @@ final class RuntimeColorPickerDialogs {
         final JColorChooser chooser = new JColorChooser(initial == null ? Color.WHITE : initial);
         final AtomicReference<Color> chosen = new AtomicReference<>();
         final JDialog dialog = JColorChooser.createDialog(
-            owner instanceof Frame frame
-                ? frame
-                : owner instanceof Dialog parent
-                    ? parent
-                    : null,
+            owner,
             title,
             true,
             chooser,
-            accepted -> chosen.set(chooser.getColor()),
-            null
+            event -> chosen.set(chooser.getColor()),
+            ignored -> { }
         );
         TurboismWindowFactory.style(dialog);
         try {
@@ -64,8 +58,8 @@ final class RuntimeColorPickerDialogs {
         } finally {
             dialog.dispose();
         }
-        final Color result = chosen.get();
-        listener.onResult(result != null, result == null ? null : hex(result));
+        final Color value = chosen.get();
+        listener.onResult(value != null, value == null ? null : hex(value));
     }
 
     private static Window activeOwner() {

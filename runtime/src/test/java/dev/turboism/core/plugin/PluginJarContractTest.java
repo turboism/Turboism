@@ -257,4 +257,88 @@ class PluginJarContractTest {
             descriptor, List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties"),
             "plugins/clipmask-viewer.jar");
     }
+
+    private static final String CONTRACT_ARTIFACT =
+        "META-INF/turboism/contracts/acme-events-1.0.0.jar";
+
+    @Test
+    void declaredContractArtifactMustBeEmbedded() {
+        final PluginDescriptor descriptor = new EventContractDescriptor(
+            descriptorWithLocales(List.of("base")), CONTRACT_ARTIFACT
+        );
+        final PluginJarContract.PluginJarContractException exception = assertThrows(
+            PluginJarContract.PluginJarContractException.class,
+            () -> PluginJarContract.validate(
+                descriptor,
+                List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties"),
+                "plugins/contract-plugin.jar"
+            )
+        );
+        assertEquals("PLUGIN_CONTRACT_ARTIFACT_MISSING", exception.code());
+        assertTrue(exception.path().endsWith(CONTRACT_ARTIFACT));
+    }
+
+    @Test
+    void undeclaredContractArtifactIsRejected() {
+        final PluginDescriptor descriptor = descriptorWithLocales(List.of("base"));
+        final PluginJarContract.PluginJarContractException exception = assertThrows(
+            PluginJarContract.PluginJarContractException.class,
+            () -> PluginJarContract.validate(
+                descriptor,
+                List.of(
+                    ENTRYPOINT_CLASS,
+                    BASE_NAME + ".properties",
+                    CONTRACT_ARTIFACT
+                ),
+                "plugins/smuggled-contract.jar"
+            )
+        );
+        assertEquals("PLUGIN_CONTRACT_ARTIFACT_UNDECLARED", exception.code());
+        assertTrue(exception.path().endsWith(CONTRACT_ARTIFACT));
+    }
+
+    @Test
+    void declaredAndEmbeddedContractArtifactIsAccepted() throws Exception {
+        final PluginDescriptor descriptor = new EventContractDescriptor(
+            descriptorWithLocales(List.of("base")), CONTRACT_ARTIFACT
+        );
+        PluginJarContract.validate(
+            descriptor,
+            List.of(
+                ENTRYPOINT_CLASS,
+                BASE_NAME + ".properties",
+                CONTRACT_ARTIFACT
+            ),
+            "plugins/contract-plugin.jar"
+        );
+    }
+
+    private record EventContractDescriptor(
+        PluginDescriptor delegate,
+        String artifactPath
+    ) implements PluginDescriptor {
+        @Override public String id() { return delegate.id(); }
+        @Override public String name() { return delegate.name(); }
+        @Override public String version() { return delegate.version(); }
+        @Override public String description() { return delegate.description(); }
+        @Override public List<String> entrypoints() { return delegate.entrypoints(); }
+        @Override public String turboismApi() { return delegate.turboismApi(); }
+        @Override public List<Author> authors() { return delegate.authors(); }
+        @Override public String license() { return delegate.license(); }
+        @Override public Optional<String> website() { return delegate.website(); }
+        @Override public List<String> resources() { return delegate.resources(); }
+        @Override public I18n i18n() { return delegate.i18n(); }
+        @Override public List<DependencyRef> dependencies() { return delegate.dependencies(); }
+        @Override public List<PermissionRef> permissions() { return delegate.permissions(); }
+        @Override public List<String> capabilities() { return delegate.capabilities(); }
+        @Override public Environment environment() { return delegate.environment(); }
+        @Override public List<EventContract> eventContracts() {
+            return List.of(new EventContract() {
+                @Override public String id() { return "acme.events"; }
+                @Override public String version() { return "1.0.0"; }
+                @Override public String artifact() { return artifactPath; }
+                @Override public String sha256() { return "b".repeat(64); }
+            });
+        }
+    }
 }

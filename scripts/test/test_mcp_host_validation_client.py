@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
+import json
 import unittest
+import tempfile
+from unittest import mock
 from pathlib import Path
 
 
@@ -22,6 +26,8 @@ class McpHostValidationClientTest(unittest.TestCase):
             "turboism.parameter_bindings.apply",
             "turboism.glues.read",
             "turboism.glues.write",
+            "turboism.textures.read",
+            "turboism.textures.write",
             "turboism.history.read",
             "turboism.history.undo",
             "turboism.history.redo",
@@ -34,6 +40,102 @@ class McpHostValidationClientTest(unittest.TestCase):
             "turboism://active/model/parameter-bindings",
             "turboism://environment/runtime-diagnostics",
         } <= CLIENT.EXPECTED_RESOURCES)
+
+    def test_native_roundtrip_requires_all_current_run_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            digest = "a" * 64
+            evidence = ("runId=queue-ours\nstatus=PASS\nfixtureUnchanged=true\noriginalReopened=true\n"
+                        "nativeLayerPixelUndoRedo=PASS\nsaveReopen=PASS\npersistenceOperationKinds=5\n"
+                        f"savedFingerprint={digest}\nreopenedFingerprint={digest}\n"
+                        f"rawPixelsBefore={digest}\nrawPixelsRestored={digest}\n")
+            (root / "mcp-texture-roundtrip-result.properties").write_text(evidence)
+            result = CLIENT.validate_native_texture_roundtrip(root, "queue-ours", timeout_seconds=0.1)
+            self.assertEqual("PASS", result["saveReopen"])
+            self.assertEqual("runId=queue-ours\nstatus=REQUESTED\n",
+                             (root / "mcp-texture-roundtrip-request.properties").read_text())
+
+    def test_native_roundtrip_rejects_foreign_run_and_missing_pixel_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for text in ("runId=foreign\nstatus=PASS\n", "runId=queue-ours\nstatus=PASS\n"):
+                (root / "mcp-texture-roundtrip-result.properties").write_text(text)
+                with self.assertRaises(CLIENT.ValidationFailure):
+                    CLIENT.validate_native_texture_roundtrip(root, "queue-ours", timeout_seconds=0.01)
+
+    def test_texture_projection_compares_actual_content_not_state_tokens(self) -> None:
+        content = {"rawImages": [{"id": "raw", "name": "Raw", "width": 16, "height": 16}],
+                   "modelImageGroups": [], "textureAtlases": []}
+        self.assertEqual(content, CLIENT.texture_content({**content, "stateToken": {"historyRevision": 99}}))
+        with self.assertRaises(CLIENT.ValidationFailure):
+            CLIENT.texture_content({"rawImages": [], "modelImageGroups": []})
+
+    def test_texture_snapshot_uses_the_public_state_object_not_the_correlation_token(self) -> None:
+        snapshot = {"ok": True, "operation": "list", "stateToken": "request-correlation",
+                    "state": {"documentId": "doc", "modelId": "model", "historyGeneration": 1,
+                              "historyRevision": 2},
+                    "rawImages": [], "modelImageGroups": [], "textureAtlases": []}
+        with mock.patch.object(CLIENT, "tool_call", return_value=snapshot):
+            self.assertEqual(snapshot, CLIENT.texture_snapshot(object()))
+
+    def test_texture_cycle_requires_one_undo_and_restores_actual_metadata(self) -> None:
+        content = {"rawImages": [], "modelImageGroups": [], "textureAtlases": []}
+        created = {"id": "native-atlas", "name": "Audit", "width": 64, "height": 64}
+        state = {"position": 0}
+        calls = []
+        def history(_client):
+            return {"availability": "AVAILABLE", "generation": 1, "revision": len(calls),
+                    "position": state["position"], "entries": [{"entryId": "entry-1"}]}
+        def read(_client):
+            return {**content, "textureAtlases": [created] if state["position"] else [],
+                    "stateToken": "correlation-only",
+                    "state": {"documentId": "doc", "modelId": "model", "historyGeneration": 1,
+                              "historyRevision": len(calls)}}
+        def call(_client, name, args):
+            calls.append(name)
+            if name == "turboism.textures.write":
+                self.assertEqual("doc", args["expectedState"]["documentId"])
+                state["position"] = 1
+                return {"ok": True, "outcome": "APPLIED", "retryable": False,
+                        "receipt": "write-receipt", "id": "native-atlas"}
+            state["position"] = 0 if name.endswith("undo") else 1
+            return {"ok": True, "outcome": "MOVED"}
+        checks = []
+        with mock.patch.object(CLIENT, "history_snapshot", side_effect=history), \
+             mock.patch.object(CLIENT, "texture_snapshot", side_effect=read), \
+             mock.patch.object(CLIENT, "tool_call", side_effect=call):
+            CLIENT.texture_write_cycle(object(), {"operation": "add_texture_atlas", "name": "Audit",
+                "widthPixels": 64, "heightPixels": 64}, lambda before, after, receipt: checks.append(after))
+        self.assertEqual(["turboism.textures.write", "turboism.history.undo",
+                          "turboism.history.redo", "turboism.history.undo"], calls)
+        self.assertEqual(0, state["position"])
+        self.assertEqual([created], checks[0]["textureAtlases"])
+
+    def test_texture_write_receipt_failure_still_attempts_guarded_undo(self) -> None:
+        content = {"rawImages": [], "modelImageGroups": [], "textureAtlases": []}
+        state = {"position": 0}
+        calls = []
+        def history(_client):
+            return {"availability": "AVAILABLE", "generation": 1, "revision": len(calls),
+                    "position": state["position"], "entries": [{"entryId": "entry-1"}]}
+        def read(_client):
+            return {**content, "stateToken": "correlation-only", "state": {"documentId": "doc", "modelId": "model",
+                    "historyGeneration": 1, "historyRevision": len(calls)}}
+        def call(_client, name, args):
+            calls.append(name)
+            if name == "turboism.textures.write":
+                state["position"] = 1
+                return {"ok": True, "outcome": "OUTCOME_UNKNOWN", "retryable": True}
+            state["position"] = 0
+            return {"ok": True, "outcome": "MOVED"}
+        with mock.patch.object(CLIENT, "history_snapshot", side_effect=history), \
+             mock.patch.object(CLIENT, "texture_snapshot", side_effect=read), \
+             mock.patch.object(CLIENT, "tool_call", side_effect=call):
+            with self.assertRaises(CLIENT.ValidationFailure):
+                CLIENT.texture_write_cycle(object(), {"operation": "add_model_image_group", "name": "Audit"},
+                                           lambda *args: None)
+        self.assertEqual(["turboism.textures.write", "turboism.history.undo"], calls)
+        self.assertEqual(0, state["position"])
 
     def test_selects_a_bounded_reversible_glue_intensity_mutation(self) -> None:
         selected = CLIENT.choose_glue_intensity_mutation([
@@ -51,8 +153,13 @@ class McpHostValidationClientTest(unittest.TestCase):
         text = (REPO_ROOT / "scripts" / "preview" / "run-mcp-host-validation.sh") \
             .read_text(encoding="utf-8")
         self.assertIn("<5203|5302|5303>", text)
-        self.assertIn("5302|5303)", text)
+        manifest = json.loads((REPO_ROOT / "scripts/preview/host-validation-tasks.json").read_text())
+        self.assertEqual(["5203", "5302", "5303"], manifest["tasks"]["mcp"]["versions"])
+        self.assertIn('turboism_select_fixture "$version"', text)
         self.assertIn("--require-fixture-unchanged", text)
+        self.assertIn("--client-python", text)
+        self.assertNotIn("/home/local-user", text)
+        self.assertIn("Turboism MCP server started on the local loopback interface", text)
 
     def test_standard_sdk_client_uses_the_same_public_catalog(self) -> None:
         text = (REPO_ROOT / "scripts" / "preview" / "mcp-standard-client-validation.js") \
@@ -61,6 +168,96 @@ class McpHostValidationClientTest(unittest.TestCase):
             self.assertIn(f"'{endpoint}'", text)
         self.assertNotIn("name: 'turboism.history.move'", text)
         self.assertIn("name: 'turboism.history.read'", text)
+
+    def test_tool_failure_keeps_diagnostic_codes_without_raw_messages_or_arguments(self) -> None:
+        failed = {"ok": False, "outcome": "ROLLED_BACK", "diagnosticId": "transaction.failed",
+                  "steps": [{"id": "read", "output": {"ok": True, "error": None}},
+                            {"id": "write", "diagnosticId": "step.failed", "output": {
+                                "ok": False, "error": {"code": "STALE_STATE", "message": "/private/raw-model"}}}]}
+        failed["steps"] = [{"id": "successful" + str(index), "output": {"ok": True, "error": None}}
+                           for index in range(20)] + failed["steps"]
+        with mock.patch.object(CLIENT, "tool_result", return_value=failed):
+            with self.assertRaises(CLIENT.ValidationFailure) as raised:
+                CLIENT.tool_call(object(), "turboism.transaction.execute", {"secret": "do-not-emit"})
+        self.assertIn("transaction.failed", str(raised.exception))
+        self.assertIn("STALE_STATE", str(raised.exception))
+        self.assertNotIn("successful19", str(raised.exception))
+        self.assertIn('"completedStepCount": 21', str(raised.exception))
+        self.assertNotIn("raw-model", str(raised.exception))
+        self.assertNotIn("do-not-emit", str(raised.exception))
+
+    def test_glue_baseline_runs_before_matrices_that_leave_redo_history(self) -> None:
+        source = inspect.getsource(CLIENT.main)
+        self.assertLess(source.index("validate_audit_input_guards(client"),
+                        source.index("validate_reversible_glue_authoring(client"))
+        for later in ("validate_reversible_binding_inversion(client", "validate_reversible_parameter_write(client"):
+            self.assertLess(source.index("validate_reversible_glue_authoring(client"), source.index(later),
+                            "Glue's original-history tip guard must run before an Undo leaves a Redo tail")
+
+    def test_connection_is_numeric_loopback_without_proxy_or_redirect(self) -> None:
+        client = CLIENT.McpClient("http://127.0.0.1:43123/mcp", CLIENT.PROTOCOL_VERSION)
+        self.assertEqual("http://127.0.0.1:43123/mcp", client.endpoint)
+        for endpoint in ("http://127.0.0.1:43123@evil.invalid/mcp", "http://localhost:43123/mcp",
+                         "http://127.0.0.1/mcp", "http://127.0.0.1:43123/mcp?x=1",
+                         "http://127.0.0.1:43123/mcp#fragment"):
+            with self.subTest(endpoint=endpoint), self.assertRaises(CLIENT.ValidationFailure):
+                CLIENT.McpClient(endpoint, CLIENT.PROTOCOL_VERSION)
+        with self.assertRaises(CLIENT.ValidationFailure):
+            CLIENT.NoRedirect().redirect_request(None, None, 302, "redirect", {}, "http://evil.invalid")
+
+    def test_audit_guards_require_protocol_rejection_and_unchanged_state(self) -> None:
+        class FakeClient:
+            def __init__(self):
+                self.calls = []
+            def _id(self):
+                return 1
+            def _post(self, request):
+                self.calls.append(request)
+                code = -32600 if type(request["id"]) is not int else -32602
+                return 200, {}, json.dumps({"jsonrpc": "2.0", "id": None,
+                    "error": {"code": code, "message": "rejected"}}).encode()
+        history = {"availability": "AVAILABLE", "generation": 1, "revision": 2,
+                   "position": 0, "entries": []}
+        parameter = {"id": "ParamA", "value": 2, "minimumValue": 0, "maximumValue": 10}
+        def resource(_client, uri):
+            return {"ok": True, "roots": []} if uri.endswith("hierarchy") else {"value": 2}
+        client = FakeClient()
+        with mock.patch.object(CLIENT, "history_snapshot", return_value=history), \
+             mock.patch.object(CLIENT, "resource_json", side_effect=resource):
+            self.assertEqual(11, CLIENT.validate_audit_input_guards(client, [parameter]))
+            self.assertEqual(11, len(client.calls))
+            with mock.patch.object(client, "_post", return_value=(200, {}, b'{"result":{}}')):
+                with self.assertRaises(CLIENT.ValidationFailure):
+                    CLIENT.validate_audit_input_guards(client, [parameter])
+
+    def test_explicit_inversion_requires_full_scope_receipt_and_restores_history(self) -> None:
+        target = {"type": "art_mesh", "id": "Mesh1"}
+        binding = {"parameterId": "ParamA", "target": target, "family": "keyform_grid",
+                   "points": [{"id": "a", "value": 0}, {"id": "b", "value": 1}]}
+        snapshot = {"parameterBindings": [{"parameterId": "ParamA", "bindings": [binding]}]}
+        state = {"position": 0}
+        calls = []
+        def history(_client):
+            return {"availability": "AVAILABLE", "generation": 1, "revision": len(calls),
+                    "position": state["position"], "entries": [{"entryId": "entry-1"}]}
+        def call(_client, name, args):
+            calls.append(name)
+            if name == "turboism.parameter_bindings.apply":
+                self.assertEqual("all_target_bindings", args["operations"][0]["scope"])
+                state["position"] = 1
+                return {"ok": True, "results": [{"ok": True, "result": {
+                    "outcome": "APPLIED", "retryable": False, "scope": "all_target_bindings",
+                    "affectedParameterIds": ["ParamA"], "affectedBindings": [binding]}}]}
+            state["position"] = 0 if name.endswith("undo") else 1
+            return {"ok": True, "outcome": "MOVED"}
+        with mock.patch.object(CLIENT, "history_snapshot", side_effect=history), \
+             mock.patch.object(CLIENT, "resource_json", return_value=snapshot), \
+             mock.patch.object(CLIENT, "tool_call", side_effect=call):
+            self.assertEqual("ALL_BINDINGS_CHANGED_UNDONE_REDONE_AND_RESTORED",
+                CLIENT.validate_reversible_binding_inversion(object(), [{"id": "ParamA", "type": "normal"}]))
+        self.assertEqual(["turboism.parameter_bindings.apply", "turboism.history.undo",
+                          "turboism.history.redo", "turboism.history.undo"], calls)
+        self.assertEqual(0, state["position"])
 
     def test_history_guard_targets_top_undo_or_next_redo_entry(self) -> None:
         snapshot = {

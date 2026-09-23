@@ -1,9 +1,10 @@
 name: Unified build channel checks
 on:
   push:
-    branches: [feat/unified-build-channels-20260909]
+    branches: [main]
+    paths: ['gradle/**', 'runtime/**', 'scripts/release/**', 'scripts/test/**', 'packaging/**', '.github/workflows/**', 'RELEASING.md', 'build.gradle.kts', 'settings.gradle.kts', 'gradlew', 'gradlew.bat', 'buildSrc/**', 'distribution/**']
   pull_request:
-    paths: ['gradle/**', 'runtime/**', 'scripts/release/**', 'scripts/test/**', 'packaging/**', '.github/workflows/**', 'RELEASING.md']
+    paths: ['gradle/**', 'runtime/**', 'scripts/release/**', 'scripts/test/**', 'packaging/**', '.github/workflows/**', 'RELEASING.md', 'build.gradle.kts', 'settings.gradle.kts', 'gradlew', 'gradlew.bat', 'buildSrc/**', 'distribution/**']
 permissions:
   contents: read
 concurrency:

@@ -28,11 +28,13 @@ public record HistoryAction(
         }
     }
 
+    /** The semantic operation kind a history entry performed; {@code UNKNOWN} when unrecognized. */
     public enum Kind {
         SET_PARAMETER_VALUE,
         UNKNOWN
     }
 
+    /** How much trusted detail a history entry carries. */
     public enum DetailLevel {
         FULL,
         PARTIAL,

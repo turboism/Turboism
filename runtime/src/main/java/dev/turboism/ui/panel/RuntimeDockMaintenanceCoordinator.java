@@ -51,8 +51,10 @@ public final class RuntimeDockMaintenanceCoordinator {
         }
     }
 
+    /** Host seam that removes empty dock containers left behind by closed panels. */
     @FunctionalInterface
     public interface EmptyDockCleaner {
+        /** Removes currently-empty dock containers. */
         void clean();
     }
 }

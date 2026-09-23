@@ -12,21 +12,38 @@ import java.util.Optional;
 /** One Cubism model exposed as natural objects and methods. */
 public interface CubismModel {
 
+    /** Returns this model's stable identity within the current session. */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     ModelId id();
 
+    /**
+     * Returns the model's display name.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose it
+     */
     default String name() {
         throw new UnsupportedOperationException("Cubism model name is unavailable.");
     }
 
+    /**
+     * Renames the model through the Editor authoring path.
+     *
+     * @throws UnsupportedOperationException when the backend does not support name editing
+     */
     default void setName(final String name) {
         throw new UnsupportedOperationException("Cubism model-name editing is unavailable.");
     }
 
+    /**
+     * Returns the model's MOC metadata.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose MOC inspection
+     */
     default MocInfo mocInfo() {
         throw new UnsupportedOperationException("Cubism MOC metadata is unavailable.");
     }
 
+    /** Returns the model's parameter-definition document projection. */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default ParameterDefinitions parameterDefinitions() {
         throw new UnsupportedOperationException(
@@ -100,7 +117,7 @@ public interface CubismModel {
         );
     }
 
-    /** Returns the model's structural and render-resource statistics. */
+
 
     /** Returns the model's structural and render-resource statistics. */
     default ModelStatistics statistics() {
@@ -140,6 +157,7 @@ public interface CubismModel {
         );
     }
 
+    /** Returns the model's immutable canvas metrics. */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default Canvas canvas() {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
@@ -154,22 +172,41 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism model profile is unavailable.");
     }
 
+    /** Returns the model's parameter collection. */
     Parameters parameters();
 
+    /**
+     * Returns the model's parameter-group collection.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose parameter groups
+     */
     default ParameterGroups parameterGroups() {
         throw new UnsupportedOperationException("Cubism parameter-group access is unavailable.");
     }
 
+    /**
+     * Returns the binding-edit operations for one parameter.
+     *
+     * @param parameterId the parameter whose bindings are edited
+     * @throws UnsupportedOperationException when the backend does not support binding edits
+     */
     default ParameterBindingOperations parameterBindings(final dev.turboism.sdk.cubism.id.ParameterId parameterId) {
         throw new UnsupportedOperationException("Cubism parameter-binding editing is unavailable.");
     }
 
+    /**
+     * Returns the batch binding-edit operations spanning multiple parameters.
+     *
+     * @throws UnsupportedOperationException when the backend does not support batch edits
+     */
     default ParameterBindingBatchOperations parameterBindingBatch() {
         throw new UnsupportedOperationException("Cubism parameter-binding batch editing is unavailable.");
     }
 
+    /** Returns the model's part collection. */
     Parts parts();
 
+    /** Returns the model's drawable (ArtMesh) collection. */
     Drawables drawables();
 
     /** Applies one conditional clip-mask replacement batch as one Editor edit. */
@@ -179,18 +216,31 @@ public interface CubismModel {
         );
     }
 
+    /** Returns the model's unified deformer collection. */
     Deformers deformers();
 
+    /**
+     * Returns the model's Warp Deformer collection.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose Warp Deformers
+     */
     default WarpDeformers warpDeformers() {
         throw new UnsupportedOperationException("Cubism Warp Deformer access is unavailable.");
     }
 
+    /**
+     * Returns the model's Rotation Deformer collection.
+     *
+     * @throws UnsupportedOperationException when the backend does not expose Rotation Deformers
+     */
     default RotationDeformers rotationDeformers() {
         throw new UnsupportedOperationException("Cubism Rotation Deformer access is unavailable.");
     }
 
+    /** Returns the model's glue collection. */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     Glues glues();
 
+    /** Runs one host model-instance update pass, re-evaluating the model's current state. */
     void update();
 }

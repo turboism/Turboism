@@ -4,13 +4,18 @@ import org.junit.jupiter.api.Test;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
+import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiInlineLabel;
 import dev.turboism.ui.action.EditorUiActionRouter;
 
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.awt.BorderLayout;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
@@ -18,6 +23,7 @@ import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.Icon;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
@@ -43,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-class VerifiedEmbeddedPanelHostOperationsTest {
+public class VerifiedEmbeddedPanelHostOperationsTest {
 
     @Test
     void deferredEdtDispatchReturnsWhileTheEdtIsBusy() throws Exception {
@@ -67,6 +73,32 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         }
 
         assertTrue(operationRan.await(2, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void renderLocaleIsResolvedLazilyFromTheSuppliedSource() {
+        final java.util.concurrent.atomic.AtomicInteger resolutions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        new VerifiedEmbeddedPanelHostOperations(
+            TestVerifiedResolvers.create(
+                "adapter.editor-ui.embedded-panel",
+                Set.of("cubism.editor-ui.embedded-panel"),
+                List.of(StaticSelector.classSelector(
+                    "cubism.ui-panel.palette-box.class", internal(PaletteBox.class)
+                )),
+                VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
+            ),
+            (pluginId, actionId) -> { },
+            () -> {
+                resolutions.incrementAndGet();
+                return java.util.Locale.ENGLISH;
+            }
+        );
+        assertEquals(
+            0,
+            resolutions.get(),
+            "the render locale must not be resolved at construction"
+        );
     }
 
     @Test
@@ -613,6 +645,64 @@ class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
+    void productionContentRendererUsesInjectedIconResolverAndRefreshesInPlace() throws Exception {
+        final UiIconRef reference = new UiIconRef(CubismIcon.ART_MESH);
+        final Icon icon = new Icon() {
+            @Override public void paintIcon(
+                final java.awt.Component component, final java.awt.Graphics graphics,
+                final int x, final int y) { }
+            @Override public int getIconWidth() { return 16; }
+            @Override public int getIconHeight() { return 16; }
+        };
+        final AtomicReference<Optional<Icon>> presentation =
+            new AtomicReference<>(Optional.of(icon));
+        final InstallHost host = new InstallHost(
+            (requested, disabled) -> requested.equals(reference) ? presentation.get() : Optional.empty()
+        );
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+
+        runOnEdt(() -> {
+            host.operations.bindHostGeneration(1);
+            handleRef.set(host.operations.addPanel(
+                new EmbeddedPanelContributionDescriptor(
+                    "turboism.core",
+                    "icon-pane",
+                    "Icon Pane",
+                    "window",
+                    100,
+                    PanelView.toggle(
+                        "icon-entry",
+                        UiInlineLabel.icon(reference, "图形网格"),
+                        false,
+                        "history.icon"
+                    ),
+                    false
+                ),
+                (actionId, event) -> { }
+            ));
+        });
+
+        final FakePaletteId paletteId = host.paletteId("icon-pane");
+        final JPanel wrapper = (JPanel) host.nativeContainer(paletteId).component();
+        final InlineLabelCheckBox first = (InlineLabelCheckBox) wrapper.getComponent(0);
+        assertEquals(1, first.resolvedIconCount());
+        assertEquals(1, host.operations.retainedStableContentRootCountForTest());
+
+        final java.awt.Component firstRoot = wrapper.getComponent(0);
+        presentation.set(Optional.empty());
+        host.operations.refreshPresentation();
+
+        assertSame(wrapper, host.nativeContainer(paletteId).component());
+        assertSame(firstRoot, wrapper.getComponent(0));
+        final InlineLabelCheckBox refreshed = (InlineLabelCheckBox) wrapper.getComponent(0);
+        assertEquals(0, refreshed.resolvedIconCount());
+        assertTrue(refreshed.renderedFallbackText().contains("图形网格"));
+
+        handleRef.get().close();
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
+    }
+
+    @Test
     void installRegistersCheckMenuItemInPaletteMenuMapAndCleansBothOnClose() throws Exception {
         final InstallHost host = installHost();
         final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
@@ -1076,6 +1166,37 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         assertTrue(host.log.contains("close:" + host.paletteId("test-pane")));
         assertEquals("update-window-menu", host.log.get(host.log.size() - 2));
         assertEquals("repaint", host.log.get(host.log.size() - 1));
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
+    }
+
+    @Test
+    void invalidatingHostDropsRetainedRootsAndRefreshCannotResurrectThem() throws Exception {
+        final InstallHost host = installHost();
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handle = new AtomicReference<>();
+        runOnEdt(() -> {
+            host.operations.bindHostGeneration(1);
+            handle.set(host.operations.addPanel(
+                new EmbeddedPanelContributionDescriptor(
+                    "turboism.core",
+                    "invalidated-pane",
+                    "Invalidated Pane",
+                    "window",
+                    100,
+                    new PanelView.Text("content"),
+                    false
+                ),
+                (actionId, event) -> { }
+            ));
+        });
+
+        assertEquals(1, host.operations.retainedStableContentRootCountForTest());
+        host.operations.invalidateHost();
+        host.operations.refreshPresentation();
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
+
+        handle.get().close();
+        host.operations.refreshPresentation();
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
     }
 
     /** Runs a body on the EDT, rethrowing failures on the caller thread. */
@@ -1108,7 +1229,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         return new InstallHost();
     }
 
-    static final class InstallHost {
+    public static final class InstallHost {
         private final List<String> log = new ArrayList<>();
         private final HashMap<FakePaletteId, FakeCheckMenuItem> paletteMenuMap = new HashMap<>();
         private final FakePaletteManager paletteManager = new FakePaletteManager(this);
@@ -1120,11 +1241,16 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         private final FakeWorkspace workspace = new FakeWorkspace(this);
         private final FakeApp app = new FakeApp(this);
         private final VerifiedEmbeddedPanelHostOperations operations;
+        private final VerifiedMemberResolver resolver;
         private FakePaletteBox firstPaletteBox;
         private Component workspaceTree;
         private boolean failOnAddPalette;
 
-        InstallHost() {
+        public InstallHost() {
+            this((reference, disabled) -> Optional.empty());
+        }
+
+        public InstallHost(final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
             FakeApp.HOST = this;
             final List<StaticSelector> selectors = List.of(
                 StaticSelector.staticMethod(
@@ -1205,6 +1331,12 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     FakePaletteManager.class,
                     "getCurrentWorkspace",
                     descriptor(FakeWorkspace.class)
+                ),
+                method(
+                    "cubism.ui-panel.palette.id",
+                    FakePalette.class,
+                    "getPaletteId",
+                    descriptor(FakePaletteId.class)
                 ),
                 method(
                     "cubism.ui-panel.workspace.activate",
@@ -1443,18 +1575,29 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     "(Z)V"
                 )
             );
+            final VerifiedMemberResolver panelResolver = TestVerifiedResolvers.create(
+                "adapter.editor-ui.embedded-panel",
+                Set.of("cubism.editor-ui.embedded-panel"),
+                selectors,
+                VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
+            );
+            this.resolver = panelResolver;
             operations = new VerifiedEmbeddedPanelHostOperations(
-                TestVerifiedResolvers.create(
-                    "adapter.editor-ui.embedded-panel",
-                    Set.of("cubism.editor-ui.embedded-panel"),
-                    selectors,
-                    VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
-                ),
-                (pluginId, actionId) -> { }
+                panelResolver,
+                (pluginId, actionId) -> { },
+                dev.turboism.i18n.CubismHostLocale.resolve(),
+                iconResolver
             );
         }
 
-        private FakePaletteId paletteId(final String contributionId) {
+        public VerifiedMemberResolver resolver() {
+            return resolver;
+        }
+        public int retainedStableContentRootCount() {
+            return operations.retainedStableContentRootCountForTest();
+        }
+
+        public FakePaletteId paletteId(final String contributionId) {
             return new FakePaletteId("turboism:turboism.core:" + contributionId);
         }
 
@@ -1463,7 +1606,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         }
 
         /** The native Swing container the palette was given exactly once. */
-        private FakeSwingContainer nativeContainer(final FakePaletteId paletteId) {
+        public FakeSwingContainer nativeContainer(final FakePaletteId paletteId) {
             return (FakeSwingContainer) paletteManager.getPalette(paletteId).getPanelWidget();
         }
     }

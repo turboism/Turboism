@@ -1,24 +1,24 @@
 package dev.turboism.core.event;
 
 import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
-import dev.turboism.sdk.event.cubism.DrawableLockEvent;
-import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
-import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
-import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
-import dev.turboism.sdk.event.cubism.EditorExitEvent;
-import dev.turboism.sdk.event.cubism.EditorStartupEvent;
-import dev.turboism.sdk.event.cubism.ModelUpdateEvent;
-import dev.turboism.sdk.event.cubism.DeformerLockEvent;
-import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
-import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
-import dev.turboism.sdk.event.cubism.ParameterValueEvent;
-import dev.turboism.sdk.event.cubism.PartNameEvent;
-import dev.turboism.sdk.event.cubism.PartOpacityEvent;
-import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
-import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
+import dev.turboism.sdk.cubism.event.DrawableLockEvent;
+import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
+import dev.turboism.sdk.cubism.event.DrawableVisibilityEvent;
+import dev.turboism.sdk.cubism.event.EditorExitEvent;
+import dev.turboism.sdk.cubism.event.EditorStartupEvent;
+import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
+import dev.turboism.sdk.cubism.event.DeformerLockEvent;
+import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
+import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
+import dev.turboism.sdk.cubism.event.PartNameEvent;
+import dev.turboism.sdk.cubism.event.PartOpacityEvent;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerBaseAngleEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerFormEvent;
+import dev.turboism.sdk.cubism.event.WarpDeformerGridEvent;
 import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
@@ -27,6 +27,7 @@ import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
+import dev.turboism.sdk.runtime.PluginLifecycleEvent;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
 
 import java.util.List;
@@ -63,7 +64,8 @@ final class RuntimeEventContractCatalog {
             SceneTableItemOrderEvent.class,
             CubismLogBatchEvent.class,
             PerformanceSampleEvent.class,
-            ActionInvocationEvent.class
+            ActionInvocationEvent.class,
+            PluginLifecycleEvent.class
         );
 
     void requirePluginPublicationAllowed(

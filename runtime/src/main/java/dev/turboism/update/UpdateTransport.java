@@ -6,8 +6,19 @@ import java.util.concurrent.CompletionStage;
 
 /** Bounded transport seam used by the runtime checker and deterministic fixture tests. */
 public interface UpdateTransport {
+    /**
+     * Fetches the update document.
+     *
+     * @param etag the previously returned validator for a conditional fetch, or empty
+     * @return a stage completing with the transport response; transport failures complete
+     *         it exceptionally
+     */
     CompletionStage<Response> fetch(Optional<String> etag);
 
+    /**
+     * One transport response: an HTTP {@code statusCode}, the {@code body} bytes
+     * (defensively copied in and out), and the response {@code etag} when present.
+     */
     record Response(int statusCode, byte[] body, Optional<String> etag) {
         public Response {
             if (statusCode < 100 || statusCode > 599) {

@@ -15,16 +15,39 @@ public interface ThemeStatusAdapter {
 
     String CAPABILITY_ID = "cubism.theme.status.read";
 
+    /**
+     * @return an available result carrying the observed theme status (empty when the host
+     *         has none to report), or an unavailable result whose diagnostic explains the
+     *         failed read; never null
+     */
     AdapterResult<Optional<ThemeStatusSnapshot>> themeStatus();
 
+    /** The raw host call surface this adapter guards. */
     interface HostOperations {
+        /**
+         * @return the host application version string used for the reviewed-version check
+         */
         String hostVersion();
 
+        /**
+         * @return {@code true} when this host exposes the theme-status read surface
+         */
         boolean supportsThemeStatusRead();
 
+        /**
+         * @return the theme status observed on the host; empty when none is reported
+         */
         Optional<ThemeStatusSnapshot> themeStatus();
     }
 
+    /**
+     * The outcome of one guarded adapter read: either the observed {@code value} or the
+     * {@link SafeModeDiagnostic} explaining why it is absent.
+     *
+     * @param value the observed value, empty when the read was unavailable; never null
+     * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
+     * @param <T> the observed value type
+     */
     record AdapterResult<T>(
         Optional<T> value,
         Optional<SafeModeDiagnostic> diagnostic

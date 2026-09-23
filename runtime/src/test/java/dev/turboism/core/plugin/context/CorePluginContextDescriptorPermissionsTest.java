@@ -77,6 +77,7 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -257,29 +258,20 @@ class CorePluginContextDescriptorPermissionsTest {
         assertSame(userFiles, injected.userFiles());
 
         final CorePluginContext legacy = context(dataDir, descriptor, ignored -> { });
+        assertSame(PluginLocalization.unavailable(), legacy.localization());
+        assertFalse(legacy.localization().isAvailable());
+        assertSame(PluginTaskScheduler.unavailable(), legacy.tasks());
+        assertFalse(legacy.tasks().isAvailable());
+        assertSame(PluginStorage.unavailable(), legacy.storage());
+        assertFalse(legacy.storage().isAvailable());
+        assertSame(UserFileAccessService.unavailable(), legacy.userFiles());
+        assertFalse(legacy.userFiles().isAvailable());
+
         final UnsupportedOperationException error = assertThrows(
             UnsupportedOperationException.class,
-            legacy::localization
+            () -> legacy.localization().text("key")
         );
         assertEquals("localization service is not available", error.getMessage());
-        final UnsupportedOperationException taskError = assertThrows(
-            UnsupportedOperationException.class,
-            legacy::tasks
-        );
-        assertEquals("task scheduler is not available", taskError.getMessage());
-        final UnsupportedOperationException storageError = assertThrows(
-            UnsupportedOperationException.class,
-            legacy::storage
-        );
-        assertEquals("storage service is not available", storageError.getMessage());
-        final UnsupportedOperationException userFileError = assertThrows(
-            UnsupportedOperationException.class,
-            legacy::userFiles
-        );
-        assertEquals(
-            "user file access service is not available",
-            userFileError.getMessage()
-        );
     }
 
     @Test

@@ -16,6 +16,10 @@ public interface UiHostStateSource {
     UiHostStateSource DEFAULT = new UiHostStateSource() {
     };
 
+    /**
+     * @return the current UI context source; the default returns a placeholder
+     *         {@code context-default} workspace snapshot with no selection
+     */
     default ContextSourceSnapshot contextSource() {
         return new ContextSourceSnapshot(
             "context-default",
@@ -27,10 +31,19 @@ public interface UiHostStateSource {
         );
     }
 
+    /**
+     * @return the current editor viewport; the default returns a placeholder 1x1 viewport
+     */
     default ViewportSnapshot viewport() {
         return new ViewportSnapshot("viewport-default", 1, 1, 1.0);
     }
 
+    /**
+     * Runs one file chooser.
+     *
+     * @param request the chooser configuration
+     * @return the selected path, or empty when cancelled; the default never selects
+     */
     default Optional<String> chooseFile(FileChooserRequest request) {
         return Optional.empty();
     }

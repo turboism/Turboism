@@ -13,7 +13,7 @@ import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;

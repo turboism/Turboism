@@ -32,6 +32,7 @@ import java.util.Optional;
  * @param tags unmodifiable copy of the free-form tags, empty when the manifest declared none
  * @param eventExports public event contracts provided to declared dependents
  * @param eventImports public event contracts consumed from declared dependencies
+ * @param eventContracts published public event contract artifacts embedded in the plugin JAR
  */
 public record CorePluginDescriptor(
     String id,
@@ -52,7 +53,8 @@ public record CorePluginDescriptor(
     Optional<String> category,
     List<String> tags,
     List<EventExport> eventExports,
-    List<EventImport> eventImports
+    List<EventImport> eventImports,
+    List<EventContract> eventContracts
 ) implements PluginDescriptor {
 
     /** Compatibility constructor for schema v2/v3 descriptors without public events. */
@@ -78,7 +80,7 @@ public record CorePluginDescriptor(
         this(
             id, name, version, description, entrypoints, turboismApi, authors, license,
             website, resources, i18n, dependencies, permissions, capabilities,
-            environment, category, tags, List.of(), List.of()
+            environment, category, tags, List.of(), List.of(), List.of()
         );
     }
 
@@ -93,6 +95,7 @@ public record CorePluginDescriptor(
         tags = tags == null ? List.of() : List.copyOf(tags);
         eventExports = eventExports == null ? List.of() : List.copyOf(eventExports);
         eventImports = eventImports == null ? List.of() : List.copyOf(eventImports);
+        eventContracts = eventContracts == null ? List.of() : List.copyOf(eventContracts);
     }
 
     /**
@@ -168,6 +171,15 @@ public record CorePluginDescriptor(
         String abiSha256,
         boolean required
     ) implements EventImport {
+    }
+
+    /** One published public event contract artifact embedded in the plugin JAR. */
+    public record CoreEventContract(
+        String id,
+        String version,
+        String artifact,
+        String sha256
+    ) implements EventContract {
     }
 
     /**

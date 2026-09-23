@@ -1,6 +1,5 @@
 :plugins:atlas-maxrects-bssf
 :plugins:clipmask-viewer
-:plugins:core
 :plugins:cubism-tab-filter
 :plugins:history-panel
 :plugins:mcp
