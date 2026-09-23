@@ -453,6 +453,11 @@ public final class PreviewRuntime implements AutoCloseable {
                     )
                 );
             plugins.bindExportSettingsAuthority(exportSettings);
+            // The user-visible veto surface: every rejected/failed protected-export
+            // confirmation names its bounded reason instead of dying silently.
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic>
+                vetoSurface = dev.turboism.exportsettings.ExportSettingsVetoDialog::present;
+            exportSettings.vetoReporter(vetoSurface);
             // The orchestrator is a degraded-capability seam: when the record is absent or the
             // pinned chain fails, no orchestrator is bound and checked export stays rejected.
             final dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExport =
@@ -463,7 +468,8 @@ public final class PreviewRuntime implements AutoCloseable {
                     exportSettings,
                     ingress,
                     layout,
-                    log
+                    log,
+                    vetoSurface
                 );
             if (protectedExport != null) {
                 exportSettings.protectedExportOrchestrator(protectedExport);
@@ -784,7 +790,9 @@ public final class PreviewRuntime implements AutoCloseable {
             final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings,
             final HostRuntimeIngress ingress,
             final TurboismHomeLayout layout,
-            final PreviewLog log
+            final PreviewLog log,
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic>
+                vetoSurface
     ) {
         if (protectedExportVerificationRecord.isEmpty()) {
             return null;
@@ -823,34 +831,53 @@ public final class PreviewRuntime implements AutoCloseable {
                 };
             final dev.turboism.sdk.cubism.core.MocLoader ownedMocLoader =
                 ingress.adapterAccess().coreRuntimeInfo().mocLoader();
-            return new dev.turboism.exportsettings.ProtectedExportOrchestrator(
-                new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
-                new dev.turboism.exportsettings.ProtectedExportStaging(
-                    ownedMocLoader::load,
-                    ownedMocLoader instanceof
-                            dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer
-                        ? writer::writeParameterValue
-                        : null
-                ),
-                layout.runtimeStateDir().resolve("protected-export"),
-                orchestratedPluginId,
-                "protected-export",
-                exportSettings::protectedExportRedirectSeamInstalled,
-                () -> exportSettings.pluginBindingLive(orchestratedPluginId),
-                exportSettings::hostGeneration,
-                edt,
-                report -> log.info(
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator =
+                new dev.turboism.exportsettings.ProtectedExportOrchestrator(
+                    new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
+                    new dev.turboism.exportsettings.ProtectedExportStaging(
+                        ownedMocLoader::load,
+                        ownedMocLoader instanceof
+                                dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer
+                            ? writer::writeParameterValue
+                            : null
+                    ),
+                    layout.runtimeStateDir().resolve("protected-export"),
+                    orchestratedPluginId,
                     "protected-export",
-                    "session=" + report.sessionId()
-                        + " reached=" + report.reached()
-                        + " published=" + report.published()
-                        + " failure=" + report.failureKey()
-                        + (report.failureDetail() == null
-                            ? "" : " detail=" + report.failureDetail())
-                ),
-                10_000L,
-                600_000L
-            );
+                    exportSettings::protectedExportRedirectSeamInstalled,
+                    () -> exportSettings.pluginBindingLive(orchestratedPluginId),
+                    exportSettings::hostGeneration,
+                    edt,
+                    report -> {
+                        log.info(
+                            "protected-export",
+                            "session=" + report.sessionId()
+                                + " reached=" + report.reached()
+                                + " published=" + report.published()
+                                + " failure=" + report.failureKey()
+                                + (report.failureDetail() == null
+                                    ? "" : " detail=" + report.failureDetail())
+                        );
+                        // A user-initiated chooser cancel explains itself; every other
+                        // non-published terminal report must surface visibly.
+                        if (!report.published()
+                            && !dev.turboism.exportsettings.ProtectedExportOrchestrator
+                                .EXPORT_CANCELLED_KEY.equals(report.failureKey())) {
+                            vetoSurface.accept(
+                                new dev.turboism.exportsettings.ExportSettingsVetoDiagnostic(
+                                    report.failureKey() != null
+                                        ? report.failureKey()
+                                        : "protected-export.failed",
+                                    report.failureDetail()
+                                )
+                            );
+                        }
+                    },
+                    10_000L,
+                    600_000L
+                );
+            orchestrator.refusalReporter(vetoSurface);
+            return orchestrator;
         } catch (Throwable failure) {
             log.warn(
                 "protected-export",

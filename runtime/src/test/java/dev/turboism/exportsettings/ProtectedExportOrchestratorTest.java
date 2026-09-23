@@ -330,6 +330,38 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
+    void refusedRequestsReportTheGateTheyStoppedAt() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.seamInstalled.set(false);
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
+        orchestrator.refusalReporter(refusals::add);
+
+        assertFalse(orchestrator.requestExport(fixture.outerDialog));
+        assertEquals(1, refusals.size(),
+            "a refused request must name itself for the user-visible sink");
+        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
+        assertEquals("redirect-seam-missing", refusals.get(0).detail());
+        orchestrator.close();
+    }
+
+    @Test
+    void busyRefusalReportsAndKeepsTheArmedSession() throws Exception {
+        final Fixture fixture = new Fixture();
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
+        orchestrator.refusalReporter(refusals::add);
+        fixture.host.bindDelayMillis = 5_000L;
+
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertFalse(orchestrator.requestExport(fixture.outerDialog));
+        assertEquals(1, refusals.size());
+        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
+        assertEquals("busy", refusals.get(0).detail());
+        orchestrator.close();
+    }
+
+    @Test
     void rejectsWhenPluginBindingUnavailable() throws Exception {
         final Fixture fixture = new Fixture();
         // Plugin already unloaded at decide time: the session arms, then the first
