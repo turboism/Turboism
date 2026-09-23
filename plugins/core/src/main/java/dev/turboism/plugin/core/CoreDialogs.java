@@ -30,6 +30,7 @@ final class CoreDialogs {
     static void message(final Window owner, final String title, final String message) {
         final JOptionPane pane = new JOptionPane(message, JOptionPane.INFORMATION_MESSAGE);
         final JDialog dialog = pane.createDialog(owner, title);
+        TurboismWindowFactory.style(dialog);
         dialog.setVisible(true);
         dialog.dispose();
     }
@@ -39,6 +40,7 @@ final class CoreDialogs {
             message, JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_OPTION
         );
         final JDialog dialog = pane.createDialog(owner, title);
+        TurboismWindowFactory.style(dialog);
         dialog.setVisible(true);
         dialog.dispose();
         return Integer.valueOf(JOptionPane.YES_OPTION).equals(pane.getValue());

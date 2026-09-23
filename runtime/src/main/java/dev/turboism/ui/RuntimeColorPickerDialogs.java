@@ -1,6 +1,7 @@
 package dev.turboism.ui;
 
 import dev.turboism.sdk.ui.ColorPickerResultListener;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.JColorChooser;
 import javax.swing.JDialog;
@@ -10,6 +11,7 @@ import java.awt.Dialog;
 import java.awt.Frame;
 import java.awt.Window;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Runtime-owned Swing rendering for the bounded SDK color picker. */
 final class RuntimeColorPickerDialogs {
@@ -42,16 +44,28 @@ final class RuntimeColorPickerDialogs {
     ) {
         final Window owner = activeOwner();
         final Color initial = parseHex(initialColorHex);
-        final Color chosen = JColorChooser.showDialog(
+        final JColorChooser chooser = new JColorChooser(initial == null ? Color.WHITE : initial);
+        final AtomicReference<Color> chosen = new AtomicReference<>();
+        final JDialog dialog = JColorChooser.createDialog(
             owner instanceof Frame frame
                 ? frame
                 : owner instanceof Dialog parent
                     ? parent
-                    : (Frame) null,
+                    : null,
             title,
-            initial == null ? Color.WHITE : initial
+            true,
+            chooser,
+            accepted -> chosen.set(chooser.getColor()),
+            null
         );
-        listener.onResult(chosen != null, chosen == null ? null : hex(chosen));
+        TurboismWindowFactory.style(dialog);
+        try {
+            dialog.setVisible(true);
+        } finally {
+            dialog.dispose();
+        }
+        final Color result = chosen.get();
+        listener.onResult(result != null, result == null ? null : hex(result));
     }
 
     private static Window activeOwner() {
