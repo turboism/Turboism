@@ -1077,6 +1077,52 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         return List.copyOf(detected);
     }
 
+    /**
+     * Family tokens for census objects outside the supported whitelist, keyed by
+     * the reviewed model package layout of the admitted builds. Deform-path
+     * skinning classes live under the glue package, so the more specific prefix
+     * must be tested first. Classes absent from an admitted build (aliases do
+     * not exist on 5.2.03) simply never match there.
+     */
+    private static final List<Map.Entry<String, String>> UNSUPPORTED_FAMILY_PREFIXES =
+        List.of(
+            Map.entry(
+                "com.live2d.cubism.doc.model.affecter.glue.deformPathSkinning.",
+                "deform-path"),
+            Map.entry("com.live2d.cubism.doc.model.affecter.glue.", "glue"),
+            Map.entry("com.live2d.cubism.doc.model.drawable.artPath.", "art-path"),
+            Map.entry("com.live2d.cubism.doc.model.alias.", "alias"),
+            Map.entry("com.live2d.cubism.doc.model.motionSync.", "motion-sync"),
+            Map.entry("com.live2d.cubism.doc.gameData.physics.", "physics")
+        );
+
+    /**
+     * Classifies a rejected census object by its class-hierarchy package — a
+     * pure {@code getClass()} read that never resolves host members. Unknown
+     * families degrade to a bounded simple-name clue, never a stack of
+     * internal detail.
+     */
+    @Override
+    public String unsupportedObjectFamily(final Object object) {
+        if (object == null) {
+            return "unknown";
+        }
+        for (Class<?> type = object.getClass();
+             type != null && type != Object.class;
+             type = type.getSuperclass()) {
+            final String name = type.getName();
+            for (Map.Entry<String, String> family : UNSUPPORTED_FAMILY_PREFIXES) {
+                if (name.startsWith(family.getKey())) {
+                    return family.getValue();
+                }
+            }
+        }
+        final String clue = object.getClass().getSimpleName()
+            .replaceAll("[^A-Za-z0-9_$]", "-");
+        return "unknown:" + (clue.isBlank()
+            ? "object" : clue.substring(0, Math.min(clue.length(), 48)));
+    }
+
     // ------------------------------------------------------------------
     // Export dialog identity + native re-drive
     // ------------------------------------------------------------------

@@ -501,9 +501,34 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertEquals(
+            "protected-export.unsupported-structure:unknown=1",
+            report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null, "no copy may be bound");
         assertTrue(fixture.destinationFiles().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWithFamilyCountsWhenUnsupportedObjectsEnterCensus() throws Exception {
+        final Fixture fixture = new Fixture();
+        // Glue, art-path and unclassifiable members must surface as a readable
+        // family-count detail, not a bare rejection key.
+        fixture.host.original.model.unsupportedObjects.add(new FakeUnsupported("glue"));
+        fixture.host.original.model.unsupportedObjects.add(new FakeUnsupported("glue"));
+        fixture.host.original.model.unsupportedObjects.add(new FakeUnsupported("art-path"));
+        fixture.host.original.model.unsupportedObjects.add(new Object());
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertEquals(
+            "protected-export.unsupported-structure:art-path=1,glue=2,unknown=1",
+            report.failureDetail());
+        assertFalse(report.published());
+        assertTrue(fixture.host.copy == null, "no copy may be bound");
         orchestrator.close();
     }
 
@@ -1445,6 +1470,15 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
+    /** A census object outside the supported whitelist with a known family token. */
+    private static final class FakeUnsupported {
+        final String family;
+
+        FakeUnsupported(final String family) {
+            this.family = family;
+        }
+    }
+
     private static final class FakeModel {
         final List<FakeDeformer> deformers = new ArrayList<>();
         final List<FakeArtMesh> artMeshes = new ArrayList<>();
@@ -2215,6 +2249,12 @@ class ProtectedExportOrchestratorTest {
         @Override
         public void setDrawableId(final Object drawableSource, final String idString) {
             ((FakeArtMesh) drawableSource).drawableId = idString;
+        }
+
+        @Override
+        public String unsupportedObjectFamily(final Object object) {
+            return object instanceof FakeUnsupported unsupported
+                ? unsupported.family : "unknown";
         }
 
         @Override

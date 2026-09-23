@@ -162,7 +162,7 @@ public final class ProtectedExportHostProbeAgent {
             final BridgeObservation bridge = wrapBridgeCallbacks(evidence);
             awaitModelDocument(controller, stateDir, evidence);
             final List<String> phases = requestedPhases();
-            evidence.put("phases", String.join("+", phases));
+            evidence.put("phases", String.join(",", phases));
 
             if (phases.contains("dialog")) {
                 ensureTextureAtlas(controller, evidence);
@@ -197,7 +197,10 @@ public final class ProtectedExportHostProbeAgent {
                 phaseExportNative(controller, appCtrl, stateDir, evidence);
             }
             if (phases.contains("expect-reject")) {
-                phaseExpectReject(controller, appCtrl, stateDir, evidence);
+                phaseExpectReject(controller, appCtrl, stateDir, evidence, false);
+            }
+            if (phases.contains("expect-reject-structure")) {
+                phaseExpectReject(controller, appCtrl, stateDir, evidence, true);
             }
             bridge.report(evidence);
         } catch (Throwable failure) {
@@ -1208,7 +1211,8 @@ public final class ProtectedExportHostProbeAgent {
         final Object controller,
         final Class<?> appCtrl,
         final Path stateDir,
-        final Evidence evidence
+        final Evidence evidence,
+        final boolean injectUnsupported
     ) {
         final String prefix = "rej.";
         final String expectedFailure = System.getProperty(
@@ -1216,6 +1220,7 @@ public final class ProtectedExportHostProbeAgent {
             "protected-export.preflight-failed"
         );
         evidence.put(prefix + "expectedFailure", expectedFailure);
+        UnsupportedInjection injection = null;
         try {
             final Object original = readNoArg(controller, "getCurrentDoc");
             if (original == null || !isA(original.getClass(), MODELING_DOCUMENT)) {
@@ -1233,6 +1238,22 @@ public final class ProtectedExportHostProbeAgent {
             if (Boolean.TRUE.equals(modifiedCheck)) {
                 evidence.fail("REJ_ORIGINAL_DIRTY");
                 return;
+            }
+            if (injectUnsupported) {
+                // Census-negative variant: two glue affecters and one art path
+                // land in getAllObjects on every admitted build, so the session
+                // must reject with a readable family-count detail.
+                injection = onEdt(() ->
+                    injectUnsupportedSources(original, evidence, prefix));
+                if (injection == null || injection.injected.isEmpty()) {
+                    evidence.fail("REJ_INJECTION_FAILED");
+                    return;
+                }
+                evidence.put(prefix + "injectedFamilies",
+                    "art-path=" + injection.artPaths + ",glue=" + injection.glues);
+                evidence.put(prefix + "expectedDetail",
+                    "protected-export.unsupported-structure:art-path="
+                        + injection.artPaths + ",glue=" + injection.glues);
             }
             ensureTextureAtlas(controller, evidence);
             final DocumentState before =
@@ -1332,6 +1353,19 @@ public final class ProtectedExportHostProbeAgent {
                 failure == null ? "" : failure);
             evidence.put(prefix + "failureMatched",
                 Boolean.toString(expectedFailure.equals(failure)));
+            final String detail = terminalField(terminal, "detail=");
+            evidence.put(prefix + "sessionDetail", detail == null ? "" : detail);
+            if (injectUnsupported) {
+                final String expectedDetail =
+                    evidence.values.getOrDefault(prefix + "expectedDetail", "");
+                final String vetoMessage =
+                    evidence.values.getOrDefault(prefix + "vetoMessage", "");
+                evidence.put(prefix + "detailMatched",
+                    Boolean.toString(
+                        !expectedDetail.isEmpty()
+                            && expectedDetail.equals(detail)
+                            && vetoMessage.contains(expectedDetail)));
+            }
 
             final Object restored = readNoArg(controller, "getCurrentDoc");
             if (restored != null) {
@@ -1355,6 +1389,88 @@ public final class ProtectedExportHostProbeAgent {
         } catch (Throwable failure) {
             evidence.fail("REJ_PHASE_FAILURE:" + failure.getClass().getName()
                 + ":" + text(failure));
+        } finally {
+            if (injection != null) {
+                try {
+                    final UnsupportedInjection toRestore = injection;
+                    onEdt(() -> {
+                        toRestore.restore();
+                        return null;
+                    });
+                    evidence.put(prefix + "injectionRestored", "true");
+                } catch (Throwable failure) {
+                    evidence.put(prefix + "injectionRestored",
+                        "failed:" + text(failure));
+                }
+            }
+        }
+    }
+
+    /**
+     * One in-memory injection of unsupported-family sources into the live
+     * model's census lists ({@code affecterSourceSet.sources} and
+     * {@code drawableSourceSet.sources}). The objects are never serialized —
+     * the session rejects at preflight — and {@link #restore} removes them so
+     * the authoring document returns untouched.
+     */
+    private static UnsupportedInjection injectUnsupportedSources(
+        final Object document,
+        final Evidence evidence,
+        final String prefix
+    ) throws Exception {
+        final Object source = readNoArg(document, "getModelSource");
+        if (source == null) {
+            return null;
+        }
+        final UnsupportedInjection injection = new UnsupportedInjection();
+        final Object affecterSet = readNoArg(source, "getAffecterSourceSet");
+        final Object drawableSet = readNoArg(source, "getDrawableSourceSet");
+        @SuppressWarnings("unchecked")
+        final List<Object> affecters = affecterSet == null ? null
+            : (List<Object>) readNoArg(affecterSet, "getSources");
+        @SuppressWarnings("unchecked")
+        final List<Object> drawables = drawableSet == null ? null
+            : (List<Object>) readNoArg(drawableSet, "getSources");
+        if (affecters == null || drawables == null) {
+            return null;
+        }
+        final Class<?> glueType = Class.forName(
+            "com.live2d.cubism.doc.model.affecter.glue.CGlueSource");
+        final java.lang.reflect.Constructor<?> glueCtor =
+            glueType.getDeclaredConstructor();
+        glueCtor.setAccessible(true);
+        for (int i = 0; i < 2; i++) {
+            final Object glue = glueCtor.newInstance();
+            affecters.add(glue);
+            injection.injected.add(new InjectSlot(affecters, glue));
+            injection.glues++;
+        }
+        final Class<?> artPathType = Class.forName(
+            "com.live2d.cubism.doc.model.drawable.artPath.CArtPathSource");
+        final java.lang.reflect.Constructor<?> artPathCtor =
+            artPathType.getDeclaredConstructor();
+        artPathCtor.setAccessible(true);
+        final Object artPath = artPathCtor.newInstance();
+        drawables.add(artPath);
+        injection.injected.add(new InjectSlot(drawables, artPath));
+        injection.artPaths++;
+        evidence.put(prefix + "injectedCount",
+            Integer.toString(injection.injected.size()));
+        return injection;
+    }
+
+    private record InjectSlot(List<Object> list, Object object) {
+    }
+
+    private static final class UnsupportedInjection {
+        final List<InjectSlot> injected = new ArrayList<>();
+        int glues;
+        int artPaths;
+
+        void restore() {
+            for (InjectSlot slot : injected) {
+                slot.list().remove(slot.object());
+            }
         }
     }
 
@@ -3517,6 +3633,100 @@ public final class ProtectedExportHostProbeAgent {
         evidence.put(phase + "MountChildCount", Integer.toString(childCount));
         evidence.put(phase + "MountNativeSiblings", Integer.toString(nativeSiblings));
         evidence.put(phase + "MountedInsideOptions", Boolean.toString(insideOptions));
+        geometryEvidence(dialog, ownedPanel, mount, evidence, phase);
+    }
+
+    /**
+     * No-clipping evidence for the enlarged dialog: the window height must
+     * cover its preferred content height, the contributed panel and the lowest
+     * native option must both be fully laid out inside the options container,
+     * and the recorded baseline→grown pair must show the window grew by about
+     * the panel's required height (or was already roomy enough).
+     */
+    private static void geometryEvidence(
+        final JDialog dialog,
+        final Container ownedPanel,
+        final Container mount,
+        final Evidence evidence,
+        final String phase
+    ) {
+        try {
+            final javax.swing.JComponent ownedComponent =
+                ownedPanel instanceof javax.swing.JComponent component
+                    ? component : null;
+            // The backend's grow passes are deferred invokeLaters queued off the
+            // panel's SHOWING_CHANGED; wait on the probe thread — sleeping on the
+            // EDT would starve the very passes being awaited.
+            for (int wait = 0; wait < 40 && ownedComponent != null
+                    && ownedComponent.getClientProperty(
+                        "turboism.export-settings.dialogBaselineSize") == null;
+                    wait++) {
+                sleep(POLL_MILLIS);
+            }
+            onEdt(() -> {
+                final int dialogHeight = dialog.getHeight();
+                final int dialogPrefHeight = dialog.getPreferredSize().height;
+                evidence.put(phase + "DialogHeight", Integer.toString(dialogHeight));
+                evidence.put(phase + "DialogPrefHeight",
+                    Integer.toString(dialogPrefHeight));
+                evidence.put(phase + "HeightCoversContent",
+                    Boolean.toString(dialogHeight >= dialogPrefHeight));
+                if (ownedPanel == null || mount == null) {
+                    return null;
+                }
+                final int panelPrefHeight = ownedPanel.getPreferredSize().height;
+                final java.awt.Rectangle panelBounds = ownedPanel.getBounds();
+                evidence.put(phase + "PanelPrefHeight",
+                    Integer.toString(panelPrefHeight));
+                evidence.put(phase + "PanelAllocHeight",
+                    Integer.toString(ownedPanel.getHeight()));
+                evidence.put(phase + "PanelFullyVisible", Boolean.toString(
+                    panelBounds.y >= 0
+                        && panelBounds.y + panelBounds.height <= mount.getHeight()
+                        && ownedPanel.getHeight() >= panelPrefHeight));
+                // The lowest native option in the options container must be
+                // fully inside it — clipped natives are the regression this
+                // evidence catches.
+                int lastNativeBottom = Integer.MIN_VALUE;
+                for (Component child : allComponents(mount)) {
+                    if (!isNativeCheckBoxLeaf(child) || child.getParent() == null) {
+                        continue;
+                    }
+                    final java.awt.Point origin = SwingUtilities.convertPoint(
+                        child.getParent(), child.getLocation(), mount);
+                    lastNativeBottom =
+                        Math.max(lastNativeBottom, origin.y + child.getHeight());
+                }
+                evidence.put(phase + "LastNativeBottom",
+                    Integer.toString(lastNativeBottom));
+                evidence.put(phase + "MountHeight",
+                    Integer.toString(mount.getHeight()));
+                evidence.put(phase + "LastNativeFullyVisible", Boolean.toString(
+                    lastNativeBottom >= 0 && lastNativeBottom <= mount.getHeight()));
+                // Grow/restore pair recorded by the attach backend on the owned
+                // panel (DialogGrowth.BASELINE_PROPERTY / GROWN_PROPERTY).
+                final Object baseline = ownedComponent == null ? null
+                    : ownedComponent.getClientProperty(
+                        "turboism.export-settings.dialogBaselineSize");
+                final Object grown = ownedComponent == null ? null
+                    : ownedComponent.getClientProperty(
+                        "turboism.export-settings.dialogGrownSize");
+                final int baselineHeight = baseline instanceof java.awt.Dimension size
+                    ? size.height : -1;
+                final int grownHeight = grown instanceof java.awt.Dimension size
+                    ? size.height : -1;
+                evidence.put(phase + "GrowthBaselineHeight",
+                    Integer.toString(baselineHeight));
+                evidence.put(phase + "GrownHeight", Integer.toString(grownHeight));
+                evidence.put(phase + "GrowthSufficient", Boolean.toString(
+                    baselineHeight >= 0 && grownHeight >= baselineHeight
+                        && (grownHeight - baselineHeight >= panelPrefHeight - 8
+                            || baselineHeight >= dialogPrefHeight)));
+                return null;
+            });
+        } catch (Throwable failure) {
+            evidence.put(phase + "GeometryFailure", text(failure));
+        }
     }
 
     private static int indexOfComponent(final Container parent, final Component child) {
@@ -4384,6 +4594,31 @@ public final class ProtectedExportHostProbeAgent {
             if (!"true".equals(evidence.values.get("cancelNoContinuation"))) {
                 unmet.add("cancel still raised a continuation window");
             }
+            // No-clipping evidence: the enlarged dialog must cover its content
+            // and keep both the last native option and the contributed option
+            // fully laid out in both observed dialog instances.
+            for (String phasePrefix : new String[] {"unchecked", "checked"}) {
+                if (!"true".equals(evidence.values.get(
+                        phasePrefix + "HeightCoversContent"))) {
+                    unmet.add(phasePrefix
+                        + " dialog height does not cover its content");
+                }
+                if (!"true".equals(evidence.values.get(
+                        phasePrefix + "PanelFullyVisible"))) {
+                    unmet.add(phasePrefix
+                        + " contributed option is clipped inside the dialog");
+                }
+                if (!"true".equals(evidence.values.get(
+                        phasePrefix + "LastNativeFullyVisible"))) {
+                    unmet.add(phasePrefix
+                        + " native option is clipped inside the dialog");
+                }
+                if (!"true".equals(evidence.values.get(
+                        phasePrefix + "GrowthSufficient"))) {
+                    unmet.add(phasePrefix
+                        + " dialog did not grow enough for the contributed option");
+                }
+            }
         }
         if (phases.test("copy-binding")) {
             requireCopySession(evidence, unmet, "copy.");
@@ -4532,46 +4767,15 @@ public final class ProtectedExportHostProbeAgent {
                 unmet.add("original file bytes changed across the native export");
             }
         }
-        if (phases.test("expect-reject")) {
-            if (!"true".equals(evidence.values.get("rej.outerConfirmed"))) {
-                unmet.add("expected-rejection drive never confirmed the outer dialog");
+        if (phases.test("expect-reject") || phases.test("expect-reject-structure")) {
+            requireRejectSession(evidence, unmet);
+        }
+        if (phases.test("expect-reject-structure")) {
+            if (!"true".equals(evidence.values.get("rej.detailMatched"))) {
+                unmet.add("unsupported-structure rejection did not surface the family-count detail");
             }
-            if (!"true".equals(evidence.values.get("rej.sessionFailed"))) {
-                unmet.add("session did not terminate FAILED");
-            }
-            if ("true".equals(evidence.values.get("rej.sessionPublished"))) {
-                unmet.add("a rejected fixture still published output");
-            }
-            if (!"true".equals(evidence.values.get("rej.failureMatched"))) {
-                unmet.add("session failure key differs from the expected rejection");
-            }
-            if (intOf(evidence, "rej.outerInjectedCheckBoxCount") < 1) {
-                unmet.add("contributed option missing from the outer dialog");
-            }
-            if (!evidence.values.getOrDefault("rej.unexpectedDialogs", "").isEmpty()) {
-                unmet.add("rejected session still raised windows");
-            }
-            if (!"true".equals(evidence.values.get("rej.vetoDialog"))) {
-                unmet.add("rejected session never surfaced the veto diagnostic dialog");
-            }
-            if (!evidence.values.getOrDefault("rej.expectedFailure", "")
-                    .equals(evidence.values.getOrDefault("rej.vetoKey", ""))) {
-                unmet.add("veto diagnostic did not name the session's failure key");
-            }
-            if (!"true".equals(evidence.values.get("rej.sameLiveDocument"))) {
-                unmet.add("original was not the live document after rejection");
-            }
-            if (!"true".equals(evidence.values.get("rej.fileSha256Preserved"))) {
-                unmet.add("original file bytes changed across the rejection");
-            }
-            if (!"true".equals(evidence.values.get("rej.modifiedPreserved"))) {
-                unmet.add("original dirty flag changed across the rejection");
-            }
-            if (!"true".equals(evidence.values.get("rej.undoPreserved"))) {
-                unmet.add("original undo state changed across the rejection");
-            }
-            if (intOf(evidence, "rej.stagingResidue") != 0) {
-                unmet.add("task-owned staging residue remains after rejection");
+            if (!"true".equals(evidence.values.get("rej.injectionRestored"))) {
+                unmet.add("injected unsupported sources were not removed from the authoring document");
             }
         }
         if (!unmet.isEmpty()) {
@@ -4579,6 +4783,53 @@ public final class ProtectedExportHostProbeAgent {
             return false;
         }
         return true;
+    }
+
+    /** Shared expected-rejection verdict gates ({@code rej.} evidence prefix). */
+    private static void requireRejectSession(
+        final Evidence evidence,
+        final List<String> unmet
+    ) {
+        if (!"true".equals(evidence.values.get("rej.outerConfirmed"))) {
+            unmet.add("expected-rejection drive never confirmed the outer dialog");
+        }
+        if (!"true".equals(evidence.values.get("rej.sessionFailed"))) {
+            unmet.add("session did not terminate FAILED");
+        }
+        if ("true".equals(evidence.values.get("rej.sessionPublished"))) {
+            unmet.add("a rejected fixture still published output");
+        }
+        if (!"true".equals(evidence.values.get("rej.failureMatched"))) {
+            unmet.add("session failure key differs from the expected rejection");
+        }
+        if (intOf(evidence, "rej.outerInjectedCheckBoxCount") < 1) {
+            unmet.add("contributed option missing from the outer dialog");
+        }
+        if (!evidence.values.getOrDefault("rej.unexpectedDialogs", "").isEmpty()) {
+            unmet.add("rejected session still raised windows");
+        }
+        if (!"true".equals(evidence.values.get("rej.vetoDialog"))) {
+            unmet.add("rejected session never surfaced the veto diagnostic dialog");
+        }
+        if (!evidence.values.getOrDefault("rej.expectedFailure", "")
+                .equals(evidence.values.getOrDefault("rej.vetoKey", ""))) {
+            unmet.add("veto diagnostic did not name the session's failure key");
+        }
+        if (!"true".equals(evidence.values.get("rej.sameLiveDocument"))) {
+            unmet.add("original was not the live document after rejection");
+        }
+        if (!"true".equals(evidence.values.get("rej.fileSha256Preserved"))) {
+            unmet.add("original file bytes changed across the rejection");
+        }
+        if (!"true".equals(evidence.values.get("rej.modifiedPreserved"))) {
+            unmet.add("original dirty flag changed across the rejection");
+        }
+        if (!"true".equals(evidence.values.get("rej.undoPreserved"))) {
+            unmet.add("original undo state changed across the rejection");
+        }
+        if (intOf(evidence, "rej.stagingResidue") != 0) {
+            unmet.add("task-owned staging residue remains after rejection");
+        }
     }
 
     /** Shared copy-session verdict gates, keyed by the phase's evidence prefix. */

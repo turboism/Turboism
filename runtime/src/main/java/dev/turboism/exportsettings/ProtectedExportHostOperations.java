@@ -259,6 +259,14 @@ public interface ProtectedExportHostOperations {
 
     boolean isDeformerSource(Object object);
 
+    /**
+     * Stable family token for a census object outside the supported whitelist —
+     * e.g. {@code glue}, {@code art-path}, {@code deform-path}, {@code alias} —
+     * or a bounded {@code unknown:<class-clue>} token when no family matches.
+     * Diagnostics only; never {@code null} and never longer than a short token.
+     */
+    String unsupportedObjectFamily(Object object);
+
     boolean isWarpDeformer(Object object);
 
     boolean isRotationDeformer(Object object);
