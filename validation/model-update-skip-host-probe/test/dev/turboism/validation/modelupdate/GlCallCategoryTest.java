@@ -27,9 +27,21 @@ public final class GlCallCategoryTest {
         }
         for (String name : new String[]{
             "glGetUniformLocation", "glGetUniformfv", "glGetUniformiv",
-            "glGetError", "glGetIntegerv", "glGetString", "glGetBufferParameteriv",
+            "glGetIntegerv", "glGetString", "glGetBufferParameteriv",
             "glIsEnabled", "glIsBuffer", "glCheckFramebufferStatus"}) {
             check(GlCallCategory.of(name) == GlCallCategory.QUERY, "query: " + name);
+        }
+        check(GlCallCategory.of("glGetError") == GlCallCategory.ERROR_CHECK,
+            "glGetError is its own category, not a generic query");
+        for (String name : new String[]{
+            "glGenBuffers", "glGenTextures", "glGenVertexArrays", "glGenFramebuffers",
+            "glGenRenderbuffers", "glGenSamplers", "glGenQueries",
+            "glGenTransformFeedbacks", "glGenProgramPipelines",
+            "glDeleteBuffers", "glDeleteTextures", "glDeleteVertexArrays",
+            "glDeleteFramebuffers", "glDeleteRenderbuffers", "glDeleteSamplers",
+            "glDeleteQueries", "glDeleteSync", "glDeleteProgram", "glDeleteShader"}) {
+            check(GlCallCategory.of(name) == GlCallCategory.BUFFER_LIFECYCLE,
+                "buffer lifecycle: " + name);
         }
         for (String name : new String[]{
             "glUniform1i", "glUniform1f", "glUniform2f", "glUniform4f",
@@ -55,11 +67,11 @@ public final class GlCallCategoryTest {
         check(GlCallCategory.of("glReadPixels") == GlCallCategory.READBACK, "readback");
         check(GlCallCategory.of("glReadnPixels") == GlCallCategory.READBACK, "readback variant");
         for (String name : new String[]{
-            "glFlush", "glFinish", "glGenBuffers", "glDeleteBuffers",
-            "glGenVertexArrays", "glDeleteVertexArrays", "glCreateShader",
+            "glFlush", "glFinish", "glCreateShader",
             "glShaderSource", "glCompileShader", "glAttachShader", "glLinkProgram",
-            "glDeleteProgram", "glFenceSync", "glClientWaitSync", "glDeleteSync",
-            "glGenerateMipmap", "glDrawPixels", "glInvalidateBufferData",
+            "glFenceSync", "glClientWaitSync",
+            "glGenerateMipmap", "glGenerateTextureMipmap", "glDrawPixels",
+            "glInvalidateBufferData",
             "getGL3", "getContext", ""}) {
             check(GlCallCategory.of(name) == GlCallCategory.OTHER, "other: " + name);
         }
@@ -77,6 +89,10 @@ public final class GlCallCategoryTest {
             "read-buffer selection is state, not a readback");
         check(GlCallCategory.of("glEnableVertexAttribArray") == GlCallCategory.STATE,
             "attrib-array toggle is state via the enable family");
+        check(GlCallCategory.of("glGenerateMipmap") == GlCallCategory.OTHER,
+            "mipmap generation is content generation, not object lifecycle");
+        check(GlCallCategory.of("glIsBuffer") == GlCallCategory.QUERY,
+            "object identity query stays a query, not lifecycle");
         System.out.println("GlCallCategoryTest PASS (category boundaries, prefix ordering, uncategorized fallback)");
     }
 

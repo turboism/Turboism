@@ -5,7 +5,10 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -39,6 +42,8 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
     // identical to the pre-attribution probe: no lookup, counter or timestamp
     // beyond the existing per-method accounting is added when disabled.
     private final Metric[] categories;
+    // Fixed bound for the opt-in top-methods ranking emitted at report time.
+    private static final int TOP_METHOD_LIMIT = 10;
     private long observerNanos;
     private volatile boolean collecting;
     private Component drawable;
@@ -263,6 +268,23 @@ final class GlSubmissionProbe implements InvocationHandler, AutoCloseable {
             out.append("glCategories.observedCalls=").append(observedCalls).append('\n')
                 .append("glCategories.observedNanos=").append(observedNanos).append('\n')
                 .append("glCategories.observerNanos=").append(observerNanos).append('\n');
+            // Report-time ranking over the existing per-method metrics; the
+            // GL call path still performs no sorting or allocation.
+            out.append("glCategories.topMethods.bound=").append(TOP_METHOD_LIMIT).append('\n')
+                .append("glCategories.topMethods.meaning=ranking-of-existing-glCalls-delegate-nanos-"
+                    + "not-additional-time\n");
+            List<Map.Entry<String, Metric>> ranked = new ArrayList<>(metrics.entrySet());
+            ranked.removeIf(entry -> entry.getValue().calls == 0);
+            ranked.sort(Comparator
+                .<Map.Entry<String, Metric>>comparingLong(entry -> entry.getValue().nanos)
+                .reversed().thenComparing(Map.Entry::getKey));
+            for (int rank = 0; rank < Math.min(TOP_METHOD_LIMIT, ranked.size()); rank++) {
+                Map.Entry<String, Metric> entry = ranked.get(rank);
+                String prefix = "glCategories.top." + (rank + 1) + ".";
+                out.append(prefix).append("method=").append(entry.getKey()).append('\n')
+                    .append(prefix).append("calls=").append(entry.getValue().calls).append('\n')
+                    .append(prefix).append("nanos=").append(entry.getValue().nanos).append('\n');
+            }
         }
         if (payloads != null) out.append(payloads.report());
         return out.toString();
