@@ -26,4 +26,18 @@ public interface ArchivePathPolicy {
      * @throws ArchiveStructureException when the name set violates the caller's policy
      */
     void validateCollisions(List<String> names) throws ArchiveStructureException;
+
+    /**
+     * Whether directory entries written with default type metadata — platform 0
+     * and no DOS directory bit, as standard JDK {@code jar}/
+     * {@link java.util.jar.JarOutputStream} writers emit — are admissible.
+     * Callers opting in still require every directory entry to be a safe empty
+     * directory: zero expanded payload (an empty deflate stream compresses to a
+     * nonzero byte count), a normalized relative path, and no conflicting
+     * explicit type. An empty directory is structure, not a data channel. The
+     * default keeps the historical strict rule.
+     */
+    default boolean permitsDefaultDirectoryMetadata() {
+        return false;
+    }
 }

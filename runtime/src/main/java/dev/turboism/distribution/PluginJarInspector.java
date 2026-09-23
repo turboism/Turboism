@@ -163,6 +163,18 @@ final class PluginJarInspector {
             PublicEventContractPreflight.payloadSeeds(descriptor));
         final PublicEventContractPreflight.Session session =
             PublicEventContractPreflight.newSession();
+        // The declared-contract count is checked once before any artifact bytes
+        // are materialized (Amendment A-1.R/R1).
+        try {
+            session.expectContracts(
+                descriptor.eventContracts().size(), descriptor.id());
+        } catch (final PublicEventContractPreflight.ContractViolation violation) {
+            throw ArchivePolicy.problem(
+                contractViolationCode(violation.kind()),
+                violation.getMessage(),
+                logicalPath
+            );
+        }
         try (StrictZipArchive archive =
             StrictZipArchive.open(path, LIMITS, PluginPathPolicy.ARCHIVE)) {
             for (final PluginDescriptor.EventContract contract : descriptor.eventContracts()) {
@@ -184,6 +196,18 @@ final class PluginJarInspector {
                             + artifactPath + " exceeds the "
                             + PublicEventContractPreflight.MAX_ARTIFACT_BYTES
                             + " byte limit",
+                        problemPath
+                    );
+                }
+                // Reserve the session's raw-artifact budget from the strictly
+                // validated central-directory declaration before the buffer is
+                // allocated — consume() then proves actual delivery equals it.
+                try {
+                    session.chargeArtifactBytes(entry.expanded(), contract.id());
+                } catch (final PublicEventContractPreflight.ContractViolation violation) {
+                    throw ArchivePolicy.problem(
+                        contractViolationCode(violation.kind()),
+                        violation.getMessage(),
                         problemPath
                     );
                 }

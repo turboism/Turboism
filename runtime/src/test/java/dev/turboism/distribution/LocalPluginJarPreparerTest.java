@@ -113,6 +113,68 @@ class LocalPluginJarPreparerTest {
         assertTrue(Files.isRegularFile(result.value().stagedJar()));
     }
 
+    /**
+     * Amendment A-1.R ordering evidence: the declared-contract count is bounded
+     * before any artifact bytes are materialized. 33 contracts all pin a
+     * deliberately wrong sha256 — if the count check ran after per-artifact
+     * verification, HASH_MISMATCH would fire first; TOO_LARGE proves the
+     * declaration bound precedes reads.
+     */
+    @Test
+    void rejectsOversizedContractDeclarationCountBeforeReadingArtifacts()
+            throws Exception {
+        final byte[] artifact = contractArtifact(root, Map.of(
+            EVENT_TYPE, """
+                package com.acme.events;
+                public record Greeting(String payload)
+                    implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
+                """
+        ));
+        final String wrongSha = "0".repeat(64);
+        final StringBuilder contracts = new StringBuilder();
+        for (int i = 0; i < 33; i++) {
+            if (i > 0) {
+                contracts.append(',');
+            }
+            contracts.append("""
+                {"id":"acme.events.c%d","version":"1.0.0",
+                  "artifact":"META-INF/turboism/contracts/acme-%d.jar","sha256":"%s"}"""
+                .formatted(i, i, wrongSha));
+        }
+        final String descriptor = """
+            {"format":"turboism.plugin.meta","schemaVersion":5,
+            "id":"dev.example.provider","name":"dev.example.provider","version":"0.1.0",
+            "description":"test","entrypoints":["dev.example.provider.ProviderPlugin"],
+            "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            "license":"Test","website":"https://turboism.dev","resources":[],
+            "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
+            "dependencies":[],"permissions":[],"capabilities":[],
+            "environment":{"requiresCubism":false,"ui":"none"},
+            "category":"workflow","eventContracts":[%s]}
+            """.formatted(contracts);
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (JarOutputStream jar = new JarOutputStream(output)) {
+            add(jar, "META-INF/turboism/plugin.json",
+                descriptor.getBytes(StandardCharsets.UTF_8));
+            add(jar, "META-INF/turboism/i18n/messages.properties",
+                "plugin.name=Contracted\n".getBytes(StandardCharsets.UTF_8));
+            add(jar, "dev/example/provider/ProviderPlugin.class", new byte[]{0});
+            for (int i = 0; i < 33; i++) {
+                add(jar, "META-INF/turboism/contracts/acme-" + i + ".jar",
+                    artifact);
+            }
+        }
+        final Path source = root.resolve("overdeclared.jar");
+        Files.write(source, output.toByteArray());
+
+        final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
+            LocalPluginJarPreparer.PreparationRejected.class,
+            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
+        );
+        assertEquals("PLUGIN_CONTRACT_ARTIFACT_TOO_LARGE", rejected.code());
+        assertFalse(hasJar(root.resolve("staging")));
+    }
+
     @Test
     void rejectsUndeclaredContractArtifact() throws Exception {
         final byte[] artifact = contractArtifact(root, Map.of(
