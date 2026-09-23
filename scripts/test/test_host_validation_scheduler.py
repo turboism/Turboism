@@ -71,15 +71,21 @@ class HostValidationSchedulerTest(unittest.TestCase):
                          {f"ui-{dataset}-{count}-{implementation}" for dataset in ("circle", "geometry")
                           for count in (100, 500, 1000, 2500)
                           for implementation in ("native", "new")} |
+                         {f"ui-{dataset}-{count}-polygon" for dataset in ("circle", "geometry")
+                          for count in (100, 500, 1000)} |
                          {f"ui-{dataset}-{count}-new-parallel" for dataset in ("circle", "geometry")
                           for count in (100, 500)}, set(task.variants))
         self.assertEqual("geometry-100-new", self.request("atlas:5303").variant)
-        for spec in ("atlas:5302", "atlas:9999", "atlas:5303@geometry-2500-both",
+        for spec in ("atlas:9999", "atlas:5303@geometry-2500-both",
                      "atlas:5303@geometry-2499-new", "atlas:5303@geometry-100-both",
                      "atlas:5303@ui-geometry-2499-native", "atlas:5303@ui-circle-101-new",
-                     "atlas:5303@ui-circle-1000-new-parallel", "atlas:5303@ui-geometry-500-native-parallel"):
+                     "atlas:5303@ui-circle-1000-new-parallel", "atlas:5303@ui-geometry-500-native-parallel",
+                     "atlas:5303@ui-circle-2500-polygon", "atlas:5303@geometry-100-polygon"):
             with self.subTest(spec=spec), self.assertRaises(scheduler.SchedulerError):
                 self.request(spec)
+        for spec in ("atlas:5203@ui-circle-100-polygon", "atlas:5302@ui-geometry-1000-polygon"):
+            with self.subTest(spec=spec):
+                self.assertEqual(spec.split("@", 1)[1], self.request(spec).variant)
         with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not execute wrappers")):
             command = scheduler.render_command(self.request("atlas:5303"), self.manifest)
             self.assertTrue(command[1].endswith("run-atlas-host-validation.sh"))

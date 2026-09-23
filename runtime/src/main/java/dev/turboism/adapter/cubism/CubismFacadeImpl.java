@@ -1064,6 +1064,33 @@ public final class CubismFacadeImpl implements CubismFacade {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService textureAtlasPolygonLayouts() {
+        requireActiveScope();
+        if (!(textureAtlasLayouts
+            instanceof dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService delegate)) {
+            throw new UnsupportedOperationException(
+                "Texture atlas polygon layout service is unavailable"
+            );
+        }
+        return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService() {
+            @Override
+            public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot> currentPolygon() {
+                requireActiveScope();
+                return delegate.currentPolygon();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult apply(
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan plan
+            ) {
+                requireActiveScope();
+                return delegate.apply(target, plan);
+            }
+        };
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
         requireActiveScope();
         final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession delegate =

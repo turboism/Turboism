@@ -15927,6 +15927,33 @@
       }
     },
     {
+      "semanticName": "cubism.mapping.v5_3_03.texture_atlas.native_edit_layer_draw_data_shapes",
+      "kind": "method",
+      "owner": "texture-atlas-authoring",
+      "name": "cubism.texture-atlas.native.edit-layer.draw-data-shapes",
+      "runtime": "getDrawDataShapes$cubism",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE__EditLayer_ModelImage",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "()Ljava/util/ArrayList;",
+      "intermediary": "",
+      "x.review": {
+        "recordAlias": "cubism.texture-atlas.native.edit-layer.draw-data-shapes",
+        "recordMappingId": "cubism.mapping.v5_3_03.texture_atlas.native_edit_layer_draw_data_shapes",
+        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+        "provenance": "exact 5.3.03 classfile verification; model-image contour source for polygon packing (material-local java.awt.Shape list, same source as 5.4 auto-layout)"
+      }
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_03.texture_atlas.native_item_height",
       "kind": "method",
       "owner": "texture-atlas-authoring",
