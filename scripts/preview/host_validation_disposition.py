@@ -10,6 +10,7 @@ row, never writes evidence files and never marks verification accepted.
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -62,7 +63,7 @@ def _block(code: str, detail: str) -> dict[str, str]:
 
 def _current_boot() -> str:
     boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
-    if not boot:
+    if not JOB_ID.fullmatch(boot):
         raise queue.QueueError("cannot determine the current boot identity")
     return boot
 
@@ -76,7 +77,10 @@ def _identity(raw: Any, source: str) -> dict[str, Any]:
     except (KeyError, TypeError, ValueError) as failure:
         raise queue.QueueError(f"{source} identity is incomplete") from failure
     if (identity["pid"] <= 0 or identity["startTicks"] < 0
-            or not isinstance(identity["bootId"], str) or not identity["bootId"]
+            or isinstance(raw["pid"], bool) or isinstance(raw["startTicks"], bool)
+            or isinstance(raw["uid"], bool)
+            or not isinstance(identity["bootId"], str)
+            or not JOB_ID.fullmatch(identity["bootId"])
             or identity["uid"] != os.getuid()):
         raise queue.QueueError(f"{source} identity is invalid")
     return identity
@@ -121,8 +125,25 @@ def _expected(job: dict[str, Any]) -> dict[str, Any]:
             "runId": job["run_id"], "preparedDigest": job["digest"]}
 
 
+def _lifecycle_copy(path: Path, expected: dict[str, Any]) -> tuple[dict[str, Any], Any]:
+    """A present lifecycle record must be a schema-bound object for this attempt;
+    a finalized copy is a durable verdict, not an orphan candidate."""
+    record = _metadata_record(path)
+    parsed = None
+    if record.get("exists") and record.get("type") == stat.S_IFREG:
+        parsed = _bounded_json(path)
+        if (not isinstance(parsed, dict)
+                or type(parsed.get("schemaVersion")) is not int
+                or parsed["schemaVersion"] != SCHEMA_VERSION
+                or any(parsed.get(key) != value for key, value in expected.items())):
+            raise queue.QueueError(f"lifecycle record is malformed or foreign: {path}")
+        if parsed.get("finalizedBy") == "contained-supervisor":
+            raise _FinalVerdictPresent()
+    return record, parsed
+
+
 def _closure(view: Any, job: dict[str, Any], historical_boot: str,
-             descriptor: dict[str, Any]) -> dict[str, Any]:
+             supervisor: dict[str, Any], descriptor: dict[str, Any]) -> dict[str, Any]:
     """Fixed evidence closure; every member is bounded and link-free."""
     expected = _expected(job)
     directory = checked_path(view.root / "jobs" / job["job_id"])
@@ -131,7 +152,9 @@ def _closure(view: Any, job: dict[str, Any], historical_boot: str,
         if not files[required].get("exists"):
             raise queue.QueueError(f"required attempt identity is missing: {required}")
     containment = _bounded_json(directory / "containment.json")
-    if (not isinstance(containment, dict) or containment.get("schemaVersion") != 1
+    if (not isinstance(containment, dict)
+            or type(containment.get("schemaVersion")) is not int
+            or containment["schemaVersion"] != SCHEMA_VERSION
             or any(containment.get(key) != value for key, value in expected.items())
             or containment.get("bootId") != historical_boot):
         raise queue.QueueError("containment identity does not match this attempt")
@@ -139,35 +162,34 @@ def _closure(view: Any, job: dict[str, Any], historical_boot: str,
     if entry["bootId"] != historical_boot:
         raise queue.QueueError("containment entry belongs to another boot")
     runner = _identity(_bounded_json(directory / "runner-identity.json"), "runner")
-    if runner["bootId"] != historical_boot:
-        raise queue.QueueError("runner identity belongs to another boot")
+    if runner != queue.scope_identity(entry):
+        raise queue.QueueError("runner identity is not the bound entry projection")
     for actor in (entry, runner):
         if queue.identity_alive(actor):
             raise queue.QueueError("a recorded attempt process is still active")
     if files["heartbeat.json"].get("exists"):
         heartbeat = _bounded_json(directory / "heartbeat.json")
-        if not isinstance(heartbeat, dict) or any(heartbeat.get(key) != value
-                for key, value in expected.items()):
+        if (not isinstance(heartbeat, dict)
+                or type(heartbeat.get("schemaVersion")) is not int
+                or heartbeat["schemaVersion"] != SCHEMA_VERSION
+                or any(heartbeat.get(key) != value for key, value in expected.items())):
             raise queue.QueueError("heartbeat does not identify this attempt")
-        for actor in ("supervisor", "runner"):
-            recorded = heartbeat.get(actor)
-            if recorded is not None and _identity(recorded, actor)["bootId"] != historical_boot:
-                raise queue.QueueError("heartbeat identity belongs to another boot")
+        if _identity(heartbeat.get("supervisor"), "heartbeat supervisor") != supervisor:
+            raise queue.QueueError("heartbeat supervisor is not the recorded supervisor")
+        if _identity(heartbeat.get("runner"), "heartbeat runner") != queue.scope_identity(entry):
+            raise queue.QueueError("heartbeat runner is not the bound entry projection")
     prepared_root = view.root / "prepared" / job["prepared_id"]
     task = layout(descriptor, prepared_root, job)["task"]
-    task_lifecycle = _metadata_record(task / "evidence" / "lifecycle-result.json")
-    if task_lifecycle.get("exists") and task_lifecycle.get("type") == stat.S_IFREG:
-        copy = _bounded_json(task / "evidence" / "lifecycle-result.json")
-        if not isinstance(copy, dict):
-            raise queue.QueueError("task lifecycle copy is corrupt")
-        if copy.get("finalizedBy") == "contained-supervisor":
-            if any(copy.get(key) != value for key, value in expected.items()):
-                raise queue.QueueError("task lifecycle copy belongs to another attempt")
-            raise _FinalVerdictPresent()
+    job_record, job_copy = _lifecycle_copy(
+        directory / "evidence" / "lifecycle-result.json", expected)
+    task_record, task_copy = _lifecycle_copy(
+        task / "evidence" / "lifecycle-result.json", expected)
+    if job_copy is not None and task_copy is not None and job_copy != task_copy:
+        raise queue.QueueError("job and task lifecycle copies conflict")
     return {"files": files,
             "jobListing": _listing(directory),
             "evidenceListing": _listing(directory / "evidence"),
-            "task": {"path": str(task), "lifecycleResult": task_lifecycle}}
+            "task": {"path": str(task), "lifecycleResult": task_record}}
 
 
 def _assess(view: Any, job: dict[str, Any], current_boot: str) -> dict[str, Any]:
@@ -189,6 +211,7 @@ def _assess(view: Any, job: dict[str, Any], current_boot: str) -> dict[str, Any]
             or not RUN_ID.fullmatch(job["run_id"] or "")
             or not APPROVAL.fullmatch(job["prepared_id"] or "")
             or not APPROVAL.fullmatch(job["digest"] or "")
+            or job["digest"] != job["prepared_id"]
             or not isinstance(job["request_key"], str) or not job["request_key"]):
         blockers.append(_block("IDENTITY_INVALID", "incomplete attempt identity"))
         return result
@@ -207,7 +230,7 @@ def _assess(view: Any, job: dict[str, Any], current_boot: str) -> dict[str, Any]
         return result
     try:
         descriptor = retention.describe(view, job["prepared_id"])
-        result["closure"] = _closure(view, job, historical, descriptor)
+        result["closure"] = _closure(view, job, historical, supervisor, descriptor)
     except _FinalVerdictPresent:
         blockers.append(_block("FINAL_VERDICT_PRESENT", "task-side lifecycle already finalized"))
         return result
@@ -380,28 +403,68 @@ def inspect(root: Path, job_id: str, *, busy: Any = None) -> dict[str, Any]:
     return _report(snapshot, job, current_boot, evaluation, extra, observation)
 
 
-def _replay(events: list[dict[str, Any]], job: dict[str, Any],
+def _replay(view: Any, job: dict[str, Any],
             approval: str, reason: str) -> dict[str, Any]:
-    """Read-only replay of an identical committed confirmation."""
-    audits = [row for row in events if row["job_id"] == job["job_id"] and row["kind"] == EVENT_KIND]
+    """Read-only replay of an identical committed confirmation.
+
+    The stored audit is a fixed protocol record: every field is type-checked
+    and rebound to the live row before any receipt is returned. A receipt can
+    never be upgraded into a verification result.
+    """
+    def refuse(code: str, detail: str) -> Rejected:
+        return Rejected({"schemaVersion": SCHEMA_VERSION, "jobId": job["job_id"],
+                         "blockers": [_block(code, detail)],
+                         "disposition": DISPOSITION, "verificationAccepted": False})
+    audits = [row for row in view.event_rows
+              if row["job_id"] == job["job_id"] and row["kind"] == EVENT_KIND]
     if len(audits) != 1:
-        raise Rejected({"schemaVersion": SCHEMA_VERSION, "jobId": job["job_id"],
-                        "blockers": [_block("IDENTITY_INVALID", "administrative state lacks a unique audit")],
-                        "disposition": DISPOSITION, "verificationAccepted": False})
-    payload = json.loads(audits[0]["payload"])
-    matching = (payload.get("jobId") == job["job_id"]
-                and payload.get("attemptId") == job["attempt_id"]
-                and payload.get("approvalDigest") == approval and payload.get("reason") == reason)
-    if not matching:
-        raise Rejected({"schemaVersion": SCHEMA_VERSION, "jobId": job["job_id"],
-                        "blockers": [_block("CONFLICTING_CONFIRMATION",
-                                            "request conflicts with the committed disposition")],
-                        "disposition": DISPOSITION, "verificationAccepted": False})
-    if (job["state"] != queue.ADMINISTRATIVE_STATE or job["reason"] != payload["reason"]
-            or job["updated_at"] != payload["recordedAt"]):
-        raise Rejected({"schemaVersion": SCHEMA_VERSION, "jobId": job["job_id"],
-                        "blockers": [_block("IDENTITY_INVALID", "administrative row disagrees with its audit")],
-                        "disposition": DISPOSITION, "verificationAccepted": False})
+        raise refuse("IDENTITY_INVALID", "administrative state lacks a unique audit")
+    try:
+        payload = json.loads(audits[0]["payload"])
+    except (ValueError, TypeError) as failure:
+        raise refuse("IDENTITY_INVALID", f"administrative audit is unreadable: {failure}")
+    valid = (
+        isinstance(payload, dict)
+        and type(payload.get("schemaVersion")) is int
+        and payload["schemaVersion"] == SCHEMA_VERSION
+        and payload.get("disposition") == DISPOSITION
+        and payload.get("toState") == queue.ADMINISTRATIVE_STATE
+        and payload.get("fromState") in queue.ACTIVE
+        and payload.get("preservation") == PRESERVATION
+        and payload.get("verificationAccepted") is False
+        and type(payload.get("operatorUid")) is int
+        and payload["operatorUid"] == os.getuid()
+        and JOB_ID.fullmatch(payload.get("jobId") or "")
+        and JOB_ID.fullmatch(payload.get("attemptId") or "")
+        and RUN_ID.fullmatch(payload.get("runId") or "")
+        and APPROVAL.fullmatch(payload.get("preparedDigest") or "")
+        and APPROVAL.fullmatch(payload.get("approvalDigest") or "")
+        and JOB_ID.fullmatch(payload.get("historicalBootId") or "")
+        and JOB_ID.fullmatch(payload.get("currentBootId") or "")
+        and payload["historicalBootId"] != payload["currentBootId"]
+        and type(payload.get("recordedAt")) in (int, float)
+        and not isinstance(payload["recordedAt"], bool)
+        and math.isfinite(payload["recordedAt"])
+        and (payload.get("previousReason") is None or isinstance(payload["previousReason"], str))
+        and (payload.get("previousUpdatedAt") is None
+             or (type(payload["previousUpdatedAt"]) in (int, float)
+                 and not isinstance(payload["previousUpdatedAt"], bool)))
+        and isinstance(payload.get("reason"), str)
+        and isinstance(payload.get("evidenceInventory"), dict)
+        and payload.get("rootIdentity") == list(view.identity)
+    )
+    if not valid:
+        raise refuse("IDENTITY_INVALID", "administrative audit fails protocol validation")
+    bound = (payload["jobId"] == job["job_id"] and payload["attemptId"] == job["attempt_id"]
+             and payload["runId"] == job["run_id"] and payload["preparedDigest"] == job["digest"]
+             and job["state"] == queue.ADMINISTRATIVE_STATE
+             and job["reason"] == payload["reason"]
+             and job["updated_at"] == payload["recordedAt"])
+    if not bound:
+        raise refuse("IDENTITY_INVALID", "administrative row disagrees with its audit")
+    if payload["approvalDigest"] != approval or payload["reason"] != reason:
+        raise refuse("CONFLICTING_CONFIRMATION",
+                     "request conflicts with the committed disposition")
     return {**payload, "replayed": True}
 
 
@@ -470,7 +533,7 @@ def confirm(root: Path, job_id: str, approval: str, reason: Any, *, busy: Any = 
         raise queue.QueueError("unknown job id")
     job = rows[0]
     if job["state"] in queue.ADMINISTRATIVE:
-        return _replay(snapshot.event_rows, job, approval, normalized)
+        return _replay(snapshot, job, approval, normalized)
     report = inspect(root, job_id, busy=busy)
     if not report["canConfirm"]:
         raise Rejected(report)
@@ -493,7 +556,7 @@ def confirm(root: Path, job_id: str, approval: str, reason: Any, *, busy: Any = 
                 row = live.jobs(job_id)[0]
                 if row["state"] in queue.ADMINISTRATIVE:
                     db.execute("ROLLBACK")
-                    return _replay(live.event_rows, row, approval, normalized)
+                    return _replay(live, row, approval, normalized)
                 current_boot = _current_boot()
                 evaluation = _evaluate(live, row, current_boot, busy=busy)
                 if _worker_status(root) != "offline":
