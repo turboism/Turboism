@@ -4,11 +4,13 @@
 
 ## 저작권 및 고지
 
-Copyright © 2026 Turboism Contributors. Turboism은 [MIT License](LICENSE)에 따라 제공되는 오픈 소스 소프트웨어입니다.
+Copyright © 2026 Turboism Contributors. Turboism은 [AGPL-3.0-only](LICENSE)에 따라 제공되는 오픈 소스 소프트웨어입니다.
+
+이 버전에는 GNU Affero General Public License 버전 3만 적용됩니다(`AGPL-3.0-only`). 타사 구성 요소와 별도 라이선스가 명시된 파일에는 각각의 라이선스가 적용됩니다.
 
 Turboism은 **독립적인 서드파티 프로젝트**이며, Live2D Inc.와 제휴 관계가 없고 해당 회사의 보증이나 후원을 받지 않습니다. Live2D, Cubism 및 관련 명칭과 상표에 대한 권리는 Live2D Inc. 또는 각 권리자에게 있습니다. Turboism은 Cubism Editor를 배포하거나 해당 라이선스를 제공·대체·우회하지 않습니다. 적법한 라이선스를 취득한 Cubism Editor를 별도로 설치해야 합니다.
 
-설치 전에 [최종 사용자 실행 고지 및 면책 조항](EULA.md)을 읽어 주세요. 이 고지는 MIT License가 부여한 권리를 제한하지 않으며, 중국어 간체 정식 문서가 기준입니다. 소프트웨어는 **있는 그대로** 제공됩니다. 프로젝트 내용을 변경하는 플러그인이나 자동화 기능을 사용하기 전에 독립적인 백업을 보관하세요.
+설치 전에 [최종 사용자 실행 고지 및 면책 조항](EULA.md)을 읽어 주세요. 이 고지는 AGPL-3.0-only가 부여한 권리를 제한하지 않으며, 중국어 간체 정식 문서가 기준입니다. 소프트웨어는 **있는 그대로** 제공됩니다. 프로젝트 내용을 변경하는 플러그인이나 자동화 기능을 사용하기 전에 독립적인 백업을 보관하세요.
 
 ## 프로젝트 소개
 

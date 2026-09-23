@@ -4,11 +4,13 @@
 
 ## 版权声明
 
-Copyright © 2026 Turboism Contributors。Turboism 采用 [MIT License](LICENSE) 开源许可。
+Copyright © 2026 Turboism Contributors。Turboism 采用 [AGPL-3.0-only](LICENSE) 开源许可。
+
+本版本采用 GNU Affero 通用公共许可证第 3 版，仅限该版本（`AGPL-3.0-only`）。第三方组件及明确另行许可的文件继续适用各自的许可。
 
 Turboism 是**独立的第三方项目**，与 Live2D Inc. 不存在隶属关系，也未获得其背书或赞助。Live2D、Cubism 及相关名称、标志的权利归 Live2D Inc. 或相应权利人所有。Turboism 不分发 Cubism Editor，不提供、替代或绕过其许可；你需要另行安装并取得合法授权。
 
-安装前请阅读[最终用户运行声明与免责声明](EULA.md)。该声明不缩减 MIT License 已授予的权利，且以简体中文正式文本为准。软件按**现状**提供；使用可能修改工程内容的插件或自动化功能前，请保留独立备份。
+安装前请阅读[最终用户运行声明与免责声明](EULA.md)。该声明不缩减 AGPL-3.0-only 已授予的权利，且以简体中文正式文本为准。软件按**现状**提供；使用可能修改工程内容的插件或自动化功能前，请保留独立备份。
 
 ## 项目简介
 

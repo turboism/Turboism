@@ -39,7 +39,7 @@ in `gradle/verification-metadata.xml`.
 java -jar TurboismInstaller-<version>.jar
 ```
 
-Flow: Welcome -> MIT License -> four required Turboism runtime-declaration acknowledgements -> full localized runtime declaration -> Full/Thin/Lite -> optional plugins (Full and Thin) -> target directory -> summary -> install -> finish. Full defaults
+Flow: Welcome -> AGPL-3.0-only -> four required Turboism runtime-declaration acknowledgements -> full localized runtime declaration -> Full/Thin/Lite -> optional plugins (Full and Thin) -> target directory -> summary -> install -> finish. Full defaults
 every first-party plugin to selected. Thin installs the complete plugin roster
 without an additional native runtime payload; it also accepts an explicit
 custom executable path. The first-party loopback MCP server is available on
