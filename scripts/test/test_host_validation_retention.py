@@ -515,6 +515,54 @@ class RetentionTest(unittest.TestCase):
         manifest = gc.read_json(directory / "retention-archive/manifest.json")
         self.assertIn(fixture.name, manifest["omitted"])
 
+    def abandoned(self, age=400):
+        """A job already registered abandoned by the operator; evidence is left intact."""
+        job, task, directory = self.finish(age=age)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET state='abandoned',reason=? WHERE job_id=?",
+                       ("administrative disposition; not a verification result", job["job_id"]))
+            db.execute("INSERT INTO events(job_id,created_at,kind,payload) VALUES(?,?,?,?)",
+                       (job["job_id"], self.now, "operator-abandoned",
+                        q.canonical_json({"toState": "abandoned", "fromState": job["state"],
+                            "verificationAccepted": False})))
+        return self.store.jobs(job["job_id"])[0], task, directory
+
+    def test_abandoned_job_task_and_inputs_are_permanently_protected(self):
+        job, task, directory = self.abandoned()
+        report = self.plan()
+        self.assertEqual([], [c for c in report["candidates"] if c["id"] in {job["job_id"], job["prepared_id"]}])
+        reasons = {r["id"]: r["reason"] for r in report["retained"]}
+        self.assertIn("administrative", reasons[job["job_id"]])
+        self.assertIn("unverified", reasons[job["prepared_id"]])
+        receipt = self.apply(report)
+        self.assertEqual([], receipt["removed"])
+        for path in (task / "prefix/pfx/data", task / "evidence/assertions.json",
+                     directory / "outcome.json", directory / "runner.log",
+                     self.root / "prepared" / job["prepared_id"] / "prepared.json"):
+            self.assertTrue(path.exists(), path)
+        self.assertEqual("abandoned", self.store.jobs(job["job_id"])[0]["state"])
+
+    def test_abandoned_protection_survives_unpin_adopt_and_age(self):
+        job, task, directory = self.abandoned(age=10_000)
+        gc.mutate_hold(self.root, "pin", job["job_id"], "operator hold")
+        gc.mutate_hold(self.root, "unpin", job["job_id"], "release hold")
+        with self.assertRaises(q.QueueError):
+            gc.mutate_hold(self.root, "adopt", job["job_id"], "reviewed")
+        report = self.plan()
+        self.assertEqual([], [c for c in report["candidates"] if c["id"] in {job["job_id"], job["prepared_id"]}])
+        self.assertTrue((task / "prefix/pfx/data").exists())
+        snapshot = gc.Snapshot(self.root)
+        with self.assertRaises(q.QueueError):
+            gc.safe_outcome(snapshot, job)
+
+    def test_abandoned_never_enters_successful_samples(self):
+        job, _, _ = self.abandoned()
+        report = self.plan()
+        self.assertNotIn(job["job_id"], [c["id"] for c in report["candidates"]])
+        self.assertEqual("abandoned", self.store.jobs(job["job_id"])[0]["state"])
+        self.assertNotIn("abandoned", q.TERMINAL)
+        self.assertIn("abandoned", q.ADMINISTRATIVE)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -198,6 +198,36 @@ Events are durable JSONL records with cursors. Consumers may reconnect and repla
 notification failure cannot block the next job. This is an event interface, not
 an automatic Paseo callback or arbitrary webhook/shell executor.
 
+### Administrative disposition of cross-boot orphans
+
+A historical `active` record whose supervisor died with an earlier boot can
+never produce a final supervisor verdict. After manual review, an operator may
+register it `abandoned` so the queue is no longer administratively blocked:
+
+```bash
+python3 scripts/preview/host_validation.py abandon --inspect JOB_ID --json
+python3 scripts/preview/host_validation.py abandon --confirm JOB_ID \
+  --approval DIGEST_FROM_INSPECTION --reason 'Reviewed cross-boot orphan' --json
+```
+
+- `--inspect` is strictly read-only: it never constructs the writable store,
+  never creates queue state and only reads a private copy of the database. It
+  reports stable blockers and emits `approvalDigest` only when every condition
+  holds (cross-boot identity, no final verdict, host already idle and unowned,
+  worker stopped, no queued/current/unknown/external activity).
+- `--confirm` rechecks everything under the existing
+  worker → storage → admission lock order and commits one row update plus one
+  `operator-abandoned` audit event atomically. An identical retry replays the
+  original receipt read-only; a conflicting request is refused.
+- `abandoned` is an administrative marker, not a verification result:
+  `verificationAccepted` stays `false`, the host row is never touched, evidence
+  is preserved byte-for-byte, and retention protects the job, task, prefix,
+  logs and referenced prepared inputs permanently (`adopt`/`unpin`/expiry
+  cannot release them). `recover`, `complete` and `durable_outcome` still
+  reject it as an unverified disposition.
+- Real-queue use, service drain and any exact-host calibration remain separate
+  operator gates; nothing here starts or stops workers or services.
+
 ## Agent rollout
 
 After acceptance and merge, each active project Agent must update its validation
