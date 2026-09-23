@@ -30,6 +30,17 @@ final class PluginPathPolicy {
             }
         }
 
+        /**
+         * The outer surface keeps its historical verdict: a file too short to
+         * be an archive fails the raw-size gate ({@code PACKAGE_TOO_LARGE}),
+         * not the structural {@code ARCHIVE_*} family — which would be wrapped
+         * as {@code ARTIFACT_JAR_INVALID} by the inspector.
+         */
+        @Override
+        public String shortArchiveCode() {
+            return "PACKAGE_TOO_LARGE";
+        }
+
         @Override
         public void validateCollisions(final List<String> names)
                 throws ArchiveStructureException {

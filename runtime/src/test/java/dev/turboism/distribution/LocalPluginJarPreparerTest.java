@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LocalPluginJarPreparerTest {
@@ -78,6 +79,64 @@ class LocalPluginJarPreparerTest {
             new LocalPluginJarPreparer().prepare(source, root.resolve("staging"));
 
         assertInstanceOf(LocalPluginJarPreparer.PreparationRejected.class, result);
+        assertFalse(hasJar(root.resolve("staging")));
+    }
+
+    /**
+     * A-1.R/R4 regression: an input shorter than an EOCD record fails the outer
+     * raw-size gate with the historical {@code PACKAGE_TOO_LARGE} verdict —
+     * never the structural {@code ARCHIVE_*} family wrapped as
+     * {@code ARTIFACT_JAR_INVALID}.
+     */
+    @Test
+    void rejectsArchiveShorterThanEocdAsPackageTooLarge() throws Exception {
+        final Path source = root.resolve("short.jar");
+        Files.write(source, new byte[21]);
+
+        final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
+            LocalPluginJarPreparer.PreparationRejected.class,
+            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
+        );
+        assertEquals("PACKAGE_TOO_LARGE", rejected.code());
+        assertFalse(hasJar(root.resolve("staging")));
+    }
+
+    /**
+     * The same prologue verdict keeps the historical problem-path attribution:
+     * the file itself, not the caller's logical display name.
+     */
+    @Test
+    void shortArchiveAttributesTheFilePathNotTheLogicalName() throws Exception {
+        final Path source = root.resolve("short.jar");
+        Files.write(source, new byte[21]);
+
+        final DistributionValidationException failure = assertThrows(
+            DistributionValidationException.class,
+            () -> new PluginJarInspector().inspect(source, "logical-name.jar")
+        );
+        assertEquals("PACKAGE_TOO_LARGE", failure.code());
+        assertEquals(source.toString(), failure.problemPath());
+    }
+
+    /**
+     * The inner contract-artifact surface keeps the malformed-content verdict:
+     * a declared, correctly pinned artifact whose bytes are shorter than an
+     * EOCD record rejects as {@code PLUGIN_CONTRACT_ARTIFACT_INVALID}, proving
+     * the outer size-gate restoration does not leak into the inner codes.
+     */
+    @Test
+    void rejectsTruncatedDeclaredContractArtifactAsInvalid() throws Exception {
+        final byte[] artifact = new byte[21];
+        final Path source = root.resolve("truncated-contract.jar");
+        Files.write(source, v5ContractPluginJar(
+            "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
+        ));
+
+        final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
+            LocalPluginJarPreparer.PreparationRejected.class,
+            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
+        );
+        assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
