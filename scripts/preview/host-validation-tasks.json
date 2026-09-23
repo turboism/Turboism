@@ -177,6 +177,7 @@
         "flatten": ["{version}", "{runLabel}", "flatten"],
         "export": ["{version}", "{runLabel}", "export"],
         "atlas-fixture": ["{version}", "{runLabel}", "atlas-fixture"],
+        "expect-reject": ["{version}", "{runLabel}", "expect-reject"],
         "full": ["{version}", "{runLabel}", "dialog,copy-binding,flatten"]
       },
       "defaultVariant": "dialog",

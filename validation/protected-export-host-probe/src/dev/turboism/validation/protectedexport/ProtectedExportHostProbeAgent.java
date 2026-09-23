@@ -97,6 +97,13 @@ public final class ProtectedExportHostProbeAgent {
     private static final String ATTACH_KEY = BRIDGE_PREFIX + "attach";
     private static final String CANCEL_KEY = BRIDGE_PREFIX + "cancel";
     private static final String DECIDE_KEY = BRIDGE_PREFIX + "decide";
+    /**
+     * Window name of the runtime's user-visible veto surface
+     * ({@code ExportSettingsVetoDialog.DIALOG_NAME}). A checked confirmation
+     * must always produce either a native continuation or this diagnostic —
+     * a silent veto is the exact regression this probe exists to catch.
+     */
+    private static final String VETO_DIALOG_NAME = "turboism.export-settings.veto";
     private static final AtomicBoolean STARTED = new AtomicBoolean();
 
     private static final long READY_TIMEOUT_MILLIS = 300_000L;
@@ -104,6 +111,8 @@ public final class ProtectedExportHostProbeAgent {
     private static final long DIALOG_TIMEOUT_MILLIS = 45_000L;
     private static final long SEQUENCE_TIMEOUT_MILLIS = 90_000L;
     private static final long QUIESCENCE_MILLIS = 15_000L;
+    /** An armed session's terminal veto arrives after the worker unwinds — bound the wait. */
+    private static final long VETO_TIMEOUT_MILLIS = 120_000L;
     private static final long IDLE_MILLIS = 6_000L;
     private static final long POLL_MILLIS = 200L;
     private static final long EXIT_GRACE_MILLIS = 60_000L;
@@ -296,8 +305,12 @@ public final class ProtectedExportHostProbeAgent {
         } catch (Throwable failure) {
             evidence.put("checkedConfirmFailure", text(failure));
         }
-        // A rejection closes the settings dialog without raising any continuation window.
-        final List<String> unexpected = awaitQuiescence(alreadyVisible, settings);
+        // A checked veto must never die silently: the authority names an unwired
+        // rejection at once, or the armed session's terminal failure posts the
+        // veto dialog. Wait for it; every other new window stays unexpected.
+        final List<String> unexpected = new ArrayList<>();
+        awaitVetoDialog(alreadyVisible, settings, unexpected, stateDir, evidence,
+            "checkedVeto", "checkedReject");
         evidence.put("checkedPostDecisionDialogs", String.join(" -> ", unexpected));
         evidence.put(
             "checkedNoContinuation", Boolean.toString(unexpected.isEmpty())
@@ -631,6 +644,12 @@ public final class ProtectedExportHostProbeAgent {
                 }
                 // A veto/error dialog blocks the EDT; record then dismiss so the
                 // re-drive unwinds and the session reports its own failure.
+                if (isVetoDialog(window)) {
+                    recordVetoDialog((java.awt.Dialog) window, stateDir,
+                        evidence, prefix + "veto", "innerWait");
+                    dismiss((java.awt.Dialog) window);
+                    continue;
+                }
                 if (window instanceof java.awt.Dialog dialog
                     && firstButton(dialog) != null) {
                     dismiss(dialog);
@@ -852,6 +871,18 @@ public final class ProtectedExportHostProbeAgent {
         final String dumpTag
     ) {
         for (Window window : visibleWindows()) {
+            if (isVetoDialog(window)) {
+                // The veto diagnostic is the session's own visible verdict —
+                // never a continuation window. Record its reason once, then
+                // dismiss so the host can unwind.
+                if (seen.get(window) == null) {
+                    recordVetoDialog((java.awt.Dialog) window, stateDir,
+                        evidence, prefix + "veto", dumpTag);
+                }
+                seen.put(window, Integer.MAX_VALUE);
+                dismiss((java.awt.Dialog) window);
+                continue;
+            }
             final Integer polls = seen.computeIfAbsent(window, k -> 0);
             if (polls == 0) {
                 sequence.add(describe(window));
@@ -1150,6 +1181,19 @@ public final class ProtectedExportHostProbeAgent {
                     prefix, "rejWait");
                 terminal = sessionTerminalLine(turboismLog, logMark);
                 sleep(POLL_MILLIS);
+            }
+            if (terminal != null) {
+                // The veto surface is posted off the same terminal report but
+                // can land a poll later; bound the wait so the verdict can
+                // assert it actually appeared.
+                final long vetoDeadline =
+                    System.currentTimeMillis() + QUIESCENCE_MILLIS;
+                while (!"true".equals(evidence.values.get(prefix + "vetoDialog"))
+                    && System.currentTimeMillis() < vetoDeadline) {
+                    clickSettledDialogs(seenDialogs, unexpected, stateDir,
+                        evidence, prefix, "rejWait");
+                    sleep(POLL_MILLIS);
+                }
             }
             evidence.put(prefix + "unexpectedDialogs",
                 String.join(" -> ", unexpected));
@@ -2809,6 +2853,100 @@ public final class ProtectedExportHostProbeAgent {
         return unexpected;
     }
 
+    /**
+     * Waits for the veto diagnostic after a checked confirmation. An unwired
+     * veto is posted inside the decide gate; an armed session's terminal failure
+     * posts it off the worker, so the bound is generous. Once the veto is
+     * recorded and dismissed, only a short quiescence tail keeps collecting
+     * unexpected windows.
+     */
+    private static void awaitVetoDialog(
+        final Set<Window> before,
+        final JDialog settings,
+        final List<String> unexpected,
+        final Path stateDir,
+        final Evidence evidence,
+        final String keyPrefix,
+        final String dumpTag
+    ) {
+        final Set<Window> seen = new LinkedHashSet<>(before);
+        seen.add(settings);
+        long deadline = System.currentTimeMillis() + VETO_TIMEOUT_MILLIS;
+        while (System.currentTimeMillis() < deadline) {
+            for (Window window : visibleWindows()) {
+                if (seen.contains(window)) {
+                    continue;
+                }
+                seen.add(window);
+                if (isVetoDialog(window)) {
+                    recordVetoDialog((java.awt.Dialog) window, stateDir, evidence,
+                        keyPrefix, dumpTag);
+                    dismiss((java.awt.Dialog) window);
+                    deadline = Math.min(
+                        deadline, System.currentTimeMillis() + QUIESCENCE_MILLIS);
+                    continue;
+                }
+                unexpected.add(describe(window));
+                dumpTree(stateDir.resolve(
+                    "dialog-tree-" + dumpTag + "-unexpected-" + unexpected.size() + ".txt"),
+                    window);
+            }
+            sleep(POLL_MILLIS);
+        }
+    }
+
+    /**
+     * Whether the window is the runtime's user-visible veto diagnostic
+     * ({@code ExportSettingsVetoDialog}) — the surface that makes a checked
+     * rejection visible instead of silent.
+     */
+    static boolean isVetoDialog(final Window window) {
+        return window instanceof JDialog dialog
+            && VETO_DIALOG_NAME.equals(dialog.getName());
+    }
+
+    /**
+     * Records the veto dialog's diagnostic as evidence. The pane's message is
+     * the bounded failure identity; its first config-key-shaped line is the
+     * veto key itself.
+     */
+    private static void recordVetoDialog(
+        final java.awt.Dialog dialog,
+        final Path stateDir,
+        final Evidence evidence,
+        final String keyPrefix,
+        final String dumpTag
+    ) {
+        String message = "";
+        for (Component component : allComponents(dialog)) {
+            if (component instanceof javax.swing.JOptionPane pane
+                && pane.getMessage() != null) {
+                message = String.valueOf(pane.getMessage());
+                break;
+            }
+        }
+        evidence.put(keyPrefix + "Dialog", "true");
+        evidence.put(keyPrefix + "Key", vetoKeyFromMessage(message));
+        evidence.put(keyPrefix + "Message",
+            message.replace('\r', ' ').replace('\n', '|'));
+        dumpTree(stateDir.resolve("dialog-tree-veto-" + dumpTag + ".txt"), dialog);
+    }
+
+    /**
+     * Extracts the veto key from the diagnostic message: the first line that is
+     * exactly a lowercase config key (the intro sentence and detail payloads
+     * never match).
+     */
+    static String vetoKeyFromMessage(final String message) {
+        for (String line : message.split("\\R")) {
+            final String trimmed = line.trim();
+            if (trimmed.matches("[a-z0-9][a-z0-9._-]*")) {
+                return trimmed;
+            }
+        }
+        return "";
+    }
+
     // ------------------------------------------------------------------
     // Bridge observation
     // ------------------------------------------------------------------
@@ -4057,6 +4195,14 @@ public final class ProtectedExportHostProbeAgent {
             if (!"true".equals(evidence.values.get("checkedNoContinuation"))) {
                 unmet.add("a checked rejection still raised a continuation window");
             }
+            if ("true".equals(evidence.values.get("checkedConfirmClicked"))
+                && !"true".equals(evidence.values.get("checkedVetoDialog"))) {
+                unmet.add("checked rejection never surfaced the veto diagnostic dialog");
+            }
+            if ("true".equals(evidence.values.get("checkedVetoDialog"))
+                && evidence.values.getOrDefault("checkedVetoKey", "").isEmpty()) {
+                unmet.add("veto diagnostic dialog carried no failure key");
+            }
             if (intOf(evidence, "bridgeCancelCalls") < 1) {
                 unmet.add("cancel path never reached the bridge cleanup");
             }
@@ -4182,6 +4328,13 @@ public final class ProtectedExportHostProbeAgent {
             }
             if (!evidence.values.getOrDefault("rej.unexpectedDialogs", "").isEmpty()) {
                 unmet.add("rejected session still raised windows");
+            }
+            if (!"true".equals(evidence.values.get("rej.vetoDialog"))) {
+                unmet.add("rejected session never surfaced the veto diagnostic dialog");
+            }
+            if (!evidence.values.getOrDefault("rej.expectedFailure", "")
+                    .equals(evidence.values.getOrDefault("rej.vetoKey", ""))) {
+                unmet.add("veto diagnostic did not name the session's failure key");
             }
             if (!"true".equals(evidence.values.get("rej.sameLiveDocument"))) {
                 unmet.add("original was not the live document after rejection");

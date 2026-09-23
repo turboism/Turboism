@@ -134,6 +134,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private final LongSupplier hostGeneration;
     private final EdtDispatcher edt;
     private final Consumer<Report> reporter;
+    /**
+     * User-visible sink for pre-arm refusals. A refused {@link #requestExport} names the
+     * bounded gate it stopped at; the default sink is a no-op so the orchestrator stays
+     * inert without a product surface.
+     */
+    private volatile Consumer<ExportSettingsVetoDiagnostic> refusalReporter =
+        diagnostic -> { };
     private final long bindTimeoutMillis;
     private final long exportCallbackTimeoutMillis;
     private final ExecutorService worker;
@@ -185,6 +192,25 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     /**
+     * Installs the user-visible sink for refused requests. Every refused
+     * {@link #requestExport} reports {@link #NOT_ADMITTED_KEY} with the gate it stopped
+     * at, so a vetoed confirmation never dies silently.
+     */
+    public void refusalReporter(final Consumer<ExportSettingsVetoDiagnostic> reporter) {
+        refusalReporter = Objects.requireNonNull(reporter, "reporter");
+    }
+
+    private boolean refuse(final String detail) {
+        try {
+            refusalReporter.accept(
+                new ExportSettingsVetoDiagnostic(NOT_ADMITTED_KEY, detail));
+        } catch (Throwable ignored) {
+            // Reporting must never flip the fixed fail-closed refusal.
+        }
+        return false;
+    }
+
+    /**
      * Admits and arms a protected-export session for the confirmed outer dialog.
      *
      * <p>Runs on the EDT inside decide. Capture is limited to identity-bound host reads;
@@ -194,9 +220,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * @return {@code true} only when a session armed and will run
      */
     public boolean requestExport(final Object dialogOwner) {
-        if (closed.get() || !redirectSeamInstalled.getAsBoolean()
-            || dialogOwner == null || !host.isExportDialog(dialogOwner)) {
-            return false;
+        if (closed.get()) {
+            return refuse("orchestrator-closed");
+        }
+        if (!redirectSeamInstalled.getAsBoolean()) {
+            return refuse("redirect-seam-missing");
+        }
+        if (dialogOwner == null || !host.isExportDialog(dialogOwner)) {
+            return refuse("not-export-dialog");
         }
         final Object modelSource;
         final Object document;
@@ -206,21 +237,32 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             document = modelSource == null ? null : host.modelSourceDocument(modelSource);
             sourceFile = document == null ? null : host.documentFile(document);
         } catch (Throwable failure) {
-            return false;
+            return refuse("host-read-failed");
         }
-        if (modelSource == null || document == null || sourceFile == null
-            || !host.isModelingDocument(document)
-            || host.currentDocument() != document
-            || !host.projectContains(document)) {
-            return false;
+        if (modelSource == null || document == null || sourceFile == null) {
+            return refuse("document-incomplete");
+        }
+        if (!host.isModelingDocument(document)) {
+            return refuse("not-modeling-document");
+        }
+        if (host.currentDocument() != document) {
+            return refuse("document-not-active");
+        }
+        if (!host.projectContains(document)) {
+            return refuse("document-not-in-project");
         }
         final Session session = new Session(
             sessionIds.incrementAndGet(), dialogOwner, document, modelSource, sourceFile,
             hostGeneration.getAsLong());
         if (!armed.compareAndSet(null, session)) {
-            return false;
+            return refuse("busy");
         }
-        worker.execute(() -> run(session));
+        try {
+            worker.execute(() -> run(session));
+        } catch (Throwable failure) {
+            armed.compareAndSet(session, null);
+            return refuse("worker-rejected");
+        }
         return true;
     }
 
@@ -297,7 +339,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             // Every terminal path — published, failed, cancelled — runs the same
             // teardown: put the original document back, verify its invariants,
             // retire the copy and task-owned files, and record what happened.
-            session.cleanupErrors = restoreSession(session);
+            // Teardown itself is guarded: a session must always deliver a report.
+            try {
+                session.cleanupErrors = restoreSession(session);
+            } catch (Throwable teardown) {
+                session.cleanupErrors =
+                    List.of("teardown-threw: " + describe(teardown));
+                if (session.pendingReport == null) {
+                    session.report(Phase.FAILED, false,
+                        "protected-export.internal-failure", describe(teardown));
+                }
+            }
             armed.compareAndSet(session, null);
             session.deliverReport();
         }

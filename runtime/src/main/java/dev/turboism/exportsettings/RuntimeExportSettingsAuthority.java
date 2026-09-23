@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,12 +35,19 @@ public final class RuntimeExportSettingsAuthority
     public static final String STALE_PLUGIN_KEY = "export-settings.stale-plugin";
     public static final String STALE_HOST_KEY = "export-settings.stale-host";
     public static final String CLEANUP_FAILED_KEY = "export-settings.cleanup-failed";
+    /** The contributed selection could not be read back from the attached panel. */
+    public static final String SELECTION_UNREADABLE_KEY = "export-settings.selection-unreadable";
+    /** The dialog's captured host identity could not be re-read at confirm time. */
+    public static final String IDENTITY_UNAVAILABLE_KEY = "export-settings.identity-unavailable";
+    /** The live host identity no longer matches the identity captured at attach. */
+    public static final String IDENTITY_MISMATCH_KEY = "export-settings.identity-mismatch";
 
     private final Object bindingsLock = new Object();
     private final Map<String, Binding> bindings = new LinkedHashMap<>();
     private final Object dialogsLock = new Object();
     private final IdentityHashMap<Object, DialogState> dialogs = new IdentityHashMap<>();
-    private final IdentityHashMap<Object, Boolean> invalidDialogs = new IdentityHashMap<>();
+    /** Tombstones keyed by dialog owner, holding the invalidation reason for diagnostics. */
+    private final IdentityHashMap<Object, String> invalidDialogs = new IdentityHashMap<>();
     private final ThreadLocal<Boolean> inFlight = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final Supplier<Optional<ExportSettingsIdentity>> identitySource;
     private final Supplier<ExportSettingsAttachBackend> backendFactory;
@@ -53,6 +61,13 @@ public final class RuntimeExportSettingsAuthority
     private volatile boolean protectedExportRedirectSeamInstalled;
     /** Armed-session orchestrator, or {@code null} when protected export is not wired. */
     private volatile ProtectedExportOrchestrator protectedExportOrchestrator;
+    /**
+     * User-visible sink for vetoed confirmations. Every decision-gate veto reports its
+     * bounded reason here; the default sink is a no-op so the authority stays inert
+     * without a product surface.
+     */
+    private volatile Consumer<ExportSettingsVetoDiagnostic> vetoReporter =
+        diagnostic -> { };
 
     public RuntimeExportSettingsAuthority(
         final Supplier<Optional<ExportSettingsIdentity>> identitySource
@@ -141,6 +156,24 @@ public final class RuntimeExportSettingsAuthority
     /** The wired orchestrator, or empty when protected export is unavailable. */
     public Optional<ProtectedExportOrchestrator> protectedExportOrchestrator() {
         return Optional.ofNullable(protectedExportOrchestrator);
+    }
+
+    /**
+     * Installs the user-visible sink for vetoed confirmations. An armed orchestration
+     * handoff stays silent because the session reports its own terminal outcome; every
+     * other veto — structural, stale, plugin rejection, unwired orchestration — names
+     * its bounded reason here so a confirmed dialog can never die silently.
+     */
+    public void vetoReporter(final Consumer<ExportSettingsVetoDiagnostic> reporter) {
+        vetoReporter = Objects.requireNonNull(reporter, "reporter");
+    }
+
+    private void reportVeto(final String key, final String detail) {
+        try {
+            vetoReporter.accept(new ExportSettingsVetoDiagnostic(key, detail));
+        } catch (Throwable ignored) {
+            // A diagnostic surface must never flip the fixed fail-closed decision.
+        }
     }
 
     @Override
@@ -294,7 +327,7 @@ public final class RuntimeExportSettingsAuthority
                     state.attach(backend, attachment);
                 } else {
                     state.invalidate(STALE_HOST_KEY);
-                    invalidDialogs.put(owner, Boolean.TRUE);
+                    invalidDialogs.put(owner, STALE_HOST_KEY);
                     dialogs.remove(owner, state);
                 }
             }
@@ -302,9 +335,12 @@ public final class RuntimeExportSettingsAuthority
                 closeAttachment(attachment);
             }
         } catch (Throwable failure) {
+            final String failureKey = failure instanceof ExportSettingsAttachException typed
+                && typed.getMessage() != null
+                ? typed.getMessage() : ATTACH_FAILED_KEY;
             synchronized (dialogsLock) {
                 if (dialogs.get(owner) == state) {
-                    state.invalidate(ATTACH_FAILED_KEY);
+                    state.invalidate(failureKey);
                 }
             }
             closeAttachment(attachment);
@@ -322,7 +358,7 @@ public final class RuntimeExportSettingsAuthority
             state = dialogs.remove(owner);
             if (state != null) {
                 if (state.invalidated()) {
-                    invalidDialogs.put(owner, Boolean.TRUE);
+                    invalidDialogs.put(owner, state.failureKey());
                 } else {
                     invalidDialogs.remove(owner);
                 }
@@ -352,71 +388,93 @@ public final class RuntimeExportSettingsAuthority
         inFlight.set(Boolean.TRUE);
         try {
             final DialogState state;
-            final boolean invalid;
+            final String staleKey;
             synchronized (dialogsLock) {
                 state = dialogs.remove(owner);
-                invalid = invalidDialogs.containsKey(owner);
+                staleKey = invalidDialogs.get(owner);
                 if (state != null) {
                     state.terminal();
                 }
             }
             if (state == null) {
-                return invalid ? Boolean.FALSE : Boolean.TRUE;
+                if (staleKey != null) {
+                    reportVeto(staleKey, null);
+                }
+                return staleKey != null ? Boolean.FALSE : Boolean.TRUE;
             }
 
-            boolean allowed;
+            Decision decision;
             try {
-                allowed = decideState(owner, state);
+                decision = decideState(owner, state);
             } catch (Throwable failure) {
-                allowed = false;
+                decision = Decision.vetoed(ATTACH_FAILED_KEY);
                 state.invalidate(ATTACH_FAILED_KEY);
             }
             try {
                 closeAttachment(state.takeAttachment());
             } catch (Throwable failure) {
-                allowed = false;
                 state.invalidate(CLEANUP_FAILED_KEY);
+                if (decision.allowed() || decision.vetoKey() == null) {
+                    decision = Decision.vetoed(CLEANUP_FAILED_KEY);
+                }
             }
             if (state.invalidated()) {
                 synchronized (dialogsLock) {
-                    invalidDialogs.put(owner, Boolean.TRUE);
+                    invalidDialogs.put(
+                        owner,
+                        state.failureKey() != null ? state.failureKey() : ATTACH_FAILED_KEY
+                    );
                 }
             }
-            return allowed;
+            if (!decision.allowed() && decision.vetoKey() != null) {
+                reportVeto(decision.vetoKey(), decision.vetoDetail());
+            }
+            return decision.allowed();
         } finally {
             inFlight.remove();
         }
     }
 
-    private boolean decideState(final Object owner, final DialogState state) {
-        if (state.failureKey() != null || hostGeneration != state.hostGeneration()) {
-            return false;
+    /**
+     * Decides one confirmed dialog. {@code allowed} continues the native export only
+     * for a clean unchecked selection; an armed orchestration handoff vetoes silently
+     * because the session reports its own outcome; every other veto carries the bounded
+     * reason that the user-visible diagnostic surface must name.
+     */
+    private Decision decideState(final Object owner, final DialogState state) {
+        if (state.failureKey() != null) {
+            return Decision.vetoed(state.failureKey());
+        }
+        if (hostGeneration != state.hostGeneration()) {
+            return Decision.vetoed(STALE_HOST_KEY);
         }
         final SelectionRead selectionRead = readSelection(state);
         if (!selectionRead.complete()) {
-            return false;
+            return Decision.vetoed(SELECTION_UNREADABLE_KEY);
         }
         boolean selected = false;
         for (ResolvedOption option : state.options()) {
             final Boolean value = selectionRead.selection().get(option.identity().selectionKey());
             if (value == null) {
-                return false;
+                return Decision.vetoed(SELECTION_UNREADABLE_KEY);
             }
             selected |= value;
         }
         if (selectionRead.selection().size() != state.options().size()) {
-            return false;
+            return Decision.vetoed(SELECTION_UNREADABLE_KEY);
         }
         if (!selected) {
-            return true;
+            return Decision.proceed();
         }
 
         final IdentityRead current = identity();
         if (state.capturedIdentity() == null
             || current.failed()
-            || current.identity().isEmpty()
-            || !state.capturedIdentity().equals(current.identity().orElseThrow())) {
-            return false;
+            || current.identity().isEmpty()) {
+            return Decision.vetoed(IDENTITY_UNAVAILABLE_KEY);
+        }
+        if (!state.capturedIdentity().equals(current.identity().orElseThrow())) {
+            return Decision.vetoed(IDENTITY_MISMATCH_KEY);
         }
         final ExportSettingsIdentity identity = current.identity().orElseThrow();
         for (ResolvedOption option : state.options()) {
@@ -425,7 +483,7 @@ public final class RuntimeExportSettingsAuthority
             }
             if (!isCurrentBinding(option)) {
                 state.invalidate(STALE_PLUGIN_KEY);
-                return false;
+                return Decision.vetoed(STALE_PLUGIN_KEY);
             }
             final ExportSettingsDecision decision = option.registry().invoke(
                 option.optionId(), true, identity.documentId(), identity.modelId(),
@@ -437,17 +495,46 @@ public final class RuntimeExportSettingsAuthority
             // still leaves the outer export vetoed.
             if (decision.outcome() != ExportSettingsDecision.Outcome.REJECT) {
                 state.invalidate(RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY);
-            } else {
-                final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
-                if (orchestrator != null
-                    && !decision.messageKey().startsWith("export-settings.")
-                    && orchestrator.isOrchestrationOption(option.pluginId(), option.optionId())) {
-                    orchestrator.requestExport(owner);
-                }
+                return Decision.vetoed(
+                    RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY
+                );
             }
-            return false;
+            if (decision.messageKey().startsWith("export-settings.")) {
+                return Decision.vetoed(decision.messageKey());
+            }
+            final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
+            if (orchestrator != null
+                && orchestrator.isOrchestrationOption(option.pluginId(), option.optionId())) {
+                // Armed: the session reports its own terminal outcome. Refused: the
+                // orchestrator already named the refusal through its own reporter.
+                orchestrator.requestExport(owner);
+                return Decision.silentVeto();
+            }
+            return Decision.vetoed(
+                decision.messageKey(), resolveMessage(option, decision.messageKey())
+            );
         }
-        return false;
+        return Decision.vetoed(SELECTION_UNREADABLE_KEY);
+    }
+
+    /**
+     * Resolves a plugin's own rejection key to its localized text through the live
+     * binding; returns {@code null} when the binding is gone or the key does not
+     * resolve, leaving the raw key as the displayed diagnostic.
+     */
+    private String resolveMessage(final ResolvedOption option, final String key) {
+        synchronized (bindingsLock) {
+            final Binding binding = bindings.get(option.pluginId());
+            if (binding == null || binding.registry() != option.registry()) {
+                return null;
+            }
+            try {
+                final String text = binding.labelResolver().apply(key);
+                return text == null || text.isBlank() || text.equals(key) ? null : text;
+            } catch (Throwable failure) {
+                return null;
+            }
+        }
     }
 
     private static SelectionRead readSelection(final DialogState state) {
@@ -517,7 +604,7 @@ public final class RuntimeExportSettingsAuthority
                         && pluginGeneration == option.pluginGeneration()
                         && registry == option.registry())) {
                     state.invalidate(STALE_PLUGIN_KEY);
-                    invalidDialogs.put(entry.getKey(), Boolean.TRUE);
+                    invalidDialogs.put(entry.getKey(), STALE_PLUGIN_KEY);
                 }
             }
         }
@@ -529,7 +616,7 @@ public final class RuntimeExportSettingsAuthority
             states = new ArrayList<>(dialogs.values());
             for (Map.Entry<Object, DialogState> entry : dialogs.entrySet()) {
                 entry.getValue().invalidate(key);
-                invalidDialogs.put(entry.getKey(), Boolean.TRUE);
+                invalidDialogs.put(entry.getKey(), key);
             }
             if (remove) {
                 dialogs.clear();
@@ -637,6 +724,29 @@ public final class RuntimeExportSettingsAuthority
     record DialogSnapshot(List<ResolvedOption> options, String failureKey) {
         DialogSnapshot {
             options = List.copyOf(Objects.requireNonNull(options, "options"));
+        }
+    }
+
+    /**
+     * One decision-gate outcome: {@code allowed} continues the native export; a veto
+     * with {@code vetoKey == null} is the armed orchestration handoff (the session
+     * reports its own outcome); a veto with a key must reach the user-visible sink.
+     */
+    private record Decision(boolean allowed, String vetoKey, String vetoDetail) {
+        private static Decision proceed() {
+            return new Decision(true, null, null);
+        }
+
+        private static Decision silentVeto() {
+            return new Decision(false, null, null);
+        }
+
+        private static Decision vetoed(final String key) {
+            return new Decision(false, key, null);
+        }
+
+        private static Decision vetoed(final String key, final String detail) {
+            return new Decision(false, key, detail);
         }
     }
 

@@ -14,6 +14,9 @@ import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -398,6 +401,241 @@ class RuntimeExportSettingsAuthorityTest {
             UnsupportedOperationException.class,
             () -> snapshot.options().add(null),
             "snapshot options must be immutable"
+        );
+    }
+
+    @Test
+    void checkedPluginRejectionReportsTheVetoWhenOrchestrationIsUnwired() {
+        final TestContext context = new TestContext(
+            (selected, documentId, modelId) -> ExportSettingsDecision.reject("custom.reason"));
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
+        authority.vetoReporter(vetoes::add);
+        authority.hostGeneration(7L);
+        final JPanel container = dialogContent();
+        final Object owner = new Object();
+        assertNullResult(authority.attach(owner, container));
+        checkbox(container, "Localized protect").setSelected(true);
+
+        assertSame(Boolean.FALSE, authority.decide(owner));
+        assertEquals(1, vetoes.size(), "an unwired checked veto must reach the visible sink");
+        assertEquals("custom.reason", vetoes.get(0).key());
+        assertEquals("Localized custom.reason", vetoes.get(0).detail(),
+            "the plugin's resolved message must travel with the diagnostic");
+    }
+
+    @Test
+    void uncheckedConfirmReportsNoVeto() {
+        final TestContext context = new TestContext();
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
+        authority.vetoReporter(vetoes::add);
+        authority.hostGeneration(7L);
+        final JPanel container = dialogContent();
+        final Object owner = new Object();
+        assertNullResult(authority.attach(owner, container));
+
+        assertSame(Boolean.TRUE, authority.decide(owner));
+        assertTrue(vetoes.isEmpty(), "a clean unchecked confirm must stay silent");
+    }
+
+    @Test
+    void structuralVetoesReportTheirBoundedKey() {
+        // attach failure: no options container in the dialog tree
+        final TestContext context = new TestContext();
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
+        authority.vetoReporter(vetoes::add);
+        authority.hostGeneration(7L);
+        final Object owner = new Object();
+        assertNullResult(authority.attach(owner, new JPanel(new BorderLayout())));
+        assertSame(Boolean.FALSE, authority.decide(owner));
+        assertEquals(1, vetoes.size());
+        assertEquals(
+            ExportSettingsAttachBackend.OPTIONS_CONTAINER_KEY, vetoes.get(0).key(),
+            "the backend's typed attach key must survive into the diagnostic");
+
+        // stale host generation
+        final TestContext stale = new TestContext();
+        final RuntimeExportSettingsAuthority staleAuthority = stale.authority();
+        final List<ExportSettingsVetoDiagnostic> staleVetoes = new ArrayList<>();
+        staleAuthority.vetoReporter(staleVetoes::add);
+        staleAuthority.hostGeneration(7L);
+        final JPanel container = dialogContent();
+        final Object staleOwner = new Object();
+        assertNullResult(staleAuthority.attach(staleOwner, container));
+        checkbox(container, "Localized protect").setSelected(true);
+        staleAuthority.hostGeneration(8L);
+        assertSame(Boolean.FALSE, staleAuthority.decide(staleOwner));
+        assertEquals(1, staleVetoes.size());
+        assertEquals(RuntimeExportSettingsAuthority.STALE_HOST_KEY, staleVetoes.get(0).key());
+
+        // identity drift on the selected path
+        final TestContext drift = new TestContext();
+        final RuntimeExportSettingsAuthority driftAuthority = drift.authority();
+        final List<ExportSettingsVetoDiagnostic> driftVetoes = new ArrayList<>();
+        driftAuthority.vetoReporter(driftVetoes::add);
+        driftAuthority.hostGeneration(7L);
+        final JPanel driftContainer = dialogContent();
+        final Object driftOwner = new Object();
+        assertNullResult(driftAuthority.attach(driftOwner, driftContainer));
+        checkbox(driftContainer, "Localized protect").setSelected(true);
+        drift.identity = Optional.of(new ExportSettingsIdentity("doc-2", new ModelId(MODEL_ID)));
+        assertSame(Boolean.FALSE, driftAuthority.decide(driftOwner));
+        assertEquals(1, driftVetoes.size());
+        assertEquals(
+            RuntimeExportSettingsAuthority.IDENTITY_MISMATCH_KEY, driftVetoes.get(0).key());
+    }
+
+    @Test
+    void tombstoneVetoReportsTheInvalidationReason() {
+        final TestContext context = new TestContext();
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
+        authority.vetoReporter(vetoes::add);
+        authority.hostGeneration(7L);
+        final JPanel container = dialogContent();
+        final Object owner = new Object();
+        assertNullResult(authority.attach(owner, container));
+        checkbox(container, "Localized protect").setSelected(true);
+
+        authority.resetHost();
+        flushEdt();
+        assertSame(Boolean.FALSE, authority.decide(owner),
+            "a delayed confirm on an invalidated dialog must still veto");
+        assertEquals(1, vetoes.size(),
+            "the tombstone veto must name the invalidation reason");
+        assertEquals(RuntimeExportSettingsAuthority.STALE_HOST_KEY, vetoes.get(0).key());
+    }
+
+    @Test
+    void armedOrchestrationHandoffReportsNoAuthorityVeto() throws Exception {
+        final TestContext context = new TestContext(
+            (selected, documentId, modelId) -> ExportSettingsDecision.reject("protected-export.unavailable"));
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
+        final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
+        authority.vetoReporter(vetoes::add);
+        authority.hostGeneration(7L);
+
+        final Object owner = new Object();
+        final List<ExportSettingsVetoDiagnostic> sessionReports = new ArrayList<>();
+        final ProtectedExportOrchestrator orchestrator = orchestratorFixture(
+            owner, true, sessionReports);
+        orchestrator.refusalReporter(refusals::add);
+        authority.markProtectedExportRedirectSeamInstalled();
+        authority.protectedExportOrchestrator(orchestrator);
+        try {
+            final JPanel container = dialogContent();
+            assertNullResult(authority.attach(owner, container));
+            checkbox(container, "Localized protect").setSelected(true);
+
+            assertSame(Boolean.FALSE, authority.decide(owner),
+                "an armed session still vetoes the outer export");
+            assertTrue(vetoes.isEmpty(),
+                "the armed handoff stays silent at the authority: the session reports itself");
+        } finally {
+            orchestrator.close();
+        }
+    }
+
+    @Test
+    void refusedOrchestrationSurfacesThroughTheOrchestratorReporter() throws Exception {
+        final TestContext context = new TestContext(
+            (selected, documentId, modelId) -> ExportSettingsDecision.reject("protected-export.unavailable"));
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
+        final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
+        authority.vetoReporter(vetoes::add);
+        authority.hostGeneration(7L);
+
+        final Object owner = new Object();
+        final List<ExportSettingsVetoDiagnostic> sessionReports = new ArrayList<>();
+        final ProtectedExportOrchestrator orchestrator = orchestratorFixture(
+            owner, false, sessionReports);
+        orchestrator.refusalReporter(refusals::add);
+        // The redirect seam is deliberately not marked installed.
+        authority.protectedExportOrchestrator(orchestrator);
+        try {
+            final JPanel container = dialogContent();
+            assertNullResult(authority.attach(owner, container));
+            checkbox(container, "Localized protect").setSelected(true);
+
+            assertSame(Boolean.FALSE, authority.decide(owner));
+            assertTrue(vetoes.isEmpty(),
+                "a refused handoff reports through the orchestrator, not the authority");
+            assertEquals(1, refusals.size());
+            assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
+            assertEquals("redirect-seam-missing", refusals.get(0).detail());
+        } finally {
+            orchestrator.close();
+        }
+    }
+
+    /**
+     * A real orchestrator over a proxy host admitting exactly {@code owner}. With the
+     * redirect seam installed the request arms; the fake host then fails the session
+     * on the orchestrator worker, which only the test's report sink observes.
+     */
+    private static ProtectedExportOrchestrator orchestratorFixture(
+        final Object owner,
+        final boolean seamInstalled,
+        final List<ExportSettingsVetoDiagnostic> sessionFailures
+    ) throws Exception {
+        final Path stagingRoot = Files.createTempDirectory("veto-orchestrator");
+        final Object modelSource = new Object();
+        final Object document = new Object();
+        final File sourceFile = stagingRoot.resolve("source.cmo3").toFile();
+        Files.writeString(sourceFile.toPath(), "fixture-cmo3");
+        final ProtectedExportHostOperations host = (ProtectedExportHostOperations)
+            java.lang.reflect.Proxy.newProxyInstance(
+                RuntimeExportSettingsAuthorityTest.class.getClassLoader(),
+                new Class<?>[] {ProtectedExportHostOperations.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "isExportDialog" -> args[0] == owner;
+                    case "dialogModelSource" -> modelSource;
+                    case "modelSourceDocument" -> document;
+                    case "documentFile" -> sourceFile;
+                    case "isModelingDocument" -> args[0] == document;
+                    case "currentDocument" -> document;
+                    case "projectContains" -> args[0] == document;
+                    case "equals" -> proxy == args[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" -> "admitting-host-proxy";
+                    default -> switch (method.getReturnType().getName()) {
+                        case "boolean" -> Boolean.FALSE;
+                        case "int", "float", "long" -> 0;
+                        default -> null;
+                    };
+                });
+        return new ProtectedExportOrchestrator(
+            host,
+            new ProtectedExportStaging(data -> null),
+            stagingRoot,
+            "plugin-a",
+            "protect",
+            () -> seamInstalled,
+            () -> true,
+            () -> 7L,
+            new ProtectedExportOrchestrator.EdtDispatcher() {
+                @Override
+                public <T> T call(final java.util.concurrent.Callable<T> action)
+                    throws Exception {
+                    return action.call();
+                }
+
+                @Override
+                public void submit(final Runnable task) {
+                    task.run();
+                }
+            },
+            report -> sessionFailures.add(
+                new ExportSettingsVetoDiagnostic(
+                    report.failureKey() == null ? "protected-export.failed" : report.failureKey(),
+                    report.failureDetail()
+                )),
+            400L,
+            400L
         );
     }
 

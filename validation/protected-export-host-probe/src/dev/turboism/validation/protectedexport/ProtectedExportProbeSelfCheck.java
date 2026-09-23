@@ -28,6 +28,7 @@ public final class ProtectedExportProbeSelfCheck {
         optionsPeerDispatchesOnExactHostVersion();
         nativeLeafIsolatesTheHostCheckBox();
         traversalTerminatesOnCyclesAndDepth();
+        vetoKeyExtractionIsolatesTheKeyLine();
         System.out.println("[self-check] protected-export probe rules OK");
     }
 
@@ -178,6 +179,36 @@ public final class ProtectedExportProbeSelfCheck {
         require(
             ProtectedExportHostProbeAgent.allComponents(top).size() == 41,
             "depth guard misbehaved"
+        );
+    }
+
+    /**
+     * The veto diagnostic message is {@code intro \n\n key \n detail?}; only the
+     * first pure config-key line may be extracted — sentences and detail
+     * payloads containing punctuation must never be mistaken for the key.
+     */
+    private static void vetoKeyExtractionIsolatesTheKeyLine() {
+        require(
+            "protected-export.preflight-failed".equals(
+                ProtectedExportHostProbeAgent.vetoKeyFromMessage(
+                    "The export was stopped by a Turboism export option.\n\n"
+                        + "protected-export.preflight-failed\n"
+                        + "protected-export.unsupported-settings:physics=2")),
+            "session failure key was not extracted"
+        );
+        require(
+            "custom.reason".equals(
+                ProtectedExportHostProbeAgent.vetoKeyFromMessage("custom.reason")),
+            "a bare plugin key must resolve"
+        );
+        require(
+            "".equals(ProtectedExportHostProbeAgent.vetoKeyFromMessage(
+                "No key line here.")),
+            "a message without a key line must yield empty"
+        );
+        require(
+            "".equals(ProtectedExportHostProbeAgent.vetoKeyFromMessage("")),
+            "an empty message must yield empty"
         );
     }
 
