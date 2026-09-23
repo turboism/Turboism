@@ -70,6 +70,7 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
 
     /** Supplies the registered rectangle planner for AUTO/near-rect dispatch; may be null. */
     public interface RectPlanSupplier {
+        /** Plans the rectangle path for AUTO/near-rect items; {@code parallel} enables parallel search. */
         TextureAtlasPolygonPlan planRects(List<TextureAtlasPolygonItem> items,
             TextureAtlasPolygonConstraints constraints, boolean parallel);
     }
