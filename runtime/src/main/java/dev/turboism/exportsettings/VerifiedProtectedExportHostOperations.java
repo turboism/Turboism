@@ -81,6 +81,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String MS_ART_MESHES = PREFIX + "model-source.all-art-meshes";
     private static final String MS_PARTS = PREFIX + "model-source.all-parts";
     private static final String MS_ROOT_PART = PREFIX + "model-source.root-part";
+    private static final String MS_SAVE_MODEL = PREFIX + "model-source.save-model";
     private static final String MS_PARAMETERS = PREFIX + "model-source.all-parameters";
     private static final String MS_PHYSICS = PREFIX + "model-source.all-physics-settings";
     private static final String MS_MOTION_SYNC =
@@ -213,6 +214,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SELECTOR_ADD_SOURCE, SELECTOR_SELECTED_DEFORMERS, EDIT_MODE_APPLY,
         MS_DOCUMENT, MS_INSTANCE, MS_DEFORMERS, MS_OBJECTS, MS_ART_MESHES, MS_PARTS,
         MS_ROOT_PART, MS_PARAMETERS, MS_PHYSICS, MS_MOTION_SYNC, MS_GUID,
+        MS_SAVE_MODEL,
         MS_CONTAIN_MULTIPLY, MS_CONTAIN_SCREEN, MS_CONTAIN_MORPH,
         MS_CONTAIN_MORPH_ENH, MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ART_PATH,
         MS_CONTAIN_ALIAS, MS_CONTAIN_INVERT_CLIP, MS_CONTAIN_QUAD,
@@ -632,6 +634,20 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     public String modelSourceGuid(final Object modelSource) {
         final Object guid = resolver.invoke(MS_GUID, requireModelSource(modelSource));
         return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
+    }
+
+    @Override
+    public boolean serializeModelSource(final Object modelSource, final File target) {
+        Objects.requireNonNull(target, "target");
+        // saveModel(File, Z) is the model source's own serializer — the same
+        // entry CModelingDocument.saveDocument delegates to, minus the
+        // document-state updates (saved timestamp, project wiring) that would
+        // disturb the live session. The boolean is the developer-mode
+        // save-obfuscation flag; staging always writes the un-obfuscated form
+        // because the copy's census must match the live census before the
+        // planned obfuscation pass rewrites it.
+        return Boolean.TRUE.equals(resolver.invoke(
+            MS_SAVE_MODEL, requireModelSource(modelSource), target, Boolean.FALSE));
     }
 
     @Override

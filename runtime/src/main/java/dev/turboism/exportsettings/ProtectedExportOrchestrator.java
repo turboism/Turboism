@@ -365,11 +365,6 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             requireGeneration(session, generation);
             requireLiveDocument(session);
             snapshotInvariants(session);
-            // A dirty original means the file copy cannot represent the live document;
-            // the protected output would silently diverge from what the user sees.
-            if (session.originalModified) {
-                throw new SessionRejection(PREFLIGHT_FAILED_KEY, "original-dirty");
-            }
             // The full census resolves on the original source before any copy exists.
             try {
                 session.plan = ProtectedExportDeformerPlan.plan(host, session.modelSource)
@@ -401,11 +396,19 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 stagingRoot, "protected-export-" + session.id + "-");
             session.stagingDir = stagingDir;
             session.copyFile = stagingDir.resolve(session.sourceFile.getName()).toFile();
-            Files.copy(session.sourceFile.toPath(), session.copyFile.toPath());
         } catch (IOException failure) {
             throw new SessionRejection(BIND_FAILED_KEY);
         }
+        // The copy is serialized from the live model source, not copied from the
+        // source file: a disk copy would silently drop the user's unsaved edits.
+        // saveModel is a pure serializer — it never touches the document's dirty
+        // flag, undo state or file binding.
         onEdt(() -> {
+            requireGeneration(session, session.hostGeneration);
+            if (!host.serializeModelSource(session.modelSource, session.copyFile)
+                || !session.copyFile.isFile()) {
+                throw new SessionRejection(BIND_FAILED_KEY);
+            }
             host.openFile(session.copyFile);
             return null;
         });

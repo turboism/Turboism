@@ -990,6 +990,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_2_03.protected_export.method.model_source_save_model",
+      "alias": "cubism.protected-export.model-source.save-model",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": "saveModel",
+      "descriptor": "(Ljava/io/File;Z)Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_2_03.protected_export.method.model_all_art_meshes",
       "alias": "cubism.protected-export.model.all-art-meshes",
       "kind": "method",
