@@ -375,7 +375,7 @@ def wait_job(store: queue.Store | Path, job_id: str, timeout: int | None = None)
             backoff = min(WAIT_JOB_READ_BACKOFF_MAX_SECONDS, backoff * 2)
             continue
         backoff = WAIT_JOB_READ_BACKOFF_SECONDS
-        if job["state"] in queue.TERMINAL or job["state"] == "quarantined":
+        if job["state"] in queue.TERMINAL | queue.ADMINISTRATIVE or job["state"] == "quarantined":
             emit({"schemaVersion": 1, "job": job})
             return 0 if job["state"] == "succeeded" else 75 if job["state"] == "quarantined" else 1
         if deadline is not None and time.monotonic() >= deadline:
@@ -427,6 +427,20 @@ def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
     mode.add_argument("--inspect", dest="job")
     mode.add_argument("--confirm", dest="confirm")
     recover.add_argument("--reason")
+    abandon = commands.add_parser(
+        "abandon",
+        help="inspect or register the administrative disposition of one cross-boot orphan attempt",
+        description="Administrative registration of a verified cross-boot orphan only. "
+                    "Inspection is strictly read-only. Confirmation needs separate operator "
+                    "authorization, an already-idle host and a stopped worker; it never starts "
+                    "or stops processes, never updates the host row and is not a verification "
+                    "result. Approval of this tool is not approval to run it on a live queue.")
+    mode = abandon.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--inspect", dest="inspect_job", metavar="JOB_ID")
+    mode.add_argument("--confirm", dest="confirm_job", metavar="JOB_ID")
+    abandon.add_argument("--approval", metavar="DIGEST")
+    abandon.add_argument("--reason")
+    abandon.add_argument("--json", action="store_true")
     commands.add_parser("_admit", help=argparse.SUPPRESS)
     enqueue = commands.add_parser("_enqueue-runner", help=argparse.SUPPRESS)
     enqueue.add_argument("--request", required=True)
@@ -448,6 +462,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "_admit":
             emit(queue.validate_admission())
             return 0
+        if args.command == "abandon":
+            # Dispatched before Store() so inspection never initializes the queue.
+            import host_validation_disposition as disposition
+            return disposition.cli(args)
         root = Path(__file__).resolve().parents[2]
         if args.command in {"list", "plan", "prepare", "run"}:
             environment = dict(parse_local_env(Path(os.environ.get("TURBOISM_ENV_FILE", root / ".env"))))
