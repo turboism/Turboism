@@ -86,7 +86,11 @@ public final class PublicEventContractPreflight {
 
     /**
      * Contract-artifact path policy: relative normalized paths under the same
-     * byte/depth/identity rules as outer plugin archives.
+     * byte/depth/identity rules as outer plugin archives. Unlike the outer
+     * policy it also admits the safe empty directory entries standard JDK
+     * {@code jar} writers emit — directories remain structural entries only
+     * (zero payload, enforced by the shared parser). Path byte/depth quota
+     * exhaustion reports dedicated codes so the diagnosis names the dimension.
      */
     private static final ArchivePathPolicy CONTRACT_PATHS = new ArchivePathPolicy() {
         @Override
@@ -94,10 +98,25 @@ public final class PublicEventContractPreflight {
                 throws ArchiveStructureException {
             final String value = directory && name.endsWith("/")
                 ? name.substring(0, name.length() - 1) : name;
+            // Quota dimensions are checked before the safety rule so the
+            // dedicated codes stay reachable — relativePath() itself folds a
+            // 1024-byte bound into its "unsafe" verdict.
+            if (value.getBytes(StandardCharsets.UTF_8).length > MAX_PATH_BYTES) {
+                throw new ArchiveStructureException(
+                    "ARCHIVE_PATH_TOO_LONG",
+                    "Contract archive entry path exceeds the "
+                        + MAX_PATH_BYTES + " UTF-8 byte limit",
+                    name);
+            }
+            if (value.split("/", -1).length > MAX_PATH_DEPTH) {
+                throw new ArchiveStructureException(
+                    "ARCHIVE_PATH_TOO_DEEP",
+                    "Contract archive entry path exceeds the "
+                        + MAX_PATH_DEPTH + " segment depth limit",
+                    name);
+            }
             if (value.isEmpty()
                 || !Normalizer.isNormalized(value, Normalizer.Form.NFC)
-                || value.getBytes(StandardCharsets.UTF_8).length > MAX_PATH_BYTES
-                || value.split("/", -1).length > MAX_PATH_DEPTH
                 || !ArchivePaths.relativePath(value)) {
                 throw new ArchiveStructureException(
                     "ARCHIVE_PATH_UNSAFE", "Unsafe contract archive path", name);
@@ -113,6 +132,11 @@ public final class PublicEventContractPreflight {
                     "ARCHIVE_PATH_COLLISION", "Contract archive path collision",
                     collision);
             }
+        }
+
+        @Override
+        public boolean permitsDefaultDirectoryMetadata() {
+            return true;
         }
     };
 
@@ -172,12 +196,36 @@ public final class PublicEventContractPreflight {
             this.oracle = oracle;
         }
 
+        /**
+         * Checks the plugin's declared contract count once, before any contract
+         * artifact bytes are materialized — the frozen
+         * "count before reads" ordering of Amendment A-1.R.
+         */
+        public void expectContracts(final int declared, final String pluginId)
+                throws ContractViolation {
+            if (declared < 0 || declared > MAX_CONTRACTS) {
+                throw new ContractViolation(
+                    Rejection.TOO_LARGE,
+                    "plugin " + pluginId + " declares " + declared
+                        + " event contracts, exceeding the " + MAX_CONTRACTS
+                        + " declared contracts bound"
+                );
+            }
+        }
+
         private void chargeContract(final String contractId) throws ContractViolation {
             contracts++;
             quota(contracts <= MAX_CONTRACTS, "declared contracts", contractId);
         }
 
-        private void chargeArtifactBytes(final long bytes, final String contractId)
+        /**
+         * Charges raw embedded-artifact bytes as they are delivered to the
+         * verification input — either as a strict-CEN reservation before the
+         * consuming read (install path) or per chunk actually delivered
+         * (catalog path). Callers must charge before growing the destination
+         * buffer; {@link #verify} does not re-charge this dimension.
+         */
+        public void chargeArtifactBytes(final long bytes, final String contractId)
                 throws ContractViolation {
             artifactBytes += bytes;
             quota(artifactBytes <= MAX_ARTIFACT_BYTES_TOTAL
@@ -227,6 +275,23 @@ public final class PublicEventContractPreflight {
                 );
             }
         }
+
+        /** Diagnostic snapshot of the session counters; never gates decisions. */
+        record Stats(
+            int contracts,
+            long artifactBytes,
+            long expandedBytes,
+            int entries,
+            int uniqueTypes,
+            long references,
+            long signatureText
+        ) {}
+
+        Stats stats() {
+            return new Stats(
+                contracts, artifactBytes, expandedBytes, entries,
+                uniqueTypes.size(), references, signatureText);
+        }
     }
 
     /**
@@ -256,6 +321,10 @@ public final class PublicEventContractPreflight {
 
     /**
      * Verifies one declared contract artifact without loading any of its classes.
+     * The caller owns raw-byte charging: it must have run
+     * {@link Session#expectContracts} before materializing any artifact and must
+     * charge {@code bytes.length} through {@link Session#chargeArtifactBytes}
+     * while (or before) the bytes are read — this method does not re-charge.
      *
      * @param session the plugin's shared verification budget; charged before reads
      * @param pluginId plugin being admitted, for diagnostics
@@ -289,7 +358,6 @@ public final class PublicEventContractPreflight {
                     + " byte artifact limit"
             );
         }
-        session.chargeArtifactBytes(bytes.length, contractId);
         final String sha256 = sha256Hex(bytes);
         if (!declaredSha256.equals(sha256)) {
             throw new ContractViolation(
@@ -393,6 +461,10 @@ public final class PublicEventContractPreflight {
             session.chargeExpanded(declaredExpanded, contractId);
             for (final StrictZipArchive.Entry entry : archive.entries()) {
                 if (entry.directory()) {
+                    // Safe empty directories are structural entries — they still
+                    // pass through counted/CRC-verified consume like everything
+                    // else; the parser has already proven zero payload.
+                    archive.consume(entry, null);
                     continue;
                 }
                 final String name = entry.name();
@@ -512,11 +584,13 @@ public final class PublicEventContractPreflight {
         final boolean quota = code.endsWith("TOO_LARGE")
             || code.equals("ARCHIVE_ENTRY_LIMIT")
             || code.equals("ARCHIVE_COMPRESSION_RATIO")
-            || code.equals("ARCHIVE_TRUNCATED");
+            || code.equals("ARCHIVE_PATH_TOO_LONG")
+            || code.equals("ARCHIVE_PATH_TOO_DEEP");
         return new ContractViolation(
             quota ? Rejection.TOO_LARGE : Rejection.CONTENT,
             "public event contract " + contractId + " artifact rejected: "
-                + code + " at " + structure.problemPath()
+                + code + " (" + structure.getMessage() + ") at "
+                + structure.problemPath()
         );
     }
 
@@ -566,28 +640,27 @@ public final class PublicEventContractPreflight {
         final Deque<String> pending = new ArrayDeque<>();
         final Map<String, Integer> definability = new HashMap<>();
         for (final String seed : payloadSeeds) {
-            if (members.containsKey(seed)) {
+            // Enqueue-time dedup covers both queued and already-visited names —
+            // pending can never accumulate duplicates.
+            if (members.containsKey(seed) && visited.add(seed)) {
                 pending.add(seed);
             }
         }
         while (!pending.isEmpty()) {
             final String name = pending.poll();
-            if (!visited.add(name)) {
-                continue;
-            }
             session.chargeUniqueType(name, contractId);
             final MemberInfo member = members.get(name);
             requireDefinable(
-                name, members, session.oracle, definability, contractId);
+                name, members, session, definability, contractId);
             final MemberSurface surface =
                 collectSurface(session, contractId, member);
             for (final String reference : surface.references()) {
-                session.chargeReference(contractId);
                 session.chargeUniqueType(reference, contractId);
                 if (members.containsKey(reference)) {
                     requireDefinable(
-                        reference, members, session.oracle, definability, contractId);
-                    if (surface.api().contains(reference)) {
+                        reference, members, session, definability, contractId);
+                    if (surface.api().contains(reference)
+                            && visited.add(reference)) {
                         pending.add(reference);
                     }
                     continue;
@@ -687,12 +760,14 @@ public final class PublicEventContractPreflight {
                 }
             }
             if (signature != null) {
-                parseSignature(session, contractId, signature, api);
+                parseSignature(session, contractId, signature, api,
+                    SignatureContext.CLASS_SIGNATURE);
             }
         }
 
         @Override
         public void visitPermittedSubclass(final String permittedSubclass) {
+            chargeReference();
             final String name = permittedSubclass.replace('/', '.');
             erased.add(name);
             api.add(name);
@@ -712,7 +787,8 @@ public final class PublicEventContractPreflight {
             }
             addType(descriptorType(descriptor), true);
             if (signature != null) {
-                parseSignature(session, contractId, signature, api);
+                parseSignature(session, contractId, signature, api,
+                    SignatureContext.FIELD_SIGNATURE);
             }
             return null;
         }
@@ -729,7 +805,8 @@ public final class PublicEventContractPreflight {
                 ContractClosurePolicy.isApiMember(access, false);
             addType(descriptorType(descriptor), apiMember);
             if (apiMember && signature != null) {
-                parseSignature(session, contractId, signature, api);
+                parseSignature(session, contractId, signature, api,
+                    SignatureContext.FIELD_SIGNATURE);
             }
             return null;
         }
@@ -757,7 +834,8 @@ public final class PublicEventContractPreflight {
                 }
             }
             if (apiMember && signature != null) {
-                parseSignature(session, contractId, signature, api);
+                parseSignature(session, contractId, signature, api,
+                    SignatureContext.METHOD_SIGNATURE);
             }
             return null;
         }
@@ -768,6 +846,9 @@ public final class PublicEventContractPreflight {
                 unwrapped = unwrapped.getElementType();
             }
             if (unwrapped.getSort() == Type.OBJECT) {
+                // Charged per discovered reference occurrence, before the
+                // tracking sets grow — never settled after the fact.
+                chargeReference();
                 final String name = unwrapped.getClassName();
                 erased.add(name);
                 if (apiMember) {
@@ -780,10 +861,19 @@ public final class PublicEventContractPreflight {
             if (internalName == null) {
                 return;
             }
+            chargeReference();
             final String name = internalName.replace('/', '.');
             erased.add(name);
             if (apiMember) {
                 api.add(name);
+            }
+        }
+
+        private void chargeReference() {
+            try {
+                session.chargeReference(contractId);
+            } catch (final ContractViolation violation) {
+                throw new SignatureBudgetExceeded(violation);
             }
         }
 
@@ -801,28 +891,52 @@ public final class PublicEventContractPreflight {
         }
     }
 
+    /** The signature grammar a call site legally carries (Amendment A-1.R/R2). */
+    private enum SignatureContext {CLASS_SIGNATURE, METHOD_SIGNATURE, FIELD_SIGNATURE}
+
     /**
-     * Runs a bounded, strictly-consumed signature parse: the text is charged before
-     * each round, the collecting visitor and the {@link SignatureWriter} round-trip
-     * are both wrapped in the same depth guard, a round-trip mismatch proves the
-     * parser did not consume the input the writer reproduces, and a stray
-     * {@link StackOverflowError} becomes an attributable invalid-content rejection.
+     * Runs a bounded, context-correct signature validation: every round — the
+     * bounded grammar pre-scan, the collecting ASM parse, and the
+     * {@link SignatureWriter} round-trip — is charged and depth-guarded. The
+     * pre-scan proves the caller's context grammar (a field or record component
+     * may only carry a reference type signature; a class signature may not be
+     * method-shaped) and complete consumption before ASM recurses; the
+     * round-trip mismatch check then proves the ASM walk consumed the input it
+     * reproduces. A stray {@link StackOverflowError} becomes an attributable
+     * invalid-content rejection.
      */
     private static void parseSignature(
         final Session session,
         final String contractId,
         final String signature,
-        final Set<String> api
+        final Set<String> api,
+        final SignatureContext context
     ) {
         try {
             session.chargeText(signature.length(), contractId);
-            new SignatureReader(signature).accept(
-                new DepthLimitedSignatureVisitor(
-                    new SignatureCollector(api), 0, contractId));
+            SignatureSyntax.validate(context, signature, contractId);
+            session.chargeText(signature.length(), contractId);
+            final SignatureReader reader = new SignatureReader(signature);
+            if (context == SignatureContext.FIELD_SIGNATURE) {
+                reader.acceptType(
+                    new DepthLimitedSignatureVisitor(
+                        new SignatureCollector(session, contractId, api),
+                        0, contractId));
+            } else {
+                reader.accept(
+                    new DepthLimitedSignatureVisitor(
+                        new SignatureCollector(session, contractId, api),
+                        0, contractId));
+            }
             session.chargeText(signature.length(), contractId);
             final SignatureWriter roundTrip = new SignatureWriter();
-            new SignatureReader(signature).accept(
-                new DepthLimitedSignatureVisitor(roundTrip, 0, contractId));
+            if (context == SignatureContext.FIELD_SIGNATURE) {
+                reader.acceptType(
+                    new DepthLimitedSignatureVisitor(roundTrip, 0, contractId));
+            } else {
+                reader.accept(
+                    new DepthLimitedSignatureVisitor(roundTrip, 0, contractId));
+            }
             if (!signature.equals(roundTrip.toString())) {
                 throw new ContractViolation(
                     Rejection.CONTENT,
@@ -991,19 +1105,41 @@ public final class PublicEventContractPreflight {
     /**
      * Walks a generic signature and records every class binary name it mentions.
      * Inner-class segments extend the enclosing binary name accumulated by
-     * {@link #visitClassType}.
+     * {@link #visitClassType}. Each recorded name is a charged reference
+     * occurrence — charged before the tracking set grows.
      */
     private static final class SignatureCollector extends SignatureVisitor {
+        private final Session session;
+        private final String contractId;
         private final Set<String> referenced;
         private StringBuilder current;
 
-        SignatureCollector(final Set<String> referenced) {
+        SignatureCollector(
+            final Session session,
+            final String contractId,
+            final Set<String> referenced
+        ) {
             super(Opcodes.ASM9);
+            this.session = session;
+            this.contractId = contractId;
             this.referenced = referenced;
+        }
+
+        private SignatureVisitor nested() {
+            return new SignatureCollector(session, contractId, referenced);
+        }
+
+        private void charge() {
+            try {
+                session.chargeReference(contractId);
+            } catch (final ContractViolation violation) {
+                throw new SignatureBudgetExceeded(violation);
+            }
         }
 
         @Override
         public void visitClassType(final String name) {
+            charge();
             current = new StringBuilder(name.replace('/', '.'));
             referenced.add(current.toString());
         }
@@ -1011,6 +1147,7 @@ public final class PublicEventContractPreflight {
         @Override
         public void visitInnerClassType(final String name) {
             if (current != null) {
+                charge();
                 current.append('$').append(name);
                 referenced.add(current.toString());
             }
@@ -1023,47 +1160,47 @@ public final class PublicEventContractPreflight {
 
         @Override
         public SignatureVisitor visitArrayType() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitTypeArgument(final char wildcard) {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitClassBound() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitInterfaceBound() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitExceptionType() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitReturnType() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitParameterType() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitInterface() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
 
         @Override
         public SignatureVisitor visitSuperclass() {
-            return new SignatureCollector(referenced);
+            return nested();
         }
     }
 
@@ -1078,12 +1215,12 @@ public final class PublicEventContractPreflight {
     private static void requireDefinable(
         final String root,
         final Map<String, MemberInfo> members,
-        final ContractTypeOracle oracle,
+        final Session session,
         final Map<String, Integer> marks,
         final String contractId
     ) throws ContractViolation {
         final Deque<AncestorWalk> stack = new ArrayDeque<>();
-        enter(root, members, oracle, marks, contractId, stack);
+        enter(root, members, session, marks, contractId, stack);
         while (!stack.isEmpty()) {
             final AncestorWalk frame = stack.peek();
             if (!frame.hasNext()) {
@@ -1093,6 +1230,10 @@ public final class PublicEventContractPreflight {
             }
             final Edge edge = frame.next();
             final String ancestor = edge.name;
+            // Every processed inheritance edge is a charged reference; the
+            // ancestor's name is charged before the lookup/set growth below.
+            session.chargeReference(contractId);
+            session.chargeUniqueType(ancestor, contractId);
             final MemberInfo memberAncestor = members.get(ancestor);
             final int ancestorAccess;
             final Set<String> ancestorPermits;
@@ -1101,7 +1242,7 @@ public final class PublicEventContractPreflight {
                 ancestorPermits = memberAncestor.permits();
             } else {
                 final ContractTypeOracle.TrustedInfo trusted =
-                    oracle.lookup(ancestor);
+                    session.oracle.lookup(ancestor);
                 if (trusted == null) {
                     throw new ContractViolation(
                         Rejection.CLOSURE,
@@ -1117,7 +1258,7 @@ public final class PublicEventContractPreflight {
                 contractId, frame.name, frame.isInterface, edge.superEdge,
                 ancestor, ancestorAccess, ancestorPermits);
             if (memberAncestor != null) {
-                enter(ancestor, members, oracle, marks, contractId, stack);
+                enter(ancestor, members, session, marks, contractId, stack);
             }
         }
     }
@@ -1129,7 +1270,7 @@ public final class PublicEventContractPreflight {
     private static void enter(
         final String name,
         final Map<String, MemberInfo> members,
-        final ContractTypeOracle oracle,
+        final Session session,
         final Map<String, Integer> marks,
         final String contractId,
         final Deque<AncestorWalk> stack
@@ -1145,6 +1286,7 @@ public final class PublicEventContractPreflight {
                     + " has a circular supertype graph"
             );
         }
+        session.chargeUniqueType(name, contractId);
         final MemberInfo member = members.get(name);
         marks.put(name, 1);
         final List<Edge> edges = new ArrayList<>();
@@ -1235,6 +1377,232 @@ public final class PublicEventContractPreflight {
 
         Edge next() {
             return edges.get(cursor++);
+        }
+    }
+
+    /**
+     * Bounded, context-aware signature grammar validation — the pre-scan that
+     * runs before any ASM recursion (Amendment A-1.R/R2). Each call site grammar
+     * is enforced exactly: a class signature is {@code FormalTypeParameters?
+     * SuperclassSignature SuperinterfaceSignature*}, a method signature (ctors
+     * included) is {@code FormalTypeParameters? '(' JavaTypeSignature* ')'
+     * Result ThrowsSignature*}, and a field or record-component signature is a
+     * single {@code ReferenceTypeSignature}. The whole input must be consumed —
+     * trailing content is malformed even where a lenient JDK parser would
+     * tolerate it — and every nested recursive structure (type arguments,
+     * arrays, type-parameter bounds, inner-class segments, member positions)
+     * counts depth +1 against {@link #MAX_SIGNATURE_NESTING}.
+     */
+    private static final class SignatureSyntax {
+        /** Signature grammar delimiters that terminate an identifier. */
+        private static final String DELIMITERS = ".;[/<>:*+-^()";
+
+        private final String text;
+        private final String contractId;
+        private int pos;
+
+        private SignatureSyntax(final String text, final String contractId) {
+            this.text = text;
+            this.contractId = contractId;
+        }
+
+        static void validate(
+            final SignatureContext context,
+            final String text,
+            final String contractId
+        ) throws ContractViolation {
+            final SignatureSyntax syntax = new SignatureSyntax(text, contractId);
+            switch (context) {
+                case CLASS_SIGNATURE -> {
+                    syntax.formalTypeParameters();
+                    syntax.classType(1);
+                    while (syntax.pos < syntax.text.length()) {
+                        syntax.classType(1);
+                    }
+                }
+                case METHOD_SIGNATURE -> {
+                    syntax.formalTypeParameters();
+                    syntax.expect('(');
+                    while (syntax.peek() != ')') {
+                        syntax.javaType(1);
+                    }
+                    syntax.expect(')');
+                    if (syntax.peek() == 'V') {
+                        syntax.pos++;
+                    } else {
+                        syntax.javaType(1);
+                    }
+                    while (syntax.pos < syntax.text.length()
+                            && syntax.peek() == '^') {
+                        syntax.pos++;
+                        syntax.throwsType(1);
+                    }
+                }
+                case FIELD_SIGNATURE -> syntax.referenceType(0);
+            }
+            if (syntax.pos != syntax.text.length()) {
+                throw syntax.malformed("trailing content after the signature");
+            }
+        }
+
+        private void formalTypeParameters() throws ContractViolation {
+            if (pos >= text.length() || text.charAt(pos) != '<') {
+                return;
+            }
+            pos++;
+            if (pos < text.length() && text.charAt(pos) == '>') {
+                throw malformed("empty formal type parameter list");
+            }
+            while (pos < text.length() && text.charAt(pos) != '>') {
+                identifier();
+                expect(':');
+                // The class bound is optional; every further ':' introduces an
+                // interface bound — each bound is a nested structure.
+                if (pos < text.length() && text.charAt(pos) != ':'
+                        && text.charAt(pos) != '>') {
+                    referenceType(1);
+                }
+                while (pos < text.length() && text.charAt(pos) == ':') {
+                    pos++;
+                    referenceType(1);
+                }
+            }
+            expect('>');
+        }
+
+        private void javaType(final int depth) throws ContractViolation {
+            checkDepth(depth);
+            final char c = peek();
+            if ("BCDFIJSZ".indexOf(c) >= 0) {
+                pos++;
+                return;
+            }
+            referenceType(depth);
+        }
+
+        private void referenceType(final int depth) throws ContractViolation {
+            checkDepth(depth);
+            switch (peek()) {
+                case 'L' -> classType(depth);
+                case 'T' -> {
+                    pos++;
+                    identifier();
+                    expect(';');
+                }
+                case '[' -> {
+                    pos++;
+                    javaType(depth + 1);
+                }
+                default -> throw malformed(
+                    "expected a reference type signature at position " + pos);
+            }
+        }
+
+        private void classType(final int depth) throws ContractViolation {
+            checkDepth(depth);
+            expect('L');
+            while (true) {
+                identifier();
+                if (pos < text.length() && text.charAt(pos) == '/') {
+                    pos++;      // package segment
+                    continue;
+                }
+                break;
+            }
+            if (pos < text.length() && text.charAt(pos) == '<') {
+                typeArguments(depth + 1);
+            }
+            int inner = depth;
+            while (pos < text.length() && text.charAt(pos) == '.') {
+                pos++;
+                inner++;
+                checkDepth(inner);
+                identifier();
+                if (pos < text.length() && text.charAt(pos) == '<') {
+                    typeArguments(inner + 1);
+                }
+            }
+            expect(';');
+        }
+
+        private void typeArguments(final int depth) throws ContractViolation {
+            checkDepth(depth);
+            expect('<');
+            if (pos < text.length() && text.charAt(pos) == '>') {
+                throw malformed("empty type argument list");
+            }
+            while (pos < text.length() && text.charAt(pos) != '>') {
+                final char c = text.charAt(pos);
+                if (c == '*') {
+                    pos++;
+                    continue;
+                }
+                if (c == '+' || c == '-') {
+                    pos++;
+                }
+                referenceType(depth);
+            }
+            expect('>');
+        }
+
+        private void throwsType(final int depth) throws ContractViolation {
+            checkDepth(depth);
+            switch (peek()) {
+                case 'L' -> classType(depth);
+                case 'T' -> {
+                    pos++;
+                    identifier();
+                    expect(';');
+                }
+                default -> throw malformed(
+                    "expected a throws type signature at position " + pos);
+            }
+        }
+
+        private void identifier() throws ContractViolation {
+            final int start = pos;
+            while (pos < text.length()
+                    && DELIMITERS.indexOf(text.charAt(pos)) < 0) {
+                pos++;
+            }
+            if (pos == start) {
+                throw malformed("expected an identifier at position " + pos);
+            }
+        }
+
+        private char peek() throws ContractViolation {
+            if (pos >= text.length()) {
+                throw malformed("unexpected end of signature");
+            }
+            return text.charAt(pos);
+        }
+
+        private void expect(final char expected) throws ContractViolation {
+            if (pos >= text.length() || text.charAt(pos) != expected) {
+                throw malformed(
+                    "expected '" + expected + "' at position " + pos);
+            }
+            pos++;
+        }
+
+        private void checkDepth(final int depth) throws ContractViolation {
+            if (depth > MAX_SIGNATURE_NESTING) {
+                throw new ContractViolation(
+                    Rejection.TOO_LARGE,
+                    "public event contract " + contractId
+                        + " signature nesting exceeds the "
+                        + MAX_SIGNATURE_NESTING + " level bound"
+                );
+            }
+        }
+
+        private ContractViolation malformed(final String detail) {
+            return new ContractViolation(
+                Rejection.CONTENT,
+                "public event contract " + contractId
+                    + " carries a malformed signature: " + detail + " in "
+                    + abbreviate(text)
+            );
         }
     }
 

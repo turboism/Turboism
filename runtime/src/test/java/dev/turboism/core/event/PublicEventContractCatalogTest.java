@@ -355,6 +355,57 @@ class PublicEventContractCatalogTest {
         }
     }
 
+    /**
+     * Amendment A-1.R ordering evidence: the declared-contract count is bounded
+     * before any artifact bytes are read. 33 contracts pin a deliberately wrong
+     * sha256 — if reads preceded the count check the sha mismatch would surface
+     * first; "declares 33" proves the declaration bound precedes I/O.
+     */
+    @Test
+    void oversizedDeclarationCountIsBoundedBeforeReadingArtifacts()
+            throws Exception {
+        final Path artifact = contractArtifact("v1");
+        final String wrongSha = "0".repeat(64);
+        final StringBuilder contracts = new StringBuilder();
+        for (int i = 0; i < 33; i++) {
+            if (i > 0) {
+                contracts.append(',');
+            }
+            contracts.append("""
+                {"id":"acme.events.c%d","version":"1.0.0",
+                  "artifact":"META-INF/turboism/contracts/acme-%d.jar","sha256":"%s"}"""
+                .formatted(i, i, wrongSha));
+        }
+        final String json = """
+            {"format":"turboism.plugin.meta","schemaVersion":5,
+            "id":"dev.example.provider","name":"dev.example.provider","version":"0.1.0",
+            "description":"test","entrypoints":["dev.example.provider.ProviderPlugin"],
+            "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            "license":"Test","website":"https://turboism.dev","resources":[],
+            "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
+            "dependencies":[],"permissions":[],"capabilities":[],
+            "environment":{"requiresCubism":false,"ui":"none"},
+            "category":"workflow","eventContracts":[%s]}
+            """.formatted(contracts);
+        final Path jar = temporary.resolve("overdeclared.jar");
+        try (JarOutputStream output = jarOutput(jar)) {
+            for (int i = 0; i < 33; i++) {
+                put(output, "META-INF/turboism/contracts/acme-" + i + ".jar",
+                    Files.readAllBytes(artifact));
+            }
+            put(output, "META-INF/turboism/plugin.json",
+                json.getBytes(StandardCharsets.UTF_8));
+        }
+        try (PublicEventContractCatalog catalog = catalog()) {
+            final IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> catalog.acquire(descriptor(json), jar)
+            );
+            assertTrue(failure.getMessage().contains("declares 33"),
+                failure.getMessage());
+        }
+    }
+
     @Test
     void artifactWithManifestClassPathIsRejected() throws Exception {
         final Path classes = contractClasses("v1");

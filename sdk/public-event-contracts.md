@@ -58,10 +58,18 @@ at bind time:
   `META-INF/versions/**` (multi-release shadowing is non-deterministic), no
   manifest `Class-Path`, and no non-class entries other than the manifest.
 - Resource limits per contract artifact: at most 8 MiB compressed, 8 MiB
-  expanded per entry, 32 MiB expanded in total, 1024 entries, and a 100×
-  compression-ratio bound. Archive structure is validated strictly —
-  malformed, truncated, or header-inconsistent JARs fail admission before
-  staging.
+  expanded per entry, 32 MiB expanded in total, 1024 entries, a 100×
+  compression-ratio bound, and entry paths of at most 1024 UTF-8 bytes and
+  32 segments. Archive structure is validated strictly — malformed,
+  truncated, or header-inconsistent JARs fail admission before staging.
+  Zero-payload directory entries as emitted by standard JDK jar writers
+  are admitted; a directory carrying payload bytes is rejected.
+- Per-plugin verification budgets apply across all of a plugin's declared
+  contracts: at most 32 declared contracts (checked before any artifact
+  bytes are read), 64 MiB of artifact bytes charged as they are delivered,
+  64 MiB expanded in total, 4096 inner entries, 16384 distinct referenced
+  type names, 65536 reference occurrences, 16.7 MiB of parsed
+  descriptor/signature text, and signature nesting of at most 512 levels.
 
 Record methods and initializers are ordinary class code — the mechanism
 controls identity and visibility, not code confinement. Keep payload types
@@ -164,14 +172,18 @@ plugin-private event.
 ## 4. Payload closure
 
 Every type referenced by a contract class must resolve. Admission checks
-two surfaces:
+two surfaces over each *visited* member — the declared event types plus
+every artifact member reachable through the public-API surface:
 
-- **All members** — every field, method, and constructor descriptor,
-  including private and synthetic members, must resolve its erased types.
+- **Erased surface (visited members)** — every field, method, and
+  constructor descriptor, including private and synthetic members, must
+  resolve its erased types. Generic signatures of non-API members are
+  never enumerated: a phantom type mentioned only inside a private
+  member's generic signature is not a reference.
 - **Public API closure** — record components, public/protected members,
   generic signatures including owner types, wildcards and type-variable
   bounds, superclasses, interfaces, and permitted subclasses — resolved
-  recursively.
+  recursively, with each step's own erased surface checked in turn.
 
 Both surfaces must resolve to exactly:
 
@@ -184,9 +196,22 @@ from contract types even where they share a classloader with the SDK. A
 member typed as a private DTO anywhere in the graph — including one hidden
 behind a generic owner such as `Outer<Payload>.Inner` — fails admission at
 preflight, before any plugin entrypoint runs. A type that only appears in
-a private member's erased descriptor, or only inside a generic signature,
-is still checked; validation reads class bytes and never loads, defines,
-or initializes contract classes.
+a private member's erased descriptor, or only inside an API member's
+generic signature, is still checked; validation reads class bytes and
+never loads, defines, or initializes contract classes. Signature metadata
+is validated per call site (class, method/constructor, field and record
+component carry different grammars), fully consumed, and bounded in
+nesting depth.
+
+Permitted-subclass lists are checked asymmetrically on purpose: a
+`sealed` type's `permits` entry that cannot be resolved is rejected at
+admission even though the VM would silently drop it at bind time —
+fail-early, never fail-late.
+
+Artifact bytes are charged to the plugin's verification budget as they are
+read: the declared-contract count is bounded before the first artifact is
+materialized, and acquisition-time reads account against the shared
+per-plugin budget rather than being settled after verification.
 
 A contract member name colliding with a loose `.class` inside the same
 plugin JAR is rejected (shadow ambiguity), as is a name already bound to a

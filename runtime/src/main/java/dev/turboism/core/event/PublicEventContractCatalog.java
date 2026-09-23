@@ -236,6 +236,15 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         final List<ArtifactSpec> specs = new ArrayList<>();
         final PublicEventContractPreflight.Session session =
             PublicEventContractPreflight.newSession();
+        try {
+            // The declared-contract count is checked once before any artifact
+            // bytes are materialized (Amendment A-1.R/R1).
+            session.expectContracts(
+                descriptor.eventContracts().size(), descriptor.id());
+        } catch (final PublicEventContractPreflight.ContractViolation violation) {
+            throw new IllegalArgumentException(
+                violation.getMessage(), violation);
+        }
         try (JarFile jar = new JarFile(pluginJar.toFile())) {
             final Set<String> declaredArtifacts = new HashSet<>();
             final List<String> looseClasses = new ArrayList<>();
@@ -300,7 +309,9 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         }
         final byte[] bytes;
         try (InputStream stream = pluginJar.getInputStream(entry)) {
-            bytes = readBounded(stream, contract.id());
+            bytes = readBounded(stream, contract.id(), session);
+        } catch (final PublicEventContractPreflight.ContractViolation violation) {
+            throw new IllegalArgumentException(violation.getMessage(), violation);
         }
         final PublicEventContractPreflight.Inspection inspection;
         try {
@@ -329,12 +340,14 @@ public final class PublicEventContractCatalog implements AutoCloseable {
     /**
      * Reads one embedded artifact under a hard byte bound — a drop-in JAR's declared
      * entry size is unverified metadata, so the read counts actual bytes and refuses
-     * an over-delivering stream rather than trusting the declaration.
+     * an over-delivering stream rather than trusting the declaration. Every chunk
+     * is charged to the shared session budget before it lands in the buffer.
      */
     private static byte[] readBounded(
         final InputStream stream,
-        final String contractId
-    ) throws IOException {
+        final String contractId,
+        final PublicEventContractPreflight.Session session
+    ) throws IOException, PublicEventContractPreflight.ContractViolation {
         final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         final byte[] buffer = new byte[8192];
         long size = 0;
@@ -351,6 +364,7 @@ public final class PublicEventContractCatalog implements AutoCloseable {
                         + " byte limit"
                 );
             }
+            session.chargeArtifactBytes(read, contractId);
             out.write(buffer, 0, read);
         }
         return out.toByteArray();
