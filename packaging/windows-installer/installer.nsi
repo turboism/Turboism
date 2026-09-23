@@ -98,7 +98,7 @@ SetFont "MS Shell Dlg" 12
 ; 安装前哈希计划对应的条件解压函数（由 assemble-release.sh 生成）。
 !include "${GENERATED_DIR}/payload-extract.nsh"
 
-; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
+; ---------- 页面流程：Welcome → AGPL-3.0-only → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
@@ -156,18 +156,18 @@ LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism 
 LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism Editor 用の拡張ランタイム Turboism をインストールします。$\r$\n$\r$\nインストールはユーザー単位です。最後のオプション画面で Turboism ショートカットを作成でき、明示的に選択した場合のみ Cubism 公式起動 BAT をバックアップして変更します。$\r$\n現在対応しているバージョン：5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n「次へ」をクリックして続行します。"
 LangString TurboismWelcomeText ${LANG_KOREAN} "이 마법사는 Live2D Cubism Editor용 확장 런타임인 Turboism을 설치합니다.$\r$\n$\r$\n설치는 사용자 단위로 이루어집니다. 마지막 옵션 페이지에서 Turboism 바로 가기를 만들 수 있으며, 명시적으로 선택한 경우에만 Cubism 공식 시작 BAT 파일을 백업하고 수정합니다.$\r$\n현재 지원 버전: 5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n계속하려면 [다음]을 클릭하세요."
 
-LangString LicenseTopText ${LANG_ENGLISH} "Please review the MIT License before installing Turboism. Scroll down to see the full text:"
-LangString LicenseTopText ${LANG_SIMPCHINESE} "请在安装 Turboism 前阅读 MIT License。滚动查看全文："
-LangString LicenseTopText ${LANG_JAPANESE} "Turboism をインストールする前に MIT License をお読みください。全文を表示するには下へスクロールしてください："
-LangString LicenseTopText ${LANG_KOREAN} "Turboism을 설치하기 전에 MIT License를 확인하세요. 전체 내용을 보려면 아래로 스크롤하세요:"
-LangString LicenseBottomText ${LANG_ENGLISH} "If you accept the MIT License, select the checkbox below to continue."
-LangString LicenseBottomText ${LANG_SIMPCHINESE} "如果您同意 MIT License，请勾选下方复选框后继续。"
-LangString LicenseBottomText ${LANG_JAPANESE} "MIT License に同意する場合は、下のチェックボックスを選択して続行してください。"
-LangString LicenseBottomText ${LANG_KOREAN} "MIT License에 동의하면 아래 확인란을 선택하여 계속하세요."
-LangString LicenseAcceptText ${LANG_ENGLISH} "I accept the MIT License"
-LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 MIT License"
-LangString LicenseAcceptText ${LANG_JAPANESE} "MIT License に同意します"
-LangString LicenseAcceptText ${LANG_KOREAN} "MIT License에 동의합니다"
+LangString LicenseTopText ${LANG_ENGLISH} "Please review the AGPL-3.0-only before installing Turboism. Scroll down to see the full text:"
+LangString LicenseTopText ${LANG_SIMPCHINESE} "请在安装 Turboism 前阅读 AGPL-3.0-only。滚动查看全文："
+LangString LicenseTopText ${LANG_JAPANESE} "Turboism をインストールする前に AGPL-3.0-only をお読みください。全文を表示するには下へスクロールしてください："
+LangString LicenseTopText ${LANG_KOREAN} "Turboism을 설치하기 전에 AGPL-3.0-only를 확인하세요. 전체 내용을 보려면 아래로 스크롤하세요:"
+LangString LicenseBottomText ${LANG_ENGLISH} "If you accept the AGPL-3.0-only, select the checkbox below to continue."
+LangString LicenseBottomText ${LANG_SIMPCHINESE} "如果您同意 AGPL-3.0-only，请勾选下方复选框后继续。"
+LangString LicenseBottomText ${LANG_JAPANESE} "AGPL-3.0-only に同意する場合は、下のチェックボックスを選択して続行してください。"
+LangString LicenseBottomText ${LANG_KOREAN} "AGPL-3.0-only에 동의하면 아래 확인란을 선택하여 계속하세요."
+LangString LicenseAcceptText ${LANG_ENGLISH} "I accept the AGPL-3.0-only"
+LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 AGPL-3.0-only"
+LangString LicenseAcceptText ${LANG_JAPANESE} "AGPL-3.0-only に同意します"
+LangString LicenseAcceptText ${LANG_KOREAN} "AGPL-3.0-only에 동의합니다"
 
 LangString EulaTopText ${LANG_ENGLISH} "Review the full Turboism End User Runtime Statement and Disclaimer below. The four required acknowledgements are on the next page:"
 LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读下方完整的 Turboism 最终用户运行声明与免责声明。四项必选确认位于下一页："

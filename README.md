@@ -4,11 +4,13 @@
 
 ## Copyright and notices
 
-Copyright © 2026 Turboism Contributors. Turboism is open source under the [MIT License](LICENSE).
+Copyright © 2026 Turboism Contributors. Turboism is open source under the [AGPL-3.0-only license](LICENSE).
+
+This version is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`). Third-party components and files with separate license notices retain their respective licenses.
 
 Turboism is an **independent third-party project**, not affiliated with, endorsed by, or sponsored by Live2D Inc. Live2D, Cubism and related names and marks belong to Live2D Inc. or their respective owners. Turboism does not distribute Cubism Editor or grant, replace or bypass its license; a separately installed, lawfully licensed copy is required.
 
-Read the [End User Runtime Statement and Disclaimer](EULA.md) before installation. It does not reduce the rights granted by the MIT License; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
+Read the [End User Runtime Statement and Disclaimer](EULA.md) before installation. It does not reduce the rights granted by the AGPL-3.0-only license; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
 
 ## About
 
