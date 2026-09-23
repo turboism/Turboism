@@ -58,7 +58,8 @@ public final class RectPathPolygonPlanner implements TextureAtlasLayoutPlanner {
                 TextureAtlasOutlineSource.BOUNDS_FALLBACK, null, false));
         }
         // the rectangle contract cannot express free angles: degrade FREE to
-        // QUARTER here instead of misreporting a 45° placement as a quarter turn
+        // QUARTER here instead of misreporting a 45° placement as a quarter turn;
+        // the emitted polygon plan's rotationMode diagnostic records QUARTER
         final var polygonConstraints = new TextureAtlasPolygonConstraints(
             constraints.pageWidth(), constraints.pageHeight(),
             constraints.edgeMargin() + constraints.itemPadding(),
@@ -68,8 +69,9 @@ public final class RectPathPolygonPlanner implements TextureAtlasLayoutPlanner {
             policy.automaticScale() ? 0 : policy.fixedScale(),
             dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.DALSOO_POLYGON,
             policy.quality());
-        final TextureAtlasPolygonPlan polygonPlan = new DalsooPolygonPlanner()
-            .plan(polygonItems, polygonConstraints, parallel);
+        final TextureAtlasPolygonPlan polygonPlan = new DalsooPolygonPlanner(
+            null, null, null, policy.useAbey(), policy.autoScaleTolerance(),
+            policy.autoScaleMaxTry()).plan(polygonItems, polygonConstraints, parallel);
         final List<TextureAtlasPlacement> placements = new ArrayList<>();
         for (final var p : polygonPlan.placements()) {
             final TextureAtlasLayoutItem item = items.stream()

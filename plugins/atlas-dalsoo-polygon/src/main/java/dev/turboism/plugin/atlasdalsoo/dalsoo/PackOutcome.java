@@ -13,6 +13,7 @@ public final class PackOutcome {
         this.trans = trans;
     }
 
+    /** The placed rotation angle in degrees. */
     public double angleDeg() {
         return Math.toDegrees(Math.atan2(cosSin[1], cosSin[0]));
     }

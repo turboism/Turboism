@@ -65,6 +65,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
     private final IntConsumer progress;
     private final RectPlanSupplier rectPlanner;
     private final boolean useAbey;
+    private final double autoScaleTolerance;
+    private final int autoScaleMaxTry;
 
     /** Supplies the registered rectangle planner for AUTO/near-rect dispatch; may be null. */
     public interface RectPlanSupplier {
@@ -79,10 +81,38 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
     public DalsooPolygonPlanner(final BooleanSupplier cancelled,
         final IntConsumer progress, final RectPlanSupplier rectPlanner,
         final boolean useAbey) {
+        this(cancelled, progress, rectPlanner, useAbey, AUTO_SCALE_TOLERANCE, 0);
+    }
+
+    /**
+     * @param autoScaleTolerance relative scale-step floor for automatic scaling
+     *        (mirrors 5.4 {@code AUTO_SCALE_TOLERANCE}); must be positive
+     * @param autoScaleMaxTry automatic-scale attempt bound (mirrors 5.4
+     *        {@code AUTO_SCALE_MAX_TRY}); {@code 0} derives it from the quality preset
+     */
+    public DalsooPolygonPlanner(final BooleanSupplier cancelled,
+        final IntConsumer progress, final RectPlanSupplier rectPlanner,
+        final boolean useAbey, final double autoScaleTolerance,
+        final int autoScaleMaxTry) {
+        if (!(autoScaleTolerance > 0) || !Double.isFinite(autoScaleTolerance)) {
+            throw new IllegalArgumentException("autoScaleTolerance must be positive");
+        }
+        if (autoScaleMaxTry < 0) {
+            throw new IllegalArgumentException(
+                "autoScaleMaxTry must be >= 0 (0 = quality preset)");
+        }
         this.cancelled = cancelled;
         this.progress = progress;
         this.rectPlanner = rectPlanner;
         this.useAbey = useAbey;
+        this.autoScaleTolerance = autoScaleTolerance;
+        this.autoScaleMaxTry = autoScaleMaxTry;
+    }
+
+    /** Attempt bound for automatic scaling: explicit override or quality preset. */
+    private int autoScaleMaxTry(final TextureAtlasPolygonConstraints constraints) {
+        return autoScaleMaxTry > 0 ? autoScaleMaxTry
+            : AUTO_SCALE_MAX_TRY.get(constraints.quality());
     }
 
     @Override
@@ -103,7 +133,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                     : constraints.requestedScale(),
                 List.of(), items.stream().map(TextureAtlasPolygonItem::textureId).toList(),
                 TextureAtlasLayoutBackend.HOST_NATIVE,
-                Map.of("status", "delegated-to-host"));
+                Map.of("status", "delegated-to-host",
+                    "rotationMode", constraints.rotationMode().name()));
         }
         final BackendChoice choice = chooseBackend(items, constraints);
         try {
@@ -130,7 +161,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                 constraints.pageHeight(), constraints.automaticScale() ? 1
                     : constraints.requestedScale(), List.of(), List.copyOf(overflow),
                 TextureAtlasLayoutBackend.DALSOO_POLYGON,
-                Map.of("cancelled", "true"));
+                Map.of("cancelled", "true",
+                    "rotationMode", constraints.rotationMode().name()));
         }
     }
 
@@ -251,7 +283,7 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             constraints.rotationMode(), abey, H_SKEW, null);
         if (constraints.automaticScale()) {
             final AutoScalePack.Outcome outcome = pack.autoScalePack(prepared,
-                AUTO_SCALE_TOLERANCE, AUTO_SCALE_MAX_TRY.get(constraints.quality()),
+                autoScaleTolerance, autoScaleMaxTry(constraints),
                 cancelled, null);
             return new VariantResult(outcome.result, outcome.scale,
                 coverage(outcome.result, prepared), "serial");
@@ -323,7 +355,7 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             constraints.rotationMode(), variant.abey(), variant.hSkew(), null);
         if (constraints.automaticScale()) {
             final AutoScalePack.Outcome outcome = pack.autoScalePack(prepared,
-                AUTO_SCALE_TOLERANCE, AUTO_SCALE_MAX_TRY.get(constraints.quality()),
+                autoScaleTolerance, autoScaleMaxTry(constraints),
                 cancelled, null);
             return new VariantResult(outcome.result, outcome.scale,
                 coverage(outcome.result, prepared), variant.name());
@@ -398,8 +430,14 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             }
         }
         diagnostics.put("kernel", "dalsoo");
+        diagnostics.put("rotationMode", constraints.rotationMode().name());
         diagnostics.put("autoScaleAttempts",
             constraints.automaticScale() ? "bisect" : "fixed");
+        if (constraints.automaticScale()) {
+            diagnostics.put("autoScaleTolerance", String.valueOf(autoScaleTolerance));
+            diagnostics.put("autoScaleMaxTry",
+                String.valueOf(autoScaleMaxTry(constraints)));
+        }
         return new TextureAtlasPolygonPlan(constraints.pageWidth(),
             constraints.pageHeight(), planScale, List.copyOf(placements),
             List.copyOf(overflow), backend, diagnostics);

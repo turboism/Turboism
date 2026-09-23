@@ -74,7 +74,9 @@ class TextureAtlasPolygonAutoLayoutServiceTest {
         final boolean automaticScale, final double fixedScale) {
         return new PolygonLayoutSettings(TextureAtlasLayoutBackend.DALSOO_POLYGON,
             rotation, TextureAtlasLayoutQuality.FAST, automaticScale, fixedScale,
-            false, false, Map.of());
+            false, false, PolygonLayoutLockPreset.NONE,
+            PolygonLayoutSettings.DEFAULT_AUTO_SCALE_TOLERANCE,
+            PolygonLayoutSettings.AUTO_SCALE_MAX_TRY_QUALITY, Map.of());
     }
 
     @Test
@@ -94,6 +96,53 @@ class TextureAtlasPolygonAutoLayoutServiceTest {
             assertEquals(0, Math.abs(p.angleDeg()) % 90, 1e-6,
                 "session NONE must bound plugin FREE");
         }
+    }
+
+    @Test
+    void freeRotationReachesPlannerEndToEnd() {
+        // issued FREE session + plugin FREE policy: the plan must declare FREE
+        // and placements must land on the 18-step (20°) candidate grid
+        final var layouts = new FakeLayouts(snapshot(400, 400,
+            TextureAtlasRotationMode.FREE, 0,
+            List.of(rect("a"), rect("b"), rect("c"), rect("d"))));
+        final var service = new TextureAtlasPolygonAutoLayoutService(layouts,
+            () -> policy(TextureAtlasRotationMode.FREE, true, 1.0), m -> { });
+        final var result = service.applyAutomaticLayout(false);
+        assertTrue(result.status().isPresent(),
+            "apply failed: " + result.message().orElse("?"));
+        assertEquals("FREE", layouts.applied.diagnostics().get("rotationMode"),
+            "the plan must declare the caller-requested FREE mode");
+        for (final var p : layouts.applied.placements()) {
+            final double grid = Math.abs(p.angleDeg() % 20);
+            assertTrue(grid < 1e-6 || grid > 20 - 1e-6,
+                "FREE placement must use a 20°-grid candidate, got "
+                    + p.angleDeg());
+        }
+    }
+
+    @Test
+    void freeRotationWritesArbitraryAngleEndToEnd() {
+        // a 42x10 rectangle fits a 40x40 page only at a non-quarter angle
+        // (40° candidate: bounds ~= 38.6 x 34.6); QUARTER/NONE cannot place it
+        final var thin = new TextureAtlasPolygonItem("thin", 42, 10,
+            TextureAtlasOutline.rect(42, 10),
+            TextureAtlasItemLayoutPolicy.participating("thin"),
+            TextureAtlasOutlineSource.BOUNDS_FALLBACK, null, false);
+        final var layouts = new FakeLayouts(snapshot(40, 40,
+            TextureAtlasRotationMode.FREE, 1, List.of(thin)));
+        final var service = new TextureAtlasPolygonAutoLayoutService(layouts,
+            () -> policy(TextureAtlasRotationMode.FREE, false, 1.0), m -> { });
+        final var result = service.applyAutomaticLayout(false);
+        assertTrue(result.status().isPresent(),
+            "apply failed: " + result.message().orElse("?"));
+        final var placement = layouts.applied.placementFor("thin").orElseThrow();
+        final double quarter = Math.abs(placement.angleDeg() % 90);
+        assertTrue(quarter > 1e-6 && quarter < 90 - 1e-6,
+            "expected an arbitrary (non-90°) angle, got " + placement.angleDeg());
+        final double grid = Math.abs(placement.angleDeg() % 20);
+        assertTrue(grid < 1e-6 || grid > 20 - 1e-6,
+            "angle must sit on the 18-candidate grid, got "
+                + placement.angleDeg());
     }
 
     @Test

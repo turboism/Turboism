@@ -49,6 +49,7 @@ public final class PolygonPack {
             this.unplacedIds = unplacedIds;
         }
 
+        /** True when every item was placed. */
         public boolean complete() {
             return unplacedIds.isEmpty();
         }

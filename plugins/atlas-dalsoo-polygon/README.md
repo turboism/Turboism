@@ -91,10 +91,36 @@ in **Plugin Management**.
 ## How to use
 
 1. Open Cubism's texture-atlas editor and choose the automatic layout workflow.
-2. Select the `dalsoo` algorithm; optionally enable parallel variant search.
+2. Select the `dalsoo` algorithm. While it is selected, the dialog exposes the
+   packing controls described below; they are disabled (and their values
+   ignored) for every other algorithm.
 3. Run automatic layout; the plugin validates the complete plan before
    applying it and reports diagnostics (backend, outlines, fallbacks, holes,
    scale, overflow).
+
+## Dialog options and persisted settings
+
+The automatic-layout dialog contributes the following controls when `dalsoo`
+is selected. Every value is bridged to the persisted plugin policy
+(`texture-atlas-dalsoo/layout.cfg`) and takes effect on the next run.
+
+| Dialog control | Setting | Cubism 5.4 counterpart | Notes |
+|---|---|---|---|
+| Rotation: `NONE` / `QUARTER` / `FREE` | `rotation` | rotation granularity combo | `FREE` plans with 18 candidate angles (20° steps) and writes them through the full affine path. The rectangle fallback honestly degrades `FREE` to `QUARTER`. |
+| Lock preset: `NONE` / `ALL` / `ANGLE` / `SCALE` / `ANGLE_SCALE` / `POS_ANGLE` | `lock-preset` | `AutoLayoutLock` (`fixPosition`/`fixRotate`/`fixScale`) | Global default layer; an explicit per-item policy (`item-policies`) overrides it. |
+| Scale mode: automatic / fixed | `auto-scale`, `fixed-scale-percent` | auto vs fixed scale entry | Fixed scale is entered in percent (1-800). Automatic scale never exceeds 1 (`s = min(1, ·)`). |
+| Scale tolerance | `auto-scale-tolerance-permille` | `AUTO_SCALE_TOLERANCE` | Relative step floor for the scale search; default `0.005` (stored per-mille). |
+| Scale max tries | `auto-scale-max-try` | `AUTO_SCALE_MAX_TRY` | Attempt bound; `0` derives it from the quality preset (`FAST` 8, `BALANCED` 12, `DENSE` 20). |
+| Kernel: Abey / Dalalah | `use-abey` | - | Dalsoo kernel variant used by the planner. |
+| Parallel search | `parallel` | - | Deterministic parallel variants, gated by the algorithm's `supportsParallel` declaration. |
+
+The Cubism 5.4 texture-compression presets (`PRESET_COMPRESSION`,
+`IMAGE_QUALITY`, `CUSTOM`) are orthogonal to packing and intentionally not
+implemented.
+
+Defaults preserve the pre-dialog behavior: rotation `QUARTER`, lock preset
+`NONE`, automatic scale with tolerance `0.005`, quality-derived attempt bound,
+Abey kernel, serial planning.
 
 ## Capabilities
 
