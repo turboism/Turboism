@@ -12,7 +12,8 @@ public final class AtlasQueueProbeTest {
         for (int count : new int[]{100, 500, 1000, 2500}) {
             AtlasQueueProbe.validateCase(count, "native");
             AtlasQueueProbe.validateCase(count, "new");
-            assertions += 2;
+            AtlasQueueProbe.validateCase(count, "polygon");
+            assertions += 3;
         }
         rejects(() -> AtlasQueueProbe.validateCase(1001, "native"));
         rejects(() -> AtlasQueueProbe.validateCase(2499, "new"));
@@ -68,6 +69,12 @@ public final class AtlasQueueProbeTest {
         good.put("branch", "native").remove("plannerParallel");
         AtlasQueueProbe.validateResult(good, 100, "native");
         assertions++;
+        ObjectNode polygon = result();
+        polygon.remove("plannerParallel");
+        AtlasQueueProbe.validateResult(polygon, 100, "polygon");
+        assertions++;
+        ObjectNode polygonNative = polygon.deepCopy().put("branch", "native");
+        rejects(() -> AtlasQueueProbe.validateResult(polygonNative, 100, "polygon"));
         ObjectNode ui = result();
         ui.put("uiActionToProgressClosedMs", 200).put("uiActionToProgressShownMs", 20)
             .put("uiMethodReturnToProgressClosedMs", 10).put("uiInputProbeMs", 3)

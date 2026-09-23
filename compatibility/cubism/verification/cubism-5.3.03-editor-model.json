@@ -6966,6 +6966,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.texture_atlas.native_edit_layer_draw_data_shapes",
+      "alias": "cubism.texture-atlas.native.edit-layer.draw-data-shapes",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE__EditLayer_ModelImage",
+      "memberName": "getDrawDataShapes$cubism",
+      "descriptor": "()Ljava/util/ArrayList;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.texture_atlas.native_item_height",
       "alias": "cubism.texture-atlas.native.item.height",
       "kind": "method",

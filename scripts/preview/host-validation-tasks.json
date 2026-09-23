@@ -38,9 +38,11 @@
       }
     },
     "atlas": {
-      "description": "Fixed single-invocation current-page Geometry validation; final 2500 explicitly authorized after preliminary PASS.",
+      "description": "Fixed single-invocation current-page layout timing+memory validation; circle/geometry 100/500/1000 across native/new/polygon on 5203/5302/5303.",
       "command": "scripts/preview/run-atlas-host-validation.sh",
       "versions": [
+        "5203",
+        "5302",
         "5303"
       ],
       "defaultVariant": "geometry-100-new",
@@ -184,6 +186,36 @@
           "{version}",
           "{runLabel}",
           "geometry-2500-native"
+        ],
+        "ui-circle-100-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-100-polygon"
+        ],
+        "ui-circle-500-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-500-polygon"
+        ],
+        "ui-circle-1000-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-1000-polygon"
+        ],
+        "ui-geometry-100-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-100-polygon"
+        ],
+        "ui-geometry-500-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-500-polygon"
+        ],
+        "ui-geometry-1000-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-1000-polygon"
         ]
       },
       "resources": {
