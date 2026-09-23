@@ -193,7 +193,7 @@ final class PublicEventContractClosure {
             return;
         }
         final String name = subject.getName();
-        if (name.startsWith("dev.turboism.sdk.")) {
+        if (name.startsWith(PublicEventContractPreflight.SDK_PACKAGE_PREFIX)) {
             return;
         }
         final ClassLoader loader = subject.getClassLoader();
