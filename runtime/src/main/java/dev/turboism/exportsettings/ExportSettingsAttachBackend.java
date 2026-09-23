@@ -9,6 +9,8 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.event.HierarchyEvent;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
@@ -54,11 +56,13 @@ public final class ExportSettingsAttachBackend {
 
     private final Object lifecycleLock = new Object();
     private final Function<String, JCheckBox> checkboxFactory;
+    private final Function<Container, Component> topLevelResolver;
     private boolean closed;
     private boolean attaching;
     private Container container;
     private JPanel ownedPanel;
     private Map<String, JCheckBox> checkboxes;
+    private DialogGrowth growth;
 
     public ExportSettingsAttachBackend() {
         this(JCheckBox::new);
@@ -66,7 +70,17 @@ public final class ExportSettingsAttachBackend {
 
     /** Test-only checkbox factory seam; the default factory yields default-off checkboxes. */
     ExportSettingsAttachBackend(final Function<String, JCheckBox> checkboxFactory) {
+        this(checkboxFactory, SwingUtilities::getWindowAncestor);
+    }
+
+    /** Test-only seams: checkbox factory and top-level window lookup. */
+    ExportSettingsAttachBackend(
+        final Function<String, JCheckBox> checkboxFactory,
+        final Function<Container, Component> topLevelResolver
+    ) {
         this.checkboxFactory = Objects.requireNonNull(checkboxFactory, "checkboxFactory");
+        this.topLevelResolver =
+            Objects.requireNonNull(topLevelResolver, "topLevelResolver");
     }
 
     /** Materializes one owned panel from contribution descriptors. */
@@ -134,10 +148,11 @@ public final class ExportSettingsAttachBackend {
                     container = parts.mount();
                     ownedPanel = parts.panel();
                     checkboxes = Collections.unmodifiableMap(parts.checkboxes());
+                    growth = parts.growth();
                 }
             }
             if (becameClosed) {
-                removeParts(parts.mount(), parts.panel());
+                removeParts(parts.mount(), parts.panel(), parts.growth());
                 throw new ExportSettingsAttachException(CLOSED_KEY);
             }
             return this::closeInternal;
@@ -146,7 +161,7 @@ public final class ExportSettingsAttachBackend {
                 attaching = false;
             }
             if (parts != null) {
-                removeParts(parts.mount(), parts.panel());
+                removeParts(parts.mount(), parts.panel(), parts.growth());
             }
             throw failure;
         } catch (Throwable failure) {
@@ -154,7 +169,7 @@ public final class ExportSettingsAttachBackend {
                 attaching = false;
             }
             if (parts != null) {
-                removeParts(parts.mount(), parts.panel());
+                removeParts(parts.mount(), parts.panel(), parts.growth());
             }
             throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
@@ -167,6 +182,7 @@ public final class ExportSettingsAttachBackend {
         final JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         final Map<String, JCheckBox> boxes = new LinkedHashMap<>();
+        DialogGrowth dialogGrowth = null;
         try {
             for (ExportSettingsContribution contribution : requested) {
                 final JCheckBox box = Objects.requireNonNull(
@@ -177,8 +193,13 @@ public final class ExportSettingsAttachBackend {
                 boxes.put(contribution.optionId(), box);
             }
             final Container mount = commitOrRollback(target, panel);
-            return new AttachmentParts(panel, boxes, mount);
+            dialogGrowth = new DialogGrowth(topLevelResolver, mount, panel);
+            dialogGrowth.arm();
+            return new AttachmentParts(panel, boxes, mount, dialogGrowth);
         } catch (Throwable failure) {
+            if (dialogGrowth != null) {
+                dialogGrowth.undo();
+            }
             rollback(target, panel, failure);
             throw failure;
         }
@@ -191,6 +212,7 @@ public final class ExportSettingsAttachBackend {
         final JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         final Map<String, JCheckBox> boxes = new LinkedHashMap<>();
+        DialogGrowth dialogGrowth = null;
         try {
             for (ExportSettingsOptionSnapshot option : requested) {
                 final JCheckBox box = Objects.requireNonNull(
@@ -201,8 +223,13 @@ public final class ExportSettingsAttachBackend {
                 boxes.put(option.optionId(), box);
             }
             final Container mount = commitOrRollback(target, panel);
-            return new AttachmentParts(panel, boxes, mount);
+            dialogGrowth = new DialogGrowth(topLevelResolver, mount, panel);
+            dialogGrowth.arm();
+            return new AttachmentParts(panel, boxes, mount, dialogGrowth);
         } catch (Throwable failure) {
+            if (dialogGrowth != null) {
+                dialogGrowth.undo();
+            }
             rollback(target, panel, failure);
             throw failure;
         }
@@ -287,9 +314,16 @@ public final class ExportSettingsAttachBackend {
         }
     }
 
-    private static void removeParts(final Container target, final JPanel panel) {
+    private static void removeParts(
+        final Container target,
+        final JPanel panel,
+        final DialogGrowth growth
+    ) {
         try {
             onEdt(() -> {
+                if (growth != null) {
+                    growth.undo();
+                }
                 if (panel.getParent() == target) {
                     target.remove(panel);
                 }
@@ -305,6 +339,7 @@ public final class ExportSettingsAttachBackend {
     private void closeInternal() {
         final Container target;
         final JPanel panel;
+        final DialogGrowth dialogGrowth;
         synchronized (lifecycleLock) {
             if (closed) {
                 return;
@@ -312,15 +347,20 @@ public final class ExportSettingsAttachBackend {
             closed = true;
             target = container;
             panel = ownedPanel;
+            dialogGrowth = growth;
             container = null;
             ownedPanel = null;
             checkboxes = null;
+            growth = null;
         }
         if (target == null || panel == null) {
             return;
         }
         try {
             onEdt(() -> {
+                if (dialogGrowth != null) {
+                    dialogGrowth.undo();
+                }
                 if (panel.getParent() == target) {
                     target.remove(panel);
                 }
@@ -456,15 +496,109 @@ public final class ExportSettingsAttachBackend {
         T run();
     }
 
+    /**
+     * Grows the host dialog's top-level window so the contributed rows fit
+     * without clipping native options, and restores the captured size on
+     * teardown.
+     *
+     * <p>The native dialog packs and restores a remembered size during
+     * {@code setVisible} — after the attach hook runs — so a resize at attach
+     * time would be overwritten. Growth is therefore armed on the owned panel's
+     * first {@code SHOWING_CHANGED} event and re-ensured over a bounded number
+     * of deferred EDT passes. It only ever grows the height toward the window's
+     * preferred size: never shrinks, never touches the width. All methods run
+     * on the EDT.</p>
+     */
+    private static final class DialogGrowth {
+
+        /** Client-property keys the host probe reads as grow/restore evidence. */
+        static final String BASELINE_PROPERTY =
+            "turboism.export-settings.dialogBaselineSize";
+        static final String GROWN_PROPERTY =
+            "turboism.export-settings.dialogGrownSize";
+        private static final int MAX_PASSES = 3;
+
+        private final Function<Container, Component> topLevelResolver;
+        private final Container mount;
+        private final JPanel panel;
+        private final AtomicBoolean armed = new AtomicBoolean(true);
+        private Component topLevel;
+        private Dimension baseline;
+        private int passes;
+
+        DialogGrowth(
+            final Function<Container, Component> topLevelResolver,
+            final Container mount,
+            final JPanel panel
+        ) {
+            this.topLevelResolver = topLevelResolver;
+            this.mount = mount;
+            this.panel = panel;
+        }
+
+        void arm() {
+            panel.addHierarchyListener(event -> {
+                if ((event.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                    SwingUtilities.invokeLater(this::ensureGrowth);
+                }
+            });
+            // A host that attaches into an already-showing window never fires
+            // SHOWING_CHANGED again, so queue one pass unconditionally.
+            SwingUtilities.invokeLater(this::ensureGrowth);
+        }
+
+        private void ensureGrowth() {
+            if (!armed.get() || panel.getParent() != mount) {
+                return;
+            }
+            final Component top = topLevelResolver.apply(mount);
+            if (top == null || !top.isShowing()) {
+                // Not shown yet — the hierarchy event re-triggers the pass.
+                return;
+            }
+            topLevel = top;
+            if (baseline == null) {
+                baseline = top.getSize();
+                panel.putClientProperty(BASELINE_PROPERTY, baseline);
+            }
+            top.validate();
+            final Dimension needed = top.getPreferredSize();
+            final Dimension current = top.getSize();
+            if (needed != null && needed.height > current.height) {
+                top.setSize(new Dimension(current.width, needed.height));
+                top.validate();
+            }
+            panel.putClientProperty(GROWN_PROPERTY, top.getSize());
+            if (++passes < MAX_PASSES) {
+                SwingUtilities.invokeLater(this::ensureGrowth);
+            }
+        }
+
+        void undo() {
+            armed.set(false);
+            final Component top = topLevel;
+            final Dimension size = baseline;
+            if (top != null && size != null) {
+                try {
+                    top.setSize(size);
+                } catch (Throwable ignored) {
+                    // The window is going away; restore is best-effort.
+                }
+            }
+        }
+    }
+
     private record AttachmentParts(
         JPanel panel,
         Map<String, JCheckBox> checkboxes,
-        Container mount
+        Container mount,
+        DialogGrowth growth
     ) {
         private AttachmentParts {
             Objects.requireNonNull(panel, "panel");
             Objects.requireNonNull(checkboxes, "checkboxes");
             Objects.requireNonNull(mount, "mount");
+            Objects.requireNonNull(growth, "growth");
         }
     }
 }

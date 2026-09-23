@@ -179,6 +179,7 @@
         "dirty-export": ["{version}", "{runLabel}", "dirty-export"],
         "atlas-fixture": ["{version}", "{runLabel}", "atlas-fixture"],
         "expect-reject": ["{version}", "{runLabel}", "expect-reject"],
+        "expect-reject-structure": ["{version}", "{runLabel}", "expect-reject-structure"],
         "full": ["{version}", "{runLabel}", "dialog,copy-binding,flatten"]
       },
       "defaultVariant": "dialog",

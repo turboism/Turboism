@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Pure deformer-flatten planner over {@link ProtectedExportHostOperations} reads.
@@ -141,14 +142,38 @@ public final class ProtectedExportDeformerPlan {
         final Object modelSource
     ) {
         final List<?> objects = host.allObjects(modelSource);
+        final Map<String, Integer> unsupported = new TreeMap<>();
         for (Object object : objects) {
             final boolean supported = object != null
                 && (host.isWarpDeformer(object) || host.isRotationDeformer(object)
                     || host.isArtMeshSource(object) || host.isPartSource(object));
             if (!supported) {
-                throw new ProtectedExportPlanRejection(
-                    "protected-export.unsupported-structure");
+                String family;
+                try {
+                    family = host.unsupportedObjectFamily(object);
+                } catch (Throwable failure) {
+                    family = "unknown";
+                }
+                if (family == null || family.isBlank()) {
+                    family = "unknown";
+                }
+                // Bounded key space: overflow families fold into "other" so the
+                // detail stays readable on pathological censuses.
+                final String key =
+                    unsupported.size() < 12 || unsupported.containsKey(family)
+                        ? family : "other";
+                unsupported.merge(key, 1, Integer::sum);
             }
+        }
+        if (!unsupported.isEmpty()) {
+            final StringBuilder detail =
+                new StringBuilder("protected-export.unsupported-structure:");
+            for (Map.Entry<String, Integer> entry : unsupported.entrySet()) {
+                detail.append(entry.getKey()).append('=').append(entry.getValue())
+                    .append(',');
+            }
+            detail.setLength(detail.length() - 1);
+            throw new ProtectedExportPlanRejection(detail.toString());
         }
         final int physicsSettings = host.allPhysicsSettings(modelSource).size();
         final int motionSyncSettings = host.allMotionSyncSettings(modelSource).size();

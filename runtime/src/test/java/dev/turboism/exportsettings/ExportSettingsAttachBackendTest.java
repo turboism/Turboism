@@ -7,6 +7,9 @@ import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.Test;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.event.HierarchyEvent;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -567,6 +570,126 @@ final class ExportSettingsAttachBackendTest {
         final Map<String, Boolean> snapshot = backend.selectedSnapshot();
         assertEquals(Map.of("option-a", true), snapshot);
         assertTrue(box.get().readOnEdt.get(), "checkbox state must be read on the EDT");
+    }
+
+    @Test
+    void topLevelGrowsToFitContributionOnShowAndRestoresOnClose() throws Exception {
+        // Options container plus a fake top-level window, sized too small for
+        // the contributed rows — the stand-in for the host's BoundsKeyManager
+        // restored size.
+        final JPanel options = new JPanel();
+        options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
+        options.add(new NativeCheckBox("native-a"));
+        options.add(new NativeCheckBox("native-b"));
+        final FakeTopLevel window = new FakeTopLevel();
+        window.add(options);
+        // Native-fitted size: what the host's pack/restore would produce
+        // without the contribution.
+        window.setSize(400, window.getPreferredSize().height);
+        final int baselineHeight = window.getHeight();
+        final ExportSettingsAttachBackend backend =
+            new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
+
+        final Registration registration = backend.attach(options, List.of(
+            contribution("option-a", "label.a"),
+            contribution("option-b", "label.b")
+        ));
+        final JPanel owned = panel(options);
+        flushEdt();
+        assertEquals(baselineHeight, window.getHeight(),
+            "no growth may run before the window is showing");
+
+        window.showing = true;
+        fireShowingChanged(owned);
+        flushEdt();
+        flushEdt();
+        flushEdt();
+
+        final int preferredHeight = window.getPreferredSize().height;
+        assertTrue(preferredHeight > baselineHeight,
+            "the contributed panel must raise the required height");
+        assertEquals(preferredHeight, window.getHeight(),
+            "window must grow to cover its full content height");
+        assertEquals(400, window.getWidth(), "width must stay untouched");
+        assertEquals(new Dimension(400, baselineHeight), owned.getClientProperty(
+            "turboism.export-settings.dialogBaselineSize"));
+
+        registration.close();
+        assertEquals(new Dimension(400, baselineHeight), window.getSize(),
+            "close must restore the captured pre-growth size");
+    }
+
+    @Test
+    void topLevelNeverShrinksWhenAlreadyRoomy() throws Exception {
+        final JPanel options = new JPanel();
+        options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
+        options.add(new NativeCheckBox("native-a"));
+        final FakeTopLevel window = new FakeTopLevel();
+        window.add(options);
+        window.setSize(400, 800);
+        final ExportSettingsAttachBackend backend =
+            new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
+        final Registration registration = backend.attach(options, List.of(
+            contribution("option-a", "label.a")
+        ));
+
+        window.showing = true;
+        fireShowingChanged(panel(options));
+        flushEdt();
+        flushEdt();
+        flushEdt();
+
+        assertEquals(800, window.getHeight(),
+            "a window already covering its content must not shrink");
+        registration.close();
+        assertEquals(800, window.getHeight());
+    }
+
+    @Test
+    void failedAttachLeavesTopLevelSizeUntouched() throws Exception {
+        final ThrowingContainer options = new ThrowingContainer();
+        options.add(new NativeCheckBox("native-a"));
+        final FakeTopLevel window = new FakeTopLevel();
+        window.add(options);
+        window.setSize(400, 120);
+        final ExportSettingsAttachBackend backend =
+            new ExportSettingsAttachBackend(JCheckBox::new, mount -> window);
+        options.throwOnRevalidate = true;
+
+        assertThrows(ExportSettingsAttachException.class,
+            () -> backend.attach(options, List.of(contribution("option-a", "label.a"))));
+        window.showing = true;
+        flushEdt();
+        flushEdt();
+        assertEquals(120, window.getHeight(),
+            "a rolled-back attach must not resize the window");
+    }
+
+    private static void flushEdt() throws Exception {
+        SwingUtilities.invokeAndWait(() -> { });
+    }
+
+    private static void fireShowingChanged(final Component component) {
+        final HierarchyEvent event = new HierarchyEvent(
+            component, HierarchyEvent.HIERARCHY_CHANGED, component,
+            component.getParent(), HierarchyEvent.SHOWING_CHANGED);
+        for (java.awt.event.HierarchyListener listener : component.getHierarchyListeners()) {
+            listener.hierarchyChanged(event);
+        }
+    }
+
+    /** Fake top-level window whose showing flag the test controls directly. */
+    private static final class FakeTopLevel extends JPanel {
+        private boolean showing;
+
+        private FakeTopLevel() {
+            super(new BorderLayout());
+        }
+
+        @Override
+        public boolean isShowing() {
+            return showing;
+        }
     }
 
     private static ExportSettingsContribution contribution(
