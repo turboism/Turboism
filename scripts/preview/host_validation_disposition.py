@@ -9,6 +9,9 @@ row, never writes evidence files and never marks verification accepted.
 """
 from __future__ import annotations
 
+import contextlib
+import fcntl
+import hashlib
 import json
 import math
 import os
@@ -19,7 +22,8 @@ import stat
 import sys
 import time
 import unicodedata
-from typing import Any
+from typing import Any, Iterator
+from urllib.parse import quote
 
 import host_validation_queue as queue
 import host_validation_retention as retention
@@ -69,16 +73,22 @@ def _current_boot() -> str:
 
 
 def _identity(raw: Any, source: str) -> dict[str, Any]:
+    """Exact producer types only: pid/uid ints, startTicks int or the containment
+    text form; bool/float/padded strings are never coerced into an identity."""
     if not isinstance(raw, dict):
         raise queue.QueueError(f"{source} identity is not an object")
-    try:
-        identity = {"pid": int(raw["pid"]), "startTicks": int(raw["startTicks"]),
-                    "bootId": raw["bootId"], "uid": int(raw["uid"])}
-    except (KeyError, TypeError, ValueError) as failure:
-        raise queue.QueueError(f"{source} identity is incomplete") from failure
+    pid, ticks, uid = raw.get("pid"), raw.get("startTicks"), raw.get("uid")
+    if type(pid) is not int or type(uid) is not int:
+        raise queue.QueueError(f"{source} identity has invalid field types")
+    if type(ticks) is int:
+        parsed_ticks = ticks
+    elif isinstance(ticks, str) and re.fullmatch(r"[0-9]+", ticks):
+        parsed_ticks = int(ticks)
+    else:
+        raise queue.QueueError(f"{source} identity has invalid field types")
+    identity = {"pid": pid, "startTicks": parsed_ticks,
+                "bootId": raw.get("bootId"), "uid": uid}
     if (identity["pid"] <= 0 or identity["startTicks"] < 0
-            or isinstance(raw["pid"], bool) or isinstance(raw["startTicks"], bool)
-            or isinstance(raw["uid"], bool)
             or not isinstance(identity["bootId"], str)
             or not JOB_ID.fullmatch(identity["bootId"])
             or identity["uid"] != os.getuid()):
@@ -86,13 +96,33 @@ def _identity(raw: Any, source: str) -> dict[str, Any]:
     return identity
 
 
-def _bounded_json(path: Path) -> Any:
+def _pinned_read(path: Path) -> tuple[os.stat_result, bytes]:
+    """Open without following links and hash/parse exactly the bytes of the
+    opened file; a replaced or unsafe file is never read."""
     checked_path(path)
-    info = path.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_size > MAX_METADATA_BYTES:
-        raise queue.QueueError(f"unsafe or oversized metadata: {path}")
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     try:
-        return json.loads(path.read_bytes())
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_size > MAX_METADATA_BYTES):
+            raise queue.QueueError(f"unsafe or oversized metadata: {path}")
+        data = b""
+        with os.fdopen(fd, "rb", closefd=False) as source:
+            data = source.read(MAX_METADATA_BYTES + 1)
+        if len(data) > MAX_METADATA_BYTES:
+            raise queue.QueueError(f"unsafe or oversized metadata: {path}")
+        current = path.lstat()
+        if (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino):
+            raise queue.QueueError(f"metadata was replaced during read: {path}")
+        return info, data
+    finally:
+        os.close(fd)
+
+
+def _bounded_json(path: Path) -> Any:
+    _, data = _pinned_read(path)
+    try:
+        return json.loads(data)
     except (ValueError, UnicodeDecodeError) as failure:
         raise queue.QueueError(f"corrupt metadata: {path}") from failure
 
@@ -105,10 +135,12 @@ def _metadata_record(path: Path) -> dict[str, Any]:
         return {"exists": False}
     if not stat.S_ISREG(info.st_mode):
         return {"exists": True, "type": stat.S_IFMT(info.st_mode)}
-    if info.st_uid != os.getuid() or info.st_size > MAX_METADATA_BYTES:
-        raise queue.QueueError(f"unsafe or oversized metadata: {path}")
+    opened, data = _pinned_read(path)
+    if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+        raise queue.QueueError(f"metadata was replaced during read: {path}")
     return {"exists": True, "type": stat.S_IFREG, "device": info.st_dev,
-            "inode": info.st_ino, "size": info.st_size, "sha256": queue.file_digest(path)}
+            "inode": info.st_ino, "size": info.st_size,
+            "sha256": hashlib.sha256(data).hexdigest()}
 
 
 def _listing(directory: Path) -> list[list[Any]]:
@@ -130,7 +162,9 @@ def _lifecycle_copy(path: Path, expected: dict[str, Any]) -> tuple[dict[str, Any
     a finalized copy is a durable verdict, not an orphan candidate."""
     record = _metadata_record(path)
     parsed = None
-    if record.get("exists") and record.get("type") == stat.S_IFREG:
+    if record.get("exists"):
+        if record.get("type") != stat.S_IFREG:
+            raise queue.QueueError(f"lifecycle record is not a regular file: {path}")
         parsed = _bounded_json(path)
         if (not isinstance(parsed, dict)
                 or type(parsed.get("schemaVersion")) is not int
@@ -253,13 +287,16 @@ def _assess(view: Any, job: dict[str, Any], current_boot: str) -> dict[str, Any]
     return result
 
 
-def _disposition_digests(view: Any, job_id: str) -> list[str]:
+def _disposition_digests(view: Any, job_id: str,
+                         exclude: frozenset = frozenset()) -> list[str]:
     return sorted(queue.digest_json(row["payload"]) for row in view.event_rows
-                  if row["job_id"] == job_id and row["kind"] == EVENT_KIND)
+                  if row["job_id"] == job_id and row["kind"] == EVENT_KIND
+                  and row["event_id"] not in exclude)
 
 
 def _approval_facts(view: Any, job: dict[str, Any], current_boot: str,
-                    historical_boot: str, closure: dict[str, Any]) -> dict[str, Any]:
+                    historical_boot: str, closure: dict[str, Any],
+                    exclude: frozenset = frozenset()) -> dict[str, Any]:
     """Stable approval inputs only; volatile observation times are excluded."""
     return {"schemaVersion": SCHEMA_VERSION, "operation": EVENT_KIND,
             "rootIdentity": view.identity,
@@ -272,21 +309,20 @@ def _approval_facts(view: Any, job: dict[str, Any], current_boot: str,
             "historicalBootId": historical_boot, "currentBootId": current_boot,
             "host": {"state": view.host_row["state"], "jobId": view.host_row["job_id"]},
             "evidence": closure,
-            "dispositions": _disposition_digests(view, job["job_id"])}
+            "dispositions": _disposition_digests(view, job["job_id"], exclude)}
 
 
 def _worker_status(root: Path) -> str:
     path = root / "worker.json"
     try:
         checked_path(path)
-        identity = json.loads(path.read_text())
+        if not path.exists():
+            return "offline"
+        identity = _bounded_json(path)
+        return "online" if queue.identity_alive(_identity(identity, "worker")) else "offline"
     except FileNotFoundError:
         return "offline"
     except (OSError, ValueError, queue.QueueError):
-        return "unknown"
-    try:
-        return "online" if queue.identity_alive(_identity(identity, "worker")) else "offline"
-    except queue.QueueError:
         return "unknown"
 
 
@@ -403,13 +439,26 @@ def inspect(root: Path, job_id: str, *, busy: Any = None) -> dict[str, Any]:
     return _report(snapshot, job, current_boot, evaluation, extra, observation)
 
 
+AUDIT_KEYS = frozenset({
+    "schemaVersion", "disposition", "jobId", "attemptId", "runId",
+    "preparedDigest", "fromState", "previousReason", "previousUpdatedAt",
+    "toState", "operatorUid", "recordedAt", "reason", "approvalDigest",
+    "historicalBootId", "currentBootId", "rootIdentity", "evidenceInventory",
+    "preservation", "verificationAccepted"})
+
+
+def _number(value: Any) -> bool:
+    return type(value) in (int, float) and math.isfinite(value)
+
+
 def _replay(view: Any, job: dict[str, Any],
             approval: str, reason: str) -> dict[str, Any]:
     """Read-only replay of an identical committed confirmation.
 
-    The stored audit is a fixed protocol record: every field is type-checked
-    and rebound to the live row before any receipt is returned. A receipt can
-    never be upgraded into a verification result.
+    The stored audit is a fixed protocol record: every key must be present
+    with its exact type and immutable value, the live row must still agree,
+    and the preserved evidence must still recompute to the approved digest.
+    A receipt can never be upgraded into a verification result.
     """
     def refuse(code: str, detail: str) -> Rejected:
         return Rejected({"schemaVersion": SCHEMA_VERSION, "jobId": job["job_id"],
@@ -425,43 +474,58 @@ def _replay(view: Any, job: dict[str, Any],
         raise refuse("IDENTITY_INVALID", f"administrative audit is unreadable: {failure}")
     valid = (
         isinstance(payload, dict)
-        and type(payload.get("schemaVersion")) is int
+        and set(payload) == AUDIT_KEYS
+        and type(payload["schemaVersion"]) is int
         and payload["schemaVersion"] == SCHEMA_VERSION
-        and payload.get("disposition") == DISPOSITION
-        and payload.get("toState") == queue.ADMINISTRATIVE_STATE
-        and payload.get("fromState") in queue.ACTIVE
-        and payload.get("preservation") == PRESERVATION
-        and payload.get("verificationAccepted") is False
-        and type(payload.get("operatorUid")) is int
+        and payload["disposition"] == DISPOSITION
+        and payload["toState"] == queue.ADMINISTRATIVE_STATE
+        and payload["fromState"] in queue.ACTIVE
+        and payload["preservation"] == PRESERVATION
+        and payload["verificationAccepted"] is False
+        and type(payload["operatorUid"]) is int
         and payload["operatorUid"] == os.getuid()
-        and JOB_ID.fullmatch(payload.get("jobId") or "")
-        and JOB_ID.fullmatch(payload.get("attemptId") or "")
-        and RUN_ID.fullmatch(payload.get("runId") or "")
-        and APPROVAL.fullmatch(payload.get("preparedDigest") or "")
-        and APPROVAL.fullmatch(payload.get("approvalDigest") or "")
-        and JOB_ID.fullmatch(payload.get("historicalBootId") or "")
-        and JOB_ID.fullmatch(payload.get("currentBootId") or "")
+        and JOB_ID.fullmatch(payload["jobId"] or "")
+        and JOB_ID.fullmatch(payload["attemptId"] or "")
+        and RUN_ID.fullmatch(payload["runId"] or "")
+        and APPROVAL.fullmatch(payload["preparedDigest"] or "")
+        and APPROVAL.fullmatch(payload["approvalDigest"] or "")
+        and JOB_ID.fullmatch(payload["historicalBootId"] or "")
+        and JOB_ID.fullmatch(payload["currentBootId"] or "")
         and payload["historicalBootId"] != payload["currentBootId"]
-        and type(payload.get("recordedAt")) in (int, float)
-        and not isinstance(payload["recordedAt"], bool)
-        and math.isfinite(payload["recordedAt"])
-        and (payload.get("previousReason") is None or isinstance(payload["previousReason"], str))
-        and (payload.get("previousUpdatedAt") is None
-             or (type(payload["previousUpdatedAt"]) in (int, float)
-                 and not isinstance(payload["previousUpdatedAt"], bool)))
-        and isinstance(payload.get("reason"), str)
-        and isinstance(payload.get("evidenceInventory"), dict)
-        and payload.get("rootIdentity") == list(view.identity)
+        and _number(payload["recordedAt"])
+        and (payload["previousReason"] is None or type(payload["previousReason"]) is str)
+        and (payload["previousUpdatedAt"] is None or _number(payload["previousUpdatedAt"]))
+        and type(payload["reason"]) is str
+        and isinstance(payload["evidenceInventory"], dict)
+        and payload["rootIdentity"] == list(view.identity)
     )
     if not valid:
         raise refuse("IDENTITY_INVALID", "administrative audit fails protocol validation")
     bound = (payload["jobId"] == job["job_id"] and payload["attemptId"] == job["attempt_id"]
              and payload["runId"] == job["run_id"] and payload["preparedDigest"] == job["digest"]
+             and job["digest"] == job["prepared_id"]
              and job["state"] == queue.ADMINISTRATIVE_STATE
              and job["reason"] == payload["reason"]
              and job["updated_at"] == payload["recordedAt"])
     if not bound:
         raise refuse("IDENTITY_INVALID", "administrative row disagrees with its audit")
+    try:
+        supervisor = _identity(json.loads(job["identity_json"] or "null"), "supervisor")
+        descriptor = retention.describe(view, job["prepared_id"])
+        closure = _closure(view, job, payload["historicalBootId"], supervisor, descriptor)
+    except (queue.QueueError, OSError, ValueError, KeyError, TypeError,
+            _FinalVerdictPresent) as failure:
+        raise refuse("IDENTITY_INVALID",
+                     f"preserved evidence can no longer be verified: {failure}")
+    if closure != payload["evidenceInventory"]:
+        raise refuse("IDENTITY_INVALID", "audit inventory no longer matches preserved evidence")
+    as_approved = {**job, "state": payload["fromState"], "reason": payload["previousReason"],
+                   "updated_at": payload["previousUpdatedAt"]}
+    facts = _approval_facts(view, as_approved, payload["currentBootId"],
+                            payload["historicalBootId"], closure,
+                            exclude=frozenset({audits[0]["event_id"]}))
+    if queue.digest_json(facts) != payload["approvalDigest"]:
+        raise refuse("IDENTITY_INVALID", "audit digest no longer re-derives from stable facts")
     if payload["approvalDigest"] != approval or payload["reason"] != reason:
         raise refuse("CONFLICTING_CONFIRMATION",
                      "request conflicts with the committed disposition")
@@ -479,29 +543,62 @@ def _normalize_reason(reason: Any) -> str:
     return normalized
 
 
+@contextlib.contextmanager
+def _existing_lock(path: Path) -> Iterator[int]:
+    """Acquire an already-created coordination lock; never recreates or
+    silently adopts a replacement."""
+    checked_path(path)
+    fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(fd)
+        current = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o077
+                or (info.st_dev, info.st_ino) != (current.st_dev, current.st_ino)):
+            raise queue.QueueError(f"coordination lock is missing or replaced: {path.name}")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as failure:
+            raise queue.QueueBusy(f"already owned: {path.name}") from failure
+        yield fd
+    finally:
+        os.close(fd)
+
+
 def _open_existing(root: Path) -> sqlite3.Connection:
+    """Attach to the pinned existing database file; mode=rw can never create."""
     database = checked_path(root / "queue.sqlite3")
+    pin = os.open(database, os.O_RDWR | os.O_NOFOLLOW)
     try:
-        info = database.stat()
-    except FileNotFoundError as failure:
-        raise queue.QueueError("queue database does not exist") from failure
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
-        raise queue.QueueError("unsafe queue database")
-    db = sqlite3.connect(str(database), timeout=30, isolation_level=None)
-    db.row_factory = sqlite3.Row
-    try:
-        db.execute("PRAGMA synchronous=FULL")
-        if db.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
-            raise queue.QueueError("queue is not in its managed WAL mode")
-        if db.execute("SELECT version FROM metadata").fetchone()[0] != queue.SCHEMA:
-            raise queue.QueueError("unsupported queue schema; migration required")
-        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if not {"jobs", "host", "events", "retention_objects", "metadata"} <= tables:
-            raise queue.QueueError("queue schema is incomplete")
-    except BaseException:
-        db.close()
-        raise
-    return db
+        pinned = os.fstat(pin)
+        if not stat.S_ISREG(pinned.st_mode) or pinned.st_uid != os.getuid():
+            raise queue.QueueError("unsafe queue database")
+        try:
+            db = sqlite3.connect(f"file:{quote(str(database))}?mode=rw",
+                                 uri=True, timeout=30, isolation_level=None)
+        except sqlite3.Error as failure:
+            raise queue.QueueError(f"queue database cannot be opened: {failure}") from failure
+        try:
+            current = database.stat()
+            if (current.st_dev, current.st_ino) != (pinned.st_dev, pinned.st_ino):
+                raise queue.QueueError("queue database was replaced")
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA synchronous=FULL")
+            mode = db.execute("PRAGMA journal_mode").fetchone()
+            if mode is None or mode[0] != "wal":
+                raise queue.QueueError("queue is not in its managed WAL mode")
+            version = db.execute("SELECT version FROM metadata").fetchone()
+            if version is None or version[0] != queue.SCHEMA:
+                raise queue.QueueError("unsupported queue schema; migration required")
+            tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if not {"jobs", "host", "events", "retention_objects", "metadata"} <= tables:
+                raise queue.QueueError("queue schema is incomplete")
+        except BaseException:
+            db.close()
+            raise
+        return db
+    finally:
+        os.close(pin)
 
 
 class _LiveView:
@@ -546,8 +643,9 @@ def confirm(root: Path, job_id: str, approval: str, reason: Any, *, busy: Any = 
         report["blockers"].append(_block("WORKER_ACTIVE_OR_LOCKED", "coordination locks are missing"))
         raise Rejected(report)
     # Lock order: worker -> storage(exclusive) -> admission -> transaction.
-    with queue.FileLock(root / "worker.lock"), queue.storage_lock(root, exclusive=True), \
-            queue.FileLock(root / "admission.lock"):
+    # Disposition never recreates a vanished coordination file.
+    with _existing_lock(root / "worker.lock"), _existing_lock(root / "storage.lock"), \
+            _existing_lock(root / "admission.lock"):
         db = _open_existing(root)
         try:
             db.execute("BEGIN IMMEDIATE")
@@ -621,7 +719,7 @@ def cli(args: Any, *, root: Path | None = None) -> int:
     except Rejected as refusal:
         print(json.dumps(refusal.report, ensure_ascii=False, sort_keys=True), flush=True)
         return 75
-    except (queue.QueueError, OSError, ValueError, KeyError, TypeError) as failure:
+    except (queue.QueueError, sqlite3.Error, OSError, ValueError, KeyError, TypeError) as failure:
         print(f"host-validation: {failure}", file=sys.stderr)
         return 75
     print(json.dumps(receipt, ensure_ascii=False, sort_keys=True), flush=True)
