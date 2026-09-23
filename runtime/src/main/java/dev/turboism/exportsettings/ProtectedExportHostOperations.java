@@ -154,6 +154,17 @@ public interface ProtectedExportHostOperations {
     /** Stable model GUID string of a model source. */
     String modelSourceGuid(Object modelSource);
 
+    /**
+     * Serializes the live model source to {@code target}
+     * ({@code CModelSource.saveModel(File, boolean)}) — the in-memory state the
+     * protected export must stage, including edits not yet written to disk.
+     * Pure serialization: it never touches the owning document's dirty flag,
+     * undo state, selection or file binding.
+     *
+     * @return {@code true} when the host serializer reported success
+     */
+    boolean serializeModelSource(Object modelSource, File target);
+
     /** Parameter objects of the model instance's live parameter set (empty when absent). */
     List<?> liveParameters(Object modelSource);
 

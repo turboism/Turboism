@@ -1386,6 +1386,26 @@
       }
     },
     {
+      "semanticName": "cubism.mapping.v5_3_03.protected_export.method.model_source_save_model",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.model-source.save-model",
+      "runtime": "saveModel",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "(Ljava/io/File;Z)Z",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_03.protected_export.class.model_class",
       "kind": "class",
       "owner": "protected-export",
