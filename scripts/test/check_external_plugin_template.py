@@ -18,23 +18,27 @@ Modes:
 - ``selftest`` — fail-closed fixtures proving the check stays alive: a drifted
   descriptor whose declared entrypoint is absent from the built JAR, a manifest
   rejected by the schema validator, a missing SDK resolved against an empty
-  Maven repository, staging-input isolation against polluted sources, a stale
-  SDK jar proving it cannot mask a missing SDK, and a poisoned user-level init
+  Maven repository even when the polluted source carried a real stale SDK jar,
+  staging-input isolation against polluted sources, a poisoned user-level init
   script proving the isolated Gradle home does not silently inherit user
-  configuration. Every fixture must fail (or hold, for the staging assertion);
-  a pass exits non-zero.
+  configuration, and a pure-Python control proving command-line echo cannot
+  satisfy output needles. Every fixture must fail (or hold, for the staging
+  assertion); a pass exits non-zero.
 
 Isolation notes:
 
 - Only ``git ls-files``-tracked template inputs are staged, so local build
   output and stray SDK jars under ``templates/plugin-template`` cannot reach
   the consumer copy.
-- The nested build runs with ``--gradle-user-home`` pointed at a private
-  per-run home, so user-level init scripts and ``~/.gradle/gradle.properties``
-  never apply. The shared wrapper ``dists`` directory is symlinked into that
-  home: an already-downloaded Gradle distribution is reused, and on a cold
-  checkout the wrapper downloads the pinned distribution once through the
-  standard shared cache — the only cold prerequisite, recorded here.
+- The nested build runs with ``--no-daemon`` and ``--gradle-user-home``
+  pointed at a private per-run home, so user-level init scripts and
+  ``~/.gradle/gradle.properties`` never apply and no idle daemon outlives the
+  check. The shared wrapper ``dists`` directory is symlinked into that home
+  from the Gradle user home the outer build actually runs under (passed via
+  ``--shared-gradle-home``): an already-downloaded Gradle distribution is
+  reused, and on a cold checkout the wrapper downloads the pinned
+  distribution once through the standard shared cache — the only cold
+  prerequisite, recorded here.
 - The positive path additionally clears all project repositories, so nothing
   resolves from ``~/.m2`` or the monorepo; the SDK-absent fixture pins
   ``maven.repo.local`` to an empty directory so a stale local Maven cache can
@@ -45,7 +49,7 @@ Isolation notes:
 
 Usage: check_external_plugin_template.py {check|selftest} --sdk-jar <path>
        --runtime-classpath <path-list> [--sdk-version <v>] [--java <bin>]
-       [--repo-root <dir>] [--work-dir <dir>]
+       [--repo-root <dir>] [--work-dir <dir>] [--shared-gradle-home <dir>]
 """
 from __future__ import annotations
 
@@ -120,6 +124,17 @@ def log_tail(log: Path, lines: int = 40) -> str:
         return "<unreadable log>"
 
 
+def log_output(log: Path) -> str:
+    """Subprocess output only — the first ``$ cmd`` echo line is evidence, not
+    output, and must never satisfy a needle (a path embedded in an argument
+    like ``-Dmaven.repo.local=…`` says nothing about where resolution looked)."""
+    text = log.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines(keepends=True)
+    if lines and lines[0].startswith("$ "):
+        lines = lines[1:]
+    return "".join(lines)
+
+
 def sdk_version_from(jar: Path) -> str:
     name = jar.name
     if not (name.startswith("sdk-") and name.endswith(".jar")):
@@ -161,14 +176,16 @@ def stage_template(destination: Path, repo_root: Path, inputs: list[str], source
     return project
 
 
-def isolated_gradle_home(work: Path) -> Path:
+def isolated_gradle_home(work: Path, shared_gradle_home: Path | None = None) -> Path:
     """Private Gradle user home for the nested build: no user init scripts, no
-    user gradle.properties, no inherited caches. The shared wrapper ``dists``
-    directory is linked in when present so the downloaded Gradle distribution
-    is reused instead of re-fetched per run."""
+    user gradle.properties, no inherited caches. The wrapper ``dists``
+    directory is linked in from the Gradle user home the outer build actually
+    runs under so the downloaded Gradle distribution is reused instead of
+    re-fetched per run."""
     home = work / "gradle-home"
     (home / "wrapper").mkdir(parents=True, exist_ok=True)
-    shared = Path(os.environ.get("GRADLE_USER_HOME", Path.home() / ".gradle")) / "wrapper" / "dists"
+    base = shared_gradle_home or Path(os.environ.get("GRADLE_USER_HOME", Path.home() / ".gradle"))
+    shared = base / "wrapper" / "dists"
     if shared.is_dir():
         (home / "wrapper" / "dists").symlink_to(shared)
     return home
@@ -184,6 +201,7 @@ def gradle_build(
     cmd = [
         "./gradlew",
         "--console=plain",
+        "--no-daemon",
         "--gradle-user-home",
         str(gradle_home),
         "--max-workers=2",
@@ -249,7 +267,7 @@ def check(args: argparse.Namespace) -> int:
     build = gradle_build(
         project,
         work / "gradle-build.log",
-        isolated_gradle_home(work),
+        isolated_gradle_home(work, args.shared_gradle_home),
         sdk_version,
         ["-I", str(init_script)],
     )
@@ -278,7 +296,7 @@ def check(args: argparse.Namespace) -> int:
 def expect_failure(label: str, result: subprocess.CompletedProcess, log: Path, needles: list[str]) -> None:
     if result.returncode == 0:
         fail(f"selftest fixture '{label}' unexpectedly passed (see {log})")
-    text = log.read_text(encoding="utf-8", errors="replace")
+    text = log_output(log)
     for needle in needles:
         if needle not in text:
             fail(f"selftest fixture '{label}' failed without expected marker {needle!r} (see {log})")
@@ -286,8 +304,8 @@ def expect_failure(label: str, result: subprocess.CompletedProcess, log: Path, n
 
 
 def write_bogus_sdk_jar(path: Path) -> None:
-    """A well-formed JAR containing no SDK classes — stands in for a stale or
-    foreign turboism-sdk-*.jar left behind in a consumer's libs/ directory."""
+    """A well-formed JAR containing no SDK classes — stands in for foreign
+    turboism-sdk-*.jar leftovers when only their zip validity matters."""
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
 
@@ -298,19 +316,21 @@ def selftest(args: argparse.Namespace) -> int:
     sdk_version = args.sdk_version or sdk_version_from(sdk_jar)
     repo_root = Path(args.repo_root)
     inputs = template_inputs(repo_root)
-    gradle_home = isolated_gradle_home(work)
+    gradle_home = isolated_gradle_home(work, args.shared_gradle_home)
     init_script = work / "clear-repositories.init.gradle"
     init_script.write_text(ISOLATION_INIT, encoding="utf-8")
 
-    # Fixture 0 — staging isolation: a source tree polluted with local build
-    # output, .gradle state and a stale SDK jar must stage only tracked inputs.
-    polluted = work / "polluted-source"
-    shutil.copytree(repo_root / TEMPLATE, polluted)
-    (polluted / "build" / "libs").mkdir(parents=True)
+    # Fixture 0 — staging isolation: a consumer source tree polluted with
+    # pre-existing build output, .gradle state and a *real* stale SDK jar must
+    # stage only tracked inputs — the stale artifact can never reach the build.
+    polluted = work / "polluted-source" / "plugin-template"
+    stage_template(work / "polluted-source", repo_root, inputs)
+    for directory in ("build/libs", ".gradle"):
+        (polluted / directory).mkdir(parents=True, exist_ok=True)
     (polluted / "build" / "libs" / "hello-turboism-plugin-0.1.0.jar").write_bytes(b"stale")
-    (polluted / ".gradle").mkdir()
     (polluted / ".gradle" / "fileHashes.bin").write_bytes(b"stale")
-    write_bogus_sdk_jar(polluted / "libs" / "turboism-sdk-0.0.0-stale.jar")
+    (polluted / "libs" / "turboism-sdk-0.0.0-stale.jar").write_bytes(sdk_jar.read_bytes())
+    write_bogus_sdk_jar(polluted / "libs" / "turboism-sdk-9.9.9-foreign.jar")
     (polluted / "libs" / "scratch.txt").write_text("untracked scratch", encoding="utf-8")
     staged = stage_template(work / "staging-isolation", repo_root, inputs, source_root=polluted)
     staged_files = {
@@ -319,6 +339,8 @@ def selftest(args: argparse.Namespace) -> int:
     unexpected = staged_files - set(inputs) - set(WRAPPER_FILES)
     if unexpected:
         fail(f"staged consumer copy contains non-input files: {sorted(unexpected)}")
+    if sdk_jars_in_libs(staged):
+        fail(f"stale SDK jars leaked into the staged copy: {sdk_jars_in_libs(staged)}")
     print(f"  fixture 'staging-isolation' holds: {len(staged_files)} files, all tracked inputs or wrapper")
 
     # Fixture 1 — drifted descriptor: entrypoint class absent from the JAR must
@@ -353,11 +375,13 @@ def selftest(args: argparse.Namespace) -> int:
     result = validate_descriptor(args.java, args.runtime_classpath, descriptor_path, work / "invalid-meta-validation.log")
     expect_failure("invalid-manifest", result, work / "invalid-meta-validation.log", ["PLUGIN_META_MISSING"])
 
-    # Fixture 3 — SDK absent: libs/ empty (asserted) and the template's declared
-    # mavenLocal() redirected to an empty repository. Resolution must fail
-    # closed with a real dependency-miss, not an unrelated Gradle failure, and
-    # a stale ~/.m2 can never mask the missing artifact.
-    orphan = stage_template(work / "sdk-absent", repo_root, inputs)
+    # Fixture 3 — SDK absent: staged from the *polluted* source (which carries
+    # a real stale SDK jar), so libs/ empty is asserted against staging output;
+    # the template's declared mavenLocal() is redirected to an empty repository.
+    # Resolution must fail closed with a real dependency-miss whose searched
+    # locations list the isolated repo — not an unrelated Gradle failure — and
+    # a stale jar or populated ~/.m2 can never mask the missing artifact.
+    orphan = stage_template(work / "sdk-absent", repo_root, inputs, source_root=polluted)
     if sdk_jars_in_libs(orphan):
         fail("selftest fixture 'sdk-absent' staged an SDK jar — libs must be empty")
     empty_repo = work / "empty-maven-local"
@@ -367,39 +391,42 @@ def selftest(args: argparse.Namespace) -> int:
         work / "sdk-absent-build.log",
         gradle_home,
         sdk_version,
-        ["--no-daemon", f"-Dmaven.repo.local={empty_repo}"],
+        [f"-Dmaven.repo.local={empty_repo}"],
     )
     expect_failure(
         "sdk-absent",
         result,
         work / "sdk-absent-build.log",
-        [f"Could not find dev.turboism:sdk:{sdk_version}", str(empty_repo)],
+        [
+            f"Could not find dev.turboism:sdk:{sdk_version}",
+            f"file:{empty_repo}/dev/turboism/sdk/{sdk_version}/",
+        ],
     )
 
-    # Fixture 4 — stale SDK jar cannot mask a missing SDK: a foreign
-    # turboism-sdk-*.jar in libs/ produces a hard compile failure naming the
-    # missing SDK packages, never a silent pass.
-    stale = stage_template(work / "stale-sdk", repo_root, inputs)
-    write_bogus_sdk_jar(stale / "libs" / "turboism-sdk-0.0.0-stale.jar")
-    result = gradle_build(
-        stale,
-        work / "stale-sdk-build.log",
-        gradle_home,
-        sdk_version,
-        ["--no-daemon", f"-Dmaven.repo.local={empty_repo}"],
+    # Fixture 4 — command-echo control: needles must match subprocess output
+    # only. A log whose only mention of the repo path sits in the echoed
+    # -Dmaven.repo.local argument is a false pass and must be rejected.
+    echo_only = work / "command-echo-only.log"
+    echo_only.write_text(
+        f"$ ./gradlew -Dmaven.repo.local={empty_repo} build\n\nunrelated failure\n",
+        encoding="utf-8",
     )
-    expect_failure(
-        "stale-sdk-cannot-mask",
-        result,
-        work / "stale-sdk-build.log",
-        ["dev.turboism.sdk", "does not exist"],
-    )
+    try:
+        expect_failure(
+            "command-echo-only",
+            subprocess.CompletedProcess(args=[], returncode=1),
+            echo_only,
+            [f"Could not find dev.turboism:sdk:{sdk_version}", f"file:{empty_repo}/"],
+        )
+        fail("selftest fixture 'command-echo-only' unexpectedly accepted a command-echo-only log")
+    except CheckFailure:
+        print("  fixture 'command-echo-only' rejected a needle present only in the command echo")
 
     # Fixture 5 — user-level Gradle config is really isolated: an init script in
     # the private Gradle home DOES break the build (positive control), so the
     # clean private home used everywhere above proves no user init script or
     # gradle.properties was loaded.
-    poisoned_home = isolated_gradle_home(work / "poisoned-gradle-run")
+    poisoned_home = isolated_gradle_home(work / "poisoned-gradle-run", args.shared_gradle_home)
     (poisoned_home / "init.d").mkdir(parents=True, exist_ok=True)
     (poisoned_home / "init.d" / "poison.gradle").write_text(POISON_INIT, encoding="utf-8")
     poisoned = stage_template(work / "user-init-poisoned", repo_root, inputs)
@@ -434,11 +461,19 @@ def main() -> int:
     parser.add_argument("--runtime-classpath", required=True)
     parser.add_argument("--java", default="java")
     parser.add_argument("--work-dir", default=None)
+    parser.add_argument(
+        "--shared-gradle-home",
+        default=None,
+        help="Gradle user home of the outer build; its wrapper dists are reused "
+        "by the nested build's private Gradle home.",
+    )
     args = parser.parse_args()
 
     if args.work_dir is None:
         args.work_dir = tempfile.mkdtemp(prefix="turboism-external-consumer-")
     Path(args.work_dir).mkdir(parents=True, exist_ok=True)
+    if args.shared_gradle_home is not None:
+        args.shared_gradle_home = Path(args.shared_gradle_home)
 
     try:
         if args.mode == "check":
