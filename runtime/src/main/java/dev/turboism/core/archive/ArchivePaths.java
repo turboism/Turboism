@@ -28,6 +28,13 @@ public final class ArchivePaths {
         return key.toString();
     }
 
+    /**
+     * Reports whether {@code value} is a safe relative archive entry path: non-empty,
+     * NFC-normalized, at most 1024 UTF-8 bytes, without a leading or trailing slash,
+     * backslash, colon, drive prefix, NUL or ISO control characters, and with every
+     * {@code /}-separated segment passing {@link #safeSegment}. Directory entry names
+     * are checked by callers after stripping their trailing slash.
+     */
     public static boolean relativePath(final String value) {
         if (value == null || value.isEmpty()
             || !Normalizer.isNormalized(value, Normalizer.Form.NFC)) {
@@ -86,6 +93,12 @@ public final class ArchivePaths {
         return null;
     }
 
+    /**
+     * Reports whether a single path segment is safe: non-empty, neither {@code .} nor
+     * {@code ..}, not ending in a dot or space, and not a DOS reserved device base
+     * name ({@code CON}, {@code PRN}, {@code AUX}, {@code NUL}, {@code COM1}–{@code COM9},
+     * {@code LPT1}–{@code LPT9}) before its first dot.
+     */
     public static boolean safeSegment(final String segment) {
         if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
             return false;
