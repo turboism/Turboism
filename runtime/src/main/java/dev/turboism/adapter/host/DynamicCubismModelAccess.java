@@ -3,6 +3,7 @@ import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.adapter.cubism.model.ModelObjectProviderUnavailableException;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -56,7 +57,7 @@ import java.util.function.Function;
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
 final class DynamicCubismModelAccess implements CubismModelAccess,
     NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider {
+    RuntimeAuthoringTransactionProvider, RuntimeEditSessionProvider {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
@@ -143,6 +144,75 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
     }
 
     @Override
+    public dev.turboism.sdk.cubism.edit.EditSessionService editSessions(
+        final String pluginId,
+        final java.util.function.Supplier<java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId>> activeDocumentId
+    ) {
+        final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("pluginId must not be blank");
+        }
+        final java.util.function.Supplier<java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId>> checkedDocument =
+            Objects.requireNonNull(activeDocumentId, "activeDocumentId");
+        return new dev.turboism.sdk.cubism.edit.EditSessionService() {
+            @Override
+            public boolean isEditApproved(final dev.turboism.sdk.plugin.PluginContext context)
+                    throws dev.turboism.sdk.cubism.edit.EditSessionException {
+                Objects.requireNonNull(context, "context");
+                final AccessLease lease;
+                try {
+                    lease = acquireActiveLease();
+                } catch (IllegalStateException unavailable) {
+                    throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                        "cubism.edit.unavailable", "The Cubism edit surface is unavailable"
+                    );
+                }
+                try {
+                    if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
+                        throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                            "cubism.edit.unavailable",
+                            "Editor edit sessions are unavailable on this host"
+                        );
+                    }
+                    return provider.editSessions(owner, checkedDocument).isEditApproved(context);
+                } finally {
+                    release(lease);
+                }
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.edit.EditSession open(
+                final dev.turboism.sdk.plugin.PluginContext context,
+                final dev.turboism.sdk.cubism.id.DocumentId document,
+                final dev.turboism.sdk.cubism.edit.EditSessionOptions options
+            ) throws dev.turboism.sdk.cubism.edit.EditSessionException {
+                Objects.requireNonNull(context, "context");
+                Objects.requireNonNull(document, "document");
+                Objects.requireNonNull(options, "options");
+                final AccessLease lease;
+                try {
+                    lease = acquireActiveLease();
+                } catch (IllegalStateException unavailable) {
+                    throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                        "cubism.edit.unavailable", "The Cubism edit surface is unavailable"
+                    );
+                }
+                try {
+                    if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
+                        throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                            "cubism.edit.unavailable",
+                            "Editor edit sessions are unavailable on this host"
+                        );
+                    }
+                    return provider.editSessions(owner, checkedDocument).open(context, document, options);
+                } finally {
+                    release(lease);
+                }
+            }
+        };
+    }
+
+    @Override
     public CubismModel active() {
         final AccessLease lease = acquireActiveLease();
         try {
@@ -206,6 +276,20 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             acceptingCalls = true;
         }
         restoreInterrupt(interrupted);
+    }
+
+    /**
+     * Forwards a best-effort borrowed-model release to the connected access when it is
+     * Editor-backed; no-op otherwise. Called on successful project-file close completion.
+     */
+    void releaseUnboundBorrowedModel() {
+        final CubismModelAccess delegate;
+        synchronized (callGate) {
+            delegate = current;
+        }
+        if (delegate instanceof dev.turboism.adapter.cubism.BorrowedModelRelease release) {
+            release.releaseUnboundBorrowedModel();
+        }
     }
 
     void deactivate() {
@@ -351,7 +435,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
 
         @Override public List<dev.turboism.sdk.cubism.model.AnimationDocument> animationDocuments() {
-            return current(generation, CubismModel::animationDocuments, delegate);
+            return current(generation, CubismModel::animationDocuments, delegate).stream()
+                .map(document -> (dev.turboism.sdk.cubism.model.AnimationDocument)
+                    new SessionAnimationDocument(generation, document))
+                .toList();
         }
 
         @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
@@ -1913,6 +2000,306 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public void setDrawableB(final ArtMeshId id) {
             guardedVoid(generation, () -> delegate.setDrawableB(id));
         }
+    }
+
+    private final class SessionAnimationDocument
+        implements dev.turboism.sdk.cubism.model.AnimationDocument {
+        private final long generation;
+        private final dev.turboism.sdk.cubism.model.AnimationDocument delegate;
+
+        private SessionAnimationDocument(
+            final long generation,
+            final dev.turboism.sdk.cubism.model.AnimationDocument delegate
+        ) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public String animationName() {
+            return guarded(generation, delegate::animationName);
+        }
+        @Override public int sceneCount() {
+            return guarded(generation, delegate::sceneCount);
+        }
+        @Override public java.util.Optional<String> currentSceneName() {
+            return guarded(generation, delegate::currentSceneName);
+        }
+        @Override public List<String> sceneNames() {
+            return guarded(generation, delegate::sceneNames);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationScene> scenes() {
+            return guarded(generation, delegate::scenes).stream()
+                .map(scene -> (dev.turboism.sdk.cubism.model.AnimationScene)
+                    new SessionAnimationScene(generation, scene))
+                .toList();
+        }
+    }
+
+    private final class SessionAnimationScene
+        implements dev.turboism.sdk.cubism.model.AnimationScene {
+        private final long generation;
+        private final dev.turboism.sdk.cubism.model.AnimationScene delegate;
+
+        private SessionAnimationScene(
+            final long generation,
+            final dev.turboism.sdk.cubism.model.AnimationScene delegate
+        ) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public String name() {
+            return guarded(generation, delegate::name);
+        }
+        @Override public String guid() {
+            return guarded(generation, delegate::guid);
+        }
+        @Override public java.util.Optional<String> tag() {
+            return guarded(generation, delegate::tag);
+        }
+        @Override public java.util.Map<Integer, String> markers() {
+            return guarded(generation, delegate::markers);
+        }
+        @Override public int startFrame() {
+            return guarded(generation, delegate::startFrame);
+        }
+        @Override public int durationFrames() {
+            return guarded(generation, delegate::durationFrames);
+        }
+        @Override public double framesPerSecond() {
+            return guarded(generation, delegate::framesPerSecond);
+        }
+        @Override public int width() {
+            return guarded(generation, delegate::width);
+        }
+        @Override public int height() {
+            return guarded(generation, delegate::height);
+        }
+        @Override public boolean loopMotion() {
+            return guarded(generation, delegate::loopMotion);
+        }
+        @Override public int workspaceStartFrame() {
+            return guarded(generation, delegate::workspaceStartFrame);
+        }
+        @Override public int workspaceEndFrame() {
+            return guarded(generation, delegate::workspaceEndFrame);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationTrack> tracks() {
+            return guarded(generation, delegate::tracks).stream()
+                .map(track -> (dev.turboism.sdk.cubism.model.AnimationTrack)
+                    new SessionAnimationTrack(generation, track))
+                .toList();
+        }
+        @Override public int playheadFrame() {
+            return guarded(generation, delegate::playheadFrame);
+        }
+        @Override public void seekTo(final int frame) {
+            guardedVoid(generation, () -> delegate.seekTo(frame));
+        }
+        @Override public boolean current() {
+            return guarded(generation, delegate::current);
+        }
+        @Override public void activate() {
+            guardedVoid(generation, delegate::activate);
+        }
+        @Override public dev.turboism.sdk.cubism.model.AnimationCurveType defaultCurveType() {
+            return guarded(generation, delegate::defaultCurveType);
+        }
+        @Override public void setDefaultCurveType(
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            guardedVoid(generation, () -> delegate.setDefaultCurveType(curveType));
+        }
+        @Override public void rename(final String name) {
+            guardedVoid(generation, () -> delegate.rename(name));
+        }
+    }
+
+    private final class SessionAnimationTrack
+        implements dev.turboism.sdk.cubism.model.AnimationTrack {
+        private final long generation;
+        private final dev.turboism.sdk.cubism.model.AnimationTrack delegate;
+
+        private SessionAnimationTrack(
+            final long generation,
+            final dev.turboism.sdk.cubism.model.AnimationTrack delegate
+        ) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override public String guid() {
+            return guarded(generation, delegate::guid);
+        }
+        @Override public String name() {
+            return guarded(generation, delegate::name);
+        }
+        @Override public dev.turboism.sdk.cubism.model.AnimationTrackKind kind() {
+            return guarded(generation, delegate::kind);
+        }
+        @Override public int startFrame() {
+            return guarded(generation, delegate::startFrame);
+        }
+        @Override public int durationFrames() {
+            return guarded(generation, delegate::durationFrames);
+        }
+        @Override public List<Integer> keyframeFrames() {
+            return guarded(generation, delegate::keyframeFrames);
+        }
+        @Override public boolean visible() {
+            return guarded(generation, delegate::visible);
+        }
+        @Override public boolean editable() {
+            return guarded(generation, delegate::editable);
+        }
+        @Override public boolean muted() {
+            return guarded(generation, delegate::muted);
+        }
+        @Override public boolean repeat() {
+            return guarded(generation, delegate::repeat);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationTrack> children() {
+            return guarded(generation, delegate::children).stream()
+                .map(child -> (dev.turboism.sdk.cubism.model.AnimationTrack)
+                    new SessionAnimationTrack(generation, child))
+                .toList();
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationAttribute> attributes() {
+            return guarded(generation, delegate::attributes).stream()
+                .map(attribute -> (dev.turboism.sdk.cubism.model.AnimationAttribute)
+                    new SessionAnimationAttribute(generation, attribute))
+                .toList();
+        }
+        @Override public java.util.Optional<String> linkedModelGuid() {
+            return guarded(generation, delegate::linkedModelGuid);
+        }
+        @Override public java.util.Optional<String> linkedSceneGuid() {
+            return guarded(generation, delegate::linkedSceneGuid);
+        }
+    }
+
+    private final class SessionAnimationAttribute
+        implements dev.turboism.sdk.cubism.model.AnimationAttribute {
+        private final long generation;
+        private final dev.turboism.sdk.cubism.model.AnimationAttribute delegate;
+
+        private SessionAnimationAttribute(
+            final long generation,
+            final dev.turboism.sdk.cubism.model.AnimationAttribute delegate
+        ) {
+            this.generation = generation;
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        private DynamicCubismModelAccess ownerAccess() {
+            return DynamicCubismModelAccess.this;
+        }
+
+        @Override public String id() {
+            return guarded(generation, delegate::id);
+        }
+        @Override public String name() {
+            return guarded(generation, delegate::name);
+        }
+        @Override public String guid() {
+            return guarded(generation, delegate::guid);
+        }
+        @Override public String effectId() {
+            return guarded(generation, delegate::effectId);
+        }
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.id.ParameterId> parameterId() {
+            return guarded(generation, delegate::parameterId);
+        }
+        @Override public dev.turboism.sdk.cubism.model.AnimationAttributeKind kind() {
+            return guarded(generation, delegate::kind);
+        }
+        @Override public boolean active() {
+            return guarded(generation, delegate::active);
+        }
+        @Override public boolean editable() {
+            return guarded(generation, delegate::editable);
+        }
+        @Override public List<dev.turboism.sdk.cubism.model.AnimationKeyframe> keyframes() {
+            return guarded(generation, delegate::keyframes);
+        }
+        @Override public void setKeyframe(final int frame, final double value) {
+            guardedVoid(generation, () -> delegate.setKeyframe(frame, value));
+        }
+        @Override public void setKeyframe(
+            final int frame,
+            final double value,
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            guardedVoid(generation, () -> delegate.setKeyframe(frame, value, curveType));
+        }
+        @Override public void setKeyframe(final int frame, final float x, final float y) {
+            guardedVoid(generation, () -> delegate.setKeyframe(frame, x, y));
+        }
+        @Override public void removeKeyframe(final int frame) {
+            guardedVoid(generation, () -> delegate.removeKeyframe(frame));
+        }
+        @Override public int offsetKeyframes(final int frameDelta) {
+            return guarded(generation, () -> delegate.offsetKeyframes(frameDelta));
+        }
+        @Override public int scaleKeyframeTimes(final double factor, final int originFrame) {
+            return guarded(generation, () -> delegate.scaleKeyframeTimes(factor, originFrame));
+        }
+        @Override public int quantizeKeyframes(final int stepFrames) {
+            return guarded(generation, () -> delegate.quantizeKeyframes(stepFrames));
+        }
+        @Override public int copyKeyframesFrom(
+            final dev.turboism.sdk.cubism.model.AnimationAttribute source,
+            final boolean replace
+        ) {
+            Objects.requireNonNull(source, "source");
+            final dev.turboism.sdk.cubism.model.AnimationAttribute unwrapped =
+                unwrapAnimationAttribute(generation, source);
+            return guarded(generation, () -> delegate.copyKeyframesFrom(unwrapped, replace));
+        }
+        @Override public int applyCurveType(
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            return guarded(generation, () -> delegate.applyCurveType(curveType));
+        }
+        @Override public int applyCurveType(
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType,
+            final int fromFrame,
+            final int toFrame
+        ) {
+            return guarded(
+                generation,
+                () -> delegate.applyCurveType(curveType, fromFrame, toFrame)
+            );
+        }
+        @Override public void recordKeyframe(
+            final int frame,
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            guardedVoid(generation, () -> delegate.recordKeyframe(frame, curveType));
+        }
+        @Override public int bakeEvaluated(
+            final int fromFrame,
+            final int toFrame,
+            final int stepFrames,
+            final dev.turboism.sdk.cubism.model.AnimationCurveType curveType
+        ) {
+            return guarded(
+                generation,
+                () -> delegate.bakeEvaluated(fromFrame, toFrame, stepFrames, curveType)
+            );
+        }
+    }
+
+    private dev.turboism.sdk.cubism.model.AnimationAttribute unwrapAnimationAttribute(
+        final long expectedGeneration,
+        final dev.turboism.sdk.cubism.model.AnimationAttribute value
+    ) {
+        if (value instanceof SessionAnimationAttribute session
+            && session.ownerAccess() == this
+            && session.generation == expectedGeneration) {
+            return session.delegate;
+        }
+        throw staleFailure();
     }
 
     private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess() {

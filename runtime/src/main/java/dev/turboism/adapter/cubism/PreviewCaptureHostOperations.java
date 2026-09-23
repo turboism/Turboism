@@ -74,8 +74,10 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
 
     /** Hides/restores the runtime's own recent-preview popup around a capture. */
     public interface PopupSuppression {
+        /** Hides the popup so it is not painted into the captured image. */
         void hide();
 
+        /** Restores the popup after the capture attempt, including failed attempts. */
         void restore();
     }
 

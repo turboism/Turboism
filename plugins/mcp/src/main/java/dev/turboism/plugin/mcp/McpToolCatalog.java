@@ -88,11 +88,24 @@ final class McpToolCatalog {
     }
 
     Map<String, Object> call(final String name, final Map<String, Object> arguments) {
+        validateArguments(name, arguments);
         return validate(name, registry.call(name, arguments));
     }
 
     Map<String, Object> callRaw(final String name, final Map<String, Object> arguments) {
+        validateArguments(name, arguments);
         return validate(name, registry.callRaw(name, arguments));
+    }
+
+    private void validateArguments(final String name, final Map<String, Object> arguments) {
+        Objects.requireNonNull(arguments, "arguments");
+        final Object schema = registry.registration(name).publicDefinition().get("inputSchema");
+        if (schema instanceof Map<?, ?> raw
+            && !McpJsonSchema.validates(arguments, stringMap(raw, "inputSchema"))) {
+            throw new IllegalArgumentException(
+                "Arguments for " + name + " do not match its inputSchema; no operation was submitted"
+            );
+        }
     }
 
     private Map<String, Object> validate(
@@ -308,10 +321,11 @@ final class McpToolCatalog {
                 }
             }
             if (value instanceof String text) {
+                final int length = text.codePointCount(0, text.length());
                 if (schema.get("minLength") instanceof Number minimum
-                    && text.length() < minimum.intValue()) return path + " is too short";
+                    && length < minimum.intValue()) return path + " is too short";
                 if (schema.get("maxLength") instanceof Number maximum
-                    && text.length() > maximum.intValue()) return path + " is too long";
+                    && length > maximum.intValue()) return path + " is too long";
             }
             if (value instanceof Number number) {
                 final java.math.BigDecimal decimal = new java.math.BigDecimal(number.toString());

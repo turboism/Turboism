@@ -1,0 +1,4 @@
+collectionStatus=COMPLETE
+scene=atlas-image-shadow:5303
+runId=queue-789db2e35ea845de8d96d94a95304dac
+payloadSha256=c280d59e41dca295c3339d7408a1027517f63997cc0ec8a2b76d8cdad85f1660

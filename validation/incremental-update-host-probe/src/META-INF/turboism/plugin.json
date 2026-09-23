@@ -1,0 +1,40 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.incremental-update",
+  "name": "Incremental Update Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser that records incremental-update bridge counters, probe digests and repaint jank evidence on an exact Cubism host.",
+  "entrypoints": [
+    "dev.turboism.validation.incrementalupdate.IncrementalUpdateHostProbePlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.performance.stats.read",
+      "scope": "application",
+      "reason": "Subscribes to real-time performance statistics so the runtime mounts the render-scene counter and the exerciser can record repaint and jank evidence."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Gates the exerciser on the active modeling document (id only; no authoring mutation) before sampling bridge counters."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

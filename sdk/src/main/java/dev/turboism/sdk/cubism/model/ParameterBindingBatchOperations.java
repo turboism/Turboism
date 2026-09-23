@@ -13,8 +13,18 @@ import java.util.List;
  */
 public interface ParameterBindingBatchOperations {
 
+    /**
+     * Atomically inverts the bindings of every listed target.
+     *
+     * @param targets the binding targets to invert
+     */
     void invert(List<ParameterBindingTarget> targets);
 
+    /**
+     * Atomically transfers bindings according to {@code plan}.
+     *
+     * @param plan the source-to-destination transfer plan
+     */
     void transfer(ParameterBindingTransferPlan plan);
 
     /**

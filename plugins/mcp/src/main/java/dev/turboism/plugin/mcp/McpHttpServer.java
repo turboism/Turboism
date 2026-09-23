@@ -217,6 +217,7 @@ final class McpHttpServer implements AutoCloseable {
             );
             final McpResourceCatalog parameterResources = parameters.resourceCatalog();
             final McpGlueDomain glues = new McpGlueDomain(checked.cubism(), execution);
+            final McpTextureDomain textures = new McpTextureDomain(checked.cubism());
             final McpHistoryCommandDomain historyCommands = new McpHistoryCommandDomain(
                 checked.history(),
                 checked.editorCommands(),
@@ -237,7 +238,8 @@ final class McpHttpServer implements AutoCloseable {
                     production.tools(),
                     parameters.toolCatalog(),
                     historyCommands.tools(),
-                    glues.tools()
+                    glues.tools(),
+                    textures.tools(execution)
                 ),
                 checked.cubism().authoringTransactions(),
                 execution,

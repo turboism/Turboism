@@ -11,5 +11,11 @@ package dev.turboism.sdk.ui;
 @FunctionalInterface
 public interface ColorPickerResultListener {
 
+    /**
+     * Called once when the picker closes.
+     *
+     * @param accepted whether the user confirmed a color
+     * @param colorHex the canonical {@code #RRGGBB} value, or {@code null} on cancel
+     */
     void onResult(boolean accepted, String colorHex);
 }

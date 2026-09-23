@@ -13,8 +13,6 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
-import java.util.function.Consumer;
-
 /**
  * Reference plugin exercising one contribution of each supported kind.
  *
@@ -39,40 +37,18 @@ public class DemoPlugin implements TurboismPlugin {
 
     @Override
     public void enable() throws Exception {
-        Registration actionReg = context.actions().register("demo.hello", new ActionRegistry.Action() {
-            @Override
-            public String id() {
-                return "demo.hello";
-            }
-
-            @Override
-            public String label() {
-                return localization.text("demo.hello.label");
-            }
-
-            @Override
-            public Consumer<ActionRegistry.ActionContext> handler() {
-                return ctx -> {};
-            }
-        });
+        Registration actionReg = context.actions().register("demo.hello", ActionRegistry.Action.of(
+            "demo.hello",
+            localization.text("demo.hello.label"),
+            ctx -> {}
+        ));
         context.disposableScope().register(actionReg);
 
-        Registration menuReg = context.menus().contribute(new MenuRegistry.MenuContribution() {
-            @Override
-            public String menuPath() {
-                return localization.text("demo.menu");
-            }
-
-            @Override
-            public String actionId() {
-                return "demo.hello";
-            }
-
-            @Override
-            public int order() {
-                return 100;
-            }
-        });
+        Registration menuReg = context.menus().contribute(MenuRegistry.MenuContribution.of(
+            localization.text("demo.menu"),
+            "demo.hello",
+            100
+        ));
         context.disposableScope().register(menuReg);
 
         Registration mainToolbarReg = context.mainToolbar().contribute(

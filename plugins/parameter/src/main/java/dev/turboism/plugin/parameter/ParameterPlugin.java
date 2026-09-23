@@ -332,9 +332,11 @@ public final class ParameterPlugin implements CubismPlugin {
     }
 
     private static PluginLocalization localization(final PluginContext context) {
-        try {
-            return context.localization();
-        } catch (UnsupportedOperationException unavailable) {
+        final PluginLocalization service = context.localization();
+        if (service.isAvailable()) {
+            return service;
+        }
+        {
             return new PluginLocalization() {
                 @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
                 @Override public String text(final String key) {

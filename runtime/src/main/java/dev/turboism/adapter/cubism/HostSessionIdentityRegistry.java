@@ -2,9 +2,8 @@ package dev.turboism.adapter.cubism;
 
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -12,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 final class HostSessionIdentityRegistry {
 
     private final ReferenceQueue<Object> collected = new ReferenceQueue<>();
-    private final List<Entry> entries = new ArrayList<>();
+    private final Map<Entry, String> entries = new HashMap<>();
     private final AtomicLong sequence = new AtomicLong();
 
     synchronized String idFor(final Object hostObject, final String prefix) {
@@ -22,13 +21,13 @@ final class HostSessionIdentityRegistry {
             throw new IllegalArgumentException("prefix must not be blank");
         }
         removeCollectedEntries();
-        for (Entry entry : entries) {
-            if (entry.get() == hostObject) {
-                return entry.id;
-            }
+        final Entry probe = new Entry(hostObject, null, null);
+        final String existing = entries.get(probe);
+        if (existing != null) {
+            return existing;
         }
         final String id = prefix + "-session-" + Long.toUnsignedString(sequence.incrementAndGet(), 36);
-        entries.add(new Entry(hostObject, collected, id));
+        entries.put(new Entry(hostObject, collected, id), id);
         return id;
     }
 
@@ -37,24 +36,38 @@ final class HostSessionIdentityRegistry {
         while ((collectedEntry = (Entry) collected.poll()) != null) {
             entries.remove(collectedEntry);
         }
-        final Iterator<Entry> iterator = entries.iterator();
-        while (iterator.hasNext()) {
-            if (iterator.next().get() == null) {
-                iterator.remove();
-            }
-        }
     }
 
+    /**
+     * Identity-keyed weak map key. The hash is the referent's identity hash captured at
+     * construction, so it stays stable after the referent is collected and an enqueued entry can
+     * still be removed. Equality is referent identity and is never true once either referent is
+     * gone, so a dead entry can never collide with a live object.
+     */
     private static final class Entry extends WeakReference<Object> {
-        private final String id;
+        private final int referentHash;
 
         private Entry(
             final Object referent,
             final ReferenceQueue<Object> queue,
-            final String id
+            final String ignored
         ) {
             super(referent, queue);
-            this.id = id;
+            this.referentHash = System.identityHashCode(referent);
+        }
+
+        @Override
+        public int hashCode() {
+            return referentHash;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (!(other instanceof Entry entry)) {
+                return false;
+            }
+            final Object referent = get();
+            return referent != null && referent == entry.get();
         }
     }
 }

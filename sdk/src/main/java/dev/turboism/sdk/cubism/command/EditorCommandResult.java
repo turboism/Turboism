@@ -11,14 +11,20 @@ public record EditorCommandResult(Status status, String commandId) {
     }
 
     /**
-     * @return whether the host actually performed the command; every other status means nothing was
-     *     applied to the document, so callers must not treat a non-executed result as a partial
-     *     success
+     * @return whether the invocation completed with {@link Status#EXECUTED}; a legitimate
+     *     no-op still reports {@code EXECUTED}, while a non-executed status — in
+     *     particular {@code FAILED} — does not prove the host applied no effects or that
+     *     a retry is safe
      */
     public boolean executed() {
         return status == Status.EXECUTED;
     }
 
+    /**
+     * Outcome of one command invocation. {@code EXECUTED} means the host carried the
+     * command out, which can include a recognized no-op; it does not by itself imply a
+     * document change, dirty state or an Undo entry.
+     */
     public enum Status {
         EXECUTED,
         UNAVAILABLE,

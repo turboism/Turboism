@@ -10,6 +10,7 @@ import java.util.Optional;
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface Glues {
 
+    /** Returns every glue relation in the model, in host order. */
     List<Glue> all();
 
     /** @throws NoSuchElementException when the ID is absent */

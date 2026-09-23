@@ -6,6 +6,174 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Animation workspace support in the SDK and runtime: plugins can enumerate animation documents,
+  project timelines, tracks, attributes and keyframes, activate and rename scenes, seek playback,
+  apply batched keyframe edits and curve types, and record/bake evaluated values. A pure-SDK
+  `Motion3Validator` reports structural issues in motion3 data. The object model is verified
+  exact-host on Cubism 5.2.03, 5.3.02 and 5.3.03 through the `animation-timeline-host-probe`.
+- `PluginContext.availableServices()` and the `PluginService` enum report which optional context
+  services the runtime actually installed, so plugins no longer have to probe getters or guess at
+  `unavailable()` sentinels; the default fails closed with an empty set.
+- `TurboismWindowFactory.installWindowIcon` installs a process-wide window-icon override, so every
+  plugin-owned window carries the same product icon the user picked for the main-toolbar button
+  (text vs installer mode) instead of the bundled default.
+- The Performance settings tab gains two launch/editing controls: a Cubism JVM ZGC toggle
+  (`launcher.zgc`, see Changed for its default) and a "Disable automatic backup (weakens crash
+  recovery)" toggle that suspends the host's periodic auto-backup timer during editing while
+  keeping the configured interval and cap. The observed host settings are captured to a
+  plugin-state baseline before the first override and restored when the flag is off, so a crash
+  while enabled cannot strand backups disabled. Manual `backupNow`/`backupAfterSave` are
+  unaffected.
+- Texture-atlas tile-bbox processing and output cache-reuse, both on by default. Scratch and
+  compositing are bounded to the transformed tile bounding box instead of whole atlas pages, and a
+  content-signature guard on `CTextureAtlas.updateTexture` supplies a duplicate of the retained
+  recorded output when an identical signature reappears. On the reviewed real-host fixture this
+  cut editor open from ~100 s to 15–18 s and export EDT work from ~127 s to ~15 s with
+  bit-identical page digests; reviewed targets pin the exact supported archives and everything
+  else fails closed.
+- Guarded, opt-in performance experiments: native texture preparation, PNG archive reuse, and
+  Cubism image diagnostics. All are off by default; exact-host differential probes measure them
+  without claiming GPU/FPS or load-time speedups.
+- The SDK now ships to plugin developers directly: every framework release carries
+  `turboism-sdk-<version>.jar` plus its SHA-256 sidecar as a GitHub-only developer asset,
+  `./gradlew publishToMavenLocal` yields clean `dev.turboism` coordinates, and
+  `templates/plugin-template` is a standalone project that builds against the released SDK.
+- The Warp Deformer Alt Symmetry plugin extends the bounding-box Alt semantics to Warp Deformer
+  control points: Alt drags mirror across the vertical grid axis and Alt+Shift across the
+  horizontal. A contributed toggle on the canvas-top control strip arms the axis and a native
+  canvas hint shows the armed state; mirrored positions commit through the model-write path so a
+  symmetric move joins native Undo/Redo. The plugin requests `turboism.cubism.model.read`,
+  `turboism.cubism.model.write`, `turboism.ui.toolbar.contribute` and `turboism.ui.canvas.hint`,
+  and its native mirror binds only when the verified host hook is installed. The verified
+  drag-tick hook admits the exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03 artifacts —
+  inside the native drag tick it provides live mirrored preview and a single undo entry —
+  while unreviewed hosts keep the release-time AWT fallback with identical results.
+- `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
+  `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
+  for every action or menu item it contributes.
+
+### Changed
+
+- Ordinary CI now runs both `devCheck` and the complete `checkCompletedCommit` suite on every pull
+  request and push to `main`, using Xvfb for display-dependent tests. Coverage guards reject skipped,
+  filtered or soft-failed gates; channel checks now follow `main` and include root build inputs.
+- Javadoc presence checks now use the JDK 17 compiler tree API instead of line-based matching,
+  covering implicit public interface methods and publicly reachable nested types. Parsing and tool
+  failures fail the check rather than silently falling back to incomplete results.
+- Public API documentation across the SDK, runtime and official plugins now describes previously
+  undocumented declarations and clarifies lifecycle, ownership, failure and result semantics.
+- The built-in core plugin is folded into the runtime as the framework shell
+  (`dev.turboism.shell`): it no longer ships as a plugin JAR, the reserved `turboism.core`
+  identity still attributes config, tasks and logs, plugin management still lists it as the
+  non-removable core row, and the plugin load report no longer lists it. The shared top-menu root
+  keeps "Turboism" as its routing key but displays the framework-localized name.
+- Managed launches now run Cubism on ZGC (`-XX:+UseZGC`) by default: exact-host A/B showed it
+  eliminates G1's second-scale pauses (load ~1.4 s → sub-millisecond, write ~0.6 s →
+  sub-millisecond) and cuts steady RSS by roughly a third. The Performance → Cubism JVM toggle
+  applies on the next launch and stores only an explicit opt-out.
+- CSV parameter batch imports now run inside one authoring transaction instead of committing per
+  write. On the heavy-model real-host A/B, Update Parameter Structure rebuilds dropped from 37 to
+  4 (-89%), median parameter-write time from 4.71 ms to 1.19 ms (-75%), and EDT allocation across
+  a 35-write burst by ~99.8%.
+- Runtime reads observe the host once per versioned read or scope capture through an SDK-shaped
+  observation seam instead of re-projecting every accessor; the synthetic benchmark measures ~29%
+  less read-path time and ~41–43% less per-call allocation.
+- Cubism startup suppression (skip update check, splash, and information dialogs) is now on by
+  default, including fresh installs and runs whose Turboism home has no `config.json` yet.
+  Setting a `hooks.startup.skip*` flag to `false` or enabling safe mode opts out; a
+  schema-invalid config still fails closed. Premain diagnostics are now buffered until the
+  runtime log sink installs, so `STARTUP_SUPPRESSION_*` admission codes reach the session log.
+- Release gates now hold localization to the full Cubism language matrix. Marketplace plugin
+  listings must carry `plugin.name`/`plugin.description` in every declared locale
+  (en, ja, ko, zh-Hans, zh-Hant), and release candidates are rejected unless the
+  reviewed zh, ja and ko note translations exist. The framework message catalogs join the
+  official-plugin completeness gate, which now also runs as part of `checkIntegration`.
+- Every optional `PluginContext` service accessor now returns that service's `unavailable()`
+  sentinel instead of throwing `UnsupportedOperationException` from the getter, and each service
+  exposes `isAvailable()` for probing. Sentinels still fail closed: they report structured
+  failures where the domain offers one (task submissions, host reads, storage, user files, mesh
+  edits, host dialogs, script runs) and throw a stable `UnsupportedOperationException` on use
+  where it does not. `ScriptService#available` is renamed `isAvailable` so the probe carries one
+  name everywhere. **Plugin API migration may be required:** a plugin that caught the accessor's
+  `UnsupportedOperationException` should call `isAvailable()` instead.
+- The eighteen semantic event types moved from `dev.turboism.sdk.event.cubism` to
+  `dev.turboism.sdk.cubism.event`; the retired package is rejected by the boundary and
+  package-layout checks so the deprecated shape cannot regress. **Plugin API migration may be
+  required:** update event imports.
+- Install-time host hooks are declared in `META-INF/turboism/hooks` and scanned by the agent
+  instead of being hand-wired: each `HookContributor` checks its own admission and forwards
+  install/bind/uninstall through `HookRegistry`, so a new hook is a manifest line plus a
+  contributor class rather than an edit to the agent. Verified/fail-closed admission, atomic
+  record extraction, the mesh-mirror premain/bind lifecycle, and the `installation=`/`cleanup=`
+  report lines are unchanged.
+
+### Fixed
+
+- Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
+  and document generations throughout the object graph. Keyframe copies reject stale or foreign
+  sources while preserving valid copies between active views owned by the same plugin.
+- Animation time scaling now applies the same affine transform to keyframes and their Bézier
+  control-handle times instead of merely shifting the handles. Fractional handle times and identity
+  scaling around large origins retain their precision; translation and copy behavior is unchanged.
+- Retained `cubismRead()` and Clip Mask collection services now reject access after their owning
+  plugin scope closes, including the direct PSD, clip-mask, texture-atlas, render, workspace and
+  theme read paths, without invalidating other plugins.
+- Physics-editor contributions are released automatically when their plugin scope closes. Closed
+  services cannot register new contributions, and repeated closes cannot remove a later contribution.
+- Atlas cache reuse now falls back to the original rebuild path when an input digest cannot be
+  computed, including images over the existing pixel budget. Unknown digests no longer compare as
+  equal and return stale pixels; ordinary unchanged inputs remain eligible for reuse.
+- `Motion3Validator` checks exact numeric values before narrowing `Version` and segment-kind
+  identifiers, rejecting fractional and overflow-wrapping values without throwing on extreme
+  exponents in those fields. Valid mathematically equivalent representations remain accepted.
+- Managed Graal installation now reconciles a verified, current-version orphan activation marker
+  left by an interrupted first install before starting another download, avoiding a full download
+  and probe followed by `GRAAL_RUNTIME_RECOVERY_REQUIRED`. Unknown markers and existing rollback
+  safeguards remain protected.
+- Each `DisposableScope` registration now owns a single release action shared by the registration
+  handle and scope cleanup, including repeated or concurrent closes. Distinct registrations of
+  equal resources no longer remove one another's cleanup entries.
+- The three- through six-argument `CorePluginContext` convenience constructors taking host-adapter
+  access now assemble omitted services through the default path instead of failing with a null
+  pointer. Explicit services and the strict constructor overloads keep their existing contracts.
+- Runtime test fixtures now isolate temporary host classes from same-named classpath fixtures,
+  execute headless dialog checks in a separate headless JVM, and close their own settings-window
+  scopes, eliminating the associated linkage failures, modal hangs and cross-test window leaks.
+- Cubism 5.3.03 editor-model DRAFT mapping metadata now matches its referenced verification record.
+  Regression checks validate exact counts, capability IDs and the record digest without accepting
+  lossy numeric conversions; this does not enable new runtime mappings.
+- Switching between two open documents now publishes the newly bound model immediately; previously
+  the previous model stayed published, so evaluated reads could trace — and pin — the wrong model
+  under the new binding identity.
+- The editor binding-identity cache no longer retains closed document graphs for the life of the
+  session (its cached identities are now held weakly), and a borrowed Core model is released once
+  its binding is gone.
+- Several unbounded growth paths are now bounded: the overlay button side table evicts FIFO, the
+  recent-preview memory maps and the poller's emit-dedupe marks are pruned to live entries, and
+  non-showing subtrees are pruned from the scene-palette poll and the palette-filter component
+  walkers.
+- Reflection-heavy host paths cache verified members, constructors and owner classes plus
+  permanent misses; mesh-mirror scans index once per dispatch; the workspace `safeSegment`
+  sanitizing patterns are precompiled; and the palette toolbar skips re-layout when nothing
+  changed.
+- Log redaction gates each pattern on the bytes it strictly requires, removing ~7 matcher
+  allocations per observed entry; redaction output is unchanged.
+- The framework shell gets a proper `URLClassLoader` over the agent jar with a system-classloader
+  fallback, and all remaining window construction routes through `TurboismWindowFactory`.
+- Host-validation and preview packaging fixes: the parameter plugin JAR is located by glob instead
+  of a stale versioned name, validation probes ship their declared i18n catalogs, the workspace
+  bundle is packaged from the canonical agent jar, the runner supports local host transport and
+  Windows result lines, close-phase artifacts count toward the automated result, the
+  plugin-management restart hook is admitted into the reviewed queue inventory, and the Cubism
+  5.3.03 exact host joined the validation queue.
+- The hook registry no longer corrupts or double-closes handles when a process-exit close pass
+  races a late enrollment: close passes walk a snapshot and claim each entry atomically, and a
+  handle enrolled mid-pass stays enrolled instead of being half-closed.
+- The agent reads the hook manifest on the boot class path, so a manifest packaged inside the
+  agent JAR resolves regardless of the process working directory.
+
 ## [0.44.0] - 2026-09-11
 
 ### Added
@@ -139,6 +307,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Adopted the reviewed SDK v9 exact release baseline and demoted v8 to a historical audit. The anchor adds one presentation field: `CubismOperationEvent` gained an optional `label` so an observed native Cubism Editor edit can carry the localizable native edit name. The component is appended after `subjectId` and is explicitly not an identity. **Plugin API migration may be required:** a plugin that constructs `CubismOperationEvent` directly must pass the new fifth component; see the [SDK v9 review](sdk/api-contracts/sdk-api-v9-review.md).
+- Adopted the reviewed SDK v8 exact release baseline and demoted v7 to a historical audit. The anchor captures the captured-semantic-timeline and UI surface that the v7 gate never recorded plus four new `CubismOperation` identities for native editor edits (`SET_HIERARCHY_PARENT`, `DETACH_HIERARCHY_PARENT`, `MOVE_DRAWABLE`, `SET_DRAWABLE_COLOR`, appended so no existing constant ordinal moves). **Plugin API migration may be required:** the `HistoryEntry`, `RuntimeSettings` and `PanelView.Toggle` constructors changed; see the [SDK v8 review](sdk/api-contracts/sdk-api-v8-review.md).
 - Split product releases into read-only candidate builds and explicit protected GitHub promotion. Failed candidate attempts reuse the intended version; only promotion creates the official annotated tag and publishes the verified bytes without rebuilding.
 - Adopted the reviewed SDK v8 current-page texture layout contract.
 - Added four-language project and installation documentation and task-contained local host validation supervision.
@@ -397,7 +567,7 @@ This release supersedes the unpublished 0.43.4 candidate and includes its change
 - The Java installer is available for macOS and Linux, but macOS Cubism host readiness is not claimed and Linux Cubism hosting is unsupported.
 - Published binaries are not code-signed or notarized in this release; verify the accompanying SHA-256 sidecars before installation.
 
-[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.43.3...HEAD
+[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.44.0...HEAD
 [0.43.3]: https://github.com/Turboism/Turboism/releases/tag/v0.43.3
 [0.43.2]: https://github.com/Turboism/Turboism/releases/tag/v0.43.2
 [0.43.1]: https://github.com/Turboism/Turboism/releases/tag/v0.43.1

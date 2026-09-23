@@ -26,6 +26,47 @@ public interface PaletteFilterRegistry {
      */
     Registration contribute(PaletteFilterContribution contribution);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static PaletteFilterRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
+    enum Unavailable implements PaletteFilterRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contribute(final PaletteFilterContribution contribution) {
+            java.util.Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException("paletteFilter registry is not available");
+        }
+    }
+
+
+    /**
+     * Descriptor of one palette filter-box contribution.
+     *
+     * @param contributionId stable identifier of this contribution
+     * @param paletteId the {@code PALETTE_*} identifier of the palette tab to attach to
+     * @param placeholderKey localization key for the filter box's placeholder text
+     * @param order ordering position relative to other contributions on the same tab
+     */
     record PaletteFilterContribution(
         String contributionId,
         String paletteId,

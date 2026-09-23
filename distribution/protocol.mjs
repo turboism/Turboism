@@ -46,17 +46,27 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
  const receipt=buildReceipt(raw.body);
  if(receipt){require(verifiedIdentity&&Object.keys(receipt).every(k=>receipt[k]===verifiedIdentity[k]),'Unverified build identity');require(receipt.sourceRevision===sourceRevision&&receipt.version===version&&receipt.channel===channel,'Build identity source/version mismatch');}
  const names=[`TurboismInstaller-${version}.exe`,`TurboismInstaller-${version}.jar`,`turboism-${version}-full.zip`,`turboism-${version}-lite.zip`];
- const expected=names.flatMap(n=>[n,n+'.sha256']);require(Array.isArray(raw.assets)&&raw.assets.length===expected.length,'Incomplete canonical assets');
- const assets=new Map();
+ const expected=names.flatMap(n=>[n,n+'.sha256']);
+ // Releases also carry the standalone SDK jar for plugin developers. It passes the
+ // same integrity checks but stays out of the mirrored files API, and older
+ // releases simply do not have it: both-or-neither for the developer pair.
+ const developer=[`turboism-sdk-${version}.jar`,`turboism-sdk-${version}.jar.sha256`];
+ const allowed=new Set([...expected,...developer]);
+ require(Array.isArray(raw.assets)&&raw.assets.length<=allowed.size,'Unexpected asset count');
+ const seen=new Set(),assets=new Map();
  for(const a of raw.assets){
-  require(expected.includes(a.name)&&!assets.has(a.name)&&a.state==='uploaded','Unexpected or duplicate asset');
+  require(allowed.has(a.name)&&!seen.has(a.name)&&a.state==='uploaded','Unexpected or duplicate asset');
+  seen.add(a.name);
   require(Number.isSafeInteger(a.id)&&a.id>0&&Number.isSafeInteger(a.size)&&a.size>0&&a.size<=2**31,'Invalid asset size or ID');
   require(typeof a.digest==='string'&&a.digest.startsWith('sha256:')&&sha.test(a.digest.slice(7)),'Missing SHA-256 digest');
   const url=`https://github.com/${REPOSITORY}/releases/download/${raw.tag_name}/${a.name}`;
   require(a.browser_download_url===url,'Untrusted asset URL');
+  if(!expected.includes(a.name))continue;
   const digest=a.digest.slice(7),key=`files/${digest}/${a.name}`;
   assets.set(a.name,{name:a.name,key,url,mediaType:a.name.endsWith('.zip')?'application/zip':'application/octet-stream',size:a.size,sha256:digest,assetId:a.id,downloadCount:Number.isSafeInteger(a.download_count)&&a.download_count>=0?a.download_count:null});
  }
+ require(expected.every(n=>seen.has(n)),'Incomplete canonical assets');
+ require(developer.every(n=>seen.has(n))||developer.every(n=>!seen.has(n)),'Partial developer asset set');
  return {releaseId:raw.id,version,tag:raw.tag_name,channel,buildNumber:receipt?.buildNumber??null,sourceRevision,publishedAt:new Date(raw.published_at).toISOString(),githubReleaseUrl:raw.html_url,changelogUrl:raw.html_url,
   provenance:receipt?{repository:REPOSITORY,workflow:'.github/workflows/release.yml',runId:receipt.runId,runAttempt:receipt.runAttempt}:{repository:REPOSITORY,workflow:null,runId:null,runAttempt:null},
   compatibility:null,...releaseNotes(raw,sourceRevision),
