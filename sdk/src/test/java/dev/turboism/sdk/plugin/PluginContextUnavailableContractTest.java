@@ -2,6 +2,7 @@ package dev.turboism.sdk.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
@@ -27,6 +28,7 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.hostread.AsyncHostReadService;
@@ -46,13 +48,16 @@ import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.sdk.ui.resource.UiRasterImage;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -105,6 +110,8 @@ class PluginContextUnavailableContractTest {
         assertSame(MeshMirrorCounterparts.unavailable(), context.meshMirrorCounterparts());
         assertSame(MeshMirrorToolEligibility.unavailable(), context.meshMirrorToolEligibility());
         assertSame(MeshMirrorMoveParticipation.unavailable(), context.meshMirrorMoveParticipation());
+        assertSame(WarpAltMirrorParticipation.unavailable(), context.warpAltMirrorParticipation());
+        assertSame(ViewContextMenuRegistry.unavailable(), context.viewContextMenu());
         assertSame(MeshEditUiService.unavailable(), context.meshEditUi());
 
         assertSame(MainToolbarRegistry.unavailable(), context.mainToolbar());
@@ -151,6 +158,8 @@ class PluginContextUnavailableContractTest {
         assertFalse(context.meshMirrorCounterparts().isAvailable());
         assertFalse(context.meshMirrorToolEligibility().isAvailable());
         assertFalse(context.meshMirrorMoveParticipation().isAvailable());
+        assertFalse(context.warpAltMirrorParticipation().isAvailable());
+        assertFalse(context.viewContextMenu().isAvailable());
         assertFalse(context.meshEditUi().isAvailable());
         assertFalse(context.mainToolbar().isAvailable());
         assertFalse(context.paletteToolbar().isAvailable());
@@ -167,5 +176,24 @@ class PluginContextUnavailableContractTest {
         assertFalse(context.runtimeSettings().isAvailable());
         assertFalse(context.mcpConnections().isAvailable());
         assertFalse(context.performanceStats().isAvailable());
+    }
+
+    @Test
+    void unavailableSentinelsFailClosedOnDomainCalls() {
+        assertThrows(UnsupportedOperationException.class,
+            () -> context.warpAltMirrorParticipation().participate());
+        assertThrows(UnsupportedOperationException.class,
+            () -> context.warpAltMirrorParticipation().setArmedAxis(1));
+        assertThrows(UnsupportedOperationException.class,
+            () -> context.warpAltMirrorParticipation().nativeMirrorActive());
+        assertThrows(UnsupportedOperationException.class,
+            () -> context.viewContextMenu().contributeStateButtons(
+                new ViewContextMenuRegistry.StateButtonContribution(
+                    "id",
+                    Map.of(0, new UiRasterImage(1, 1, new int[1])),
+                    0,
+                    ignored -> { })));
+        assertThrows(UnsupportedOperationException.class,
+            () -> context.viewContextMenu().updateButtonState("id", 1));
     }
 }
