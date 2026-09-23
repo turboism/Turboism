@@ -15,8 +15,16 @@ import java.util.Optional;
  */
 public interface TextureAtlasPolygonLayoutService {
 
+    /** Returns the freshly read polygon snapshot of the current page, if available. */
     Optional<TextureAtlasPolygonLayoutSnapshot> currentPolygon();
 
+    /**
+     * Validates and applies one polygon plan through the host affine/undo boundary.
+     *
+     * @param target the page target the plan was computed against
+     * @param plan the validated plan to write back
+     * @return the apply outcome; a rejected plan leaves the page untouched
+     */
     TextureAtlasLayoutApplyResult apply(
         TextureAtlasLayoutTarget target,
         TextureAtlasPolygonPlan plan

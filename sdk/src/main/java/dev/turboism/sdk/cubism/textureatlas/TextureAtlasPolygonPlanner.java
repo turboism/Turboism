@@ -13,6 +13,13 @@ import java.util.List;
  */
 public interface TextureAtlasPolygonPlanner {
 
+    /**
+     * Computes one placement plan for the given items under the issued constraints.
+     *
+     * @param items participating page items with outlines and per-item policies
+     * @param constraints host-issued page constraints including the rotation mode
+     * @return the plan to validate and apply through the host boundary
+     */
     TextureAtlasPolygonPlan plan(
         List<TextureAtlasPolygonItem> items,
         TextureAtlasPolygonConstraints constraints
