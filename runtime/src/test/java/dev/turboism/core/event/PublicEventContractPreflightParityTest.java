@@ -284,7 +284,7 @@ class PublicEventContractPreflightParityTest {
             jar(
                 entry(EVENT_INTERNAL + ".class", eventClass(
                     field(Opcodes.ACC_PUBLIC, "g",
-                        "Ljava/util/List;", deepSignature(600))))
+                        "Ljava/util/List;", deepSignature(513))))
             ), seeds, Rejection.TOO_LARGE, Bind.SKIP));
 
         // A signature at exactly the bound still verifies.
@@ -292,7 +292,46 @@ class PublicEventContractPreflightParityTest {
             jar(
                 entry(EVENT_INTERNAL + ".class", eventClass(
                     field(Opcodes.ACC_PUBLIC, "g",
-                        "Ljava/util/List;", deepSignature(510))))
+                        "Ljava/util/List;", deepSignature(512))))
+            ), seeds));
+
+        // Context grammar (A-1.R/R2): a field signature is a bare reference
+        // type — method-shaped, base-type, and trailing inputs all reject.
+        rows.add(reject("method-shaped field signature",
+            jar(
+                entry(EVENT_INTERNAL + ".class", eventClass(
+                    field(Opcodes.ACC_PUBLIC, "g", "Ljava/util/List;", "()V")))
+            ), seeds, Rejection.CONTENT, Bind.SKIP));
+        rows.add(reject("base-type field signature",
+            jar(
+                entry(EVENT_INTERNAL + ".class", eventClass(
+                    field(Opcodes.ACC_PUBLIC, "g", "Ljava/util/List;", "I")))
+            ), seeds, Rejection.CONTENT, Bind.SKIP));
+        rows.add(reject("trailing content after a field signature",
+            jar(
+                entry(EVENT_INTERNAL + ".class", eventClass(
+                    field(Opcodes.ACC_PUBLIC, "g", "Ljava/util/List;",
+                        "Ljava/util/List;Ljava/lang/Object;")))
+            ), seeds, Rejection.CONTENT, Bind.SKIP));
+
+        // A class signature cannot be method-shaped.
+        rows.add(reject("method-shaped class signature",
+            jar(
+                entry(EVENT_INTERNAL + ".class", clazz(
+                    EVENT_INTERNAL,
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+                    "()V", "java/lang/Object",
+                    new String[] {"dev/turboism/sdk/event/EventBus$TurboismEvent"},
+                    null, false))
+            ), seeds, Rejection.CONTENT, Bind.SKIP));
+
+        // A legal generic method signature stays legal — <T:…>(TT;)TT; is a
+        // real method grammar, not a first-character heuristic.
+        rows.add(accept("generic method signature",
+            jar(
+                entry(EVENT_INTERNAL + ".class", eventClass(
+                    member(Opcodes.ACC_PUBLIC, "m", "()V",
+                        "<T:Ljava/lang/Object;>(TT;)TT;")))
             ), seeds));
 
         // A wide but shallow signature stays legal — depth, not width, is bound.
@@ -373,7 +412,22 @@ class PublicEventContractPreflightParityTest {
                 PublicEventContractClosure.verify(type);
             }
             return false;
-        } catch (Throwable failure) {
+        } catch (final Throwable failure) {
+            // Only the verdict families a bind can legitimately produce count as
+            // a rejection — linkage/loading failures, reflective generic
+            // metadata failures, and the closure's own rejections. Anything
+            // else is a harness bug and must fail the test loudly.
+            final boolean verdict = failure instanceof LinkageError
+                || failure instanceof ReflectiveOperationException
+                || failure instanceof java.lang.reflect.MalformedParameterizedTypeException
+                || failure instanceof TypeNotPresentException
+                || failure instanceof IllegalArgumentException
+                || failure instanceof SecurityException
+                || failure instanceof IOException;
+            if (!verdict) {
+                throw new AssertionError(
+                    "bind path failed with an unexpected failure type", failure);
+            }
             return true;
         }
     }
@@ -532,11 +586,25 @@ class PublicEventContractPreflightParityTest {
 
     @Test
     void totalExpandedBeyondThirtyTwoMiBRejects() throws Exception {
-        final byte[] artifact = jar(
-            entry("com/acme/events/A.class", compressible(11 * 1024 * 1024, 32, 1)),
-            entry("com/acme/events/B.class", compressible(11 * 1024 * 1024, 32, 2)),
-            entry("com/acme/events/C.class", compressible(11 * 1024 * 1024, 32, 3)));
-        assertEquals(Rejection.TOO_LARGE, preflight(artifact, Set.of()));
+        // Five ~7 MiB members: each below the 8 MiB entry bound, deflate at a
+        // ~32:1 stride keeps both the 8 MiB raw-artifact bound and the 100x
+        // ratio gate green — only the 32 MiB aggregate trips.
+        final List<Map.Entry<String, byte[]>> entries = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            entries.add(entry("com/acme/events/T" + i + ".class",
+                compressible(7 * 1024 * 1024, 32, i)));
+        }
+        final byte[] artifact = jar(entries);
+        final ContractViolation failure = assertThrows(ContractViolation.class,
+            () -> PublicEventContractPreflight.verify(
+                PublicEventContractPreflight.newSession(),
+                "dev.example.provider", CONTRACT_ID, ARTIFACT_PATH,
+                sha256(artifact), artifact, Set.of(), Set.of()));
+        assertEquals(Rejection.TOO_LARGE, failure.kind());
+        assertTrue(failure.getMessage().contains("ARCHIVE_TOTAL_TOO_LARGE")
+                || failure.getMessage().contains("expanded"),
+            "the aggregate expanded dimension must be the named failure: "
+                + failure.getMessage());
     }
 
     @Test
@@ -649,6 +717,8 @@ class PublicEventContractPreflightParityTest {
         // Nine ~7.55 MB artifacts each fit the per-artifact bound; their raw
         // bytes cross the 64 MiB session bound at the ninth declaration. STORED
         // entries keep the compressed size honest — no compression games.
+        // Caller-side charging mirrors the install contract: bytes are charged
+        // as they are delivered to the verification input, before verify().
         final Session session = PublicEventContractPreflight.newSession();
         for (int artifact = 0; artifact < 9; artifact++) {
             final String name = "com/acme/b" + artifact + "/Blob";
@@ -656,11 +726,12 @@ class PublicEventContractPreflightParityTest {
                 largeMember(name, 7_550_000, artifact, 1))));
             final String contractId = "c" + artifact;
             if (artifact < 8) {
+                session.chargeArtifactBytes(bytes.length, contractId);
                 verify(session, bytes, contractId);
             } else {
                 final ContractViolation failure = assertThrows(
                     ContractViolation.class,
-                    () -> verify(session, bytes, contractId));
+                    () -> session.chargeArtifactBytes(bytes.length, contractId));
                 assertEquals(Rejection.TOO_LARGE, failure.kind());
                 assertTrue(failure.getMessage().contains("artifact bytes"));
             }
@@ -737,17 +808,17 @@ class PublicEventContractPreflightParityTest {
 
     @Test
     void oracleIgnoresACompromisedContextClassLoader() throws Exception {
-        // A TCCL that lies about owning an SDK resource must not make a phantom
-        // SDK reference resolvable — the oracle only consults the trusted views.
+        // A TCCL that serves REAL, valid class bytes under a phantom SDK name
+        // must not make the reference resolvable — the oracle only consults the
+        // trusted views, so even a truthful TCCL answer is never read.
+        final java.net.URL realBytes =
+            dev.turboism.sdk.event.EventBus.class.getResource("EventBus.class");
+        assertNotNull(realBytes, "fixture needs the real SDK class resource");
         final ClassLoader lying = new ClassLoader() {
             @Override
             public java.net.URL getResource(final String name) {
                 if (name.equals("dev/turboism/sdk/NoSuchClassZZZ.class")) {
-                    try {
-                        return new java.net.URL("file:///definitely-real.class");
-                    } catch (java.net.MalformedURLException failure) {
-                        return null;
-                    }
+                    return realBytes;
                 }
                 return super.getResource(name);
             }
@@ -776,7 +847,11 @@ class PublicEventContractPreflightParityTest {
         assertNull(loaderBound.lookup("dev.turboism.sdk.NoSuchClassZZZ"));
         assertNull(loaderBound.lookup("java.lang.NoSuchClassZZZ"));
         // A classpath-visible runtime type is not resolvable: the platform domain
-        // only covers named java.*/jdk.* modules.
+        // only covers named java.*/jdk.* modules. The class resource IS visible
+        // through the application/system view — the divergence is the point.
+        assertNotNull(ClassLoader.getSystemResource(
+            "dev/turboism/core/event/RuntimeEventBroker.class"),
+            "fixture needs an app-only visible class resource");
         assertNull(loaderBound.lookup(
             "dev.turboism.core.event.RuntimeEventBroker"));
 
@@ -785,6 +860,213 @@ class PublicEventContractPreflightParityTest {
         assertNotNull(bootstrap.lookup("dev.turboism.sdk.event.EventBus"));
         assertNull(bootstrap.lookup("dev.turboism.sdk.NoSuchClassZZZ"));
         assertNotNull(bootstrap.lookup("java.lang.String"));
+    }
+
+    /**
+     * Real bootstrap-parent evidence (A-1.R/R5): a subprocess where the SDK
+     * anchor's class loader is actually {@code null} — the SDK jar is appended
+     * to the boot classpath — must still resolve SDK and platform names through
+     * the module-resource branch, and still reject phantoms.
+     */
+    @Test
+    void oracleResolvesWithABootstrapLoadedSdkAnchor() throws Exception {
+        final Path sdk = codeSource(dev.turboism.sdk.event.EventBus.class);
+        final Path runtime = codeSource(ContractTypeOracle.class);
+        final Path asm = codeSource(Opcodes.class);
+        final Path probeClasses = Files.createDirectories(
+            temporary.resolve("probe-classes"));
+        final Path probeSource = Files.createDirectories(
+            probeClasses.resolve("dev/turboism/core/event"))
+            .resolve("BootstrapOracleProbe.java");
+        Files.writeString(probeSource, """
+            package dev.turboism.core.event;
+            public final class BootstrapOracleProbe {
+                public static void main(String[] args) {
+                    Class<?> anchor = dev.turboism.sdk.event.EventBus.class;
+                    if (anchor.getClassLoader() != null) {
+                        System.out.println("ANCHOR-NOT-BOOTSTRAP");
+                        System.exit(2);
+                    }
+                    ContractTypeOracle oracle =
+                        ContractTypeOracle.forSdkAnchor(anchor);
+                    check(oracle.lookup(
+                        "dev.turboism.sdk.event.EventBus") != null, 3);
+                    check(oracle.lookup(
+                        "dev.turboism.sdk.NoSuchClassZZZ") == null, 4);
+                    check(oracle.lookup("java.lang.String") != null, 5);
+                    check(oracle.lookup("java.lang.NoSuchClassZZZ") == null, 6);
+                    System.out.println("BOOTSTRAP-ORACLE-OK");
+                }
+                private static void check(boolean ok, int code) {
+                    if (!ok) {
+                        System.exit(code);
+                    }
+                }
+            }
+            """, StandardCharsets.UTF_8);
+        final String compileClasspath = runtime + java.io.File.pathSeparator + sdk;
+        final int compiled = ToolProvider.getSystemJavaCompiler().run(
+            null, null, null,
+            "-classpath", compileClasspath, "-d", probeClasses.toString(),
+            probeSource.toString());
+        assertEquals(0, compiled, "probe compilation failed");
+        final String javaBinary = Path.of(
+            System.getProperty("java.home"), "bin", "java").toString();
+        final Process process = new ProcessBuilder(
+            javaBinary,
+            "-Xbootclasspath/a:" + sdk,
+            "-cp", runtime + java.io.File.pathSeparator + asm
+                + java.io.File.pathSeparator + probeClasses,
+            "dev.turboism.core.event.BootstrapOracleProbe"
+        ).redirectErrorStream(true).start();
+        final String output = new String(
+            process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        final int exit = process.waitFor();
+        assertEquals(0, exit,
+            "bootstrap oracle probe failed with exit " + exit + ":\n" + output);
+        assertTrue(output.contains("BOOTSTRAP-ORACLE-OK"));
+    }
+
+    /**
+     * Contract-path policy admits the zero-payload directory entries standard
+     * JDK jar writers emit (Amendment A-1.R/R3) — the parser still runs them
+     * through counted/CRC-verified consume, and a directory carrying payload
+     * bytes remains rejected.
+     */
+    @Test
+    void safeEmptyDirectoryEntriesAreAccepted() throws Exception {
+        final byte[] artifact = jarWithDirectory(
+            "com/acme/events/",
+            entry(EVENT_INTERNAL + ".class", eventClass()));
+        assertNull(preflight(artifact, Set.of(EVENT)));
+    }
+
+    @Test
+    void directoryEntryCarryingPayloadIsRejected() throws Exception {
+        // A directory name with a non-zero payload is a data channel, not
+        // structure — the structural core rejects it before any type check.
+        final byte[] artifact = jarWithDirectoryPayload(
+            "com/acme/events/", new byte[] {1, 2, 3},
+            entry(EVENT_INTERNAL + ".class", eventClass()));
+        assertEquals(Rejection.CONTENT, preflight(artifact, Set.of(EVENT)));
+    }
+
+    /** Path quota diagnostics name the dimension that tripped. */
+    @Test
+    void pathByteQuotaReportsItsOwnDimension() throws Exception {
+        final String longName =
+            "com/acme/" + "a".repeat(1100) + "/Deep.class";
+        final byte[] artifact = jar(
+            entry(longName, plainClass("com/acme/Deep", "java/lang/Object")));
+        final ContractViolation failure = assertThrows(ContractViolation.class,
+            () -> PublicEventContractPreflight.verify(
+                PublicEventContractPreflight.newSession(),
+                "dev.example.provider", CONTRACT_ID, ARTIFACT_PATH,
+                sha256(artifact), artifact, Set.of(), Set.of()));
+        assertEquals(Rejection.TOO_LARGE, failure.kind());
+        assertTrue(failure.getMessage().contains("ARCHIVE_PATH_TOO_LONG"),
+            failure.getMessage());
+    }
+
+    @Test
+    void pathDepthQuotaReportsItsOwnDimension() throws Exception {
+        final String deepName =
+            "a/".repeat(40) + "Deep.class";
+        final byte[] artifact = jar(
+            entry(deepName, plainClass("a/Deep", "java/lang/Object")));
+        final ContractViolation failure = assertThrows(ContractViolation.class,
+            () -> PublicEventContractPreflight.verify(
+                PublicEventContractPreflight.newSession(),
+                "dev.example.provider", CONTRACT_ID, ARTIFACT_PATH,
+                sha256(artifact), artifact, Set.of(), Set.of()));
+        assertEquals(Rejection.TOO_LARGE, failure.kind());
+        assertTrue(failure.getMessage().contains("ARCHIVE_PATH_TOO_DEEP"),
+            failure.getMessage());
+    }
+
+    // ---------------------------------------------------- session accounting
+
+    /**
+     * Reference occurrences are charged before the tracking sets grow; the
+     * unique-type set still dedups. 64 fields on the seed all reference the same
+     * payload member, so references() grows per occurrence while uniqueTypes()
+     * stays tiny — the pending queue never accumulates a duplicate either.
+     */
+    @Test
+    void referenceChargingIsPerOccurrenceAndUniqueTypesDedup() throws Exception {
+        final Member[] fields = new Member[64];
+        for (int i = 0; i < fields.length; i++) {
+            fields[i] = field(Opcodes.ACC_PUBLIC, "f" + i,
+                "Lcom/acme/events/Payload;", null);
+        }
+        final byte[] artifact = jar(
+            entry(EVENT_INTERNAL + ".class", eventClass(fields)),
+            entry("com/acme/events/Payload.class", plainClass(
+                "com/acme/events/Payload", "java/lang/Object")));
+        final Session session = PublicEventContractPreflight.newSession();
+        verifySeeded(session, artifact, CONTRACT_ID);
+        final Session.Stats stats = session.stats();
+        assertTrue(stats.references() >= 64,
+            "per-occurrence charging expected >=64 references, got "
+                + stats.references());
+        assertTrue(stats.uniqueTypes() <= 8,
+            "distinct names dedup: event, payload, Object, interface ≈4, got "
+                + stats.uniqueTypes());
+        // A second artifact accumulates on the same session (the first artifact
+        // itself is sha-cached — identical bytes are never re-charged)…
+        verifySeeded(session, distinctArtifact(41), "other.contract");
+        assertTrue(session.stats().references() >= 64,
+            "session accumulates across artifacts, got "
+                + session.stats().references());
+        assertEquals(2, session.stats().contracts());
+        // …while a fresh session starts clean — session isolation.
+        final Session fresh = PublicEventContractPreflight.newSession();
+        verifySeeded(fresh, artifact, CONTRACT_ID);
+        assertTrue(fresh.stats().references() >= 64
+                && fresh.stats().references() < 128);
+        assertEquals(1, fresh.stats().contracts());
+    }
+
+    /**
+     * Ancestor edges are charged references too: a member chain
+     * Payload→Mid→Base contributes its traversal edges to the session counters.
+     */
+    @Test
+    void ancestorTraversalChargesEdges() throws Exception {
+        final byte[] artifact = jar(
+            entry(EVENT_INTERNAL + ".class", eventClass(
+                field(Opcodes.ACC_PUBLIC, "p", "Lcom/acme/events/Payload;",
+                    null))),
+            entry("com/acme/events/Payload.class", plainClass(
+                "com/acme/events/Payload", "com/acme/events/Mid")),
+            entry("com/acme/events/Mid.class", plainClass(
+                "com/acme/events/Mid", "com/acme/events/Base")),
+            entry("com/acme/events/Base.class", plainClass(
+                "com/acme/events/Base", "java/lang/Object")));
+        final Session session = PublicEventContractPreflight.newSession();
+        verifySeeded(session, artifact, CONTRACT_ID);
+        final Session.Stats stats = session.stats();
+        // Surface refs (field type + super + interface per visited member) plus
+        // the three charged ancestor edges — well above the two members' own
+        // surface-only count.
+        assertTrue(stats.references() >= 5,
+            "ancestor edges must be charged, got " + stats.references());
+        assertTrue(stats.uniqueTypes() >= 4,
+            "event, payload, mid, base at least, got " + stats.uniqueTypes());
+    }
+
+    /** The declared-count check fires before any artifact bytes are read. */
+    @Test
+    void sessionRejectsOversizedDeclarationCountUpFront() throws Exception {
+        final Session session = PublicEventContractPreflight.newSession();
+        final ContractViolation failure = assertThrows(ContractViolation.class,
+            () -> session.expectContracts(
+                Session.MAX_CONTRACTS + 1, "dev.example.provider"));
+        assertEquals(Rejection.TOO_LARGE, failure.kind());
+        assertTrue(failure.getMessage().contains("declared contracts"));
+        // And the session still verifies a legal contract afterwards — the
+        // rejection carried no hidden charge.
+        assertNotNull(verify(session, distinctArtifact(7), CONTRACT_ID));
     }
 
     // ----------------------------------------------------------- asm fixtures
@@ -1044,6 +1326,23 @@ class PublicEventContractPreflightParityTest {
             sha256(artifact), artifact, Set.of(), Set.of());
     }
 
+    /** Same as {@link #verify} but with the event seed declared. */
+    private Inspection verifySeeded(
+        final Session session,
+        final byte[] artifact,
+        final String contractId
+    ) throws ContractViolation {
+        return PublicEventContractPreflight.verify(
+            session, "dev.example.provider", contractId, ARTIFACT_PATH,
+            sha256(artifact), artifact, Set.of(), Set.of(EVENT));
+    }
+
+    /** The code-source location backing a classpath-visible class. */
+    private static Path codeSource(final Class<?> anchor) throws Exception {
+        return Path.of(anchor.getProtectionDomain().getCodeSource()
+            .getLocation().toURI());
+    }
+
     /** A structurally valid artifact whose bytes differ per {@code variant}. */
     private static byte[] distinctArtifact(final int variant) throws IOException {
         final String internal = "com/acme/events/Variant" + variant;
@@ -1106,6 +1405,49 @@ class PublicEventContractPreflightParityTest {
                 crc.update(entry.getValue());
                 stored.setCrc(crc.getValue());
                 jar.putNextEntry(stored);
+                jar.write(entry.getValue());
+                jar.closeEntry();
+            }
+        }
+        return buffer.toByteArray();
+    }
+
+    /**
+     * Serializes a leading zero-payload directory entry followed by regular
+     * entries — exactly the shape standard JDK {@code jar} tooling emits.
+     */
+    @SafeVarargs
+    private static byte[] jarWithDirectory(
+        final String directory,
+        final Map.Entry<String, byte[]>... entries
+    ) throws IOException {
+        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (JarOutputStream jar = new JarOutputStream(buffer)) {
+            jar.putNextEntry(new JarEntry(directory));
+            jar.closeEntry();
+            for (final Map.Entry<String, byte[]> entry : entries) {
+                jar.putNextEntry(new JarEntry(entry.getKey()));
+                jar.write(entry.getValue());
+                jar.closeEntry();
+            }
+        }
+        return buffer.toByteArray();
+    }
+
+    /** A directory-named entry carrying real payload bytes — a data channel. */
+    @SafeVarargs
+    private static byte[] jarWithDirectoryPayload(
+        final String directory,
+        final byte[] payload,
+        final Map.Entry<String, byte[]>... entries
+    ) throws IOException {
+        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (JarOutputStream jar = new JarOutputStream(buffer)) {
+            jar.putNextEntry(new JarEntry(directory));
+            jar.write(payload);
+            jar.closeEntry();
+            for (final Map.Entry<String, byte[]> entry : entries) {
+                jar.putNextEntry(new JarEntry(entry.getKey()));
                 jar.write(entry.getValue());
                 jar.closeEntry();
             }

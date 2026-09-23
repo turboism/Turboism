@@ -54,7 +54,11 @@ final class StrictZipParser {
         StrictZipArchive.Limits limits
     ) throws Exception {
         long length = channel.size();
-        if (length < 22 || length > limits.rawMax()) {
+        if (length < 22) {
+            // Too short to even carry an EOCD record — malformed, not oversized.
+            StrictZipSupport.invalid("ARCHIVE_TRUNCATED", label);
+        }
+        if (length > limits.rawMax()) {
             StrictZipSupport.invalid("PACKAGE_TOO_LARGE", label);
         }
         byte[] eocd = read(channel, length - 22, 22);
@@ -89,7 +93,15 @@ final class StrictZipParser {
         for (int index = 0; index < end.count(); index++) {
             Central value = centralEntry(channel, cursor, index);
             boolean directory = value.name().endsWith("/");
-            validateType(value.platform(), value.external(), directory, value.name());
+            validateType(value.platform(), value.external(), directory, value.name(),
+                policy.permitsDefaultDirectoryMetadata());
+            // A policy that admits directories still requires them to deliver zero
+            // expanded bytes — a directory carrying a payload is a data channel,
+            // not structure. (Standard JDK writers emit a 2-byte empty deflate
+            // stream for a directory, so the bound is on the expanded size.)
+            valid(!directory || !policy.permitsDefaultDirectoryMetadata()
+                    || value.expanded() == 0,
+                "ARCHIVE_ENTRY_TYPE_UNSAFE", value.name());
             policy.validateEntry(value.name(), directory);
             valid(identities.add(ArchivePaths.pathIdentityKey(value.name())),
                 "ARCHIVE_PATH_COLLISION", value.name());
@@ -102,8 +114,8 @@ final class StrictZipParser {
             names.add(value.name());
             cursor += value.recordSize();
         }
-        valid(cursor == end.centralOffset() + end.centralSize(), "ARCHIVE_CENTRAL_INVALID", label);
-        ratio(total, compressedTotal, limits.ratioMax(), label);
+        valid(cursor == end.centralOffset() + end.centralSize(), "ARCHIVE_CENTRAL_INVALID", "archive");
+        ratio(total, compressedTotal, limits.ratioMax(), "archive");
         policy.validateCollisions(names);
         return result;
     }
@@ -237,13 +249,16 @@ final class StrictZipParser {
     }
 
     private static void validateType(int platform, long external, boolean directory,
-            String name) throws Exception {
+            String name, boolean defaultDirectoryMetadata) throws Exception {
         if (platform == 3) {
             int type = (int) ((external >>> 16) & 0170000);
             valid(type == (directory ? 0040000 : 0100000), "ARCHIVE_ENTRY_TYPE_UNSAFE", name);
         } else {
-            valid(platform == 0 && (external & 0x10) == (directory ? 0x10 : 0),
-                "ARCHIVE_ENTRY_TYPE_UNSAFE", name);
+            boolean ok = platform == 0
+                && (external & 0x10) == (directory ? 0x10 : 0);
+            ok |= defaultDirectoryMetadata && directory
+                && platform == 0 && external == 0;
+            valid(ok, "ARCHIVE_ENTRY_TYPE_UNSAFE", name);
         }
     }
 
