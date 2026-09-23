@@ -1196,6 +1196,135 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
         report = self.inspect(job["job_id"])
         self.assertIn("FINAL_VERDICT_PRESENT", {b["code"] for b in report["blockers"]})
 
+    def test_malformed_or_non_uuid_boot_is_rejected(self) -> None:
+        for boot in ("not-a-boot-uuid", "", 12345, self.OLD_BOOT.upper() + "x"):
+            job, _, _ = self.orphan(boot=boot)
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], report)
+            self.assertNotIn("approvalDigest", report)
+            self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]}, report)
+
+    def test_runner_identity_must_equal_bound_entry_projection(self) -> None:
+        job, directory, _ = self.orphan()
+        path = directory / "runner-identity.json"
+        runner = json.loads(path.read_text())
+        runner["pid"] -= 1
+        queue.atomic_json(path, runner)
+        report = self.inspect(job["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]})
+
+    def test_heartbeat_actors_must_match_recorded_identities(self) -> None:
+        job, directory, _ = self.orphan()
+        actor = json.loads(job["identity_json"])
+        heartbeat = {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": job["attempt_id"],
+                     "runId": job["run_id"], "preparedDigest": job["digest"],
+                     "observedAt": 1.0, "supervisor": actor, "runner": actor}
+        queue.atomic_json(directory / "heartbeat.json", heartbeat)
+        report = self.inspect(job["job_id"])
+        self.assertTrue(report["canConfirm"], report)
+        for actor_name in ("supervisor", "runner"):
+            tampered = dict(heartbeat)
+            tampered[actor_name] = {**actor, "pid": actor["pid"] - 1}
+            queue.atomic_json(directory / "heartbeat.json", tampered)
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], actor_name)
+            self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]})
+            queue.atomic_json(directory / "heartbeat.json", heartbeat)
+
+    def test_preliminary_lifecycle_copies_must_bind_this_attempt(self) -> None:
+        job, directory, task = self.orphan()
+        for path in (directory / "evidence/lifecycle-result.json",
+                     task / "evidence/lifecycle-result.json"):
+            original = json.loads(path.read_text())
+            for mutation in ({**original, "attemptId": str(uuid.uuid4())},
+                             {**original, "runId": "queue-" + uuid.uuid4().hex},
+                             {**original, "preparedDigest": "e" * 64},
+                             {**original, "schemaVersion": 2},
+                             ["not", "an", "object"],
+                             {"schemaVersion": 1}):
+                queue.atomic_json(path, mutation)
+                report = self.inspect(job["job_id"])
+                self.assertFalse(report["canConfirm"], (path, mutation))
+                self.assertNotIn("approvalDigest", report)
+            queue.atomic_json(path, original)
+            report = self.inspect(job["job_id"])
+            self.assertTrue(report["canConfirm"], report)
+
+    def test_job_digest_must_equal_prepared_descriptor(self) -> None:
+        job, directory, task = self.orphan()
+        wrong = "e" * 64
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET digest=? WHERE job_id=?", (wrong, job["job_id"]))
+        for path in (directory / "containment.json",
+                     directory / "evidence/lifecycle-result.json",
+                     task / "evidence/lifecycle-result.json"):
+            value = json.loads(path.read_text())
+            value["preparedDigest"] = wrong
+            queue.atomic_json(path, value)
+        report = self.inspect(job["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]})
+
+    def audit_payload(self, job_id):
+        rows = [e for e in self.store.events(job_id=job_id) if e["kind"] == "operator-abandoned"]
+        self.assertEqual(1, len(rows))
+        return rows[0]["event_id"], dict(rows[0]["payload"])
+
+    def rewrite_audit(self, event_id, payload):
+        with self.store.transaction() as db:
+            db.execute("UPDATE events SET payload=? WHERE event_id=?",
+                       (queue.canonical_json(payload), event_id))
+
+    def test_replay_rejects_tampered_audit_fields(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        original = self.confirm(job["job_id"], approval)
+        self.assertTrue(original["replayed"])
+        corruptions = [
+            {"operatorUid": os.getuid() + 1},
+            {"operatorUid": str(os.getuid())},
+            {"verificationAccepted": True},
+            {"verificationAccepted": 1},
+            {"toState": "cancelled"},
+            {"disposition": "VERIFIED"},
+            {"preservation": "temporary"},
+            {"schemaVersion": 2},
+            {"schemaVersion": "1"},
+            {"runId": "queue-" + uuid.uuid4().hex},
+            {"attemptId": str(uuid.uuid4())},
+            {"preparedDigest": "f" * 64},
+            {"jobId": str(uuid.uuid4())},
+            {"fromState": "succeeded"},
+            {"previousReason": 42},
+            {"previousUpdatedAt": "soon"},
+            {"recordedAt": "now"},
+            {"recordedAt": True},
+            {"previousUpdatedAt": False},
+            {"historicalBootId": "not-a-boot-uuid"},
+            {"currentBootId": self.OLD_BOOT},
+            {"reason": "different reason"},
+        ]
+        event_id, payload = self.audit_payload(job["job_id"])
+        for patch in corruptions:
+            with self.subTest(patch=patch):
+                self.rewrite_audit(event_id, {**payload, **patch})
+                with self.assertRaises(disposition.Rejected):
+                    self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, payload)
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+
+    def test_replay_rejects_row_that_disagrees_with_audit(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET run_id=?,digest=? WHERE job_id=?",
+                       ("queue-" + uuid.uuid4().hex, "f" * 64, job["job_id"]))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+
     def test_execution_blockers_are_reported_without_approval(self) -> None:
         job, _, _ = self.orphan()
         with self.store.transaction() as db:
@@ -1284,7 +1413,7 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
         self.assertEqual(job["run_id"], row["run_id"])
         self.assertIsNone(row["evidence_json"])
         self.assertEqual(0, row["cancel_requested"])
-        self.assertEqual({"state": "idle", "job_id": None}, 
+        self.assertEqual({"state": "idle", "job_id": None},
                          {k: self.store.host()[k] for k in ("state", "job_id")})
         self.assertEqual(before_other, self.store.jobs(other["job_id"])[0])
         events = [e for e in self.store.events() if e["kind"] == "operator-abandoned"]
