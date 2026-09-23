@@ -18,7 +18,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-protected-export-host-validation.sh <5302> [run-label] [phase] [runner-options...]" >&2
+  echo "usage: run-protected-export-host-validation.sh <5203|5302|5303> [run-label] [phase] [runner-options...]" >&2
   echo "  phase: dialog (default) | copy-binding | flatten | export | export-native | census | atlas-fixture | expect-reject | comma combinations" >&2
   exit 2
 fi
@@ -49,12 +49,16 @@ case "$phase" in
     ;;
 esac
 
-# Only the reviewed 5.3.02 artifact is admitted by the export-settings host profile, so a run
-# against any other build would produce a misleading failure rather than evidence.
-if [ "$version" != '5302' ]; then
-  echo "error: the export-settings hook is admitted for 5302 only; '$version' must not be probed" >&2
-  exit 2
-fi
+# Only the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts are admitted by the export-settings
+# host profile, so a run against any other build would produce a misleading failure rather
+# than evidence.
+case "$version" in
+  5203 | 5302 | 5303) ;;
+  *)
+    echo "error: the export-settings hook is admitted for 5203/5302/5303 only; '$version' must not be probed" >&2
+    exit 2
+    ;;
+esac
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="${TURBOISM_WORKTREE_ID:-$(bash "$repo_root/scripts/dev/worktree-id.sh")}"

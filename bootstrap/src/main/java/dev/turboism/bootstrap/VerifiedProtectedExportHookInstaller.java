@@ -11,8 +11,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Thin, reversible installer for the exact 5.3.02 protected-export chooser-redirect
- * transformer.
+ * Thin, reversible installer for the protected-export chooser-redirect transformer.
  *
  * <p>Owns only the bytecode seam on {@code com/live2d/cubism/doc/model/exporter/b}; the
  * bridge callback it reaches is published by {@link VerifiedExportSettingsHookInstaller},
@@ -20,8 +19,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * callback passes every pick through unchanged, so native export stays byte-identical.</p>
  */
 final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
-    static final String SUPPORTED_CUBISM_VERSION =
-        ProtectedExportChooserProfile.CUBISM_5_3_02.hostVersion();
+    /** Exact Cubism releases whose reviewed artifacts carry a chooser-redirect profile. */
+    static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS = java.util.Set.of(
+        ProtectedExportChooserProfile.CUBISM_5_2_03.hostVersion(),
+        ProtectedExportChooserProfile.CUBISM_5_3_02.hostVersion(),
+        ProtectedExportChooserProfile.CUBISM_5_3_03.hostVersion()
+    );
 
     private final Instrumentation instrumentation;
     private final String targetClassName;
@@ -71,9 +74,9 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
     ) {
         final ProtectedExportChooserProfile requested =
             Objects.requireNonNull(profile, "profile");
-        if (!SUPPORTED_CUBISM_VERSION.equals(requested.hostVersion())) {
+        if (!SUPPORTED_CUBISM_VERSIONS.contains(requested.hostVersion())) {
             throw new IllegalArgumentException(
-                "protected export chooser hook requires exact Cubism " + SUPPORTED_CUBISM_VERSION
+                "protected export chooser hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS
             );
         }
         return new VerifiedProtectedExportHookInstaller(

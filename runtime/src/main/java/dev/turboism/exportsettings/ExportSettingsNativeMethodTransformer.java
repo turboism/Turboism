@@ -12,7 +12,8 @@ import java.security.ProtectionDomain;
 import java.util.Objects;
 
 /**
- * Exact-owner transformer for the Cubism 5.3.02 embedded-model Export Settings dialog.
+ * Exact-owner transformer for the embedded-model Export Settings dialog on the reviewed
+ * Cubism builds (5.2.03, 5.3.02, 5.3.03).
  *
  * <p>Transforms exactly {@code com/live2d/cubism/doc/model/exporter/e} at two bounded
  * sites:</p>

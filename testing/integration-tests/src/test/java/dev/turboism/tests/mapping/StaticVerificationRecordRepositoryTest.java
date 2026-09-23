@@ -238,17 +238,62 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
+            "compatibility/cubism/verification/cubism-5.2.03-protected-export.json",
+            new SliceExpectation(
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_2_03.verificationId(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_2_03.cubismVersion(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_2_03.profileId(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_2_03.artifact().size(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_2_03.artifact().sha256(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_2_03.recordSha256(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .cubism52Aliases().size(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .cubism52Aliases(),
+                dev.turboism.exportsettings.VerifiedProtectedExportHostOperations
+                    .CUBISM_5_2_REQUIRED_ALIASES,
+                dev.turboism.exportsettings.VerifiedProtectedExportHostOperations
+                    .cubism52MethodAliasesUsed(),
+                dev.turboism.exportsettings.VerifiedProtectedExportHostOperations
+                    .classAliasesUsed(),
+                "cubism-5.2.03-protected-export",
+                Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-protected-export.json"),
+                Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
+                SliceKind.EDITOR_UI
+            )
+        );
+        expectations.put(
             "compatibility/cubism/verification/cubism-5.3.02-protected-export.json",
             new SliceExpectation(
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.VERIFICATION_ID_53,
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.CUBISM_VERSION_53,
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.PROFILE_ID_53,
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.CAPABILITY_IDS,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_3_02.verificationId(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_3_02.cubismVersion(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_3_02.profileId(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.ARTIFACT_SIZE_53,
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.ARTIFACT_SHA256_53,
-                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.RECORD_SHA256_53,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_3_02.artifact().size(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_3_02.artifact().sha256(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .RECORD_5_3_02.recordSha256(),
                 dev.turboism.mapping.verification.ProtectedExportVerificationManifest
                     .REQUIRED_ALIASES.size(),
                 dev.turboism.mapping.verification.ProtectedExportVerificationManifest.REQUIRED_ALIASES,
@@ -274,6 +319,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.03-clipmask.json",
             "cubism-5.3.03-editor-model.json",
             "cubism-5.3.03-performance-render-scene.json",
+            "cubism-5.3.03-protected-export.json",
             "cubism-5.3.03-project-workspace.json",
             "cubism-5.3.03-ui-bounding-box-overlay.json",
             "cubism-5.3.03-ui-control-appearance.json",
@@ -353,6 +399,8 @@ class StaticVerificationRecordRepositoryTest {
                 "4e92ece4cb18cf4d780ae972e221c35f6ad911c3c922e8dbf2d012fcc7c3067b";
             case "cubism-5.3.03-performance-render-scene" ->
                 "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
+            case "cubism-5.3.03-protected-export" ->
+                "7f61fddf1ceacb0f26fe5556950d433fb0cc3d1b053b3efc6c9f536089444f54";
             case "cubism-5.3.03-project-workspace" ->
                 "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2";
             case "cubism-5.3.03-ui-bounding-box-overlay" ->

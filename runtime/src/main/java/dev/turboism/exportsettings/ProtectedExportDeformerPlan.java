@@ -150,10 +150,12 @@ public final class ProtectedExportDeformerPlan {
                     "protected-export.unsupported-structure");
             }
         }
-        if (!host.allPhysicsSettings(modelSource).isEmpty()
-            || !host.allMotionSyncSettings(modelSource).isEmpty()) {
+        final int physicsSettings = host.allPhysicsSettings(modelSource).size();
+        final int motionSyncSettings = host.allMotionSyncSettings(modelSource).size();
+        if (physicsSettings != 0 || motionSyncSettings != 0) {
             throw new ProtectedExportPlanRejection(
-                "protected-export.unsupported-settings");
+                "protected-export.unsupported-settings:physics="
+                    + physicsSettings + ",motion-sync=" + motionSyncSettings);
         }
         final List<String> features = host.unsupportedModelFeatures(modelSource);
         if (!features.isEmpty()) {

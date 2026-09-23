@@ -9,17 +9,20 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Exact reviewed selectors for the 5.3.02 embedded-model exporter chooser seam.
+ * Exact reviewed selectors for the embedded-model exporter chooser seam.
  *
- * <p>Frozen from the reviewed exact Cubism 5.3.02 classfile observation of
+ * <p>Frozen from reviewed exact classfile observation of
  * {@code com/live2d/cubism/doc/model/exporter/b}: the private export continuation
  * methods {@code b} and {@code c} each call their own private chooser
- * ({@code a(V,String)} and {@code a(String,boolean,V)}) exactly once. A host whose
- * exporter does not match this tuple is refused instead of being transformed, and the
+ * ({@code a(panel,String)} and {@code a(String,boolean,panel)}) exactly once. A host whose
+ * exporter does not match its exact tuple is refused instead of being transformed, and the
  * in-host transformer additionally fails closed on any cardinality drift.</p>
  *
- * <p>Only the exact reviewed 5.3.02 build is recognised; every other artifact yields
- * empty, which is the fail-closed signal that the redirect hook must not be installed.</p>
+ * <p>Cubism 5.3.02 and 5.3.03 share one selector tuple whose continuations take the abstract
+ * window panel {@code com/live2d/ui/window/V}. On the reviewed 5.2.03 build the same abstract
+ * panel is named {@code com/live2d/ui/window/X}, so 5.2.03 carries its own tuple. Every other
+ * artifact yields empty, which is the fail-closed signal that the redirect hook must not be
+ * installed.</p>
  */
 public record ProtectedExportChooserProfile(
     String hostVersion,
@@ -49,47 +52,65 @@ public record ProtectedExportChooserProfile(
     private static final int FORBID_STATIC = StaticSelector.ACCESS_STATIC;
 
     private static final String EXPORTER = "com/live2d/cubism/doc/model/exporter/b";
-    private static final String WINDOW_PANEL = "com/live2d/ui/window/V";
+    private static final String WINDOW_PANEL_5_2 = "com/live2d/ui/window/X";
+    private static final String WINDOW_PANEL_5_3 = "com/live2d/ui/window/V";
     private static final String MODEL_SOURCE = "com/live2d/cubism/doc/model/CModelSource";
     private static final String FUNCTION2 = "kotlin/jvm/functions/Function2";
 
-    private static final String MAPPING_ID_PREFIX = "cubism.mapping.v5_3_02.protected_export.";
+    /** The exact reviewed 5.2.03 tuple: identical shape with the {@code X} window panel. */
+    public static final ProtectedExportChooserProfile CUBISM_5_2_03 = reviewedProfile(
+        "5.2.03", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_03.protected_export."
+    );
 
     /** The exact reviewed 5.3.02 tuple. */
-    public static final ProtectedExportChooserProfile CUBISM_5_3_02 =
-        new ProtectedExportChooserProfile(
-            "5.3.02",
+    public static final ProtectedExportChooserProfile CUBISM_5_3_02 = reviewedProfile(
+        "5.3.02", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_02.protected_export."
+    );
+
+    /** The exact reviewed 5.3.03 tuple: identical shape to 5.3.02 on its own reviewed build. */
+    public static final ProtectedExportChooserProfile CUBISM_5_3_03 = reviewedProfile(
+        "5.3.03", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_03.protected_export."
+    );
+
+    private static ProtectedExportChooserProfile reviewedProfile(
+        final String hostVersion,
+        final String windowPanel,
+        final String mappingIdPrefix
+    ) {
+        return new ProtectedExportChooserProfile(
+            hostVersion,
             new StaticSelector(
-                MAPPING_ID_PREFIX + "exporter_owner", EXPORTER_OWNER_ALIAS,
+                mappingIdPrefix + "exporter_owner", EXPORTER_OWNER_ALIAS,
                 StaticSelector.Kind.CLASS, EXPORTER, "", "", 0, 0
             ),
             new StaticSelector(
-                MAPPING_ID_PREFIX + "exporter_moc3_continuation", MOC3_CONTINUATION_ALIAS,
+                mappingIdPrefix + "exporter_moc3_continuation", MOC3_CONTINUATION_ALIAS,
                 StaticSelector.Kind.METHOD, EXPORTER, "b",
-                "(" + descriptor(WINDOW_PANEL) + descriptor(MODEL_SOURCE)
+                "(" + descriptor(windowPanel) + descriptor(MODEL_SOURCE)
                     + descriptor(FUNCTION2) + ")Z",
                 ACCESS_PRIVATE, FORBID_STATIC
             ),
             new StaticSelector(
-                MAPPING_ID_PREFIX + "exporter_moc3_chooser", MOC3_CHOOSER_ALIAS,
+                mappingIdPrefix + "exporter_moc3_chooser", MOC3_CHOOSER_ALIAS,
                 StaticSelector.Kind.METHOD, EXPORTER, "a",
-                "(" + descriptor(WINDOW_PANEL) + "Ljava/lang/String;)Ljava/io/File;",
+                "(" + descriptor(windowPanel) + "Ljava/lang/String;)Ljava/io/File;",
                 ACCESS_PRIVATE, FORBID_STATIC
             ),
             new StaticSelector(
-                MAPPING_ID_PREFIX + "exporter_gated_continuation", GATED_CONTINUATION_ALIAS,
+                mappingIdPrefix + "exporter_gated_continuation", GATED_CONTINUATION_ALIAS,
                 StaticSelector.Kind.METHOD, EXPORTER, "c",
-                "(" + descriptor(WINDOW_PANEL) + descriptor(MODEL_SOURCE)
+                "(" + descriptor(windowPanel) + descriptor(MODEL_SOURCE)
                     + descriptor(FUNCTION2) + ")Z",
                 ACCESS_PRIVATE, FORBID_STATIC
             ),
             new StaticSelector(
-                MAPPING_ID_PREFIX + "exporter_gated_chooser", GATED_CHOOSER_ALIAS,
+                mappingIdPrefix + "exporter_gated_chooser", GATED_CHOOSER_ALIAS,
                 StaticSelector.Kind.METHOD, EXPORTER, "a",
-                "(Ljava/lang/String;Z" + descriptor(WINDOW_PANEL) + ")Ljava/io/File;",
+                "(Ljava/lang/String;Z" + descriptor(windowPanel) + ")Ljava/io/File;",
                 ACCESS_PRIVATE, FORBID_STATIC
             )
         );
+    }
 
     public ProtectedExportChooserProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
@@ -114,16 +135,24 @@ public record ProtectedExportChooserProfile(
     /**
      * Resolves the reviewed chooser-redirect selectors for a host artifact.
      *
-     * <p>Only exact Cubism 5.3.02 is recognised. Any other artifact yields empty, so an
-     * unreviewed or unexpectedly replaced host never receives the transformer.</p>
+     * <p>Only the exact reviewed 5.2.03, 5.3.02 and 5.3.03 builds are recognised. Any other
+     * artifact yields empty, so an unreviewed or unexpectedly replaced host never receives the
+     * transformer.</p>
      */
     public static Optional<ProtectedExportChooserProfile> forArtifact(
         final HostArtifactDigest artifact
     ) {
         Objects.requireNonNull(artifact, "artifact");
-        return ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)
-            ? Optional.of(CUBISM_5_3_02)
-            : Optional.empty();
+        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
+            return Optional.of(CUBISM_5_2_03);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_02);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_03);
+        }
+        return Optional.empty();
     }
 
     private static String descriptor(final String internalName) {
