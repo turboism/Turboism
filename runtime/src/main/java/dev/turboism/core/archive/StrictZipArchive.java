@@ -175,8 +175,15 @@ public final class StrictZipArchive implements AutoCloseable {
         long dataOffset
     ) {}
 
+    /** The measured result of {@link #consume}: actual expanded bytes and CRC-32. */
     public record Observation(long size, long crc) {}
 
+    /**
+     * Per-archive bound set enforced during parse and consume: {@code rawMax} caps the
+     * archive's raw bytes, {@code entryMax} each entry's expanded bytes,
+     * {@code totalMax} the aggregate expanded bytes, {@code countMax} the entry count,
+     * and {@code ratioMax} the expanded-to-compressed ratio.
+     */
     public record Limits(
         long rawMax,
         long entryMax,
