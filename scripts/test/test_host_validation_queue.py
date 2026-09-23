@@ -1541,6 +1541,48 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
             self.assertTrue(raced)
             self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
 
+    def test_non_regular_member_is_refused_without_blocking(self) -> None:
+        preview = Path(disposition.__file__).resolve().parent
+        child = ("import sys,json\n"
+                 "from pathlib import Path\n"
+                 "sys.path.insert(0, sys.argv[1])\n"
+                 "import host_validation_disposition as d\n"
+                 "r = d.inspect(Path(sys.argv[2]), sys.argv[3], busy=lambda: [])\n"
+                 "print(json.dumps({'canConfirm': r['canConfirm'], 'blockers': r['blockers']}))\n")
+        job, directory, _ = self.orphan()
+        member = directory / "evidence" / "final-hashes.properties"
+        member.unlink()
+        member.mkdir()
+        for kind in ("dir", "fifo"):
+            proc = subprocess.run(
+                [sys.executable, "-B", "-c", child,
+                 str(preview), str(self.root), job["job_id"]],
+                capture_output=True, text=True, timeout=15, check=False)
+            self.assertEqual(0, proc.returncode, proc.stderr)
+            report = json.loads(proc.stdout)
+            self.assertFalse(report["canConfirm"], kind)
+            self.assertIn("IDENTITY_INVALID",
+                          {entry["code"] for entry in report["blockers"]}, kind)
+            member.rmdir() if kind == "dir" else member.unlink()
+            if kind == "dir":
+                os.mkfifo(member, 0o600)
+
+    def test_malformed_other_audit_produces_refusal_not_error(self) -> None:
+        first, _, _ = self.orphan()
+        second, _, _ = self.orphan()
+        self.confirm(first["job_id"], self.inspect(first["job_id"])["approvalDigest"])
+        self.assertTrue(self.inspect(second["job_id"])["canConfirm"])
+        event_id, payload = self.audit_payload(first["job_id"])
+        for field, value in (("fromState", []), ("jobId", 123), ("toState", True),
+                             ("rootIdentity", {}), ("reason", "bad\x00reason")):
+            self.rewrite_audit(event_id, {**payload, field: value})
+            report = self.inspect(second["job_id"])
+            self.assertFalse(report["canConfirm"], field)
+            self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY",
+                          {entry["code"] for entry in report["blockers"]}, field)
+            self.rewrite_audit(event_id, payload)
+        self.assertTrue(self.inspect(second["job_id"])["canConfirm"])
+
     def test_locked_assessment_detects_evidence_change(self) -> None:
         job, directory, _ = self.orphan()
         approval = self.inspect(job["job_id"])["approvalDigest"]
