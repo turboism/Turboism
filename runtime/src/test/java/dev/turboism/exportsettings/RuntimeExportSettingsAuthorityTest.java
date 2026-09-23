@@ -7,9 +7,11 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.ArrayList;
@@ -41,11 +43,14 @@ class RuntimeExportSettingsAuthorityTest {
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
 
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
 
-        assertEquals(1, container.getComponentCount(), "one owned checkbox must materialize");
+        assertEquals(
+            3, optionsOf(container).getComponentCount(),
+            "one owned panel must be appended after the native options"
+        );
         final JCheckBox box = checkbox(container, "Localized protect");
         assertFalse(box.isSelected(), "contributed option must default off");
         assertEquals(0, context.callbackCalls.size(), "attach must never invoke callbacks");
@@ -53,7 +58,10 @@ class RuntimeExportSettingsAuthorityTest {
         authority.cancel(owner);
         assertEquals(0, context.callbackCalls.size(), "cancel must never invoke callbacks");
         flushEdt();
-        assertEquals(0, container.getComponentCount(), "cancel must remove the owned panel");
+        assertEquals(
+            2, optionsOf(container).getComponentCount(),
+            "cancel must remove the owned panel, leaving the native options"
+        );
         assertSame(Boolean.TRUE, authority.decide(owner),
             "a cancelled dialog must proceed unchanged without invoking callbacks");
         assertEquals(0, context.callbackCalls.size());
@@ -64,7 +72,7 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
 
@@ -77,7 +85,7 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -101,7 +109,7 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext((selected, documentId, modelId) -> ExportSettingsDecision.reject("custom.reason"));
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -117,13 +125,9 @@ class RuntimeExportSettingsAuthorityTest {
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
         final Object owner = new Object();
-        // A container that rejects BorderLayout.SOUTH attachment fails the materialization.
-        final Container hostile = new Container() {
-            @Override
-            public void add(final Component component, final Object constraints) {
-                throw new IllegalStateException("hostile container");
-            }
-        };
+        // A dialog content tree without a native options container cannot host the
+        // contribution: the mount resolution fails the materialization.
+        final Container hostile = new JPanel(new BorderLayout());
         assertNullResult(authority.attach(owner, hostile));
         assertSame(Boolean.FALSE, authority.decide(owner),
             "an attach failure must reject the confirm instead of silently proceeding");
@@ -169,10 +173,10 @@ class RuntimeExportSettingsAuthorityTest {
                 return ExportSettingsDecision.reject("other.rejected");
             }
         ));
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
-        assertEquals(1, container.getComponentCount(),
+        assertEquals(3, optionsOf(container).getComponentCount(),
             "one owned panel must materialize for the two plugin-local options");
         checkbox(container, "Localized protect");
         checkbox(container, "Other protect").setSelected(true);
@@ -190,7 +194,7 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -205,7 +209,7 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -223,12 +227,12 @@ class RuntimeExportSettingsAuthorityTest {
         context.identity = Optional.empty();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         assertSame(Boolean.TRUE, authority.decide(owner),
             "an unselected dialog must proceed even without identity");
-        final JPanel second = new JPanel();
+        final JPanel second = dialogContent();
         final Object secondOwner = new Object();
         assertNullResult(authority.attach(secondOwner, second));
         checkbox(second, "Localized protect").setSelected(true);
@@ -250,7 +254,7 @@ class RuntimeExportSettingsAuthorityTest {
             "plugin-a", 0L, context.registry, key -> "Localized " + key.replace("export.", "")
         );
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -281,7 +285,7 @@ class RuntimeExportSettingsAuthorityTest {
             "plugin-a", 0L, context.registry, key -> "Localized " + key.replace("export.", "")
         );
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -297,14 +301,15 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
 
         authority.resetHost();
         flushEdt();
-        assertEquals(0, container.getComponentCount());
+        assertEquals(2, optionsOf(container).getComponentCount(),
+            "reset must detach the owned panel, leaving the native options");
         assertSame(Boolean.FALSE, authority.decide(owner),
             "reset must not turn an open dialog into an unchecked native passthrough");
         assertEquals(0, context.callbackCalls.size());
@@ -315,7 +320,7 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -332,7 +337,7 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
@@ -340,7 +345,7 @@ class RuntimeExportSettingsAuthorityTest {
         assertSame(Boolean.FALSE, authority.decide(owner),
             "family recursion must reject instead of re-entering");
         context.recursiveCallback = false;
-        final JPanel second = new JPanel();
+        final JPanel second = dialogContent();
         final Object secondOwner = new Object();
         assertNullResult(authority.attach(secondOwner, second));
         checkbox(second, "Localized protect").setSelected(true);
@@ -355,23 +360,25 @@ class RuntimeExportSettingsAuthorityTest {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
-        final JPanel container = new JPanel();
+        final JPanel container = dialogContent();
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
 
         authority.clearDialogs();
         flushEdt();
-        assertEquals(0, container.getComponentCount(), "clearDialogs must detach owned panels");
+        assertEquals(2, optionsOf(container).getComponentCount(),
+            "clearDialogs must detach the owned panel, leaving the native options");
         assertSame(Boolean.FALSE, authority.decide(owner),
             "a delayed confirm after clearDialogs must remain rejected");
 
-        final JPanel again = new JPanel();
+        final JPanel again = dialogContent();
         final Object secondOwner = new Object();
         assertNullResult(authority.attach(secondOwner, again));
         authority.close();
         flushEdt();
-        assertEquals(0, again.getComponentCount(), "close must detach owned panels");
+        assertEquals(2, optionsOf(again).getComponentCount(),
+            "close must detach the owned panel, leaving the native options");
         assertSame(Boolean.FALSE, authority.decide(secondOwner),
             "a delayed confirm after close must remain rejected");
         assertEquals(0, context.callbackCalls.size());
@@ -392,6 +399,37 @@ class RuntimeExportSettingsAuthorityTest {
             () -> snapshot.options().add(null),
             "snapshot options must be immutable"
         );
+    }
+
+    /**
+     * Stand-in for the reviewed native dialog content pane: a component-order
+     * options list carrying the host's own check-box leaves (JCheckBox
+     * subclasses, like {@code CCheckBox$a}), plus a separate button row.
+     */
+    private static JPanel dialogContent() {
+        final JPanel content = new JPanel(new BorderLayout());
+        final JPanel options = new JPanel();
+        options.add(new NativeOptionCheckBox("native.1"));
+        options.add(new NativeOptionCheckBox("native.2"));
+        content.add(options, BorderLayout.CENTER);
+        final JPanel buttons = new JPanel();
+        buttons.add(new JButton("OK"));
+        buttons.add(new JButton("Cancel"));
+        content.add(buttons, BorderLayout.SOUTH);
+        return content;
+    }
+
+    /** The options-list child of a {@link #dialogContent()} stand-in. */
+    private static JPanel optionsOf(final Container content) {
+        return (JPanel) ((BorderLayout) content.getLayout())
+            .getLayoutComponent(BorderLayout.CENTER);
+    }
+
+    /** Stands in for the host's native option leaves; never the exact JCheckBox class. */
+    private static final class NativeOptionCheckBox extends JCheckBox {
+        private NativeOptionCheckBox(final String text) {
+            super(text);
+        }
     }
 
     private static JCheckBox checkbox(final Container container, final String label) {

@@ -81,6 +81,14 @@ public final class ProtectedExportHostProbeAgent {
     private static final String CANCEL_ACTION_5_3 = "com.live2d.ui.window.z";
     private static final String CONFIRM_ACTION_5_2 = "com.live2d.ui.window.C";
     private static final String CANCEL_ACTION_5_2 = "com.live2d.ui.window.B";
+    /**
+     * Swing peer of the native {@code CVBox} options list, verified identical on
+     * every reviewed build (5.2.03, 5.3.02, 5.3.03). Keyed by exact host version
+     * like the button actions so a renamed peer on a future build fails loudly
+     * instead of being smoothed over.
+     */
+    private static final String OPTIONS_PEER_5_3 = "com.live2d.ui.swingImpl.u";
+    private static final String OPTIONS_PEER_5_2 = "com.live2d.ui.swingImpl.u";
     /** Affirmative button labels across the host's localized warning dialogs. */
     private static final java.util.regex.Pattern AFFIRMATIVE_LABEL =
         java.util.regex.Pattern.compile(
@@ -3142,7 +3150,7 @@ public final class ProtectedExportHostProbeAgent {
         int nativeBoxes = 0;
         boolean hasButton = false;
         for (Component component : allComponents(dialog)) {
-            if (component.getClass().getName().equals("com.live2d.ui.control.CCheckBox")) {
+            if (isNativeCheckBoxLeaf(component)) {
                 nativeBoxes++;
             }
             if (component instanceof AbstractButton) {
@@ -3170,7 +3178,7 @@ public final class ProtectedExportHostProbeAgent {
         final List<JCheckBox> injected = injectedCheckBoxes(dialog);
         final List<String> nativeBoxes = new ArrayList<>();
         for (Component component : allComponents(dialog)) {
-            if (component.getClass().getName().equals("com.live2d.ui.control.CCheckBox")) {
+            if (isNativeCheckBoxLeaf(component)) {
                 nativeBoxes.add(hostText(component) + ":" + hostSelected(component));
             }
         }
@@ -3200,7 +3208,75 @@ public final class ProtectedExportHostProbeAgent {
             phase + "CancelButtonPresent",
             Boolean.toString(findButton(dialog, cancelAction()) != null)
         );
+        mountEvidence(dialog, injected, evidence, phase);
         dumpTree(stateDir.resolve("dialog-tree-settings-" + phase + ".txt"), dialog);
+    }
+
+    /**
+     * Pins where the contributed rows landed: the owned panel must be appended
+     * inside the native options container — the component-order peer that directly
+     * owns the host's check-box leaves — as its last child. The dialog content
+     * pane's south region belongs to the native button row, so a mount parent
+     * equal to the content pane (or any container without native options) is the
+     * regression signature this evidence exists to catch.
+     */
+    private static void mountEvidence(
+        final JDialog dialog,
+        final List<JCheckBox> injected,
+        final Evidence evidence,
+        final String phase
+    ) {
+        Container ownedPanel = null;
+        for (JCheckBox box : injected) {
+            final Container parent = box.getParent();
+            if (parent == null || (ownedPanel != null && parent != ownedPanel)) {
+                ownedPanel = null;
+                break;
+            }
+            ownedPanel = parent;
+        }
+        final Container mount = ownedPanel == null ? null : ownedPanel.getParent();
+        final int index = mount == null ? -1 : indexOfComponent(mount, ownedPanel);
+        final int childCount = mount == null ? -1 : mount.getComponentCount();
+        int nativeSiblings = 0;
+        if (mount != null) {
+            for (Component child : mount.getComponents()) {
+                if (isNativeCheckBoxLeaf(child)) {
+                    nativeSiblings++;
+                }
+            }
+        }
+        final String mountClass = mount == null ? "" : mount.getClass().getName();
+        final boolean insideOptions = mount != null
+            && mount != dialog.getContentPane()
+            && mountClass.equals(optionsContainerPeer(hostVersion()))
+            && index == childCount - 1
+            && nativeSiblings >= 1;
+        evidence.put(phase + "MountParentClass", mountClass);
+        evidence.put(phase + "MountExpectedParent", optionsContainerPeer(hostVersion()));
+        evidence.put(phase + "MountIndex", Integer.toString(index));
+        evidence.put(phase + "MountChildCount", Integer.toString(childCount));
+        evidence.put(phase + "MountNativeSiblings", Integer.toString(nativeSiblings));
+        evidence.put(phase + "MountedInsideOptions", Boolean.toString(insideOptions));
+    }
+
+    private static int indexOfComponent(final Container parent, final Component child) {
+        for (int index = 0; index < parent.getComponentCount(); index++) {
+            if (parent.getComponent(index) == child) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The host's option leaves are {@code CCheckBox$a} — FlatLaf tri-state
+     * subclasses of {@link JCheckBox} — while the runtime materializes plain
+     * {@code JCheckBox} rows, so "a check box that is not exactly JCheckBox"
+     * isolates the native options.
+     */
+    static boolean isNativeCheckBoxLeaf(final Component component) {
+        return component instanceof JCheckBox && component.getClass() != JCheckBox.class;
     }
 
     private static void confirmUnchecked(final JDialog dialog, final Evidence evidence) {
@@ -3541,6 +3617,16 @@ public final class ProtectedExportHostProbeAgent {
 
     static String cancelAction(final String hostVersion) {
         return "5203".equals(hostVersion) ? CANCEL_ACTION_5_2 : CANCEL_ACTION_5_3;
+    }
+
+    /**
+     * Exact-version dispatch for the native options-list peer class. Every
+     * reviewed build resolves to {@code com.live2d.ui.swingImpl.u} today; the
+     * dispatch exists so a divergence on a newly admitted build is an explicit
+     * reviewed choice, not a silent assumption.
+     */
+    static String optionsContainerPeer(final String hostVersion) {
+        return "5203".equals(hostVersion) ? OPTIONS_PEER_5_2 : OPTIONS_PEER_5_3;
     }
 
     /**
@@ -3949,6 +4035,12 @@ public final class ProtectedExportHostProbeAgent {
             if (!"true".equals(evidence.values.get("uncheckedInjectedCheckBoxesUnselected"))) {
                 unmet.add("injected option was not default-off");
             }
+            if (!"true".equals(evidence.values.get("uncheckedMountedInsideOptions"))) {
+                unmet.add("contributed option is not appended inside the native options container");
+            }
+            if (!"true".equals(evidence.values.get("checkedMountedInsideOptions"))) {
+                unmet.add("checked-phase contribution is not inside the native options container");
+            }
             if (!"true".equals(evidence.values.get("confirmClicked"))) {
                 unmet.add("native confirm button not driven");
             }
@@ -3997,6 +4089,9 @@ public final class ProtectedExportHostProbeAgent {
             if (intOf(evidence, "exp.outerInjectedCheckBoxCount") < 1) {
                 unmet.add("contributed option missing from the outer dialog");
             }
+            if (!"true".equals(evidence.values.get("expOuterMountedInsideOptions"))) {
+                unmet.add("outer contribution is not inside the native options container");
+            }
             if (!"true".equals(evidence.values.get("exp.outerConfirmed"))) {
                 unmet.add("outer confirmation was not driven");
             }
@@ -4040,6 +4135,9 @@ public final class ProtectedExportHostProbeAgent {
         if (phases.test("export-native")) {
             if (intOf(evidence, "natOuterInjectedCheckBoxCount") < 1) {
                 unmet.add("contributed option missing from the outer dialog");
+            }
+            if (!"true".equals(evidence.values.get("natOuterMountedInsideOptions"))) {
+                unmet.add("outer contribution is not inside the native options container");
             }
             if (!"true".equals(evidence.values.get("natOuterInjectedCheckBoxesUnselected"))) {
                 unmet.add("native comparison run must leave the contributed option unchecked");

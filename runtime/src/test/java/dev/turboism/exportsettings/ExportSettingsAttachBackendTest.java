@@ -7,6 +7,7 @@ import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.Test;
 
 import java.awt.BorderLayout;
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -29,7 +30,7 @@ final class ExportSettingsAttachBackendTest {
 
     @Test
     void attachMaterializesOneOwnedPanelInOrderWithDefaultOffCheckboxes() {
-        final JPanel host = new JPanel(new BorderLayout());
+        final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         backend.attach(host, List.of(
             contribution("option-a", "label.a"),
@@ -37,15 +38,13 @@ final class ExportSettingsAttachBackendTest {
             contribution("option-c", "label.c")
         ));
 
-        // One owned panel at BorderLayout.SOUTH, nothing else.
-        assertEquals(1, host.getComponentCount());
-        final Component child = host.getComponent(0);
+        // One owned panel appended after the native options, nothing else added.
+        assertEquals(3, host.getComponentCount());
+        assertEquals("native-a", ((JCheckBox) host.getComponent(0)).getText());
+        assertEquals("native-b", ((JCheckBox) host.getComponent(1)).getText());
+        final Component child = host.getComponent(2);
         assertTrue(child instanceof JPanel, "owned component must be a JPanel");
         final JPanel panel = (JPanel) child;
-        assertSame(
-            panel,
-            ((BorderLayout) host.getLayout()).getLayoutComponent(host, BorderLayout.SOUTH)
-        );
 
         // One checkbox per descriptor, deterministic order, labels from descriptors,
         // default-off per the SDK contract.
@@ -60,8 +59,83 @@ final class ExportSettingsAttachBackendTest {
     }
 
     @Test
+    void attachAppendsInsideTheNativeOptionsContainerNotTheDialogWrapper() {
+        // Stand-in for the reviewed dialog composition: the content pane carries the
+        // native options list (the component-order container holding the native
+        // check-box leaves, including a nested single-option row) and a separate
+        // button row in the south region.
+        final JPanel content = new JPanel(new BorderLayout());
+        final JPanel options = new JPanel();
+        final JCheckBox nativeA = new NativeCheckBox("native-a");
+        final JCheckBox nativeB = new NativeCheckBox("native-b");
+        final JPanel nestedRow = new JPanel();
+        nestedRow.add(new NativeCheckBox("native-row"));
+        options.add(nativeA);
+        options.add(nativeB);
+        options.add(nestedRow);
+        content.add(options, BorderLayout.CENTER);
+        final JPanel buttons = new JPanel();
+        buttons.add(new JButton("OK"));
+        buttons.add(new JButton("Cancel"));
+        content.add(buttons, BorderLayout.SOUTH);
+
+        final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
+        backend.attach(content, List.of(contribution("option-a", "label.a")));
+
+        // The dialog wrapper is untouched: the contribution must never occupy the
+        // content pane's south region (the button row's region).
+        assertEquals(2, content.getComponentCount());
+        assertSame(options, content.getComponent(0));
+        assertSame(buttons, content.getComponent(1));
+        assertEquals(2, buttons.getComponentCount(), "button row must stay untouched");
+
+        // The densest native check-box container wins over a nested single-option
+        // row; the owned panel lands after the last existing child.
+        assertEquals(4, options.getComponentCount());
+        assertSame(nativeA, options.getComponent(0));
+        assertSame(nativeB, options.getComponent(1));
+        assertSame(nestedRow, options.getComponent(2));
+        final Component owned = options.getComponent(3);
+        assertTrue(owned instanceof JPanel, "owned panel must be the last options child");
+        assertEquals("label.a", ((JCheckBox) ((JPanel) owned).getComponent(0)).getText());
+    }
+
+    @Test
+    void attachFailsClosedWhenTheDialogHasNoNativeOptionsContainer() {
+        final JPanel content = new JPanel(new BorderLayout());
+        content.add(new JLabel("not an options list"), BorderLayout.CENTER);
+        final JPanel buttons = new JPanel();
+        buttons.add(new JButton("OK"));
+        content.add(buttons, BorderLayout.SOUTH);
+        final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
+
+        final ExportSettingsAttachException failure = assertThrows(
+            ExportSettingsAttachException.class,
+            () -> backend.attach(content, List.of(contribution("option-a", "label.a")))
+        );
+        assertEquals(ExportSettingsAttachBackend.OPTIONS_CONTAINER_KEY, failure.getMessage());
+        assertEquals(2, content.getComponentCount(), "an unrecognized dialog must stay unchanged");
+
+        // Plain JCheckBox leaves are the injected type, never a native option.
+        final JPanel onlyInjected = new JPanel();
+        onlyInjected.add(new JCheckBox("stale injected"));
+        assertEquals(
+            ExportSettingsAttachBackend.OPTIONS_CONTAINER_KEY,
+            assertThrows(
+                ExportSettingsAttachException.class,
+                () -> backend.attach(onlyInjected, List.of(contribution("option-b", "label.b")))
+            ).getMessage()
+        );
+
+        // A failed mount resolution does not consume the attach session.
+        final JPanel healthy = hostWithOptions();
+        backend.attach(healthy, List.of(contribution("option-a", "label.a")));
+        assertEquals(3, healthy.getComponentCount());
+    }
+
+    @Test
     void selectionSnapshotIsImmutableLiveAndKeyedByOptionId() {
-        final JPanel host = new JPanel(new BorderLayout());
+        final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         backend.attach(host, List.of(
             contribution("option-a", "label.a"),
@@ -85,23 +159,27 @@ final class ExportSettingsAttachBackendTest {
     @Test
     void closeRemovesOnlyOwnedComponentsOnEdtRevalidatesRepaintsAndIsIdempotent() {
         final RecordingContainer host = new RecordingContainer();
+        final JCheckBox nativeOption = new NativeCheckBox("native-a");
         final JLabel unrelated = new JLabel("unrelated");
-        host.add(unrelated, BorderLayout.NORTH);
+        host.add(nativeOption);
+        host.add(unrelated);
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         final Registration registration = backend.attach(host, List.of(
             contribution("option-a", "label.a"),
             contribution("option-b", "label.b")
         ));
-        assertEquals(2, host.getComponentCount());
+        assertEquals(3, host.getComponentCount());
 
         host.resetCounts();
         registration.close();
         registration.close();
         registration.close();
 
-        // Only the owned panel was removed; the unrelated child survives.
-        assertEquals(1, host.getComponentCount());
-        assertSame(unrelated, host.getComponent(0));
+        // Only the owned panel was removed; the native option and the unrelated
+        // child survive untouched.
+        assertEquals(2, host.getComponentCount());
+        assertSame(nativeOption, host.getComponent(0));
+        assertSame(unrelated, host.getComponent(1));
         assertTrue(host.removals > 0, "owned panel must be removed on the EDT");
         assertTrue(host.revalidations > 0, "container must be revalidated after removal");
         assertTrue(host.repaints > 0, "container must be repainted after removal");
@@ -110,7 +188,7 @@ final class ExportSettingsAttachBackendTest {
 
     @Test
     void duplicateOptionIdsFailBeforeAnyMutationAndDoNotPoisonTheSession() {
-        final JPanel host = new JPanel(new BorderLayout());
+        final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         final ExportSettingsAttachException failure = assertThrows(
@@ -124,16 +202,16 @@ final class ExportSettingsAttachBackendTest {
             ExportSettingsAttachBackend.DUPLICATE_OPTION_KEY + ": option-a",
             failure.getMessage()
         );
-        assertEquals(0, host.getComponentCount(), "no UI mutation may happen");
+        assertEquals(2, host.getComponentCount(), "no UI mutation may happen");
 
         // A failed validation does not consume the attach session.
         backend.attach(host, List.of(contribution("option-a", "label.a")));
-        assertEquals(1, host.getComponentCount());
+        assertEquals(3, host.getComponentCount());
     }
 
     @Test
     void duplicateAttachSessionFailsBeforeAnyMutation() {
-        final JPanel host = new JPanel(new BorderLayout());
+        final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         backend.attach(host, List.of(contribution("option-a", "label.a")));
 
@@ -142,7 +220,7 @@ final class ExportSettingsAttachBackendTest {
             () -> backend.attach(host, List.of(contribution("option-b", "label.b")))
         );
         assertEquals(ExportSettingsAttachBackend.ALREADY_ATTACHED_KEY, failure.getMessage());
-        assertEquals(1, host.getComponentCount(), "second attach must not mutate the host");
+        assertEquals(3, host.getComponentCount(), "second attach must not mutate the host");
         assertEquals(1, panel(host).getComponentCount(), "second attach must not add checkboxes");
     }
 
@@ -180,17 +258,19 @@ final class ExportSettingsAttachBackendTest {
     void offEdtAttachAndCloseRunOnTheEdt() {
         assertFalse(SwingUtilities.isEventDispatchThread(), "JUnit thread must be off the EDT");
         final RecordingContainer host = new RecordingContainer();
+        host.add(new NativeCheckBox("native-a"));
+        host.resetFlags();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         final Registration registration = backend.attach(host, List.of(
             contribution("option-a", "label.a")
         ));
         assertTrue(host.addedOnEdt, "component mutation must happen on the EDT");
-        assertEquals(1, host.getComponentCount());
+        assertEquals(2, host.getComponentCount());
 
         registration.close();
         assertTrue(host.removedOnEdt, "component removal must happen on the EDT");
-        assertEquals(0, host.getComponentCount());
+        assertEquals(1, host.getComponentCount());
     }
 
     @Test
@@ -198,14 +278,15 @@ final class ExportSettingsAttachBackendTest {
         final AtomicBoolean completed = new AtomicBoolean();
         SwingUtilities.invokeAndWait(() -> {
             final RecordingContainer host = new RecordingContainer();
+            host.add(new NativeCheckBox("native-a"));
             final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
             final Registration registration = backend.attach(host, List.of(
                 contribution("option-a", "label.a")
             ));
-            assertEquals(1, host.getComponentCount());
+            assertEquals(2, host.getComponentCount());
             assertTrue(host.addedOnEdt);
             registration.close();
-            assertEquals(0, host.getComponentCount());
+            assertEquals(1, host.getComponentCount());
             assertTrue(host.removedOnEdt);
             completed.set(true);
         });
@@ -214,12 +295,18 @@ final class ExportSettingsAttachBackendTest {
 
     @Test
     void boundaryThrowableIsContainedAsOneStableTypeAndLeavesHostUnchanged() {
+        final AtomicBoolean hostile = new AtomicBoolean();
         final JPanel throwing = new JPanel(new BorderLayout()) {
             @Override
-            public void add(final Component component, final Object constraints) {
-                throw new IllegalStateException("boom");
+            public Component add(final Component component) {
+                if (hostile.get()) {
+                    throw new IllegalStateException("boom");
+                }
+                return super.add(component);
             }
         };
+        throwing.add(new NativeCheckBox("native-a"));
+        hostile.set(true);
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
         final ExportSettingsAttachException failure = assertThrows(
@@ -228,12 +315,12 @@ final class ExportSettingsAttachBackendTest {
         );
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         assertTrue(failure.getCause() instanceof IllegalStateException);
-        assertEquals(0, throwing.getComponentCount(), "host must stay unchanged");
+        assertEquals(1, throwing.getComponentCount(), "host must stay unchanged");
 
         // A contained boundary failure does not consume the session.
-        final JPanel healthy = new JPanel(new BorderLayout());
+        final JPanel healthy = hostWithOptions();
         backend.attach(healthy, List.of(contribution("option-a", "label.a")));
-        assertEquals(1, healthy.getComponentCount());
+        assertEquals(3, healthy.getComponentCount());
     }
 
     @Test
@@ -257,7 +344,7 @@ final class ExportSettingsAttachBackendTest {
 
     @Test
     void closedBackendRejectsFurtherAttachAndSnapshot() {
-        final JPanel host = new JPanel(new BorderLayout());
+        final JPanel host = hostWithOptions();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         final Registration registration = backend.attach(host, List.of(
             contribution("option-a", "label.a")
@@ -280,8 +367,10 @@ final class ExportSettingsAttachBackendTest {
     @Test
     void revalidateThrowableAfterPanelAddedRollsBackToExactHostChildSet() {
         final ThrowingContainer host = new ThrowingContainer();
+        final JCheckBox nativeOption = new NativeCheckBox("native-a");
         final JLabel unrelated = new JLabel("unrelated");
-        host.add(unrelated, BorderLayout.NORTH);
+        host.add(nativeOption);
+        host.add(unrelated);
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         host.throwOnRevalidate = true;
 
@@ -296,20 +385,23 @@ final class ExportSettingsAttachBackendTest {
         // Rollback refresh failure is suppressed onto the original, never replacing it.
         assertEquals(1, cause.getSuppressed().length);
         assertTrue(cause.getSuppressed()[0] instanceof IllegalStateException);
-        // Exact host child set restored: only the unrelated child remains.
-        assertEquals(1, host.getComponentCount());
-        assertSame(unrelated, host.getComponent(0));
+        // Exact host child set restored: only the preexisting children remain.
+        assertEquals(2, host.getComponentCount());
+        assertSame(nativeOption, host.getComponent(0));
+        assertSame(unrelated, host.getComponent(1));
         // Ownership state was not published: a subsequent attach works.
-        final JPanel healthy = new JPanel(new BorderLayout());
-        backend.attach(healthy, List.of(contribution("option-a", "label.a")));
-        assertEquals(1, healthy.getComponentCount());
+        host.throwOnRevalidate = false;
+        backend.attach(host, List.of(contribution("option-a", "label.a")));
+        assertEquals(3, host.getComponentCount());
     }
 
     @Test
     void repaintThrowableAfterPanelAddedRollsBackToExactHostChildSet() {
         final ThrowingContainer host = new ThrowingContainer();
+        final JCheckBox nativeOption = new NativeCheckBox("native-a");
         final JLabel unrelated = new JLabel("unrelated");
-        host.add(unrelated, BorderLayout.NORTH);
+        host.add(nativeOption);
+        host.add(unrelated);
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         host.throwOnRepaint = true;
 
@@ -323,18 +415,21 @@ final class ExportSettingsAttachBackendTest {
         assertEquals("repaint-boom", cause.getMessage());
         assertEquals(1, cause.getSuppressed().length);
         assertTrue(cause.getSuppressed()[0] instanceof IllegalStateException);
-        assertEquals(1, host.getComponentCount());
-        assertSame(unrelated, host.getComponent(0));
-        final JPanel healthy = new JPanel(new BorderLayout());
-        backend.attach(healthy, List.of(contribution("option-a", "label.a")));
-        assertEquals(1, healthy.getComponentCount());
+        assertEquals(2, host.getComponentCount());
+        assertSame(nativeOption, host.getComponent(0));
+        assertSame(unrelated, host.getComponent(1));
+        host.throwOnRepaint = false;
+        backend.attach(host, List.of(contribution("option-a", "label.a")));
+        assertEquals(3, host.getComponentCount());
     }
 
     @Test
     void addThrowableAfterSuperAddRollsBackToExactHostChildSet() {
         final ThrowingContainer host = new ThrowingContainer();
+        final JCheckBox nativeOption = new NativeCheckBox("native-a");
         final JLabel unrelated = new JLabel("unrelated");
-        host.add(unrelated, BorderLayout.NORTH);
+        host.add(nativeOption);
+        host.add(unrelated);
         host.throwOnAddAfterSuper = true;
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
 
@@ -349,22 +444,24 @@ final class ExportSettingsAttachBackendTest {
         // The exact preexisting host children are restored (the panel entered the host
         // via super.add and was rolled back); no suppressed rollback failure expected.
         assertEquals(0, cause.getSuppressed().length);
-        assertEquals(1, host.getComponentCount());
-        assertSame(unrelated, host.getComponent(0));
+        assertEquals(2, host.getComponentCount());
+        assertSame(nativeOption, host.getComponent(0));
+        assertSame(unrelated, host.getComponent(1));
         // Session was never published: a subsequent attach works.
-        final JPanel healthy = new JPanel(new BorderLayout());
-        backend.attach(healthy, List.of(contribution("option-a", "label.a")));
-        assertEquals(1, healthy.getComponentCount());
+        host.throwOnAddAfterSuper = false;
+        backend.attach(host, List.of(contribution("option-a", "label.a")));
+        assertEquals(3, host.getComponentCount());
     }
 
     @Test
     void closeTimeRemoveThrowableIsContainedWithRemovalAttemptedOnce() {
         final ThrowingContainer host = new ThrowingContainer();
+        host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         final Registration registration = backend.attach(host, List.of(
             contribution("option-a", "label.a")
         ));
-        assertEquals(1, host.getComponentCount());
+        assertEquals(2, host.getComponentCount());
         host.throwOnRemove = true;
 
         final ExportSettingsAttachException failure = assertThrows(
@@ -380,12 +477,13 @@ final class ExportSettingsAttachBackendTest {
         registration.close();
         assertEquals(1, host.removeAttempts);
         assertThrows(ExportSettingsAttachException.class, backend::selectedSnapshot);
-        assertEquals(1, host.getComponentCount(), "host refused removal; panel remains, state is closed");
+        assertEquals(2, host.getComponentCount(), "host refused removal; panel remains, state is closed");
     }
 
     @Test
     void closeTimeRevalidateThrowableIsContainedAfterPanelRemoval() {
         final ThrowingContainer host = new ThrowingContainer();
+        host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         final Registration registration = backend.attach(host, List.of(
             contribution("option-a", "label.a")
@@ -398,7 +496,7 @@ final class ExportSettingsAttachBackendTest {
         );
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         assertEquals("revalidate-boom", failure.getCause().getMessage());
-        assertEquals(0, host.getComponentCount(), "owned panel must be removed before the failure");
+        assertEquals(1, host.getComponentCount(), "owned panel must be removed before the failure");
         registration.close();
         assertEquals(1, host.removeAttempts, "repeated close must not re-mutate");
         assertThrows(ExportSettingsAttachException.class, backend::selectedSnapshot);
@@ -407,6 +505,7 @@ final class ExportSettingsAttachBackendTest {
     @Test
     void closeTimeRepaintThrowableIsContainedAfterPanelRemoval() {
         final ThrowingContainer host = new ThrowingContainer();
+        host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         final Registration registration = backend.attach(host, List.of(
             contribution("option-a", "label.a")
@@ -419,7 +518,7 @@ final class ExportSettingsAttachBackendTest {
         );
         assertEquals(ExportSettingsAttachBackend.BOUNDARY_FAILURE_KEY, failure.getMessage());
         assertEquals("repaint-boom", failure.getCause().getMessage());
-        assertEquals(0, host.getComponentCount(), "owned panel must be removed before the failure");
+        assertEquals(1, host.getComponentCount(), "owned panel must be removed before the failure");
         registration.close();
         assertEquals(1, host.removeAttempts, "repeated close must not re-mutate");
         assertThrows(ExportSettingsAttachException.class, backend::selectedSnapshot);
@@ -429,11 +528,12 @@ final class ExportSettingsAttachBackendTest {
     void interruptedCloseStillQueuesRemovalAndRestoresInterruptedStatus() throws Exception {
         final Thread thread = Thread.currentThread();
         final RecordingContainer host = new RecordingContainer();
+        host.add(new NativeCheckBox("native-a"));
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend();
         final Registration registration = backend.attach(host, List.of(
             contribution("option-a", "label.a")
         ));
-        assertEquals(1, host.getComponentCount());
+        assertEquals(2, host.getComponentCount());
         thread.interrupt();
         try {
             final ExportSettingsAttachException failure = assertThrows(
@@ -447,14 +547,14 @@ final class ExportSettingsAttachBackendTest {
         }
         // The removal event was queued before the interruption surfaced and must complete.
         SwingUtilities.invokeAndWait(() -> { });
-        assertEquals(0, host.getComponentCount());
+        assertEquals(1, host.getComponentCount());
         assertTrue(host.removedOnEdt);
     }
 
     @Test
     void selectedSnapshotReadsSwingStateOnTheEdt() {
         assertFalse(SwingUtilities.isEventDispatchThread());
-        final JPanel host = new JPanel(new BorderLayout());
+        final JPanel host = hostWithOptions();
         final AtomicReference<RecordingCheckBox> box = new AtomicReference<>();
         final ExportSettingsAttachBackend backend = new ExportSettingsAttachBackend(label -> {
             final RecordingCheckBox created = new RecordingCheckBox(label);
@@ -496,6 +596,28 @@ final class ExportSettingsAttachBackendTest {
         throw new AssertionError("owned panel not found");
     }
 
+    /**
+     * A supplied container that is itself a native options-list stand-in: two
+     * native check-box leaves resolve it as the mount container.
+     */
+    private static JPanel hostWithOptions() {
+        final JPanel host = new JPanel();
+        host.add(new NativeCheckBox("native-a"));
+        host.add(new NativeCheckBox("native-b"));
+        return host;
+    }
+
+    /**
+     * Stands in for the host's own check-box leaves ({@code CCheckBox$a} —
+     * FlatLaf tri-state buttons): a {@link JCheckBox} subclass, never the exact
+     * class the backend materializes.
+     */
+    private static final class NativeCheckBox extends JCheckBox {
+        private NativeCheckBox(final String text) {
+            super(text);
+        }
+    }
+
     /** Records whether component mutation happens on the EDT and counts refresh calls. */
     private static class RecordingContainer extends JPanel {
 
@@ -510,9 +632,9 @@ final class ExportSettingsAttachBackendTest {
         }
 
         @Override
-        public void add(final Component component, final Object constraints) {
+        public Component add(final Component component) {
             addedOnEdt = SwingUtilities.isEventDispatchThread();
-            super.add(component, constraints);
+            return super.add(component);
         }
 
         @Override
@@ -539,6 +661,11 @@ final class ExportSettingsAttachBackendTest {
             repaints = 0;
             removals = 0;
         }
+
+        private void resetFlags() {
+            addedOnEdt = false;
+            removedOnEdt = false;
+        }
     }
 
     /** Container whose add/remove/revalidate/repaint can be switched to throw. */
@@ -550,11 +677,12 @@ final class ExportSettingsAttachBackendTest {
         private boolean throwOnRemove;
         private int removeAttempts;
         @Override
-        public void add(final Component component, final Object constraints) {
-            super.add(component, constraints);
+        public Component add(final Component component) {
+            final Component added = super.add(component);
             if (throwOnAddAfterSuper) {
                 throw new IllegalStateException("add-boom");
             }
+            return added;
         }
         @Override
         public void remove(final Component component) {
