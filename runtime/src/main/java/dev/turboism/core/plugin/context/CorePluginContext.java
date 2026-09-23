@@ -1104,6 +1104,8 @@ public final class CorePluginContext implements PluginContext {
         available.add(PluginService.MESH_MIRROR_COUNTERPARTS);
         available.add(PluginService.MESH_MIRROR_TOOL_ELIGIBILITY);
         available.add(PluginService.MESH_MIRROR_MOVE_PARTICIPATION);
+        available.add(PluginService.WARP_ALT_MIRROR_PARTICIPATION);
+        available.add(PluginService.VIEW_CONTEXT_MENU);
         available.add(PluginService.MESH_EDIT_UI);
         if (installed(
             cubismServices.editorCommandService(),
