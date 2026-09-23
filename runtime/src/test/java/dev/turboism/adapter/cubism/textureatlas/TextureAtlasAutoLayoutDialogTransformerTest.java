@@ -174,7 +174,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             for (java.awt.Component component : center.getComponents()) {
                 if (component instanceof JComboBox<?> candidate
                     && candidate.getItemCount() > 0
-                    && "Native".equals(candidate.getItemAt(0))) {
+                    && "Native (Cubism)".equals(candidate.getItemAt(0))) {
                     combo = candidate;
                 }
             }
@@ -286,7 +286,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
                 if (component instanceof javax.swing.JCheckBox candidate) check = candidate;
                 if (component instanceof javax.swing.JComboBox<?> candidate
                     && candidate.getItemCount() > 0
-                    && "Native".equals(candidate.getItemAt(0))) {
+                    && "Native (Cubism)".equals(candidate.getItemAt(0))) {
                     combo = candidate;
                 }
             }
@@ -352,13 +352,13 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
         System.getProperties().put(
             TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
             (Consumer<Object>) received::set);
-        System.getProperties().put(
-            TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY, "dalsoo");
         try {
             contributor().injectInto(center);
             final var observation =
                 (TextureAtlasAutoLayoutDialogContributor.DialogObservation)
                     received.get();
+            assertNotNull(observation);
+            observation.algorithmCombo().setSelectedIndex(2); // dalsoo
             @SuppressWarnings("unchecked")
             final JComboBox<String> scaleMode =
                 (JComboBox<String>) observation.optionControls().get("scaleMode");
@@ -384,6 +384,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             for (final String key : new String[] {
                 TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
                 TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY,
+                TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY,
                 TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_KEY}) {
                 System.getProperties().remove(key);
             }
@@ -397,13 +398,13 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
         System.getProperties().put(
             TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
             (Consumer<Object>) received::set);
-        System.getProperties().put(
-            TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY, "dalsoo");
         try {
             contributor().injectInto(center);
             final var observation =
                 (TextureAtlasAutoLayoutDialogContributor.DialogObservation)
                     received.get();
+            assertNotNull(observation);
+            observation.algorithmCombo().setSelectedIndex(2); // dalsoo
             @SuppressWarnings("unchecked")
             final JComboBox<String> rotation =
                 (JComboBox<String>) observation.optionControls().get("rotation");
@@ -454,6 +455,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             for (final String key : new String[] {
                 TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
                 TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY,
+                TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY,
                 TextureAtlasAutoLayoutDialogContributor.ROTATION_KEY,
                 TextureAtlasAutoLayoutDialogContributor.LOCK_PRESET_KEY,
                 TextureAtlasAutoLayoutDialogContributor.KERNEL_KEY,
