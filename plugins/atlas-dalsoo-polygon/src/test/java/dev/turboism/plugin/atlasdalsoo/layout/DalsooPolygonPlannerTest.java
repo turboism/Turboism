@@ -200,6 +200,65 @@ class DalsooPolygonPlannerTest {
     }
 
     @Test
+    void freeRotationPlacesItemAtNonQuarterAngle() {
+        // a 42x10 rectangle fits a 40x40 page only at a non-quarter angle;
+        // the FREE candidate grid (18 steps of 20°) provides 40°
+        final var thin = item("thin", rectOutline(42, 10));
+        final TextureAtlasPolygonConstraints free =
+            new TextureAtlasPolygonConstraints(40, 40, 0,
+                TextureAtlasRotationMode.FREE, 1,
+                TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                TextureAtlasLayoutQuality.BALANCED);
+        final TextureAtlasPolygonPlan plan = plan(List.of(thin), free);
+        final TextureAtlasPolygonPlacement p =
+            plan.placementFor("thin").orElseThrow();
+        final double quarter = Math.abs(p.angleDeg() % 90);
+        assertTrue(quarter > 1e-6 && quarter < 90 - 1e-6,
+            "expected an arbitrary (non-90°) angle, got " + p.angleDeg());
+        final double grid = Math.abs(p.angleDeg() % 20);
+        assertTrue(grid < 1e-6 || grid > 20 - 1e-6,
+            "FREE placements must use the 18-candidate grid, got "
+                + p.angleDeg());
+        assertEquals("FREE", plan.diagnostics().get("rotationMode"));
+
+        // QUARTER cannot place the same item - honest overflow, no misreport
+        final TextureAtlasPolygonPlan quarterPlan = plan(List.of(thin),
+            new TextureAtlasPolygonConstraints(40, 40, 0,
+                TextureAtlasRotationMode.QUARTER, 1,
+                TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                TextureAtlasLayoutQuality.BALANCED));
+        assertTrue(quarterPlan.overflowTextureIds().contains("thin"),
+            "QUARTER must overflow the thin item: " + quarterPlan.placements());
+    }
+
+    @Test
+    void autoScaleTuningReachesTheKernel() {
+        final List<TextureAtlasPolygonItem> items = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            items.add(item("big-" + i, rectOutline(300, 300)));
+        }
+        final DalsooPolygonPlanner planner = new DalsooPolygonPlanner(null, null,
+            null, true, 0.02, 3);
+        final TextureAtlasPolygonPlan plan = planner.plan(items,
+            constraints(TextureAtlasRotationMode.NONE, 0));
+        assertEquals("0.02", plan.diagnostics().get("autoScaleTolerance"));
+        assertEquals("3", plan.diagnostics().get("autoScaleMaxTry"));
+        assertTrue(plan.scale() <= 1.0);
+    }
+
+    @Test
+    void autoScaleTuningIsValidated() {
+        try {
+            new DalsooPolygonPlanner(null, null, null, true, 0, 0);
+            org.junit.jupiter.api.Assertions.fail("zero tolerance must be rejected");
+        } catch (IllegalArgumentException expected) { }
+        try {
+            new DalsooPolygonPlanner(null, null, null, true, 0.005, -1);
+            org.junit.jupiter.api.Assertions.fail("negative maxTry must be rejected");
+        } catch (IllegalArgumentException expected) { }
+    }
+
+    @Test
     void multiRingItemPlacedAsOne() {
         final TextureAtlasOutline twoParts = new TextureAtlasOutline(List.of(
             new double[][] {{0, 0}, {30, 0}, {30, 30}, {0, 30}},

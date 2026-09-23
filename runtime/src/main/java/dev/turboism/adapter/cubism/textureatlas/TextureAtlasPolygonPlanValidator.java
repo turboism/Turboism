@@ -22,7 +22,9 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
  * (automatic scale never exceeds 1; a fixed {@code requestedScale} must be met
  * exactly), every participating and every fixed-position item covered exactly
  * once, no placements for excluded items, rotation-mode compliance (quarter
- * steps unless {@code FREE}), issued-angle/scale locks, margin bounds, and
+ * steps unless {@code FREE}; a plan may declare the mode it was produced under
+ * via the {@code rotationMode} diagnostic, bounded by the issued session mode),
+ * issued-angle/scale locks, margin bounds, and
  * pairwise non-overlap of the transformed union of each item's rings
  * (built with {@link Area} so multi-region items and stitched rings validate
  * exactly). Fixed-position items must keep their issued transform.</p>
@@ -63,7 +65,24 @@ final class TextureAtlasPolygonPlanValidator {
                 "automatic scale must not exceed 1, got " + plan.scale()));
         }
         final int margin = constraints.margin();
-        final TextureAtlasRotationMode rotationMode = constraints.rotationMode();
+        // The issued session mode is the writable bound; a plan may declare the
+        // caller-requested mode it was produced under, never wider than issued.
+        final TextureAtlasRotationMode sessionMode = constraints.rotationMode();
+        TextureAtlasRotationMode effectiveMode = sessionMode;
+        final String declaredValue = plan.diagnostics().get("rotationMode");
+        if (declaredValue != null) {
+            final TextureAtlasRotationMode declared = parseRotationMode(declaredValue);
+            if (declared == null) {
+                violations.add(new Violation("rotation-mode",
+                    "plan declares unknown rotationMode '" + declaredValue + "'"));
+            } else if (declared.ordinal() > sessionMode.ordinal()) {
+                violations.add(new Violation("rotation-mode",
+                    "plan rotationMode " + declared
+                        + " exceeds the issued mode " + sessionMode));
+            } else {
+                effectiveMode = declared;
+            }
+        }
         final java.util.Map<String, TextureAtlasPolygonItem> byId = new java.util.HashMap<>();
         for (final TextureAtlasPolygonItem item : items) {
             byId.put(item.textureId(), item);
@@ -106,13 +125,13 @@ final class TextureAtlasPolygonPlanValidator {
                         "angle-locked item " + placement.textureId()
                             + " rotated from " + issuedAngle + " to " + normalized));
                 }
-            } else if (rotationMode == TextureAtlasRotationMode.NONE) {
+            } else if (effectiveMode == TextureAtlasRotationMode.NONE) {
                 if (Math.abs(normalizeAngle(normalized - issuedAngle)) > TOLERANCE) {
                     violations.add(new Violation("rotation-mode",
                         "rotation NONE but " + placement.textureId() + " rotated to "
                             + normalized));
                 }
-            } else if (rotationMode == TextureAtlasRotationMode.QUARTER) {
+            } else if (effectiveMode == TextureAtlasRotationMode.QUARTER) {
                 if (Math.abs(normalized % 90) > TOLERANCE
                     && Math.abs(normalized % 90 - 90) > TOLERANCE) {
                     violations.add(new Violation("rotation-mode",
@@ -195,6 +214,14 @@ final class TextureAtlasPolygonPlanValidator {
             }
         }
         return violations;
+    }
+
+    private static TextureAtlasRotationMode parseRotationMode(final String value) {
+        try {
+            return TextureAtlasRotationMode.valueOf(value);
+        } catch (IllegalArgumentException failure) {
+            return null;
+        }
     }
 
     private static boolean lockedAngle(final TextureAtlasPolygonItem item) {

@@ -304,11 +304,15 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                     1.0, List.copyOf(current), List.of(),
                     dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.HOST_NATIVE,
                     diagnostics);
+            // The polygon write-back composes full T·R·S item affines, so once the
+            // host dialog grants rotation the issued bound is the write capability:
+            // FREE. Callers plan under their own requested mode (stamped on the
+            // plan's rotationMode diagnostic) and per-item locks still apply.
             return new PolygonSessionState(
                 new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints(
                     width, height, margin,
                     allowRotation
-                        ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.QUARTER
+                        ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.FREE
                         : dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.NONE,
                     requestedScale > 0 ? requestedScale : 0,
                     dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.AUTO,
