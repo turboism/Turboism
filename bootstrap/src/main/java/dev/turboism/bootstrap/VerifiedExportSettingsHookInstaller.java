@@ -14,14 +14,16 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Thin, reversible installer for the exact 5.3.02 Export Settings transformer.
+ * Thin, reversible installer for the exact Export Settings transformer.
  *
  * <p>This class consumes an already verified resolver or exact selector tuple. It does
  * not create a verification record, infer host readiness from static selectors, or wire
  * itself into global startup scheduling.</p>
  */
 final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
-    static final String SUPPORTED_CUBISM_VERSION = ExportSettingsHostProfile.CUBISM_5_3_02.hostVersion();
+    /** Exact Cubism releases whose reviewed artifacts carry an export-settings profile. */
+    static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS =
+        java.util.Set.copyOf(ExportSettingsHostProfile.supportedHostVersions());
     static final String DIALOG_OWNER_ALIAS = ExportSettingsHostProfile.DIALOG_OWNER_ALIAS;
     static final String DIALOG_CONSTRUCTOR_ALIAS = ExportSettingsHostProfile.DIALOG_CONSTRUCTOR_ALIAS;
     static final String DIALOG_SHOW_ALIAS = ExportSettingsHostProfile.DIALOG_SHOW_ALIAS;
@@ -32,7 +34,7 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
     static final String WINDOW_JDIALOG_ALIAS = ExportSettingsHostProfile.WINDOW_JDIALOG_ALIAS;
 
     static boolean supportsExactCubismVersion(final String version) {
-        return SUPPORTED_CUBISM_VERSION.equals(version);
+        return version != null && SUPPORTED_CUBISM_VERSIONS.contains(version);
     }
 
     private final Instrumentation instrumentation;
@@ -120,7 +122,7 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
         final ClassLoader requestedLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         if (!supportsExactCubismVersion(requested.cubismVersion())) {
             throw new IllegalArgumentException(
-                "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSION
+                "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS
             );
         }
         if (requested.hostClassLoader() != requestedLoader) {
@@ -164,7 +166,7 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
         final ExportSettingsHostProfile requested = Objects.requireNonNull(profile, "profile");
         if (!supportsExactCubismVersion(requested.hostVersion())) {
             throw new IllegalArgumentException(
-                "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSION
+                "export settings hook requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS
             );
         }
         return new VerifiedExportSettingsHookInstaller(

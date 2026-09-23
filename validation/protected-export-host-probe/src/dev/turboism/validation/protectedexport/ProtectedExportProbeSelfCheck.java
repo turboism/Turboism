@@ -24,6 +24,7 @@ public final class ProtectedExportProbeSelfCheck {
     public static void main(final String[] args) {
         exactClassIsolatesTheInjectedCheckBox();
         actionClassIdentifiesTheRightButton();
+        actionClassesDispatchOnExactHostVersion();
         traversalTerminatesOnCyclesAndDepth();
         System.out.println("[self-check] protected-export probe rules OK");
     }
@@ -87,6 +88,37 @@ public final class ProtectedExportProbeSelfCheck {
             ) == null,
             "production cancel class name matched a synthetic button"
         );
+    }
+
+    /**
+     * The 5.2.03 window wires confirm/cancel through the {@code C}/{@code B} actions while
+     * every reviewed 5.3.x build uses {@code A}/{@code z}. Dispatch must be exact-version —
+     * an unknown or missing version property resolves to the 5.3.x classes, never to a
+     * heuristic mix.
+     */
+    private static void actionClassesDispatchOnExactHostVersion() {
+        require(
+            "com.live2d.ui.window.C".equals(
+                ProtectedExportHostProbeAgent.confirmAction("5203")),
+            "5.2.03 confirm action must be window.C"
+        );
+        require(
+            "com.live2d.ui.window.B".equals(
+                ProtectedExportHostProbeAgent.cancelAction("5203")),
+            "5.2.03 cancel action must be window.B"
+        );
+        for (final String version : new String[] {"5302", "5303", "", "9999"}) {
+            require(
+                "com.live2d.ui.window.A".equals(
+                    ProtectedExportHostProbeAgent.confirmAction(version)),
+                "confirm action for " + version + " must be window.A"
+            );
+            require(
+                "com.live2d.ui.window.z".equals(
+                    ProtectedExportHostProbeAgent.cancelAction(version)),
+                "cancel action for " + version + " must be window.z"
+            );
+        }
     }
 
     /** Traversal must terminate on a genuine cycle and refuse to recurse without bound. */

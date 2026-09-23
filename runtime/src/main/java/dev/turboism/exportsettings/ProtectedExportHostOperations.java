@@ -8,7 +8,8 @@ import java.util.function.BiConsumer;
  * Semantic seam between the protected-export orchestrator and verified host members.
  *
  * <p>All host objects are opaque {@code Object} handles; the production implementation is
- * {@link VerifiedProtectedExportHostOperations}, backed by the exact 5.3.02 record slice.
+ * {@link VerifiedProtectedExportHostOperations}, backed by the exact record slice of the
+ * admitted reviewed build (5.2.03, 5.3.02 or 5.3.03).
  * Tests substitute fakes to drive the fault-injection matrix without a host.</p>
  */
 public interface ProtectedExportHostOperations {

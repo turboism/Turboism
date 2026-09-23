@@ -12,7 +12,7 @@ import java.util.Objects;
  * value and no selection state. The host export flow reports selection at decision
  * time through the {@link ExportSettingsDecisionCallback}.</p>
  */
-@CubismEditor({"5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record ExportSettingsContribution(
     String optionId,
     String labelKey,

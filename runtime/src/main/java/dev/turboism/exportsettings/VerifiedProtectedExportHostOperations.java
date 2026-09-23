@@ -17,7 +17,8 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 /**
- * {@link ProtectedExportHostOperations} backed solely by the pinned 5.3.02 record slice.
+ * {@link ProtectedExportHostOperations} backed solely by the pinned record slice of the
+ * admitted exact Cubism build (5.2.03, 5.3.02 or 5.3.03).
  *
  * <p>Every call resolves through {@link VerifiedMemberResolver}, which re-attests the host
  * classloader and member shape on each access — a stale or tampered host fails closed
@@ -252,10 +253,32 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     /** Aliases independently required by this implementation, not copied from its trust manifest. */
     public static final Set<String> REQUIRED_ALIASES = requiredAliases();
 
+    /**
+     * {@code contain*} gates that only exist on Cubism 5.3.x {@code CModelSource}. The
+     * reviewed 5.2.03 record omits them because the gated features did not exist in that
+     * release; they remain mandatory on every 5.3.x admission.
+     */
+    private static final Set<String> CUBISM_5_3_ONLY_GATE_ALIASES = Set.of(
+        MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ALIAS, MS_CONTAIN_OFFSCREEN
+    );
+
+    private static final Set<String> CUBISM_5_2_METHOD_ALIASES_USED =
+        without(METHOD_ALIASES_USED, CUBISM_5_3_ONLY_GATE_ALIASES);
+
+    /** Exact alias roster this implementation requires on the reviewed 5.2.03 build. */
+    public static final Set<String> CUBISM_5_2_REQUIRED_ALIASES =
+        without(REQUIRED_ALIASES, CUBISM_5_3_ONLY_GATE_ALIASES);
+
     private static Set<String> requiredAliases() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(METHOD_ALIASES_USED);
         aliases.addAll(CLASS_ALIASES_REQUIRED);
         return Set.copyOf(aliases);
+    }
+
+    private static Set<String> without(final Set<String> aliases, final Set<String> excluded) {
+        final java.util.HashSet<String> remaining = new java.util.HashSet<>(aliases);
+        remaining.removeAll(excluded);
+        return Set.copyOf(remaining);
     }
 
     /** Exact non-class aliases invoked by this implementation. */
@@ -263,19 +286,65 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         return METHOD_ALIASES_USED;
     }
 
+    /** Exact non-class aliases invoked by this implementation on the reviewed 5.2.03 build. */
+    public static Set<String> cubism52MethodAliasesUsed() {
+        return CUBISM_5_2_METHOD_ALIASES_USED;
+    }
+
     /** Exact class aliases used for runtime type validation by this implementation. */
     public static Set<String> classAliasesUsed() {
         return CLASS_ALIASES_REQUIRED;
     }
 
+    /**
+     * The model source's own {@code contain*} gates — the host's semantic answer
+     * to feature content the object census cannot see. Each predicate maps to a
+     * stable family token; any {@code true} is a hard admission rejection.
+     */
+    private static final Map<String, String> FEATURE_GATES = featureGates();
+
+    private static final Map<String, String> CUBISM_5_2_FEATURE_GATES =
+        withoutGates(FEATURE_GATES, CUBISM_5_3_ONLY_GATE_ALIASES);
+
+    private static Map<String, String> featureGates() {
+        final Map<String, String> gates = new LinkedHashMap<>();
+        gates.put(MS_CONTAIN_MULTIPLY, "multiply-color");
+        gates.put(MS_CONTAIN_SCREEN, "screen-color");
+        gates.put(MS_CONTAIN_MORPH, "morph-target");
+        gates.put(MS_CONTAIN_MORPH_ENH, "morph-target-enhancement");
+        gates.put(MS_CONTAIN_ADVANCED_BLEND, "advanced-blend");
+        gates.put(MS_CONTAIN_ART_PATH, "art-path");
+        gates.put(MS_CONTAIN_ALIAS, "alias");
+        gates.put(MS_CONTAIN_INVERT_CLIP, "invert-clipping");
+        gates.put(MS_CONTAIN_QUAD, "quad-transform");
+        gates.put(MS_CONTAIN_OFFSCREEN, "offscreen-rendering");
+        gates.put(MS_CONTAIN_MOTION_SYNC, "motion-sync");
+        gates.put(MS_CONTAIN_MOTION_SYNC_FIX, "motion-sync-correction");
+        return java.util.Collections.unmodifiableMap(gates);
+    }
+
+    private static Map<String, String> withoutGates(
+        final Map<String, String> gates,
+        final Set<String> excluded
+    ) {
+        final Map<String, String> remaining = new LinkedHashMap<>(gates);
+        excluded.forEach(remaining::remove);
+        return java.util.Collections.unmodifiableMap(remaining);
+    }
+
     private final VerifiedMemberResolver resolver;
+    private final Map<String, String> admittedFeatureGates;
 
     public VerifiedProtectedExportHostOperations(final VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
+        final boolean cubism52 = resolver.isExactCubismVersion(
+            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03
+        );
+        this.admittedFeatureGates = cubism52 ? CUBISM_5_2_FEATURE_GATES : FEATURE_GATES;
         if (!resolver.authorizes(
             ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
             ProtectedExportVerificationManifest.CAPABILITY_IDS,
-            REQUIRED_ALIASES
+            cubism52 ? CUBISM_5_2_REQUIRED_ALIASES : REQUIRED_ALIASES
         )) {
             throw new IllegalArgumentException(
                 "verified access plan does not authorize the protected-export slice"
@@ -924,30 +993,19 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     /**
-     * The model source's own {@code contain*} gates — the host's semantic answer
-     * to feature content the object census cannot see. Each predicate maps to a
-     * stable family token; any {@code true} is a hard admission rejection.
+     * The admitted model source's own {@code contain*} gates — the host's semantic answer
+     * to feature content the object census cannot see. Each predicate maps to a stable
+     * family token; any {@code true} is a hard admission rejection. The gate roster is the
+     * exact one the admitted record verified: on 5.2.03 the three 5.3-only predicates are
+     * absent because the gated features cannot exist in a 5.2 document.
      */
     @Override
     public List<String> unsupportedModelFeatures(final Object modelSource) {
         if (modelSource == null) {
             return List.of();
         }
-        final Map<String, String> gates = new LinkedHashMap<>();
-        gates.put(MS_CONTAIN_MULTIPLY, "multiply-color");
-        gates.put(MS_CONTAIN_SCREEN, "screen-color");
-        gates.put(MS_CONTAIN_MORPH, "morph-target");
-        gates.put(MS_CONTAIN_MORPH_ENH, "morph-target-enhancement");
-        gates.put(MS_CONTAIN_ADVANCED_BLEND, "advanced-blend");
-        gates.put(MS_CONTAIN_ART_PATH, "art-path");
-        gates.put(MS_CONTAIN_ALIAS, "alias");
-        gates.put(MS_CONTAIN_INVERT_CLIP, "invert-clipping");
-        gates.put(MS_CONTAIN_QUAD, "quad-transform");
-        gates.put(MS_CONTAIN_OFFSCREEN, "offscreen-rendering");
-        gates.put(MS_CONTAIN_MOTION_SYNC, "motion-sync");
-        gates.put(MS_CONTAIN_MOTION_SYNC_FIX, "motion-sync-correction");
         final List<String> detected = new ArrayList<>();
-        for (Map.Entry<String, String> gate : gates.entrySet()) {
+        for (Map.Entry<String, String> gate : admittedFeatureGates.entrySet()) {
             if (Boolean.TRUE.equals(resolver.invoke(gate.getKey(), modelSource))) {
                 detected.add(gate.getValue());
             }

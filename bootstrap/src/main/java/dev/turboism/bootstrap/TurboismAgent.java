@@ -319,8 +319,8 @@ public final class TurboismAgent {
                     options.home(), "cubism-" + profile + "-ui-control-appearance.json"
                 )
                 : null;
-            // The protected-export slice is pinned for 5.3.02 only; the same gate that
-            // admits the export-settings hook also selects its orchestration record.
+            // The protected-export slice is pinned for the same exact reviewed builds as the
+            // export-settings hook; the same gate also selects its orchestration record.
             final Optional<Path> protectedExportVerificationRecord =
                 exportSettingsRuntimeAdmitted(profile, fullRuntimeAdmission)
                     ? Optional.of(extractVerificationRecord(
@@ -947,15 +947,16 @@ public final class TurboismAgent {
      * release requirement.
      *
      * <p>The shared gate admits every reviewed build, but the export-settings selectors are only
-     * pinned for 5.3.02. Narrowing here keeps the gate and the capability in agreement, so an
-     * admitted-but-unsupported build never even attempts installation.</p>
+     * pinned for the exact reviewed 5.2.03, 5.3.02 and 5.3.03 builds. Narrowing here keeps the
+     * gate and the capability in agreement, so an admitted-but-unsupported build never even
+     * attempts installation.</p>
      */
     static boolean exportSettingsRuntimeAdmitted(
         final String profile,
         final boolean fullRuntimeAdmission
     ) {
         return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission)
-            && ExportSettingsHostProfile.CUBISM_5_3_02.hostVersion().equals(profile);
+            && ExportSettingsHostProfile.supportedHostVersions().contains(profile);
     }
 
     static boolean textureAtlasRuntimeAdmitted(
