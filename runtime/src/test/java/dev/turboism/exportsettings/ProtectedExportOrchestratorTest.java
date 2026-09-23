@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -708,16 +709,49 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
-    void rejectsDirtyOriginalAtPreflight() throws Exception {
+    void publishesDirtyOriginalFromLiveState() throws Exception {
         final Fixture fixture = new Fixture();
-        // A file copy cannot represent unsaved in-memory edits.
+        // Unsaved in-memory edit: the disk file predates it, so a file copy
+        // would silently drop it. Protected export must stage the live model
+        // instead — same content basis as native export.
         fixture.host.original.modified = true;
+        fixture.host.original.model.parameters.set(0,
+            new FakeParameter("param-1", 0f, 2f, 0f, false));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertTrue(report.published(), "dirty original must publish: "
+            + report.failureKey() + " " + report.failureDetail());
+        assertEquals(1, fixture.host.serializeCalls.get());
+        assertSame(fixture.host.original.model, fixture.host.serializedFrom,
+            "the staged copy must serialize the live model source");
+        assertEquals(2f, fixture.host.exportedModel.parameters.get(0).max,
+            "the unsaved edit must reach the exported model");
+        assertTrue(fixture.host.original.modified,
+            "the original's unsaved state must survive the export");
+        assertSame(fixture.host.original, fixture.host.activeDoc);
+        assertFalse(fixture.host.project.contains(fixture.host.copy),
+            "the disposable copy must be retired");
+        assertEquals("fixture-cmo3",
+            Files.readString(fixture.host.original.file.toPath()),
+            "the original file's bytes must stay untouched");
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenSerializationFails() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.serializeFails = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.BIND_FAILED_KEY, report.failureKey());
         assertFalse(report.published());
+        assertNull(fixture.host.copy);
+        assertEquals("fixture-cmo3",
+            Files.readString(fixture.host.original.file.toPath()));
         orchestrator.close();
     }
 
@@ -1476,6 +1510,7 @@ class ProtectedExportOrchestratorTest {
 
         // fault knobs
         volatile boolean bindCopyDoc = true;
+        volatile boolean serializeFails;
         volatile long bindDelayMillis;
         volatile boolean bindingDiesOnBind;
         volatile boolean generationBumpsOnBind;
@@ -1518,6 +1553,10 @@ class ProtectedExportOrchestratorTest {
         volatile boolean removeOriginalOnNativeExport;
         volatile boolean removeCopyOnNativeExport;
         final AtomicInteger applyCalls = new AtomicInteger();
+        final AtomicInteger serializeCalls = new AtomicInteger();
+        /** The live model source the last serialization captured — staging proof. */
+        volatile Object serializedFrom;
+        volatile String serializedPayload;
         private int copyCensusCalls;
         private int artMeshCensusCalls;
 
@@ -1837,6 +1876,35 @@ class ProtectedExportOrchestratorTest {
             }
             doc.modified = true;
             doc.selector.selected.clear();
+        }
+
+        @Override
+        public boolean serializeModelSource(final Object modelSource, final File target) {
+            serializeCalls.incrementAndGet();
+            serializedFrom = modelSource;
+            if (serializeFails) {
+                return false;
+            }
+            // The fake's "serializer": the file content is derived from the live
+            // model state — mesh names and parameter ranges — so a staged file
+            // provably reflects in-memory edits, not the disk bytes.
+            try {
+                final FakeModel model = (FakeModel) modelSource;
+                final StringBuilder payload = new StringBuilder("serialized:");
+                for (FakeArtMesh mesh : model.artMeshes) {
+                    payload.append(mesh.guid).append('=').append(mesh.name).append(';');
+                }
+                for (FakeParameter parameter : model.parameters) {
+                    payload.append(parameter.id).append('=')
+                        .append(parameter.min).append('-').append(parameter.max)
+                        .append(';');
+                }
+                serializedPayload = payload.toString();
+                Files.writeString(target.toPath(), serializedPayload);
+                return true;
+            } catch (IOException failure) {
+                return false;
+            }
         }
 
         @Override

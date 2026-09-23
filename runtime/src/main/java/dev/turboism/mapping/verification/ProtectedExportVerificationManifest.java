@@ -12,11 +12,11 @@ import java.util.Set;
  * used to retire the dirty copy. Only the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts
  * admit it.</p>
  *
- * <p>The reviewed 5.2.03 record declares 134 selectors rather than 137: Cubism 5.2.03's
+ * <p>The reviewed 5.2.03 record declares 135 selectors rather than 138: Cubism 5.2.03's
  * {@code CModelSource} predates the advanced-blend, alias and offscreen-rendering feature
  * predicates, so the three {@code contain*} gates for features the host cannot express are
  * absent from the record and from {@link #cubism52Aliases()}. They are not optional on 5.3.x —
- * the 5.3 records still pin all 137 selectors.</p>
+ * the 5.3 records still pin all 138 selectors.</p>
  */
 public final class ProtectedExportVerificationManifest {
 
@@ -38,7 +38,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.protected-export.static",
-        "acd8d661ea858568a87365c739e7f3da8d1b5bb15d90e161bbd92cd64f6d2aed",
+        "b608bedf7d54e85dcddfd9791a525f18f819f9e9062a84645f715425eda3eb43",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -47,7 +47,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.protected-export.static",
-        "753120bffa37a5479c77d0faa0d76b5a02ee265b957952b5a69371cbf2fb1f30",
+        "af4637b318d84ea77cffd5769a95c952bfb2afc74f2e5785c564f5995dd0a147",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -56,7 +56,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.protected-export.static",
-        "7f61fddf1ceacb0f26fe5556950d433fb0cc3d1b053b3efc6c9f536089444f54",
+        "c4c64a6163bb715350c83eb02b5bb14e8a3b560acf8239bd9c94481e11b01ff5",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -165,6 +165,7 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.model-source.document",
         "cubism.protected-export.model-source.guid",
         "cubism.protected-export.model-source.root-part",
+        "cubism.protected-export.model-source.save-model",
         "cubism.protected-export.model.class",
         "cubism.protected-export.model.all-art-meshes",
         "cubism.protected-export.model.parameter-set",

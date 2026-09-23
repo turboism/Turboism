@@ -190,6 +190,9 @@ public final class ProtectedExportHostProbeAgent {
             if (phases.contains("export")) {
                 phaseExport(controller, appCtrl, stateDir, evidence);
             }
+            if (phases.contains("dirty-export")) {
+                phaseExportDirty(controller, appCtrl, stateDir, evidence);
+            }
             if (phases.contains("export-native")) {
                 phaseExportNative(controller, appCtrl, stateDir, evidence);
             }
@@ -429,7 +432,33 @@ public final class ProtectedExportHostProbeAgent {
         final Path stateDir,
         final Evidence evidence
     ) {
-        final String prefix = "exp.";
+        phaseExportRun(controller, appCtrl, stateDir, evidence, "exp.", false);
+    }
+
+    /**
+     * Dirty-document variant: one unsaved in-memory edit is applied to the
+     * fixture before the export is armed, so the run proves protected export
+     * publishes from the live document state — same content basis as the
+     * native exporter — while the on-disk original stays byte-identical and
+     * the unsaved edit survives the copy round-trip.
+     */
+    private static void phaseExportDirty(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        phaseExportRun(controller, appCtrl, stateDir, evidence, "dexp.", true);
+    }
+
+    private static void phaseExportRun(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence,
+        final String prefix,
+        final boolean dirty
+    ) {
         try {
             final Object original = readNoArg(controller, "getCurrentDoc");
             if (original == null || !isA(original.getClass(), MODELING_DOCUMENT)) {
@@ -443,16 +472,25 @@ public final class ProtectedExportHostProbeAgent {
                 evidence.fail("EXP_ORIGINAL_FILE_MISSING");
                 return;
             }
-            final Object modifiedCheck = readNoArg(content, "isModifiedAfterSaving");
-            if (Boolean.TRUE.equals(modifiedCheck)) {
-                // A dirty original is correctly rejected by preflight; probing it
-                // would only prove the rejection path, not the publish path.
-                evidence.fail("EXP_ORIGINAL_DIRTY");
-                return;
-            }
             // Inject first so the snapshot baseline already carries whatever the
             // in-memory atlas scaffolding changes (undo position included).
             ensureTextureAtlas(controller, evidence);
+            if (dirty) {
+                applyUnsavedEdit(original, evidence, prefix);
+                if (evidence.error != null) {
+                    return;
+                }
+            } else {
+                final Object modifiedCheck =
+                    readNoArg(content, "isModifiedAfterSaving");
+                if (Boolean.TRUE.equals(modifiedCheck)) {
+                    // The clean-fixture variant must start clean; a dirty
+                    // baseline here means fixture setup, not the export path,
+                    // drifted — the dirty-export variant covers that case.
+                    evidence.fail("EXP_ORIGINAL_DIRTY");
+                    return;
+                }
+            }
             final DocumentState before =
                 snapshotDocument(original, evidence, prefix + "orig");
             evidence.put(prefix + "origFile", originalFile.getAbsolutePath());
@@ -474,14 +512,15 @@ public final class ProtectedExportHostProbeAgent {
             if (!triggerExport(controller, appCtrl, evidence)) {
                 return;
             }
+            final String phaseTag = prefix.replace(".", "");
             final JDialog outer = awaitExportSettingsDialog(
-                alreadyVisible, stateDir, evidence, "expOuter"
+                alreadyVisible, stateDir, evidence, phaseTag + "Outer"
             );
             if (outer == null) {
                 evidence.fail("EXP_OUTER_DIALOG_NOT_OBSERVED");
                 return;
             }
-            inspectSettingsDialog(outer, stateDir, evidence, "expOuter");
+            inspectSettingsDialog(outer, stateDir, evidence, phaseTag + "Outer");
             final List<JCheckBox> injected = injectedCheckBoxes(outer);
             evidence.put(
                 prefix + "outerInjectedCheckBoxCount", Integer.toString(injected.size()));
@@ -519,7 +558,7 @@ public final class ProtectedExportHostProbeAgent {
             if (inner == null) {
                 return; // inner wait recorded its own failure evidence
             }
-            inspectSettingsDialog(inner, stateDir, evidence, "expInner");
+            inspectSettingsDialog(inner, stateDir, evidence, phaseTag + "Inner");
             final int innerInjected = injectedCheckBoxes(inner).size();
             evidence.put(prefix + "innerInjectedCheckBoxCount",
                 Integer.toString(innerInjected));
@@ -579,6 +618,15 @@ public final class ProtectedExportHostProbeAgent {
                 evidence.put(prefix + "selectionPreserved",
                     Boolean.toString(after.selectionSignature
                         .equals(before.selectionSignature)));
+                if (dirty) {
+                    // The unsaved edit must still be present on the live
+                    // original — proving the export neither saved nor reloaded
+                    // the document it started from.
+                    evidence.put(prefix + "unsavedEditPreserved",
+                        Boolean.toString(unsavedEditValue(restored)
+                            .equals(evidence.values.get(
+                                prefix + "editedParamMax"))));
+                }
             }
             evidence.put(prefix + "fileSha256Preserved",
                 Boolean.toString(sha256(originalFile)
@@ -587,6 +635,78 @@ public final class ProtectedExportHostProbeAgent {
         } catch (Throwable failure) {
             evidence.fail("EXP_PHASE_FAILURE:" + failure.getClass().getName()
                 + ":" + text(failure));
+        }
+    }
+
+    /**
+     * Applies one unsaved in-memory edit to the live document: bump the first
+     * parameter's max value, then mark the document modified without saving.
+     * The disk file keeps its pre-edit bytes, so the value surviving the export
+     * proves the staged copy was serialized from memory, not copied from disk.
+     * Must run on the EDT; failures land as evidence, not exceptions.
+     */
+    private static void applyUnsavedEdit(
+        final Object document,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        try {
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object source = readNoArg(document, "getModelSource");
+                final Object parameters = source == null
+                    ? null : readNoArg(source, "getAllParameters");
+                if (!(parameters instanceof List<?> list) || list.isEmpty()) {
+                    evidence.fail("DIRTY_NO_PARAMETER_SOURCE");
+                    return null;
+                }
+                final Object parameter = list.get(0);
+                final Object max = readNoArg(parameter, "getMaxValue");
+                if (!(max instanceof Number)) {
+                    evidence.fail("DIRTY_PARAM_MAX_UNREADABLE");
+                    return null;
+                }
+                final float bumped =
+                    ((Number) max).floatValue() + 1.0f;
+                invoke(parameter, "setMaxValue",
+                    new Class<?>[] {float.class}, bumped);
+                invoke(document, "updateLastModifiedTime",
+                    new Class<?>[0]);
+                evidence.put(prefix + "editedParamMax", Float.toString(bumped));
+                return null;
+            });
+            if (evidence.error != null) {
+                return;
+            }
+            final Object content = readNoArg(document, "getFileContent");
+            final Object modified = content == null
+                ? null : readNoArg(content, "isModifiedAfterSaving");
+            evidence.put(prefix + "dirtyArmed", String.valueOf(modified));
+            if (!Boolean.TRUE.equals(modified)) {
+                evidence.fail("DIRTY_MARKING_FAILED");
+            }
+        } catch (Throwable failure) {
+            evidence.fail("DIRTY_EDIT_FAILURE:" + text(failure));
+        }
+    }
+
+    /** Reads the bumped parameter max back off a live document. */
+    private static String unsavedEditValue(final Object document) {
+        try {
+            final String[] value = {""};
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object source = readNoArg(document, "getModelSource");
+                final Object parameters = source == null
+                    ? null : readNoArg(source, "getAllParameters");
+                if (!(parameters instanceof List<?> list) || list.isEmpty()) {
+                    return null;
+                }
+                final Object max = readNoArg(list.get(0), "getMaxValue");
+                value[0] = max == null ? "" : String.valueOf(max);
+                return null;
+            });
+            return value[0];
+        } catch (Throwable failure) {
+            return "unavailable:" + text(failure);
         }
     }
 
@@ -629,7 +749,8 @@ public final class ProtectedExportHostProbeAgent {
                 final String signature = describe(window);
                 observed.add(signature);
                 dumpTree(stateDir.resolve(
-                        "dialog-tree-expInner-observed-" + observed.size() + ".txt"),
+                        "dialog-tree-" + prefix.replace(".", "")
+                            + "Inner-observed-" + observed.size() + ".txt"),
                     window);
                 // Title match alone identifies the settings window; requiring
                 // native checkboxes here could dismiss the inner dialog if its
@@ -981,7 +1102,7 @@ public final class ProtectedExportHostProbeAgent {
         final Path moc3 = approved.getName().endsWith(".moc3")
             ? approvedPath
             : approvedPath.getParent().resolve(approved.getName() + ".moc3");
-        evidence.put("exp.approvedPick", approvedPath.toString());
+        evidence.put(prefix + "approvedPick", approvedPath.toString());
         // The export can raise trailing prompts after the chooser (completion
         // notices, overwrite or error dialogs); each parks al.a on the EDT
         // until dismissed, so keep driving them while waiting for the moc3.
@@ -4067,8 +4188,12 @@ public final class ProtectedExportHostProbeAgent {
         watchdog.setDaemon(true);
         watchdog.start();
         // Dialogs raised during the quit sequence (for example an unsaved-changes
-        // prompt) are recorded, not answered — dismissing them could veto the quit
-        // and answering a save prompt would mutate state the probe must not touch.
+        // prompt) are recorded; an unsaved-changes prompt is additionally answered
+        // with the negative — "don't save" — because the dirty-export variant
+        // deliberately leaves the document modified and only a negative answer
+        // lets the host quit without writing the fixture copy. Any affirmative
+        // answer is never produced: saving would mutate state the probe must not
+        // touch.
         final Thread observer = new Thread(() -> observeExitDialogs(stateDir, evidence),
             "protected-export-exit-observer");
         observer.setDaemon(true);
@@ -4099,11 +4224,61 @@ public final class ProtectedExportHostProbeAgent {
                 sequence.add(describe(window));
                 dumpTree(stateDir.resolve(
                     "exit-dialog-" + sequence.size() + ".txt"), window);
+                final AbstractButton discard = discardButton((java.awt.Dialog) window);
+                if (discard != null) {
+                    evidence.put("exit.savePromptAnswered",
+                        "no:" + describe(window));
+                    try {
+                        onEdt(() -> {
+                            discard.doClick(0);
+                            return null;
+                        });
+                    } catch (Throwable failure) {
+                        evidence.put("exit.savePromptAnswerError", text(failure));
+                    }
+                }
             }
             sleep(POLL_MILLIS);
         }
         evidence.put("exit.dialogCount", Integer.toString(sequence.size()));
         evidence.put("exit.dialogSequence", String.join(" -> ", sequence));
+    }
+
+    /**
+     * The "don't save" button of an unsaved-changes prompt, or {@code null} when
+     * the dialog is anything else. The prompt is recognised by a label asking
+     * whether to save ({@code 保存}/{@code save}) together with the three-way
+     * Yes/No/Cancel button set; the returned button is the negative answer —
+     * never the affirmative, which would write the fixture copy.
+     */
+    private static AbstractButton discardButton(final java.awt.Dialog dialog) {
+        boolean asksSave = false;
+        boolean hasYes = false;
+        boolean hasCancel = false;
+        AbstractButton no = null;
+        for (java.awt.Component component : allComponents(dialog)) {
+            if (component instanceof javax.swing.JLabel label) {
+                final String text = label.getText();
+                if (text != null && (text.contains("保存")
+                    || text.toLowerCase(java.util.Locale.ROOT).contains("save"))) {
+                    asksSave = true;
+                }
+            } else if (component instanceof AbstractButton button) {
+                final String text = button.getText();
+                if (text == null) {
+                    continue;
+                }
+                final String lower = text.toLowerCase(java.util.Locale.ROOT);
+                if (lower.startsWith("yes") || text.startsWith("是")) {
+                    hasYes = true;
+                } else if (lower.startsWith("no") || text.startsWith("否")) {
+                    no = button;
+                } else if (lower.startsWith("cancel") || text.startsWith("取消")) {
+                    hasCancel = true;
+                }
+            }
+        }
+        return asksSave && hasYes && hasCancel ? no : null;
     }
 
     /**
@@ -4275,6 +4450,53 @@ public final class ProtectedExportHostProbeAgent {
                 unmet.add("original selection changed across the export");
             }
             if (intOf(evidence, "exp.stagingResidue") != 0) {
+                unmet.add("task-owned staging residue remains");
+            }
+        }
+        if (phases.test("dirty-export")) {
+            if (!"true".equals(evidence.values.get("dexp.dirtyArmed"))) {
+                unmet.add("fixture was not dirty when the export was armed");
+            }
+            if (intOf(evidence, "dexp.outerInjectedCheckBoxCount") < 1) {
+                unmet.add("contributed option missing from the outer dialog");
+            }
+            if (!"true".equals(evidence.values.get("dexpOuterMountedInsideOptions"))) {
+                unmet.add("outer contribution is not inside the native options container");
+            }
+            if (!"true".equals(evidence.values.get("dexp.outerConfirmed"))) {
+                unmet.add("outer confirmation was not driven");
+            }
+            if (!"true".equals(evidence.values.get("dexp.innerObserved"))) {
+                unmet.add("re-driven inner export dialog never appeared");
+            }
+            if (!"true".equals(evidence.values.get("dexp.innerInjectedSuppressed"))) {
+                unmet.add("inner dialog still showed contributed options");
+            }
+            if (!"true".equals(evidence.values.get("dexp.innerConfirmed"))) {
+                unmet.add("inner confirmation was not driven");
+            }
+            if (!"true".equals(evidence.values.get("dexp.chooserDriven"))) {
+                unmet.add("native destination chooser was not driven");
+            }
+            if (!"true".equals(evidence.values.get("dexp.publishedMoc3"))) {
+                unmet.add("no published moc3 at the picked destination");
+            }
+            if (!"true".equals(evidence.values.get("dexp.publishedModelJson"))) {
+                unmet.add("no published model/display-info json at the picked destination");
+            }
+            if (!"true".equals(evidence.values.get("dexp.sameLiveDocument"))) {
+                unmet.add("original was not restored as the same live document");
+            }
+            if (!"true".equals(evidence.values.get("dexp.fileSha256Preserved"))) {
+                unmet.add("original file bytes changed across the export");
+            }
+            if (!"true".equals(evidence.values.get("dexp.modifiedPreserved"))) {
+                unmet.add("original dirty flag changed across the export");
+            }
+            if (!"true".equals(evidence.values.get("dexp.unsavedEditPreserved"))) {
+                unmet.add("the unsaved in-memory edit did not survive the export");
+            }
+            if (intOf(evidence, "dexp.stagingResidue") != 0) {
                 unmet.add("task-owned staging residue remains");
             }
         }
