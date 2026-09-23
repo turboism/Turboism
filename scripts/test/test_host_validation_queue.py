@@ -1324,6 +1324,124 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
                        ("queue-" + uuid.uuid4().hex, "f" * 64, job["job_id"]))
         with self.assertRaises(disposition.Rejected):
             self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET run_id=?,digest=? WHERE job_id=?",
+                       (job["run_id"], job["digest"], job["job_id"]))
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+
+    def test_identity_fields_use_exact_producer_types(self) -> None:
+        for field, value in (("pid", 999999999.75), ("pid", "999999999"),
+                             ("pid", True), ("startTicks", 1.75), ("startTicks", " 1"),
+                             ("uid", os.getuid() + 0.75), ("uid", str(os.getuid())),
+                             ("uid", True)):
+            job, _, _ = self.orphan()
+            supervisor = json.loads(job["identity_json"])
+            supervisor[field] = value
+            with self.store.transaction() as db:
+                db.execute("UPDATE jobs SET identity_json=? WHERE job_id=?",
+                           (queue.canonical_json(supervisor), job["job_id"]))
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], (field, value))
+            self.assertNotIn("approvalDigest", report)
+
+    def test_containment_text_start_ticks_remain_valid(self) -> None:
+        job, directory, _ = self.orphan()
+        path = directory / "containment.json"
+        containment = json.loads(path.read_text())
+        containment["entryIdentity"]["startTicks"] = str(containment["entryIdentity"]["startTicks"])
+        queue.atomic_json(path, containment)
+        self.assertTrue(self.inspect(job["job_id"])["canConfirm"])
+
+    def test_non_regular_lifecycle_member_is_rejected(self) -> None:
+        job, _, task = self.orphan()
+        for path in (task / "evidence/lifecycle-result.json",
+                     self.root / "jobs" / job["job_id"] / "evidence/lifecycle-result.json"):
+            original = path.read_bytes()
+            path.unlink()
+            path.mkdir()
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], path)
+            self.assertNotIn("approvalDigest", report)
+            path.rmdir()
+            path.write_bytes(original)
+            self.assertTrue(self.inspect(job["job_id"])["canConfirm"], path)
+
+    def test_replay_requires_exact_audit_key_set(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        event_id, payload = self.audit_payload(job["job_id"])
+        for missing in ("previousReason", "previousUpdatedAt", "fromState",
+                        "recordedAt", "operatorUid", "evidenceInventory"):
+            with self.subTest(missing=missing):
+                broken = {k: v for k, v in payload.items() if k != missing}
+                self.rewrite_audit(event_id, broken)
+                with self.assertRaises(disposition.Rejected):
+                    self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, {**payload, "extra": "injected"})
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, payload)
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+
+    def test_replay_rebinds_preserved_evidence_and_approved_facts(self) -> None:
+        job, directory, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        event_id, payload = self.audit_payload(job["job_id"])
+        self.rewrite_audit(event_id, {**payload, "evidenceInventory": {}})
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, payload)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET prepared_id=? WHERE job_id=?",
+                       ("e" * 64, job["job_id"]))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET prepared_id=? WHERE job_id=?",
+                       (job["prepared_id"], job["job_id"]))
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+        (directory / "evidence/final-hashes.properties").write_text("changed=1\n")
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+
+    def test_confirm_never_recreates_vanished_lock_or_database(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        target = self.root / "worker.lock"
+        real_open, raced = os.open, []
+        def race(path, flags, *args, **kwargs):
+            if isinstance(path, (str, Path)) and Path(path) == target and not raced:
+                raced.append(True)
+                target.unlink()
+            return real_open(path, flags, *args, **kwargs)
+        with mock.patch.object(os, "open", side_effect=race):
+            with self.assertRaises(OSError):
+                self.confirm(job["job_id"], approval)
+        self.assertTrue(raced)
+        self.assertFalse(target.exists())
+        self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+        fd = os.open(target, os.O_CREAT | os.O_RDWR, 0o600)
+        os.close(fd)
+        database = self.root / "queue.sqlite3"
+        real_connect, raced_db = disposition.sqlite3.connect, []
+        def race_connect(value, *args, **kwargs):
+            opened = str(value)
+            if opened.startswith("file:"):
+                from urllib.parse import unquote, urlsplit
+                opened = unquote(urlsplit(opened).path)
+            if opened == str(database) and not raced_db:
+                raced_db.append(True)
+                database.unlink()
+            return real_connect(value, *args, **kwargs)
+        with mock.patch.object(disposition.sqlite3, "connect", side_effect=race_connect):
+            with self.assertRaises(queue.QueueError):
+                self.confirm(job["job_id"], approval)
+        self.assertTrue(raced_db)
+        # The connect failure precedes BEGIN IMMEDIATE, so no commit can exist;
+        # the vanished database file must stay absent rather than be recreated.
+        self.assertFalse(database.exists())
 
     def test_execution_blockers_are_reported_without_approval(self) -> None:
         job, _, _ = self.orphan()
