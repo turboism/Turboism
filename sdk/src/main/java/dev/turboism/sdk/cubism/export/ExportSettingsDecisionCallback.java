@@ -10,7 +10,7 @@ import dev.turboism.sdk.cubism.id.ModelId;
  * selected. It receives the selected state plus the Turboism-owned document and model
  * identities of the export target. It never receives host objects, paths, or handles.</p>
  */
-@CubismEditor({"5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 @FunctionalInterface
 public interface ExportSettingsDecisionCallback {
 

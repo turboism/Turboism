@@ -98,8 +98,8 @@ public interface PluginContext {
         throw new UnsupportedOperationException("user file access service is not available");
     }
 
-    /** Returns the inert, plugin-scoped bridge for the native 5.3.02 export settings flow. */
-    @dev.turboism.sdk.CubismEditor({"5.3.02"})
+    /** Returns the inert, plugin-scoped bridge for the native export settings flow. */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default ExportSettingsContributionService exportSettings() {
         return ExportSettingsContributionService.unavailable();
     }

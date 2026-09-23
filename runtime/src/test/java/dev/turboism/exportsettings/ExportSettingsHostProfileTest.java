@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pins the reviewed 5.3.02 export-settings selector tuple.
+ * Pins the reviewed export-settings selector tuples for 5.2.03, 5.3.02 and 5.3.03.
  *
  * <p>These literals are the only thing standing between the transformer and an unreviewed host, so
  * they are asserted directly rather than derived. A deliberate host re-review must update this test
@@ -104,15 +104,97 @@ class ExportSettingsHostProfileTest {
     }
 
     @Test
-    void onlyTheExactReviewedArtifactResolvesAProfile() {
-        assertTrue(
-            ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02).isPresent()
+    void exact5203SelectorsMatchTheReviewedDialogShape() {
+        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.CUBISM_5_2_03;
+        assertEquals("5.2.03", profile.hostVersion());
+        assertEquals(DIALOG_OWNER, profile.dialogOwner().ownerInternalName());
+        // The 5.2.03 abstract window panel is X, not the 5.3.x V.
+        assertEquals(
+            "(Lcom/live2d/ui/window/X;Lcom/live2d/cubism/doc/model/exporter/"
+                + "CModelExportSettingDialogData;Lcom/live2d/cubism/doc/model/exporter/"
+                + "CModelExportSettingDialogData;)Z",
+            profile.dialogShow().descriptor()
+        );
+        assertEquals("L" + WINDOW_BASE + ";", profile.dialogWindowField().descriptor());
+        assertEquals(WINDOW_BASE, profile.windowClass().ownerInternalName());
+        assertEquals("()Ljavax/swing/JDialog;", profile.windowJDialog().descriptor());
+    }
+
+    @Test
+    void exact5303SelectorsMatchTheReviewedDialogShape() {
+        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.CUBISM_5_3_03;
+        assertEquals("5.3.03", profile.hostVersion());
+        assertEquals(
+            "(Lcom/live2d/ui/window/V;Lcom/live2d/cubism/doc/model/exporter/"
+                + "CModelExportSettingDialogData;Lcom/live2d/cubism/doc/model/exporter/"
+                + "CModelExportSettingDialogData;)Z",
+            profile.dialogShow().descriptor()
+        );
+        assertEquals("L" + WINDOW_BASE + ";", profile.dialogWindowField().descriptor());
+    }
+
+    @Test
+    void everyProfileMemberSelectorForbidsStaticBinding() {
+        for (ExportSettingsHostProfile profile : List.of(
+            ExportSettingsHostProfile.CUBISM_5_2_03,
+            ExportSettingsHostProfile.CUBISM_5_3_02,
+            ExportSettingsHostProfile.CUBISM_5_3_03
+        )) {
+            for (StaticSelector selector : profile.selectors()) {
+                if (selector.kind() == StaticSelector.Kind.CLASS) {
+                    assertEquals(0, selector.forbiddenAccessFlags(), selector.alias());
+                    continue;
+                }
+                assertNotEquals(
+                    0,
+                    selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC,
+                    "instance member must reject a static binding: " + selector.alias()
+                );
+            }
+        }
+    }
+
+    @Test
+    void eachProfileCarriesItsOwnReviewedMappingIdentities() {
+        final List<String> mappingIds = new java.util.ArrayList<>();
+        for (ExportSettingsHostProfile profile : List.of(
+            ExportSettingsHostProfile.CUBISM_5_2_03,
+            ExportSettingsHostProfile.CUBISM_5_3_02,
+            ExportSettingsHostProfile.CUBISM_5_3_03
+        )) {
+            profile.selectors().forEach(selector -> mappingIds.add(selector.mappingId()));
+        }
+        assertEquals(21, mappingIds.size());
+        assertEquals(21, mappingIds.stream().distinct().count());
+    }
+
+    @Test
+    void onlyTheExactReviewedArtifactsResolveAProfile() {
+        assertEquals(
+            "5.2.03",
+            ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03)
+                .orElseThrow().hostVersion()
+        );
+        assertEquals(
+            "5.3.02",
+            ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02)
+                .orElseThrow().hostVersion()
+        );
+        assertEquals(
+            "5.3.03",
+            ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03)
+                .orElseThrow().hostVersion()
         );
         assertTrue(
-            ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03).isEmpty()
+            ExportSettingsHostProfile.forArtifact(
+                new dev.turboism.mapping.verification.HostArtifactDigest(
+                    1L, "0".repeat(64)
+                )
+            ).isEmpty()
         );
-        assertTrue(
-            ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03).isEmpty()
+        assertEquals(
+            List.of("5.2.03", "5.3.02", "5.3.03"),
+            ExportSettingsHostProfile.supportedHostVersions()
         );
     }
 }

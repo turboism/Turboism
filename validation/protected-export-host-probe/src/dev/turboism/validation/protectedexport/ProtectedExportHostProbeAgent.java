@@ -68,13 +68,19 @@ public final class ProtectedExportHostProbeAgent {
     private static final String DIALOG_OWNER = "com.live2d.cubism.doc.model.exporter.e";
     private static final String STATE_PATH = "state/dev.turboism.validation.protectedexport";
     private static final String RESULT_NAME = "host-validation-result.properties";
-    // Action classes on the native window buttons, verified against the 5.3.02
-    // dialog tree dump: the "OK" button carries com.live2d.ui.window.A (its
-    // actionPerformed calls y.i() which sets the accept flag returned by y.f()),
-    // and the "Cancel" button carries com.live2d.ui.window.z (y.h(), the dismiss
-    // path). Matching by action class rather than label is locale-stable.
-    private static final String CONFIRM_ACTION = "com.live2d.ui.window.A";
-    private static final String CANCEL_ACTION = "com.live2d.ui.window.z";
+    // Action classes on the native window buttons, verified against the dialog
+    // tree dumps and button-action bytecode of every admitted build. On 5.3.x the
+    // "OK" button carries com.live2d.ui.window.A (actionPerformed calls y.i(),
+    // which sets the accept flag returned by y.f()) and "Cancel" carries
+    // com.live2d.ui.window.z (y.h(), the dismiss path). On 5.2.03 the window A/z
+    // classes are Kotlin Function1 lifecycle lambdas, not actions; the button
+    // actions are com.live2d.ui.window.C (y.k(), which sets the accept flag
+    // returned by y.f()) and com.live2d.ui.window.B (y.j(), the dismiss path).
+    // Matching by action class rather than label is locale-stable.
+    private static final String CONFIRM_ACTION_5_3 = "com.live2d.ui.window.A";
+    private static final String CANCEL_ACTION_5_3 = "com.live2d.ui.window.z";
+    private static final String CONFIRM_ACTION_5_2 = "com.live2d.ui.window.C";
+    private static final String CANCEL_ACTION_5_2 = "com.live2d.ui.window.B";
     /** Affirmative button labels across the host's localized warning dialogs. */
     private static final java.util.regex.Pattern AFFIRMATIVE_LABEL =
         java.util.regex.Pattern.compile(
@@ -267,7 +273,7 @@ public final class ProtectedExportHostProbeAgent {
         } catch (Throwable failure) {
             evidence.put("checkedSelectionFailure", text(failure));
         }
-        final AbstractButton confirm = findButton(settings, CONFIRM_ACTION);
+        final AbstractButton confirm = findButton(settings, confirmAction());
         if (confirm == null) {
             evidence.fail("CHECKED_CONFIRM_BUTTON_MISSING");
             dismiss(settings);
@@ -316,7 +322,7 @@ public final class ProtectedExportHostProbeAgent {
             evidence.fail("CANCEL_SETTINGS_DIALOG_NOT_OBSERVED");
             return;
         }
-        final AbstractButton cancel = findButton(settings, CANCEL_ACTION);
+        final AbstractButton cancel = findButton(settings, cancelAction());
         if (cancel == null) {
             evidence.put("cancelButtonDriven", "false");
             dismiss(settings);
@@ -474,7 +480,7 @@ public final class ProtectedExportHostProbeAgent {
             } catch (Throwable failure) {
                 evidence.put(prefix + "optionCheckFailure", text(failure));
             }
-            final AbstractButton outerConfirm = findButton(outer, CONFIRM_ACTION);
+            final AbstractButton outerConfirm = findButton(outer, confirmAction());
             if (outerConfirm == null) {
                 evidence.fail("EXP_OUTER_CONFIRM_MISSING");
                 dismiss(outer);
@@ -505,7 +511,7 @@ public final class ProtectedExportHostProbeAgent {
                 dismiss(inner);
                 return;
             }
-            final AbstractButton innerConfirm = findButton(inner, CONFIRM_ACTION);
+            final AbstractButton innerConfirm = findButton(inner, confirmAction());
             if (innerConfirm == null) {
                 evidence.fail("EXP_INNER_CONFIRM_MISSING");
                 dismiss(inner);
@@ -852,7 +858,7 @@ public final class ProtectedExportHostProbeAgent {
                 }
                 continue;
             }
-            final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
+            final AbstractButton confirm = findButton(dialog, confirmAction());
             final AbstractButton click =
                 confirm != null ? confirm : firstButton(dialog);
             if (click != null) {
@@ -1107,7 +1113,7 @@ public final class ProtectedExportHostProbeAgent {
                 return null;
             });
             evidence.put(prefix + "optionChecked", "true");
-            final AbstractButton outerConfirm = findButton(outer, CONFIRM_ACTION);
+            final AbstractButton outerConfirm = findButton(outer, confirmAction());
             if (outerConfirm == null) {
                 evidence.fail("REJ_OUTER_CONFIRM_MISSING");
                 dismiss(outer);
@@ -1745,7 +1751,7 @@ public final class ProtectedExportHostProbeAgent {
             inspectSettingsDialog(outer, stateDir, evidence, "natOuter");
             evidence.put(prefix + "injectedCheckBoxCount",
                 Integer.toString(injectedCheckBoxes(outer).size()));
-            final AbstractButton confirm = findButton(outer, CONFIRM_ACTION);
+            final AbstractButton confirm = findButton(outer, confirmAction());
             if (confirm == null) {
                 evidence.fail("NAT_CONFIRM_MISSING");
                 dismiss(outer);
@@ -1823,15 +1829,21 @@ public final class ProtectedExportHostProbeAgent {
                     .getMethod("getMaximumValues").invoke(parameters);
                 final float[] defaults = (float[]) parameters.getClass()
                     .getMethod("getDefaultValues").invoke(parameters);
-                final boolean[] repeats = (boolean[]) parameters.getClass()
-                    .getMethod("getParameterRepeats").invoke(parameters);
+                boolean[] repeats = null;
+                try {
+                    repeats = (boolean[]) parameters.getClass()
+                        .getMethod("getParameterRepeats").invoke(parameters);
+                } catch (NoSuchMethodException missing) {
+                    repeats = null;
+                }
                 lines.add("parameters.count=" + parameterIds.length);
                 for (int i = 0; i < parameterIds.length; i++) {
                     lines.add("param." + parameterIds[i] + ".keys="
                         + java.util.Arrays.toString(keyValues[i]));
                     lines.add("param." + parameterIds[i] + ".range="
                         + minimums[i] + "," + maximums[i]
-                        + "," + defaults[i] + ",repeat=" + repeats[i]);
+                        + "," + defaults[i] + ",repeat="
+                        + (repeats == null ? "unsupported" : repeats[i]));
                 }
                 final Object drawables = model.getClass()
                     .getMethod("getDrawables").invoke(model);
@@ -2501,6 +2513,17 @@ public final class ProtectedExportHostProbeAgent {
         evidence.put(prefix + ".modified", Boolean.toString(modified));
         evidence.put(prefix + ".undo", undo);
         evidence.put(prefix + ".selection", selection);
+        // Settings census: physics and motion-sync sources live outside
+        // getAllObjects, so the plan gate counts them separately. Recording
+        // them on every snapshot distinguishes genuine document content from
+        // anything a copy/open round-trip might synthesize.
+        final Object modelSource = readNoArg(document, "getModelSource");
+        evidence.put(prefix + ".physicsSettings",
+            modelSource == null ? "none"
+                : Integer.toString(countOf(modelSource, "getAllPhysicsSettings")));
+        evidence.put(prefix + ".motionSyncSettings",
+            modelSource == null ? "none"
+                : Integer.toString(countOf(modelSource, "getAllMotionSyncSettings")));
         return new DocumentState(docId, modified, undo, selection);
     }
 
@@ -3171,17 +3194,17 @@ public final class ProtectedExportHostProbeAgent {
         );
         evidence.put(
             phase + "ConfirmButtonPresent",
-            Boolean.toString(findButton(dialog, CONFIRM_ACTION) != null)
+            Boolean.toString(findButton(dialog, confirmAction()) != null)
         );
         evidence.put(
             phase + "CancelButtonPresent",
-            Boolean.toString(findButton(dialog, CANCEL_ACTION) != null)
+            Boolean.toString(findButton(dialog, cancelAction()) != null)
         );
         dumpTree(stateDir.resolve("dialog-tree-settings-" + phase + ".txt"), dialog);
     }
 
     private static void confirmUnchecked(final JDialog dialog, final Evidence evidence) {
-        final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
+        final AbstractButton confirm = findButton(dialog, confirmAction());
         if (confirm == null) {
             evidence.put("confirmClicked", "false");
             dismiss(dialog);
@@ -3248,7 +3271,7 @@ public final class ProtectedExportHostProbeAgent {
 
     private static void dismiss(final java.awt.Dialog dialog) {
         try {
-            final AbstractButton cancel = findButton(dialog, CANCEL_ACTION);
+            final AbstractButton cancel = findButton(dialog, cancelAction());
             if (cancel != null) {
                 onEdt(() -> {
                     cancel.doClick(0);
@@ -3496,6 +3519,28 @@ public final class ProtectedExportHostProbeAgent {
 
     private static AbstractButton findButton(final Container root, final String actionClass) {
         return findButtonByAction(root, actionClass::equals);
+    }
+
+    private static String confirmAction() {
+        return confirmAction(hostVersion());
+    }
+
+    private static String cancelAction() {
+        return cancelAction(hostVersion());
+    }
+
+    /** The runner publishes the probed build as {@code turboism.validation.hostVersion}. */
+    private static String hostVersion() {
+        return System.getProperty("turboism.validation.hostVersion", "");
+    }
+
+    /** Exact-version dispatch: only the reviewed 5.2.03 build uses the C/B actions. */
+    static String confirmAction(final String hostVersion) {
+        return "5203".equals(hostVersion) ? CONFIRM_ACTION_5_2 : CONFIRM_ACTION_5_3;
+    }
+
+    static String cancelAction(final String hostVersion) {
+        return "5203".equals(hostVersion) ? CANCEL_ACTION_5_2 : CANCEL_ACTION_5_3;
     }
 
     /**

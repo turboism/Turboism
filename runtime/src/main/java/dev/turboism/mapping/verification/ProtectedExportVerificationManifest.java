@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -8,7 +9,14 @@ import java.util.Set;
  * <p>The slice pins every host member the orchestrator needs: application/session access,
  * disposable-copy open/close, selector-driven deformer application, the native export
  * driver entry, the export dialog's bound model source, and the file-cache force-release
- * used to retire the dirty copy. Only the reviewed 5.3.02 artifact admits it.</p>
+ * used to retire the dirty copy. Only the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts
+ * admit it.</p>
+ *
+ * <p>The reviewed 5.2.03 record declares 134 selectors rather than 137: Cubism 5.2.03's
+ * {@code CModelSource} predates the advanced-blend, alias and offscreen-rendering feature
+ * predicates, so the three {@code contain*} gates for features the host cannot express are
+ * absent from the record and from {@link #cubism52Aliases()}. They are not optional on 5.3.x —
+ * the 5.3 records still pin all 137 selectors.</p>
  */
 public final class ProtectedExportVerificationManifest {
 
@@ -17,13 +25,52 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.orchestration"
     );
 
-    public static final String VERIFICATION_ID_53 = "cubism-5.3.02.protected-export.static";
-    public static final String RECORD_SHA256_53 =
-        "753120bffa37a5479c77d0faa0d76b5a02ee265b957952b5a69371cbf2fb1f30";
-    public static final String CUBISM_VERSION_53 = "5.3.02";
-    public static final String PROFILE_ID_53 = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE_53 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
-    public static final String ARTIFACT_SHA256_53 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
+    /** Cubism version reported for the reviewed 5.2.03 artifact. */
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.03";
+
+    /** Cubism version reported for the reviewed 5.3.02 artifact. */
+    public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
+
+    /** Cubism version reported for the reviewed 5.3.03 artifact. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
+
+    /** Reviewed protected-export record admitted for exact Cubism 5.2.03. */
+    public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_03,
+        "cubism-5.2.03.protected-export.static",
+        "acd8d661ea858568a87365c739e7f3da8d1b5bb15d90e161bbd92cd64f6d2aed",
+        CUBISM_VERSION_5_2_03,
+        "cubism-5.2.03"
+    );
+
+    /** Reviewed protected-export record admitted for exact Cubism 5.3.02. */
+    public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_02,
+        "cubism-5.3.02.protected-export.static",
+        "753120bffa37a5479c77d0faa0d76b5a02ee265b957952b5a69371cbf2fb1f30",
+        CUBISM_VERSION_5_3_02,
+        "cubism-5.3.02"
+    );
+
+    /** Reviewed protected-export record admitted for exact Cubism 5.3.03. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "cubism-5.3.03.protected-export.static",
+        "7f61fddf1ceacb0f26fe5556950d433fb0cc3d1b053b3efc6c9f536089444f54",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03, RECORD_5_3_02, RECORD_5_3_03
+    );
+
+    /** Feature-gate aliases that only exist on Cubism 5.3.x {@code CModelSource}. */
+    private static final Set<String> CUBISM_5_3_ONLY_GATE_ALIASES = Set.of(
+        "cubism.protected-export.model-source.contain-advanced-blend",
+        "cubism.protected-export.model-source.contain-alias",
+        "cubism.protected-export.model-source.contain-offscreen-rendering"
+    );
 
     /** Every selector alias declared by the reviewed protected-export record. */
     public static final Set<String> REQUIRED_ALIASES = Set.of(
@@ -166,23 +213,24 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.warp-deformer.class"
     );
 
+    /**
+     * Exact selector roster carried by the reviewed 5.2.03 record: the full slice minus the
+     * three {@code contain*} gates that Cubism 5.2.03's {@code CModelSource} does not
+     * implement because the gated features did not exist in that release.
+     */
+    public static Set<String> cubism52Aliases() {
+        final java.util.HashSet<String> aliases = new java.util.HashSet<>(REQUIRED_ALIASES);
+        aliases.removeAll(CUBISM_5_3_ONLY_GATE_ALIASES);
+        return Set.copyOf(aliases);
+    }
+
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
-        if (artifact.size() == ARTIFACT_SIZE_53 && artifact.sha256().equals(ARTIFACT_SHA256_53)) {
-            return new PinnedVerifiedResolverWorkflow.Manifest(
-                VERIFICATION_ID_53,
-                RECORD_SHA256_53,
-                CUBISM_VERSION_53,
-                PROFILE_ID_53,
-                ARTIFACT_SIZE_53,
-                ARTIFACT_SHA256_53,
-                ADAPTER_SLICE_ID,
-                CAPABILITY_IDS,
-                REQUIRED_ALIASES
-            );
+        final ReviewedSliceRecord record =
+            ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "protected-export");
+        if (RECORD_5_2_03.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
         }
-        throw new IllegalArgumentException(
-            "host artifact is not the reviewed Cubism protected-export artifact"
-        );
+        return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
     }
 
     private ProtectedExportVerificationManifest() {

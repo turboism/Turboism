@@ -14,11 +14,11 @@ import java.util.Objects;
  * <p>An option is default-off by construction: this type exposes no default value
  * and no selection state. The host export flow reports selection at decision time.</p>
  */
-@CubismEditor({"5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record ExportSettingsDecision(Outcome outcome, String messageKey) {
 
     /** The two possible decisions for an embedded-model Export Settings option. */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     public enum Outcome {
         /** Leave the native export unchanged; no message key is carried. */
         PROCEED_UNCHANGED,

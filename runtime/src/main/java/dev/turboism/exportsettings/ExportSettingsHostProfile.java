@@ -11,15 +11,19 @@ import java.util.Optional;
 /**
  * Exact reviewed Embedded-Model Export Settings dialog selectors for supported Cubism artifacts.
  *
- * <p>The seven members below are frozen from the reviewed exact Cubism 5.3.02 classfile
- * observation of {@code com/live2d/cubism/doc/model/exporter/e} and its window base
+ * <p>The seven members below are frozen from reviewed exact classfile observation of
+ * {@code com/live2d/cubism/doc/model/exporter/e} and its window base
  * {@code com/live2d/ui/window/y}. They pin the same dialog shape the transformer and installer
- * enforce, so a host whose dialog does not match this exact tuple is refused instead of being
+ * enforce, so a host whose dialog does not match its exact tuple is refused instead of being
  * transformed. The in-host transformer additionally fails closed on any unexpected method
  * cardinality, so an unrecognised build is left byte-identical.</p>
  *
- * <p>Only the exact reviewed 5.3.02 build is recognised; every other artifact yields empty, which
- * is the fail-closed signal that the export-settings hook must not be installed.</p>
+ * <p>Cubism 5.3.02 and 5.3.03 share one selector tuple whose dialog methods take the abstract
+ * window panel {@code com/live2d/ui/window/V}. On the reviewed 5.2.03 build the same abstract
+ * panel is named {@code com/live2d/ui/window/X} (the 5.2 window base {@code y} extends it
+ * directly), so 5.2.03 carries its own tuple rather than reusing the 5.3 descriptors. Every
+ * other artifact yields empty, which is the fail-closed signal that the export-settings hook
+ * must not be installed.</p>
  */
 public record ExportSettingsHostProfile(
     String hostVersion,
@@ -56,47 +60,66 @@ public record ExportSettingsHostProfile(
     private static final String DIALOG_SETTING_DATA =
         "com/live2d/cubism/doc/model/exporter/CModelExportSettingDialogData";
     private static final String MODEL_SOURCE = "com/live2d/cubism/doc/model/CModelSource";
-    private static final String WINDOW_PANEL = "com/live2d/ui/window/V";
+    private static final String WINDOW_PANEL_5_2 = "com/live2d/ui/window/X";
+    private static final String WINDOW_PANEL_5_3 = "com/live2d/ui/window/V";
     private static final String WINDOW_BASE = "com/live2d/ui/window/y";
 
-    private static final String MAPPING_ID_PREFIX = "cubism.mapping.v5_3_02.export_settings.";
+    /** The exact reviewed 5.2.03 tuple: identical shape with the {@code X} window panel. */
+    public static final ExportSettingsHostProfile CUBISM_5_2_03 = reviewedProfile(
+        "5.2.03", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_03.export_settings."
+    );
 
     /** The exact reviewed 5.3.02 tuple. */
-    public static final ExportSettingsHostProfile CUBISM_5_3_02 = new ExportSettingsHostProfile(
-        "5.3.02",
-        new StaticSelector(
-            MAPPING_ID_PREFIX + "dialog_owner", DIALOG_OWNER_ALIAS, StaticSelector.Kind.CLASS,
-            DIALOG_OWNER, "", "", ACCESS_PUBLIC, 0
-        ),
-        new StaticSelector(
-            MAPPING_ID_PREFIX + "dialog_constructor", DIALOG_CONSTRUCTOR_ALIAS,
-            StaticSelector.Kind.CONSTRUCTOR, DIALOG_OWNER, "<init>",
-            "(" + descriptor(MODEL_SOURCE) + ")V", ACCESS_PUBLIC, FORBID_STATIC
-        ),
-        StaticSelector.method(
-            MAPPING_ID_PREFIX + "dialog_show", DIALOG_SHOW_ALIAS, DIALOG_OWNER, "a",
-            "(" + descriptor(WINDOW_PANEL) + descriptor(DIALOG_SETTING_DATA)
-                + descriptor(DIALOG_SETTING_DATA) + ")Z",
-            ACCESS_PUBLIC
-        ),
-        StaticSelector.method(
-            MAPPING_ID_PREFIX + "dialog_content_builder", DIALOG_CONTENT_BUILDER_ALIAS,
-            DIALOG_OWNER, "b", "()V", 0
-        ),
-        new StaticSelector(
-            MAPPING_ID_PREFIX + "dialog_window_field", DIALOG_WINDOW_FIELD_ALIAS,
-            StaticSelector.Kind.FIELD, DIALOG_OWNER, "c", descriptor(WINDOW_BASE), 0,
-            FORBID_STATIC
-        ),
-        new StaticSelector(
-            MAPPING_ID_PREFIX + "window_class", WINDOW_CLASS_ALIAS, StaticSelector.Kind.CLASS,
-            WINDOW_BASE, "", "", ACCESS_PUBLIC, 0
-        ),
-        StaticSelector.method(
-            MAPPING_ID_PREFIX + "window_jdialog", WINDOW_JDIALOG_ALIAS, WINDOW_BASE, "e",
-            "()Ljavax/swing/JDialog;", ACCESS_PUBLIC
-        )
+    public static final ExportSettingsHostProfile CUBISM_5_3_02 = reviewedProfile(
+        "5.3.02", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_02.export_settings."
     );
+
+    /** The exact reviewed 5.3.03 tuple: identical shape to 5.3.02 on its own reviewed build. */
+    public static final ExportSettingsHostProfile CUBISM_5_3_03 = reviewedProfile(
+        "5.3.03", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_03.export_settings."
+    );
+
+    private static ExportSettingsHostProfile reviewedProfile(
+        final String hostVersion,
+        final String windowPanel,
+        final String mappingIdPrefix
+    ) {
+        return new ExportSettingsHostProfile(
+            hostVersion,
+            new StaticSelector(
+                mappingIdPrefix + "dialog_owner", DIALOG_OWNER_ALIAS, StaticSelector.Kind.CLASS,
+                DIALOG_OWNER, "", "", ACCESS_PUBLIC, 0
+            ),
+            new StaticSelector(
+                mappingIdPrefix + "dialog_constructor", DIALOG_CONSTRUCTOR_ALIAS,
+                StaticSelector.Kind.CONSTRUCTOR, DIALOG_OWNER, "<init>",
+                "(" + descriptor(MODEL_SOURCE) + ")V", ACCESS_PUBLIC, FORBID_STATIC
+            ),
+            StaticSelector.method(
+                mappingIdPrefix + "dialog_show", DIALOG_SHOW_ALIAS, DIALOG_OWNER, "a",
+                "(" + descriptor(windowPanel) + descriptor(DIALOG_SETTING_DATA)
+                    + descriptor(DIALOG_SETTING_DATA) + ")Z",
+                ACCESS_PUBLIC
+            ),
+            StaticSelector.method(
+                mappingIdPrefix + "dialog_content_builder", DIALOG_CONTENT_BUILDER_ALIAS,
+                DIALOG_OWNER, "b", "()V", 0
+            ),
+            new StaticSelector(
+                mappingIdPrefix + "dialog_window_field", DIALOG_WINDOW_FIELD_ALIAS,
+                StaticSelector.Kind.FIELD, DIALOG_OWNER, "c", descriptor(WINDOW_BASE), 0,
+                FORBID_STATIC
+            ),
+            new StaticSelector(
+                mappingIdPrefix + "window_class", WINDOW_CLASS_ALIAS, StaticSelector.Kind.CLASS,
+                WINDOW_BASE, "", "", ACCESS_PUBLIC, 0
+            ),
+            StaticSelector.method(
+                mappingIdPrefix + "window_jdialog", WINDOW_JDIALOG_ALIAS, WINDOW_BASE, "e",
+                "()Ljavax/swing/JDialog;", ACCESS_PUBLIC
+            )
+        );
+    }
 
     public ExportSettingsHostProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
@@ -122,21 +145,38 @@ public record ExportSettingsHostProfile(
         );
     }
 
+    /** @return the host versions whose reviewed artifacts carry an export-settings profile */
+    public static List<String> supportedHostVersions() {
+        return List.of(
+            CUBISM_5_2_03.hostVersion(),
+            CUBISM_5_3_02.hostVersion(),
+            CUBISM_5_3_03.hostVersion()
+        );
+    }
+
     /**
      * Resolves the reviewed export-settings selectors for a host artifact.
      *
-     * <p>Only exact Cubism 5.3.02 is recognised. Any other artifact yields empty, so an unreviewed
-     * or unexpectedly replaced host never receives the transformer.</p>
+     * <p>Only the exact reviewed 5.2.03, 5.3.02 and 5.3.03 builds are recognised. Any other
+     * artifact yields empty, so an unreviewed or unexpectedly replaced host never receives the
+     * transformer.</p>
      *
      * @param artifact digest of the host jar actually loaded
-     * @return the matching profile, or empty when the artifact is not the reviewed 5.3.02 build
+     * @return the matching profile, or empty when the artifact is not a reviewed supported build
      * @throws NullPointerException if {@code artifact} is {@code null}
      */
     public static Optional<ExportSettingsHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        return ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)
-            ? Optional.of(CUBISM_5_3_02)
-            : Optional.empty();
+        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
+            return Optional.of(CUBISM_5_2_03);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_02);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_03);
+        }
+        return Optional.empty();
     }
 
     private static String descriptor(final String internalName) {
