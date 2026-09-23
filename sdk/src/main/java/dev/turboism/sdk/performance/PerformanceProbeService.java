@@ -39,26 +39,42 @@ public interface PerformanceProbeService {
     Registration sample(Duration interval, Consumer<PerformanceSnapshot> consumer);
 
     /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
      * Fail-closed default instance. {@link #snapshot()} and {@link #sample}
      * throw {@link UnsupportedOperationException} (SDK-level, never a host
      * exception); plugins that require statistics should degrade gracefully.
      */
     static PerformanceProbeService unavailable() {
-        return new PerformanceProbeService() {
-            @Override
-            public PerformanceSnapshot snapshot() {
-                throw new UnsupportedOperationException("performance probe service is not available");
-            }
+        return Unavailable.INSTANCE;
+    }
 
-            @Override
-            public Registration sample(
-                final Duration interval,
-                final Consumer<PerformanceSnapshot> consumer
-            ) {
-                Objects.requireNonNull(interval, "interval");
-                Objects.requireNonNull(consumer, "consumer");
-                throw new UnsupportedOperationException("performance probe service is not available");
-            }
-        };
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
+    enum Unavailable implements PerformanceProbeService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public PerformanceSnapshot snapshot() {
+            throw new UnsupportedOperationException("performance probe service is not available");
+        }
+
+        @Override public Registration sample(
+            final Duration interval,
+            final Consumer<PerformanceSnapshot> consumer
+        ) {
+            Objects.requireNonNull(interval, "interval");
+            Objects.requireNonNull(consumer, "consumer");
+            throw new UnsupportedOperationException("performance probe service is not available");
+        }
     }
 }

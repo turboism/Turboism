@@ -120,8 +120,13 @@ public final class PanelTabMenuCoordinator implements AutoCloseable {
         }
     }
 
+    /** Host seam that installs the reconciled panel-tab menu items. */
     @FunctionalInterface
     public interface Host {
+        /**
+         * @param contributions the complete current menu contribution set
+         * @return a registration that removes the installed items when disposed
+         */
         Registration install(List<PanelTabMenuContribution> contributions);
     }
 }

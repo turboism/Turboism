@@ -98,7 +98,7 @@ allprojects {
         isReproducibleFileOrder = true
         // The SDK remains a byte-exact reviewed library, not a numbered product.
         if (project.path != ":sdk" && turboismBuildNumber.isNotEmpty()
-            && (!project.path.startsWith(":plugins:") || project.path == ":plugins:core")) {
+            && !project.path.startsWith(":plugins:")) {
             manifest.attributes(
                 "Turboism-Build-Number" to turboismBuildNumber,
                 "Turboism-Source-Revision" to turboismBuildSource,
@@ -129,8 +129,54 @@ subprojects {
     extensions.configure<JavaPluginExtension> {
         toolchain.languageVersion.set(JavaLanguageVersion.of(17))
     }
+    // Error Prone 2.42.0 is the last release that runs on the JDK 17 toolchain (2.43.0
+    // requires JDK 21). The plugin jar rides the annotation processor path of a forked
+    // javac so the JDK compiler internals can be opened to it. Only the deterministic
+    // bug patterns below are enabled, each at ERROR: the baseline is zero findings.
+    // ReferenceEquality supersedes the removed StringEquality check and still covers
+    // String == misuse; IdentityBinaryExpression is the checker behind the requested
+    // "IdentityBinaryName" name.
+    val errorprone = configurations.create("errorprone") {
+        isVisible = false
+        isCanBeConsumed = false
+        isCanBeResolved = true
+        description = "Error Prone javac plugin artifacts"
+    }
+    dependencies {
+        add("errorprone", "com.google.errorprone:error_prone_core:2.42.0")
+    }
     tasks.withType<JavaCompile>().configureEach {
         options.release.set(17)
+        if (name == "compileJava") {
+            options.isFork = true
+            options.forkOptions.jvmArgs = options.forkOptions.jvmArgs.orEmpty() + listOf(
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+                "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+                "--add-opens", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                "--add-opens", "jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED"
+            )
+            options.annotationProcessorPath =
+                (options.annotationProcessorPath ?: files()) + errorprone
+            options.compilerArgs = options.compilerArgs.orEmpty() + listOf(
+                "-XDcompilePolicy=simple",
+                "--should-stop=ifError=FLOW",
+                "-Xplugin:ErrorProne " +
+                    "-XepDisableAllChecks " +
+                    "-Xep:EqualsHashCode:ERROR " +
+                    "-Xep:ArrayEquals:ERROR " +
+                    "-Xep:BoxedPrimitiveEquality:ERROR " +
+                    "-Xep:ReferenceEquality:ERROR " +
+                    "-Xep:CollectionIncompatibleType:ERROR " +
+                    "-Xep:NarrowingCompoundAssignment:ERROR " +
+                    "-Xep:IdentityBinaryExpression:ERROR"
+            )
+        }
     }
     tasks.named<Test>("test") {
         useJUnitPlatform()

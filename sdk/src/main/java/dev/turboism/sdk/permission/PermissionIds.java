@@ -31,6 +31,7 @@ public final class PermissionIds {
     public static final String TURBOISM_CONFIG_PLUGIN_WRITE = "turboism.config.plugin.write";
     public static final String TURBOISM_CUBISM_MODEL_READ = "turboism.cubism.model.read";
     public static final String TURBOISM_CUBISM_MODEL_WRITE = "turboism.cubism.model.write";
+    public static final String TURBOISM_CUBISM_EDIT = "turboism.cubism.edit";
 
     public static final String TURBOISM_CUBISM_MODEL_OBSERVE =
         "turboism.cubism.model.observe";
@@ -48,6 +49,8 @@ public final class PermissionIds {
         "turboism.performance.sample.observe";
     public static final String TURBOISM_ACTION_INVOCATION_OBSERVE =
         "turboism.action.invocation.observe";
+    public static final String TURBOISM_PLUGIN_LIFECYCLE_OBSERVE =
+        "turboism.plugin.lifecycle.observe";
     public static final String TURBOISM_CUBISM_RECENT_FILE_READ = "turboism.cubism.recent-file.read";
     public static final String TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE = "turboism.ui.recent-preview.contribute";
     public static final String TURBOISM_EVENT_PUBLISH = "turboism.event.publish";

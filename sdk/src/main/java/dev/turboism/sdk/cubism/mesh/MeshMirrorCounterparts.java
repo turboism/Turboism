@@ -20,4 +20,44 @@ public interface MeshMirrorCounterparts {
      * {@link MeshMirrorCounterpartResolver} for the cost this incurs.
      */
     Registration overrideResolver(MeshMirrorCounterpartResolver resolver);
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static MeshMirrorCounterparts unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
+    enum Unavailable implements MeshMirrorCounterparts {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public MeshEditContribution mirrorOf(final MeshDeletion deletion) {
+            throw unavailable();
+        }
+
+        @Override public Registration overrideResolver(final MeshMirrorCounterpartResolver resolver) {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException(
+                "meshMirrorCounterparts service is not available");
+        }
+    }
 }

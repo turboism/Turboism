@@ -430,7 +430,8 @@ class PublicEventRouteCatalogTest {
             Optional.of("development"),
             List.of(),
             exports,
-            imports
+            imports,
+            List.of()
         );
     }
 

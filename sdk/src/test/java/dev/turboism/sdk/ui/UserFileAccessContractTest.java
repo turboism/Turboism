@@ -14,6 +14,7 @@ import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,7 +33,7 @@ class UserFileAccessContractTest {
             names(UserFileErrorCode.values())
         );
 
-        assertEquals(5, UserFileAccessService.class.getDeclaredMethods().length);
+        assertEquals(7, UserFileAccessService.class.getDeclaredMethods().length);
         assertEquals(
             CompletionStage.class,
             UserFileAccessService.class.getMethod("request", UserFileRequest.class)
@@ -184,17 +185,29 @@ class UserFileAccessContractTest {
     }
 
     @Test
-    void pluginContextDefaultAccessorFailsWithFrozenMessage() {
+    void pluginContextDefaultAccessorReturnsTheUnavailableSentinel() throws Exception {
         final PluginContext context = (PluginContext) Proxy.newProxyInstance(
             PluginContext.class.getClassLoader(),
             new Class<?>[] {PluginContext.class},
             UserFileAccessContractTest::invokeDefault
         );
-        final UnsupportedOperationException failure = assertThrows(
-            UnsupportedOperationException.class,
-            context::userFiles
+
+        final UserFileAccessService service = context.userFiles();
+
+        assertSame(UserFileAccessService.unavailable(), service);
+        assertFalse(service.isAvailable());
+        final UserFileRequestResult result = service.request(new UserFileRequest(
+            "export",
+            "Export",
+            List.of("csv"),
+            UserFileMode.WRITE,
+            UserFileLifetime.ONE_OPERATION
+        )).toCompletableFuture().get();
+        assertEquals(UserFileRequestStatus.UNAVAILABLE, result.status());
+        assertEquals(
+            "user file access service is not available",
+            result.error().orElseThrow().message()
         );
-        assertEquals("user file access service is not available", failure.getMessage());
     }
 
     private static Object invokeDefault(

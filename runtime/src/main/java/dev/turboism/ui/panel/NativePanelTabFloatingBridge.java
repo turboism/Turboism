@@ -57,8 +57,12 @@ public final class NativePanelTabFloatingBridge {
         handler.toggle(Objects.requireNonNull(selection, "selection"));
     }
 
+    /** Callback that performs the docked/floating toggle for one panel tab. */
     @FunctionalInterface
     public interface Handler {
+        /**
+         * @param selection the panel tab to toggle
+         */
         void toggle(PanelTabSelection selection);
     }
 }

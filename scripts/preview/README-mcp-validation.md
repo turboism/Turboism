@@ -5,12 +5,32 @@ loopback Streamable HTTP connection file. The external client writes redacted ev
 task-scoped Turboism home, deletes its MCP session, and never runs against the golden Proton prefix
 directly.
 
+## Managed local execution
+
+Build `previewBundle` and `:plugins:mcp:jar`, then run `validation/mcp-host-probe/build.sh`
+and `scripts/preview/package-windows-mcp-validation.sh`. Use the existing ignored `.env`
+fixture and exact-host settings, or set `TURBOISM_ENV_FILE` explicitly for an isolated worktree.
+
+```bash
+python3 scripts/preview/host_validation.py plan mcp:5302
+python3 scripts/preview/host_validation.py prepare mcp:5302 --run-label mcp-audit
+python3 scripts/preview/host_validation.py submit --prepared PREPARED_ID --request-id UNIQUE_REQUEST --json
+python3 scripts/preview/host_validation.py wait JOB_ID
+```
+
+Substitute returned IDs. Versions `5203`, `5302`, and `5303` share the same single host slot.
+The queue freezes the canonical stdlib client and pins the preparing Python executable;
+Runner executes the copied client with `-I`, without inherited proxies or redirects.
+Arbitrary custom client scripts and extra hooks remain rejected. Preparation and wrapper
+`--dry-run` do not launch Cubism and are not a readiness verdict.
+
 ## Public protocol assertions
 
 The raw stdlib HTTP client requires the exact public catalog introduced by the MCP read/write and
 authoring-transaction cutover:
 
 - `turboism.glues.read` and `turboism.glues.write`
+- `turboism.textures.read` and `turboism.textures.write`
 - `turboism.history.read`, `turboism.history.undo`, and `turboism.history.redo`
 - `turboism.transaction.execute` and `turboism.capabilities.read`
 - the three explicitly recorded temporary `*.apply` compatibility exceptions
@@ -46,6 +66,57 @@ client then proves, through the public MCP transport only:
 If any stage fails, the client attempts direct field-by-field restoration on the task-local model
 copy and reports both the primary and cleanup failure classes without persisting connection data.
 
+## Audited adapter regressions
+
+The client additionally rejects eleven malformed batch / legacy inversion / JSON-RPC ID
+requests through the real HTTP transport, then verifies unchanged native history, hierarchy
+and parameter state. It executes the explicitly scoped `invert_all_bindings` operation on a
+normal keyform-bound target, checks its complete affected-parameter receipt, and performs
+native Undo / Redo / final Undo with metadata and history-position restoration. These checks
+verify the MCP scope/receipt and native history contracts, not visual keyform-pose geometry.
+The parameter value matrix also checks confirmed non-retryable receipts and Undo/Redo/restore.
+Injected readback failures remain deterministic unit-test evidence, not fabricated host faults.
+
+## Reversible texture-library authoring matrix
+
+The copied fixture must contain at least one raw image and one model image. The texture matrix
+runs after the original Glue/history-tip checks and existing binding/parameter matrices. It uses
+`turboism.textures.read`'s `state` object as `expectedState`; the separate `stateToken` string is
+only a read correlation identifier.
+
+The matrix rejects stale state, missing or false deletion confirmation, zero atlas dimensions,
+and unknown targets without changing the library or history. It then exercises each of the five
+texture-library operations, requires a confirmed non-retryable write receipt and exactly one native
+Undo position, and checks full metadata equality after Undo, Redo, and final restoration. Generated
+atlas IDs must be present in the write receipt. If the fixture has no atlas, a task-local atlas is
+created for the remove-atlas cycle and restored afterward. Raw-image removal must preserve the
+other raw images, model images, ArtMesh identities, and atlas metadata; the selected raw-image
+identity alone disappears and returns on Undo.
+
+Every cycle attempts guarded cleanup at only the expected native history position. It never jumps
+to an arbitrary history cursor or changes an original model. An unexpected position or mismatched
+restored metadata is a failure, not a skipped assertion. Metadata equality alone does not establish
+pixel or persistence correctness.
+
+Before the first texture mutation, a separate run-correlated test-only probe captures native
+layer-input GUID/affine mappings and full raw-layer ARGB hashes. When the pristine fixture has
+pixels but no input connections, it creates one recorded connection between an existing layer and
+model image using the native LayerInput Undo factory on the task copy. It retains a separate pristine
+fingerprint and requires the seeded connection to survive deletion/Undo/Redo restoration. It then
+performs raw-image deletion and single-root Undo/Redo/final Undo, and compares the full native state.
+It then exercises all five operation kinds, saves to a new fixed file under the same task home,
+closes the owned document, reopens the saved file, compares persisted state, and reopens the original
+unchanged task fixture. The client requires both `nativeLayerPixelUndoRedo=PASS` and `saveReopen=PASS`,
+matching fingerprints and unchanged-fixture evidence before it can publish overall PASS. The final
+report records `texturePersistence=FIVE_OPERATION_KINDS_SAVED_AND_REOPENED` only after those checks.
+
+The helper is compiled only into the validation probe. SDK methods perform texture writes/history;
+additional native inspection and document save/close/open are restricted to the exact canonical
+verification-record JAR digest and current task files. No production MCP file endpoint, unrestricted
+reflection hook, or new host-class dependency is exposed. Unknown ownership, symlinks, a preexisting
+output, incomplete evidence, or a native timeout fail closed. Saved outputs remain task evidence.
+This checks raw-layer pixels and input reconstruction, not final rendered canvas appearance.
+
 ## Other validation
 
 The client still performs the established resource, prompt, diagnostic-sanitization, parameter
@@ -57,6 +128,24 @@ A separate `mcp-standard-client-validation.js` probe performs catalog, resource,
 and guarded-history interoperability checks with the official `@modelcontextprotocol/sdk`
 Streamable HTTP client. Its dependencies are intentionally not bundled into the production plugin
 or this validation package.
+
+## Task-owned normal close
+
+The lifecycle probe consumes only a terminal result whose `runId` matches the current task.
+After the client finishes, it reuses the tested native UI close helper: the exact 5302 route
+uses focused Alt+F4; 5203 and 5303 use their verified synthetic close event. MCP reserves
+`display-input`. The in-process helper verifies that the selected task window is active before
+sending the native gesture; failure to acquire focus stops the close. No external desktop-focus
+poller is admitted by the MCP client's dependency inventory.
+
+The helper selects exactly one window matching the copied fixture, never an arbitrary visible
+window. It handles only an unambiguous save-confirmation dialog owned by that window and naming
+that fixture. Unknown/foreign dialogs fail closed. There is no `System.exit` or process-kill
+fallback in the probe. It is packaged only in the validation bundle, not in production plugins.
+
+A client `status=PASS` is still insufficient: the normal-exit and outside-supervisor containment
+proofs must also pass. `wrapper.cleanup` records whether native exit evidence was observed or the
+launcher timed out; a timeout is not relabeled as a successful native exit.
 
 ## Host requirements and evidence meaning
 

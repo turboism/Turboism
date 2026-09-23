@@ -39,6 +39,7 @@ public record AppearanceStatus(
         diagnosticId = text(diagnosticId, "diagnosticId");
     }
 
+    /** Whether appearance control is usable at all on this host. */
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE,
@@ -46,6 +47,7 @@ public record AppearanceStatus(
         SAFE_MODE
     }
 
+    /** Whether the Editor's own appearance or a plugin overlay is in force. */
     public enum Source {
         NATIVE,
         PLUGIN_OVERLAY

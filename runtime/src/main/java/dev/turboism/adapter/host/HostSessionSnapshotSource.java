@@ -16,6 +16,7 @@ import dev.turboism.sdk.cubism.ProjectSnapshot;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Canonical Cubism facade snapshot source projected from the active host-session
@@ -25,18 +26,19 @@ import java.util.Optional;
  */
 public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
-    private static final HostSelection EMPTY_SELECTION = new HostSelection(
-        List.of(), Optional.empty(), Optional.empty(), Optional.empty()
-    );
-
     private final ProjectWorkspaceAdapter projectWorkspace;
+    private final Supplier<List<String>> selectedObjectIds;
     private final Object invalidationLock = new Object();
     private Optional<ProjectSnapshot> lastProjectObservation = Optional.empty();
     private Optional<DocumentSnapshot> lastDocumentObservation = Optional.empty();
     private long invalidationToken;
 
-    private HostSessionSnapshotSource(final ProjectWorkspaceAdapter projectWorkspace) {
+    private HostSessionSnapshotSource(
+        final ProjectWorkspaceAdapter projectWorkspace,
+        final Supplier<List<String>> selectedObjectIds
+    ) {
         this.projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
+        this.selectedObjectIds = Objects.requireNonNull(selectedObjectIds, "selectedObjectIds");
     }
 
     /**
@@ -46,7 +48,22 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
      * @throws NullPointerException if {@code projectWorkspace} is null
      */
     public static HostSnapshotSource forSession(final ProjectWorkspaceAdapter projectWorkspace) {
-        return new HostSessionSnapshotSource(projectWorkspace);
+        return new HostSessionSnapshotSource(projectWorkspace, List::of);
+    }
+
+    /**
+     * @param projectWorkspace adapter whose immutable project and document snapshots are projected;
+     *     it is read on every query rather than cached, so the source follows the live workspace
+     * @param selectedObjectIds verified selection read (spec 046, T5) supplying the host's
+     *     selected object ids in host order; an empty supplier keeps the selection empty
+     * @return a snapshot source for this session
+     * @throws NullPointerException if an argument is null
+     */
+    public static HostSnapshotSource forSession(
+        final ProjectWorkspaceAdapter projectWorkspace,
+        final Supplier<List<String>> selectedObjectIds
+    ) {
+        return new HostSessionSnapshotSource(projectWorkspace, selectedObjectIds);
     }
 
     @Override
@@ -68,26 +85,137 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     @Override
     public HostSelection selection() {
-        return EMPTY_SELECTION;
+        return observedSelection();
     }
 
     @Override
     public boolean isHostPresent() {
-        return activeProject().isPresent() || activeDocument().isPresent();
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return pair.project().isPresent() || pair.document().isPresent();
     }
 
     @Override
     public long invalidationToken() {
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return tokenFor(pair.project(), pair.document());
+    }
+
+    @Override
+    public SdkRuntimeObservation observeSdkRuntime() {
+        // The adapter pair is already SDK snapshots; carry them verbatim so callers never pay
+        // the intermediate Host* projection nor the SDK re-projection it feeds. The selection
+        // comes from the verified selection read wired at construction.
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return new SdkRuntimeObservation(
+            null,
+            pair.project().orElse(null),
+            pair.document().orElse(null),
+            new dev.turboism.sdk.cubism.SelectionSnapshot(
+                readSelectedObjectIds(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
+            ),
+            new ObservationEvidence(pair.project(), pair.document())
+        );
+    }
+
+    @Override
+    public long versionOfSdkRuntime(final SdkRuntimeObservation observed) {
+        Objects.requireNonNull(observed, "observed");
+        if (observed.evidence() instanceof ObservationEvidence evidence) {
+            return tokenFor(evidence.project(), evidence.document());
+        }
+        if (observed.host() != null) {
+            return versionOf(observed.host());
+        }
+        return invalidationToken();
+    }
+
+    @Override
+    public Observation observe() {
+        // One adapter traversal supplies the project, the document and the model; the unprojected
+        // pair rides along as evidence so versionOf can compare exactly what was observed.
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        final Optional<ProjectSnapshot> project = pair.project();
+        final Optional<DocumentSnapshot> document = pair.document();
+        final Optional<HostDocument> projected = document.map(this::document);
+        final Optional<HostModel> model = projected
+            .filter(active -> active.kind() == DocumentKind.MODEL)
+            .flatMap(HostDocument::model);
+        return new Observation(
+            project.map(this::project),
+            projected,
+            model,
+            observedSelection(),
+            new ObservationEvidence(project, document)
+        );
+    }
+
+    @Override
+    public long versionOf(final Observation observation) {
+        Objects.requireNonNull(observation, "observation");
+        if (!(observation.evidence() instanceof ObservationEvidence evidence)) {
+            // Foreign observation: fall back to the source's own fresh read.
+            return invalidationToken();
+        }
+        return tokenFor(evidence.project(), evidence.document());
+    }
+
+    /** Shared token bookkeeping: bump when the observed pair differs from the last one. */
+    private long tokenFor(
+        final Optional<ProjectSnapshot> project,
+        final Optional<DocumentSnapshot> document
+    ) {
         synchronized (invalidationLock) {
-            final Optional<ProjectSnapshot> project = available(projectWorkspace.activeProject());
-            final Optional<DocumentSnapshot> document = available(projectWorkspace.activeDocument());
-            if (!project.equals(lastProjectObservation) || !document.equals(lastDocumentObservation)) {
+            if (!project.equals(lastProjectObservation)
+                || !document.equals(lastDocumentObservation)) {
                 lastProjectObservation = project;
                 lastDocumentObservation = document;
                 invalidationToken++;
             }
             return invalidationToken;
         }
+    }
+
+    /**
+     * The verified selection read wired at construction, flattened to an empty snapshot when the
+     * supplier fails — the facade never reports selection errors to snapshot consumers.
+     */
+    private HostSelection observedSelection() {
+        return new HostSelection(
+            readSelectedObjectIds(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()
+        );
+    }
+
+    private List<String> readSelectedObjectIds() {
+        try {
+            final List<String> ids = selectedObjectIds.get();
+            return ids == null ? List.of() : List.copyOf(ids);
+        } catch (RuntimeException failure) {
+            return List.of();
+        }
+    }
+
+    /** The unprojected pair behind one observation, comparable with the recorded baseline. */
+    private record ObservationEvidence(
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document
+    ) {
+    }
+
+    /** One adapter read of the project/document pair; unavailable flattens to two empty halves. */
+    private ProjectWorkspaceAdapter.ActiveProjectDocument observedPair() {
+        final ProjectWorkspaceAdapter.AdapterResult<ProjectWorkspaceAdapter.ActiveProjectDocument>
+            result = projectWorkspace.activeProjectAndDocument();
+        return result.isAvailable()
+            ? result.value().orElseThrow()
+            : new ProjectWorkspaceAdapter.ActiveProjectDocument(
+                Optional.empty(), Optional.empty()
+            );
     }
 
     private HostProject project(final ProjectSnapshot source) {

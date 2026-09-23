@@ -19,26 +19,44 @@ public interface M12ReadSnapshotSource {
     M12ReadSnapshotSource EMPTY = new M12ReadSnapshotSource() {
     };
 
+    /**
+     * @return the PSD document snapshots for the current project; the default reports none
+     */
     default List<PsdDocumentSnapshot> psdDocuments() {
         return List.of();
     }
 
+    /**
+     * @return the clip-mask snapshots for the active model; the default reports none
+     */
     default List<ClipMaskSnapshot> clipMasks() {
         return List.of();
     }
 
+    /**
+     * @return the texture atlas snapshots for the current project; the default reports none
+     */
     default List<TextureAtlasSnapshot> textureAtlases() {
         return List.of();
     }
 
+    /**
+     * @return the observed render status; the default reports none
+     */
     default Optional<RenderStatusSnapshot> renderStatus() {
         return Optional.empty();
     }
 
+    /**
+     * @return the observed workspace; the default reports none
+     */
     default Optional<WorkspaceSnapshot> workspace() {
         return Optional.empty();
     }
 
+    /**
+     * @return the observed theme status; the default reports none
+     */
     default Optional<ThemeStatusSnapshot> themeStatus() {
         return Optional.empty();
     }

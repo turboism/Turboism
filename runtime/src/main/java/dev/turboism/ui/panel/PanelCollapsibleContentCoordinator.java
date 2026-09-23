@@ -207,6 +207,8 @@ public final class PanelCollapsibleContentCoordinator {
         }
     }
 
+    // Ownership removal is identity-scoped: only the registering contribution may unregister.
+    @SuppressWarnings("ReferenceEquality")
     private void unregister(
         final EmbeddedPanelId target,
         final String sectionId,

@@ -326,6 +326,31 @@ final class RecentPreviewControllerTest {
         assertEquals(2, captures.calls);
     }
 
+    @Test
+    void refreshPrunesImagesAndDedupeMarksForIdsThatLeftTheRecentList() {
+        final RecentFileSummary first = new RecentFileSummary(new RecentFileId("recent-1"), "a.cmo3");
+        final RecentFileSummary second = new RecentFileSummary(new RecentFileId("recent-2"), "b.cmo3");
+        final java.util.concurrent.atomic.AtomicReference<List<RecentFileSummary>> live =
+            new java.util.concurrent.atomic.AtomicReference<>(List.of(first));
+        final RecentPreviewController controller = new RecentPreviewController(
+            live::get, new RecordingCapture(), new RecordingCache()
+        );
+
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+        assertEquals(PreviewCacheWriteResult.STORED,
+            controller.capture(first.id()).toCompletableFuture().join());
+        assertTrue(controller.image(first.id()).isPresent());
+
+        live.set(List.of(second));
+        controller.refresh().toCompletableFuture().join();
+
+        assertTrue(controller.image(first.id()).isEmpty());
+        assertEquals(PreviewCacheWriteResult.STORED,
+            controller.capture(second.id()).toCompletableFuture().join());
+        assertTrue(controller.image(second.id()).isPresent());
+    }
+
     private static byte[] png() {
         return java.util.Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="

@@ -10,6 +10,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.storage.StorageReadResult;
+import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
@@ -223,6 +224,11 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
                 final StorageReadResult<String> result = context.storage().readUtf8(
                     LabelStylePersistence.filePath(projectId), MAX_COLOR_FILE_BYTES
                 ).toCompletableFuture().join();
+                if (result.error().isPresent()) {
+                    logger.warn("PaletteLabelStylePlugin could not load persisted colors for project "
+                        + projectId + ": " + result.error().orElseThrow().code());
+                    return;
+                }
                 loaded = result.value().map(LabelStylePersistence::parse).orElseGet(Map::of);
             } catch (RuntimeException readFailure) {
                 logger.warn("PaletteLabelStylePlugin could not load persisted colors for project "
@@ -287,10 +293,14 @@ public final class PaletteLabelStylePlugin implements CubismPlugin {
                 return;
             }
             try {
-                context.storage().writeUtf8Atomic(
+                final StorageWriteResult result = context.storage().writeUtf8Atomic(
                     LabelStylePersistence.filePath(projectId),
                     LabelStylePersistence.serialize(snapshot)
                 ).toCompletableFuture().join();
+                if (!result.written()) {
+                    logger.warn("PaletteLabelStylePlugin could not persist label color for " + entryKey
+                        + ": " + result.error().map(e -> e.code().name()).orElse("unknown"));
+                }
             } catch (RuntimeException writeFailure) {
                 logger.warn("PaletteLabelStylePlugin could not persist label color for " + entryKey
                     + ": " + writeFailure.getMessage());

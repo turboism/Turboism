@@ -103,8 +103,9 @@ public final class PluginDescriptorParser {
             parseEnvironment(root),
             classified ? Optional.of(root.get("category").asText()) : Optional.empty(),
             classified ? listOrEmpty(root, "tags") : List.of(),
-            schemaVersion == 4 ? parseEventExports(root) : List.of(),
-            schemaVersion == 4 ? parseEventImports(root) : List.of()
+            schemaVersion >= 4 ? parseEventExports(root) : List.of(),
+            schemaVersion >= 4 ? parseEventImports(root) : List.of(),
+            schemaVersion >= 5 ? parseEventContracts(root) : List.of()
         );
     }
 
@@ -205,6 +206,22 @@ public final class PluginDescriptorParser {
                 imported.get("eventType").asText(),
                 imported.get("abiSha256").asText(),
                 !imported.has("required") || imported.get("required").asBoolean()
+            )
+        ));
+        return List.copyOf(result);
+    }
+
+    private static List<PluginDescriptor.EventContract> parseEventContracts(final JsonNode root) {
+        if (!root.has("eventContracts")) {
+            return List.of();
+        }
+        final List<PluginDescriptor.EventContract> result = new ArrayList<>();
+        root.get("eventContracts").forEach(contract -> result.add(
+            new CorePluginDescriptor.CoreEventContract(
+                contract.get("id").asText(),
+                contract.get("version").asText(),
+                contract.get("artifact").asText(),
+                contract.get("sha256").asText()
             )
         ));
         return List.copyOf(result);

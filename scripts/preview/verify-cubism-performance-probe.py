@@ -71,6 +71,26 @@ SELECTORS = [
      "()V", "reinitModelInstanceExe"),
 ]
 
+IMAGE_SELECTORS = [
+    ("com.live2d.graphics.CWritableImage$b", "a",
+     "(Ljava/io/InputStream;Lcom/live2d/graphics/n;)Lcom/live2d/graphics/CWritableImage;", "imageDecode"),
+    ("com.live2d.graphics.CWritableImage", "writeImageAsPng", "(Ljava/io/OutputStream;)V", "pngEncode"),
+    ("com.live2d.graphics.CImageResource", "archive", "()V", "imageArchive"),
+    ("com.live2d.cubism.doc.model.texture.textureAtlas.CTextureAtlas", "setupCacheImage$cubism",
+     "(ZLcom/live2d/util/a/a;)V", "atlasRebuild"),
+    ("com.live2d.graphics3d.texture.GTexture2D", "redrawTexture",
+     "(Lcom/live2d/graphics3d/a;)V", "textureRedraw"),
+]
+IMAGE_METRICS = [selector[3] for selector in IMAGE_SELECTORS]
+IMAGE_MEASUREMENT = {
+    "timing": "sampled-inclusive-method-wall-time",
+    "quantiles": "base2-bucket-upper-bound",
+    "counts": "method-entries-including-failures",
+    "gpuTime": "not-measured",
+    "uploadBytes": "not-measured",
+}
+LATENCY_FIELDS = ("samples", "p50UpperBoundNanos", "p95UpperBoundNanos", "p99UpperBoundNanos")
+
 MIN_CAPTURE_MS = 5_000   # documented capture duration range (5-120 s)
 MAX_CAPTURE_MS = 120_000
 MIN_OVERLAP_MS = 1_000
@@ -222,6 +242,8 @@ def validate_rollback_manifest(path, run_id, variant, scenario, agent_sha, fixtu
     require_hex64(manifest["agentSha256"], "rollback manifest agentSha256")
     require_hex64(manifest["fixtureSha256"], "rollback manifest fixtureSha256")
 
+    expected_selectors = SELECTORS + (IMAGE_SELECTORS if scenario == "images" else [])
+    expected_owners = {selector[0] for selector in expected_selectors}
     owners = manifest.get("owners")
     if not isinstance(owners, list):
         fail("rollback manifest owners must be a list")
@@ -230,7 +252,7 @@ def validate_rollback_manifest(path, run_id, variant, scenario, agent_sha, fixtu
         if not isinstance(entry, dict):
             fail("rollback manifest owner entry must be an object")
         owner = entry.get("class")
-        if owner not in OWNER_CLASSES:
+        if owner not in expected_owners:
             fail(f"rollback manifest owner {owner!r} is not an expected target owner")
         if owner in seen_owners:
             fail(f"rollback manifest owner {owner!r} appears more than once")
@@ -248,7 +270,7 @@ def validate_rollback_manifest(path, run_id, variant, scenario, agent_sha, fixtu
             fail(f"rollback restoration mismatch: {owner} afterSha256 differs from beforeSha256")
         require_schema_int_one(entry.get("restorationMatches"),
                                 f"rollback restoration count for {owner}")
-    missing_owners = [owner for owner in OWNER_CLASSES if owner not in seen_owners]
+    missing_owners = [owner for owner in expected_owners if owner not in seen_owners]
     if missing_owners:
         fail(f"rollback manifest lacks owners: {missing_owners}")
 
@@ -260,14 +282,14 @@ def validate_rollback_manifest(path, run_id, variant, scenario, agent_sha, fixtu
         if not isinstance(entry, dict):
             fail("rollback manifest selector entry must be an object")
         key = (entry.get("owner"), entry.get("method"), entry.get("descriptor"), entry.get("metric"))
-        if key not in SELECTORS:
+        if key not in expected_selectors:
             fail(f"rollback manifest selector {key} is not an expected target selector")
         if key in seen_selectors:
             fail(f"rollback manifest selector {key} appears more than once")
         seen_selectors.append(key)
         require_schema_int_one(entry.get("matches"),
                                 f"rollback manifest selector {key} match count")
-    missing_selectors = [selector for selector in SELECTORS if selector not in seen_selectors]
+    missing_selectors = [selector for selector in expected_selectors if selector not in seen_selectors]
     if missing_selectors:
         fail(f"rollback manifest lacks selectors: {missing_selectors}")
 
@@ -276,7 +298,12 @@ def validate_report(path, scenario, agent_sha, fixture_sha, run_properties):
     report = load_json(path, "probe report")
     if report.get("format") != REPORT_FORMAT:
         fail(f"probe report format {report.get('format')!r} is not {REPORT_FORMAT!r}")
-    require_schema_int_one(report.get("schemaVersion"), "probe report schemaVersion")
+    images = scenario == "images"
+    expected_schema = 2 if images else 1
+    if type(report.get("schemaVersion")) is not int or report["schemaVersion"] != expected_schema:
+        fail(f"probe report schemaVersion must be the integer {expected_schema}")
+    if images and report.get("measurement") != IMAGE_MEASUREMENT:
+        fail("image report must explicitly declare sampled method timings and unmeasured GPU/byte metrics")
     if report.get("cubismVersion") != CUBISM_VERSION:
         fail(f"probe report cubismVersion {report.get('cubismVersion')!r} != {CUBISM_VERSION!r}")
     if report.get("artifactSha256") != ARTIFACT_SHA256:
@@ -325,11 +352,13 @@ def validate_report(path, scenario, agent_sha, fixture_sha, run_properties):
     metrics = report.get("metrics")
     if not isinstance(metrics, dict):
         fail("probe report metrics must be an object")
-    if sorted(metrics.keys()) != sorted(METRIC_NAMES):
-        fail(f"probe report metric set {sorted(metrics.keys())} != expected {METRIC_NAMES}")
+    expected_names = METRIC_NAMES + (IMAGE_METRICS if images else [])
+    expected_fields = set(METRIC_FIELDS) | ({"latency"} if images else set())
+    if sorted(metrics.keys()) != sorted(expected_names):
+        fail(f"probe report metric set {sorted(metrics.keys())} != expected {expected_names}")
     for name, metric in metrics.items():
-        if not isinstance(metric, dict) or set(metric.keys()) != set(METRIC_FIELDS):
-            fail(f"probe report metric {name} must have exactly fields {METRIC_FIELDS}")
+        if not isinstance(metric, dict) or set(metric.keys()) != expected_fields:
+            fail(f"probe report metric {name} must have exactly fields {sorted(expected_fields)}")
         for field in METRIC_FIELDS:
             require_positive_int(metric[field], f"metrics.{name}.{field}")
         calls, sampled, total, maximum = (metric[field] for field in METRIC_FIELDS)
@@ -339,6 +368,13 @@ def validate_report(path, scenario, agent_sha, fixture_sha, run_properties):
             fail(f"metrics.{name}.maxNanos={maximum} exceeds totalNanos={total}")
         if sampled == 0 and (total != 0 or maximum != 0):
             fail(f"metrics.{name} has sampled=0 but nonzero totalNanos/maxNanos")
+        if images:
+            sample_every = {"sceneTraversal": 16, "rendererDispatch": 64}.get(name, 1)
+            if sampled != (calls + sample_every - 1) // sample_every:
+                fail(f"metrics.{name} sample count does not match the declared sampling rate")
+            validate_latency(metric, name)
+    if images and not any(metrics[name]["calls"] > 0 for name in IMAGE_METRICS):
+        fail("image scenario recorded no image-pipeline work; capture is empty")
     if scenario == "camera":
         for name in P1_METRICS:
             if metrics[name]["calls"] != 0:
@@ -348,11 +384,29 @@ def validate_report(path, scenario, agent_sha, fixture_sha, run_properties):
                 fail(f"camera scenario recorded zero calls for P0 metric {name}; capture is empty")
 
 
+def validate_latency(metric, name):
+    latency = metric.get("latency")
+    if not isinstance(latency, dict) or set(latency) != set(LATENCY_FIELDS):
+        fail(f"metrics.{name}.latency must have exactly fields {LATENCY_FIELDS}")
+    for field in LATENCY_FIELDS:
+        require_positive_int(latency[field], f"metrics.{name}.latency.{field}")
+    if latency["samples"] != metric["sampled"]:
+        fail(f"metrics.{name} has undrained or inconsistent latency samples")
+    bounds = [latency[field] for field in LATENCY_FIELDS[1:]]
+    max_bound = (1 << metric["maxNanos"].bit_length()) - 1
+    if bounds != sorted(bounds) or any(value > max_bound for value in bounds):
+        fail(f"metrics.{name} percentile bounds are not ordered or exceed the observed maximum bucket")
+    if any(value & (value + 1) for value in bounds):
+        fail(f"metrics.{name} percentile bounds must be base-2 bucket upper bounds")
+    if latency["samples"] == 0 and any(bounds):
+        fail(f"metrics.{name} has latency bounds without samples")
+
+
 def verify(arguments):
     if arguments.variant not in ("on", "off"):
         fail("--variant must be on or off")
-    if arguments.scenario not in ("camera", "edit"):
-        fail("--scenario must be camera or edit")
+    if arguments.scenario not in ("camera", "edit", "images"):
+        fail("--scenario must be camera, edit or images")
     if not isinstance(arguments.run_id, str) or not RUN_ID.match(arguments.run_id):
         fail(f"--run-id must match {RUN_ID.pattern}, got {arguments.run_id!r}")
     require_hex64(arguments.agent_sha256, "--agent-sha256")
@@ -667,7 +721,7 @@ def main():
     parser.add_argument("--diagnostics", required=True)
     parser.add_argument("--rollback-manifest", required=True)
     parser.add_argument("--run-properties", required=True)
-    parser.add_argument("--scenario", choices=("camera", "edit"), required=True)
+    parser.add_argument("--scenario", choices=("camera", "edit", "images"), required=True)
     parser.add_argument("--agent-sha256", required=True)
     parser.add_argument("--fixture-sha256", required=True)
     parser.add_argument("--self-test", action="store_true")
