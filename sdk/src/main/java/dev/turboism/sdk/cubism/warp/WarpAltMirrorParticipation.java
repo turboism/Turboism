@@ -34,4 +34,48 @@ public interface WarpAltMirrorParticipation {
      *     mirroring (for example an AWT-level path) must stay active.
      */
     boolean nativeMirrorActive();
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static WarpAltMirrorParticipation unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
+    enum Unavailable implements WarpAltMirrorParticipation {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration participate() {
+            throw unavailableFailure();
+        }
+
+        @Override public void setArmedAxis(final int axis) {
+            throw unavailableFailure();
+        }
+
+        @Override public boolean nativeMirrorActive() {
+            throw unavailableFailure();
+        }
+
+        private static UnsupportedOperationException unavailableFailure() {
+            return new UnsupportedOperationException(
+                "warpAltMirrorParticipation service is not available");
+        }
+    }
 }

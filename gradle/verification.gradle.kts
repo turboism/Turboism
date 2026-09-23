@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -989,11 +990,88 @@ registerParameterHostValidation("validateParameterHost5203", "5203", "5.2.03")
 registerWorkspaceHostValidation("validateWorkspaceHost5302", "5302", "5.3.02")
 registerWorkspaceHostValidation("validateWorkspaceHost5203", "5203", "5.2.03")
 
+/*
+ * External-consumer gate for templates/plugin-template: the template is copied to a
+ * unique temporary directory and built exactly like a third-party consumer would —
+ * the SDK is the real :sdk:jar artifact dropped into libs/, and every declared
+ * repository is cleared through an init script so nothing resolves from ~/.m2 or
+ * the monorepo. The produced plugin JAR is bound to its tracked descriptor through
+ * the production PluginMetaValidationCli / FirstPartyMetadataVerificationCli gate
+ * tools (runtime-internal; they never enter the template compile classpath). The
+ * self-test proves the check fails closed on a drifted descriptor and on an SDK
+ * served from an empty resolution repository, so a stale ~/.m2 cannot mask drift.
+ */
+val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for the external plugin-template consumer check."
+    dependsOn(":sdk:jar", ":runtime:classes")
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_external_plugin_template.py",
+        fileTree("templates/plugin-template") { include("**/*") }
+    )
+    inputs.files(provider {
+        project(":runtime").extensions.getByType<SourceSetContainer>()
+            .named("main").get().runtimeClasspath
+    })
+    doFirst {
+        commandLine(
+            "python3", "scripts/test/check_external_plugin_template.py", "selftest",
+            "--repo-root", rootDir.absolutePath,
+            "--sdk-jar",
+            project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
+            "--sdk-version", project(":sdk").version.toString(),
+            "--runtime-classpath",
+            project(":runtime").extensions.getByType<SourceSetContainer>()
+                .named("main").get().runtimeClasspath.asPath,
+            "--java", file("${codeQualityJavaHome.get()}/bin/java").absolutePath,
+            "--work-dir",
+            layout.buildDirectory.dir("tmp/external-plugin-template/selftest").get().asFile.absolutePath,
+            "--shared-gradle-home", gradle.gradleUserHomeDir.absolutePath
+        )
+    }
+}
+
+tasks.register<Exec>("checkExternalPluginTemplate") {
+    group = "verification"
+    description = "Builds templates/plugin-template as an external consumer and validates the plugin JAR through production contract tools."
+    dependsOn(":sdk:jar", ":runtime:classes", checkExternalPluginTemplateSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_external_plugin_template.py",
+        fileTree("templates/plugin-template") { include("**/*") }
+    )
+    inputs.file(provider {
+        project(":sdk").tasks.named<Jar>("jar").get().archiveFile
+    })
+    inputs.files(provider {
+        project(":runtime").extensions.getByType<SourceSetContainer>()
+            .named("main").get().runtimeClasspath
+    })
+    doFirst {
+        commandLine(
+            "python3", "scripts/test/check_external_plugin_template.py", "check",
+            "--repo-root", rootDir.absolutePath,
+            "--sdk-jar",
+            project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
+            "--sdk-version", project(":sdk").version.toString(),
+            "--runtime-classpath",
+            project(":runtime").extensions.getByType<SourceSetContainer>()
+                .named("main").get().runtimeClasspath.asPath,
+            "--java", file("${codeQualityJavaHome.get()}/bin/java").absolutePath,
+            "--work-dir",
+            layout.buildDirectory.dir("tmp/external-plugin-template/check").get().asFile.absolutePath,
+            "--shared-gradle-home", gradle.gradleUserHomeDir.absolutePath
+        )
+    }
+}
+
 tasks.register("checkIntegration") {
     group = "verification"
     description = "Runs packaged runtime, plugin, preview-agent, and affected cross-module integration verification."
     dependsOn(
         devCheck,
+        "checkExternalPluginTemplate",
         checkAsyncHostReadFoundation,
         checkCubismCoreApiInventory,
         checkCubismCoreMemberPolicy,
