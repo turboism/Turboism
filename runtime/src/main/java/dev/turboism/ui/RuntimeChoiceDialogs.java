@@ -4,6 +4,7 @@ import dev.turboism.sdk.ui.ChoiceDialogAction;
 import dev.turboism.sdk.ui.ChoiceDialogOption;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.ChoiceDialogResultListener;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
@@ -86,6 +87,7 @@ final class RuntimeChoiceDialogs {
             : owner instanceof Dialog parent
                 ? new JDialog(parent, request.title(), true)
                 : new JDialog((Frame) null, request.title(), true);
+        TurboismWindowFactory.style(dialog);
         final AtomicReference<String> selected = new AtomicReference<>();
         final JPanel content = new JPanel(new BorderLayout(0, 10));
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));

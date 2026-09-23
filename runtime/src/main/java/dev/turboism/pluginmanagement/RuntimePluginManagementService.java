@@ -4,10 +4,14 @@ import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.plugin.core.CorePluginManagement;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.Component;
+import java.awt.HeadlessException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -482,7 +486,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private static Optional<Path> choosePluginPackage() {
         @SuppressWarnings("unchecked") final Optional<Path>[] selected = new Optional[]{Optional.empty()};
         final Runnable choose = () -> {
-            final JFileChooser chooser = new JFileChooser();
+            final JFileChooser chooser = new TurboismFileChooser();
             configurePluginJarChooser(chooser);
             if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
                 selected[0] = Optional.of(chooser.getSelectedFile().toPath());
@@ -525,7 +529,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         private JFileChooser visible;
 
         SwingPackageChooser() {
-            this(JFileChooser::new, () -> { }, () -> { });
+            this(TurboismFileChooser::new, () -> { }, () -> { });
         }
 
         SwingPackageChooser(
@@ -609,6 +613,16 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             } catch (Exception failure) {
                 throw new IllegalStateException("Could not close plugin package chooser on the EDT", failure);
             }
+        }
+    }
+
+    /** JFileChooser whose dialog carries the Turboism window icon. */
+    private static final class TurboismFileChooser extends JFileChooser {
+        @Override
+        protected JDialog createDialog(final Component parent) throws HeadlessException {
+            final JDialog dialog = super.createDialog(parent);
+            TurboismWindowFactory.style(dialog);
+            return dialog;
         }
     }
 
