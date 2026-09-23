@@ -25,6 +25,8 @@ public final class ProtectedExportProbeSelfCheck {
         exactClassIsolatesTheInjectedCheckBox();
         actionClassIdentifiesTheRightButton();
         actionClassesDispatchOnExactHostVersion();
+        optionsPeerDispatchesOnExactHostVersion();
+        nativeLeafIsolatesTheHostCheckBox();
         traversalTerminatesOnCyclesAndDepth();
         System.out.println("[self-check] protected-export probe rules OK");
     }
@@ -119,6 +121,36 @@ public final class ProtectedExportProbeSelfCheck {
                 "cancel action for " + version + " must be window.z"
             );
         }
+    }
+
+    /**
+     * The mount-parent pin is an exact-version dispatch like the button actions:
+     * today every reviewed build resolves to {@code com.live2d.ui.swingImpl.u}.
+     */
+    private static void optionsPeerDispatchesOnExactHostVersion() {
+        for (final String version : new String[] {"5203", "5302", "5303", "", "9999"}) {
+            require(
+                "com.live2d.ui.swingImpl.u".equals(
+                    ProtectedExportHostProbeAgent.optionsContainerPeer(version)),
+                "options peer for " + version + " must be swingImpl.u"
+            );
+        }
+    }
+
+    /** A subclassed check box is a native leaf; the exact class is the injected row. */
+    private static void nativeLeafIsolatesTheHostCheckBox() {
+        require(
+            ProtectedExportHostProbeAgent.isNativeCheckBoxLeaf(new NativeLikeCheckBox("native")),
+            "a JCheckBox subclass must count as a native leaf"
+        );
+        require(
+            !ProtectedExportHostProbeAgent.isNativeCheckBoxLeaf(new JCheckBox("injected")),
+            "a plain JCheckBox must never count as a native leaf"
+        );
+        require(
+            !ProtectedExportHostProbeAgent.isNativeCheckBoxLeaf(new JButton("button")),
+            "a non-check-box must never count as a native leaf"
+        );
     }
 
     /** Traversal must terminate on a genuine cycle and refuse to recurse without bound. */

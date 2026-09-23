@@ -7,10 +7,13 @@ import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
-import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Container;
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +28,11 @@ import java.util.function.Function;
 /**
  * Inert, injectable attachment backend for the embedded-model Export Settings UI.
  *
- * <p>This class only renders a supplied option snapshot into a caller-supplied
- * container. It does not discover host widgets, resolve localization, invoke plugin
- * callbacks, mutate a model, or execute an export.</p>
+ * <p>This class only renders a supplied option snapshot into the caller-supplied
+ * dialog content: the owned panel is appended inside the dialog's native options
+ * container, after the last native option and before the button area. It does not
+ * discover host windows, resolve localization, invoke plugin callbacks, mutate a
+ * model, or execute an export.</p>
  */
 public final class ExportSettingsAttachBackend {
 
@@ -42,8 +47,10 @@ public final class ExportSettingsAttachBackend {
     public static final String INTERRUPTED_KEY = "export-settings.attach.interrupted";
     public static final String EDT_TIMEOUT_KEY = "export-settings.attach.edt-timeout";
     public static final String BOUNDARY_FAILURE_KEY = "export-settings.attach.boundary-failure";
+    public static final String OPTIONS_CONTAINER_KEY = "export-settings.attach.options-container";
 
     private static final long EDT_TIMEOUT_MILLIS = 5_000L;
+    private static final int MAX_TREE_NODES = 1024;
 
     private final Object lifecycleLock = new Object();
     private final Function<String, JCheckBox> checkboxFactory;
@@ -124,13 +131,13 @@ public final class ExportSettingsAttachBackend {
                 becameClosed = closed;
                 attaching = false;
                 if (!becameClosed) {
-                    container = requestedContainer;
+                    container = parts.mount();
                     ownedPanel = parts.panel();
                     checkboxes = Collections.unmodifiableMap(parts.checkboxes());
                 }
             }
             if (becameClosed) {
-                removeParts(requestedContainer, parts.panel());
+                removeParts(parts.mount(), parts.panel());
                 throw new ExportSettingsAttachException(CLOSED_KEY);
             }
             return this::closeInternal;
@@ -139,7 +146,7 @@ public final class ExportSettingsAttachBackend {
                 attaching = false;
             }
             if (parts != null) {
-                removeParts(requestedContainer, parts.panel());
+                removeParts(parts.mount(), parts.panel());
             }
             throw failure;
         } catch (Throwable failure) {
@@ -147,7 +154,7 @@ public final class ExportSettingsAttachBackend {
                 attaching = false;
             }
             if (parts != null) {
-                removeParts(requestedContainer, parts.panel());
+                removeParts(parts.mount(), parts.panel());
             }
             throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
@@ -169,8 +176,8 @@ public final class ExportSettingsAttachBackend {
                 panel.add(box);
                 boxes.put(contribution.optionId(), box);
             }
-            commitOrRollback(target, panel);
-            return new AttachmentParts(panel, boxes);
+            final Container mount = commitOrRollback(target, panel);
+            return new AttachmentParts(panel, boxes, mount);
         } catch (Throwable failure) {
             rollback(target, panel, failure);
             throw failure;
@@ -193,24 +200,77 @@ public final class ExportSettingsAttachBackend {
                 panel.add(box);
                 boxes.put(option.optionId(), box);
             }
-            commitOrRollback(target, panel);
-            return new AttachmentParts(panel, boxes);
+            final Container mount = commitOrRollback(target, panel);
+            return new AttachmentParts(panel, boxes, mount);
         } catch (Throwable failure) {
             rollback(target, panel, failure);
             throw failure;
         }
     }
 
-    private static void commitOrRollback(final Container target, final JPanel panel) {
-        target.add(panel, BorderLayout.SOUTH);
-        target.revalidate();
-        target.repaint();
+    /**
+     * Appends the owned panel inside the dialog's native options container and
+     * returns that container so teardown removes exactly what was added. The
+     * supplied container is the dialog content pane; its south region belongs to
+     * the native button row, so the contribution must never be mounted there.
+     */
+    private static Container commitOrRollback(final Container target, final JPanel panel) {
+        final Container mount = optionsContainer(target);
+        if (mount == null) {
+            throw new ExportSettingsAttachException(OPTIONS_CONTAINER_KEY);
+        }
+        mount.add(panel);
+        mount.revalidate();
+        mount.repaint();
+        return mount;
+    }
+
+    /**
+     * The native export dialog builds its options in a component-order container
+     * whose leaves are the host's own check-box subclasses (FlatLaf tri-state
+     * buttons), so the options list is the container with the most direct native
+     * check-box children. The runtime's owned rows are plain {@link JCheckBox}
+     * instances and are never counted, which also keeps a leaked owned panel from
+     * ever being picked as its own mount. Returns {@code null} when the supplied
+     * tree carries no native option at all — mounting anywhere else would land
+     * the contribution outside the options list or on top of the button row.
+     */
+    private static Container optionsContainer(final Container content) {
+        Container best = null;
+        int bestCount = 0;
+        final Deque<Component> pending = new ArrayDeque<>();
+        final Set<Component> visited =
+            Collections.newSetFromMap(new IdentityHashMap<>());
+        pending.add(content);
+        while (!pending.isEmpty() && visited.size() < MAX_TREE_NODES) {
+            final Component component = pending.poll();
+            if (component == null
+                || !visited.add(component)
+                || !(component instanceof Container container)) {
+                continue;
+            }
+            int direct = 0;
+            for (Component child : container.getComponents()) {
+                if (child instanceof JCheckBox && child.getClass() != JCheckBox.class) {
+                    direct++;
+                }
+                if (child instanceof Container) {
+                    pending.add(child);
+                }
+            }
+            if (direct > bestCount) {
+                best = container;
+                bestCount = direct;
+            }
+        }
+        return best;
     }
 
     private static void rollback(final Container target, final JPanel panel, final Throwable failure) {
         try {
-            if (panel.getParent() == target) {
-                target.remove(panel);
+            final Container parent = panel.getParent();
+            if (parent != null) {
+                parent.remove(panel);
             }
         } catch (Throwable rollback) {
             failure.addSuppressed(rollback);
@@ -396,10 +456,15 @@ public final class ExportSettingsAttachBackend {
         T run();
     }
 
-    private record AttachmentParts(JPanel panel, Map<String, JCheckBox> checkboxes) {
+    private record AttachmentParts(
+        JPanel panel,
+        Map<String, JCheckBox> checkboxes,
+        Container mount
+    ) {
         private AttachmentParts {
             Objects.requireNonNull(panel, "panel");
             Objects.requireNonNull(checkboxes, "checkboxes");
+            Objects.requireNonNull(mount, "mount");
         }
     }
 }
