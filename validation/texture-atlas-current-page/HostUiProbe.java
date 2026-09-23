@@ -15,7 +15,12 @@ import javax.swing.*;
 public final class HostUiProbe {
     private static final Map<Integer, Component> controls = new LinkedHashMap<>();
     static final boolean UI_TIMING = Boolean.getBoolean("turboism.validation.atlas.uiTiming");
+    static final String PROGRESS_CLASS =
+        System.getProperty("turboism.validation.atlas.progressClass", "jp.noids.framework.e.a.f");
     static volatile long actionStart, progressShown, progressClosed;
+    static volatile long actionStartEpochMs, progressClosedEpochMs;
+    static final Set<String> observedWindows =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static Window measuredProgress;
     private static java.awt.event.AWTEventListener progressListener;
 
@@ -29,8 +34,9 @@ public final class HostUiProbe {
         progressListener = event -> {
             if (actionStart == 0 || !(event instanceof java.awt.event.HierarchyEvent h)
                     || (h.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) == 0
-                    || !(h.getComponent() instanceof Window window)
-                    || !window.getClass().getName().equals("jp.noids.framework.e.a.f")) return;
+                    || !(h.getComponent() instanceof Window window)) return;
+            if (observedWindows.size() < 200) observedWindows.add(window.getClass().getName());
+            if (!window.getClass().getName().equals(PROGRESS_CLASS)) return;
             long now = System.nanoTime();
             if (window.isShowing()) {
                 if (measuredProgress != null) throw new IllegalStateException("Multiple progress windows");
@@ -38,6 +44,7 @@ public final class HostUiProbe {
                 progressShown = now;
             } else if (window == measuredProgress && progressClosed == 0) {
                 progressClosed = now;
+                progressClosedEpochMs = System.currentTimeMillis();
                 Toolkit.getDefaultToolkit().removeAWTEventListener(progressListener);
             }
         };
@@ -45,6 +52,7 @@ public final class HostUiProbe {
         // Swing dispatches newly added action listeners first. Excludes doClick's press delay.
         button.addActionListener(event -> {
             if (actionStart != 0) throw new IllegalStateException("Repeated layout action");
+            actionStartEpochMs = System.currentTimeMillis();
             actionStart = System.nanoTime();
         });
     }
