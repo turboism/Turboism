@@ -404,11 +404,16 @@ def selftest(args: argparse.Namespace) -> int:
     )
 
     # Fixture 4 — command-echo control: needles must match subprocess output
-    # only. A log whose only mention of the repo path sits in the echoed
-    # -Dmaven.repo.local argument is a false pass and must be rejected.
+    # only. The fake log carries the real missing-coordinate marker in the
+    # output portion while the exact `file:` searched-location needle exists
+    # ONLY in the echoed command line — a parser that scanned the whole log
+    # (echo included) would wrongly accept this as a dependency-miss.
+    # The "unexpectedly accepted" failure is raised in `else`, outside the
+    # except, so it can never be swallowed by the CheckFailure catch itself.
     echo_only = work / "command-echo-only.log"
     echo_only.write_text(
-        f"$ ./gradlew -Dmaven.repo.local={empty_repo} build\n\nunrelated failure\n",
+        f"$ ./gradlew -Dmaven.repo.local=file:{empty_repo}/dev/turboism/sdk/{sdk_version}/ build\n"
+        f"> Could not find dev.turboism:sdk:{sdk_version}.\n",
         encoding="utf-8",
     )
     try:
@@ -416,11 +421,15 @@ def selftest(args: argparse.Namespace) -> int:
             "command-echo-only",
             subprocess.CompletedProcess(args=[], returncode=1),
             echo_only,
-            [f"Could not find dev.turboism:sdk:{sdk_version}", f"file:{empty_repo}/"],
+            [
+                f"Could not find dev.turboism:sdk:{sdk_version}",
+                f"file:{empty_repo}/dev/turboism/sdk/{sdk_version}/",
+            ],
         )
-        fail("selftest fixture 'command-echo-only' unexpectedly accepted a command-echo-only log")
     except CheckFailure:
         print("  fixture 'command-echo-only' rejected a needle present only in the command echo")
+    else:
+        fail("selftest fixture 'command-echo-only' unexpectedly accepted a command-echo-only log")
 
     # Fixture 5 — user-level Gradle config is really isolated: an init script in
     # the private Gradle home DOES break the build (positive control), so the
