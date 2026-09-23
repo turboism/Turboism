@@ -14,6 +14,8 @@ public final class GlSubmissionProbeTest {
         void glDrawElements(int mode, int count, int type, long indices);
         void glUniform1i(int location, int v0);
         void glReadPixels(int x, int y, int width, int height, int format, int type, java.nio.Buffer data);
+        void glGenBuffers(int n, java.nio.IntBuffer buffers);
+        void glDeleteBuffers(int n, java.nio.IntBuffer buffers);
         void glFail();
     }
     public static final class NativeGL implements TestGL {
@@ -37,6 +39,8 @@ public final class GlSubmissionProbeTest {
         @Override public void glDrawElements(int mode, int count, int type, long indices) { }
         @Override public void glUniform1i(int location, int v0) { }
         @Override public void glReadPixels(int x, int y, int width, int height, int format, int type, java.nio.Buffer data) { }
+        @Override public void glGenBuffers(int n, java.nio.IntBuffer buffers) { }
+        @Override public void glDeleteBuffers(int n, java.nio.IntBuffer buffers) { }
         @Override public void glFail() { throw expected; }
     }
     public static void main(String[] args) throws Exception {
@@ -211,6 +215,8 @@ public final class GlSubmissionProbeTest {
                 gl.glBufferData(34962, 64, null, 35048);
                 gl.glUniform1i(3, 0);
                 gl.glGetError();
+                gl.glGenBuffers(1, null);
+                gl.glDeleteBuffers(1, null);
                 gl.glDrawElements(4, 3, 5125, 0);
                 gl.glReadPixels(0, 0, 1, 1, 6408, 5121, null);
                 probe.stop();
@@ -219,15 +225,23 @@ public final class GlSubmissionProbeTest {
                 check(report.contains("glCategories.enabled=true\n"), "opt-in flag honored");
                 check(report.contains("glCategories.draw.calls=1\n"), "draw partition");
                 check(report.contains("glCategories.upload.calls=2\n"), "upload partition");
-                check(report.contains("glCategories.query.calls=1\n"), "query partition");
+                check(report.contains("glCategories.query.calls=0\n"), "query partition loses glGetError");
+                check(report.contains("glCategories.errorCheck.calls=1\n"), "error-check partition");
+                check(report.contains("glCategories.bufferLifecycle.calls=2\n"), "lifecycle partition");
                 check(report.contains("glCategories.uniformWrite.calls=1\n"), "uniform-write partition");
                 check(report.contains("glCategories.state.calls=1\n"), "state partition");
                 check(report.contains("glCategories.readback.calls=1\n"), "readback partition");
                 check(report.contains("glCategories.other.calls=0\n"), "uncategorized family disclosed");
-                check(report.contains("glCategories.observedCalls=7\n"), "partition covers measured calls only");
+                check(report.contains("glCategories.observedCalls=9\n"), "partition covers measured calls only");
                 check(report.contains("glCategories.observedNanos="), "delegate totals emitted");
                 check(report.contains("glCategories.observerNanos="), "observer overhead exported separately");
                 check(report.contains("glCalls.glDrawElements.calls=1\n"), "per-method counts unchanged");
+                check(report.contains("glCategories.topMethods.bound=10\n"), "top-methods bound disclosed");
+                check(report.contains("glCategories.top.1.method="), "top method emitted");
+                check(report.contains("glCategories.top.1.calls=")
+                    && report.contains("glCategories.top.1.nanos="), "top method metrics emitted");
+                check(report.contains("glCategories.top.9.method="), "all nine called methods ranked");
+                check(!report.contains("glCategories.top.10.method="), "only called methods ranked");
                 probe.requireValid();
                 probe.start();
                 try { gl.glFail(); throw new AssertionError("exception was swallowed"); }

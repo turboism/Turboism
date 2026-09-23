@@ -424,17 +424,119 @@ Add `-Dturboism.validation.modelUpdateGlCallCategories=true` together with
 `modelUpdateGlCalls=true`; the flag alone fails fast instead of silently running
 without the GL probe. Each forwarded `gl*` call's delegate interval is added to
 exactly one category — `draw`, `upload`, `query`, `uniformWrite`, `state`,
-`readback` or `other` — classified once per method by the single prefix table
-in `GlCallCategory` at probe construction, not per call. The report emits
-per-category `calls`/`nanos`/`maxNanos`, `observedCalls`/`observedNanos`
-partition totals, and `observerNanos`: wrapper bookkeeping outside the native
-delegate intervals, including the payload-scan section when that observer is
-also enabled. `glCategories.*` partitions the same `glCalls.*` delegate time;
-it is not additional time to add to those totals. `requireValid` additionally
-rejects a partition that does not cover every counted call. No `glGetError`,
-sequential log or per-call payload record is added, and every call keeps its
-original order, arguments, return value and exception identity. The flag is off
-by default; when off, no category storage is allocated and the call path is
-identical to the pre-attribution probe. The `glCategories.*` keys are additive:
-existing report consumers are unaffected. These numbers decompose instrumented
-delegate time only; they remain attribution evidence, not a paired speedup.
+`readback`, `errorCheck`, `bufferLifecycle` or `other` — classified once per
+method by the single prefix table in `GlCallCategory` at probe construction,
+not per call. `errorCheck` is exactly `glGetError` (the unconditional
+`shader/A.a(GL,String,Z)` marker), split out of `query`; `bufferLifecycle` is
+every `glGen*`/`glDelete*` object creation or destruction (except
+`glGenerate*`, which is content generation and stays in `other`), split out of
+`other`. The report emits per-category `calls`/`nanos`/`maxNanos`,
+`observedCalls`/`observedNanos` partition totals, and `observerNanos`: wrapper
+bookkeeping outside the native delegate intervals, including the payload-scan
+section when that observer is also enabled. `glCategories.*` partitions the
+same `glCalls.*` delegate time; it is not additional time to add to those
+totals. `requireValid` additionally rejects a partition that does not cover
+every counted call. No `glGetError`, sequential log or per-call payload record
+is added, and every call keeps its original order, arguments, return value and
+exception identity. The flag is off by default; when off, no category storage
+is allocated and the call path is identical to the pre-attribution probe. The
+`glCategories.*` keys are additive: existing report consumers are unaffected.
+These numbers decompose instrumented delegate time only; they remain
+attribution evidence, not a paired speedup.
+
+When categories are enabled the report also emits `glCategories.top.<rank>.*`
+for up to `glCategories.topMethods.bound=10` methods, ranked by delegate
+`nanos` descending (ties broken by method name): `method`, `calls` and `nanos`
+per rank. The ranking is computed at report time from the existing per-method
+metrics; the GL call path performs no sorting or allocation for it. These are
+the same `glCalls.<method>.*` numbers reshaped, not additional time.
+
+### glGetError elision timing leg (experimental transform, not a proxy)
+
+`-Dturboism.validation.glGetErrorElision=true` enables a completely separate
+experiment: an agent-level bytecode transform that replaces each reviewed
+`invokeinterface com/jogamp/opengl/GL.glGetError()I` inside the exact marker
+method `com/live2d/graphics3d/shader/A.a(GL;Ljava/lang/String;Z)I` with a
+constant `GL_NO_ERROR` (`pop; iconst_0`, identical operand-stack shape). It is
+for uninstrumented timing legs: it does **not** use or require the GL
+submission probe, the payload observer or category attribution, and it must
+never be combined with them in the same leg — under the proxy a non-zero
+`glGetError` result would contradict the elided marker and inflate
+`nonzeroErrors`.
+
+Fail-closed contract: the hook only installs when the flag is set, the host
+artifact is a reviewed digest (5.3.02, 5.3.03; 5.2.03 has no such method),
+the marker method's `ReviewedMethodShape` equals the official artifact's
+reference shape, and the rewritten site count equals the reviewed count. Any
+owner/method/descriptor or bytecode drift leaves the class untouched. On close
+the class must hash back to its pre-rewrite SHA-256.
+
+Driver verification markers in the runtime log (all under
+`TURBOISM_GL_ERROR_ELISION`):
+
+- `installation=NOT_ADMITTED` — flag off (or gate refused); nothing changed.
+- `installation=FAILED <error>` — install threw; nothing changed.
+- `installation=COMPLETE` — the install attempt finished; this alone does not
+  prove a rewrite (a NOT_ADMITTED leg also reaches it).
+- `elision=ACTIVE sites=<n> target=com/live2d/graphics3d/shader/A.a(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I`
+  — the rewrite is installed; this line is the effectiveness marker.
+
+Semantics: elided calls see `GL_NO_ERROR`, so the marker's error branch never
+fires and no `GLException` can be thrown from it. That is the intended
+experiment (error-check cost removed), not a parity guarantee — a leg with
+elision active is a hypothesis test, not a correctness run.
+
+Usage: pass `-Dturboism.validation.glGetErrorElision=true` via `--jvm-option`
+to the host-validation wrapper like any other JVM option; it is read by the
+javaagent at `HOST_RESOLVED`, before the preview runtime starts.
+
+### Mesa glthread A/B investigation (text only — no host evidence yet)
+
+Hypothesis under test: if Mesa `glthread` is enabled on the Proton + Mesa
+26.1 iris host, every `glGetError`/`glGet*` is a pipeline synchronization
+point, which could explain a large share of the undecomposed quiet residue.
+
+**Can the runner inject the variable?** `--windows-env NAME=value` writes
+`set "NAME=value"` lines into the Windows `launch.bat` inside the prefix —
+that is a Wine/Windows environment block, **not** the Linux environment of
+the `wine64` process that loads Mesa. `mesa_glthread` is read by the
+Linux-side Mesa (iris is a Gallium driver) via `getenv`, so `--windows-env`
+is the wrong channel for it. The Linux-side injection points that do exist:
+
+- The generated `launch.sh` (task dir) inherits the validating shell's
+  environment before invoking `"$proton_wrapper" ... cmd /c launch.bat`. An
+  exported `mesa_glthread=true|false` in the runner's own environment should
+  propagate through `launch.sh` to the Proton wrapper and the wine64
+  process. Caveat: propagation through Proton's own env handling is not
+  verified offline, and the `.env` loader deliberately allowlists `TURBOISM_*`
+  keys — a bare `mesa_glthread` export is outside that declared contract.
+- A first-class mechanism (a dedicated `--linux-env`/runner option, or a
+  `TURBOISM_*` key the launcher explicitly re-exports inside `launch.sh`)
+  would be the clean fix and needs a small runner change; do not improvise
+  edits to generated scripts for a measured leg.
+
+So: A/B is feasible via runner-process environment inheritance
+(`mesa_glthread=true` vs `mesa_glthread=false` exported before invoking the
+queue/wrapper), but whether the value survives to the wine64 process is an
+assumption that must be verified per leg, not trusted.
+
+**Verifying the actual glthread state in the field** — requesting the env
+var is never proof Mesa honored it (drirc app profiles can override either
+direction):
+
+- `/proc/<pid>/task/*/comm` on the editor's `java.exe` wine64 process
+  (locate via `scripts/preview/find-cubism-java-pid.sh`): Mesa's submission
+  worker shows up as an extra thread (comm names like `glthread`/
+  driver-suffixed workers; the exact comm string on Mesa 26.1 should be
+  observed, not assumed). Absence of the worker means glthread is off.
+- `MESA_DEBUG=1`/`MESA_INFO=1` in the same Linux-side environment prints
+  driver/context lines to the process stderr, which lands in the task's
+  `launcher.out` (`launch.sh` redirects it). Useful corroboration of which
+  driver/context flags are active.
+- `GALLIUM_HUD` draws an on-screen HUD (iris is Gallium) — usable only in
+  attended/debug legs, needs the same env channel, and perturbs rendering;
+  not for measured legs.
+- Cross-check: an elision leg that still shows the glthread worker thread
+  while glGetError time collapses is consistent with the sync-point
+  hypothesis; unchanged totals would refute it. Report requested env state
+  and observed thread evidence separately — never conflate them.
