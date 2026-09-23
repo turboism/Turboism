@@ -5,6 +5,8 @@ import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.archive.ArchiveStructureException;
+import dev.turboism.core.archive.StrictZipArchive;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.event.PublicEventContractCatalog;
@@ -46,6 +48,19 @@ final class PluginJarInspector {
     ) throws Exception {
         try {
             return strictScan(path, logicalPath, main);
+        } catch (ArchiveStructureException exception) {
+            if (exception.code().startsWith("ARCHIVE_")) {
+                throw ArchivePolicy.problem(
+                    "ARTIFACT_JAR_INVALID",
+                    "Invalid plugin JAR",
+                    logicalPath
+                );
+            }
+            throw ArchivePolicy.problem(
+                exception.code(),
+                exception.getMessage(),
+                exception.problemPath()
+            );
         } catch (DistributionValidationException exception) {
             if (exception.code().startsWith("ARCHIVE_")) {
                 throw ArchivePolicy.problem(
@@ -66,7 +81,8 @@ final class PluginJarInspector {
         byte[] descriptor = null;
         int descriptors = 0;
         final List<String> content = new ArrayList<>();
-        try (StrictZipArchive archive = StrictZipArchive.open(path, LIMITS)) {
+        try (StrictZipArchive archive =
+                StrictZipArchive.open(path, LIMITS, PluginPathPolicy.ARCHIVE)) {
             for (StrictZipArchive.Entry entry : archive.entries()) {
                 if (entry.directory()) {
                     continue;
@@ -143,10 +159,12 @@ final class PluginJarInspector {
                 looseClasses.add(PublicEventContractPreflight.binaryName(name));
             }
         }
-        final Set<String> payloadSeeds = new LinkedHashSet<>();
-        descriptor.eventExports().forEach(export -> payloadSeeds.add(export.eventType()));
-        descriptor.eventImports().forEach(imports -> payloadSeeds.add(imports.eventType()));
-        try (StrictZipArchive archive = StrictZipArchive.open(path, LIMITS)) {
+        final Set<String> payloadSeeds = new LinkedHashSet<>(
+            PublicEventContractPreflight.payloadSeeds(descriptor));
+        final PublicEventContractPreflight.Session session =
+            PublicEventContractPreflight.newSession();
+        try (StrictZipArchive archive =
+            StrictZipArchive.open(path, LIMITS, PluginPathPolicy.ARCHIVE)) {
             for (final PluginDescriptor.EventContract contract : descriptor.eventContracts()) {
                 final String artifactPath = contract.artifact();
                 final String problemPath = logicalPath + "!/" + artifactPath;
@@ -174,6 +192,7 @@ final class PluginJarInspector {
                 archive.consume(entry, artifact);
                 try {
                     PublicEventContractPreflight.verify(
+                        session,
                         descriptor.id(),
                         contract.id(),
                         artifactPath,
