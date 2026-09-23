@@ -1,6 +1,6 @@
 # 原生性能实验台账
 
-最后更新：2026-09-11（I37 P09 重复快照读取量化与修复轮）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
+最后更新：2026-09-24（M-A1..M-A6 协议 A -Xmx4g 六轮实机 A/B 完结）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
 
 本台账是本任务的统一检索入口，不是构建/运行时依赖，也不替代结构化 exact-host 证据。历史数据、失败和后续相反结果必须同时保留。所有实现位于独立分支；未授权合并或推送 main。
 
@@ -32,6 +32,7 @@
 | P02 | 局部上传/图集、更新合并等 | 未实施，契约证据不足 | 补精确失效/消费边界后才进入实现 |
 | P08 | Turboism 编辑器绑定陈旧强引用 | 已修复（弱引用，共两处）；离线回归先失败后通过；实机字节收益未测 | 不重复修同一槽；实机 A/B 需另设 editor binding 场景并单独授权 |
 | P09 | 版本化读取的重复宿主读 | 已量化并修复：一次 `runtimeWithVersion()` 的宿主读 2+3 → 1+1；离线回归先失败后通过；端到端收益未测 | 不重复优化同一处；单次 `activeProject()` 自身成本仍未动，属另一切片 |
+| M-A1..6 | -Xmx4g 堆上限六轮实机 A/B（协议 A） | 稳态 INCONCLUSIVE（中位达阈但区间重叠、机制平坦）；加载峰 −34.4% 为唯一干净分离；软引用机制未证实 | 不改默认；加载峰另设独立协议；不用中位差宣称稳态收益 |
 
 ## 公共实验条件与工件
 
@@ -1543,3 +1544,37 @@ n8 是这套链路的首次实机有效性证据。
 判定：GraalVM 单换=可行+温和收益（JDK 25 兼容 OK，加载略快，
 停顿天花板降但 G1 仍在）；Graal+ZGC=停顿归零但加载更慢。
 两者都是 opt-in 材质，非默认推荐。
+
+## M-A1..M-A6 — 协议 A：-Xmx4g 堆上限对内存占用的实机 A/B（052/T04/C1，2026-09-24）
+
+- **实现/协议**：不改产品代码；经 host-validation manifest `--jvm-option` 注入。
+  C=无附加；T1=`-Xmx4g`。`native-resource:5302` + `memoryIdleSeconds=780` 扩展窗，
+  `measure-task-memory.py`/`NativeMemoryObservation`/jvm.csv。序列 C/T1/T1/C/C/T1，
+  另有校准轮 ma-cal-c（不计入）。主指标口径含 swap（PSS+SwapPss、RSS+VmSwap，
+  监督 450c6396 裁决：本机 zram+swapfile 常态换页，裸 PSS 会偏袒承压更大的控制臂）；
+  作废阈=轮内 maxVmSwap>1GiB。fixture heavy.cmo3 sha256 `029e9a4e…c7f80c`。
+- **终态**：6/6 succeeded/PASS/normalExit/cleanup=safe；T1 三轮 jvm.csv 首行
+  heapMaxBytes=4294967296（断言激活）；六轮 maxVmSwap 0–974.2MiB 均<1GiB → 全 VALID。
+- **结果（中位/范围，MiB）**：
+  - closed 段 PSS：C 2933.5 [2547.0,2948.6] vs T1 2495.9 [2469.8,2922.8]，Δ=−437.6
+    中位达阈但区间近全重叠（c3=2547 入 T1 区、t1c=2922.8 入 C 区）。
+  - idle 末 RSS：Δ=−36.7 不达阈；MemAvail 中位 +727.9 达阈但重叠且受环境底噪支配。
+  - 加载峰 PSS：C 4448.4 [3283.5,4742.3] vs T1 2918.8 [2874.7,3044.5]，
+    Δ=−1529.6/−34.4%，**区间零重叠（T1 max < C min）——本战役唯一干净分离**。
+  - 护栏：OOME/fatal=0、normalExit 6/6、loadWall T1 58.1–59.7s vs C 58.1–62.0s、
+    zoom 60/60、dirty/Undo 不变、GC 无回退。
+- **机制**：softCache.matchedDecodedBytes 六轮逐字节相同（239009448；
+  cohort 848→585；archived 352308846）；closedHeapCommittedMed 区间亦重叠
+  （T1 1948–2382 vs C 2032–2400）。「堆上限→软引用逐出→缓存字节下降→PSS 下降」
+  链条**不被证据支持**；T1 加载峰收益归因于堆 bound 本身而非软缓存逐出。
+- **判定**：稳态/关闭后收益 **INCONCLUSIVE**（中位偏向 T1 但重叠+机制平坦+臂内
+  方差同级，n=3 不可分离）；加载峰削减 **SUPPORTED**；软引用机制 **NOT DEMONSTRATED**。
+  不作为默认设置变更依据；加载峰方向建议独立切片复测。
+- **T2 未跑**：decodedBytes 零变化使 SoftRefLRUPolicyMSPerMB 假设链断裂，
+  原假设下无 falsifiable 增量；是否另设目标跑 T2 由监督裁决。
+- **证据**：`~/.local/state/turboism/performance-evidence/20260923-perf052-protocol-a/run/{ma-c1,ma-t1a,ma-t1b,ma-c2,ma-c3,ma-t1c}`；
+  每轮束 sha256 与全档 MANIFEST.sha256=`51a1e802…bf1548` 见
+  `build/perf052-c1/{campaign-notes.md,sc1-summary.json,final-report.md}`。
+  job/run/prepared ID 逐轮登记于 campaign-notes.md。
+- **重试条件**：加载峰独立协议（固定环境底噪、更多轮次、heap committed 追踪）；
+  或先证明 decoded 缓存对堆压力敏感的机制证据再谈 T2；不得用本批中位差宣称稳态收益。
