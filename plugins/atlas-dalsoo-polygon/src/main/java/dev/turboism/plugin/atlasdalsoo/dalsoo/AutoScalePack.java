@@ -45,6 +45,7 @@ public final class AutoScalePack {
         this.segmentMaxLength = segmentMaxLength;
     }
 
+    /** Result of one auto-scale run: the reached scale, the pack result, and the attempt count. */
     public static final class Outcome {
         public final double scale;
         public final PolygonPack.Result result;
