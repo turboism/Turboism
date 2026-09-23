@@ -197,14 +197,14 @@ public interface PluginContext {
         return MeshMirrorMoveParticipation.unavailable();
     }
 
-    /** Warp Deformer Alt-symmetry participation backed by the reviewed native drag-tick hook. */
+    /** Returns the Warp Deformer Alt-symmetry participation backed by the reviewed native drag-tick hook. */
     default dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation warpAltMirrorParticipation() {
-        throw new UnsupportedOperationException("warpAltMirrorParticipation service is not available");
+        return dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation.unavailable();
     }
 
-    /** Canvas-top strip (view context menu) button surface. */
+    /** Returns the canvas-top strip (view context menu) button surface. */
     default dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenu() {
-        throw new UnsupportedOperationException("viewContextMenu service is not available");
+        return dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.unavailable();
     }
 
     /** Returns the mesh-edit UI service. */
