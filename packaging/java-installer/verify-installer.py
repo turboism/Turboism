@@ -471,7 +471,7 @@ def load_plugin_metadata(manifest_path, modules):
 
 def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None,
                     install_graal=False):
-    answers = [str(lang_index), "1", "1"]  # language, welcome, MIT license
+    answers = [str(lang_index), "1", "1"]  # language, welcome, AGPL-3.0-only license
     answers += ["1"] * len(EULA_ACKNOWLEDGEMENT_KEYS)  # all required custom acknowledgements
     answers += ["1"]  # stock EULA
     # IzPack sorts groups by id in console mode: full, lite, then thin.

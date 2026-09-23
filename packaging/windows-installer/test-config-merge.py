@@ -887,7 +887,7 @@ def check_launcher_and_shortcut_contract():
 
 
 def check_eula_contract():
-    """MIT acceptance remains first; a separate localized EULA is mandatory and packaged."""
+    """AGPL-3.0-only acceptance remains first; a separate localized EULA is mandatory and packaged."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     eula_files = {
         "en": EULA_DIR / "EULA.en.txt",
@@ -905,9 +905,9 @@ def check_eula_contract():
     derived_root = derived_root.replace("**", "").replace("  \n", "\n")
     check("root EULA is authoritative and packaging copy is derived exactly",
           derived_root == zh)
-    check("EULA is version 2.0 and final",
-          "版本：2.0" in root_eula
-          and "发布日期：2026-08-30" in root_eula
+    check("EULA is version 2.1 and final",
+          "版本：2.1" in root_eula
+          and "发布日期：2026-09-23" in root_eula
           and "草案" not in root_eula)
     check("EULA preserves the complete user-supplied declaration",
           "TURBOISM 最终用户运行声明与免责声明" in root_eula
@@ -923,12 +923,12 @@ def check_eula_contract():
     acknowledgements_page = text.index(
         "Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave")
     mode_page = text.index("Page custom ModeCreate ModeLeave")
-    check("EULA statement and acknowledgements are separate pages after MIT License",
+    check("EULA statement and acknowledgements are separate pages after AGPL-3.0-only",
           first < statement < acknowledgements_page < mode_page)
-    check("Simplified Chinese MIT acceptance consistently uses 我同意",
-          'LangString LicenseBottomText ${LANG_SIMPCHINESE} "如果您同意 MIT License，请勾选下方复选框后继续。"' in text
-          and 'LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 MIT License"' in text
-          and '我接受 MIT License' not in text)
+    check("Simplified Chinese AGPL-3.0-only acceptance consistently uses 我同意",
+          'LangString LicenseBottomText ${LANG_SIMPCHINESE} "如果您同意 AGPL-3.0-only，请勾选下方复选框后继续。"' in text
+          and 'LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 AGPL-3.0-only"' in text
+          and '我接受 AGPL-3.0-only' not in text)
     statement_declaration = text[first + len(
         '!insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"'):statement]
     check("EULA statement page keeps the complete localized scrollable body",
