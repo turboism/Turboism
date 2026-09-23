@@ -905,14 +905,16 @@ def check_eula_contract():
     derived_root = derived_root.replace("**", "").replace("  \n", "\n")
     check("root EULA is authoritative and packaging copy is derived exactly",
           derived_root == zh)
-    check("EULA is version 2.1 and final",
-          "版本：2.1" in root_eula
+    check("EULA is version 2.2 and final",
+          "版本：2.2" in root_eula
           and "发布日期：2026-09-23" in root_eula
           and "草案" not in root_eula)
-    check("EULA preserves the complete user-supplied declaration",
+    check("EULA retains the concise license, independence, and liability notice",
           "TURBOISM 最终用户运行声明与免责声明" in root_eula
-          and "## 1. 独立项目与非官方性质" in root_eula
-          and "## 16. 语言" in root_eula
+          and "AGPL-3.0-only" in root_eula
+          and "并非 Cubism 官方产品" in root_eula
+          and "数据丢失、文件损坏" in root_eula
+          and "不排除依法不得免除的责任" in root_eula
           and "本版本以简体中文文本为正式文本" in root_eula)
     check("localized notices identify Simplified Chinese as authoritative",
           "The Simplified Chinese text is authoritative" in en
