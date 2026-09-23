@@ -48,7 +48,8 @@ runtime resolves through the bound contract loader. The artifact classes
 must never also be copied loose into the plugin JAR: a loose `.class`
 colliding with a contract member is an admission error.
 
-Restrictions enforced at bind time:
+Restrictions enforced at managed-installation admission and re-verified
+at bind time:
 
 - Class names must live in the author's namespace. Forbidden prefixes:
   `java.`, `javax.`, `jdk.`, `sun.`, `com.sun.`, `com.live2d.`,
@@ -56,7 +57,11 @@ Restrictions enforced at bind time:
 - No `module-info.class`, no `META-INF/services/**`, no
   `META-INF/versions/**` (multi-release shadowing is non-deterministic), no
   manifest `Class-Path`, and no non-class entries other than the manifest.
-- At most 8 MiB.
+- Resource limits per contract artifact: at most 8 MiB compressed, 8 MiB
+  expanded per entry, 32 MiB expanded in total, 1024 entries, and a 100×
+  compression-ratio bound. Archive structure is validated strictly —
+  malformed, truncated, or header-inconsistent JARs fail admission before
+  staging.
 
 Record methods and initializers are ordinary class code — the mechanism
 controls identity and visibility, not code confinement. Keep payload types
@@ -158,9 +163,17 @@ plugin-private event.
 
 ## 4. Payload closure
 
-Every type reachable from a contract event's public ABI surface — record
-components, public/protected members, generic type graphs including owner
-types, wildcards and type-variable bounds — must resolve to exactly:
+Every type referenced by a contract class must resolve. Admission checks
+two surfaces:
+
+- **All members** — every field, method, and constructor descriptor,
+  including private and synthetic members, must resolve its erased types.
+- **Public API closure** — record components, public/protected members,
+  generic signatures including owner types, wildcards and type-variable
+  bounds, superclasses, interfaces, and permitted subclasses — resolved
+  recursively.
+
+Both surfaces must resolve to exactly:
 
 - JDK platform-module classes, or
 - `dev.turboism.sdk.*` classes, or
@@ -170,7 +183,10 @@ Runtime, core, internal, shaded-library and host classes are unreachable
 from contract types even where they share a classloader with the SDK. A
 member typed as a private DTO anywhere in the graph — including one hidden
 behind a generic owner such as `Outer<Payload>.Inner` — fails admission at
-preflight, before any plugin entrypoint runs.
+preflight, before any plugin entrypoint runs. A type that only appears in
+a private member's erased descriptor, or only inside a generic signature,
+is still checked; validation reads class bytes and never loads, defines,
+or initializes contract classes.
 
 A contract member name colliding with a loose `.class` inside the same
 plugin JAR is rejected (shadow ambiguity), as is a name already bound to a
@@ -216,3 +232,13 @@ different artifact in the session.
   with ordering 'after'`
 - `public event contract type <name> requires a declared event export or
   import`
+
+Managed installation reports contract-artifact failures with stable codes:
+`PLUGIN_CONTRACT_ARTIFACT_UNDECLARED` (artifact present but not declared),
+`PLUGIN_CONTRACT_ARTIFACT_MISSING` (declared path absent from the plugin
+JAR), `PLUGIN_CONTRACT_ARTIFACT_HASH_MISMATCH`,
+`PLUGIN_CONTRACT_ARTIFACT_TOO_LARGE` (any per-artifact or per-plugin
+resource budget exceeded), `PLUGIN_CONTRACT_ARTIFACT_CLASS_COLLISION`
+(member shadows a loose plugin class), and
+`PLUGIN_CONTRACT_ARTIFACT_INVALID` (malformed archive or class content,
+or an unresolvable payload reference).

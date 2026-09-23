@@ -1,13 +1,56 @@
 package dev.turboism.distribution;
 
+import dev.turboism.core.archive.ArchivePathPolicy;
+import dev.turboism.core.archive.ArchivePaths;
+import dev.turboism.core.archive.ArchiveStructureException;
+
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 final class PluginPathPolicy {
+    /**
+     * The strict-parser policy seam for plugin archives: same entry-name and collision
+     * rules as before, surfaced through the neutral {@link ArchiveStructureException}
+     * with the original {@code ARCHIVE_PATH_UNSAFE} code.
+     */
+    static final ArchivePathPolicy ARCHIVE = new ArchivePathPolicy() {
+        @Override
+        public void validateEntry(final String name, final boolean directory)
+                throws ArchiveStructureException {
+            try {
+                PluginPathPolicy.validate(name, directory);
+            } catch (final DistributionValidationException exception) {
+                throw translate(exception);
+            } catch (final Exception exception) {
+                throw new ArchiveStructureException(
+                    "ARCHIVE_PATH_UNSAFE", "Unsafe plugin archive path", name);
+            }
+        }
+
+        @Override
+        public void validateCollisions(final List<String> names)
+                throws ArchiveStructureException {
+            try {
+                PluginPathPolicy.validateCollisions(names);
+            } catch (final DistributionValidationException exception) {
+                throw translate(exception);
+            } catch (final Exception exception) {
+                throw new ArchiveStructureException(
+                    "ARCHIVE_PATH_UNSAFE", "Unsafe plugin archive path", "archive");
+            }
+        }
+
+        private static ArchiveStructureException translate(
+            final DistributionValidationException exception
+        ) {
+            return new ArchiveStructureException(
+                exception.code(), exception.getMessage(), exception.problemPath());
+        }
+    };
+
     private PluginPathPolicy() {}
 
     static void validate(String path, boolean directory) throws Exception {
@@ -15,24 +58,12 @@ final class PluginPathPolicy {
         require(!value.isEmpty() && Normalizer.isNormalized(value, Normalizer.Form.NFC), path);
         require(value.getBytes(StandardCharsets.UTF_8).length <= PluginArchiveLimits.PATH_BYTES_MAX, path);
         require(value.split("/", -1).length <= PluginArchiveLimits.PATH_DEPTH_MAX, path);
-        require(ManifestPrimitives.relativePath(value), path);
+        require(ArchivePaths.relativePath(value), path);
     }
 
     static void validateCollisions(List<String> paths) throws Exception {
-        Set<String> files = new HashSet<>(), directories = new HashSet<>();
-        for (String path : paths) {
-            boolean directory = path.endsWith("/");
-            String value = directory ? path.substring(0, path.length() - 1) : path;
-            String key = ManifestPrimitives.pathIdentityKey(value);
-            require((directory ? directories : files).add(key), path);
-            require(directory ? !files.contains(key) : !directories.contains(key), path);
-            String[] segments = value.split("/");
-            String prefix = "";
-            for (int index = 0; index < segments.length - 1; index++) {
-                prefix = prefix.isEmpty() ? segments[index] : prefix + "/" + segments[index];
-                require(!files.contains(ManifestPrimitives.pathIdentityKey(prefix)), path);
-            }
-        }
+        String collision = ArchivePaths.pathCollision(paths);
+        require(collision == null, collision == null ? "archive" : collision);
     }
 
     static boolean contamination(String name, boolean mainDescriptorAllowed) {
