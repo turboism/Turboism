@@ -422,10 +422,13 @@ class PublicEventContractCatalogTest {
     @Test
     void emptyArtifactIsRejected() throws Exception {
         final Path artifact = temporary.resolve("hollow-contract.jar");
-        try (JarOutputStream output = jarOutput(artifact)) {
-            put(output, "META-INF/placeholder/", new byte[0]);
+        final Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        try (JarOutputStream output = jarOutput(artifact, manifest)) {
+            // An artifact carrying only a manifest defines no classes. Bare
+            // directory entries are rejected even earlier: the strict archive
+            // policy requires the platform directory bit JDK writers never set.
         }
-        // An artifact with only directory entries has no classes.
         try (PublicEventContractCatalog catalog = catalog()) {
             final IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,

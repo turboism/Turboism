@@ -1,6 +1,7 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.core.archive.StrictZipArchive;
 
 import java.io.IOException;
 import java.io.OutputStream;

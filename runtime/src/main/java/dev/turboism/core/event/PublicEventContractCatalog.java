@@ -234,6 +234,8 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         final Path pluginJar
     ) {
         final List<ArtifactSpec> specs = new ArrayList<>();
+        final PublicEventContractPreflight.Session session =
+            PublicEventContractPreflight.newSession();
         try (JarFile jar = new JarFile(pluginJar.toFile())) {
             final Set<String> declaredArtifacts = new HashSet<>();
             final List<String> looseClasses = new ArrayList<>();
@@ -258,7 +260,8 @@ public final class PublicEventContractCatalog implements AutoCloseable {
                     );
                 }
                 declaredArtifacts.remove(artifact);
-                specs.add(readArtifact(descriptor, contract, jar, entry, looseClasses));
+                specs.add(readArtifact(
+                    descriptor, contract, jar, entry, looseClasses, session));
             }
             if (!declaredArtifacts.isEmpty()) {
                 throw new IllegalArgumentException(
@@ -286,7 +289,8 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         final PluginDescriptor.EventContract contract,
         final JarFile pluginJar,
         final JarEntry entry,
-        final List<String> looseClasses
+        final List<String> looseClasses,
+        final PublicEventContractPreflight.Session session
     ) throws IOException {
         if (entry.getSize() > PublicEventContractPreflight.MAX_ARTIFACT_BYTES) {
             throw new IllegalArgumentException(
@@ -296,11 +300,12 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         }
         final byte[] bytes;
         try (InputStream stream = pluginJar.getInputStream(entry)) {
-            bytes = stream.readAllBytes();
+            bytes = readBounded(stream, contract.id());
         }
         final PublicEventContractPreflight.Inspection inspection;
         try {
             inspection = PublicEventContractPreflight.verify(
+                session,
                 descriptor.id(),
                 contract.id(),
                 contract.artifact(),
@@ -322,14 +327,41 @@ public final class PublicEventContractCatalog implements AutoCloseable {
     }
 
     /**
+     * Reads one embedded artifact under a hard byte bound — a drop-in JAR's declared
+     * entry size is unverified metadata, so the read counts actual bytes and refuses
+     * an over-delivering stream rather than trusting the declaration.
+     */
+    private static byte[] readBounded(
+        final InputStream stream,
+        final String contractId
+    ) throws IOException {
+        final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        final byte[] buffer = new byte[8192];
+        long size = 0;
+        for (int read; (read = stream.read(buffer)) >= 0;) {
+            if (read == 0) {
+                continue;
+            }
+            size += read;
+            if (size > PublicEventContractPreflight.MAX_ARTIFACT_BYTES) {
+                throw new IllegalArgumentException(
+                    "public event contract " + contractId
+                        + " artifact stream over-delivers beyond the "
+                        + PublicEventContractPreflight.MAX_ARTIFACT_BYTES
+                        + " byte limit"
+                );
+            }
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
+    }
+
+    /**
      * The event types this descriptor pins for route binding; artifact members among
      * them anchor the payload closure walk during preflight.
      */
     private static Set<String> payloadSeeds(final PluginDescriptor descriptor) {
-        final Set<String> seeds = new HashSet<>();
-        descriptor.eventExports().forEach(export -> seeds.add(export.eventType()));
-        descriptor.eventImports().forEach(imports -> seeds.add(imports.eventType()));
-        return seeds;
+        return ContractClosurePolicy.payloadSeeds(descriptor);
     }
 
     private void verifyNoConflicts(

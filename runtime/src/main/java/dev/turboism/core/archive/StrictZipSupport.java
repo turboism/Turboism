@@ -1,7 +1,7 @@
-package dev.turboism.distribution;
+package dev.turboism.core.archive;
 
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -16,13 +16,15 @@ final class StrictZipSupport {
 
     private StrictZipSupport() {}
 
-    static byte[] read(FileChannel channel, long offset, int length) throws Exception {
+    static byte[] read(SeekableByteChannel channel, long offset, int length)
+            throws Exception {
         if (offset < 0 || length < 0 || offset > channel.size() - length) {
             invalid("ARCHIVE_TRUNCATED", "archive");
         }
         ByteBuffer buffer = ByteBuffer.allocate(length);
+        channel.position(offset);
         while (buffer.hasRemaining()) {
-            if (channel.read(buffer, offset + buffer.position()) < 0) invalid("ARCHIVE_TRUNCATED", "archive");
+            if (channel.read(buffer) < 0) invalid("ARCHIVE_TRUNCATED", "archive");
         }
         return buffer.array();
     }
@@ -51,7 +53,7 @@ final class StrictZipSupport {
         if (!condition) invalid(code, path);
     }
 
-    static void invalid(String code, String path) throws DistributionValidationException {
-        throw ArchivePolicy.problem(code, "Invalid strict ZIP archive", path);
+    static void invalid(String code, String path) throws ArchiveStructureException {
+        throw new ArchiveStructureException(code, "Invalid strict ZIP archive", path);
     }
 }
