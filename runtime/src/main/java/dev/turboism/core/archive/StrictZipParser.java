@@ -37,7 +37,7 @@ final class StrictZipParser {
         ArchivePathPolicy policy
     ) throws Exception {
         try {
-            End end = end(channel, label, limits);
+            End end = end(channel, label, limits, policy);
             List<Central> central = central(channel, end, limits, policy, label);
             return locals(channel, central, end.centralOffset());
         } catch (ArchiveStructureException exception) {
@@ -51,12 +51,14 @@ final class StrictZipParser {
     private static End end(
         SeekableByteChannel channel,
         String label,
-        StrictZipArchive.Limits limits
+        StrictZipArchive.Limits limits,
+        ArchivePathPolicy policy
     ) throws Exception {
         long length = channel.size();
         if (length < 22) {
-            // Too short to even carry an EOCD record — malformed, not oversized.
-            StrictZipSupport.invalid("ARCHIVE_TRUNCATED", label);
+            // Too short to even carry an EOCD record — the caller's policy
+            // decides whether that is malformed content or a size-gate verdict.
+            StrictZipSupport.invalid(policy.shortArchiveCode(), label);
         }
         if (length > limits.rawMax()) {
             StrictZipSupport.invalid("PACKAGE_TOO_LARGE", label);

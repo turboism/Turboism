@@ -40,4 +40,17 @@ public interface ArchivePathPolicy {
     default boolean permitsDefaultDirectoryMetadata() {
         return false;
     }
+
+    /**
+     * The violation code for an image too short to carry an EOCD record.
+     * The default {@code ARCHIVE_TRUNCATED} reports malformed content; the
+     * plugin-archive surface keeps its historical {@code PACKAGE_TOO_LARGE}
+     * verdict instead — an input that cannot be an archive at all fails the
+     * raw-size gate there. This selects only the prologue-length verdict:
+     * truncated reads inside a structurally plausible image always report
+     * {@code ARCHIVE_TRUNCATED} either way.
+     */
+    default String shortArchiveCode() {
+        return "ARCHIVE_TRUNCATED";
+    }
 }

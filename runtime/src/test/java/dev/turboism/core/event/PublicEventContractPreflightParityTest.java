@@ -9,6 +9,7 @@ import dev.turboism.core.event.PublicEventContractPreflight.Rejection;
 import dev.turboism.core.event.PublicEventContractPreflight.Session;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 
@@ -391,16 +392,18 @@ class PublicEventContractPreflightParityTest {
     }
 
     /** Reflective cross-check: load the artifact's members, verify the seed. */
-    private boolean bindRejects(final Path artifact, final Set<String> seeds) {
+    private boolean bindRejects(final Path artifact, final Set<String> seeds)
+            throws IOException {
         final Set<String> members = new HashSet<>();
+        // Fixture construction is harness setup, not a verdict — an IO failure
+        // opening or reading the artifact must fail the test, not count as an
+        // expected rejection.
         try (JarFile jar = new JarFile(artifact.toFile())) {
             jar.stream()
                 .map(JarEntry::getName)
                 .filter(name -> name.endsWith(".class"))
                 .map(PublicEventContractPreflight::binaryName)
                 .forEach(members::add);
-        } catch (IOException failure) {
-            return true;
         }
         try (ContractArtifactClassLoader loader = new ContractArtifactClassLoader(
             artifact.toUri().toURL(), members)) {
@@ -412,22 +415,15 @@ class PublicEventContractPreflightParityTest {
                 PublicEventContractClosure.verify(type);
             }
             return false;
-        } catch (final Throwable failure) {
-            // Only the verdict families a bind can legitimately produce count as
-            // a rejection — linkage/loading failures, reflective generic
+        } catch (final LinkageError | ReflectiveOperationException
+                | java.lang.reflect.MalformedParameterizedTypeException
+                | TypeNotPresentException | IllegalArgumentException
+                | SecurityException verdict) {
+            // Only the verdict families a bind can legitimately produce count
+            // as a rejection — linkage/loading failures, reflective generic
             // metadata failures, and the closure's own rejections. Anything
-            // else is a harness bug and must fail the test loudly.
-            final boolean verdict = failure instanceof LinkageError
-                || failure instanceof ReflectiveOperationException
-                || failure instanceof java.lang.reflect.MalformedParameterizedTypeException
-                || failure instanceof TypeNotPresentException
-                || failure instanceof IllegalArgumentException
-                || failure instanceof SecurityException
-                || failure instanceof IOException;
-            if (!verdict) {
-                throw new AssertionError(
-                    "bind path failed with an unexpected failure type", failure);
-            }
+            // else (including IO failures of the fixture or the loader's own
+            // close) propagates and fails the test loudly.
             return true;
         }
     }
@@ -453,6 +449,17 @@ class PublicEventContractPreflightParityTest {
         final byte[] good = jar(entry(EVENT_INTERNAL + ".class", eventClass()));
         final byte[] truncated = java.util.Arrays.copyOf(good, good.length - 8);
         assertEquals(Rejection.CONTENT, preflight(truncated, Set.of(EVENT)));
+    }
+
+    /**
+     * Inner surface: an artifact shorter than an EOCD record is malformed
+     * content ({@code ARCHIVE_TRUNCATED} → CONTENT/INVALID) — the outer
+     * raw-size verdict must not leak into the contract-artifact codes.
+     */
+    @Test
+    void archiveShorterThanEocdRejectsAsContentOnTheByteBackend()
+            throws Exception {
+        assertEquals(Rejection.CONTENT, preflight(new byte[21], Set.of(EVENT)));
     }
 
     @Test
@@ -764,6 +771,86 @@ class PublicEventContractPreflightParityTest {
         assertTrue(failure.getMessage().contains("text"));
     }
 
+    /**
+     * The 16 384 unique-type session bound, exercised through the production
+     * {@code verify} wiring: capacity is admitted exactly, the next distinct
+     * name rejects on the unique-types dimension, and re-referencing an
+     * already-counted name is not charged again. Distinct resolvable names
+     * come from a fabricating SDK loader — artifact members cannot reach the
+     * bound without tripping the 1 024-entry limit first, and no other session
+     * budget (references, text, bytes, entries) is near its bound here.
+     */
+    @Test
+    void sessionUniqueTypesBoundAdmitsExactlyAndRejectsTheNext() throws Exception {
+        // Per verify: the seed, java.lang.Object, and the event interface are
+        // charged first — the field references then fill the rest of the set.
+        final int distinct = Session.MAX_UNIQUE_TYPES - 3;
+        final Member[] fields = new Member[distinct + 1];
+        for (int i = 0; i < distinct; i++) {
+            fields[i] = field(Opcodes.ACC_PUBLIC, "f" + i,
+                "Ldev/turboism/sdk/fake/T" + i + ";", null);
+        }
+        // A repeat of an already-counted name must not consume unique budget —
+        // if duplicates were charged, this artifact would cross the bound.
+        fields[distinct] = field(Opcodes.ACC_PUBLIC, "fdup",
+            "Ldev/turboism/sdk/fake/T0;", null);
+        final Session session =
+            PublicEventContractPreflight.newSession(fabricatingSdkOracle());
+        verifySeeded(session, jar(
+            entry(EVENT_INTERNAL + ".class", eventClass(fields))), CONTRACT_ID);
+        assertEquals(Session.MAX_UNIQUE_TYPES, session.stats().uniqueTypes());
+
+        // The next genuinely distinct name crosses the bound — and it is the
+        // unique-types dimension that reports, not any other quota.
+        final byte[] overflow = jar(entry(EVENT_INTERNAL + ".class", eventClass(
+            field(Opcodes.ACC_PUBLIC, "g",
+                "Ldev/turboism/sdk/fake/T" + distinct + ";", null))));
+        final ContractViolation failure = assertThrows(ContractViolation.class,
+            () -> verifySeeded(session, overflow, "contract.overflow"));
+        assertEquals(Rejection.TOO_LARGE, failure.kind());
+        assertTrue(failure.getMessage().contains("unique types"),
+            failure.getMessage());
+    }
+
+    /**
+     * An oracle whose "SDK loader" fabricates valid {@code dev.turboism.sdk.fake.T*}
+     * class resources on demand (each served class file declares exactly the
+     * queried internal name), while every other SDK name resolves through the
+     * real SDK loader — the seam that makes the 16 384-name bound reachable.
+     */
+    private static ContractTypeOracle fabricatingSdkOracle() {
+        final java.net.URLStreamHandler memory = new java.net.URLStreamHandler() {
+            @Override
+            protected java.net.URLConnection openConnection(final java.net.URL url) {
+                return new java.net.URLConnection(url) {
+                    @Override public void connect() {}
+                    @Override public java.io.InputStream getInputStream() {
+                        final String internal = url.getPath().substring(
+                            0, url.getPath().length() - ".class".length());
+                        return new java.io.ByteArrayInputStream(
+                            plainClass(internal, "java/lang/Object"));
+                    }
+                };
+            }
+        };
+        final ClassLoader sdk = new ClassLoader(
+                dev.turboism.sdk.event.EventBus.class.getClassLoader()) {
+            @Override
+            public java.net.URL getResource(final String name) {
+                if (name.startsWith("dev/turboism/sdk/fake/")) {
+                    try {
+                        return new java.net.URL(null, "memory:" + name, memory);
+                    } catch (final java.net.MalformedURLException failure) {
+                        return null;
+                    }
+                }
+                return super.getResource(name);
+            }
+        };
+        return ContractTypeOracle.forLoaders(
+            sdk, dev.turboism.sdk.event.EventBus.class);
+    }
+
     @Test
     void repeatedVerifyOfTheSameArtifactDoesNotAccumulate() throws Exception {
         final Session session = PublicEventContractPreflight.newSession();
@@ -808,17 +895,26 @@ class PublicEventContractPreflightParityTest {
 
     @Test
     void oracleIgnoresACompromisedContextClassLoader() throws Exception {
-        // A TCCL that serves REAL, valid class bytes under a phantom SDK name
-        // must not make the reference resolvable — the oracle only consults the
-        // trusted views, so even a truthful TCCL answer is never read.
-        final java.net.URL realBytes =
-            dev.turboism.sdk.event.EventBus.class.getResource("EventBus.class");
-        assertNotNull(realBytes, "fixture needs the real SDK class resource");
+        // A TCCL that serves REAL, valid class bytes whose internal name is
+        // exactly the phantom SDK name being resolved must not make the
+        // reference resolvable — the oracle only consults the trusted views.
+        // Because the served bytes pass the internal-name header check, a
+        // TCCL-fallback implementation WOULD resolve the name here: the
+        // counterexample distinguishes "never consults the TCCL" from "TCCL
+        // answer defeated by the name check".
+        final byte[] served = plainClass(
+            "dev/turboism/sdk/NoSuchClassZZZ", "java/lang/Object");
+        assertEquals("dev.turboism.sdk.NoSuchClassZZZ",
+            new ClassReader(served).getClassName().replace('/', '.'),
+            "served bytes must declare the queried internal name");
+        final java.net.URL poisoned = Files.write(
+            temporary.resolve("NoSuchClassZZZ.class"), served)
+            .toUri().toURL();
         final ClassLoader lying = new ClassLoader() {
             @Override
             public java.net.URL getResource(final String name) {
                 if (name.equals("dev/turboism/sdk/NoSuchClassZZZ.class")) {
-                    return realBytes;
+                    return poisoned;
                 }
                 return super.getResource(name);
             }
@@ -826,6 +922,10 @@ class PublicEventContractPreflightParityTest {
         final ClassLoader previous = Thread.currentThread().getContextClassLoader();
         try {
             Thread.currentThread().setContextClassLoader(lying);
+            assertNull(ContractTypeOracle.forSdkAnchor(
+                    dev.turboism.sdk.event.EventBus.class)
+                .lookup("dev.turboism.sdk.NoSuchClassZZZ"),
+                "the oracle must not consult the context class loader");
             final byte[] artifact = jar(
                 entry(EVENT_INTERNAL + ".class", eventClass(
                     field(Opcodes.ACC_PRIVATE, "g",
@@ -895,6 +995,12 @@ class PublicEventContractPreflightParityTest {
                         "dev.turboism.sdk.NoSuchClassZZZ") == null, 4);
                     check(oracle.lookup("java.lang.String") != null, 5);
                     check(oracle.lookup("java.lang.NoSuchClassZZZ") == null, 6);
+                    // A dev.turboism.sdk.* class that exists only on the
+                    // application classpath: the system view sees it, the
+                    // bootstrap module view the oracle consults must not.
+                    check(ClassLoader.getSystemResource(
+                        "dev/turboism/sdk/AppOnly.class") != null, 7);
+                    check(oracle.lookup("dev.turboism.sdk.AppOnly") == null, 8);
                     System.out.println("BOOTSTRAP-ORACLE-OK");
                 }
                 private static void check(boolean ok, int code) {
@@ -904,11 +1010,20 @@ class PublicEventContractPreflightParityTest {
                 }
             }
             """, StandardCharsets.UTF_8);
+        // An SDK-prefixed class compiled only into the probe's app-classpath
+        // directory — never into the boot-appended SDK jar.
+        final Path appOnlySource = Files.createDirectories(
+            probeClasses.resolve("dev/turboism/sdk"))
+            .resolve("AppOnly.java");
+        Files.writeString(appOnlySource, """
+            package dev.turboism.sdk;
+            public final class AppOnly {}
+            """, StandardCharsets.UTF_8);
         final String compileClasspath = runtime + java.io.File.pathSeparator + sdk;
         final int compiled = ToolProvider.getSystemJavaCompiler().run(
             null, null, null,
             "-classpath", compileClasspath, "-d", probeClasses.toString(),
-            probeSource.toString());
+            probeSource.toString(), appOnlySource.toString());
         assertEquals(0, compiled, "probe compilation failed");
         final String javaBinary = Path.of(
             System.getProperty("java.home"), "bin", "java").toString();
