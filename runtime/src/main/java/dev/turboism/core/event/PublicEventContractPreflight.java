@@ -158,6 +158,7 @@ public final class PublicEventContractPreflight {
             this.kind = kind;
         }
 
+        /** Returns the rejection kind so admission surfaces can map a stable code. */
         public Rejection kind() { return kind; }
     }
 
