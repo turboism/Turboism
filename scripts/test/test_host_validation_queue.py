@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import contextlib
+import fcntl
 import io
 import multiprocessing
 import os
@@ -1442,6 +1443,123 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
         # The connect failure precedes BEGIN IMMEDIATE, so no commit can exist;
         # the vanished database file must stay absent rather than be recreated.
         self.assertFalse(database.exists())
+
+    def test_replay_remains_read_only_while_new_work_runs(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        original = self.confirm(job["job_id"], approval)
+        self.store.submit(self.prepared, self.prepared, "independent-work")
+        claimed = self.store.claim()
+        self.assertEqual("owned", self.store.host()["state"])
+        queue.atomic_json(self.root / "worker.json", queue.process_identity(os.getpid()))
+        before = queue.tree_inventory(self.root)
+        with queue.FileLock(self.root / "worker.lock"):
+            replayed = self.confirm(job["job_id"], approval)
+        self.assertEqual({**original, "replayed": True}, replayed)
+        self.assertEqual(before, queue.tree_inventory(self.root))
+        self.assertIsNotNone(claimed)
+
+    def test_approval_binds_recorded_supervisor_identity(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+
+        def drift(identity_json):
+            identity = json.loads(identity_json)
+            identity["pid"] -= 1
+            identity["startTicks"] += 1
+            return queue.canonical_json(identity)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET identity_json=? WHERE job_id=?",
+                       (drift(job["identity_json"]), job["job_id"]))
+        self.assertNotEqual(approval, self.inspect(job["job_id"])["approvalDigest"])
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET identity_json=? WHERE job_id=?",
+                       (drift(job["identity_json"]), job["job_id"]))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+
+    def test_administrative_row_without_audit_is_not_an_admission_fact(self) -> None:
+        first, _, _ = self.orphan()
+        second, _, _ = self.orphan()
+        self.confirm(first["job_id"], self.inspect(first["job_id"])["approvalDigest"])
+        self.assertTrue(self.inspect(second["job_id"])["canConfirm"])
+        with self.store.transaction() as db:
+            db.execute("DELETE FROM events WHERE job_id=? AND kind='operator-abandoned'",
+                       (first["job_id"],))
+        report = self.inspect(second["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY",
+                      {entry["code"] for entry in report["blockers"]})
+
+    def test_active_row_with_prior_audit_cannot_receive_a_second(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET state=?,reason=?,updated_at=? WHERE job_id=?",
+                       (job["state"], job["reason"], job["updated_at"], job["job_id"]))
+        report = self.inspect(job["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("UNVERIFIED_DISPOSITION",
+                      {entry["code"] for entry in report["blockers"]})
+        audits = [row for row in self.store.events()
+                  if row["kind"] == "operator-abandoned"]
+        self.assertEqual(1, len(audits))
+
+    def test_replaced_lock_during_acquisition_never_commits(self) -> None:
+        for name in ("worker.lock", "storage.lock", "admission.lock"):
+            job, _, _ = self.orphan()
+            approval = self.inspect(job["job_id"])["approvalDigest"]
+            target = self.root / name
+            original = target.stat().st_ino
+            real_flock, raced, replacements = fcntl.flock, [], []
+
+            def race(fd, operation, *, _target=target, _original=original):
+                if (not raced and operation == fcntl.LOCK_EX | fcntl.LOCK_NB
+                        and os.fstat(fd).st_ino == _original):
+                    raced.append(True)
+                    _target.unlink()
+                    replacement = os.open(_target, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+                    replacements.append(replacement)
+                    real_flock(replacement, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return real_flock(fd, operation)
+            try:
+                with mock.patch.object(fcntl, "flock", side_effect=race):
+                    with self.assertRaises(queue.QueueError):
+                        self.confirm(job["job_id"], approval)
+            finally:
+                for fd in replacements:
+                    os.close(fd)
+                target.unlink()
+                fd = os.open(target, os.O_CREAT | os.O_RDWR, 0o600)
+                os.close(fd)
+            self.assertTrue(raced)
+            self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+
+    def test_locked_assessment_detects_evidence_change(self) -> None:
+        job, directory, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        containment = directory / "containment.json"
+        hashes = directory / "evidence/final-hashes.properties"
+        real_read, reads, changed = disposition._bounded_json, [], []
+
+        def race(path):
+            if path == containment:
+                reads.append(path)
+                if len(reads) == 2:
+                    hashes.write_text("changed-after-inventory=1\n")
+                    changed.append(True)
+            return real_read(path)
+        with mock.patch.object(disposition, "_bounded_json", side_effect=race):
+            with self.assertRaises(disposition.Rejected):
+                self.confirm(job["job_id"], approval)
+        self.assertTrue(changed)
+        self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
 
     def test_execution_blockers_are_reported_without_approval(self) -> None:
         job, _, _ = self.orphan()
