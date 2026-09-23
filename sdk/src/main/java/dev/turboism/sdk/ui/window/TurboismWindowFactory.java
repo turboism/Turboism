@@ -39,6 +39,7 @@ public final class TurboismWindowFactory {
     private static final String WINDOW_ICON_RESOURCE =
         "dev/turboism/sdk/ui/window/turboism-window-icon.png";
 
+    private static volatile boolean windowIconResolved;
     private static volatile Image windowIcon;
 
     private TurboismWindowFactory() {
@@ -54,13 +55,11 @@ public final class TurboismWindowFactory {
      * @return the window icon image, or {@code null} when unavailable
      */
     public static Image windowIcon() {
-        final Image cached = windowIcon;
-        if (cached != null) {
-            return cached;
+        if (!windowIconResolved) {
+            windowIcon = loadWindowIcon();
+            windowIconResolved = true;
         }
-        final Image loaded = loadWindowIcon();
-        windowIcon = loaded;
-        return loaded;
+        return windowIcon;
     }
 
     /**
