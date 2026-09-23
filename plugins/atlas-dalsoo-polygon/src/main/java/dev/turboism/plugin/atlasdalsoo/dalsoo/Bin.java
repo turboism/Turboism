@@ -13,7 +13,9 @@ package dev.turboism.plugin.atlasdalsoo.dalsoo;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
@@ -22,15 +24,22 @@ import java.util.function.IntConsumer;
 final class Bin {
 
     private static final double AREA_SC = 1E-6;
+    private static final int GRID_DIV = 32;
 
     private final List<PackedPoly> packedPolys = new ArrayList<>();
     private final List<PackedPoly> pendingPolys = new ArrayList<>();
     private final List<double[][]> perPolyTrigos = new ArrayList<>();
+    private final Map<Integer, List<PackedPoly>> grid = new HashMap<>();
+    private int queryStamp;
     private Convex cntConvex;
 
     private final double binWidth;
     private final double binHeight;
     private final double preferX;
+    private final double cellWidth;
+    private final double cellHeight;
+    private final int gridW;
+    private final int gridH;
     private final BooleanSupplier cancelled;
     private final IntConsumer progress;
 
@@ -59,11 +68,16 @@ final class Bin {
         this.preferX = hSkew;
         this.binWidth = width;
         this.binHeight = height;
+        this.cellWidth = Math.max(1.0, width / GRID_DIV);
+        this.cellHeight = Math.max(1.0, height / GRID_DIV);
+        this.gridW = Math.max(1, (int) Math.ceil(width / cellWidth));
+        this.gridH = Math.max(1, (int) Math.ceil(height / cellHeight));
         this.cancelled = cancelled == null ? () -> false : cancelled;
         this.progress = progress == null ? i -> { } : progress;
         if (obstacles != null) {
             for (final PackedPoly obstacle : obstacles) {
                 packedPolys.add(obstacle);
+                gridInsert(obstacle);
             }
         }
     }
@@ -209,6 +223,10 @@ final class Bin {
                         }
                         final double[][] rotOpl = Geom.rotate(opl, cossin);
                         final double[] trans = Geom.sub(v, rotOpl[i]);
+                        final double[] rotBb = Geom.boundingBox(rotOpl);
+                        if (!insideBin(rotBb, trans[0], trans[1])) {
+                            continue;
+                        }
                         final double[][] transRotOutpoly = translate(trans, rotOpl);
                         if (isFeasible(transRotOutpoly)) {
                             final double[][] transRotInpoly =
@@ -254,12 +272,20 @@ final class Bin {
         for (int i = 0; i < trigos.length; i++) { // each candidate angle
             final double[][] rotatedOutpoly = Geom.rotate(stp.outpts, trigos[i]);
             final double[][] rotatedInpoly = Geom.rotate(stp.inpts, trigos[i]);
+            final double[] rotatedBb = Geom.boundingBox(rotatedOutpoly);
             for (final double[] p : rotatedOutpoly) { // each vertex of new poly
                 for (final PackedPoly fixed : packedPolys) {
                     for (final double[] v : fixed.outpts) { // each vertex of each fixed poly
-                        final double[] trans = Geom.sub(v, p);
+                        final double tx = v[0] - p[0];
+                        final double ty = v[1] - p[1];
+                        if (!insideBin(rotatedBb, tx, ty)) {
+                            continue;
+                        }
+                        final double[] trans = {tx, ty};
                         final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
-                        if (isFeasible(transRotOutpoly)) {
+                        final double[] transBb = {rotatedBb[0] + tx, rotatedBb[1] + ty,
+                            rotatedBb[2] + tx, rotatedBb[3] + ty};
+                        if (isFeasible(transRotOutpoly, transBb)) {
                             final PlacementScore sc = score(translate(trans, rotatedInpoly),
                                 transRotOutpoly);
                             if (minArea > sc.area) {
@@ -282,7 +308,12 @@ final class Bin {
                 final double[][] rotatedInpoly = Geom.rotate(stp.inpts, trigos[i]);
                 final double[] bb = Geom.boundingBox(rotatedOutpoly);
                 for (final double[] corner : cornerLattice()) {
-                    final double[] trans = {corner[0] - bb[0], corner[1] - bb[1]};
+                    final double tx = corner[0] - bb[0];
+                    final double ty = corner[1] - bb[1];
+                    if (!insideBin(bb, tx, ty)) {
+                        continue;
+                    }
+                    final double[] trans = {tx, ty};
                     final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
                     if (isFeasible(transRotOutpoly)) {
                         final PlacementScore sc = score(translate(trans, rotatedInpoly),
@@ -357,24 +388,73 @@ final class Bin {
     /**
      * Feasibility: inside the bin and no strict overlap with placed buffered
      * outlines. Strict semantics intentionally admit exact vertex/edge contact,
-     * which is how tightly packed placements are found.
+     * which is how tightly packed placements are found. The overlap scan only
+     * visits placed polys whose grid cells intersect the candidate bounding box;
+     * skipped pairs would be rejected by {@link Geom#overlapStrict}'s own
+     * bounding-box test, so the result is identical to an exhaustive scan.
      */
     private boolean isFeasible(final double[][] poly) {
-        for (final double[] p : poly) {
-            if (p[0] < -Geom.PRECISION || p[0] > binWidth + Geom.PRECISION
-                || p[1] < -Geom.PRECISION || p[1] > binHeight + Geom.PRECISION) {
-                return false;
-            }
+        return isFeasible(poly, Geom.boundingBox(poly));
+    }
+
+    private boolean isFeasible(final double[][] poly, final double[] bb) {
+        if (bb[0] < -Geom.PRECISION || bb[2] > binWidth + Geom.PRECISION
+            || bb[1] < -Geom.PRECISION || bb[3] > binHeight + Geom.PRECISION) {
+            return false;
         }
-        final double[] bb = Geom.boundingBox(poly);
         final double[] center = Geom.centroid(poly);
-        for (final PackedPoly fixed : packedPolys) {
-            if (Geom.overlapStrict(poly, bb, center, fixed.outpts, fixed.outBb,
-                fixed.outCentroid)) {
-                return false;
+        final int stamp = ++queryStamp;
+        final int x0 = cellX(bb[0]);
+        final int x1 = cellX(bb[2]);
+        final int y0 = cellY(bb[1]);
+        final int y1 = cellY(bb[3]);
+        for (int cy = y0; cy <= y1; cy++) {
+            for (int cx = x0; cx <= x1; cx++) {
+                final List<PackedPoly> cell = grid.get(cy * gridW + cx);
+                if (cell == null) {
+                    continue;
+                }
+                for (final PackedPoly fixed : cell) {
+                    if (fixed.lastQuery == stamp) {
+                        continue;
+                    }
+                    fixed.lastQuery = stamp;
+                    if (Geom.overlapStrict(poly, bb, center, fixed.outpts, fixed.outBb,
+                        fixed.outCentroid)) {
+                        return false;
+                    }
+                }
             }
         }
         return true;
+    }
+
+    /** Whether the ring at {@code bb} translated by {@code (tx,ty)} stays in the bin. */
+    private boolean insideBin(final double[] bb, final double tx, final double ty) {
+        return bb[0] + tx >= -Geom.PRECISION && bb[2] + tx <= binWidth + Geom.PRECISION
+            && bb[1] + ty >= -Geom.PRECISION && bb[3] + ty <= binHeight + Geom.PRECISION;
+    }
+
+    private int cellX(final double x) {
+        final int c = (int) (x / cellWidth);
+        return c < 0 ? 0 : Math.min(c, gridW - 1);
+    }
+
+    private int cellY(final double y) {
+        final int c = (int) (y / cellHeight);
+        return c < 0 ? 0 : Math.min(c, gridH - 1);
+    }
+
+    private void gridInsert(final PackedPoly poly) {
+        final int x0 = cellX(poly.outBb[0]);
+        final int x1 = cellX(poly.outBb[2]);
+        final int y0 = cellY(poly.outBb[1]);
+        final int y1 = cellY(poly.outBb[3]);
+        for (int cy = y0; cy <= y1; cy++) {
+            for (int cx = x0; cx <= x1; cx++) {
+                grid.computeIfAbsent(cy * gridW + cx, k -> new ArrayList<>()).add(poly);
+            }
+        }
     }
 
     private static double[][] translate(final double[] v, final double[][] ps) {
@@ -388,6 +468,7 @@ final class Bin {
     private void placePackedPoly(final PackedPoly poly) {
         poly.place();
         packedPolys.add(poly);
+        gridInsert(poly);
     }
 
     List<PackedPoly> packedPolys() {
