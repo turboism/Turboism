@@ -4,7 +4,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
@@ -67,7 +66,15 @@ final class PublicEventContractClosure {
                         + " is not defined by the bound contract class loader"
                 );
             }
-            verifyReferences(type, contractLoader, pending, new HashSet<>());
+            try {
+                verifyReferences(type, contractLoader, pending, new HashSet<>());
+            } catch (StackOverflowError overflow) {
+                throw new IllegalArgumentException(
+                    "public event contract type " + type.getName()
+                        + " has a generic signature too deep to verify safely",
+                    overflow
+                );
+            }
         }
     }
 
@@ -96,7 +103,7 @@ final class PublicEventContractClosure {
                 }
             }
             for (final Constructor<?> constructor : type.getDeclaredConstructors()) {
-                if (isApiMember(constructor.getModifiers())) {
+                if (ContractClosurePolicy.isApiMember(constructor.getModifiers(), true)) {
                     referenced.addAll(List.of(constructor.getGenericParameterTypes()));
                     referenced.addAll(List.of(constructor.getGenericExceptionTypes()));
                     for (final TypeVariable<?> parameter : constructor.getTypeParameters()) {
@@ -105,7 +112,7 @@ final class PublicEventContractClosure {
                 }
             }
             for (final Method method : type.getDeclaredMethods()) {
-                if (isApiMember(method.getModifiers()) && !method.isSynthetic()) {
+                if (ContractClosurePolicy.isApiMember(method.getModifiers(), false)) {
                     referenced.add(method.getGenericReturnType());
                     referenced.addAll(List.of(method.getGenericParameterTypes()));
                     referenced.addAll(List.of(method.getGenericExceptionTypes()));
@@ -115,7 +122,7 @@ final class PublicEventContractClosure {
                 }
             }
             for (final Field field : type.getDeclaredFields()) {
-                if (isApiMember(field.getModifiers()) && !field.isSynthetic()) {
+                if (ContractClosurePolicy.isApiMember(field.getModifiers(), false)) {
                     referenced.add(field.getGenericType());
                 }
             }
@@ -193,7 +200,7 @@ final class PublicEventContractClosure {
             return;
         }
         final String name = subject.getName();
-        if (name.startsWith("dev.turboism.sdk.")) {
+        if (name.startsWith(ContractClosurePolicy.SDK_PACKAGE_PREFIX)) {
             return;
         }
         final ClassLoader loader = subject.getClassLoader();
@@ -211,9 +218,5 @@ final class PublicEventContractClosure {
                 + ", which is not part of the contract payload closure (the contract"
                 + " artifact, dev.turboism.sdk.*, or JDK platform classes)"
         );
-    }
-
-    private static boolean isApiMember(final int modifiers) {
-        return Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers);
     }
 }

@@ -38,6 +38,45 @@ public interface ViewContextMenuRegistry {
      */
     void updateButtonState(String contributionId, int axis);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static ViewContextMenuRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
+    enum Unavailable implements ViewContextMenuRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contributeStateButtons(
+            final StateButtonContribution contribution) {
+            Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException(
+                "viewContextMenu service is not available");
+        }
+
+        @Override public void updateButtonState(final String contributionId, final int axis) {
+            throw new UnsupportedOperationException(
+                "viewContextMenu service is not available");
+        }
+    }
+
     /** A state-cycling icon button owned by a plugin. */
     record StateButtonContribution(
         String contributionId,

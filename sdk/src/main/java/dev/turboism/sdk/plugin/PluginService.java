@@ -137,5 +137,11 @@ public enum PluginService {
     MCP_CONNECTIONS,
 
     /** {@link PluginContext#performanceStats()} */
-    PERFORMANCE_STATS
+    PERFORMANCE_STATS,
+
+    /** {@link PluginContext#warpAltMirrorParticipation()} */
+    WARP_ALT_MIRROR_PARTICIPATION,
+
+    /** {@link PluginContext#viewContextMenu()} */
+    VIEW_CONTEXT_MENU
 }

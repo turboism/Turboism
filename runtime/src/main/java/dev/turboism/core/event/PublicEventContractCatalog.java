@@ -47,11 +47,6 @@ public final class PublicEventContractCatalog implements AutoCloseable {
     /** Plugin JAR directory that carries embedded contract artifacts. */
     public static final String CONTRACT_DIRECTORY = "META-INF/turboism/contracts/";
 
-    private static final long MAX_ARTIFACT_BYTES = 8L * 1024 * 1024;
-    private static final List<String> FORBIDDEN_CLASS_PREFIXES = List.of(
-        "java.", "javax.", "jdk.", "sun.", "com.sun.", "com.live2d.", "dev.turboism."
-    );
-
     /** Test seam: how the catalog materializes a loader for verified artifact bytes. */
     @FunctionalInterface
     interface ContractLoaderFactory {
@@ -239,6 +234,17 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         final Path pluginJar
     ) {
         final List<ArtifactSpec> specs = new ArrayList<>();
+        final PublicEventContractPreflight.Session session =
+            PublicEventContractPreflight.newSession();
+        try {
+            // The declared-contract count is checked once before any artifact
+            // bytes are materialized (Amendment A-1.R/R1).
+            session.expectContracts(
+                descriptor.eventContracts().size(), descriptor.id());
+        } catch (final PublicEventContractPreflight.ContractViolation violation) {
+            throw new IllegalArgumentException(
+                violation.getMessage(), violation);
+        }
         try (JarFile jar = new JarFile(pluginJar.toFile())) {
             final Set<String> declaredArtifacts = new HashSet<>();
             final List<String> looseClasses = new ArrayList<>();
@@ -249,7 +255,7 @@ public final class PublicEventContractCatalog implements AutoCloseable {
                 if (name.startsWith(CONTRACT_DIRECTORY) && name.endsWith(".jar")) {
                     declaredArtifacts.add(name);
                 } else if (name.endsWith(".class") && !name.startsWith("META-INF/")) {
-                    looseClasses.add(binaryName(name));
+                    looseClasses.add(PublicEventContractPreflight.binaryName(name));
                 }
             }
             for (final PluginDescriptor.EventContract contract : descriptor.eventContracts()) {
@@ -263,7 +269,8 @@ public final class PublicEventContractCatalog implements AutoCloseable {
                     );
                 }
                 declaredArtifacts.remove(artifact);
-                specs.add(readArtifact(descriptor, contract, jar, entry, looseClasses));
+                specs.add(readArtifact(
+                    descriptor, contract, jar, entry, looseClasses, session));
             }
             if (!declaredArtifacts.isEmpty()) {
                 throw new IllegalArgumentException(
@@ -280,106 +287,95 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         return specs;
     }
 
+    /**
+     * Re-verifies one declared contract artifact at bind time through the shared
+     * no-execution preflight — the same rules managed admission already enforced —
+     * so a plugin JAR staged before the rules applied, or assembled outside the
+     * managed paths, cannot smuggle an artifact the catalog never re-checked.
+     */
     private ArtifactSpec readArtifact(
         final PluginDescriptor descriptor,
         final PluginDescriptor.EventContract contract,
         final JarFile pluginJar,
         final JarEntry entry,
-        final List<String> looseClasses
+        final List<String> looseClasses,
+        final PublicEventContractPreflight.Session session
     ) throws IOException {
-        if (entry.getSize() > MAX_ARTIFACT_BYTES) {
+        if (entry.getSize() > PublicEventContractPreflight.MAX_ARTIFACT_BYTES) {
             throw new IllegalArgumentException(
                 "public event contract " + contract.id() + " artifact exceeds the "
-                    + MAX_ARTIFACT_BYTES + " byte limit"
+                    + PublicEventContractPreflight.MAX_ARTIFACT_BYTES + " byte limit"
             );
         }
         final byte[] bytes;
         try (InputStream stream = pluginJar.getInputStream(entry)) {
-            bytes = stream.readAllBytes();
+            bytes = readBounded(stream, contract.id(), session);
+        } catch (final PublicEventContractPreflight.ContractViolation violation) {
+            throw new IllegalArgumentException(violation.getMessage(), violation);
         }
-        final String sha256 = sha256Hex(bytes);
-        if (!contract.sha256().equals(sha256)) {
-            throw new IllegalArgumentException(
-                "public event contract " + contract.id() + " artifact sha256 mismatch:"
-                    + " descriptor declares " + contract.sha256()
-                    + " but the embedded artifact hashes to " + sha256
+        final PublicEventContractPreflight.Inspection inspection;
+        try {
+            inspection = PublicEventContractPreflight.verify(
+                session,
+                descriptor.id(),
+                contract.id(),
+                contract.artifact(),
+                contract.sha256(),
+                bytes,
+                looseClasses,
+                payloadSeeds(descriptor)
             );
+        } catch (final PublicEventContractPreflight.ContractViolation violation) {
+            throw new IllegalArgumentException(violation.getMessage(), violation);
         }
-        final Set<String> classNames = readContractClasses(contract, bytes);
-        for (final String className : classNames) {
-            if (looseClasses.contains(className)) {
-                throw new IllegalArgumentException(
-                    "plugin " + descriptor.id() + " JAR also defines contract class "
-                        + className + " outside the published contract artifact "
-                        + contract.id()
-                );
-            }
-        }
-        return new ArtifactSpec(contract.id(), contract.version(), sha256, bytes, classNames);
+        return new ArtifactSpec(
+            contract.id(),
+            contract.version(),
+            inspection.sha256(),
+            bytes,
+            inspection.classNames()
+        );
     }
 
-    private Set<String> readContractClasses(
-        final PluginDescriptor.EventContract contract,
-        final byte[] bytes
-    ) throws IOException {
-        final Path temp = Files.createTempFile("turboism-contract-", ".jar");
-        try {
-            Files.write(temp, bytes);
-            final Set<String> classNames = new HashSet<>();
-            try (JarFile artifact = new JarFile(temp.toFile())) {
-                final var manifest = artifact.getManifest();
-                if (manifest != null) {
-                    final var attributes = manifest.getMainAttributes();
-                    if (attributes.getValue("Class-Path") != null) {
-                        throw new IllegalArgumentException(
-                            "public event contract " + contract.id()
-                                + " artifact manifest must not declare Class-Path"
-                        );
-                    }
-                }
-                final var stream = artifact.stream();
-                for (var iterator = stream.iterator(); iterator.hasNext(); ) {
-                    final JarEntry entry = iterator.next();
-                    final String name = entry.getName();
-                    if (entry.isDirectory() || name.equals("META-INF/MANIFEST.MF")) {
-                        continue;
-                    }
-                    if (name.equals("module-info.class")
-                        || name.startsWith("META-INF/services/")
-                        || name.startsWith("META-INF/versions/")) {
-                        throw new IllegalArgumentException(
-                            "public event contract " + contract.id()
-                                + " artifact must not contain " + name
-                        );
-                    }
-                    if (!name.endsWith(".class")) {
-                        throw new IllegalArgumentException(
-                            "public event contract " + contract.id()
-                                + " artifact is a class-only JAR and must not contain "
-                                + name
-                        );
-                    }
-                    final String className = binaryName(name);
-                    for (final String forbidden : FORBIDDEN_CLASS_PREFIXES) {
-                        if (className.startsWith(forbidden)) {
-                            throw new IllegalArgumentException(
-                                "public event contract " + contract.id()
-                                    + " contains forbidden class " + className
-                            );
-                        }
-                    }
-                    classNames.add(className);
-                }
+    /**
+     * Reads one embedded artifact under a hard byte bound — a drop-in JAR's declared
+     * entry size is unverified metadata, so the read counts actual bytes and refuses
+     * an over-delivering stream rather than trusting the declaration. Every chunk
+     * is charged to the shared session budget before it lands in the buffer.
+     */
+    private static byte[] readBounded(
+        final InputStream stream,
+        final String contractId,
+        final PublicEventContractPreflight.Session session
+    ) throws IOException, PublicEventContractPreflight.ContractViolation {
+        final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        final byte[] buffer = new byte[8192];
+        long size = 0;
+        for (int read; (read = stream.read(buffer)) >= 0;) {
+            if (read == 0) {
+                continue;
             }
-            if (classNames.isEmpty()) {
+            size += read;
+            if (size > PublicEventContractPreflight.MAX_ARTIFACT_BYTES) {
                 throw new IllegalArgumentException(
-                    "public event contract " + contract.id() + " artifact contains no classes"
+                    "public event contract " + contractId
+                        + " artifact stream over-delivers beyond the "
+                        + PublicEventContractPreflight.MAX_ARTIFACT_BYTES
+                        + " byte limit"
                 );
             }
-            return classNames;
-        } finally {
-            Files.deleteIfExists(temp);
+            session.chargeArtifactBytes(read, contractId);
+            out.write(buffer, 0, read);
         }
+        return out.toByteArray();
+    }
+
+    /**
+     * The event types this descriptor pins for route binding; artifact members among
+     * them anchor the payload closure walk during preflight.
+     */
+    private static Set<String> payloadSeeds(final PluginDescriptor descriptor) {
+        return ContractClosurePolicy.payloadSeeds(descriptor);
     }
 
     private void verifyNoConflicts(
@@ -461,11 +457,6 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         } catch (IOException failure) {
             return false;
         }
-    }
-
-    private static String binaryName(final String entryName) {
-        return entryName.substring(0, entryName.length() - ".class".length())
-            .replace('/', '.');
     }
 
     private static String sha256Hex(final byte[] bytes) {

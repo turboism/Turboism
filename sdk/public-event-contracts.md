@@ -48,7 +48,8 @@ runtime resolves through the bound contract loader. The artifact classes
 must never also be copied loose into the plugin JAR: a loose `.class`
 colliding with a contract member is an admission error.
 
-Restrictions enforced at bind time:
+Restrictions enforced at managed-installation admission and re-verified
+at bind time:
 
 - Class names must live in the author's namespace. Forbidden prefixes:
   `java.`, `javax.`, `jdk.`, `sun.`, `com.sun.`, `com.live2d.`,
@@ -56,7 +57,19 @@ Restrictions enforced at bind time:
 - No `module-info.class`, no `META-INF/services/**`, no
   `META-INF/versions/**` (multi-release shadowing is non-deterministic), no
   manifest `Class-Path`, and no non-class entries other than the manifest.
-- At most 8 MiB.
+- Resource limits per contract artifact: at most 8 MiB compressed, 8 MiB
+  expanded per entry, 32 MiB expanded in total, 1024 entries, a 100×
+  compression-ratio bound, and entry paths of at most 1024 UTF-8 bytes and
+  32 segments. Archive structure is validated strictly — malformed,
+  truncated, or header-inconsistent JARs fail admission before staging.
+  Zero-payload directory entries as emitted by standard JDK jar writers
+  are admitted; a directory carrying payload bytes is rejected.
+- Per-plugin verification budgets apply across all of a plugin's declared
+  contracts: at most 32 declared contracts (checked before any artifact
+  bytes are read), 64 MiB of artifact bytes charged as they are delivered,
+  64 MiB expanded in total, 4096 inner entries, 16384 distinct referenced
+  type names, 65536 reference occurrences, 16.7 MiB of parsed
+  descriptor/signature text, and signature nesting of at most 512 levels.
 
 Record methods and initializers are ordinary class code — the mechanism
 controls identity and visibility, not code confinement. Keep payload types
@@ -158,9 +171,21 @@ plugin-private event.
 
 ## 4. Payload closure
 
-Every type reachable from a contract event's public ABI surface — record
-components, public/protected members, generic type graphs including owner
-types, wildcards and type-variable bounds — must resolve to exactly:
+Every type referenced by a contract class must resolve. Admission checks
+two surfaces over each *visited* member — the declared event types plus
+every artifact member reachable through the public-API surface:
+
+- **Erased surface (visited members)** — every field, method, and
+  constructor descriptor, including private and synthetic members, must
+  resolve its erased types. Generic signatures of non-API members are
+  never enumerated: a phantom type mentioned only inside a private
+  member's generic signature is not a reference.
+- **Public API closure** — record components, public/protected members,
+  generic signatures including owner types, wildcards and type-variable
+  bounds, superclasses, interfaces, and permitted subclasses — resolved
+  recursively, with each step's own erased surface checked in turn.
+
+Both surfaces must resolve to exactly:
 
 - JDK platform-module classes, or
 - `dev.turboism.sdk.*` classes, or
@@ -170,7 +195,23 @@ Runtime, core, internal, shaded-library and host classes are unreachable
 from contract types even where they share a classloader with the SDK. A
 member typed as a private DTO anywhere in the graph — including one hidden
 behind a generic owner such as `Outer<Payload>.Inner` — fails admission at
-preflight, before any plugin entrypoint runs.
+preflight, before any plugin entrypoint runs. A type that only appears in
+a private member's erased descriptor, or only inside an API member's
+generic signature, is still checked; validation reads class bytes and
+never loads, defines, or initializes contract classes. Signature metadata
+is validated per call site (class, method/constructor, field and record
+component carry different grammars), fully consumed, and bounded in
+nesting depth.
+
+Permitted-subclass lists are checked asymmetrically on purpose: a
+`sealed` type's `permits` entry that cannot be resolved is rejected at
+admission even though the VM would silently drop it at bind time —
+fail-early, never fail-late.
+
+Artifact bytes are charged to the plugin's verification budget as they are
+read: the declared-contract count is bounded before the first artifact is
+materialized, and acquisition-time reads account against the shared
+per-plugin budget rather than being settled after verification.
 
 A contract member name colliding with a loose `.class` inside the same
 plugin JAR is rejected (shadow ambiguity), as is a name already bound to a
@@ -216,3 +257,13 @@ different artifact in the session.
   with ordering 'after'`
 - `public event contract type <name> requires a declared event export or
   import`
+
+Managed installation reports contract-artifact failures with stable codes:
+`PLUGIN_CONTRACT_ARTIFACT_UNDECLARED` (artifact present but not declared),
+`PLUGIN_CONTRACT_ARTIFACT_MISSING` (declared path absent from the plugin
+JAR), `PLUGIN_CONTRACT_ARTIFACT_HASH_MISMATCH`,
+`PLUGIN_CONTRACT_ARTIFACT_TOO_LARGE` (any per-artifact or per-plugin
+resource budget exceeded), `PLUGIN_CONTRACT_ARTIFACT_CLASS_COLLISION`
+(member shadows a loose plugin class), and
+`PLUGIN_CONTRACT_ARTIFACT_INVALID` (malformed archive or class content,
+or an unresolvable payload reference).
