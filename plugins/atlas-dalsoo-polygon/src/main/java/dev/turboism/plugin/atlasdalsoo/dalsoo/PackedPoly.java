@@ -25,6 +25,7 @@ final class PackedPoly implements Comparable<PackedPoly> {
     double[] outBb; // bounding box of placed outpts
     double[] centroid;
     double[] outCentroid;
+    int lastQuery; // grid-query dedupe stamp, managed by Bin
 
     PackedPoly(final int id, final double[][] source, final double[][] buffered,
         final Double segmentMaxLength) {
