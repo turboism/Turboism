@@ -41,6 +41,7 @@ include(
     "plugins:psd-import",
     "plugins:psd-clip-mask-import",
     "plugins:atlas-maxrects-bssf",
+    "plugins:atlas-dalsoo-polygon",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
     "plugins:history-panel",

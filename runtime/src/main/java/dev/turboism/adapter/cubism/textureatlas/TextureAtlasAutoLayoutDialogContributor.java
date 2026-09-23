@@ -2,21 +2,29 @@ package dev.turboism.adapter.cubism.textureatlas;
 
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
+import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
 
@@ -28,22 +36,46 @@ import java.util.ResourceBundle;
  * any plugin-registered algorithm appears in the combo. The parallel checkbox is
  * enabled only while the selected algorithm declares {@code supportsParallel};
  * selecting a non-parallel algorithm (for example the native pass-through) unchecks
- * and disables the control. All static UI strings come from the runtime resource
- * bundle {@code dev.turboism.adapter.cubism.textureatlas.messages}.</p>
+ * and disables the control. Rotation granularity, lock preset, scale mode,
+ * auto-scale tolerance/max-try, and kernel selection are enabled only while the
+ * selected algorithm declares {@code supportsPolygonOptions}; the bridged values
+ * are ignored by every other planner. All static UI strings come from the
+ * runtime resource bundle
+ * {@code dev.turboism.adapter.cubism.textureatlas.messages}.</p>
  */
 public final class TextureAtlasAutoLayoutDialogContributor {
 
     /** Shared bridge keys mirroring the runtime-owned selection for host-side observers. */
     public static final String ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
     public static final String PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
+    public static final String ROTATION_KEY = "dev.turboism.texture-atlas.dialog.rotation";
+    public static final String LOCK_PRESET_KEY = "dev.turboism.texture-atlas.dialog.lock-preset";
+    public static final String AUTO_SCALE_KEY = "dev.turboism.texture-atlas.dialog.auto-scale";
+    public static final String FIXED_SCALE_PERCENT_KEY =
+        "dev.turboism.texture-atlas.dialog.fixed-scale-percent";
+    public static final String AUTO_SCALE_TOLERANCE_KEY =
+        "dev.turboism.texture-atlas.dialog.auto-scale-tolerance";
+    public static final String AUTO_SCALE_MAX_TRY_KEY =
+        "dev.turboism.texture-atlas.dialog.auto-scale-max-try";
+    public static final String KERNEL_KEY = "dev.turboism.texture-atlas.dialog.kernel";
     public static final String VALIDATION_OBSERVER_KEY =
         "dev.turboism.texture-atlas.dialog.validation-observer";
     public static final String ALGO_NATIVE =
         dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID;
     public static final String ALGO_MAXRECTS = "maxrects";
 
+    /** Lock-preset names mirrored by the dalsoo plugin's PolygonLayoutLockPreset. */
+    private static final String[] LOCK_PRESETS =
+        {"NONE", "ALL", "ANGLE", "SCALE", "ANGLE_SCALE", "POS_ANGLE"};
+    /** Kernel ids mirrored by the dalsoo plugin settings (useAbey). */
+    private static final String[] KERNELS = {"abey", "dalalah"};
+    private static final String[] SCALE_MODES = {"auto", "fixed"};
+    private static final int MAX_FIXED_SCALE_PERCENT = 800;
+    private static final int MAX_AUTO_SCALE_TRY = 64;
+    private static final String DEFAULT_TOLERANCE = "0.005";
+
     private static final int SPACER_ROW = 5;
-    private static final int SPACER_ROW_PUSHED = 8;
+    private static final int SPACER_ROW_PUSHED = 16;
 
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry registry;
     private final TextureAtlasAutoLayoutSelection selection;
@@ -152,6 +184,57 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         algorithmCombo.setSelectedIndex(initialIndex);
         algorithmCombo.setToolTipText(bundle.getString("dialog.algorithm.tooltip"));
 
+        final TextureAtlasRotationMode[] rotations = TextureAtlasRotationMode.values();
+        final String[] rotationLabels = new String[rotations.length];
+        for (int i = 0; i < rotations.length; i++) {
+            rotationLabels[i] = bundle.getString("dialog.rotation.option."
+                + rotations[i].name().toLowerCase(Locale.ROOT));
+        }
+        final JComboBox<String> rotationCombo = new JComboBox<>(rotationLabels);
+        rotationCombo.setSelectedIndex(indexOf(rotations,
+            System.getProperty(ROTATION_KEY, TextureAtlasRotationMode.QUARTER.name())));
+        rotationCombo.setToolTipText(bundle.getString("dialog.rotation.tooltip"));
+
+        final String[] lockLabels = new String[LOCK_PRESETS.length];
+        for (int i = 0; i < LOCK_PRESETS.length; i++) {
+            lockLabels[i] = bundle.getString("dialog.lock.option."
+                + LOCK_PRESETS[i].toLowerCase(Locale.ROOT));
+        }
+        final JComboBox<String> lockCombo = new JComboBox<>(lockLabels);
+        lockCombo.setSelectedIndex(indexOf(LOCK_PRESETS,
+            System.getProperty(LOCK_PRESET_KEY, LOCK_PRESETS[0])));
+        lockCombo.setToolTipText(bundle.getString("dialog.lock.tooltip"));
+
+        final String[] scaleModeLabels = {
+            bundle.getString("dialog.scale-mode.option.auto"),
+            bundle.getString("dialog.scale-mode.option.fixed")
+        };
+        final JComboBox<String> scaleModeCombo = new JComboBox<>(scaleModeLabels);
+        scaleModeCombo.setSelectedIndex(
+            "false".equals(System.getProperty(AUTO_SCALE_KEY, "true")) ? 1 : 0);
+        scaleModeCombo.setToolTipText(bundle.getString("dialog.scale-mode.tooltip"));
+
+        final JTextField fixedScaleField = new JTextField(
+            System.getProperty(FIXED_SCALE_PERCENT_KEY, "100"), 6);
+        fixedScaleField.setToolTipText(bundle.getString("dialog.fixed-scale.tooltip"));
+        final JTextField toleranceField = new JTextField(
+            toleranceText(System.getProperty(AUTO_SCALE_TOLERANCE_KEY)), 6);
+        toleranceField.setToolTipText(
+            bundle.getString("dialog.auto-scale-tolerance.tooltip"));
+        final JTextField maxTryField = new JTextField(
+            System.getProperty(AUTO_SCALE_MAX_TRY_KEY, "0"), 6);
+        maxTryField.setToolTipText(
+            bundle.getString("dialog.auto-scale-max-try.tooltip"));
+
+        final String[] kernelLabels = {
+            bundle.getString("dialog.kernel.option.abey"),
+            bundle.getString("dialog.kernel.option.dalalah")
+        };
+        final JComboBox<String> kernelCombo = new JComboBox<>(kernelLabels);
+        kernelCombo.setSelectedIndex(indexOf(KERNELS,
+            System.getProperty(KERNEL_KEY, KERNELS[0])));
+        kernelCombo.setToolTipText(bundle.getString("dialog.kernel.tooltip"));
+
         final JCheckBox parallelCheck = new JCheckBox(
             bundle.getString("dialog.parallel.check"),
             current.parallel()
@@ -176,23 +259,54 @@ public final class TextureAtlasAutoLayoutDialogContributor {
             System.getProperties().put(PARALLEL_KEY, String.valueOf(next.parallel()));
         };
 
-        final Runnable syncParallel = () -> {
+        final Runnable syncControls = () -> {
             final int index = algorithmCombo.getSelectedIndex();
-            final boolean supported = index > 0
-                && algorithms.get(Math.min(index - 1, algorithms.size() - 1)).supportsParallel();
+            final TextureAtlasLayoutAlgorithm selected = index <= 0
+                ? null
+                : algorithms.get(Math.min(index - 1, algorithms.size() - 1));
+            final boolean supported = selected != null && selected.supportsParallel();
             parallelCheck.setEnabled(supported);
             if (!supported && parallelCheck.isSelected()) {
                 parallelCheck.setSelected(false);
                 publishSelection.run();
             }
+            // polygon-option controls only apply to algorithms declaring
+            // supportsPolygonOptions; other selections leave them disabled and
+            // the bridged values are ignored by every other planner
+            final boolean polygon = selected != null && selected.supportsPolygonOptions();
+            final boolean autoScale =
+                !"false".equals(System.getProperty(AUTO_SCALE_KEY, "true"));
+            rotationCombo.setEnabled(polygon);
+            lockCombo.setEnabled(polygon);
+            scaleModeCombo.setEnabled(polygon);
+            fixedScaleField.setEnabled(polygon && !autoScale);
+            toleranceField.setEnabled(polygon && autoScale);
+            maxTryField.setEnabled(polygon && autoScale);
+            kernelCombo.setEnabled(polygon);
         };
-        syncParallel.run();
+        syncControls.run();
 
         algorithmCombo.addActionListener(event -> {
-            syncParallel.run();
+            syncControls.run();
             publishSelection.run();
         });
         parallelCheck.addActionListener(event -> publishSelection.run());
+        rotationCombo.addActionListener(event -> System.getProperties().put(
+            ROTATION_KEY, rotations[rotationCombo.getSelectedIndex()].name()));
+        lockCombo.addActionListener(event -> System.getProperties().put(
+            LOCK_PRESET_KEY, LOCK_PRESETS[lockCombo.getSelectedIndex()]));
+        scaleModeCombo.addActionListener(event -> {
+            System.getProperties().put(AUTO_SCALE_KEY,
+                SCALE_MODES[scaleModeCombo.getSelectedIndex()].equals("auto")
+                    ? "true" : "false");
+            syncControls.run();
+        });
+        kernelCombo.addActionListener(event -> System.getProperties().put(
+            KERNEL_KEY, KERNELS[kernelCombo.getSelectedIndex()]));
+        wireIntField(fixedScaleField, FIXED_SCALE_PERCENT_KEY, 1,
+            MAX_FIXED_SCALE_PERCENT);
+        wireToleranceField(toleranceField);
+        wireIntField(maxTryField, AUTO_SCALE_MAX_TRY_KEY, 0, MAX_AUTO_SCALE_TRY);
 
         final GridBagConstraints comboConstraints = new GridBagConstraints();
         comboConstraints.gridx = 1;
@@ -203,30 +317,133 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         comboConstraints.insets = new Insets(insetY, 0, insetY, 0);
         center.add(algorithmCombo, comboConstraints);
 
-        final JLabel parallelLabel = new JLabel(bundle.getString("dialog.parallel.label"));
-        final GridBagConstraints parallelLabelConstraints = new GridBagConstraints();
-        parallelLabelConstraints.gridx = 0;
-        parallelLabelConstraints.gridy = 7;
-        parallelLabelConstraints.anchor = GridBagConstraints.WEST;
-        parallelLabelConstraints.insets = new Insets(insetY, 0, insetY, 12);
-        center.add(parallelLabel, parallelLabelConstraints);
+        addOptionRow(center, 7, "dialog.rotation.label", rotationCombo, insetY);
+        addOptionRow(center, 8, "dialog.lock.label", lockCombo, insetY);
+        addOptionRow(center, 9, "dialog.scale-mode.label", scaleModeCombo, insetY);
+        addOptionRow(center, 10, "dialog.fixed-scale.label", fixedScaleField, insetY);
+        addOptionRow(center, 11, "dialog.auto-scale-tolerance.label",
+            toleranceField, insetY);
+        addOptionRow(center, 12, "dialog.auto-scale-max-try.label",
+            maxTryField, insetY);
+        addOptionRow(center, 13, "dialog.kernel.label", kernelCombo, insetY);
+        final JLabel parallelLabel =
+            addOptionRow(center, 14, "dialog.parallel.label", parallelCheck, insetY);
 
-        final GridBagConstraints parallelConstraints = new GridBagConstraints();
-        parallelConstraints.gridx = 1;
-        parallelConstraints.gridy = 7;
-        parallelConstraints.gridwidth = 2;
-        parallelConstraints.anchor = GridBagConstraints.WEST;
-        parallelConstraints.weightx = 1.0;
-        parallelConstraints.insets = new Insets(insetY, 0, insetY, 0);
-        center.add(parallelCheck, parallelConstraints);
+        final Map<String, JComponent> optionControls = new LinkedHashMap<>();
+        optionControls.put("rotation", rotationCombo);
+        optionControls.put("lockPreset", lockCombo);
+        optionControls.put("scaleMode", scaleModeCombo);
+        optionControls.put("fixedScale", fixedScaleField);
+        optionControls.put("autoScaleTolerance", toleranceField);
+        optionControls.put("autoScaleMaxTry", maxTryField);
+        optionControls.put("kernel", kernelCombo);
         notifyValidationObserver(new DialogObservation(
             center,
             algorithmLabel,
             algorithmCombo,
             parallelLabel,
             parallelCheck,
-            List.copyOf(algorithms)
+            List.copyOf(algorithms),
+            Map.copyOf(optionControls)
         ));
+    }
+
+    private JLabel addOptionRow(final JPanel center, final int gridy,
+        final String labelKey, final JComponent control, final int insetY) {
+        final JLabel label = new JLabel(bundle.getString(labelKey));
+        final GridBagConstraints labelConstraints = new GridBagConstraints();
+        labelConstraints.gridx = 0;
+        labelConstraints.gridy = gridy;
+        labelConstraints.anchor = GridBagConstraints.WEST;
+        labelConstraints.insets = new Insets(insetY, 0, insetY, 12);
+        center.add(label, labelConstraints);
+        final GridBagConstraints controlConstraints = new GridBagConstraints();
+        controlConstraints.gridx = 1;
+        controlConstraints.gridy = gridy;
+        controlConstraints.gridwidth = 2;
+        controlConstraints.anchor = GridBagConstraints.WEST;
+        controlConstraints.weightx = 1.0;
+        controlConstraints.insets = new Insets(insetY, 0, insetY, 0);
+        center.add(control, controlConstraints);
+        return label;
+    }
+
+    private static int indexOf(final TextureAtlasRotationMode[] values,
+        final String name) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].name().equals(name)) {
+                return i;
+            }
+        }
+        return TextureAtlasRotationMode.QUARTER.ordinal();
+    }
+
+    private static int indexOf(final String[] values, final String name) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equalsIgnoreCase(name)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    /** Commits a bounded integer field into its bridge key; invalid input reverts. */
+    private static void wireIntField(final JTextField field, final String key,
+        final int min, final int max) {
+        final Runnable commit = () -> {
+            try {
+                final int value = Integer.parseInt(field.getText().trim());
+                if (value >= min && value <= max) {
+                    System.getProperties().put(key, String.valueOf(value));
+                    return;
+                }
+            } catch (NumberFormatException ignored) {
+            }
+            field.setText(System.getProperty(key, String.valueOf(min)));
+        };
+        field.addActionListener(event -> commit.run());
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(final FocusEvent event) {
+                commit.run();
+            }
+        });
+    }
+
+    /** Tolerance is bridged in per-mille (0 falls back to the built-in default). */
+    private static void wireToleranceField(final JTextField field) {
+        final Runnable commit = () -> {
+            try {
+                final double value = Double.parseDouble(field.getText().trim());
+                if (value > 0 && value <= 1 && Double.isFinite(value)) {
+                    System.getProperties().put(AUTO_SCALE_TOLERANCE_KEY,
+                        String.valueOf((int) Math.round(value * 1000)));
+                    return;
+                }
+            } catch (NumberFormatException ignored) {
+            }
+            field.setText(toleranceText(
+                System.getProperty(AUTO_SCALE_TOLERANCE_KEY)));
+        };
+        field.addActionListener(event -> commit.run());
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(final FocusEvent event) {
+                commit.run();
+            }
+        });
+    }
+
+    private static String toleranceText(final String permille) {
+        try {
+            final int value = Integer.parseInt(permille == null ? "" : permille.trim());
+            if (value > 0) {
+                return BigDecimal.valueOf(value).movePointLeft(3)
+                    .stripTrailingZeros().toPlainString();
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return DEFAULT_TOLERANCE;
     }
 
     private static void notifyValidationObserver(final DialogObservation observation) {
@@ -255,7 +472,8 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         JComboBox<String> algorithmCombo,
         JLabel parallelLabel,
         JCheckBox parallelCheck,
-        List<TextureAtlasLayoutAlgorithm> algorithms
+        List<TextureAtlasLayoutAlgorithm> algorithms,
+        Map<String, JComponent> optionControls
     ) { }
 
     private static JPanel findGridBagPanel(final Container container) {

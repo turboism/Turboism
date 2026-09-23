@@ -100,6 +100,7 @@ public final class VerifiedTextureAtlasSelectorContract {
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_HEIGHT,
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_TRANSFORM,
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_EDIT_LAYER,
+        VerifiedTextureAtlasNativeInvocationAdapter.EDIT_LAYER_DRAW_DATA_SHAPES,
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_CURRENT_TRANSFORM,
         VerifiedTextureAtlasNativeInvocationAdapter.RECT_X,
         VerifiedTextureAtlasNativeInvocationAdapter.RECT_Y,
