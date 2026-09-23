@@ -141,6 +141,7 @@ class Snapshot:
                 raise queue.QueueError("unsupported queue schema")
             self.job_rows = [dict(row) for row in self.db.execute("SELECT * FROM jobs ORDER BY sequence")]
             self.host_row = dict(self.db.execute("SELECT * FROM host WHERE singleton=1").fetchone())
+            self.event_rows = [dict(row) for row in self.db.execute("SELECT * FROM events ORDER BY event_id")]
             tables = {row[0] for row in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.objects = {(row["kind"], row["object_id"]): dict(row) for row in
                             self.db.execute("SELECT * FROM retention_objects")} if "retention_objects" in tables else {}
@@ -151,6 +152,9 @@ class Snapshot:
 
     def jobs(self, job_id=None):
         return [row for row in self.job_rows if job_id is None or row["job_id"] == job_id]
+
+    def events(self, job_id=None):
+        return [row for row in self.event_rows if job_id is None or row["job_id"] == job_id]
 
 
 def describe(snapshot: Snapshot, prepared_id: str) -> dict[str, Any]:
@@ -176,6 +180,8 @@ def describe(snapshot: Snapshot, prepared_id: str) -> dict[str, Any]:
 def safe_outcome(snapshot: Snapshot, job: dict[str, Any]) -> dict[str, Any]:
     if not re.fullmatch(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", job["job_id"]):
         raise queue.QueueError("invalid job identity")
+    if job["state"] in queue.ADMINISTRATIVE:
+        raise queue.QueueError("unverified administrative disposition is not a safe outcome")
     if job["state"] not in queue.TERMINAL:
         raise queue.QueueError("job is not terminal")
     if job["state"] == "cancelled" and job["attempt_id"] is None and job["run_id"] is None:
@@ -312,6 +318,8 @@ def plan(root: Path | None = None, *, now: float | None = None) -> dict[str, Any
         jid = job["job_id"]
         record = snapshot.objects.get(("job", jid))
         try:
+            if job["state"] in queue.ADMINISTRATIVE:
+                raise queue.QueueError("unverified administrative disposition; evidence is permanently protected")
             if record is None:
                 raise queue.QueueError("historical job is not adopted")
             if record["pin"]:

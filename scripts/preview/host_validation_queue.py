@@ -44,6 +44,10 @@ _READ_LOCK_MESSAGES = frozenset({
     "database table is locked",
     "locking protocol",
 })
+# An administrative registration is terminal for scheduling but is never a
+# verification outcome; TERMINAL stays limited to validated terminal states.
+ADMINISTRATIVE_STATE = "abandoned"
+ADMINISTRATIVE = frozenset({ADMINISTRATIVE_STATE})
 
 
 class QueueError(RuntimeError):
@@ -337,7 +341,7 @@ class Store:
             row = db.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
             if row is None:
                 raise QueueError("unknown job id")
-            if row["state"] not in TERMINAL and not row["cancel_requested"]:
+            if row["state"] not in TERMINAL | ADMINISTRATIVE and not row["cancel_requested"]:
                 state = "cancelled" if row["state"] == "queued" else row["state"]
                 db.execute("UPDATE jobs SET state=?,cancel_requested=1,updated_at=? WHERE job_id=?",
                            (state, time.time(), job_id))
@@ -1471,6 +1475,9 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
     report: dict[str, Any] = {"safe": False, "jobId": job_id, "state": job["state"]}
     if reason is not None and not reason.strip():
         raise QueueError("recovery confirmation requires an operator reason")
+    if job["state"] in ADMINISTRATIVE:
+        return {**report, "safe": False, "disposition": "ABANDONED_UNVERIFIED",
+                "reason": "administrative disposition is not a verification result"}
     if job["state"] not in ACTIVE:
         return {**report, "safe": True, "reason": "job is already terminal or not started"}
     try:
