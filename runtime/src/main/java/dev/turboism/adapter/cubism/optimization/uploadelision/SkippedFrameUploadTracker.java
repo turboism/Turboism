@@ -23,19 +23,23 @@ import java.util.Map;
  * In {@link Compare#CONTENT} mode a matching meta signature is additionally
  * verified with {@link Buffer#mismatch} against a private snapshot of the last
  * uploaded payload; different buffer objects carrying identical bytes elide
- * the same way. Snapshots cost memory: {@code snapshotBytes} reports the
- * total retained payload bytes and {@code compareNanos} the total comparison
- * time.</p>
+ * the same way, and a same-object in-place refill still passes. Snapshots cost
+ * memory: {@code snapshotBytes} reports the live retained payload bytes,
+ * {@code snapshotBytesPeak} the high-water mark, and
+ * {@code compares}/{@code compareNanos} the comparison work.</p>
  *
  * <p>Every executed upload (skipped frame or not) re-records the baseline, so
  * the first qualifying upload always passes. Context changes, buffer lifecycle
  * events, non-skipped frames and observer failures clear the whole table.
- * Entries are stored in a fixed open-addressed table probed at most
- * {@link #PROBES} times — a crowded slot records nothing (undercount).</p>
+ * Entries live in an open-addressed table that grows from
+ * {@link #INITIAL_SLOTS} up to {@link #MAX_SLOTS} on probe exhaustion and
+ * rehashes on growth; {@code failedInserts} counts the rare cases where even
+ * the capped table had no free slot (undercount, never overcount).</p>
  */
 final class SkippedFrameUploadTracker {
 
-    private static final int SLOTS = 512;
+    private static final int INITIAL_SLOTS = 512;
+    private static final int MAX_SLOTS = 16_384;
     private static final int PROBES = 8;
 
     /** Wrapper kind for per-side accounting. */
@@ -69,16 +73,18 @@ final class SkippedFrameUploadTracker {
     enum ClearKind { CONTEXT, NON_SKIPPED, LIFECYCLE, EXCEPTION }
 
     private final Compare compare;
-    private final Entry[] entries = new Entry[SLOTS];
+    private Entry[] entries;
     private Object currentGl;
     private boolean clearedForRun = true;
     private long calls, elided, passed, clears, contextClears, nonSkippedClears,
         lifecycleClears, exceptionClears, observerFailures, occupied;
+    private long peakOccupied, failedInserts, grows;
     private final long[] kindCalls = new long[Kind.values().length];
     private final long[] kindElided = new long[Kind.values().length];
     private final long[] kindPassed = new long[Kind.values().length];
     private final long[] passReasons = new long[PassReason.values().length];
-    private long compares, compareNanos, contentElided, snapshotBytes;
+    private long compares, compareNanos, contentElided, snapshotBytes,
+        snapshotBytesPeak;
 
     private static final class Entry {
         Object gl, buffer, snapshot;
@@ -93,7 +99,13 @@ final class SkippedFrameUploadTracker {
 
     SkippedFrameUploadTracker(final Compare compare) {
         this.compare = compare;
-        for (int i = 0; i < SLOTS; i++) entries[i] = new Entry();
+        entries = newTable(INITIAL_SLOTS);
+    }
+
+    private static Entry[] newTable(final int slots) {
+        final Entry[] table = new Entry[slots];
+        for (int i = 0; i < slots; i++) table[i] = new Entry();
+        return table;
     }
 
     /**
@@ -119,9 +131,19 @@ final class SkippedFrameUploadTracker {
             } else {
                 clearedForRun = false;
             }
-            final int slot = locate(gl, name);
-            final Entry entry = slot >= 0 ? entries[slot] : null;
-            final boolean matched = entry != null && entry.occupied && entry.gl == gl
+            int slot = locate(gl, name);
+            if (slot < 0) {
+                slot = growAndLocate(gl, name);
+                if (slot < 0) {
+                    failedInserts++;
+                    passed++;
+                    if (kind != null) kindPassed[kind.ordinal()]++;
+                    passReasons[PassReason.NO_BASELINE.ordinal()]++;
+                    return false;
+                }
+            }
+            final Entry entry = entries[slot];
+            final boolean matched = entry.occupied && entry.gl == gl
                 && entry.name == name;
             final PassReason reason;
             final boolean elide;
@@ -163,7 +185,7 @@ final class SkippedFrameUploadTracker {
                 if (kind != null) kindElided[kind.ordinal()]++;
                 return true;
             }
-            if (compare == Compare.CONTENT && entry != null) {
+            if (compare == Compare.CONTENT) {
                 refreshSnapshot(entry, (Buffer) buffer, size);
             }
             record(entry, gl, name, size, buffer, position, limit);
@@ -191,38 +213,43 @@ final class SkippedFrameUploadTracker {
 
     private void record(final Entry entry, final Object gl, final int name, final long size,
                         final Object buffer, final int position, final int limit) {
-        if (entry == null) return;
         entry.gl = gl;
         entry.name = name;
         entry.size = size;
         entry.buffer = buffer;
         entry.position = position;
         entry.limit = limit;
-        if (!entry.occupied) { entry.occupied = true; occupied++; }
+        if (!entry.occupied) {
+            entry.occupied = true;
+            occupied++;
+            if (occupied > peakOccupied) peakOccupied = occupied;
+        }
     }
 
     private boolean contentEqual(final Entry entry, final Buffer buffer) {
         final Buffer snapshot = (Buffer) entry.snapshot;
-        if (snapshot == null || snapshot.getClass() != buffer.getClass()
-            || snapshot.remaining() != buffer.remaining()) {
+        // Compare by element type: the snapshot is a heap copy while the host
+        // payload is a direct buffer — class identity must not be consulted.
+        if (snapshot == null || snapshot.remaining() != buffer.remaining()) {
             return false;
         }
+        final Buffer current = buffer.duplicate();
         final long started = System.nanoTime();
         try {
-            if (snapshot instanceof ByteBuffer s) {
-                return s.mismatch((ByteBuffer) buffer.duplicate()) < 0;
-            } else if (snapshot instanceof IntBuffer s) {
-                return s.mismatch((IntBuffer) buffer.duplicate()) < 0;
-            } else if (snapshot instanceof FloatBuffer s) {
-                return s.mismatch((FloatBuffer) buffer.duplicate()) < 0;
-            } else if (snapshot instanceof ShortBuffer s) {
-                return s.mismatch((ShortBuffer) buffer.duplicate()) < 0;
-            } else if (snapshot instanceof LongBuffer s) {
-                return s.mismatch((LongBuffer) buffer.duplicate()) < 0;
-            } else if (snapshot instanceof DoubleBuffer s) {
-                return s.mismatch((DoubleBuffer) buffer.duplicate()) < 0;
-            } else if (snapshot instanceof CharBuffer s) {
-                return s.mismatch((CharBuffer) buffer.duplicate()) < 0;
+            if (snapshot instanceof ByteBuffer s && current instanceof ByteBuffer c) {
+                return s.mismatch(c) < 0;
+            } else if (snapshot instanceof IntBuffer s && current instanceof IntBuffer c) {
+                return s.mismatch(c) < 0;
+            } else if (snapshot instanceof FloatBuffer s && current instanceof FloatBuffer c) {
+                return s.mismatch(c) < 0;
+            } else if (snapshot instanceof ShortBuffer s && current instanceof ShortBuffer c) {
+                return s.mismatch(c) < 0;
+            } else if (snapshot instanceof LongBuffer s && current instanceof LongBuffer c) {
+                return s.mismatch(c) < 0;
+            } else if (snapshot instanceof DoubleBuffer s && current instanceof DoubleBuffer c) {
+                return s.mismatch(c) < 0;
+            } else if (snapshot instanceof CharBuffer s && current instanceof CharBuffer c) {
+                return s.mismatch(c) < 0;
             }
             return false;
         } finally {
@@ -232,9 +259,9 @@ final class SkippedFrameUploadTracker {
     }
 
     /**
-     * Stores a same-type copy of the buffer's remaining region for later
-     * {@link Buffer#mismatch} comparisons. Unbounded growth is impossible —
-     * the table is fixed-size and snapshots replace older ones per entry.
+     * Stores a same-element-type heap copy of the buffer's remaining region
+     * for later {@link Buffer#mismatch} comparisons. Capacity is bounded by
+     * the table size; snapshots replace older ones per entry.
      */
     private void refreshSnapshot(final Entry entry, final Buffer buffer, final long size) {
         final Buffer duplicate = buffer.duplicate();
@@ -261,15 +288,48 @@ final class SkippedFrameUploadTracker {
         }
         copy.flip();
         snapshotBytes += size - entry.snapshotSize;
+        if (snapshotBytes > snapshotBytesPeak) snapshotBytesPeak = snapshotBytes;
         entry.snapshot = copy;
         entry.snapshotSize = size;
     }
 
     private int locate(final Object gl, final int name) {
-        int slot = mix(System.identityHashCode(gl) ^ name) & (SLOTS - 1);
-        for (int probe = 0; probe < PROBES; probe++, slot = (slot + 1) & (SLOTS - 1)) {
+        int slot = mix(System.identityHashCode(gl) ^ name) & (entries.length - 1);
+        for (int probe = 0; probe < PROBES; probe++, slot = (slot + 1) & (entries.length - 1)) {
             final Entry entry = entries[slot];
             if (!entry.occupied || (entry.gl == gl && entry.name == name)) return slot;
+        }
+        return -1;
+    }
+
+    /**
+     * Doubles the table (bounded by {@link #MAX_SLOTS}) and rehashes the live
+     * entries, then retries {@link #locate}. Returns -1 only at the cap with
+     * every probed slot occupied.
+     */
+    private int growAndLocate(final Object gl, final int name) {
+        while (entries.length < MAX_SLOTS) {
+            final Entry[] bigger = newTable(Math.min(entries.length * 2, MAX_SLOTS));
+            for (final Entry entry : entries) {
+                if (!entry.occupied) continue;
+                int slot = mix(System.identityHashCode(entry.gl) ^ entry.name)
+                    & (bigger.length - 1);
+                while (bigger[slot].occupied) slot = (slot + 1) & (bigger.length - 1);
+                final Entry moved = bigger[slot];
+                moved.gl = entry.gl;
+                moved.name = entry.name;
+                moved.size = entry.size;
+                moved.buffer = entry.buffer;
+                moved.position = entry.position;
+                moved.limit = entry.limit;
+                moved.snapshot = entry.snapshot;
+                moved.snapshotSize = entry.snapshotSize;
+                moved.occupied = true;
+            }
+            entries = bigger;
+            grows++;
+            final int slot = locate(gl, name);
+            if (slot >= 0) return slot;
         }
         return -1;
     }
@@ -283,14 +343,12 @@ final class SkippedFrameUploadTracker {
     }
 
     private void clearAll(final ClearKind kind) {
-        long released = 0;
         for (final Entry entry : entries) {
-            released += entry.snapshotSize;
             entry.occupied = false;
             entry.snapshot = null;
             entry.snapshotSize = 0;
         }
-        snapshotBytes -= released;
+        snapshotBytes = 0;
         occupied = 0L;
         clears++;
         switch (kind) {
@@ -314,6 +372,10 @@ final class SkippedFrameUploadTracker {
         result.put("exceptionClears", exceptionClears);
         result.put("observerFailures", observerFailures);
         result.put("entries", occupied);
+        result.put("capacity", (long) entries.length);
+        result.put("peakEntries", peakOccupied);
+        result.put("failedInserts", failedInserts);
+        result.put("grows", grows);
         result.put("armed", armed ? 1L : 0L);
         result.put("floatCalls", kindCalls[Kind.FLOAT.ordinal()]);
         result.put("floatElided", kindElided[Kind.FLOAT.ordinal()]);
@@ -331,6 +393,7 @@ final class SkippedFrameUploadTracker {
         result.put("compareNanos", compareNanos);
         result.put("contentElided", contentElided);
         result.put("snapshotBytes", snapshotBytes);
+        result.put("snapshotBytesPeak", snapshotBytesPeak);
         result.put("mode", compare == Compare.CONTENT ? 1L : 0L);
         return Map.copyOf(result);
     }

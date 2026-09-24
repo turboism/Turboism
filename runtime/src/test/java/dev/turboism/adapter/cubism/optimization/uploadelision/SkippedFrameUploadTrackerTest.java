@@ -205,4 +205,81 @@ public class SkippedFrameUploadTrackerTest {
         assertEquals(1L, stats.get("passContent"));
         assertEquals(0L, stats.get("elided"));
     }
+
+    @Test void contentModeComparesHeapSnapshotAgainstDirectSource() {
+        SkippedFrameUploadTracker tracker =
+            new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        // The host keeps direct buffers (A.a allocates with
+        // ByteBuffer.allocateDirect); the snapshot is a heap copy. The compare
+        // must dispatch on element type, never on the concrete buffer class.
+        final java.nio.ByteBuffer directBytes = java.nio.ByteBuffer
+            .allocateDirect(8 * 4).order(java.nio.ByteOrder.nativeOrder());
+        final IntBuffer direct = directBytes.asIntBuffer();
+        for (int i = 0; i < 8; i++) direct.put(100 + i);
+        direct.flip();   // the host presents position=0, limit=capacity
+
+        assertFalse(upload(tracker, gl, 7, 32, direct, 0, 8, true, true),
+            "direct source records a heap snapshot");
+        assertEquals(32L, tracker.snapshot(true).get("snapshotBytes"));
+
+        final java.nio.ByteBuffer repeatBytes = java.nio.ByteBuffer
+            .allocateDirect(8 * 4).order(java.nio.ByteOrder.nativeOrder());
+        final IntBuffer repeat = repeatBytes.asIntBuffer();
+        for (int i = 0; i < 8; i++) repeat.put(100 + i);
+        repeat.flip();
+        assertTrue(upload(tracker, gl, 7, 32, repeat, 0, 8, true, true),
+            "equal direct bytes elide despite the class difference");
+
+        final java.nio.ByteBuffer diffBytes = java.nio.ByteBuffer
+            .allocateDirect(8 * 4).order(java.nio.ByteOrder.nativeOrder());
+        final IntBuffer diff = diffBytes.asIntBuffer();
+        for (int i = 0; i < 8; i++) diff.put(i == 3 ? -1 : 100 + i);
+        diff.flip();
+        assertFalse(upload(tracker, gl, 7, 32, diff, 0, 8, true, true),
+            "differing direct bytes pass");
+
+        var stats = tracker.snapshot(true);
+        assertEquals(3L, stats.get("calls"));
+        assertEquals(1L, stats.get("elided"));
+        assertEquals(2L, stats.get("compares"), "both meta matches ran mismatch");
+        assertTrue(stats.get("compareNanos") >= 0L);
+        assertEquals(1L, stats.get("passContent"));
+        assertEquals(1L, stats.get("contentElided"));
+    }
+
+    @Test void tableGrowsBeyondInitialSlotsAndReportsPeak() {
+        SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker();
+        final Object context = new Object();
+        final int distinct = 2_000;   // above the 512-slot first-measure ceiling
+        for (int name = 1; name <= distinct; name++) {
+            assertFalse(upload(tracker, context, name, 16,
+                payload(context, name), 0, 8, true, true),
+                "first sight of name " + name + " records a baseline");
+        }
+        var mid = tracker.snapshot(true);
+        assertEquals((long) distinct, mid.get("entries"));
+        assertEquals((long) distinct, mid.get("peakEntries"));
+        assertEquals(0L, mid.get("failedInserts"), "growth covered every buffer");
+        assertTrue(mid.get("capacity") >= 2048L, "table grew past 512");
+        assertTrue(mid.get("grows") >= 2L, "512→1024→2048 growth happened");
+
+        // Every recorded baseline still elides after the growth rehash.
+        for (int name = 1; name <= distinct; name++) {
+            assertTrue(upload(tracker, context, name, 16,
+                payload(context, name), 0, 8, true, true),
+                "name " + name + " must still elide after rehashing");
+        }
+        var stats = tracker.snapshot(true);
+        assertEquals((long) distinct, stats.get("elided"));
+        assertEquals((long) distinct * 2, stats.get("calls"));
+        assertEquals(0L, stats.get("failedInserts"));
+    }
+
+    // The identity-mode baseline requires the same buffer object; keep one
+    // stable payload per (context, name) so repeats re-send it.
+    private final java.util.Map<String, IntBuffer> payloads = new java.util.HashMap<>();
+    private IntBuffer payload(final Object context, final int name) {
+        return payloads.computeIfAbsent(System.identityHashCode(context) + ":" + name,
+            k -> IntBuffer.allocate(8));
+    }
 }

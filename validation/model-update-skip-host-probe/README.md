@@ -768,10 +768,18 @@ Pass-reason accounting per leg (`leg.N.uploadElision.*`):
 - `floatCalls/floatElided/floatPassed`, `indexCalls/indexElided/indexPassed`
   — split by wrapper kind (`mesh/a/b` vs `mesh/a/c`).
 - `passGate` — frame not skipped or leg gate disarmed; `passNoBaseline` —
-  first-seen `(gl,name)`; `passSize`, `passRegion`, `passBuffer` — baseline
-  exists but the byte size, position/limit or buffer object differs
-  (`passBuffer` only in identity mode); `passContent` — meta matched but
-  payload bytes differ (content mode only).
+  first-seen `(gl,name)` (also covers the undercount case where the table is
+  at capacity: `failedInserts` counts those inserts separately);
+  `passSize`, `passRegion`, `passBuffer` — baseline exists but the byte
+  size, position/limit or buffer object differs (`passBuffer` only in
+  identity mode); `passContent` — meta matched but payload bytes differ
+  (content mode only).
+- `entries`/`peakEntries`/`capacity`/`grows`/`failedInserts` — the baseline
+  table grows from 512 slots up to 16,384 (doubling + rehash on probe
+  exhaustion); `failedInserts` counts the cap-exhausted undercount case.
+- `compares`/`compareNanos`/`contentElided`/`snapshotBytes`/
+  `snapshotBytesPeak` — content-mode comparison work and retained snapshot
+  memory (live total and high-water mark).
 
 #### First-measure findings (5303 heavy wheel, identity mode)
 
@@ -792,16 +800,48 @@ Pass-reason accounting per leg (`leg.N.uploadElision.*`):
   `passNoBaseline`/`passSize` dominate iff new buffers appear per frame;
   `passGate` dominates iff uploads run while the frame-skipped flag is low.
 
+#### Second-measure findings and the fixes they drove
+
+Exact-host runs (identity `2fb0591c`, content `a70e41a1`, 5303 heavy wheel)
+exposed two observer defects — both fixed before this table had any meaning:
+
+- **`passNoBaseline` was a table-exhaustion artifact.** `calls=475,400`,
+  `elided=102,200`, `passNoBaseline=373,200`, every other reason 0, all
+  clears 0. Heavy legs upload through ≈2,377 distinct buffers per event
+  while the original table was a fixed 512 slots / 8-probe window — the
+  511 elisions per event were exactly the table capacity, and every other
+  `(gl,name)` fell off the probe chain and reported `NO_BASELINE`. The
+  table now grows 512→16,384 with rehash and reports
+  `entries/peakEntries/capacity/grows/failedInserts`.
+- **Content mode never compared.** `elided=0`, `passContent=102,200`,
+  `compares=0`, `snapshotBytes=0`: the snapshot-vs-source check gated on
+  `snapshot.getClass() == buffer.getClass()`, but the retained copy is a
+  heap buffer while the host presents `Direct*BufferU` views — the class
+  test always failed before the compare ran. The compare now dispatches on
+  element type (`instanceof FloatBuffer` …) and compares a `duplicate()`;
+  `snapshotBytes` reflects the real retained total and `snapshotBytesPeak`
+  is the high-water mark.
+- What the clean identity run does show: the 21.5% elision that survived
+  the 512-slot ceiling (float 51,200/284,600, index 51,000/190,800) were
+  genuine repeats — the question the grown table answers is how much of the
+  373,200 `NO_BASELINE` was capacity artifact vs genuinely distinct
+  buffers.
+
 Markers:
 
 - `TURBOISM_UPLOAD_ELISION elision=ACTIVE sites=4` — both wrappers rewrote
   (2 sites each). `installation=COMPLETE` alone is not evidence.
 - Close marker: `TURBOISM_UPLOAD_ELISION closed elided=N passed=N calls=N
-  clears=... contextClears= nonSkippedClears= lifecycleClears=
-  exceptionClears= observerFailures= restored=true|false`.
+  clears=... *Clears= observerFailures= float*/index* pass* compares=
+  compareNanos= contentElided= snapshotBytes= snapshotBytesPeak= entries=
+  peakEntries= capacity= failedInserts= grows= restored=true|false`.
 - Per-leg workload keys: `leg.N.uploadElision.{calls,elided,passed,clears,
   contextClears,nonSkippedClears,lifecycleClears,exceptionClears,
-  observerFailures,entries}`.
+  observerFailures,entries,capacity,peakEntries,failedInserts,grows,armed,
+  floatCalls,floatElided,floatPassed,indexCalls,indexElided,indexPassed,
+  passGate,passNoBaseline,passSize,passBuffer,passRegion,passContent,
+  compares,compareNanos,contentElided,snapshotBytes,snapshotBytesPeak,
+  mode}`.
 
 Admission: reviewed 5.3.02/5.3.03 only. 5.2.03 lacks the `shader/A.a(Buffer)J`
 size helper the bridge resolves (its `shader/A` is an unrelated Kotlin
