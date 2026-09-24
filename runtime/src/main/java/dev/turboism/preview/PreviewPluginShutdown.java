@@ -131,6 +131,14 @@ final class PreviewPluginShutdown {
         } catch (Throwable failure) {
             log.error(id, "Plugin event owner fencing failed safely", failure);
         }
+        // Capture the executor set while admission is fenced: at this point the registry entry
+        // still belongs to this generation, so the terminal close tail can release exactly the
+        // set this generation used — never a replacement claimed by a newer generation.
+        try {
+            loadedPlugin.eventOwner().claimExecutors();
+        } catch (Throwable failure) {
+            log.error(id, "Plugin executor claim failed safely", failure);
+        }
         final PluginGenerationGuard guard = loadedPlugin.guard();
         if (guard != null) {
             guard.fence();
