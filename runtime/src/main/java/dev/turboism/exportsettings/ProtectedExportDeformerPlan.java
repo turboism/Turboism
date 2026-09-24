@@ -23,11 +23,18 @@ import java.util.TreeMap;
  */
 public final class ProtectedExportDeformerPlan {
 
-    /** Deterministic leaf-to-root deformer GUID application order. */
-    public record Order(List<String> leafToRootGuids) {
+    /**
+     * Deterministic leaf-to-root deformer GUID application order, plus the stable
+     * GUIDs of the Glue sources admitted as an untouched pass-through channel —
+     * they are never applied, renamed or re-identified; the list exists so every
+     * consumer of the plan can see the channel was censused deliberately.
+     */
+    public record Order(List<String> leafToRootGuids, List<String> passThroughGlueGuids) {
         public Order {
             leafToRootGuids = List.copyOf(Objects.requireNonNull(leafToRootGuids,
                 "leafToRootGuids"));
+            passThroughGlueGuids = List.copyOf(Objects.requireNonNull(
+                passThroughGlueGuids, "passThroughGlueGuids"));
         }
     }
 
@@ -45,7 +52,7 @@ public final class ProtectedExportDeformerPlan {
     ) {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(modelSource, "modelSource");
-        admitStructure(host, modelSource);
+        final List<String> glueGuids = admitStructure(host, modelSource);
         final List<?> deformers = host.allDeformers(modelSource);
         final Map<String, Object> byGuid = new LinkedHashMap<>();
         for (Object deformer : deformers) {
@@ -115,35 +122,50 @@ public final class ProtectedExportDeformerPlan {
             throw new ProtectedExportPlanRejection(
                 "protected-export.deformer-cycle");
         }
-        return new Order(order);
+        return new Order(order, glueGuids);
     }
 
     /**
      * Whole-structure admission. The parameter-controllable census ({@code allObjects}
      * covers drawable, deformer, affecter, part and alias sources on the exact host)
-     * must contain only supported families — Warp/Rotation deformers, ArtMeshes and
-     * parts. Glue sources are affecters, ArtPath/DeformPath sources are drawables and
-     * aliases are controllable sources, so every one of them lands in this census and
-     * is rejected here. Physics and motion-sync settings live outside the census and
-     * get their own emptiness check.
+     * must contain only supported families — Warp/Rotation deformers, ArtMeshes,
+     * parts and Glue affecters. Glue is the explicit pass-through exception the user
+     * ruled for this slice: it is admitted, never flattened or obfuscated, and its
+     * identity is pinned by the model census. ArtPath/DeformPath sources are
+     * drawables and aliases are controllable sources, so every one of them lands in
+     * this census and is rejected here. Physics and motion-sync settings live
+     * outside the census and get their own emptiness check.
      *
      * <p>Category whitelisting alone is not sufficient: unsupported content also
      * hides <em>inside</em> otherwise-allowed sources. The host's own {@code contain*}
      * gates answer the model-level families (blend colors, morph-target
      * parameters/enhancements, aliases, art paths, inverted clipping, quad
-     * transforms, offscreen rendering, motion sync), and every admitted object is
-     * scanned for embedded members the census cannot see — keyform morph-target
-     * sets, extended morph-target sets and attached extension objects. Anything
-     * detected or unknown rejects; the runtime never relies on a plugin-side
-     * planner having run first.</p>
+     * transforms, offscreen rendering, motion sync), and every admitted object —
+     * Glue included — is scanned for embedded members the census cannot see:
+     * keyform morph-target sets, extended morph-target sets and attached extension
+     * objects. Anything detected or unknown rejects; the runtime never relies on a
+     * plugin-side planner having run first.</p>
+     *
+     * @return the sorted stable GUIDs of the admitted Glue sources (the untouched
+     *     pass-through channel), never {@code null}
      */
-    private static void admitStructure(
+    private static List<String> admitStructure(
         final ProtectedExportHostOperations host,
         final Object modelSource
     ) {
         final List<?> objects = host.allObjects(modelSource);
         final Map<String, Integer> unsupported = new TreeMap<>();
+        final List<String> glueGuids = new ArrayList<>();
         for (Object object : objects) {
+            if (object != null && host.isGlueSource(object)) {
+                final String guid = host.objectGuid(object);
+                if (guid == null || guid.isBlank()) {
+                    throw new ProtectedExportPlanRejection(
+                        "protected-export.glue-identity-missing");
+                }
+                glueGuids.add(guid);
+                continue;
+            }
             final boolean supported = object != null
                 && (host.isWarpDeformer(object) || host.isRotationDeformer(object)
                     || host.isArtMeshSource(object) || host.isPartSource(object));
@@ -199,6 +221,8 @@ public final class ProtectedExportDeformerPlan {
                         + String.join(",", embedded));
             }
         }
+        glueGuids.sort(Comparator.naturalOrder());
+        return List.copyOf(new LinkedHashSet<>(glueGuids));
     }
 
     /** Bounded preflight rejection identity for an unplannable deformer census. */

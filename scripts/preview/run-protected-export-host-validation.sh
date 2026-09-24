@@ -19,7 +19,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
   echo "usage: run-protected-export-host-validation.sh <5203|5302|5303> [run-label] [phase] [runner-options...]" >&2
-  echo "  phase: dialog (default) | copy-binding | flatten | export | dirty-export | export-native | census | atlas-fixture | expect-reject | expect-reject-structure | comma combinations" >&2
+  echo "  phase: dialog (default) | copy-binding | flatten | export | dirty-export | glue-export | export-native | census | atlas-fixture | expect-reject | expect-reject-structure | comma combinations" >&2
   exit 2
 fi
 
@@ -39,13 +39,13 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 case "$phase" in
-  dialog | copy-binding | flatten | export | dirty-export | export-native \
+  dialog | copy-binding | flatten | export | dirty-export | glue-export | export-native \
     | census | atlas-fixture | census,atlas-fixture | expect-reject \
     | expect-reject-structure \
     | dialog,copy-binding \
     | copy-binding,flatten | dialog,copy-binding,flatten) ;;
   *)
-    echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, flatten, export, dirty-export, export-native, census, atlas-fixture, expect-reject, or a comma combination)" >&2
+    echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, flatten, export, dirty-export, glue-export, export-native, census, atlas-fixture, expect-reject, or a comma combination)" >&2
     exit 2
     ;;
 esac
@@ -85,7 +85,8 @@ fi
 
 turboism_select_fixture "$version" || exit 2
 
-plugin_jar="$repo_root/build/worktree/$worktree_id/protected-export/libs/protected-export-0.43.9-SNAPSHOT-$worktree_id.jar"
+plugin_jar_dir="$repo_root/build/worktree/$worktree_id/protected-export/libs"
+plugin_jar="$(find "$plugin_jar_dir" -maxdepth 1 -name "protected-export-*-SNAPSHOT-$worktree_id.jar" -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)"
 agent_jar="$bundle_root/turboism-agent.jar"
 [ -f "$plugin_jar" ] || { echo "error: candidate plugin jar missing: $plugin_jar" >&2; exit 2; }
 [ -f "$agent_jar" ] || { echo "error: bundle agent jar missing: $agent_jar" >&2; exit 2; }

@@ -493,8 +493,8 @@ class ProtectedExportOrchestratorTest {
     @Test
     void rejectsWhenUnsupportedObjectEntersCensus() throws Exception {
         final Fixture fixture = new Fixture();
-        // A glue-like unsupported family member inside getAllObjects must reject
-        // the session at preflight — before any copy is created or written.
+        // An unclassifiable member inside getAllObjects must reject the session
+        // at preflight — before any copy is created or written.
         fixture.host.original.model.unsupportedObjects.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -513,10 +513,13 @@ class ProtectedExportOrchestratorTest {
     @Test
     void rejectsWithFamilyCountsWhenUnsupportedObjectsEnterCensus() throws Exception {
         final Fixture fixture = new Fixture();
-        // Glue, art-path and unclassifiable members must surface as a readable
-        // family-count detail, not a bare rejection key.
-        fixture.host.original.model.unsupportedObjects.add(new FakeUnsupported("glue"));
-        fixture.host.original.model.unsupportedObjects.add(new FakeUnsupported("glue"));
+        // An admitted Glue beside art-path and unclassifiable members: the
+        // family-count detail must cover only the rejected families — Glue is
+        // the pass-through channel and never counts as unsupported.
+        fixture.host.original.model.glues.add(new FakeGlue(
+            "glue-1-guid", "Glue1", "glue-one",
+            fixture.host.original.model.artMeshes.get(0),
+            fixture.host.original.model.artMeshes.get(1)));
         fixture.host.original.model.unsupportedObjects.add(new FakeUnsupported("art-path"));
         fixture.host.original.model.unsupportedObjects.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
@@ -525,10 +528,97 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
         assertEquals(
-            "protected-export.unsupported-structure:art-path=1,glue=2,unknown=1",
+            "protected-export.unsupported-structure:art-path=1,unknown=1",
             report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null, "no copy may be bound");
+        orchestrator.close();
+    }
+
+    @Test
+    void publishesWithGluePassingThroughUnchanged() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A model carrying a Glue relation must export: the Glue rides the
+        // session untouched — no flatten, no rename, no re-identification.
+        fixture.host.original.model.glues.add(new FakeGlue(
+            "glue-1-guid", "Glue1", "glue-one",
+            fixture.host.original.model.artMeshes.get(0),
+            fixture.host.original.model.artMeshes.get(1)));
+        fixture.host.original.model.parts.get(0).childGuids.add("glue-1-guid");
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNull(report.failureKey());
+        assertTrue(report.published());
+        assertTrue(fixture.destinationFiles().size() >= 2);
+        // The original document's Glue is untouched — same object, same fields.
+        final FakeGlue glue = fixture.host.original.model.glues.get(0);
+        assertEquals("Glue1", glue.id);
+        assertEquals("glue-one", glue.name);
+        assertEquals("m-a-guid", glue.targetA.guid);
+        assertEquals("m-b-guid", glue.targetB.guid);
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenGlueIdentityDriftsDuringFlatten() throws Exception {
+        final Fixture fixture = new Fixture();
+        // An out-of-band mutation renames the Glue while flatten runs — the
+        // pass-through census compares against the bound snapshot and refuses.
+        fixture.host.original.model.glues.add(new FakeGlue(
+            "glue-1-guid", "Glue1", "glue-one",
+            fixture.host.original.model.artMeshes.get(0),
+            fixture.host.original.model.artMeshes.get(1)));
+        fixture.host.mutateGlueMidRun = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
+        assertEquals("glue-identity-drift", report.failureDetail());
+        assertFalse(report.published());
+        assertTrue(fixture.destinationFiles().isEmpty());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenGlueTargetDoesNotResolveToArtMesh() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A Glue whose target stopped resolving is corrupt input, not a
+        // pass-through case — fail closed at preflight.
+        fixture.host.original.model.glues.add(new FakeGlue(
+            "glue-1-guid", "Glue1", "glue-one",
+            fixture.host.original.model.artMeshes.get(0), null));
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertEquals("glue-reference-drift", report.failureDetail());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenExportDropsGlue() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The staged artifact must carry the Glue under its unchanged ID —
+        // a native export that dropped it is a validation rejection.
+        fixture.host.original.model.glues.add(new FakeGlue(
+            "glue-1-guid", "Glue1", "glue-one",
+            fixture.host.original.model.artMeshes.get(0),
+            fixture.host.original.model.artMeshes.get(1)));
+        fixture.host.exportDropsGlue = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(
+            "protected-export.validation-failed:protected-export.moc3-glue-ids",
+            report.failureKey());
+        assertFalse(report.published());
+        assertTrue(fixture.destinationFiles().isEmpty());
         orchestrator.close();
     }
 
@@ -1301,7 +1391,17 @@ class ProtectedExportOrchestratorTest {
 
                 @Override
                 public List<OwnedGlue> glues() {
-                    return List.of();
+                    // The fake exporter serializes glues under their unchanged
+                    // IDs, with drawable A/B as indices into the drawable table.
+                    final List<OwnedGlue> projected = new ArrayList<>();
+                    if (!host.exportDropsGlue) {
+                        exported.glues.forEach(glue -> projected.add(
+                            new OwnedGlue(glue.id,
+                                exported.artMeshes.indexOf(glue.targetA),
+                                exported.artMeshes.indexOf(glue.targetB),
+                                List.of())));
+                    }
+                    return projected;
                 }
 
                 @Override
@@ -1470,6 +1570,34 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
+    /**
+     * A Glue affecter: stable GUID + ID + local name plus the two target ArtMesh
+     * references it binds. Targets hold the resolved mesh objects like the real
+     * {@code CGlueSource} reference; a {@code null} target models a reference
+     * that stopped resolving.
+     */
+    private static final class FakeGlue {
+        final String guid;
+        String id;
+        String name;
+        FakeArtMesh targetA;
+        FakeArtMesh targetB;
+
+        FakeGlue(
+            final String guid,
+            final String id,
+            final String name,
+            final FakeArtMesh targetA,
+            final FakeArtMesh targetB
+        ) {
+            this.guid = guid;
+            this.id = id;
+            this.name = name;
+            this.targetA = targetA;
+            this.targetB = targetB;
+        }
+    }
+
     /** A census object outside the supported whitelist with a known family token. */
     private static final class FakeUnsupported {
         final String family;
@@ -1484,6 +1612,8 @@ class ProtectedExportOrchestratorTest {
         final List<FakeArtMesh> artMeshes = new ArrayList<>();
         final List<FakeParameter> parameters = new ArrayList<>();
         final List<FakePart> parts = new ArrayList<>();
+        /** Glue affecters — the admitted pass-through channel. */
+        final List<FakeGlue> glues = new ArrayList<>();
         /** Objects in allObjects that are none of the supported families. */
         final List<Object> unsupportedObjects = new ArrayList<>();
         final List<Object> physicsSettings = new ArrayList<>();
@@ -1570,6 +1700,8 @@ class ProtectedExportOrchestratorTest {
         volatile boolean copyFileMarkedReadOnlyOnOpen;
         volatile boolean selectsExtraDeformer;
         volatile boolean mutatePartNameMidRun;
+        volatile boolean mutateGlueMidRun;
+        volatile boolean exportDropsGlue;
         volatile boolean switchActiveDocOnSelect;
         volatile boolean multiplyColor;
         volatile boolean embeddedMorphTargets;
@@ -1622,6 +1754,22 @@ class ProtectedExportOrchestratorTest {
             }
             if (copy != null && file.equals(copy.file)) {
                 return copy;
+            }
+            return null;
+        }
+
+        /** Mesh inside {@code model} carrying the same GUID as {@code target}. */
+        private static FakeArtMesh copyMeshByGuid(
+            final FakeModel model,
+            final FakeArtMesh target
+        ) {
+            if (target == null) {
+                return null;
+            }
+            for (FakeArtMesh mesh : model.artMeshes) {
+                if (mesh.guid.equals(target.guid)) {
+                    return mesh;
+                }
             }
             return null;
         }
@@ -1723,6 +1871,13 @@ class ProtectedExportOrchestratorTest {
             for (FakePart part : original.model.parts) {
                 fresh.model.parts.add(new FakePart(part.guid, part.id, part.name,
                     new ArrayList<>(part.childGuids)));
+            }
+            for (FakeGlue glue : original.model.glues) {
+                // Serialization re-resolves glue references against the copy's
+                // own meshes — identity and targets survive byte-identical.
+                fresh.model.glues.add(new FakeGlue(glue.guid, glue.id, glue.name,
+                    copyMeshByGuid(fresh.model, glue.targetA),
+                    copyMeshByGuid(fresh.model, glue.targetB)));
             }
             fresh.model.unsupportedObjects.addAll(original.model.unsupportedObjects);
             fresh.model.physicsSettings.addAll(original.model.physicsSettings);
@@ -1875,6 +2030,11 @@ class ProtectedExportOrchestratorTest {
                     // identity — the post-mutation census must catch it.
                     doc.model.parts.forEach(part -> part.name = "part-mutated");
                 }
+                if (mutateGlueMidRun && doc == copy) {
+                    // A mutation outside the orchestrator's plan touches glue
+                    // identity — the pass-through census must catch it.
+                    doc.model.glues.forEach(glue -> glue.name = "glue-mutated");
+                }
                 final List<FakeDeformer> removed = doc.model.deformers.stream()
                     .filter(d -> doc.selector.selected.contains(d))
                     .toList();
@@ -1981,6 +2141,7 @@ class ProtectedExportOrchestratorTest {
             // getAllObjects never returns them.
             all.add(model.rootPart);
             all.addAll(model.parts);
+            all.addAll(model.glues);
             all.addAll(model.unsupportedObjects);
             return all;
         }
@@ -2136,6 +2297,9 @@ class ProtectedExportOrchestratorTest {
             if (source instanceof FakePart part) {
                 return part.guid;
             }
+            if (source instanceof FakeGlue glue) {
+                return glue.guid;
+            }
             return "object-guid";
         }
 
@@ -2151,6 +2315,9 @@ class ProtectedExportOrchestratorTest {
             }
             if (source instanceof FakePart part) {
                 return part.id;
+            }
+            if (source instanceof FakeGlue glue) {
+                return glue.id;
             }
             return "object-id-" + System.identityHashCode(source);
         }
@@ -2182,6 +2349,22 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
+        public boolean isGlueSource(final Object object) {
+            return object instanceof FakeGlue;
+        }
+
+        @Override
+        public List<String> glueTargetGuids(final Object glueSource) {
+            if (!(glueSource instanceof FakeGlue glue)) {
+                return List.of();
+            }
+            final List<String> targets = new ArrayList<>(2);
+            targets.add(glue.targetA == null ? null : glue.targetA.guid);
+            targets.add(glue.targetB == null ? null : glue.targetB.guid);
+            return java.util.Collections.unmodifiableList(targets);
+        }
+
+        @Override
         public List<String> partChildGuids(final Object partSource) {
             return List.copyOf(((FakePart) partSource).childGuids);
         }
@@ -2196,6 +2379,9 @@ class ProtectedExportOrchestratorTest {
             }
             if (source instanceof FakePart part) {
                 return part.name;
+            }
+            if (source instanceof FakeGlue glue) {
+                return glue.name;
             }
             return "object-name-" + System.identityHashCode(source);
         }
