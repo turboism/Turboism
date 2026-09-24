@@ -123,6 +123,34 @@ expect_rejected windows-env-command 'Windows environment value contains an unsup
 expect_rejected jvm-option-quote 'JVM or hook option contains an unsupported quote' \
   "${base[@]}" --jvm-option '-Dunsafe="quoted"'
 
+# Job-local Linux environment admits only the reviewed Mesa debug names.
+"${base[@]}" --linux-env 'mesa_glthread=true' --linux-env 'MESA_DEBUG=1' \
+  --linux-env 'GALLIUM_HUD_PERIOD=0.5' > "$tmp/linux-env.out"
+grep -Fq 'linuxEnvironmentCount=3' "$tmp/linux-env.out" \
+  || fail 'admitted Linux environment assignments were not accepted'
+grep -Fq 'linuxEnvironment.0=mesa_glthread=true' "$tmp/linux-env.out" \
+  || fail 'mesa_glthread assignment was not preserved verbatim'
+grep -Fq 'linuxEnvironment.2=GALLIUM_HUD_PERIOD=0.5' "$tmp/linux-env.out" \
+  || fail 'GALLIUM_HUD_PERIOD assignment was not preserved verbatim'
+expect_rejected linux-env-format 'Linux environment assignment must use NAME=value' \
+  "${base[@]}" --linux-env 'mesa_glthread'
+expect_rejected linux-env-name 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'LD_PRELOAD=/tmp/pwned.so'
+expect_rejected linux-env-path 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'PATH=/tmp/pwned'
+expect_rejected linux-env-lowercase 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'Mesa_Debug=1'
+expect_rejected linux-env-mesa-lowercase 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'MESA_debug=1'
+expect_rejected linux-env-empty 'must use NAME=value' \
+  "${base[@]}" --linux-env 'mesa_glthread='
+expect_rejected linux-env-value-metachar 'unsupported character' \
+  "${base[@]}" --linux-env 'mesa_glthread=true;touch-pwned'
+expect_rejected linux-env-value-substitution 'unsupported character' \
+  "${base[@]}" --linux-env 'mesa_glthread=$(touch-pwned)'
+expect_rejected linux-env-duplicate 'duplicate Linux environment name' \
+  "${base[@]}" --linux-env 'mesa_glthread=true' --linux-env 'mesa_glthread=false'
+
 # A rejected request must not reach either legacy transport name.
 bin="$tmp/bin"
 mkdir -p "$bin"
