@@ -9,7 +9,7 @@ public final class NativeInteractionWorkloadFactorTest {
         final String prior = System.getProperty(factorKey);
         try {
             final var state = Files.createTempDirectory("interaction-factor");
-            for (String factor : new String[] {"uniformHook", "matrixScratch", "uploadElision"}) {
+            for (String factor : new String[] {"uniformHook", "matrixScratch", "uploadElision", "inputPath"}) {
                 System.setProperty(factorKey, factor);
                 new NativeInteractionWorkload("fixture.cmo3", state, "pan");
                 new NativeInteractionWorkload("fixture.cmo3", state, "artmesh");
@@ -20,7 +20,7 @@ public final class NativeInteractionWorkloadFactorTest {
             checkRejects("fixture.cmo3", "", "empty interaction kind");
             System.setProperty(factorKey, "bogus");
             checkRejects("fixture.cmo3", "pan", "unknown factor");
-            System.out.println("NativeInteractionWorkloadFactorTest PASS (uniformHook, matrixScratch, uploadElision)");
+            System.out.println("NativeInteractionWorkloadFactorTest PASS (uniformHook, matrixScratch, uploadElision, inputPath)");
         } finally {
             if (prior == null) System.clearProperty(factorKey);
             else System.setProperty(factorKey, prior);
