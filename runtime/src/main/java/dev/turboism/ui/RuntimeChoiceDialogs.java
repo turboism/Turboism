@@ -5,6 +5,7 @@ import dev.turboism.sdk.ui.ChoiceDialogOption;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.ChoiceDialogResultListener;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
+import dev.turboism.ui.host.EdtDispatch;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
@@ -21,7 +22,6 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.Window;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -35,20 +35,24 @@ final class RuntimeChoiceDialogs {
         if (java.awt.GraphicsEnvironment.isHeadless()) {
             return Optional.empty();
         }
+        final AtomicReference<JDialog> active = new AtomicReference<>();
         final DialogResult result;
-        if (SwingUtilities.isEventDispatchThread()) {
-            result = show(request);
-        } else {
-            final AtomicReference<DialogResult> ref = new AtomicReference<>();
-            try {
-                SwingUtilities.invokeAndWait(() -> ref.set(show(request)));
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                return Optional.empty();
-            } catch (InvocationTargetException exception) {
-                return Optional.empty();
-            }
-            result = ref.get();
+        try {
+            result = EdtDispatch.call(
+                "choice dialog",
+                EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
+                () -> show(request, active),
+                () -> {
+                    // Post-start interrupt: dispose releases the modal pump so the caller
+                    // stops waiting and no orphaned dialog is left on screen.
+                    final JDialog dialog = active.get();
+                    if (dialog != null) {
+                        dialog.dispose();
+                    }
+                }
+            );
+        } catch (RuntimeException failure) {
+            return Optional.empty();
         }
         return result.actionId() == null
             ? Optional.ofNullable(result.optionId())
@@ -69,7 +73,7 @@ final class RuntimeChoiceDialogs {
             return;
         }
         final Runnable showTask = () -> {
-            final DialogResult result = show(request);
+            final DialogResult result = show(request, new AtomicReference<>());
             listener.onResult(result.optionId(), result.actionId());
         };
         if (SwingUtilities.isEventDispatchThread()) {
@@ -79,12 +83,16 @@ final class RuntimeChoiceDialogs {
         }
     }
 
-    private static DialogResult show(final ChoiceDialogRequest request) {
+    private static DialogResult show(
+        final ChoiceDialogRequest request,
+        final AtomicReference<JDialog> active
+    ) {
         final Window owner = activeOwner();
         final JDialog dialog = TurboismWindowFactory.dialog(owner, request.title(), true);
         if (dialog == null) {
             return DialogResult.decode(null);
         }
+        active.set(dialog);
         final AtomicReference<String> selected = new AtomicReference<>();
         final JPanel content = new JPanel(new BorderLayout(0, 10));
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
