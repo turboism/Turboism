@@ -1640,3 +1640,12 @@ n8 是这套链路的首次实机有效性证据。
 - **T08e（产品开关腿，已提交）**：aa8941c7f 接入
   turboism.optimization.uploadElision（默认关、content、64MiB 预算）；
   agent c0a7b8b8 复制入 preview。jobs 654dbd59/d035ad29。
+  **T08e 结果**：mode=production，ON 腿 elided=100%、failedInserts=0、
+  observerFailures=0、digest 全同；快照代价 peakEntries=2378/
+  snapshotBytesPeak=4.95MB/budgetSkips=0；Δ −8.16/−8.30ms。
+- **T08f 验收矩阵 + T12c 已提交**（7 腿 FIFO）：t08f-pan e86c24ff /
+  drag 8778b490 / wheel-5302 1e4c124c / failclosed-5203 10648074
+  （gl-attribution@18a45d955 agent f6044ff5）；t12c-shadow f9ac7436 /
+  abba-r1 51b671c9 / abba-r2 5de31e0d（render-prep@7bf78df6d，
+  **agent 偏差：bbae158b→40995669741c**，previewBundle 建目录时重建覆盖，
+  同 commit 已申报）。
