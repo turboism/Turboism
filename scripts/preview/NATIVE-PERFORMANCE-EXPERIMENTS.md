@@ -1635,3 +1635,8 @@ n8 是这套链路的首次实机有效性证据。
   failedInserts、installer 与 7c57f805d 一致；复制入 preview 未跑
   previewBundle）。四腿 FIFO：id-r1 3a85e0e2 / content-r1 3f39cdaf /
   id-r2 afaf7e26 / content-r2 cb50d3d9（probe 2a56fed1、head 7c57f805d）。
+  **T08d 结果**：4/4 VALID（sites=4、elided=475,400=100%、failedInserts=0、
+  digest 全同）；腿均值 Δ −5.1~−17.1ms（监督口径约 −6.5ms/事件）。
+- **T08e（产品开关腿，已提交）**：aa8941c7f 接入
+  turboism.optimization.uploadElision（默认关、content、64MiB 预算）；
+  agent c0a7b8b8 复制入 preview。jobs 654dbd59/d035ad29。
