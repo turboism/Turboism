@@ -51,6 +51,14 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
      */
     public static final String COMPARE_PROPERTY =
         "turboism.validation.skippedFrameUploadElision.compare";
+    /**
+     * Production opt-in: installs the elision in content-compare mode, armed
+     * unconditionally (no per-leg gate). Default off.
+     */
+    public static final String ENABLE_PROPERTY = "turboism.optimization.uploadElision";
+    /** Retained-payload ceiling in bytes for content mode. */
+    public static final String SNAPSHOT_BUDGET_PROPERTY =
+        "turboism.optimization.uploadElision.snapshotBudget";
 
     private static final int MAX_WRAPPER_KINDS = 8;
 
@@ -58,24 +66,33 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     private final MethodHandle sizeHandle;
     private final Map<Class<?>, MethodHandle> bufferHandles = new ConcurrentHashMap<>();
     private final Map<Class<?>, Kind> kinds = new ConcurrentHashMap<>();
-    private final SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker(
-        "content".equals(System.getProperty(COMPARE_PROPERTY, "identity"))
-            ? Compare.CONTENT : Compare.IDENTITY);
+    private final SkippedFrameUploadTracker tracker;
     private final AtomicBoolean active = new AtomicBoolean();
     private final BiPredicate<Object, Object> predicate = this::test;
     private final Consumer<Boolean> gate = this::setArmed;
-    private final Runnable lifecycle = () -> tracker.clearedExternally(ClearKind.LIFECYCLE);
-    private final Runnable failureNotify = () -> tracker.clearedExternally(ClearKind.EXCEPTION);
+    private final Runnable lifecycle = this::lifecycleNotify;
+    private final Runnable failureNotify = this::exceptionNotify;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
     private volatile boolean armed;
     private Properties installedProperties;
 
     /**
-     * Resolves the reviewed dependency handles on the host loader.
+     * Resolves the reviewed dependency handles on the host loader, in
+     * validation mode (per-leg gate, compare mode from {@link #COMPARE_PROPERTY}).
      *
      * @throws ReflectiveOperationException when any reviewed member is absent
      */
     public SkippedFrameUploadElisionBridge(final ClassLoader loader)
+            throws ReflectiveOperationException {
+        this(loader, false);
+    }
+
+    /**
+     * @param production true for the production opt-in: content compare, armed
+     *                   at install, snapshot budget applied
+     */
+    public SkippedFrameUploadElisionBridge(final ClassLoader loader,
+                                           final boolean production)
             throws ReflectiveOperationException {
         final Class<?> base = Class.forName(
             SkippedFrameUploadElisionTarget.BASE_OWNER.replace('/', '.'), false, loader);
@@ -86,6 +103,34 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         final Object singleton = helper.getField("a").get(null);
         sizeHandle = MethodHandles.publicLookup()
             .unreflect(helper.getMethod("a", Buffer.class)).bindTo(singleton);
+        tracker = new SkippedFrameUploadTracker(
+            production || "content".equals(
+                System.getProperty(COMPARE_PROPERTY, "identity"))
+                ? Compare.CONTENT : Compare.IDENTITY,
+            snapshotBudget());
+        armed = production;
+    }
+
+    /** Production opt-in preference; off unless explicitly enabled. */
+    public static boolean enabledByPreference() {
+        return Boolean.parseBoolean(System.getProperty(ENABLE_PROPERTY, "false"));
+    }
+
+    private static long snapshotBudget() {
+        try {
+            return Long.parseLong(System.getProperty(SNAPSHOT_BUDGET_PROPERTY,
+                Long.toString(SkippedFrameUploadTracker.DEFAULT_SNAPSHOT_BUDGET)));
+        } catch (NumberFormatException invalid) {
+            return SkippedFrameUploadTracker.DEFAULT_SNAPSHOT_BUDGET;
+        }
+    }
+
+    private void lifecycleNotify() {
+        tracker.clearedExternally(ClearKind.LIFECYCLE);
+    }
+
+    private void exceptionNotify() {
+        tracker.clearedExternally(ClearKind.EXCEPTION);
     }
 
     /** Occupies the consult/gate/notify/stats slots; refuses to replace another installation. */

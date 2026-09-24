@@ -1758,7 +1758,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache|uploadElision)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -1784,14 +1784,17 @@ function Get-CubismManagedJdkOptionTokens {
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uniformLocationCache")) {
         $tokens += "-Dturboism.optimization.uniformLocationCache=false"
     }
+    if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision") {
+        $tokens += "-Dturboism.optimization.uploadElision=true"
+    }
     return $tokens
 }
 
 function Read-CubismOptimizationPreference {
     param([string]$TurboismHome, [string]$Name)
-    # Only the experimental incremental geometry path requires explicit opt-in.
+    # Experimental paths require explicit opt-in.
     # Verified frame/query reuse remains default-on for admitted hosts.
-    $defaultValue = $Name -ne "incrementalUpdate"
+    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "uploadElision"
     if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
     $path = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }

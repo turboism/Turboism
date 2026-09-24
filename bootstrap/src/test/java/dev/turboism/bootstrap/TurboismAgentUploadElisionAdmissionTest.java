@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +54,43 @@ final class TurboismAgentUploadElisionAdmissionTest {
                 System.clearProperty(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
             } else {
                 System.setProperty(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY, prior);
+            }
+        }
+    }
+
+    @Test
+    void productionFlagInstallsNothingWhenModelUpdateSkipIsDisabled() {
+        // The production path refuses before touching the host when the
+        // skipped-frame precondition cannot exist.
+        withProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY, "true", () -> {
+            withProperty(
+                dev.turboism.adapter.cubism.optimization.modelupdate
+                    .ModelUpdateSkipBridge.ENABLE_PROPERTY, "false", () -> {
+                final var contributor = new SkippedFrameUploadElisionHookContributor();
+                assertNotNull(contributor.install(environment(true)));
+            });
+        });
+    }
+
+    @Test
+    void productionFlagOnWithoutHostFailsSafe() {
+        withProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY, "true", () -> {
+            final var contributor = new SkippedFrameUploadElisionHookContributor();
+            assertNotNull(contributor.install(environment(true)));
+        });
+    }
+
+    private static void withProperty(final String name, final String value,
+                                     final Runnable body) {
+        final String prior = System.getProperty(name);
+        System.setProperty(name, value);
+        try {
+            body.run();
+        } finally {
+            if (prior == null) {
+                System.clearProperty(name);
+            } else {
+                System.setProperty(name, prior);
             }
         }
     }

@@ -778,8 +778,19 @@ Pass-reason accounting per leg (`leg.N.uploadElision.*`):
   table grows from 512 slots up to 16,384 (doubling + rehash on probe
   exhaustion); `failedInserts` counts the cap-exhausted undercount case.
 - `compares`/`compareNanos`/`contentElided`/`snapshotBytes`/
-  `snapshotBytesPeak` — content-mode comparison work and retained snapshot
-  memory (live total and high-water mark).
+  `snapshotBytesPeak`/`snapshotBudgetSkips` — content-mode comparison work
+  and retained snapshot memory (live total and high-water mark;
+  `snapshotBudgetSkips` counts copies refused by the
+  `turboism.optimization.uploadElision.snapshotBudget` byte cap, default
+  64 MiB — refused entries keep any older snapshot and simply pass).
+- `threadClears` — a consult on a different thread clears the table and
+  counts an observer failure (GL calls are expected on a single render
+  thread; an unreviewed sharing pattern fails open).
+- Leg emission splits counter keys (reported as per-leg deltas) from gauge
+  keys (`entries`, `capacity`, `peakEntries`, `snapshotBytes`,
+  `snapshotBytesPeak`, `mode`), which report absolute readings — a delta of
+  a cumulative peak would show 0 on every leg after the table first fills
+  (the leg.1 zeros seen in the T08d run).
 
 #### First-measure findings (5303 heavy wheel, identity mode)
 
@@ -799,6 +810,25 @@ Pass-reason accounting per leg (`leg.N.uploadElision.*`):
   re-wraps or re-allocates payload buffers per frame (auxiliary UI meshes);
   `passNoBaseline`/`passSize` dominate iff new buffers appear per frame;
   `passGate` dominates iff uploads run while the frame-skipped flag is low.
+
+#### T08d findings (grown table, both compare modes)
+
+Exact-host reruns (`2fb0591c` identity / `a70e41a1` content, 5303 heavy
+wheel, pixel digests identical, `failedInserts=0`):
+
+- On skipped frames **every guarded upload repeated byte-identically** —
+  475,400 consults/leg, 100% elided under content compare.
+- `mismatch` cost ≈ 225 ms / 200 events ≈ 1.1 ms/event for ~2,377
+  comparisons; ON legs ≈ 53.9 ms vs OFF leg3 ≈ 60.5 ms → ≈6.5 ms/event
+  (~11%) net saving.
+- Productionization followed as `turboism.optimization.uploadElision`
+  (default off): same transformers and bridge, content mode forced, gate
+  armed unconditionally, hook id `cubism.render.upload-elision` under the
+  startup policy, `NOT_ADMITTED reason=modelUpdateSkip-disabled` when the
+  skipped-frame precondition cannot exist. The settings-page toggle persists
+  `launcher.uploadElision`; the managed launcher emits the flag only when
+  enabled. See
+  `docs/agents/perf-upload-elision-productization-20260924.md`.
 
 #### Second-measure findings and the fixes they drove
 
@@ -869,6 +899,13 @@ bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg
   --result-timeout 1200
 # content-compare run (adds a per-entry payload snapshot; watch snapshotBytes):
 ... --jvm-option '-Dturboism.validation.skippedFrameUploadElision.compare=content'
+
+# production-configuration run: content compare + unconditionally armed
+# (the workload leg gate still toggles arm/disarm for ABBA):
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --result-timeout 1200
 ```
 
 One run yields off/on/on/off legs (workload variants `0,1,1,0`): the flag

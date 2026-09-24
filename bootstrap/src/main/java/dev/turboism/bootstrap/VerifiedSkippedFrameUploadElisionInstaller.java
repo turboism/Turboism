@@ -35,6 +35,9 @@ import java.util.jar.JarFile;
  */
 final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable {
 
+    /** Operator kill-switch id checked through the startup hook policy. */
+    static final String HOOK_ID = "cubism.render.upload-elision";
+
     private final Instrumentation instrumentation;
     private final SkippedFrameUploadElisionTarget target;
     private final SkippedFrameUploadElisionBridge bridge;
@@ -42,8 +45,27 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
     private final List<SkippedFrameUploadElisionTransformer> transformers = new ArrayList<>();
     private boolean installed, restored;
 
+    /**
+     * Production admission: the operator requested the hook, the JVM can
+     * retransform, the startup policy did not disable the id, and the host
+     * artifact is a reviewed version.
+     */
+    static boolean admitted(final HostArtifactDigest digest,
+                            final dev.turboism.config.RuntimeStartupConfig config,
+                            final boolean requested, final int jvm) {
+        return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
+            && SkippedFrameUploadElisionTarget.of(digest).isPresent();
+    }
+
     VerifiedSkippedFrameUploadElisionInstaller(final Instrumentation instrumentation,
                                                final Path artifact, final ClassLoader loader)
+            throws Exception {
+        this(instrumentation, artifact, loader, false);
+    }
+
+    VerifiedSkippedFrameUploadElisionInstaller(final Instrumentation instrumentation,
+                                               final Path artifact, final ClassLoader loader,
+                                               final boolean production)
             throws Exception {
         target = SkippedFrameUploadElisionTarget.of(HostArtifactDigest.from(artifact))
             .orElseThrow(() -> new IllegalArgumentException(
@@ -73,7 +95,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.SIZE_OWNER,
                 "a", "(Ljava/nio/Buffer;)J");
         }
-        bridge = new SkippedFrameUploadElisionBridge(loader);
+        bridge = new SkippedFrameUploadElisionBridge(loader, production);
     }
 
     private static void attest(final Class<?> type, final ClassLoader loader,

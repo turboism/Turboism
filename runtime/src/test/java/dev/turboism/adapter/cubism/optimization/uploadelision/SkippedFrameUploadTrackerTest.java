@@ -275,6 +275,61 @@ public class SkippedFrameUploadTrackerTest {
         assertEquals(0L, stats.get("failedInserts"));
     }
 
+    @Test void snapshotBudgetRefusesNewCopiesAndFailsOpen() {
+        // Budget smaller than one payload: every snapshot refresh is refused,
+        // every consult passes, and the refusal is counted.
+        SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker(
+            SkippedFrameUploadTracker.Compare.CONTENT, 8L);
+        IntBuffer payload = IntBuffer.wrap(new int[]{1, 2, 3, 4});
+
+        assertFalse(upload(tracker, gl, 7, 16, payload, 0, 4, true, true));
+        assertFalse(upload(tracker, gl, 7, 16, payload, 0, 4, true, true),
+            "no snapshot retained — nothing can elide");
+        var stats = tracker.snapshot(true);
+        assertEquals(2L, stats.get("snapshotBudgetSkips"));
+        assertEquals(0L, stats.get("snapshotBytes"));
+        assertEquals(0L, stats.get("elided"));
+    }
+
+    @Test void budgetFitsFirstBufferButNotSecond() {
+        SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker(
+            SkippedFrameUploadTracker.Compare.CONTENT, 16L);
+        IntBuffer a = IntBuffer.wrap(new int[]{1, 2, 3, 4});
+        IntBuffer b = IntBuffer.wrap(new int[]{5, 6, 7, 8});
+
+        assertFalse(upload(tracker, gl, 7, 16, a, 0, 4, true, true));
+        assertFalse(upload(tracker, gl, 8, 16, b, 0, 4, true, true));
+        // a repeats: snapshot was retained → elides.
+        assertTrue(upload(tracker, gl, 7, 16, a, 0, 4, true, true));
+        // b repeats: over budget → passes and keeps refusing snapshots.
+        assertFalse(upload(tracker, gl, 8, 16, b, 0, 4, true, true));
+        var stats = tracker.snapshot(true);
+        assertEquals(16L, stats.get("snapshotBytes"));
+        assertEquals(2L, stats.get("snapshotBudgetSkips"));
+        assertEquals(1L, stats.get("elided"));
+    }
+
+    @Test void consultFromSecondThreadClearsAndFailsOpen() throws Exception {
+        SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker();
+        IntBuffer payload = IntBuffer.allocate(8);
+        assertFalse(upload(tracker, gl, 7, 16, payload, 0, 8, true, true));
+
+        final boolean[] otherThread = new boolean[1];
+        final Thread second = new Thread(() ->
+            otherThread[0] = upload(tracker, gl, 7, 16, payload, 0, 8, true, true));
+        second.start();
+        second.join();
+        assertFalse(otherThread[0], "a new thread can never elide on sight");
+
+        // The cross-thread consult cleared the table: the next same-thread
+        // call is itself a thread change (second clear) and a first-sight
+        // baseline again, not an elision.
+        assertFalse(upload(tracker, gl, 7, 16, payload, 0, 8, true, true));
+        var stats = tracker.snapshot(true);
+        assertEquals(2L, stats.get("threadClears"), "both direction changes clear");
+        assertEquals(2L, stats.get("observerFailures"));
+    }
+
     // The identity-mode baseline requires the same buffer object; keep one
     // stable payload per (context, name) so repeats re-send it.
     private final java.util.Map<String, IntBuffer> payloads = new java.util.HashMap<>();

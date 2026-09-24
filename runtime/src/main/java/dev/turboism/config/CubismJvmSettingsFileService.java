@@ -209,13 +209,28 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         return saveOptimization("uniformLocationCache", value);
     }
 
+    @Override
+    public boolean uploadElision() {
+        return optimization("uploadElision");
+    }
+
+    @Override
+    public boolean saveUploadElision(final boolean value) {
+        return saveOptimization("uploadElision", value);
+    }
+
+    /** Opt-in experiments default off; verified optimizations default on. */
+    private static final java.util.Set<String> DEFAULT_OFF_OPTIMIZATIONS =
+        java.util.Set.of("incrementalUpdate", "uploadElision");
+
     private boolean optimization(final String name) {
-        return config.read().path("launcher").path(name).asBoolean(!"incrementalUpdate".equals(name));
+        return config.read().path("launcher").path(name)
+            .asBoolean(!DEFAULT_OFF_OPTIMIZATIONS.contains(name));
     }
 
     private boolean saveOptimization(final String name, final boolean value) {
         config.update(root -> {
-            final boolean defaultValue = !"incrementalUpdate".equals(name);
+            final boolean defaultValue = !DEFAULT_OFF_OPTIMIZATIONS.contains(name);
             if (value == defaultValue) {
                 root.withObject("launcher").remove(name);
             } else {

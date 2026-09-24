@@ -3,6 +3,7 @@ package dev.turboism.shell;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
+import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsActionHandle;
@@ -268,6 +269,32 @@ final class CubismJvmSettingsContribution {
             },
             true,
             82
+        );
+    }
+
+    /**
+     * Default-off opt-in: skips provably unchanged buffer uploads on frames
+     * where the model update was skipped (verified Editor versions only).
+     */
+    static SettingsContribution createUploadElisionToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "upload-elision",
+            "settings.optimization.upload-elision",
+            SkippedFrameUploadElisionBridge.ENABLE_PROPERTY,
+            settings::uploadElision,
+            value -> {
+                if (settings.saveUploadElision(value) != value) {
+                    throw new IllegalStateException("Upload-elision preference was not saved");
+                }
+                return value;
+            },
+            false,
+            83
         );
     }
 

@@ -98,6 +98,21 @@ public interface CubismJvmSettingsService {
         return true;
     }
 
+    /**
+     * Launcher preference: when true the next managed Cubism launch adds
+     * {@code -Dturboism.optimization.uploadElision=true} so the skipped-frame
+     * buffer-upload elision hook installs (content compare, still gated on
+     * skipped frames). Off by default; takes effect on the next launch.
+     */
+    default boolean uploadElision() {
+        return false;
+    }
+
+    /** Persists the upload-elision preference; installation changes require restart. */
+    default boolean saveUploadElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /** Persists the uniform-location cache preference; installation changes require restart. */
     default boolean saveUniformLocationCache(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
