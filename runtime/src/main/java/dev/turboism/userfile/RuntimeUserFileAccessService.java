@@ -388,11 +388,14 @@ public final class RuntimeUserFileAccessService
                 runtimeHandle.revoke();
             }
         }
-        final UserFileHandleState before = runtimeHandle.beginAttempt();
-        if (before == UserFileHandleState.REVOKED) {
+        // Read the lifecycle state without consuming: permission and mode rejections must
+        // leave a one-operation grant usable, so beginAttempt() runs only after every
+        // non-consuming check has passed.
+        final UserFileHandleState observed = runtimeHandle.state();
+        if (observed == UserFileHandleState.REVOKED) {
             return Authorization.failure(UserFileErrorCode.GRANT_REVOKED);
         }
-        if (before == UserFileHandleState.CLOSED) {
+        if (observed == UserFileHandleState.CLOSED) {
             return Authorization.failure(UserFileErrorCode.GRANT_EXPIRED);
         }
         if (!has(permission)) {
@@ -400,6 +403,16 @@ public final class RuntimeUserFileAccessService
         }
         if (runtimeHandle.mode() != expectedMode) {
             return Authorization.failure(UserFileErrorCode.MODE_MISMATCH);
+        }
+        // Consuming the grant is the last step: beginAttempt() still fails closed when a
+        // revoke or close raced the checks above, and only an admitted operation may spend
+        // a one-operation handle.
+        final UserFileHandleState before = runtimeHandle.beginAttempt();
+        if (before == UserFileHandleState.REVOKED) {
+            return Authorization.failure(UserFileErrorCode.GRANT_REVOKED);
+        }
+        if (before == UserFileHandleState.CLOSED) {
+            return Authorization.failure(UserFileErrorCode.GRANT_EXPIRED);
         }
         return Authorization.success(runtimeHandle.target());
     }
