@@ -324,11 +324,12 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
 
 
     private static void awaitWaiting(final Thread thread) throws InterruptedException {
+        // Bounded EDT dispatch parks with a timeout, so the parked state is TIMED_WAITING.
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-        while (thread.getState() != Thread.State.WAITING && System.nanoTime() < deadline) {
+        while (thread.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) {
             Thread.sleep(5L);
         }
-        assertEquals(Thread.State.WAITING, thread.getState());
+        assertEquals(Thread.State.TIMED_WAITING, thread.getState());
     }
 
     private static VerifiedEmbeddedPanelHostOperations treeOperations() {
@@ -810,6 +811,130 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
+    void recentFloatSuppressionIsScopedToTheDisposedFramesOwnPalettes() {
+        final Map<Object, Long> floats =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+        final Object paletteA = new Object();
+        final Object paletteB = new Object();
+        final FloatingFrameLifecycle.Entry entryB =
+            new FloatingFrameLifecycle.Entry(paletteB, null, null);
+        final long now = System.currentTimeMillis();
+
+        // An unrelated palette's recent float must not suppress this frame's merge.
+        floats.put(paletteA, now);
+        assertFalse(VerifiedEmbeddedPanelHostOperations.recentFloatSuppressesMerge(
+            floats, List.of(entryB), now + 100
+        ));
+        // The frame's own palette floated outside the window: merge is allowed.
+        floats.put(paletteB, now - 10_000L);
+        assertFalse(VerifiedEmbeddedPanelHostOperations.recentFloatSuppressesMerge(
+            floats, List.of(entryB), now
+        ));
+        // The frame's own palette inside the window: the reset dispose is suppressed.
+        floats.put(paletteB, now);
+        assertTrue(VerifiedEmbeddedPanelHostOperations.recentFloatSuppressesMerge(
+            floats, List.of(entryB), now + 100
+        ));
+    }
+
+    @Test
+    void floatingFrameDisposeMergesWhenOnlyAnUnrelatedPaletteFloatedRecently() throws Exception {
+        final InstallHost host = installHost();
+        host.firstPaletteBox = new FakePaletteBox(host, "box-a");
+        runOnEdt(() -> host.operations.bindHostGeneration(1));
+        runOnEdt(() -> host.operations.addPanel(
+            floatingDescriptor("pane-a"), (actionId, event) -> { }
+        ));
+        runOnEdt(() -> host.operations.addPanel(
+            floatingDescriptor("pane-b"), (actionId, event) -> { }
+        ));
+        final FakePalette paletteA = host.paletteManager.getPalette(host.paletteId("pane-a"));
+        final FakePalette paletteB = host.paletteManager.getPalette(host.paletteId("pane-b"));
+        final FakePaletteFrame frameB = floatingFrameOf(host, paletteB);
+        assertNotNull(frameB, "pane-b must have floated into its own frame");
+
+        final long now = System.currentTimeMillis();
+        host.operations.noteFloatForTest(paletteA, now);
+        host.operations.noteFloatForTest(paletteB, now - 60_000L);
+        host.log.clear();
+        runOnEdt(() -> host.operations.onFloatingFrameDisposed(frameB));
+        runOnEdt(() -> { });
+        runOnEdt(() -> { });
+
+        assertTrue(
+            host.log.contains("add-tab:box-a:" + paletteB.getPaletteId()),
+            "a genuine close on pane-b must merge it back to the dock; log=" + host.log
+        );
+        assertNull(host.operations.lastFloatMillisForTest(paletteB));
+        assertNotNull(host.operations.lastFloatMillisForTest(paletteA));
+    }
+
+    @Test
+    void floatingFrameDisposeWithinOwnResetWindowSkipsTheMerge() throws Exception {
+        final InstallHost host = installHost();
+        host.firstPaletteBox = new FakePaletteBox(host, "box-a");
+        runOnEdt(() -> host.operations.bindHostGeneration(1));
+        runOnEdt(() -> host.operations.addPanel(
+            floatingDescriptor("pane-a"), (actionId, event) -> { }
+        ));
+        final FakePalette paletteA = host.paletteManager.getPalette(host.paletteId("pane-a"));
+        final FakePaletteFrame frameA = floatingFrameOf(host, paletteA);
+        assertNotNull(frameA, "pane-a must have floated into its own frame");
+
+        host.log.clear();
+        runOnEdt(() -> host.operations.onFloatingFrameDisposed(frameA));
+        runOnEdt(() -> { });
+        runOnEdt(() -> { });
+
+        assertFalse(
+            host.log.contains("add-tab:box-a:" + paletteA.getPaletteId()),
+            "the host reset dispose right after float must not dock the panel; log=" + host.log
+        );
+    }
+
+    @Test
+    void closingAFloatingPanelClearsItsFloatTimestamp() throws Exception {
+        final InstallHost host = installHost();
+        host.firstPaletteBox = new FakePaletteBox(host, "box-a");
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef =
+            new AtomicReference<>();
+        runOnEdt(() -> handleRef.set(host.operations.addPanel(
+            floatingDescriptor("pane-a"), (actionId, event) -> { }
+        )));
+        final FakePalette palette = host.paletteManager.getPalette(host.paletteId("pane-a"));
+        assertNotNull(host.operations.lastFloatMillisForTest(palette));
+
+        handleRef.get().close();
+
+        assertNull(host.operations.lastFloatMillisForTest(palette));
+    }
+
+    private static EmbeddedPanelContributionDescriptor floatingDescriptor(final String id) {
+        return new EmbeddedPanelContributionDescriptor(
+            "turboism.core",
+            id,
+            id,
+            "window",
+            100,
+            new dev.turboism.sdk.ui.PanelView.Text("content"),
+            true
+        );
+    }
+
+    private static FakePaletteFrame floatingFrameOf(
+        final InstallHost host,
+        final FakePalette palette
+    ) {
+        for (FakePaletteFrame frame : host.paletteFrames) {
+            final FakePaletteBox box = frame.getRoot().component();
+            if (box != null && box.getPalettes().contains(palette)) {
+                return frame;
+            }
+        }
+        return null;
+    }
+
+    @Test
     void windowMenuClickTogglesPaletteVisibility() throws Exception {
         final InstallHost host = installHost();
         runOnEdt(() -> host.operations.addPanel(
@@ -1240,6 +1365,7 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
         private final FakeMenu windowMenu = new FakeMenu(this, "Window");
         private final FakeWorkspace workspace = new FakeWorkspace(this);
         private final FakeApp app = new FakeApp(this);
+        private final List<FakePaletteFrame> paletteFrames = new ArrayList<>();
         private final VerifiedEmbeddedPanelHostOperations operations;
         private final VerifiedMemberResolver resolver;
         private FakePaletteBox firstPaletteBox;
@@ -1927,6 +2053,7 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
             this.host = manager.host;
             this.window = ownerWindow;
             this.root = new FakeRootContainer(host);
+            host.paletteFrames.add(this);
             host.log.add("palette-frame-create");
         }
 
@@ -1941,13 +2068,19 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
 
     public static final class FakeRootContainer {
         private final InstallHost host;
+        private FakePaletteBox component;
 
         public FakeRootContainer(final InstallHost host) {
             this.host = host;
         }
 
         public void setComponent(final FakePaletteBox component) {
+            this.component = component;
             host.log.add("root-set-component");
+        }
+
+        public FakePaletteBox component() {
+            return component;
         }
     }
 

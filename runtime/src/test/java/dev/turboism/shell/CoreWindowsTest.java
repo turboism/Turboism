@@ -216,6 +216,59 @@ class CoreWindowsTest {
     }
 
     @Test
+    void pluginCatalogRefreshRunsOffTheEdt() throws Exception {
+        final java.util.concurrent.CountDownLatch catalogCalled =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicReference<Thread> catalogThread =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        final CorePluginManagement plugins = new CorePluginManagement() {
+            @Override public java.util.List<PluginInfo> plugins() {
+                catalogThread.set(Thread.currentThread());
+                catalogCalled.countDown();
+                return java.util.List.of();
+            }
+            @Override public OperationResult install() {
+                return OperationResult.rejected("unavailable");
+            }
+            @Override public OperationResult uninstall(final String id) {
+                return OperationResult.rejected("unavailable");
+            }
+            @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+                return OperationResult.rejected("unavailable");
+            }
+        };
+        final CoreWindows windows = new CoreWindows(
+            I18N,
+            new RuntimeSettingsService() {
+                @Override public RuntimeSettings read() {
+                    return new RuntimeSettings(
+                        true, "DEBUG", 256, true, false, true, true, "ja", true
+                    );
+                }
+                @Override public RuntimeSettings save(final RuntimeSettings value) {
+                    return value;
+                }
+                @Override public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
+                    return new RuntimeSettingsService.DockCleanupResult("done");
+                }
+            },
+            java.util.List::of,
+            plugins,
+            RuntimeLogReader.unavailable()
+        );
+        try {
+            windows.showPlugins();
+            assertTrue(catalogCalled.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertFalse(
+                catalogThread.get().getName().contains("AWT-EventQueue"),
+                "plugins() enumerates plugin JARs and must not run on the EDT"
+            );
+        } finally {
+            windows.close();
+        }
+    }
+
+    @Test
     void pluginDetailsOpenOnlyForALeftButtonDoubleClick() {
         final javax.swing.JButton source = new javax.swing.JButton();
         assertTrue(CoreWindows.pluginDetailsDoubleClick(new java.awt.event.MouseEvent(
