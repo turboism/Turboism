@@ -235,7 +235,13 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             + " compares=" + stats.get("compares")
             + " compareNanos=" + stats.get("compareNanos")
             + " contentElided=" + stats.get("contentElided")
-            + " snapshotBytes=" + stats.get("snapshotBytes");
+            + " snapshotBytes=" + stats.get("snapshotBytes")
+            + " snapshotBytesPeak=" + stats.get("snapshotBytesPeak")
+            + " entries=" + stats.get("entries")
+            + " peakEntries=" + stats.get("peakEntries")
+            + " capacity=" + stats.get("capacity")
+            + " failedInserts=" + stats.get("failedInserts")
+            + " grows=" + stats.get("grows");
     }
 
     boolean restored() {
