@@ -276,6 +276,23 @@ public interface ProtectedExportHostOperations {
     boolean isPartSource(Object object);
 
     /**
+     * True when {@code object} is a Glue affecter source. Glue is admitted as an
+     * untouched pass-through channel: it is never flattened, renamed or
+     * re-identified, but it is still censused so a mutation during the session is
+     * detected instead of silently published.
+     */
+    boolean isGlueSource(Object object);
+
+    /**
+     * Ordered {@code [targetArtMeshA, targetArtMeshB]} stable-GUID strings of one
+     * Glue source's mesh references; a {@code null} entry means the reference did
+     * not resolve to a live source. Glue references ride on GUIDs, which ArtMesh
+     * name/ID obfuscation never rewrites — the census pins them so a drift is a
+     * rejection rather than an invisible reference break.
+     */
+    List<String> glueTargetGuids(Object glueSource);
+
+    /**
      * Child-membership GUID strings of a part source — the part palette nesting
      * (child parts and member drawables/deformers). Empty when none or unreadable.
      */

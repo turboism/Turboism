@@ -185,6 +185,10 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String BINDING_KEYS = PREFIX + "keyform-binding.keys";
     private static final String PART_CHILD_GUIDS = PREFIX + "part.child-guids";
 
+    private static final String GLUE_CLASS = PREFIX + "glue-source.class";
+    private static final String GLUE_TARGET_A = PREFIX + "glue-source.target-art-mesh-a";
+    private static final String GLUE_TARGET_B = PREFIX + "glue-source.target-art-mesh-b";
+
     private static final String DIALOG_CLASS = PREFIX + "export-dialog.class";
     private static final String DIALOG_MODEL_SOURCE = PREFIX + "export-dialog.model-source";
     private static final String DRIVER_CLASS = PREFIX + "export-driver.class";
@@ -225,6 +229,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SOURCE_GUID, SOURCE_ID, SOURCE_LOCAL_NAME, SOURCE_SET_LOCAL_NAME,
         SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
         BINDING_PARAMETER_ID, BINDING_KEYS, PART_CHILD_GUIDS,
+        GLUE_TARGET_A, GLUE_TARGET_B,
         DEFORMER_GUID, DEFORMER_TARGET, DEFORMER_CHILDREN,
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
         GUID_UUID, ID_STRING,
@@ -244,7 +249,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         DOCUMENT_CLASS, FILE_CONTENT_CLASS, UNDO_CLASS,
         SELECTOR_INTERFACE, SELECTOR_CLASS, EDIT_MODE_BASE_CLASS, EDIT_MODE_CLASS,
         MODEL_SOURCE_CLASS, MODEL_CLASS, DEFORMER_CLASS, WARP_CLASS, ROTATION_CLASS,
-        ART_MESH_CLASS, PART_CLASS, PARAMETER_CLASS, DRAWABLE_CLASS,
+        ART_MESH_CLASS, PART_CLASS, PARAMETER_CLASS, DRAWABLE_CLASS, GLUE_CLASS,
         DRAWABLE_ID_CLASS, PARAMETER_ID_CLASS, GUID_CLASS, ID_CLASS,
         PARAMETER_SET_CLASS, PARAMETER_INSTANCE_CLASS,
         ART_MESH_INSTANCE_CLASS, ART_MESH_FORM_CLASS,
@@ -883,6 +888,25 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     @Override
     public boolean isPartSource(final Object object) {
         return resolver.isInstance(PART_CLASS, object);
+    }
+
+    @Override
+    public boolean isGlueSource(final Object object) {
+        return resolver.isInstance(GLUE_CLASS, object);
+    }
+
+    @Override
+    public List<String> glueTargetGuids(final Object glueSource) {
+        if (!resolver.isInstance(GLUE_CLASS, glueSource)) {
+            return List.of();
+        }
+        final List<String> targets = new ArrayList<>(2);
+        for (String alias : new String[] {GLUE_TARGET_A, GLUE_TARGET_B}) {
+            final Object mesh = resolver.invoke(alias, glueSource);
+            targets.add(mesh == null || !resolver.isInstance(ART_MESH_CLASS, mesh)
+                ? null : objectGuid(mesh));
+        }
+        return java.util.Collections.unmodifiableList(targets);
     }
 
     @Override

@@ -2,6 +2,7 @@ package dev.turboism.exportsettings;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -42,11 +43,18 @@ public final class ProtectedExportObfuscationPlan {
         }
     }
 
-    /** Deterministic GUID → protected-identity mapping for every censused ArtMesh. */
-    public record Plan(Map<String, Target> byGuid) {
+    /**
+     * Deterministic GUID → protected-identity mapping for every censused ArtMesh,
+     * plus the stable GUIDs of Glue sources admitted as an untouched pass-through
+     * channel. Glue GUIDs never appear in {@code byGuid}: a Glue keeps its
+     * authored name, ID and mesh references.
+     */
+    public record Plan(Map<String, Target> byGuid, List<String> passThroughGlueGuids) {
         public Plan {
             byGuid = java.util.Collections.unmodifiableMap(
                 new LinkedHashMap<>(Objects.requireNonNull(byGuid, "byGuid")));
+            passThroughGlueGuids = List.copyOf(Objects.requireNonNull(
+                passThroughGlueGuids, "passThroughGlueGuids"));
         }
 
         /** Every planned drawable-ID token. */
@@ -96,7 +104,17 @@ public final class ProtectedExportObfuscationPlan {
         // additionally guarantees every rewrite is a real change.
         final Set<String> reservedIds = new LinkedHashSet<>();
         final Set<String> reservedNames = new LinkedHashSet<>();
+        final Set<String> glueGuids = new LinkedHashSet<>();
         for (Object object : host.allObjects(modelSource)) {
+            if (host.isGlueSource(object)) {
+                // Pass-through channel: the Glue's own identity is reserved like
+                // every other source's but never planned for a rewrite.
+                final String guid = host.objectGuid(object);
+                if (guid == null || guid.isBlank()) {
+                    throw reject("protected-export.obfuscation-glue-identity-missing");
+                }
+                glueGuids.add(guid);
+            }
             final String id = host.objectIdString(object);
             if (id != null) {
                 reservedIds.add(id);
@@ -158,7 +176,9 @@ public final class ProtectedExportObfuscationPlan {
                 throw reject("protected-export.obfuscation-unallocatable");
             }
         }
-        return new Plan(result);
+        final List<String> passThrough = new ArrayList<>(glueGuids);
+        passThrough.sort(Comparator.naturalOrder());
+        return new Plan(result, passThrough);
     }
 
     private static boolean blank(final String value) {

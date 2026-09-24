@@ -6,6 +6,8 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.model.Glue;
+import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.InstanceRenderType;
 import dev.turboism.sdk.cubism.model.ModelInstance;
 import dev.turboism.sdk.cubism.model.MorphTarget;
@@ -98,7 +100,9 @@ final class ProtectedExportPlanner {
             .sorted(Comparator.comparing(DrawableSnapshot::guid).thenComparing(value -> value.id().value()))
             .toList();
 
-        rejectGluesAndUnsupportedInstances(model);
+        final List<ProtectedExportPlan.GlueSnapshot> glueSnapshots =
+            snapshotGlues(model, drawablesById, parametersById);
+        rejectUnsupportedInstances(model);
         validateParameterBindings(
             parameters,
             parametersById,
@@ -116,7 +120,8 @@ final class ProtectedExportPlanner {
             parts.stream().map(PartSnapshot::id).toList(),
             parameters.stream().map(ParameterSnapshot::id).toList(),
             obfuscate(drawables, sourceIds, sourceNames),
-            parts.stream().map(PartSnapshot::toPlanSnapshot).toList()
+            parts.stream().map(PartSnapshot::toPlanSnapshot).toList(),
+            glueSnapshots
         );
     }
 
@@ -209,10 +214,49 @@ final class ProtectedExportPlanner {
         }
     }
 
-    private static void rejectGluesAndUnsupportedInstances(final CubismModel model) {
-        if (!snapshot(model.glues().all(), "Glue").isEmpty()) {
-            throw invalid("Glue relations are unsupported");
+    /**
+     * Glue is the explicit pass-through exception the user ruled for this slice:
+     * each relation is admitted unchanged — never renamed, re-identified or
+     * retargeted — but its identity is pinned in the plan and every reference must
+     * resolve against the censused model. A Glue with a duplicate ID, a missing
+     * ArtMesh target or an unknown Parameter binding is corrupt input, not a
+     * pass-through case.
+     */
+    private static List<ProtectedExportPlan.GlueSnapshot> snapshotGlues(
+        final CubismModel model,
+        final Map<ArtMeshId, DrawableSnapshot> drawablesById,
+        final Map<ParameterId, ParameterSnapshot> parametersById
+    ) {
+        final List<Glue> glues = snapshot(model.glues().all(), "Glue");
+        final List<ProtectedExportPlan.GlueSnapshot> result = new ArrayList<>();
+        final Set<GlueId> ids = new HashSet<>();
+        for (Glue glue : glues) {
+            final GlueId id = Objects.requireNonNull(glue.id(), "Glue ID");
+            if (!ids.add(id)) {
+                throw invalid("duplicate Glue ID " + id.value());
+            }
+            final ArtMeshId drawableA =
+                Objects.requireNonNull(glue.drawableAId(), "Glue source target");
+            final ArtMeshId drawableB =
+                Objects.requireNonNull(glue.drawableBId(), "Glue destination target");
+            if (!drawablesById.containsKey(drawableA)
+                || !drawablesById.containsKey(drawableB)) {
+                throw invalid("Glue references an unavailable ArtMesh");
+            }
+            final List<ParameterId> boundParameters =
+                snapshot(glue.parameterIds(), "Glue parameter");
+            for (ParameterId parameterId : boundParameters) {
+                if (parameterId == null || !parametersById.containsKey(parameterId)) {
+                    throw invalid("Glue references an unavailable Parameter");
+                }
+            }
+            result.add(new ProtectedExportPlan.GlueSnapshot(
+                id, drawableA, drawableB, boundParameters));
         }
+        return List.copyOf(result);
+    }
+
+    private static void rejectUnsupportedInstances(final CubismModel model) {
         for (ModelInstance instance : snapshot(model.modelInstances(), "model instance")) {
             if (instance.renderType() != InstanceRenderType.NORMAL) {
                 throw invalid("unsupported model instance render type");

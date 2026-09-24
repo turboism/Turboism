@@ -10,6 +10,7 @@ import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glue;
+import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.InstanceRenderType;
 import dev.turboism.sdk.cubism.model.ModelInstance;
@@ -278,11 +279,70 @@ class ProtectedExportPlannerTest {
     }
 
     @Test
-    void rejectsGlueNonNormalInstancesUnknownParametersAndUnsupportedFamilies() {
-        final Fixture glue = validFixture();
-        glue.model.glues = List.of(proxy(Glue.class, Map.of(), glue.mutations).value());
-        assertRejectedReadOnly(glue);
+    void admitsGlueRelationsAsUnchangedPassThrough() {
+        final Fixture fixture = validFixture();
+        // A Glue binding mesh-a and mesh-b to ParamAngle is admitted verbatim:
+        // the plan carries its identity snapshot, never a rewrite target.
+        fixture.model.glues = List.of(proxy(Glue.class, answers(
+            "id", new GlueId("glue-1"),
+            "drawableAId", new ArtMeshId("mesh-a"),
+            "drawableBId", new ArtMeshId("mesh-b"),
+            "parameterIds", List.of(new ParameterId("ParamAngle"))
+        ), fixture.mutations).value());
 
+        final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(fixture.model);
+
+        assertEquals(
+            List.of(new ProtectedExportPlan.GlueSnapshot(
+                new GlueId("glue-1"), new ArtMeshId("mesh-a"),
+                new ArtMeshId("mesh-b"), List.of(new ParameterId("ParamAngle")))),
+            plan.glueSnapshots());
+        // The Glue's ArtMesh IDs are not rewrite targets and the obfuscation
+        // surface is unaffected.
+        assertEquals(Set.of("mesh-a", "mesh-b"), plan.artMeshTargets().keySet().stream()
+            .map(ArtMeshId::value).collect(java.util.stream.Collectors.toSet()));
+        assertThrows(UnsupportedOperationException.class,
+            () -> plan.glueSnapshots().add(null));
+        assertEquals(0, fixture.mutations.mutatorCalls.get(),
+            "preflight must only read snapshots");
+        assertEquals(0, fixture.model.updateCalls.get());
+    }
+
+    @Test
+    void rejectsGlueWithUnresolvedReferencesOrDuplicateIds() {
+        final Fixture missingDrawable = validFixture();
+        missingDrawable.model.glues = List.of(proxy(Glue.class, answers(
+            "id", new GlueId("glue-1"),
+            "drawableAId", new ArtMeshId("mesh-missing"),
+            "drawableBId", new ArtMeshId("mesh-b"),
+            "parameterIds", List.of()
+        ), missingDrawable.mutations).value());
+        assertRejectedReadOnly(missingDrawable);
+
+        final Fixture missingParameter = validFixture();
+        missingParameter.model.glues = List.of(proxy(Glue.class, answers(
+            "id", new GlueId("glue-1"),
+            "drawableAId", new ArtMeshId("mesh-a"),
+            "drawableBId", new ArtMeshId("mesh-b"),
+            "parameterIds", List.of(new ParameterId("missing"))
+        ), missingParameter.mutations).value());
+        assertRejectedReadOnly(missingParameter);
+
+        final Fixture duplicate = validFixture();
+        final Map<String, Object> duplicateAnswers = answers(
+            "id", new GlueId("glue-1"),
+            "drawableAId", new ArtMeshId("mesh-a"),
+            "drawableBId", new ArtMeshId("mesh-b"),
+            "parameterIds", List.of()
+        );
+        duplicate.model.glues = List.of(
+            proxy(Glue.class, duplicateAnswers, duplicate.mutations).value(),
+            proxy(Glue.class, duplicateAnswers, duplicate.mutations).value());
+        assertRejectedReadOnly(duplicate);
+    }
+
+    @Test
+    void rejectsNonNormalInstancesUnknownParametersAndUnsupportedFamilies() {
         final Fixture instance = validFixture();
         instance.model.instances = List.of(() -> InstanceRenderType.ART_PATH);
         assertRejectedReadOnly(instance);

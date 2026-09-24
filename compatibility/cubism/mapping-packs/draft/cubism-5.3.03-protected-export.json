@@ -2764,6 +2764,66 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.protected_export.class.glue_source_class",
+      "kind": "class",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.glue-source.class",
+      "runtime": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.protected_export.method.glue_source_target_art_mesh_a",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.glue-source.target-art-mesh-a",
+      "runtime": "getTargetArtMeshA",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.protected_export.method.glue_source_target_art_mesh_b",
+      "kind": "method",
+      "owner": "protected-export",
+      "name": "cubism.protected-export.glue-source.target-art-mesh-b",
+      "runtime": "getTargetArtMeshB",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "derived-from-verified-record",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
     }
   ]
 }

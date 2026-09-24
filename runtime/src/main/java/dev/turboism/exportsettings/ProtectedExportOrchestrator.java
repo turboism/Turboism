@@ -458,6 +458,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         });
         session.expectedParameters = parameterExpectations(session.censusBefore);
         session.expectedPartIds = partIdSet(session.censusBefore);
+        session.expectedGlueIds = glueIdSet(session.censusBefore);
         session.phase = Phase.COPY_BOUND;
     }
 
@@ -933,7 +934,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final ProtectedExportStaging.Validation validation = staging.validate(
             session.stagedPick, session.stagedPaths, session.expectedDrawableIds,
             session.expectedParameters, session.expectedPartIds,
-            session.behavior);
+            session.expectedGlueIds, session.behavior);
         if (!validation.valid()) {
             throw new SessionRejection(
                 VALIDATION_FAILED_KEY + ":" + validation.failureKey(),
@@ -1178,13 +1179,24 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     /**
      * Identity snapshot of one model source: parts keyed by stable GUID, parameters
-     * keyed by ID, ArtMeshes keyed by stable GUID.
+     * keyed by ID, ArtMeshes keyed by stable GUID, Glue sources keyed by stable
+     * GUID.
      */
     private record ModelCensus(
         Map<String, PartIdentity> parts,
         Map<String, ParameterIdentity> parameters,
-        Map<String, ArtMeshIdentity> artMeshes
+        Map<String, ArtMeshIdentity> artMeshes,
+        Map<String, GlueIdentity> glues
     ) {
+    }
+
+    /**
+     * One Glue source's pass-through identity: ID, local name and the ordered
+     * {@code [A, B]} target ArtMesh GUID strings. Glue is never mutated by this
+     * session; the census exists so a mid-run change of any of these facts —
+     * including a reference that stopped resolving — fails closed.
+     */
+    private record GlueIdentity(String id, String name, List<String> targetGuids) {
     }
 
     /**
@@ -1257,8 +1269,35 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 throw new SessionRejection(failureKey);
             }
         }
+        // Glue pass-through channel: pin each admitted Glue's identity and mesh
+        // references so flatten/obfuscation must leave them byte-identical. A
+        // target that does not resolve to a censused ArtMesh is corrupt input,
+        // not a pass-through case.
+        final Map<String, GlueIdentity> glues = new LinkedHashMap<>();
+        for (Object object : host.allObjects(modelSource)) {
+            if (!host.isGlueSource(object)) {
+                continue;
+            }
+            final String guid = host.objectGuid(object);
+            final String id = host.objectIdString(object);
+            if (guid == null || guid.isBlank() || id == null || id.isBlank()) {
+                throw new SessionRejection(failureKey);
+            }
+            final List<String> targets = host.glueTargetGuids(object);
+            for (String targetGuid : targets) {
+                if (targetGuid == null || !artMeshes.containsKey(targetGuid)) {
+                    throw new SessionRejection(failureKey, "glue-reference-drift");
+                }
+            }
+            if (glues.put(guid, new GlueIdentity(
+                id, host.objectLocalName(object),
+                List.copyOf(targets))) != null) {
+                throw new SessionRejection(failureKey);
+            }
+        }
         return new ModelCensus(
-            Map.copyOf(parts), Map.copyOf(parameters), Map.copyOf(artMeshes));
+            Map.copyOf(parts), Map.copyOf(parameters), Map.copyOf(artMeshes),
+            Map.copyOf(glues));
     }
 
     /** Expected staged parameter contracts from the pre-mutation census. */
@@ -1281,6 +1320,15 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final Set<String> ids = new LinkedHashSet<>();
         for (PartIdentity part : census.parts().values()) {
             ids.add(part.id());
+        }
+        return Set.copyOf(ids);
+    }
+
+    /** Glue ID set from the census — the staged output must carry them verbatim. */
+    private Set<String> glueIdSet(final ModelCensus census) {
+        final Set<String> ids = new LinkedHashSet<>();
+        for (GlueIdentity glue : census.glues().values()) {
+            ids.add(glue.id());
         }
         return Set.copyOf(ids);
     }
@@ -1330,6 +1378,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 || !target.idToken().equals(current.drawableId())) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "artmesh-identity-drift");
             }
+        }
+        // Glue is the untouched pass-through channel: identity, name and mesh
+        // references must be exactly what the bound copy started with.
+        if (!before.glues().equals(after.glues())) {
+            throw new SessionRejection(OBFUSCATE_FAILED_KEY, "glue-identity-drift");
         }
     }
 
@@ -1739,6 +1792,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile Map<String, ProtectedExportStaging.ParameterExpectation>
             expectedParameters = Map.of();
         volatile Set<String> expectedPartIds = Set.of();
+        volatile Set<String> expectedGlueIds = Set.of();
         volatile List<Path> publishedFiles = List.of();
         volatile boolean originalRestored;
         volatile List<String> cleanupErrors = List.of();

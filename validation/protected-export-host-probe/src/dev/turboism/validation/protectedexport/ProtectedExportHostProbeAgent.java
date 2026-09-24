@@ -193,6 +193,9 @@ public final class ProtectedExportHostProbeAgent {
             if (phases.contains("dirty-export")) {
                 phaseExportDirty(controller, appCtrl, stateDir, evidence);
             }
+            if (phases.contains("glue-export")) {
+                phaseExportGlue(controller, appCtrl, stateDir, evidence);
+            }
             if (phases.contains("export-native")) {
                 phaseExportNative(controller, appCtrl, stateDir, evidence);
             }
@@ -435,7 +438,8 @@ public final class ProtectedExportHostProbeAgent {
         final Path stateDir,
         final Evidence evidence
     ) {
-        phaseExportRun(controller, appCtrl, stateDir, evidence, "exp.", false);
+        phaseExportRun(controller, appCtrl, stateDir, evidence, "exp.", false,
+            false);
     }
 
     /**
@@ -451,7 +455,25 @@ public final class ProtectedExportHostProbeAgent {
         final Path stateDir,
         final Evidence evidence
     ) {
-        phaseExportRun(controller, appCtrl, stateDir, evidence, "dexp.", true);
+        phaseExportRun(controller, appCtrl, stateDir, evidence, "dexp.", true,
+            false);
+    }
+
+    /**
+     * Glue variant: injects one real Glue relation onto two fixture ArtMeshes
+     * through the editor's own construction sequence, then drives the same
+     * protected export. Evidence asserts the session admits the model, the
+     * staged moc3 carries the Glue under its unchanged ID with resolvable
+     * drawable references, and the live document's Glue is untouched.
+     */
+    private static void phaseExportGlue(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        phaseExportRun(controller, appCtrl, stateDir, evidence, "gexp.", false,
+            true);
     }
 
     private static void phaseExportRun(
@@ -460,7 +482,8 @@ public final class ProtectedExportHostProbeAgent {
         final Path stateDir,
         final Evidence evidence,
         final String prefix,
-        final boolean dirty
+        final boolean dirty,
+        final boolean glue
     ) {
         try {
             final Object original = readNoArg(controller, "getCurrentDoc");
@@ -478,12 +501,21 @@ public final class ProtectedExportHostProbeAgent {
             // Inject first so the snapshot baseline already carries whatever the
             // in-memory atlas scaffolding changes (undo position included).
             ensureTextureAtlas(controller, evidence);
+            if (glue) {
+                // Glue variant: build one real Glue relation on the live model
+                // through the editor's own construction sequence, so the export
+                // proves the admitted pass-through channel end to end.
+                injectGlueFixture(original, evidence, prefix);
+                if (evidence.error != null) {
+                    return;
+                }
+            }
             if (dirty) {
                 applyUnsavedEdit(original, evidence, prefix);
                 if (evidence.error != null) {
                     return;
                 }
-            } else {
+            } else if (!glue) {
                 final Object modifiedCheck =
                     readNoArg(content, "isModifiedAfterSaving");
                 if (Boolean.TRUE.equals(modifiedCheck)) {
@@ -634,11 +666,58 @@ public final class ProtectedExportHostProbeAgent {
             evidence.put(prefix + "fileSha256Preserved",
                 Boolean.toString(sha256(originalFile)
                     .equals(evidence.values.get(prefix + "origFileSha256"))));
+            if (glue) {
+                recordGlueOutcome(restored, evidence, prefix);
+            }
             reportStagingResidue(stateDir, evidence, prefix);
         } catch (Throwable failure) {
             evidence.fail("EXP_PHASE_FAILURE:" + failure.getClass().getName()
                 + ":" + text(failure));
         }
+    }
+
+    /**
+     * Post-export Glue evidence for the {@code gexp.} variant: the staged moc3
+     * dump must carry the injected Glue under its unchanged ID, and the live
+     * document's Glue must still hold the exact identity and target references
+     * recorded at injection time.
+     */
+    private static void recordGlueOutcome(
+        final Object restored,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        final String glueId = evidence.values.getOrDefault(prefix + "glueId", "");
+        boolean inMoc = false;
+        for (String id : evidence.values
+            .getOrDefault(prefix + "moc3GlueIds", "").split(",")) {
+            if (!glueId.isEmpty() && glueId.equals(id)) {
+                inMoc = true;
+            }
+        }
+        evidence.put(prefix + "glueInPublishedMoc3", Boolean.toString(inMoc));
+        final String[] preserved = {"false"};
+        try {
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object found = restored == null
+                    ? null : findGlue(restored, glueId);
+                if (found == null) {
+                    return null;
+                }
+                preserved[0] = Boolean.toString(
+                    glueId.equals(idString(found))
+                        && evidence.values.getOrDefault(prefix + "glueGuid", "")
+                            .equals(guidString(found))
+                        && evidence.values.getOrDefault(prefix + "glueName", "")
+                            .equals(String.valueOf(readNoArg(found, "getLocalName")))
+                        && evidence.values.getOrDefault(prefix + "glueTargets", "")
+                            .equals(glueTargetSignature(found)));
+                return null;
+            });
+        } catch (Throwable failure) {
+            preserved[0] = "failed:" + text(failure);
+        }
+        evidence.put(prefix + "glueIdentityPreserved", preserved[0]);
     }
 
     /**
@@ -1240,9 +1319,10 @@ public final class ProtectedExportHostProbeAgent {
                 return;
             }
             if (injectUnsupported) {
-                // Census-negative variant: two glue affecters and one art path
-                // land in getAllObjects on every admitted build, so the session
-                // must reject with a readable family-count detail.
+                // Census-negative variant: one art path drawable lands in
+                // getAllObjects on every admitted build, so the session must
+                // reject with a readable family-count detail. Glue is admitted
+                // since the pass-through ruling, so it no longer counts here.
                 injection = onEdt(() ->
                     injectUnsupportedSources(original, evidence, prefix));
                 if (injection == null || injection.injected.isEmpty()) {
@@ -1250,10 +1330,10 @@ public final class ProtectedExportHostProbeAgent {
                     return;
                 }
                 evidence.put(prefix + "injectedFamilies",
-                    "art-path=" + injection.artPaths + ",glue=" + injection.glues);
+                    "art-path=" + injection.artPaths);
                 evidence.put(prefix + "expectedDetail",
                     "protected-export.unsupported-structure:art-path="
-                        + injection.artPaths + ",glue=" + injection.glues);
+                        + injection.artPaths);
             }
             ensureTextureAtlas(controller, evidence);
             final DocumentState before =
@@ -1407,11 +1487,10 @@ public final class ProtectedExportHostProbeAgent {
     }
 
     /**
-     * One in-memory injection of unsupported-family sources into the live
-     * model's census lists ({@code affecterSourceSet.sources} and
-     * {@code drawableSourceSet.sources}). The objects are never serialized —
-     * the session rejects at preflight — and {@link #restore} removes them so
-     * the authoring document returns untouched.
+     * One in-memory injection of an unsupported-family source into the live
+     * model's drawable census list. The object is never serialized — the session
+     * rejects at preflight — and {@link #restore} removes it so the authoring
+     * document returns untouched.
      */
     private static UnsupportedInjection injectUnsupportedSources(
         final Object document,
@@ -1423,27 +1502,12 @@ public final class ProtectedExportHostProbeAgent {
             return null;
         }
         final UnsupportedInjection injection = new UnsupportedInjection();
-        final Object affecterSet = readNoArg(source, "getAffecterSourceSet");
         final Object drawableSet = readNoArg(source, "getDrawableSourceSet");
-        @SuppressWarnings("unchecked")
-        final List<Object> affecters = affecterSet == null ? null
-            : (List<Object>) readNoArg(affecterSet, "getSources");
         @SuppressWarnings("unchecked")
         final List<Object> drawables = drawableSet == null ? null
             : (List<Object>) readNoArg(drawableSet, "getSources");
-        if (affecters == null || drawables == null) {
+        if (drawables == null) {
             return null;
-        }
-        final Class<?> glueType = Class.forName(
-            "com.live2d.cubism.doc.model.affecter.glue.CGlueSource");
-        final java.lang.reflect.Constructor<?> glueCtor =
-            glueType.getDeclaredConstructor();
-        glueCtor.setAccessible(true);
-        for (int i = 0; i < 2; i++) {
-            final Object glue = glueCtor.newInstance();
-            affecters.add(glue);
-            injection.injected.add(new InjectSlot(affecters, glue));
-            injection.glues++;
         }
         final Class<?> artPathType = Class.forName(
             "com.live2d.cubism.doc.model.drawable.artPath.CArtPathSource");
@@ -1464,7 +1528,6 @@ public final class ProtectedExportHostProbeAgent {
 
     private static final class UnsupportedInjection {
         final List<InjectSlot> injected = new ArrayList<>();
-        int glues;
         int artPaths;
 
         void restore() {
@@ -1472,6 +1535,165 @@ public final class ProtectedExportHostProbeAgent {
                 slot.list().remove(slot.object());
             }
         }
+    }
+
+    /**
+     * Builds one real Glue relation on the live document through the editor's
+     * own construction sequence (same call order as the native glue-generation
+     * routine): source construction binds the two target ArtMesh GUIDs, the part
+     * handler registers the source into the model, a default keyform carries
+     * intensity 1.0, the keyform grid is attached, and the first mesh vertex
+     * pairs are bound 50/50. Must run on the EDT; failures land as evidence.
+     */
+    private static void injectGlueFixture(
+        final Object document,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        try {
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object source = readNoArg(document, "getModelSource");
+                final List<?> meshes =
+                    source == null ? List.of() : asList(readNoArg(source, "getAllArtMeshes"));
+                final List<?> parts =
+                    source == null ? List.of() : asList(readNoArg(source, "getAllParts"));
+                if (source == null || meshes.size() < 2 || parts.isEmpty()) {
+                    evidence.fail("GEXP_FIXTURE_TOO_SMALL");
+                    return null;
+                }
+                final Object meshA = meshes.get(0);
+                final Object meshB = meshes.get(1);
+                final Class<?> modelSourceType =
+                    Class.forName("com.live2d.cubism.doc.model.CModelSource");
+                final Class<?> artMeshType = Class.forName(
+                    "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource");
+                final Class<?> glueType = Class.forName(
+                    "com.live2d.cubism.doc.model.affecter.glue.CGlueSource");
+                final Object glue = glueType
+                    .getDeclaredConstructor(modelSourceType, artMeshType, artMeshType)
+                    .newInstance(source, meshA, meshB);
+                invoke(glue, "setLocalName", new Class<?>[] {String.class},
+                    "protected-export-probe-glue");
+                final Class<?> guidType =
+                    Class.forName("com.live2d.type.CAffecterGuid");
+                invoke(glue, "setGuid", new Class<?>[] {guidType},
+                    guidType.getDeclaredConstructor().newInstance());
+                final Class<?> idType =
+                    Class.forName("com.live2d.cubism.doc.model.id.CAffecterId");
+                invoke(glue, "setId", new Class<?>[] {idType},
+                    idType.getDeclaredConstructor(String.class)
+                        .newInstance("ProtectedExportProbeGlue"));
+                final Class<?> vecType =
+                    Class.forName("com.live2d.graphics3d.type.GVector2");
+                invoke(glue, "setTabPosOnCanvas", new Class<?>[] {vecType},
+                    vecType.getDeclaredConstructor(float.class, float.class)
+                        .newInstance(0f, 0f));
+                // Registration: addPartChild -> setup(modelSource) lands the
+                // source in the affecter set and the part's child list.
+                final Class<?> controllableType = Class.forName(
+                    "com.live2d.cubism.doc.model.ACParameterControllableSource");
+                Object partHandler = null;
+                Object part = null;
+                for (Object candidate : parts) {
+                    partHandler = readNoArg(candidate, "getHandler");
+                    if (partHandler != null) {
+                        part = candidate;
+                        break;
+                    }
+                }
+                if (partHandler == null) {
+                    evidence.fail("GEXP_NO_PART_HANDLER");
+                    return null;
+                }
+                final int childIndex =
+                    asList(readNoArg(part, "getChildGuids")).size();
+                invoke(partHandler, "addPartChild",
+                    new Class<?>[] {controllableType, int.class}, glue, childIndex);
+                final Class<?> formType = Class.forName(
+                    "com.live2d.cubism.doc.model.affecter.glue.CGlueForm");
+                final Class<?> glueInstanceType = Class.forName(
+                    "com.live2d.cubism.doc.model.affecter.glue.CGlue");
+                final Object form = formType
+                    .getDeclaredConstructor(glueType, glueInstanceType)
+                    .newInstance(glue, null);
+                final Class<?> formGuidType =
+                    Class.forName("com.live2d.type.CFormGuid");
+                invoke(form, "setGuid", new Class<?>[] {formGuidType},
+                    formGuidType.getDeclaredConstructor().newInstance());
+                invoke(form, "setIntensity", new Class<?>[] {float.class}, 1.0f);
+                invoke(readNoArg(glue, "getKeyforms"), "add",
+                    new Class<?>[] {Object.class}, form);
+                final Class<?> gridType = Class.forName(
+                    "com.live2d.cubism.doc.model.interpolator.KeyformGridSource");
+                final Object grid = gridType
+                    .getDeclaredConstructor(controllableType)
+                    .newInstance(glue);
+                final Class<?> markerType =
+                    Class.forName("com.live2d.cubism.doc.model.io.b.c");
+                final Method importDefault = gridType.getDeclaredMethod(
+                    "importCubism21$default", gridType, modelSourceType,
+                    List.class, List.class, markerType, int.class, Object.class);
+                importDefault.setAccessible(true);
+                importDefault.invoke(null, grid, source, List.of(),
+                    List.of(readNoArg(form, "getGuid")), null, 8, null);
+                invoke(glue, "setKeyformGridSource",
+                    new Class<?>[] {gridType}, grid);
+                final List<?> pointsA = asList(readNoArg(meshA, "getAllPointRef"));
+                final List<?> pointsB = asList(readNoArg(meshB, "getAllPointRef"));
+                final int pairs =
+                    Math.min(2, Math.min(pointsA.size(), pointsB.size()));
+                if (pairs < 1) {
+                    evidence.fail("GEXP_NO_MESH_POINTS");
+                    return null;
+                }
+                final long[] uids = new long[pairs * 2];
+                final float[] weights = new float[pairs * 2];
+                for (int i = 0; i < pairs; i++) {
+                    uids[i * 2] = pointUid(pointsA.get(i));
+                    uids[i * 2 + 1] = pointUid(pointsB.get(i));
+                    weights[i * 2] = 0.5f;
+                    weights[i * 2 + 1] = 0.5f;
+                }
+                invoke(glue, "setBindVertexUids", new Class<?>[] {long[].class}, uids);
+                invoke(glue, "setWeights", new Class<?>[] {float[].class}, weights);
+                invoke(glue, "setUpdated", new Class<?>[0]);
+                evidence.put(prefix + "glueInjected", "true");
+                evidence.put(prefix + "glueId", "ProtectedExportProbeGlue");
+                evidence.put(prefix + "glueGuid", String.valueOf(guidString(glue)));
+                evidence.put(prefix + "glueName", "protected-export-probe-glue");
+                evidence.put(prefix + "glueTargets", glueTargetSignature(glue));
+                return null;
+            });
+        } catch (Throwable failure) {
+            evidence.fail("GEXP_INJECTION_FAILURE:" + text(failure));
+        }
+    }
+
+    /** Mesh point ref UID — the {@code MeshPointRef.b} member is package-private. */
+    private static long pointUid(final Object pointRef) throws Exception {
+        return (Long) invoke(pointRef, "b", new Class<?>[0]);
+    }
+
+    /** Ordered {@code guidA|guidB} signature of a Glue source's mesh references. */
+    private static String glueTargetSignature(final Object glue) {
+        final Object meshA = readNoArg(glue, "getTargetArtMeshA");
+        final Object meshB = readNoArg(glue, "getTargetArtMeshB");
+        return guidString(meshA) + "|" + guidString(meshB);
+    }
+
+    /** Finds a Glue source on the document's model by its unchanged ID. */
+    private static Object findGlue(final Object document, final String id) {
+        final Object source = readNoArg(document, "getModelSource");
+        final Object affecterSet =
+            source == null ? null : readNoArg(source, "getAffecterSourceSet");
+        for (Object object : asList(readNoArg(affecterSet, "getSources"))) {
+            if (isA(object.getClass(),
+                    "com.live2d.cubism.doc.model.affecter.glue.CGlueSource")
+                && id.equals(idString(object))) {
+                return object;
+            }
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------
@@ -2165,6 +2387,39 @@ public final class ProtectedExportHostProbeAgent {
                 final int deformerCount = (Integer) deformers.getClass()
                     .getMethod("getCount").invoke(deformers);
                 lines.add("deformers.count=" + deformerCount);
+                try {
+                    final Object glues = model.getClass()
+                        .getMethod("getGlues").invoke(model);
+                    final String[] glueIds = (String[]) glues.getClass()
+                        .getMethod("getIds").invoke(glues);
+                    final int[] drawablesA = (int[]) glues.getClass()
+                        .getMethod("getDrawablesA").invoke(glues);
+                    final int[] drawablesB = (int[]) glues.getClass()
+                        .getMethod("getDrawablesB").invoke(glues);
+                    final int[] glueParameterCounts = (int[]) glues.getClass()
+                        .getMethod("getParameterCounts").invoke(glues);
+                    boolean glueRefsValid = true;
+                    lines.add("glues.count=" + glueIds.length);
+                    lines.add("glues.ids=" + String.join(",", glueIds));
+                    for (int i = 0; i < glueIds.length; i++) {
+                        glueRefsValid &= drawablesA[i] >= 0
+                            && drawablesA[i] < drawableIds.length
+                            && drawablesB[i] >= 0
+                            && drawablesB[i] < drawableIds.length;
+                        lines.add("glue." + glueIds[i] + ".drawableA="
+                            + drawablesA[i]);
+                        lines.add("glue." + glueIds[i] + ".drawableB="
+                            + drawablesB[i]);
+                        lines.add("glue." + glueIds[i] + ".parameterCount="
+                            + glueParameterCounts[i]);
+                    }
+                    evidence.put(prefix + "moc3GlueIds",
+                        String.join(",", glueIds));
+                    evidence.put(prefix + "moc3GlueRefsValid",
+                        Boolean.toString(glueRefsValid));
+                } catch (NoSuchMethodException unsupported) {
+                    lines.add("glues.unsupported=true");
+                }
             } finally {
                 if (model != null) {
                     model.getClass().getMethod("close").invoke(model);
@@ -4642,97 +4897,42 @@ public final class ProtectedExportHostProbeAgent {
             }
         }
         if (phases.test("export")) {
-            if (intOf(evidence, "exp.outerInjectedCheckBoxCount") < 1) {
-                unmet.add("contributed option missing from the outer dialog");
-            }
-            if (!"true".equals(evidence.values.get("expOuterMountedInsideOptions"))) {
-                unmet.add("outer contribution is not inside the native options container");
-            }
-            if (!"true".equals(evidence.values.get("exp.outerConfirmed"))) {
-                unmet.add("outer confirmation was not driven");
-            }
-            if (!"true".equals(evidence.values.get("exp.innerObserved"))) {
-                unmet.add("re-driven inner export dialog never appeared");
-            }
-            if (!"true".equals(evidence.values.get("exp.innerInjectedSuppressed"))) {
-                unmet.add("inner dialog still showed contributed options");
-            }
-            if (!"true".equals(evidence.values.get("exp.innerConfirmed"))) {
-                unmet.add("inner confirmation was not driven");
-            }
-            if (!"true".equals(evidence.values.get("exp.chooserDriven"))) {
-                unmet.add("native destination chooser was not driven");
-            }
-            if (!"true".equals(evidence.values.get("exp.publishedMoc3"))) {
-                unmet.add("no published moc3 at the picked destination");
-            }
-            if (!"true".equals(evidence.values.get("exp.publishedModelJson"))) {
-                unmet.add("no published model/display-info json at the picked destination");
-            }
-            if (!"true".equals(evidence.values.get("exp.sameLiveDocument"))) {
-                unmet.add("original was not restored as the same live document");
-            }
-            if (!"true".equals(evidence.values.get("exp.fileSha256Preserved"))) {
-                unmet.add("original file bytes changed across the export");
-            }
-            if (!"true".equals(evidence.values.get("exp.modifiedPreserved"))) {
-                unmet.add("original dirty flag changed across the export");
-            }
+            requireExportSession(evidence, unmet, "exp.");
             if (!"true".equals(evidence.values.get("exp.undoPreserved"))) {
                 unmet.add("original undo state changed across the export");
             }
             if (!"true".equals(evidence.values.get("exp.selectionPreserved"))) {
                 unmet.add("original selection changed across the export");
             }
-            if (intOf(evidence, "exp.stagingResidue") != 0) {
-                unmet.add("task-owned staging residue remains");
-            }
         }
         if (phases.test("dirty-export")) {
+            requireExportSession(evidence, unmet, "dexp.");
             if (!"true".equals(evidence.values.get("dexp.dirtyArmed"))) {
                 unmet.add("fixture was not dirty when the export was armed");
-            }
-            if (intOf(evidence, "dexp.outerInjectedCheckBoxCount") < 1) {
-                unmet.add("contributed option missing from the outer dialog");
-            }
-            if (!"true".equals(evidence.values.get("dexpOuterMountedInsideOptions"))) {
-                unmet.add("outer contribution is not inside the native options container");
-            }
-            if (!"true".equals(evidence.values.get("dexp.outerConfirmed"))) {
-                unmet.add("outer confirmation was not driven");
-            }
-            if (!"true".equals(evidence.values.get("dexp.innerObserved"))) {
-                unmet.add("re-driven inner export dialog never appeared");
-            }
-            if (!"true".equals(evidence.values.get("dexp.innerInjectedSuppressed"))) {
-                unmet.add("inner dialog still showed contributed options");
-            }
-            if (!"true".equals(evidence.values.get("dexp.innerConfirmed"))) {
-                unmet.add("inner confirmation was not driven");
-            }
-            if (!"true".equals(evidence.values.get("dexp.chooserDriven"))) {
-                unmet.add("native destination chooser was not driven");
-            }
-            if (!"true".equals(evidence.values.get("dexp.publishedMoc3"))) {
-                unmet.add("no published moc3 at the picked destination");
-            }
-            if (!"true".equals(evidence.values.get("dexp.publishedModelJson"))) {
-                unmet.add("no published model/display-info json at the picked destination");
-            }
-            if (!"true".equals(evidence.values.get("dexp.sameLiveDocument"))) {
-                unmet.add("original was not restored as the same live document");
-            }
-            if (!"true".equals(evidence.values.get("dexp.fileSha256Preserved"))) {
-                unmet.add("original file bytes changed across the export");
-            }
-            if (!"true".equals(evidence.values.get("dexp.modifiedPreserved"))) {
-                unmet.add("original dirty flag changed across the export");
             }
             if (!"true".equals(evidence.values.get("dexp.unsavedEditPreserved"))) {
                 unmet.add("the unsaved in-memory edit did not survive the export");
             }
-            if (intOf(evidence, "dexp.stagingResidue") != 0) {
-                unmet.add("task-owned staging residue remains");
+        }
+        if (phases.test("glue-export")) {
+            requireExportSession(evidence, unmet, "gexp.");
+            if (!"true".equals(evidence.values.get("gexp.glueInjected"))) {
+                unmet.add("the glue fixture was never injected into the live document");
+            }
+            if (!"true".equals(evidence.values.get("gexp.glueInPublishedMoc3"))) {
+                unmet.add("published moc3 does not carry the injected Glue ID");
+            }
+            if (!"true".equals(evidence.values.get("gexp.moc3GlueRefsValid"))) {
+                unmet.add("published moc3 glue drawable references are out of range");
+            }
+            if (!"true".equals(evidence.values.get("gexp.glueIdentityPreserved"))) {
+                unmet.add("the live document's Glue identity changed across the export");
+            }
+            if (!"true".equals(evidence.values.get("gexp.undoPreserved"))) {
+                unmet.add("original undo state changed across the export");
+            }
+            if (!"true".equals(evidence.values.get("gexp.selectionPreserved"))) {
+                unmet.add("original selection changed across the export");
             }
         }
         if (phases.test("export-native")) {
@@ -4829,6 +5029,59 @@ public final class ProtectedExportHostProbeAgent {
         }
         if (intOf(evidence, "rej.stagingResidue") != 0) {
             unmet.add("task-owned staging residue remains after rejection");
+        }
+    }
+
+    /**
+     * Shared export-session verdict gates, keyed by the phase's evidence prefix —
+     * the option drive, inner-dialog suppression, chooser drive, published
+     * outputs, live-document restoration and zero staging residue all hold for
+     * the clean, dirty and glue export variants alike.
+     */
+    private static void requireExportSession(
+        final Evidence evidence,
+        final List<String> unmet,
+        final String prefix
+    ) {
+        if (intOf(evidence, prefix + "outerInjectedCheckBoxCount") < 1) {
+            unmet.add("contributed option missing from the outer dialog");
+        }
+        if (!"true".equals(evidence.values.get(
+                prefix.replace(".", "") + "OuterMountedInsideOptions"))) {
+            unmet.add("outer contribution is not inside the native options container");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "outerConfirmed"))) {
+            unmet.add("outer confirmation was not driven");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "innerObserved"))) {
+            unmet.add("re-driven inner export dialog never appeared");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "innerInjectedSuppressed"))) {
+            unmet.add("inner dialog still showed contributed options");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "innerConfirmed"))) {
+            unmet.add("inner confirmation was not driven");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "chooserDriven"))) {
+            unmet.add("native destination chooser was not driven");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "publishedMoc3"))) {
+            unmet.add("no published moc3 at the picked destination");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "publishedModelJson"))) {
+            unmet.add("no published model/display-info json at the picked destination");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "sameLiveDocument"))) {
+            unmet.add("original was not restored as the same live document");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "fileSha256Preserved"))) {
+            unmet.add("original file bytes changed across the export");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "modifiedPreserved"))) {
+            unmet.add("original dirty flag changed across the export");
+        }
+        if (intOf(evidence, prefix + "stagingResidue") != 0) {
+            unmet.add("task-owned staging residue remains");
         }
     }
 
