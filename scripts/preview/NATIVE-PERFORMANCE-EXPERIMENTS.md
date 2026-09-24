@@ -1617,8 +1617,10 @@ n8 是这套链路的首次实机有效性证据。
   全同（正确性门过）。均值 Δ：r1 −3.40ms、r2 −3.12ms（监督登记口径约
   −1.5~−3ms）。本构建无 `restored=true` 关闭标记（属 4333086b1 后功能）。
 - **T08b JFR 诊断腿** 8ecda9e1：wheel-leg-0.jfr 归档（仅诊断）。
-- **T08c 已提交**（identity/content 两模式，agent 10a89bb1@4333086b1，
-  exerciser c29ba1a8）：upload-id f36d3e98 / upload-content 862936a9。
+- **T08c**：r1 两腿（f36d3e98/862936a9）预检失败——fixture 期望 SHA 回落
+  57c4854b（worktree .env 缺覆盖），cleanup=safe、不计入样本。修正 env 调用后
+  重提 r2（expected==actual=029e9a4e 核实）：upload-id-r2 2fb0591c /
+  upload-content-r2 a70e41a1（agent 10a89bb1@4333086b1、exerciser c29ba1a8）。
 - **证据**：`~/.local/state/turboism/performance-evidence/20260924-perf052-t08/run/`
   {t08-attr-prod-r1,t08-attr-cal-r1,t08-elision-{off,on}-r{1,2},
   t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1,
