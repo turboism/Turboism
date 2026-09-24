@@ -17,6 +17,9 @@ import java.util.ServiceLoader;
 /** Loads generated catalogs from one plugin artifact and falls back to reviewed reflection. */
 public final class GeneratedSubscriberCatalogLoader {
 
+    private static final System.Logger LOGGER =
+        System.getLogger(GeneratedSubscriberCatalogLoader.class.getName());
+
     private final EntrypointSubscriberCatalog fallback = new EntrypointSubscriberCatalog();
 
     /** Loads a generated subscriber catalog, falling back to validated reflection when absent. */
@@ -44,6 +47,21 @@ public final class GeneratedSubscriberCatalogLoader {
         final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs = pluginClassLoader == null
             ? Map.of()
             : load(pluginClassLoader);
+        // A catalog can only ever serve an entrypoint instance; one that matches none of the
+        // declared entrypoints indicates a stale or misplaced provider file. Diagnose it but
+        // keep registration semantics unchanged.
+        final java.util.Set<Class<?>> entrypointTypes = values.stream()
+            .map(Object::getClass)
+            .collect(java.util.stream.Collectors.toSet());
+        for (Class<?> catalogEntrypointType : catalogs.keySet()) {
+            if (!entrypointTypes.contains(catalogEntrypointType)) {
+                LOGGER.log(
+                    System.Logger.Level.WARNING,
+                    "Generated subscriber catalog matches no plugin entrypoint instance: "
+                        + catalogEntrypointType.getName()
+                );
+            }
+        }
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int entrypointOrdinal = 0; entrypointOrdinal < values.size(); entrypointOrdinal++) {
             final Object entrypoint = Objects.requireNonNull(values.get(entrypointOrdinal), "entrypoint");
