@@ -70,6 +70,7 @@ final class CoreWindows implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean();
     private ActiveSettingsAction activeSettingsAction;
     private long pluginDetailsRequest;
+    private long pluginRefreshRequest;
     static final String ABOUT_LOGO_TEXT = "Turboism";
     /** Fixed first-party download page; the client never opens a URL taken from the feed. */
     static final String UPDATE_DOWNLOAD_PAGE = "https://turboism.dev/download";
@@ -1142,7 +1143,35 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private void refreshPlugins() {
-        if (pluginTableModel != null) pluginTableModel.setPlugins(plugins.plugins());
+        // plugins() enumerates the plugins directory and parses every JAR manifest —
+        // far too slow for the EDT. Discover on the executor, land on the EDT, and drop
+        // stale results the same way plugin details requests do.
+        final long request = ++pluginRefreshRequest;
+        try {
+            pluginDetailsExecutor.execute(() -> {
+                final java.util.List<CorePluginManagement.PluginInfo> installed;
+                try {
+                    installed = plugins.plugins();
+                } catch (RuntimeException failure) {
+                    CoreDialogs.onEdt(() -> pluginRefreshFailed(request));
+                    return;
+                }
+                CoreDialogs.onEdt(() -> {
+                    if (closed.get() || request != pluginRefreshRequest || pluginTableModel == null) {
+                        return;
+                    }
+                    pluginTableModel.setPlugins(installed);
+                });
+            });
+        } catch (java.util.concurrent.RejectedExecutionException rejected) {
+            // The window is closing; the refresh result would be discarded anyway.
+        }
+    }
+
+    private void pluginRefreshFailed(final long request) {
+        if (!closed.get() && request == pluginRefreshRequest && pluginStatus != null) {
+            pluginStatus.setText(text("plugins.operation-failed"));
+        }
     }
 
     private JPanel form() {

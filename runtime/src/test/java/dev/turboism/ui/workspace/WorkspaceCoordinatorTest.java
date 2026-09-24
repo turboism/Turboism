@@ -145,7 +145,8 @@ class WorkspaceCoordinatorTest {
             return service.switchTo(new WorkspaceId("animation")).toCompletableFuture().join();
         }, executor);
         try {
-            awaitState(workerRef, Thread.State.WAITING, "switchTo queued on the blocked EDT");
+            awaitState(workerRef, Thread.State.TIMED_WAITING,
+                "switchTo queued on the blocked EDT");
             coordinator.disconnect(provider);
         } finally {
             edtRelease.countDown();
@@ -242,14 +243,15 @@ class WorkspaceCoordinatorTest {
             return service.switchTo(new WorkspaceId("animation")).toCompletableFuture().join();
         }, executor);
         try {
-            awaitState(workerRef, Thread.State.WAITING, "switchTo queued on the blocked EDT");
+            awaitState(workerRef, Thread.State.TIMED_WAITING,
+                "switchTo queued on the blocked EDT");
 
             AtomicReference<Thread> closerRef = new AtomicReference<>();
             CompletableFuture<Void> closing = CompletableFuture.runAsync(() -> {
                 closerRef.set(Thread.currentThread());
                 service.close();
             });
-            awaitState(closerRef, Thread.State.WAITING,
+            awaitState(closerRef, Thread.State.TIMED_WAITING,
                 "close attempt to block in the EDT fence");
             assertFalse(closing.isDone(),
                 () -> "close must fence the EDT and wait for the queued operation");
