@@ -36,6 +36,7 @@ final class HookManifestTest {
                 GlGetErrorElisionHookContributor.class,
                 SkippedFrameUploadElisionHookContributor.class,
                 InputPathElisionHookContributor.class,
+                CanvasCompositeElisionHookContributor.class,
                 UniformLocationCacheHookContributor.class,
                 MatrixScratchHookContributor.class,
                 NativeEditBeginHookContributor.class,
