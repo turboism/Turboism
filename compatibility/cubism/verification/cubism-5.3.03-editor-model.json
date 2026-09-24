@@ -92,12 +92,14 @@
     "cubism.editor-model.read",
     "cubism.editor-model.rotation-deformer.parameter-bindings.write",
     "cubism.editor-model.rotation-deformer.write",
+    "cubism.editor-model.selection.read",
     "cubism.editor-model.statistics.read",
     "cubism.editor-model.texture.read",
     "cubism.editor-model.texture.write",
     "cubism.editor-model.undo.revert",
     "cubism.editor-model.warp-deformer.parameter-bindings.write",
     "cubism.editor-model.warp-deformer.write",
+    "cubism.editor-model.warp-mirror",
     "cubism.editor-model.write",
     "cubism.integration.edit-api-bridge.dispatch",
     "cubism.integration.external-app-settings.edit-toggle",
@@ -1087,6 +1089,17 @@
       "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
       "memberName": "getUpdateManager",
       "descriptor": "()Lcom/live2d/cubism/CEUpdateManager;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_controllable_source_default_key_form",
+      "alias": "cubism.editor-model.parameter-controllable-source.default-key-form",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "memberName": "getDefaultKeyForm",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -7857,6 +7870,83 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_controllable_calculated_form",
+      "alias": "cubism.editor-model.parameter-controllable.calculated-form",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllable",
+      "memberName": "getCalculatedForm",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.warp_simple_grid",
+      "alias": "cubism.editor-model.warp-grid.simple.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/bezier/CSimpleGrid",
+      "memberName": "<init>",
+      "descriptor": "(II[F)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.warp_grid_transform",
+      "alias": "cubism.editor-model.warp-grid.transform.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/deformer/warp/grid/ICGrid;Lcom/live2d/cubism/doc/model/deformer/warp/grid/ICGrid;II)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.warp_grid_transform_inverse",
+      "alias": "cubism.editor-model.warp-grid.transform.inverse",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
+      "memberName": "inverseTransform",
+      "descriptor": "([FI[FIIZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.warp_grid_transform_forward",
+      "alias": "cubism.editor-model.warp-grid.transform.forward",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
+      "memberName": "transform",
+      "descriptor": "([F[F)[F",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.deformer_transform_local_to_canvas",
+      "alias": "cubism.editor-model.deformer.transform-local-to-canvas",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformer",
+      "memberName": "transformLocalToCanvas",
+      "descriptor": "([F[FIII)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.deformer_transform_canvas_to_local",
+      "alias": "cubism.editor-model.deformer.transform-canvas-to-local",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformer",
+      "memberName": "transformCanvasToLocal",
+      "descriptor": "([F[FIII)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.animation_file_content_scene_docs",
       "alias": "cubism.editor-model.animation-file-content.scene-docs",
       "kind": "method",
@@ -9329,8 +9419,7 @@
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
-    }
-,
+    },
     {
       "mappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.class.y_class",
       "alias": "cubism.integration.external-app-settings.dialog.class",

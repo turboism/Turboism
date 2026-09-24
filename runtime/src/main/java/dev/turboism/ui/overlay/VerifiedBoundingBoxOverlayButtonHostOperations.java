@@ -7,8 +7,10 @@ import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -56,12 +58,17 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         "cubism.ui-bounding-box-overlay.writable-image.create";
     private static final String ICON_SET_CREATE = "cubism.ui-bounding-box-overlay.icon-set.create";
 
+    private static final System.Logger POSITION_LOG =
+        System.getLogger(VerifiedBoundingBoxOverlayButtonHostOperations.class.getName());
+    private static final long POSITION_LOG_INTERVAL_NANOS = 2_000_000_000L;
+
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
     private final Map<Object, CachedButtons> buttonsByOverlay = new IdentityHashMap<>();
     /** FIFO of live {@link #buttonsByOverlay} keys; guarded by the same monitor. */
     private final Deque<Object> overlayOrder = new ArrayDeque<>();
     private volatile List<BoundingBoxOverlayButtonDescriptor> descriptors = List.of();
+    private volatile long lastPositionLogNanos;
 
     public VerifiedBoundingBoxOverlayButtonHostOperations(
         final VerifiedMemberResolver resolver,
@@ -182,7 +189,89 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         // The native update$setupButton helper is the sole enabler/setup/positioning path;
         // no proactive setEnabled(true) is emitted here. setEnabled(false) is reserved for
         // detach/cleanup below.
+        logButtonPositionsThrottled(cached);
         return cached.array;
+    }
+
+    /**
+     * Best-effort diagnostic marker: publishes each contributed button's live bounds so
+     * host validation can aim a real {@code Robot} click at the GL-rendered button.
+     * Deliberately uses plain reflection instead of verified selectors: the path is
+     * observation-only, runs on the host update thread, throttles itself, and any
+     * reflective failure degrades to an {@code unavailable} marker, never to a write or
+     * a functional change.
+     */
+    private void logButtonPositionsThrottled(final CachedButtons cached) {
+        try {
+            final long now = System.nanoTime();
+            if (now - lastPositionLogNanos < POSITION_LOG_INTERVAL_NANOS) {
+                return;
+            }
+            lastPositionLogNanos = now;
+            for (int i = 0; i < cached.buttons.size(); i++) {
+                final String pluginId = i < cached.snapshot.size()
+                    ? cached.snapshot.get(i).pluginId()
+                    : "unknown";
+                POSITION_LOG.log(
+                    System.Logger.Level.INFO,
+                    "BBOX_OVERLAY_BUTTON_RECT plugin=" + pluginId
+                        + " index=" + i + " " + buttonBounds(cached.buttons.get(i))
+                );
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // Observation-only diagnostic: never let a marker failure reach the
+            // host update path that mounts the real buttons.
+        }
+    }
+
+    private static String buttonBounds(final Object entity) {
+        final String rect = rectOnComponent(entity);
+        final String world = worldTranslation(entity);
+        return "rect=" + rect + " world=" + world;
+    }
+
+    private static String rectOnComponent(final Object entity) {
+        try {
+            final Object rect = invokeNoArg(entity, "getRectOnComponent");
+            if (rect != null) {
+                return floatGetter(rect, "getX") + "," + floatGetter(rect, "getY")
+                    + "," + floatGetter(rect, "getWidth") + ","
+                    + floatGetter(rect, "getHeight");
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+        }
+        return "unavailable";
+    }
+
+    private static String worldTranslation(final Object entity) {
+        try {
+            final Object transform = invokeNoArg(entity, "getTransform");
+            final Object affine = transform == null
+                ? null : invokeNoArg(transform, "getLocalToWorldAffine");
+            if (affine instanceof AffineTransform at) {
+                return at.getTranslateX() + "," + at.getTranslateY();
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+        }
+        return "unavailable";
+    }
+
+    private static Object invokeNoArg(final Object target, final String name) {
+        try {
+            final Method method = target.getClass().getMethod(name);
+            return method.invoke(target);
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            return null;
+        }
+    }
+
+    private static float floatGetter(final Object target, final String name) {
+        try {
+            final Method method = target.getClass().getMethod(name);
+            return ((Number) method.invoke(target)).floatValue();
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            return Float.NaN;
+        }
     }
 
     /**
@@ -314,12 +403,18 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
             descriptor.pluginId(),
             icons.disabled().orElse(icons.normal())
         );
+        // Native slot order observed from the legacy icon-set expansion of a
+        // (normal, hover) pair into [n, n, h, h, n, h, h]: slots are
+        // (normal, disabled, hover, pressed) then (normal, hover, pressed) for
+        // the toggled set. Feeding our semantic order (normal, hover, pressed,
+        // disabled) put the hover image on the disabled slot and pressed on the
+        // hover slot — hover never visibly changed.
         return resolver.construct(
             ICON_SET_CREATE,
             normal,
+            disabled,
             hover,
             pressed,
-            disabled,
             normal,
             hover,
             pressed

@@ -52,6 +52,7 @@ import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorCon
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import java.util.List;
 import java.util.Set;
@@ -115,6 +116,7 @@ public final class EditorModelVerificationManifest {
     public static final Set<String> CAPABILITY_IDS = Set.of(
         "cubism.editor-model.read",
         "cubism.editor-model.write",
+        "cubism.editor-model.warp-mirror",
         EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
         EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
         EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
@@ -219,6 +221,10 @@ public final class EditorModelVerificationManifest {
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
+        "cubism.editor-model.warp-grid.simple.create",
+        "cubism.editor-model.warp-grid.transform.create",
+        "cubism.editor-model.warp-grid.transform.inverse",
+        "cubism.editor-model.warp-grid.transform.forward",
         "cubism.editor-model.form-guid.value",
         "cubism.editor-model.image-canvas.class",
         "cubism.editor-model.image-canvas.height",
@@ -708,7 +714,11 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid-source.set-initial-keyform",
         "cubism.editor-model.keyform-grid.remove-key",
         "cubism.editor-model.keyform-grid.remove-all-key",
-        "cubism.editor-model.keyform-grid.rearrange-keys"
+        "cubism.editor-model.keyform-grid.rearrange-keys",
+        "cubism.editor-model.parameter-controllable.calculated-form",
+        "cubism.editor-model.parameter-controllable-source.default-key-form",
+        "cubism.editor-model.deformer.transform-local-to-canvas",
+        "cubism.editor-model.deformer.transform-canvas-to-local"
     ), union(
 
             union(
@@ -887,7 +897,9 @@ public final class EditorModelVerificationManifest {
     }
 
     static Set<String> cubism5303Capabilities() {
-        return CAPABILITY_IDS;
+        final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
+        values.add(EditorSelectionReadSelectorContract.CAPABILITY_ID);
+        return Set.copyOf(values);
     }
 
     private static final Set<String> CUBISM_5303_ONLY_ALIASES = Set.of(

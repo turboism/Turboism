@@ -223,6 +223,10 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         if (editSessions instanceof dev.turboism.adapter.cubism.edit.RuntimeEditSessionService runtimeService) {
             dependencies.disposableScope().register(runtimeService::shutdown);
         }
+        final dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror =
+            modelAccess instanceof dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider mirrorProvider
+                ? mirrorProvider.warpMirrorService(dependencies.descriptor().id())
+                : dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
         final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
             modelAccess,
             dependencies.disposableScope(),
@@ -252,7 +256,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             authoringTransactions,
             dependencies.disposableScope(),
             dependencies.disposableScope()::isSealed,
-            editSessions
+            editSessions,
+            warpMirror
         );
         final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
             facade,

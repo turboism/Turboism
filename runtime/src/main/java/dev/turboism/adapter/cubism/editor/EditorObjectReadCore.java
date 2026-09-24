@@ -265,7 +265,7 @@ final class EditorObjectReadCore {
         throw unavailable("Editor object target Deformer is outside the active model.");
     }
 
-    private Object targetDeformerSource(final Object objectSource) {
+    Object targetDeformerSource(final Object objectSource) {
         return resolver.invoke(
             "cubism.editor-model.parameter-controllable-source.target-deformer-source",
             objectSource
