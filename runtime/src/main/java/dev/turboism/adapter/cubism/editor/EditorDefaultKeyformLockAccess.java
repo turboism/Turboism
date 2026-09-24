@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -13,13 +14,23 @@ final class EditorDefaultKeyformLockAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorDefaultKeyformLockAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, null);
+    }
+
+    EditorDefaultKeyformLockAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     boolean locked(
@@ -38,6 +49,22 @@ final class EditorDefaultKeyformLockAccess {
         final Object expectedModel,
         final boolean locked
     ) {
+        EditorHostThread.dispatch("Cubism default-keyform lock write", () -> {
+            setLockedOnEdt(expectedIdentity, source, expectedModel, locked);
+            return null;
+        });
+    }
+
+    private void setLockedOnEdt(
+        final String expectedIdentity,
+        final Object source,
+        final Object expectedModel,
+        final boolean locked
+    ) {
+        EditorHostThread.requireHostThread("Cubism default-keyform lock write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Model.setDefaultKeyformLocked"
+        );
         requireWriteAuthorization();
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
         if (locked(source) == locked) {

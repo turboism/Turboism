@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
@@ -49,6 +50,7 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
     private final BindingReader bindingReader;
     private final TargetLookup targetLookup;
     private final ParameterSourceLookup parameterSourceLookup;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorParameterBindingAccess(
         final VerifiedMemberResolver resolver,
@@ -61,6 +63,24 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         final TargetLookup targetLookup,
         final ParameterSourceLookup parameterSourceLookup
     ) {
+        this(
+            resolver, identity, modelSource, model, parameterId,
+            currentGuard, bindingReader, targetLookup, parameterSourceLookup, null
+        );
+    }
+
+    EditorParameterBindingAccess(
+        final VerifiedMemberResolver resolver,
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final ParameterId parameterId,
+        final CurrentGuard currentGuard,
+        final BindingReader bindingReader,
+        final TargetLookup targetLookup,
+        final ParameterSourceLookup parameterSourceLookup,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.identity = Objects.requireNonNull(identity, "identity");
         this.modelSource = Objects.requireNonNull(modelSource, "modelSource");
@@ -70,10 +90,18 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         this.bindingReader = Objects.requireNonNull(bindingReader, "bindingReader");
         this.targetLookup = Objects.requireNonNull(targetLookup, "targetLookup");
         this.parameterSourceLookup = Objects.requireNonNull(parameterSourceLookup, "parameterSourceLookup");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     @Override
     public void bind(final ParameterBindingTarget target, final List<ParameterBindingPoint> points) {
+        EditorHostThread.dispatch("Cubism parameter binding write", () -> {
+            bindOnEdt(target, points);
+            return null;
+        });
+    }
+
+    private void bindOnEdt(final ParameterBindingTarget target, final List<ParameterBindingPoint> points) {
         Objects.requireNonNull(target, "target");
         final List<Float> desired = values(points, true);
         if (binding(target) != null) {
@@ -89,6 +117,16 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
 
     @Override
     public void createPoint(final ParameterBindingTarget target, final ParameterBindingPoint point) {
+        EditorHostThread.dispatch("Cubism parameter binding write", () -> {
+            createPointOnEdt(target, point);
+            return null;
+        });
+    }
+
+    private void createPointOnEdt(
+        final ParameterBindingTarget target,
+        final ParameterBindingPoint point
+    ) {
         Objects.requireNonNull(point, "point");
         final ParameterBinding current = requireBinding(target);
         final ArrayList<Float> desired = new ArrayList<>(current.points().stream()
@@ -105,6 +143,17 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
 
     @Override
     public void movePoint(
+        final ParameterBindingTarget target,
+        final ParameterBindingPointId pointId,
+        final float value
+    ) {
+        EditorHostThread.dispatch("Cubism parameter binding write", () -> {
+            movePointOnEdt(target, pointId, value);
+            return null;
+        });
+    }
+
+    private void movePointOnEdt(
         final ParameterBindingTarget target,
         final ParameterBindingPointId pointId,
         final float value
@@ -136,6 +185,16 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         final ParameterBindingTarget target,
         final ParameterBindingPointId pointId
     ) {
+        EditorHostThread.dispatch("Cubism parameter binding write", () -> {
+            deletePointOnEdt(target, pointId);
+            return null;
+        });
+    }
+
+    private void deletePointOnEdt(
+        final ParameterBindingTarget target,
+        final ParameterBindingPointId pointId
+    ) {
         final ParameterBinding current = requireBinding(target);
         if (current.points().size() == 1) {
             throw new IllegalStateException("Deleting the last binding point is not allowed; use unbind.");
@@ -152,6 +211,13 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
 
     @Override
     public void unbind(final ParameterBindingTarget target) {
+        EditorHostThread.dispatch("Cubism parameter binding write", () -> {
+            unbindOnEdt(target);
+            return null;
+        });
+    }
+
+    private void unbindOnEdt(final ParameterBindingTarget target) {
         if (binding(target) == null) return;
         mutate(target, "Unbind Parameter", grid -> resolver.invoke(
             "cubism.editor-model.keyform-grid.remove-all-key",
@@ -166,7 +232,11 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         final String action,
         final java.util.function.Consumer<Object> mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism parameter binding write");
         requireAuthorized(target.type());
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Parameter binding " + action
+        );
         currentGuard.requireCurrent(identity, model);
         final Object objectSource = targetLookup.find(identity, modelSource, model, target);
         final Object grid = resolver.invoke(

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
@@ -21,13 +22,23 @@ final class EditorParameterStructureAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorParameterStructureAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, null);
+    }
+
+    EditorParameterStructureAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     ParameterId create(
@@ -603,7 +614,10 @@ final class EditorParameterStructureAccess {
         final String actionName,
         final Supplier<Object> undoSupplier
     ) {
-        requireHostThread();
+        requireHostThread(actionName);
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, actionName
+        );
         modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = activeDocumentFor(source, app);
@@ -646,7 +660,10 @@ final class EditorParameterStructureAccess {
         final String actionName,
         final List<Supplier<Object>> undoSuppliers
     ) {
-        requireHostThread();
+        requireHostThread(actionName);
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, actionName
+        );
         modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = activeDocumentFor(source, app);
@@ -711,10 +728,8 @@ final class EditorParameterStructureAccess {
         }
     }
 
-    private static void requireHostThread() {
-        if (!EditorHostThread.isCurrent()) {
-            throw new IllegalStateException("Cubism parameter structure write escaped the EDT.");
-        }
+    private static void requireHostThread(final String actionName) {
+        EditorHostThread.requireHostThread("Cubism parameter structure write: " + actionName);
     }
 
     private void refresh(final Object app) {
