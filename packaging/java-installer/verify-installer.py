@@ -109,8 +109,7 @@ LOCALIZED_EULA_MARKER = {
     "eng": "The Simplified Chinese text is authoritative",
     "chn": "本版本以简体中文文本为正式文本",
     "jpn": "簡体字中国語文を正文とします",
-    # No Korean EULA translation exists, so the ko probe reads the English EULA text.
-    "kor": "The Simplified Chinese text is authoritative",
+    "kor": "중국어 간체 본문이 정본",
 }
 # Turboism-owned InstallationGroupPanel strings (CustomLangPack): the
 # install-side listener emits the localized mode name and description for
@@ -1429,8 +1428,7 @@ def assert_jar_layout(jar, payload, installer_xml_path):
             "resources/LicencePanel.eula_eng": "EULA.en.txt",
             "resources/LicencePanel.eula_chn": "EULA.zh-Hans.txt",
             "resources/LicencePanel.eula_jpn": "EULA.ja.txt",
-            # Korean falls back to the English EULA text (no ko translation exists).
-            "resources/LicencePanel.eula_kor": "EULA.en.txt",
+            "resources/LicencePanel.eula_kor": "EULA.ko.txt",
         }
         for resource, staged_name in eula_resources.items():
             check("jar EULA resource %s" % resource, resource in names)

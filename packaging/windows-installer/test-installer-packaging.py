@@ -57,7 +57,7 @@ def synthetic_test() -> None:
             "launch-cubism-turboism.ps1 configure_turboism.ps1 cubism-launch-common.ps1 "
             "install-managed-graal.ps1 install-script-engine.ps1 turboism.ico turboism.png "
             "README.txt README.zh.txt README.ja.txt README.ko.txt LICENSE.txt "
-            "EULA.en.txt EULA.zh-Hans.txt EULA.ja.txt config.template.json"
+            "EULA.en.txt EULA.zh-Hans.txt EULA.ja.txt EULA.ko.txt config.template.json"
         ).split()
         for name in names:
             (stage / name).write_text("synthetic " + name, encoding="utf-8")

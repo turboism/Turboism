@@ -802,7 +802,7 @@ def check_jar_payload_contract():
         "configure_turboism.ps1", "cubism-launch-common.ps1",
         "install-managed-graal.ps1", "turboism.ico", "turboism.png",
         "README.txt", "README.zh.txt", "README.ja.txt", "LICENSE",
-        "EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt",
+        "EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt", "EULA.ko.txt",
     )
     core_payload_source = generator[generator.index("core_payload = ["):
                                     generator.index("plugin_payload = [")]
@@ -1000,6 +1000,7 @@ def check_eula_contract():
         "en": EULA_DIR / "EULA.en.txt",
         "zh": EULA_DIR / "EULA.zh-Hans.txt",
         "ja": EULA_DIR / "EULA.ja.txt",
+        "ko": EULA_DIR / "EULA.ko.txt",
     }
     for locale, path in eula_files.items():
         check("EULA %s exists and is non-empty" % locale,
@@ -1094,8 +1095,8 @@ def check_eula_contract():
           '!insertmacro MUI_LANGUAGE "Korean"' in text
           and "!define MUI_LANGDLL_ALLLANGUAGES" in text
           and "!insertmacro MUI_LANGDLL_DISPLAY" in on_init)
-    check("Korean installer UI reuses the English EULA instead of inventing a translation",
-          'LicenseLangString EulaFile ${LANG_KOREAN} "${EULA_DIR}/EULA.en.txt"' in text)
+    check("Korean installer UI uses the Korean EULA",
+          'LicenseLangString EulaFile ${LANG_KOREAN} "${EULA_DIR}/EULA.ko.txt"' in text)
     plugin_sections = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
     check("generated plugin sections localize display names and descriptions in Korean",
           all(('LangString PLUGIN_NAME_%s ${LANG_KOREAN}' % pid) in plugin_sections
@@ -1114,7 +1115,7 @@ def check_eula_contract():
     uninstall_start = text.index('Section "Uninstall"')
     uninstall_end = text.index("SectionEnd", uninstall_start)
     uninstall = text[uninstall_start:uninstall_end]
-    for name in ("EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt"):
+    for name in ("EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt", "EULA.ko.txt"):
         check("NSIS checksum-packages %s" % name,
               ('("%s", stage / "%s")' % (name, name)) in core_payload)
         check("NSIS uninstalls %s" % name,
