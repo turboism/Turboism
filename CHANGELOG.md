@@ -1,3 +1,5 @@
+[EN / English](CHANGELOG.md) · [ZH / 简体中文](CHANGELOG_zh.md) · [JP / 日本語](CHANGELOG_ja.md) · [KR / 한국어](CHANGELOG_ko.md)
+
 # Changelog
 
 All notable changes to Turboism are documented in this file.
@@ -297,6 +299,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The Korean branch of the Java uninstaller's confirmation dialog is localized instead of falling back
   to English text, and the four README templates now describe the uninstaller's keep-by-default
   `config.json` checkbox instead of a delete-by-default one.
+
 ## [0.43.10] - 2026-09-09
 
 ### Added
@@ -568,6 +571,15 @@ This release supersedes the unpublished 0.43.4 candidate and includes its change
 - Published binaries are not code-signed or notarized in this release; verify the accompanying SHA-256 sidecars before installation.
 
 [Unreleased]: https://github.com/Turboism/Turboism/compare/v0.44.0...HEAD
+[0.44.0]: https://github.com/Turboism/Turboism/releases/tag/v0.44.0
+[0.43.11]: https://github.com/Turboism/Turboism/releases/tag/v0.43.11
+[0.43.10]: https://github.com/Turboism/Turboism/releases/tag/v0.43.10
+[0.43.9]: https://github.com/Turboism/Turboism/releases/tag/v0.43.9
+[0.43.8]: https://github.com/Turboism/Turboism/releases/tag/v0.43.8
+[0.43.7]: https://github.com/Turboism/Turboism/releases/tag/v0.43.7
+[0.43.6]: https://github.com/Turboism/Turboism/releases/tag/v0.43.6
+[0.43.5]: https://github.com/Turboism/Turboism/releases/tag/v0.43.5
+[0.43.4]: https://github.com/Turboism/Turboism/releases/tag/v0.43.4
 [0.43.3]: https://github.com/Turboism/Turboism/releases/tag/v0.43.3
 [0.43.2]: https://github.com/Turboism/Turboism/releases/tag/v0.43.2
 [0.43.1]: https://github.com/Turboism/Turboism/releases/tag/v0.43.1
