@@ -451,6 +451,92 @@ per rank. The ranking is computed at report time from the existing per-method
 metrics; the GL call path performs no sorting or allocation for it. These are
 the same `glCalls.<method>.*` numbers reshaped, not additional time.
 
+Instrumentation caveat for every `modelUpdateGlCalls` leg: wrapping the
+panel's `GL3` in the probe proxy hides `GL4bcImpl` from the narrow uniform
+cache, so the cache can never prove eligibility and every lookup goes native —
+`uniformLocationCache` ON and OFF legs emit byte-identical call counts. Query
+and uniform-write counts in instrumented legs therefore overstate production
+behavior (production cache hits never reach the proxy). Treat `query`/`uniformWrite`
+category numbers and `glGetUniformLocation` top-N entries as upper bounds, and
+`uniformRedundant` below likewise includes writes a production cache would have
+absorbed. State/draw/upload categories are unaffected by this caveat.
+
+### Redundant-state upper bound (observation only)
+
+`-Dturboism.validation.modelUpdateGlRedundancy=true` (requires
+`modelUpdateGlCalls`; the flag alone fails fast) counts state-write calls whose
+arguments are identical to the last recorded write of the same per-context
+state entry. Every call still delegates exactly once — nothing is suppressed,
+so the numbers are an upper bound on what call elision could ever save, not a
+speedup measurement.
+
+Tracked families (per GL context, one entry each): `glBindBuffer` per target;
+`glBindTexture` per active-unit+target (unit taken from the last tracked
+`glActiveTexture`); `glActiveTexture` itself; `glBindSampler` per unit;
+`glUseProgram`; `glEnable`/`glDisable` per cap; `glBlendFunc`,
+`glBlendFuncSeparate`, `glBlendEquation*`; `glCullFace`, `glFrontFace`,
+`glDepthMask`, `glDepthFunc`, `glColorMask`, `glStencilFunc`, `glStencilOp`,
+`glStencilMask`; `glViewport`, `glScissor`; `glPixelStorei` per pname;
+`glEnableVertexAttribArray`/`glDisableVertexAttribArray` per index;
+`glVertexAttribPointer` per index with the full argument set plus the current
+`ARRAY_BUFFER` binding; and all `glUniform*`/`glProgramUniform*` writes keyed by
+program+location+value (scalar, `v` and matrix forms up to 16 components).
+
+Conservative semantics — undercounting is intentional: an entry is "known"
+only after a tracked write in the same context and generation; the first call
+after any invalidation is never redundant. `glDeleteBuffers/Textures/Programs/
+Samplers`, `glLinkProgram`, `glBindVertexArray` (plus element-buffer and
+attrib-state families), indexed/untracked variants (`glEnablei`,
+`glStencilFuncSeparate`, `glBindBufferBase`, `glPixelStoref`, …) and
+`glPushAttrib`/`glPopAttrib` invalidate the narrowest honest domain; a delegate
+exception invalidates that call's own entry; a context-identity change or a
+collection-window boundary makes every entry unknown; and any unrecognized
+name in a state-write family (`glBind*`/`glEnable*`/`glUniform*`/`glVertex*`/…)
+invalidates everything rather than risk stale knowledge. Entries live in fixed
+preallocated tables (256 state / 512 uniform slots, 8-deep probe chains); a
+crowded chain undercounts instead of colliding. Writes that cannot be keyed —
+a `glBindTexture` before any observed `glActiveTexture`, a `glVertexAttribPointer`
+with an unknown `ARRAY_BUFFER` binding, uniforms before `glUseProgram` — are not
+recorded at all.
+
+Report keys: `glRedundancy.enabled`, `glRedundancy.<method>.{calls,redundant,
+redundantNanos}` per tracked non-uniform method, `glRedundancy.uniformRedundant.
+{calls,redundant,redundantNanos}` aggregating all uniform writes (uniforms are
+counted for context only — they are not this round's lever), and the summary
+`glRedundancy.{calls,redundant,redundantNanos,invalidations}`. `redundant`
+counts only calls that executed; `redundantNanos` is their delegate interval,
+i.e. the time upper bound removable by elision. `requireValid` rejects any
+method whose `redundant` exceeds `calls`.
+
+#### Production design sketch (not implemented)
+
+Two hook points could turn this observation into suppression:
+
+- Host call-site transforms: rewrite redundant `INVOKEINTERFACE GL.*` sites in
+  the render path (same mechanism as the elision hook). Pro: domain-precise —
+  only the audited renderer call sites change. Con: misses redundant calls
+  issued from other paths (JOGL internals, other renderers), so the win is
+  partial by construction.
+- Pinned `GL4bcImpl` method bodies: prepend a cached-state check inside each
+  state-write method on the verified artifact. Pro: sees every caller,
+  including Swing/JOGL-internal state writes that reset our assumptions — which
+  is exactly why call-site rewriting alone would be incorrect: any GL call not
+  passing through the audited sites can silently change state. Con: runs on all
+  GL traffic including reads, and the cache must be per-context, keyed on the
+  `GLContext` like this tracker.
+
+Correctness requirements either way: shared contexts mean state learned under
+one drawable is valid only for the same `GLContext` identity (and shared-group
+peers can still mutate it out-of-band — so entries must be treated as hints
+invalidated at every context make-current boundary and by any call observed
+through a non-instrumented path); readback calls never change state but error
+paths must invalidate on exception; `glPushAttrib`/`glPopAttrib`, deletion,
+relink and VAO switches invalidate the same domains this tracker does.
+Fail-closed: any unreviewed method-shape drift, unrecognized mutator, context
+transition or transform mismatch disables suppression entirely — never suppress
+when the state model is incomplete, which is precisely why this probe only
+counts an upper bound and never skips a call.
+
 ### glGetError elision timing leg (experimental transform, not a proxy)
 
 `-Dturboism.validation.glGetErrorElision=true` enables a completely separate
