@@ -177,6 +177,15 @@ public interface HostSnapshotSource {
             activeArtMeshId = Objects.requireNonNull(activeArtMeshId, "activeArtMeshId");
             activeDeformerId = Objects.requireNonNull(activeDeformerId, "activeDeformerId");
         }
+
+        /**
+         * The canonical "nothing selected" value. Also the honest answer when no verified
+         * live-selection read is wired, when no document is active, or when no host is
+         * attached — it is never used to mask a failed read of a live document.
+         */
+        public static HostSelection empty() {
+            return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+        }
     }
 
     record HostParameter(

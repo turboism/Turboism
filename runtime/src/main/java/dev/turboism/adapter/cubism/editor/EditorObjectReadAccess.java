@@ -672,7 +672,7 @@ final class EditorObjectReadAccess {
             .orElseThrow(() -> unavailable("Editor Glue target ArtMesh is outside the active model."));
     }
 
-    private String objectId(final Object source) {
+    String objectId(final Object source) {
         final Object id = resolver.invoke("cubism.editor-model.parameter-controllable-source.id", source);
         return text(resolver.invoke("cubism.editor-model.id.value", id), "Editor object ID");
     }
@@ -3106,7 +3106,7 @@ final class EditorObjectReadAccess {
             .orElseThrow(() -> stale("ArtMesh", objectId(artMeshSource)));
     }
 
-    private static List<?> list(final Object value, final String label) {
+    static List<?> list(final Object value, final String label) {
         if (!(value instanceof List<?> list)) throw unavailable(label + " is unavailable.");
         return List.copyOf(list);
     }
@@ -3117,7 +3117,7 @@ final class EditorObjectReadAccess {
         return List.copyOf(copy);
     }
     private static boolean containsIdentity(final List<?> values, final Object expected) { for (Object value : values) if (value == expected) return true; return false; }
-    private static String text(final Object value, final String label) { final String result = string(value, label); if (result.isBlank()) throw unavailable(label + " is blank."); return result; }
+    static String text(final Object value, final String label) { final String result = string(value, label); if (result.isBlank()) throw unavailable(label + " is blank."); return result; }
     private static String string(final Object value, final String label) { if (!(value instanceof String result)) throw unavailable(label + " is invalid."); return result; }
     private static boolean flag(final Object value, final String label) { if (!(value instanceof Boolean result)) throw unavailable(label + " is invalid."); return result; }
     private static int integer(final Object value, final String label) { if (!(value instanceof Integer result)) throw unavailable(label + " is invalid."); return result; }
@@ -3131,7 +3131,7 @@ final class EditorObjectReadAccess {
     private static FloatSequence floatSequence(final List<Float> values) { final float[] copy = new float[values.size()]; for (int index = 0; index < copy.length; index++) copy[index] = values.get(index); return new FloatSequence() { @Override public int size() { return copy.length; } @Override public float get(final int index) { return copy[index]; } }; }
     private static IntSequence intSequence(final List<Integer> values) { final int[] copy = values.stream().mapToInt(Integer::intValue).toArray(); return new IntSequence() { @Override public int size() { return copy.length; } @Override public int get(final int index) { return copy[index]; } }; }
     private static UnsupportedOperationException unsupported(final String feature) { return new UnsupportedOperationException(feature + " is unavailable without verified Editor semantics."); }
-    private static IllegalStateException unavailable(final String message) { return new IllegalStateException(message); }
+    static IllegalStateException unavailable(final String message) { return new IllegalStateException(message); }
     private static IllegalStateException stale(final String kind, final String id) { return new IllegalStateException(kind + " reference is stale: " + id); }
 
     private dev.turboism.adapter.cubism.core.CoreDrawableDefinition evaluated(
@@ -3166,6 +3166,58 @@ final class EditorObjectReadAccess {
     private record ObjectRef(String id, Object source, Object instance) { }
     private record DeformerRef(String id, Object source, Object instance, Kind kind) { }
     private record GlueRef(String id, Object source) { }
+
+    /**
+     * Enumerates every drawable ArtMesh and deformer of the bound model generation as
+     * native source/instance pairs with hierarchy links, for cross-object authoring
+     * operations such as the Warp mirror compensation.
+     */
+    List<NativeObjectRef> nativeObjects(
+        final String identity,
+        final Object modelSource,
+        final Object model
+    ) {
+        final List<DeformerRef> deformers = deformerRefs(identity, modelSource, model);
+        final java.util.IdentityHashMap<Object, String> deformerIds = new java.util.IdentityHashMap<>();
+        for (DeformerRef deformer : deformers) deformerIds.put(deformer.source(), deformer.id());
+        final ArrayList<NativeObjectRef> values = new ArrayList<>();
+        for (DeformerRef deformer : deformers) {
+            values.add(nativeObject(deformer.id(), deformer.source(), deformer.instance(), deformer.kind(), deformerIds));
+        }
+        for (ObjectRef mesh : artMeshes(identity, modelSource, model)) {
+            values.add(nativeObject(mesh.id(), mesh.source(), mesh.instance(), Kind.ART_MESH, deformerIds));
+        }
+        return List.copyOf(values);
+    }
+
+    private NativeObjectRef nativeObject(
+        final String id,
+        final Object source,
+        final Object instance,
+        final Kind kind,
+        final java.util.IdentityHashMap<Object, String> deformerIds
+    ) {
+        final Object target = targetDeformerSource(source);
+        final String targetId = target == null ? null : deformerIds.get(target);
+        final Object locked = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", source
+        );
+        return new NativeObjectRef(id, source, instance, kind.name(), targetId, Boolean.TRUE.equals(locked));
+    }
+
+    /**
+     * Native handle for one Editor object: identity, live source and instance, object kind
+     * ({@code ART_MESH}/{@code WARP}/{@code ROTATION}), parent-deformer id, and the
+     * effective (hierarchy-including) lock state.
+     */
+    record NativeObjectRef(
+        String id,
+        Object source,
+        Object instance,
+        String kind,
+        String targetDeformerId,
+        boolean locked
+    ) { }
     void replaceArtMeshClipMasks(
         final String identity,
         final Object modelSource,

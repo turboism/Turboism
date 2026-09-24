@@ -89,6 +89,18 @@ public interface CubismFacade {
     }
 
     /**
+     * Returns whole-object Warp Deformer mirror operations when installed by Runtime.
+     *
+     * <p>The default fails closed and reports every request as unavailable.</p>
+     *
+     * @return whole-object warp mirror service
+     */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror() {
+        return dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
+    }
+
+    /**
      * Returns the legacy queued command transaction manager for Preview compatibility.
      *
      * <p>This queue is not the implementation of {@link #authoringTransactions()}.</p>

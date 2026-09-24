@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
@@ -12,6 +13,8 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionService;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
+import dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider;
+import dev.turboism.adapter.cubism.warp.WarpMirrorRuntimeService;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryAction;
@@ -22,6 +25,7 @@ import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorService;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Canvas;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -58,7 +62,7 @@ import java.util.Optional;
 /** Generation-bound natural model view over one verified Editor modeling document. */
 public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider {
+    RuntimeAuthoringTransactionProvider, RuntimeWarpMirrorProvider {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -72,6 +76,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorMorphTargetAccess morphTargetAccess;
     private final EditorModelProfileAccess modelProfileAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final EditorSelectionReadAccess selectionReadAccess;
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
     private final EditorPsdSnapshotAccess psdSnapshotAccess;
@@ -191,6 +196,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             () -> binding()
         );
+        this.selectionReadAccess = new EditorSelectionReadAccess(resolver);
 
     }
 
@@ -200,6 +206,57 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             authoringCoordinator,
             () -> authoringHost.binding(pluginId)
         );
+    }
+
+    /**
+     * Whether this connection's verified evidence admits the live selection read.
+     * When false the snapshot seam reports an honest empty selection instead of
+     * reflecting into the Editor.
+     */
+    public boolean selectionReadAuthorized() {
+        return selectionReadAccess.authorized();
+    }
+
+    /**
+     * Reads the live Editor object selection for the session snapshot seam. Runs on the
+     * Editor host thread; failures propagate rather than masquerading as an empty
+     * selection.
+     */
+    public dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection readHostSelection() {
+        if (!selectionReadAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Editor selection reads require exact verified host evidence."
+            );
+        }
+        return EditorHostThread.dispatch("Cubism Selection", selectionReadAccess::currentSelection);
+    }
+
+    @Override
+    public WarpMirrorService warpMirrorService(final String pluginId) {
+        final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("pluginId must not be blank");
+        }
+        if (!resolver.authorizesFeature(
+            EditorWarpMirrorSelectorContract.ADAPTER_SLICE_ID,
+            EditorWarpMirrorSelectorContract.CAPABILITY_ID,
+            EditorWarpMirrorSelectorContract.REQUIRED_ALIASES
+        )) {
+            return WarpMirrorService.unavailable();
+        }
+        return new WarpMirrorRuntimeService(new EditorWarpMirrorAccess(
+            resolver,
+            objectReadAccess,
+            () -> {
+                final Binding value = binding();
+                return new EditorWarpMirrorAccess.NativeBinding(
+                    value.identity(), value.generation(), value.source(), value.model()
+                );
+            },
+            authoringCoordinator,
+            () -> authoringHost.binding(owner).orElseThrow(() ->
+                new IllegalStateException("Warp mirror authoring binding is unavailable."))
+        ));
     }
 
     @Override

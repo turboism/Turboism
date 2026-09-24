@@ -32,6 +32,7 @@ include(
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",
     "plugins:warp-deformer-alt-symmetry",
+    "plugins:boundingbox-warp-mirror",
     "testing:test-support",
     "testing:integration-tests"
 )

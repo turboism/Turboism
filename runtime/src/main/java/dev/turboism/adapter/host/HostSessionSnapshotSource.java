@@ -16,6 +16,7 @@ import dev.turboism.sdk.cubism.ProjectSnapshot;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Canonical Cubism facade snapshot source projected from the active host-session
@@ -25,28 +26,44 @@ import java.util.Optional;
  */
 public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
-    private static final HostSelection EMPTY_SELECTION = new HostSelection(
-        List.of(), Optional.empty(), Optional.empty(), Optional.empty()
-    );
-
     private final ProjectWorkspaceAdapter projectWorkspace;
+    private final Supplier<HostSelection> selectionReader;
     private final Object invalidationLock = new Object();
     private Optional<ProjectSnapshot> lastProjectObservation = Optional.empty();
     private Optional<DocumentSnapshot> lastDocumentObservation = Optional.empty();
     private long invalidationToken;
 
-    private HostSessionSnapshotSource(final ProjectWorkspaceAdapter projectWorkspace) {
+    private HostSessionSnapshotSource(
+        final ProjectWorkspaceAdapter projectWorkspace,
+        final Supplier<HostSelection> selectionReader
+    ) {
         this.projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
+        this.selectionReader = Objects.requireNonNull(selectionReader, "selectionReader");
     }
 
     /**
      * @param projectWorkspace adapter whose immutable project and document snapshots are projected;
      *     it is read on every query rather than cached, so the source follows the live workspace
-     * @return a snapshot source for this session
+     * @return a snapshot source for this session whose selection stays empty (no live reader wired)
      * @throws NullPointerException if {@code projectWorkspace} is null
      */
     public static HostSnapshotSource forSession(final ProjectWorkspaceAdapter projectWorkspace) {
-        return new HostSessionSnapshotSource(projectWorkspace);
+        return new HostSessionSnapshotSource(projectWorkspace, HostSelection::empty);
+    }
+
+    /**
+     * @param projectWorkspace adapter whose immutable project and document snapshots are projected;
+     *     it is read on every query rather than cached, so the source follows the live workspace
+     * @param selectionReader live host selection read, invoked on every {@link #selection()} query;
+     *     its failures propagate to the caller rather than being masked as an empty selection
+     * @return a snapshot source for this session
+     * @throws NullPointerException if any argument is null
+     */
+    public static HostSnapshotSource forSession(
+        final ProjectWorkspaceAdapter projectWorkspace,
+        final Supplier<HostSelection> selectionReader
+    ) {
+        return new HostSessionSnapshotSource(projectWorkspace, selectionReader);
     }
 
     @Override
@@ -68,7 +85,7 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     @Override
     public HostSelection selection() {
-        return EMPTY_SELECTION;
+        return selectionReader.get();
     }
 
     @Override

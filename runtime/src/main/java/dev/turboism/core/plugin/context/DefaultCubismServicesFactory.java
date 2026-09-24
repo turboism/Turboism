@@ -213,6 +213,10 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             modelAccess instanceof dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider provider
                 ? provider.authoringTransactions(dependencies.descriptor().id())
                 : dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.unavailable();
+        final dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror =
+            modelAccess instanceof dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider mirrorProvider
+                ? mirrorProvider.warpMirrorService(dependencies.descriptor().id())
+                : dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
         final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
             modelAccess,
             dependencies.disposableScope(),
@@ -239,7 +243,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
             history,
-            authoringTransactions
+            authoringTransactions,
+            warpMirror
         );
         final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
             facade,

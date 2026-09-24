@@ -547,6 +547,23 @@ fun registerWarpAltSymmetryHostValidation(name: String, version: String) {
 
 registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5303", "5303")
 
+val buildBoundingBoxWarpMirrorHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds and self-checks the validation-only BoundingBox Warp-mirror reconnaissance probe."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/boundingbox-warp-mirror-host-probe/build.sh")
+}
+
+tasks.register<Exec>("validateBoundingBoxWarpMirrorHost5303") {
+    group = "host verification"
+    description = "Runs the exact-host Cubism 5.3.03 BoundingBox Warp-mirror reconnaissance probe."
+    dependsOn("previewBundle", ":sdk:jar", ":plugins:boundingbox-warp-mirror:jar", buildBoundingBoxWarpMirrorHostProbe)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/run-boundingbox-warp-mirror-host-validation.sh", "5303")
+}
+
 val buildFpsHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Builds the test-only SDK FPS counting host exerciser."

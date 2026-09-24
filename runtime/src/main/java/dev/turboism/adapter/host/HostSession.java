@@ -415,6 +415,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection currentHostSelection() {
+        return dynamicModelAccess.currentHostSelection();
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.history.CubismHistory history() {
         return history;
     }
