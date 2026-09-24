@@ -45,15 +45,19 @@ for an exactly admitted host; no explicit enable flag is needed to prove startup
 The auto-exit exerciser must never be deployed to an ordinary user's plugin home.
 
 ```bash
-bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 pan-full \
-  --jvm-option '-Dturboism.validation.nativeInteraction=pan' \
+bash scripts/preview/run-model-update-skip-host-validation.sh on-pan 5303 pan-full \
   --jvm-option '-Dturboism.validation.resources=true' \
   --ready-marker 'TURBOISM_UNIFORM_LOCATION installation=COMPLETE' \
   --failure-marker 'TURBOISM_UNIFORM_LOCATION installation=FAILED' \
   --result-timeout 1200
 ```
 
-Use `nativeInteraction=artmesh` for the single-ArtMesh gesture. Add
+(`on-pan`/`on-artmesh` are wrapper modes that still select
+`modelUpdateWorkload=wheel`; the plugin then dispatches on
+`turboism.validation.nativeInteraction`. Equivalent explicit form:
+`on-wheel ... --jvm-option '-Dturboism.validation.nativeInteraction=pan'`.)
+
+Use `on-artmesh` for the single-ArtMesh gesture. Add
 `-Dturboism.validation.modelUpdateCalibration=true` for a 16-event-per-leg
 calibration; the full workload has four 200-event OFF/ON/ON/OFF legs.
 Results are in `interaction-benchmark.txt`, not the older wheel report.
@@ -921,6 +925,62 @@ A cross-run control without the transform is also meaningful:
 ```bash
 ... <off-leg-id> --jvm-option '-Dturboism.validation.skippedFrameUploadElision=false'
 ```
+
+#### Pan / ArtMesh acceptance runs (uploadElision factor)
+
+`NativeInteractionWorkload` accepts `modelUpdateFactor=uploadElision`: the legs
+keep the uniform-location hook ON and toggle only the elision gate, so each leg
+differs in a single variable. The same `leg.N.uploadElision.*` keys are emitted,
+plus `leg.N.geometryDigest` (baseline before the gesture),
+`leg.N.movedGeometryDigest` (after the drag) and
+`leg.N.restoredGeometryDigest` (after native restore/undo). After all four legs
+the workload asserts `crossLegBaselineParity`, `crossLegMovedGeometryParity` and
+`crossLegRestoredGeometryParity` — any digest difference across legs fails the
+run, so ON legs can never silently diverge from the OFF controls.
+
+```bash
+# pan: expects changedMeshCount=0 on every leg; baseline/moved/restored
+# digests equal across all four legs.
+bash scripts/preview/run-model-update-skip-host-validation.sh on-pan 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --ready-marker 'TURBOISM_UPLOAD_ELISION elision=ACTIVE' \
+  --result-timeout 1200
+
+# artmesh: single-mesh authoring drag; expects changedMeshCount=1 per leg and
+# moved/restored digest parity across OFF and ON legs. A drag is NOT a
+# skipped-frame workload, so elided=0 is the expected result — the run proves
+# no correctness regression and no slowdown, not savings.
+bash scripts/preview/run-model-update-skip-host-validation.sh on-artmesh 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --ready-marker 'TURBOISM_UPLOAD_ELISION elision=ACTIVE' \
+  --result-timeout 1200
+
+# 5.3.02 wheel run (identical wrapper bytecode; admitted by digest):
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5302 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --ready-marker 'TURBOISM_UPLOAD_ELISION elision=ACTIVE' \
+  --result-timeout 1200
+```
+
+Add `--failure-marker 'TURBOISM_UPLOAD_ELISION installation=NOT_ADMITTED'` to a
+run that is expected to admit. On 5.2.03 the admission must fail closed —
+`shader/A` there is an unrelated Kotlin `Function0` lambda and the size helper
+lives on `shader/y` — so the evidence is the runtime-log line
+`TURBOISM_UPLOAD_ELISION installation=NOT_ADMITTED`; do NOT pass
+`modelUpdateFactor=uploadElision` on 5.2.03 because the workload requires the
+installed gate and fails by design without it. A minimal fail-closed check:
+
+```bash
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5203 <leg-id> \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --result-timeout 600
+```
+
+The wheel workload still passes (upload elision absent is not a failure for
+other factors); grep the runtime log for `installation=NOT_ADMITTED`.
 
 #### Composition with other transforms
 

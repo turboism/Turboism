@@ -29,6 +29,9 @@ final class NativeInteractionWorkload {
     private final boolean calibration = Boolean.getBoolean("turboism.validation.modelUpdateCalibration");
     private final String factor = System.getProperty("turboism.validation.modelUpdateFactor", "uniformHook");
     private final boolean matrixComparison = factor.equals("matrixScratch");
+    private final boolean elision = factor.equals("uploadElision");
+    private static final String ELISION_GATE = "turboism.upload-elision.gate";
+    private static final String ELISION_STATS = "turboism.upload-elision.stats";
     private Frame window;
     private JComponent canvas;
     private NativeInteractionHost host;
@@ -37,14 +40,18 @@ final class NativeInteractionWorkload {
     private Point startPoint;
     private boolean spaceDown, mouseDown;
     private final Map<Boolean, Boolean> nativeUndoDirtyPolicy = new java.util.HashMap<>();
+    private final List<String> legBaselineDigests = new ArrayList<>();
+    private final List<String> legMovedDigests = new ArrayList<>();
+    private final List<String> legRestoredDigests = new ArrayList<>();
     private int lastX, lastY;
 
     NativeInteractionWorkload(String fixture, Path state, String kind) {
         if (fixture == null || fixture.isBlank() || !List.of("pan", "artmesh").contains(kind)) {
             throw new IllegalArgumentException("native interaction requires a fixture and pan/artmesh mode");
         }
-        if (!List.of("uniformHook", "matrixScratch").contains(factor)) {
-            throw new IllegalArgumentException("native interaction factor must be uniformHook or matrixScratch");
+        if (!List.of("uniformHook", "matrixScratch", "uploadElision").contains(factor)) {
+            throw new IllegalArgumentException(
+                "native interaction factor must be uniformHook, matrixScratch or uploadElision");
         }
         if (Boolean.getBoolean("turboism.uniform-location.shadow")
             || Boolean.getBoolean("turboism.validation.modelUpdateGlCalls")
@@ -66,6 +73,16 @@ final class NativeInteractionWorkload {
             .append("performanceAccepted=false\nlatencyDefinition=drag-event-to-native-paint-barrier-not-presentation\n")
             .append("geometryChecks=source-all-keyforms-interpolated-calculated-raw-bits\n")
             .append("authoringDriver=native-mouse-not-SDK-replaceGeometry\n");
+        if (elision) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get("turboism.upload-elision.predicate")
+                        instanceof java.util.function.BiPredicate<?, ?>)
+                || !(slots.get(ELISION_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "uploadElision factor requires the skippedFrameUploadElision hook installed");
+            }
+            report.append("uploadElision.installed=true\n");
+        }
         Files.writeString(state.resolve("interaction-benchmark.txt"), report + "status=PREPARING\n");
         try {
             try (PreparationWatchdog preparation = new PreparationWatchdog(state, 30_000L)) {
@@ -86,14 +103,36 @@ final class NativeInteractionWorkload {
             boolean[] variants = {false, true, true, false};
             for (int leg = 0; leg < variants.length; leg++) {
                 final boolean enabled = variants[leg];
-                edt(() -> { hook.setEnabled(enabled); return null; });
+                edt(() -> {
+                    // uploadElision legs keep the uniform hook ON (production
+                    // default, matching the wheel runs) and toggle only the
+                    // elision gate so the legs differ in a single variable.
+                    hook.setEnabled(elision || enabled);
+                    if (elision) setElisionArmed(enabled);
+                    return null;
+                });
                 Files.writeString(state.resolve("interaction-progress.txt"), "leg=" + leg + "\nstage=warmup\n");
                 gesture(enabled, calibration ? 4 : 24, null, "warmup." + leg + ".");
                 Files.writeString(state.resolve("interaction-progress.txt"), "leg=" + leg + "\nstage=measuring\n");
                 gesture(enabled, calibration ? 16 : 200, report, "leg." + leg + ".");
                 Files.writeString(state.resolve("interaction-benchmark.txt"), report);
             }
-            report.append("status=PASS\n");
+            // Every leg must observe the same baseline, moved and restored
+            // geometry; for uploadElision legs this is the cross-leg parity
+            // evidence (pan: all equal; artmesh: moved/restored equal across
+            // OFF and ON legs).
+            if (!legBaselineDigests.isEmpty()
+                && (legBaselineDigests.stream().distinct().count() != 1
+                    || legMovedDigests.stream().distinct().count() != 1
+                    || legRestoredDigests.stream().distinct().count() != 1)) {
+                throw new IllegalStateException("geometry digests differ across legs: baselines="
+                    + legBaselineDigests + " moved=" + legMovedDigests
+                    + " restored=" + legRestoredDigests);
+            }
+            report.append("crossLegBaselineParity=").append(legBaselineDigests.stream().distinct().count() == 1).append('\n')
+                .append("crossLegMovedGeometryParity=").append(legMovedDigests.stream().distinct().count() == 1).append('\n')
+                .append("crossLegRestoredGeometryParity=").append(legRestoredDigests.stream().distinct().count() == 1).append('\n')
+                .append("status=PASS\n");
         } catch (Throwable failure) {
             report.append("status=FAIL\nerror=").append(failure).append('\n');
             Files.writeString(state.resolve("interaction-benchmark.txt"), report);
@@ -121,6 +160,8 @@ final class NativeInteractionWorkload {
         final List<Object> authoringBefore = edt(host::appliedAuthoringEdits);
         final boolean dirtyBefore = edt(host::modified);
         final String beforePixels = kind.equals("artmesh") ? edt(() -> hook.capture(canvas).digest()) : "not-required";
+        final Map<String, Long> elisionBefore = report != null && elision
+            ? uploadElisionStats() : Map.of();
         final long[] samples = new long[steps], queue = new long[steps], handler = new long[steps], repaint = new long[steps];
         final long[] started = {0L}, elapsed = {0L}, pressNanos = {0L}, releaseNanos = {0L};
         final List<Map<String, Long>> snapshots = new ArrayList<>();
@@ -194,7 +235,7 @@ final class NativeInteractionWorkload {
                 }
             });
             if (snapshots.size() != 2) throw new IllegalStateException("gesture accounting incomplete");
-            hook.requireLeg(snapshots.get(0), snapshots.get(1), enabled, steps);
+            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || enabled, steps);
             final var moved = edt(host::geometry);
             List<Integer> changed = NativeInteractionHost.changed(baseline, moved);
             final var movedCamera = edt(host::camera);
@@ -207,14 +248,20 @@ final class NativeInteractionWorkload {
                 + "\nauthoringBefore=" + authoringBefore.size() + "\nauthoringAfter=" + edt(host::appliedAuthoringEdits).size()
                 + "\n" + edt(host::actionState));
             if (report != null) verifyPixelsAtCurrentState(prefix + "moved");
+            String restoredDigest = null;
             if (kind.equals("pan")) {
                 if (cameraBefore.equals(movedCamera) || !changed.isEmpty()
                     || !undoBefore.equals(edt(host::undoState)) || dirtyBefore != edt(host::modified)) {
                     throw new IllegalStateException("pan did not exclusively change camera: changedMeshes=" + changed);
                 }
                 edt(() -> { host.restoreCamera(cameraBefore); return null; }); drain();
-                if (!cameraBefore.equals(edt(host::camera)) || !NativeInteractionHost.changed(baseline, edt(host::geometry)).isEmpty()) {
+                final var restored = edt(host::geometry);
+                if (!cameraBefore.equals(edt(host::camera)) || !NativeInteractionHost.changed(baseline, restored).isEmpty()) {
                     throw new IllegalStateException("pan restoration mismatch");
+                }
+                if (report != null) {
+                    restoredDigest = geometryDigest(restored);
+                    report.append(prefix).append("restoredGeometryDigest=").append(restoredDigest).append('\n');
                 }
             } else {
                 final List<Object> authoringAfter = edt(host::appliedAuthoringEdits);
@@ -240,6 +287,10 @@ final class NativeInteractionWorkload {
                 if (!remainingChanges.isEmpty() || !remainingEdits.equals(authoringBefore)) {
                     throw new IllegalStateException("final native Undo did not restore geometry/history");
                 }
+                if (report != null) {
+                    restoredDigest = geometryDigest(edt(host::geometry));
+                    report.append(prefix).append("restoredGeometryDigest=").append(restoredDigest).append('\n');
+                }
                 // Native undo can keep the document's sticky modified-after-saving flag.
                 // Compare ON to the observed OFF behavior, never clear that flag ourselves.
                 if (!enabled) {
@@ -254,14 +305,16 @@ final class NativeInteractionWorkload {
             }
             if (report != null) {
                 verifyPixelsAtCurrentState(prefix + "restored");
-                edt(() -> { hook.setEnabled(enabled); return null; });
+                edt(() -> { hook.setEnabled(elision || enabled); return null; });
                 long[] sorted = samples.clone(); Arrays.sort(sorted);
                 long total = Arrays.stream(samples).sum();
                 long frames = NarrowUniformTrial.delta(snapshots.get(0), snapshots.get(1), "completedDisplayFrames");
                 report.append(prefix).append("enabled=").append(enabled).append('\n')
-                    .append(prefix).append("variant=").append(matrixComparison
-                        ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
-                        : (enabled ? "narrow-locations" : "native")).append('\n')
+                    .append(prefix).append("variant=").append(elision
+                        ? (enabled ? "upload-elision-on" : "upload-elision-off")
+                        : matrixComparison
+                            ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
+                            : (enabled ? "narrow-locations" : "native")).append('\n')
                     .append(prefix).append("samples=").append(steps).append('\n')
                     .append(prefix).append("elapsedNanos=").append(elapsed[0]).append('\n')
                     .append(prefix).append("meanNanos=").append(total / steps).append('\n')
@@ -276,6 +329,7 @@ final class NativeInteractionWorkload {
                     .append(prefix).append("renderFramesPerSecond=").append(frames * 1e9 / elapsed[0]).append('\n')
                     .append(prefix).append("rawNanos=").append(Arrays.toString(samples)).append('\n')
                     .append(prefix).append("changedMeshes=").append(changed).append('\n')
+                    .append(prefix).append("changedMeshCount=").append(changed.size()).append('\n')
                     .append(prefix).append("geometryRestored=true\n")
                     .append(prefix).append("movedStatePixelParity=true\n")
                     .append(prefix).append("restoredStatePixelParity=true\n")
@@ -287,6 +341,30 @@ final class NativeInteractionWorkload {
                     .append(value.getKey()).append('=').append(value.getValue() - snapshots.get(0).getOrDefault(value.getKey(), 0L)).append('\n');
                 for (var value : modelSnapshots.get(1).entrySet()) report.append(prefix).append("modelUpdate.")
                     .append(value.getKey()).append('=').append(value.getValue() - modelSnapshots.get(0).getOrDefault(value.getKey(), 0L)).append('\n');
+                if (elision) {
+                    // Counters report the leg delta; gauges and high-water
+                    // marks report the absolute reading (see CanvasWheelWorkload).
+                    final java.util.Set<String> elisionGauges = java.util.Set.of(
+                        "entries", "capacity", "peakEntries", "snapshotBytes",
+                        "snapshotBytesPeak", "mode");
+                    final Map<String, Long> elisionAfter = uploadElisionStats();
+                    for (String key : elisionAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("uploadElision.").append(key).append('=')
+                            .append(elisionGauges.contains(key)
+                                ? elisionAfter.get(key)
+                                : elisionAfter.get(key) - elisionBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                final String baselineDigest = geometryDigest(baseline);
+                final String movedDigest = geometryDigest(moved);
+                report.append(prefix).append("geometryDigest=").append(baselineDigest).append('\n')
+                    .append(prefix).append("movedGeometryDigest=").append(movedDigest).append('\n');
+                legBaselineDigests.add(baselineDigest);
+                legMovedDigests.add(movedDigest);
+                legRestoredDigests.add(java.util.Objects.requireNonNull(restoredDigest,
+                    "restored digest missing for " + kind));
                 if (resources != null) resources.snapshot().forEach((key, value) -> report.append(prefix)
                     .append("resources.").append(key).append('=').append(value).append('\n'));
             }
@@ -319,7 +397,7 @@ final class NativeInteractionWorkload {
                 + "\nselected=" + selected + "\npoint=" + startPoint + "\n");
             if (!selected) throw new IllegalStateException("native picker found no editable single-ArtMesh target");
             Thread.sleep(600L);
-        } finally { edt(() -> { hook.setEnabled(enabled); return null; }); }
+        } finally { edt(() -> { hook.setEnabled(elision || enabled); return null; }); }
     }
 
     private record ParityCapture(FrameReadback image, String before, String after) { }
@@ -423,6 +501,57 @@ final class NativeInteractionWorkload {
         values.forEach((key, value) -> { if (key instanceof String name && value instanceof Number n) result.put(name, n.longValue()); });
         return result;
     }
+    /** Arms/disarms the upload-elision bridge for the current leg. */
+    private static void setElisionArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(ELISION_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("upload elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> uploadElisionStats() {
+        final Object callback = System.getProperties().get(ELISION_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
+    }
+
+    /** Stable digest over every raw float bit of a Geometry snapshot. */
+    private static String geometryDigest(final NativeInteractionHost.Geometry geometry) {
+        try {
+            final var digest = java.security.MessageDigest.getInstance("SHA-256");
+            final byte[] word = new byte[4];
+            final java.util.function.Consumer<float[]> feed = array -> {
+                for (final float value : array) {
+                    final int bits = Float.floatToRawIntBits(value);
+                    word[0] = (byte) bits;
+                    word[1] = (byte) (bits >>> 8);
+                    word[2] = (byte) (bits >>> 16);
+                    word[3] = (byte) (bits >>> 24);
+                    digest.update(word);
+                }
+            };
+            geometry.interpolated().forEach(feed::accept);
+            geometry.source().forEach(feed::accept);
+            geometry.calculated().forEach(feed::accept);
+            geometry.keyforms().forEach(list -> list.forEach(feed::accept));
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (final java.security.NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException(unavailable);
+        }
+    }
+
     private static void drain() throws Exception { edt(() -> null); }
     private static <T> T edt(Callable<T> action) throws Exception { return edt(action, 10L); }
     private static <T> T edt(Callable<T> action, long seconds) throws Exception {
