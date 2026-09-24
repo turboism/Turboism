@@ -35,6 +35,7 @@ final class HookManifestTest {
                 IncrementalUpdateHookContributor.class,
                 GlGetErrorElisionHookContributor.class,
                 SkippedFrameUploadElisionHookContributor.class,
+                InputPathElisionHookContributor.class,
                 UniformLocationCacheHookContributor.class,
                 MatrixScratchHookContributor.class,
                 NativeEditBeginHookContributor.class,

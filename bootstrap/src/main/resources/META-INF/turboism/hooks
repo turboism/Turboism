@@ -19,6 +19,7 @@ dev.turboism.bootstrap.ModelUpdateSkipHookContributor
 dev.turboism.bootstrap.IncrementalUpdateHookContributor
 dev.turboism.bootstrap.GlGetErrorElisionHookContributor
 dev.turboism.bootstrap.SkippedFrameUploadElisionHookContributor
+dev.turboism.bootstrap.InputPathElisionHookContributor
 dev.turboism.bootstrap.UniformLocationCacheHookContributor
 dev.turboism.bootstrap.MatrixScratchHookContributor
 dev.turboism.bootstrap.NativeEditBeginHookContributor

@@ -30,8 +30,11 @@ final class NativeInteractionWorkload {
     private final String factor = System.getProperty("turboism.validation.modelUpdateFactor", "uniformHook");
     private final boolean matrixComparison = factor.equals("matrixScratch");
     private final boolean elision = factor.equals("uploadElision");
+    private final boolean inputPath = factor.equals("inputPath");
     private static final String ELISION_GATE = "turboism.upload-elision.gate";
     private static final String ELISION_STATS = "turboism.upload-elision.stats";
+    private static final String INPUTPATH_GATE = "turboism.input-path.gate";
+    private static final String INPUTPATH_STATS = "turboism.input-path.stats";
     private Frame window;
     private JComponent canvas;
     private NativeInteractionHost host;
@@ -43,15 +46,17 @@ final class NativeInteractionWorkload {
     private final List<String> legBaselineDigests = new ArrayList<>();
     private final List<String> legMovedDigests = new ArrayList<>();
     private final List<String> legRestoredDigests = new ArrayList<>();
+    private final List<String> legFocusOwners = new ArrayList<>();
+    private final List<String> legCanvasCursors = new ArrayList<>();
     private int lastX, lastY;
 
     NativeInteractionWorkload(String fixture, Path state, String kind) {
         if (fixture == null || fixture.isBlank() || !List.of("pan", "artmesh").contains(kind)) {
             throw new IllegalArgumentException("native interaction requires a fixture and pan/artmesh mode");
         }
-        if (!List.of("uniformHook", "matrixScratch", "uploadElision").contains(factor)) {
+        if (!List.of("uniformHook", "matrixScratch", "uploadElision", "inputPath").contains(factor)) {
             throw new IllegalArgumentException(
-                "native interaction factor must be uniformHook, matrixScratch or uploadElision");
+                "native interaction factor must be uniformHook, matrixScratch, uploadElision or inputPath");
         }
         if (Boolean.getBoolean("turboism.uniform-location.shadow")
             || Boolean.getBoolean("turboism.validation.modelUpdateGlCalls")
@@ -83,6 +88,16 @@ final class NativeInteractionWorkload {
             }
             report.append("uploadElision.installed=true\n");
         }
+        if (inputPath) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get("turboism.input-path.focus")
+                        instanceof java.util.function.Predicate<?>)
+                || !(slots.get(INPUTPATH_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "inputPath factor requires the inputPathElision hook installed");
+            }
+            report.append("inputPath.installed=true\n");
+        }
         Files.writeString(state.resolve("interaction-benchmark.txt"), report + "status=PREPARING\n");
         try {
             try (PreparationWatchdog preparation = new PreparationWatchdog(state, 30_000L)) {
@@ -104,11 +119,13 @@ final class NativeInteractionWorkload {
             for (int leg = 0; leg < variants.length; leg++) {
                 final boolean enabled = variants[leg];
                 edt(() -> {
-                    // uploadElision legs keep the uniform hook ON (production
-                    // default, matching the wheel runs) and toggle only the
-                    // elision gate so the legs differ in a single variable.
-                    hook.setEnabled(elision || enabled);
+                    // uploadElision/inputPath legs keep the uniform hook ON
+                    // (production default, matching the wheel runs) and toggle
+                    // only the experiment gate so the legs differ in a single
+                    // variable.
+                    hook.setEnabled(elision || inputPath || enabled);
                     if (elision) setElisionArmed(enabled);
+                    if (inputPath) setInputPathArmed(enabled);
                     return null;
                 });
                 Files.writeString(state.resolve("interaction-progress.txt"), "leg=" + leg + "\nstage=warmup\n");
@@ -129,9 +146,20 @@ final class NativeInteractionWorkload {
                     + legBaselineDigests + " moved=" + legMovedDigests
                     + " restored=" + legRestoredDigests);
             }
+            // The focus owner and the canvas cursor are observable Java-side
+            // state the elision must never disturb: identical fingerprints on
+            // every leg are a correctness gate, not just telemetry.
+            if (!legFocusOwners.isEmpty()
+                && (legFocusOwners.stream().distinct().count() != 1
+                    || legCanvasCursors.stream().distinct().count() != 1)) {
+                throw new IllegalStateException("focus/cursor state differs across legs: owners="
+                    + legFocusOwners + " cursors=" + legCanvasCursors);
+            }
             report.append("crossLegBaselineParity=").append(legBaselineDigests.stream().distinct().count() == 1).append('\n')
                 .append("crossLegMovedGeometryParity=").append(legMovedDigests.stream().distinct().count() == 1).append('\n')
                 .append("crossLegRestoredGeometryParity=").append(legRestoredDigests.stream().distinct().count() == 1).append('\n')
+                .append("crossLegFocusOwnerParity=").append(legFocusOwners.stream().distinct().count() == 1).append('\n')
+                .append("crossLegCanvasCursorParity=").append(legCanvasCursors.stream().distinct().count() == 1).append('\n')
                 .append("status=PASS\n");
         } catch (Throwable failure) {
             report.append("status=FAIL\nerror=").append(failure).append('\n');
@@ -162,6 +190,8 @@ final class NativeInteractionWorkload {
         final String beforePixels = kind.equals("artmesh") ? edt(() -> hook.capture(canvas).digest()) : "not-required";
         final Map<String, Long> elisionBefore = report != null && elision
             ? uploadElisionStats() : Map.of();
+        final Map<String, Long> inputPathBefore = report != null && inputPath
+            ? inputPathStats() : Map.of();
         final long[] samples = new long[steps], queue = new long[steps], handler = new long[steps], repaint = new long[steps];
         final long[] started = {0L}, elapsed = {0L}, pressNanos = {0L}, releaseNanos = {0L};
         final List<Map<String, Long>> snapshots = new ArrayList<>();
@@ -235,7 +265,7 @@ final class NativeInteractionWorkload {
                 }
             });
             if (snapshots.size() != 2) throw new IllegalStateException("gesture accounting incomplete");
-            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || enabled, steps);
+            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || inputPath || enabled, steps);
             final var moved = edt(host::geometry);
             List<Integer> changed = NativeInteractionHost.changed(baseline, moved);
             final var movedCamera = edt(host::camera);
@@ -305,13 +335,15 @@ final class NativeInteractionWorkload {
             }
             if (report != null) {
                 verifyPixelsAtCurrentState(prefix + "restored");
-                edt(() -> { hook.setEnabled(elision || enabled); return null; });
+                edt(() -> { hook.setEnabled(elision || inputPath || enabled); return null; });
                 long[] sorted = samples.clone(); Arrays.sort(sorted);
                 long total = Arrays.stream(samples).sum();
                 long frames = NarrowUniformTrial.delta(snapshots.get(0), snapshots.get(1), "completedDisplayFrames");
                 report.append(prefix).append("enabled=").append(enabled).append('\n')
                     .append(prefix).append("variant=").append(elision
                         ? (enabled ? "upload-elision-on" : "upload-elision-off")
+                        : inputPath
+                            ? (enabled ? "input-path-on" : "input-path-off")
                         : matrixComparison
                             ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
                             : (enabled ? "narrow-locations" : "native")).append('\n')
@@ -357,6 +389,22 @@ final class NativeInteractionWorkload {
                             .append('\n');
                     }
                 }
+                if (inputPath) {
+                    final Map<String, Long> inputPathAfter = inputPathStats();
+                    for (String key : inputPathAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("inputPath.").append(key).append('=')
+                            .append(inputPathAfter.get(key)
+                                - inputPathBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                final String legFocusOwner = edt(NativeInteractionWorkload::focusOwnerFingerprint);
+                final String legCanvasCursor = edt(this::canvasCursorFingerprint);
+                legFocusOwners.add(legFocusOwner);
+                legCanvasCursors.add(legCanvasCursor);
+                report.append(prefix).append("focusOwner=").append(legFocusOwner).append('\n')
+                    .append(prefix).append("canvasCursor=").append(legCanvasCursor).append('\n');
                 final String baselineDigest = geometryDigest(baseline);
                 final String movedDigest = geometryDigest(moved);
                 report.append(prefix).append("geometryDigest=").append(baselineDigest).append('\n')
@@ -397,7 +445,7 @@ final class NativeInteractionWorkload {
                 + "\nselected=" + selected + "\npoint=" + startPoint + "\n");
             if (!selected) throw new IllegalStateException("native picker found no editable single-ArtMesh target");
             Thread.sleep(600L);
-        } finally { edt(() -> { hook.setEnabled(elision || enabled); return null; }); }
+        } finally { edt(() -> { hook.setEnabled(elision || inputPath || enabled); return null; }); }
     }
 
     private record ParityCapture(FrameReadback image, String before, String after) { }
@@ -525,6 +573,48 @@ final class NativeInteractionWorkload {
             }
         });
         return result;
+    }
+
+    /** Arms/disarms the input-path elision bridge for the current leg. */
+    private static void setInputPathArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(INPUTPATH_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("input path elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> inputPathStats() {
+        final Object callback = System.getProperties().get(INPUTPATH_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
+    }
+
+    /** Stable fingerprint of the Java-side focus owner (class + identity). */
+    private static String focusOwnerFingerprint() {
+        final Component owner = KeyboardFocusManager
+            .getCurrentKeyboardFocusManager().getFocusOwner();
+        return owner == null ? "none"
+            : owner.getClass().getName() + "@" + System.identityHashCode(owner);
+    }
+
+    /** Stable fingerprint of the canvas cursor instance. */
+    private String canvasCursorFingerprint() {
+        final java.awt.Cursor cursor = canvas.getCursor();
+        return cursor == null ? "none"
+            : cursor.getClass().getName() + "@" + System.identityHashCode(cursor)
+                + ":" + cursor.getType();
     }
 
     /** Stable digest over every raw float bit of a Geometry snapshot. */
