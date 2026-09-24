@@ -1664,3 +1664,7 @@ n8 是这套链路的首次实机有效性证据。
 - **T19 JFR 预算腿已提交**（同 worktree）：stack 3272baaa（叠加两 elision）
   / base e3100aab（生产默认）；stackdepth=128 经 FlightRecorderOptions，
   sample period 硬编码 5ms 不可调。诊断腿。
+- **T20+T21 已提交**（input-path@142a6b336，agent 28bd561e/probe
+  2411a920 一致）：t20-wheel fea5b0ac/5ccec5d2、t20-pan f38e40eb、
+  t20-drag d50f76b9（canvasComposite+两叠加）；t21-mscratch
+  1535062d/5b23f525（matrixScratch 首个完整 ABBA）。
