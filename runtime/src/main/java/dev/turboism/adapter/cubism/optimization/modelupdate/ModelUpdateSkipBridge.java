@@ -48,6 +48,13 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     public static final String AFTER_PROPERTY = "turboism.model-update-skip.after";
     /** Payload-free statistics slot. */
     public static final String STATS_PROPERTY = "turboism.model-update-skip.stats";
+    /**
+     * Slot for an {@link AtomicBoolean} that is {@code true} only while the
+     * current frame's model update was actually skipped. Other host hooks read
+     * it at render time; it is set {@code false} at every predicate entry and
+     * only set {@code true} on the real skip path (never in probe mode).
+     */
+    public static final String SKIPPED_FRAME_PROPERTY = "turboism.model-update-skip.frame-skipped";
     /** Probe mode: decided skips still run native and diff drawable digests. */
     public static final String PROBE_PROPERTY = "turboism.model-update-skip.probe";
     /** Probe mismatch report path (JSON lines, appended). */
@@ -108,6 +115,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private volatile Frame pendingFrame;
     private volatile byte[] pendingDigest;
     private volatile boolean pendingProbe;
+    private final AtomicBoolean skippedFrame = new AtomicBoolean();
     private Properties installedProperties;
 
     /**
@@ -249,19 +257,23 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         final Properties properties = System.getProperties();
         synchronized (properties) {
             if (properties.containsKey(CALLBACK_PROPERTY) || properties.containsKey(AFTER_PROPERTY)
-                || properties.containsKey(STATS_PROPERTY)) {
+                || properties.containsKey(STATS_PROPERTY)
+                || properties.containsKey(SKIPPED_FRAME_PROPERTY)) {
                 throw new IllegalStateException("model-update skip slots occupied");
             }
             try {
+                skippedFrame.set(false);
                 properties.put(CALLBACK_PROPERTY, callback);
                 properties.put(AFTER_PROPERTY, afterUpdate);
                 properties.put(STATS_PROPERTY, statistics);
+                properties.put(SKIPPED_FRAME_PROPERTY, skippedFrame);
                 installedProperties = properties;
                 active.set(true);
             } catch (RuntimeException | Error failure) {
                 properties.remove(CALLBACK_PROPERTY, callback);
                 properties.remove(AFTER_PROPERTY, afterUpdate);
                 properties.remove(STATS_PROPERTY, statistics);
+                properties.remove(SKIPPED_FRAME_PROPERTY, skippedFrame);
                 throw failure;
             }
         }
@@ -277,6 +289,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     }
 
     private boolean shouldSkip(final Object[] args) {
+        skippedFrame.set(false);
         if (!active.get() || !flagEnabled()) return false;
         calls.increment();
         final long started = System.nanoTime();
@@ -318,6 +331,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                 return false;
             }
             if (skip) skipped.increment();
+            skippedFrame.set(skip);
             return skip;
         } catch (Throwable failure) {
             failures.increment();
@@ -629,12 +643,14 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     /** Clears owned slots; outstanding callbacks fall back to the native path. */
     @Override public synchronized void close() {
         active.set(false);
+        skippedFrame.set(false);
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null) synchronized (properties) {
             properties.remove(CALLBACK_PROPERTY, callback);
             properties.remove(AFTER_PROPERTY, afterUpdate);
             properties.remove(STATS_PROPERTY, statistics);
+            properties.remove(SKIPPED_FRAME_PROPERTY, skippedFrame);
         }
     }
 
