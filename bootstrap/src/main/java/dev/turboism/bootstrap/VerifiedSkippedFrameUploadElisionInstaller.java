@@ -181,7 +181,8 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
                 "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
                 + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
-                + " clears=" + stats.get("clears") + " installed=false");
+                + " clears=" + stats.get("clears") + reportTail(stats)
+                + " installed=false");
             return;
         }
         for (final SkippedFrameUploadElisionTransformer transformer : transformers) {
@@ -203,25 +204,38 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
                 "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
                 + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
-                + " clears=" + stats.get("clears")
-                + " contextClears=" + stats.get("contextClears")
-                + " nonSkippedClears=" + stats.get("nonSkippedClears")
-                + " lifecycleClears=" + stats.get("lifecycleClears")
-                + " exceptionClears=" + stats.get("exceptionClears")
-                + " observerFailures=" + stats.get("observerFailures")
+                + " clears=" + stats.get("clears") + reportTail(stats)
                 + " restored=false reason=" + failure);
             throw new IllegalStateException("upload elision restoration failed", failure);
         }
         dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
             "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
             + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
-            + " clears=" + stats.get("clears")
-            + " contextClears=" + stats.get("contextClears")
+            + " clears=" + stats.get("clears") + reportTail(stats)
+            + " restored=true");
+    }
+
+    /** Pass-reason, per-kind and content-mode counters for the close marker. */
+    private static String reportTail(final Map<String, Long> stats) {
+        return " contextClears=" + stats.get("contextClears")
             + " nonSkippedClears=" + stats.get("nonSkippedClears")
             + " lifecycleClears=" + stats.get("lifecycleClears")
             + " exceptionClears=" + stats.get("exceptionClears")
             + " observerFailures=" + stats.get("observerFailures")
-            + " restored=true");
+            + " floatElided=" + stats.get("floatElided")
+            + " floatPassed=" + stats.get("floatPassed")
+            + " indexElided=" + stats.get("indexElided")
+            + " indexPassed=" + stats.get("indexPassed")
+            + " passGate=" + stats.get("passGate")
+            + " passNoBaseline=" + stats.get("passNoBaseline")
+            + " passSize=" + stats.get("passSize")
+            + " passBuffer=" + stats.get("passBuffer")
+            + " passRegion=" + stats.get("passRegion")
+            + " passContent=" + stats.get("passContent")
+            + " compares=" + stats.get("compares")
+            + " compareNanos=" + stats.get("compareNanos")
+            + " contentElided=" + stats.get("contentElided")
+            + " snapshotBytes=" + stats.get("snapshotBytes");
     }
 
     boolean restored() {
