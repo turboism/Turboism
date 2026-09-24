@@ -930,6 +930,39 @@
         "host-slot": 1,
         "display-input": 1
       }
+    },
+    "workspace": {
+      "description": "Workspace switching and reconnect validation.",
+      "command": "scripts/preview/run-workspace-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
+    },
+    "boundingbox-warp-mirror": {
+      "description": "BoundingBox overlay whole-object Warp mirror: four-direction SDK applies with label/result verification, descendant canvas preservation, atomic Undo/Redo, NO_CHANGE, and fail-closed rejection on 5.3.03.",
+      "command": "scripts/preview/run-boundingbox-warp-mirror-host-validation.sh",
+      "versions": [
+        "5303"
+      ],
+      "defaultVariant": "analyse",
+      "variants": {
+        "analyse": [
+          "{version}",
+          "{runLabel}"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
     }
   }
 }

@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     private final ProjectWorkspaceAdapter projectWorkspace;
-    private final Supplier<List<String>> selectedObjectIds;
+    private final Supplier<HostSelection> selectionReader;
     private final Object invalidationLock = new Object();
     private Optional<ProjectSnapshot> lastProjectObservation = Optional.empty();
     private Optional<DocumentSnapshot> lastDocumentObservation = Optional.empty();
@@ -35,35 +35,35 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     private HostSessionSnapshotSource(
         final ProjectWorkspaceAdapter projectWorkspace,
-        final Supplier<List<String>> selectedObjectIds
+        final Supplier<HostSelection> selectionReader
     ) {
         this.projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
-        this.selectedObjectIds = Objects.requireNonNull(selectedObjectIds, "selectedObjectIds");
+        this.selectionReader = Objects.requireNonNull(selectionReader, "selectionReader");
     }
 
     /**
      * @param projectWorkspace adapter whose immutable project and document snapshots are projected;
      *     it is read on every query rather than cached, so the source follows the live workspace
-     * @return a snapshot source for this session
+     * @return a snapshot source for this session whose selection stays empty (no live reader wired)
      * @throws NullPointerException if {@code projectWorkspace} is null
      */
     public static HostSnapshotSource forSession(final ProjectWorkspaceAdapter projectWorkspace) {
-        return new HostSessionSnapshotSource(projectWorkspace, List::of);
+        return new HostSessionSnapshotSource(projectWorkspace, HostSelection::empty);
     }
 
     /**
      * @param projectWorkspace adapter whose immutable project and document snapshots are projected;
      *     it is read on every query rather than cached, so the source follows the live workspace
-     * @param selectedObjectIds verified selection read (spec 046, T5) supplying the host's
-     *     selected object ids in host order; an empty supplier keeps the selection empty
+     * @param selectionReader live host selection read, invoked on every {@link #selection()} query;
+     *     its failures propagate to the caller rather than being masked as an empty selection
      * @return a snapshot source for this session
-     * @throws NullPointerException if an argument is null
+     * @throws NullPointerException if any argument is null
      */
     public static HostSnapshotSource forSession(
         final ProjectWorkspaceAdapter projectWorkspace,
-        final Supplier<List<String>> selectedObjectIds
+        final Supplier<HostSelection> selectionReader
     ) {
-        return new HostSessionSnapshotSource(projectWorkspace, selectedObjectIds);
+        return new HostSessionSnapshotSource(projectWorkspace, selectionReader);
     }
 
     @Override
@@ -85,7 +85,7 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     @Override
     public HostSelection selection() {
-        return observedSelection();
+        return selectionReader.get();
     }
 
     @Override
@@ -111,7 +111,7 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
             pair.project().orElse(null),
             pair.document().orElse(null),
             new dev.turboism.sdk.cubism.SelectionSnapshot(
-                readSelectedObjectIds(),
+                selectionReader.get().selectedObjectIds(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty()
@@ -147,7 +147,7 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
             project.map(this::project),
             projected,
             model,
-            observedSelection(),
+            selectionReader.get(),
             new ObservationEvidence(project, document)
         );
     }
@@ -175,28 +175,6 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
                 invalidationToken++;
             }
             return invalidationToken;
-        }
-    }
-
-    /**
-     * The verified selection read wired at construction, flattened to an empty snapshot when the
-     * supplier fails — the facade never reports selection errors to snapshot consumers.
-     */
-    private HostSelection observedSelection() {
-        return new HostSelection(
-            readSelectedObjectIds(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()
-        );
-    }
-
-    private List<String> readSelectedObjectIds() {
-        try {
-            final List<String> ids = selectedObjectIds.get();
-            return ids == null ? List.of() : List.copyOf(ids);
-        } catch (RuntimeException failure) {
-            return List.of();
         }
     }
 
