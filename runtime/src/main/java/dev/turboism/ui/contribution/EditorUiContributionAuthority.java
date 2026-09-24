@@ -32,11 +32,15 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
     private final Map<EditorUiFamily, EditorUiContributionProvider> providers = new EnumMap<>(EditorUiFamily.class);
     private final Map<EditorUiFamily, Registration> nativeRegistrations = new EnumMap<>(EditorUiFamily.class);
     private final Map<EditorUiFamily, EditorUiContributionFailure> failures = new EnumMap<>(EditorUiFamily.class);
+    private final Map<EditorUiFamily, Object> reconcileLocks = new EnumMap<>(EditorUiFamily.class);
     private final Registration lifecycleRegistration;
     private boolean closed;
 
     public EditorUiContributionAuthority(final EditorUiHostLifecycle hostLifecycle) {
         this.hostLifecycle = Objects.requireNonNull(hostLifecycle, "hostLifecycle");
+        for (EditorUiFamily family : EditorUiFamily.values()) {
+            reconcileLocks.put(family, new Object());
+        }
         this.lifecycleRegistration = hostLifecycle.subscribe(this::onHostChanged);
     }
 
@@ -230,6 +234,17 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
     }
 
     private void reconcile(final EditorUiFamily family) {
+        // Reconciles of one family are serialized: the remove -> provider -> put sequence must
+        // never interleave, or two writers would both install natively and the first writer's
+        // registration would be overwritten in nativeRegistrations and leaked. The family lock
+        // is only ever acquired around this body, so lock order stays reconcileLock -> monitor
+        // and provider calls still run without the authority monitor held.
+        synchronized (reconcileLocks.get(family)) {
+            reconcileLocked(family);
+        }
+    }
+
+    private void reconcileLocked(final EditorUiFamily family) {
         final EditorUiContributionProvider provider;
         final EditorUiHostSnapshot snapshot;
         final List<EditorUiContribution<?>> familyContributions;
