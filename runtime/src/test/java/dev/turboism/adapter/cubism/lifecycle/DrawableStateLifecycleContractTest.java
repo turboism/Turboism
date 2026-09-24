@@ -17,9 +17,9 @@ import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
-import dev.turboism.sdk.event.cubism.DrawableLockEvent;
-import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
+import dev.turboism.sdk.cubism.event.DrawableLockEvent;
+import dev.turboism.sdk.cubism.event.DrawableVisibilityEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;

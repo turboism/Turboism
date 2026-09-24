@@ -120,6 +120,20 @@ try {
     Assert-RejectedInstall "cancellation" $installHome $goodManifest "cancelled"
     $script:graalCancelled = $false
 
+    # Installer-page protocol: a pre-existing cancel flag cancels the install,
+    # and the status file receives the worker's progress/exit records.
+    $statusPath = Join-Path $fixtureRoot "graal-status.txt"
+    $cancelPath = Join-Path $fixtureRoot "graal-cancel.flag"
+    $script:graalStatusPath = $statusPath
+    [System.IO.File]::WriteAllText($cancelPath, "cancel")
+    $script:graalCancelPath = $cancelPath
+    Assert-RejectedInstall "cancel flag file" $installHome $goodManifest "cancelled"
+    $script:graalCancelPath = ""
+    [void](Install-ManagedGraalRuntime $installHome $goodManifest)
+    $statusText = [System.IO.File]::ReadAllText($statusPath)
+    Assert-InstallTest ($statusText.StartsWith([char]0xFEFF + "TURBOISM_GRAAL_STATUS_V1") -and $statusText -match "STATE\|READY") "status file carries the page progress protocol"
+    $script:graalStatusPath = ""
+
     $invalidHome = Join-Path $fixtureRoot "invalid-config"
     [void][System.IO.Directory]::CreateDirectory($invalidHome)
     foreach ($invalidJson in @('{broken', '{"schemaVersion":2}', '{"schemaVersion":"1"}', '{"schemaVersion":1.0}', '{"schemaVersion":1,"launcher":[]}', (' ' * 65537))) {

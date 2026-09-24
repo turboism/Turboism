@@ -4,6 +4,9 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -194,8 +197,31 @@ public final class ParameterCsvService {
         }
 
         try {
-            for (final ResolvedWrite write : writes) {
-                write.parameter().setValue(write.value());
+            // One ambient transaction coalesces the per-write native palette
+            // refresh into a single structure rebuild and makes the import
+            // atomic (all rows or rolled back).
+            final AuthoringTransactionResult<Void> transactionResult = cubism
+                .authoringTransactions()
+                .execute(
+                    AuthoringTransactionOptions.of("Parameter CSV import"),
+                    () -> {
+                        writeAll(writes);
+                        return null;
+                    });
+            if (transactionResult.outcome() == AuthoringTransactionOutcome.UNAVAILABLE
+                || transactionResult.outcome() == AuthoringTransactionOutcome.REJECTED_SCOPE) {
+                // No backend or already inside an ambient transaction — sequential
+                // writes still join the ambient scope and coalesce the same way.
+                writeAll(writes);
+            } else if (!transactionResult.successful()) {
+                logger.warn("Parameter CSV import transaction did not commit: "
+                    + transactionResult.outcome());
+                uiHost.notifyStatus(new StatusNotification(
+                    IMPORT_FAILED,
+                    "WARNING",
+                    "Parameter CSV import failed. The transaction did not commit."
+                ));
+                return;
             }
             uiHost.notifyStatus(new StatusNotification(
                 IMPORT_COMPLETED,
@@ -209,6 +235,12 @@ public final class ParameterCsvService {
                 "WARNING",
                 "Parameter CSV import failed. Some values may require Undo in Cubism."
             ));
+        }
+    }
+
+    private static void writeAll(final List<ResolvedWrite> writes) {
+        for (final ResolvedWrite write : writes) {
+            write.parameter().setValue(write.value());
         }
     }
 
@@ -304,10 +336,26 @@ public final class ParameterCsvService {
         return parseCsvStrict(csvText).rows();
     }
 
+    /**
+     * Supplies the text of the CSV file the user picked to
+     * {@link ParameterCsvService#importCsv()}.
+     *
+     * <p>A seam that keeps file access outside this service: callers wire in whichever granted
+     * read path is appropriate, while the default provider reports the content as
+     * unavailable.</p>
+     */
     @FunctionalInterface
     public interface CsvContentProvider {
+        /**
+         * @param relativePath the file the user chose in the import chooser
+         * @return the file's CSV text, or empty when it cannot be read
+         */
         Optional<String> read(String relativePath);
 
+        /**
+         * @return a provider whose reads always come back empty, so import reports the content
+         *     as unavailable instead of touching the filesystem
+         */
         static CsvContentProvider unavailable() {
             return ignored -> Optional.empty();
         }

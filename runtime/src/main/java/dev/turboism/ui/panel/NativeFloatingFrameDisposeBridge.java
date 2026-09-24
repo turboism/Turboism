@@ -57,8 +57,12 @@ public final class NativeFloatingFrameDisposeBridge {
         }
     }
 
+    /** Callback invoked after the host disposes a floating frame. */
     @FunctionalInterface
     public interface Handler {
+        /**
+         * @param frame the frame that was disposed
+         */
         void disposed(Object frame);
     }
 }

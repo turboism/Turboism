@@ -351,6 +351,8 @@ def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local-only durable single-session host verification queue")
     parser.add_argument("--manifest", default=str(default_manifest))
     commands = parser.add_subparsers(dest="command", required=True)
+    import host_validation_retention as retention
+    retention.add_parser(commands)
     commands.add_parser("list")
     for name in ("plan", "prepare", "run"):
         command = commands.add_parser(name)
@@ -394,6 +396,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser(Path(__file__).with_name("host-validation-tasks.json"))
     args = parser.parse_args(arguments)
     try:
+        if args.command == "gc":
+            import host_validation_retention as retention
+            return retention.main(args)
         if args.command == "_admit":
             emit(queue.validate_admission())
             return 0
@@ -437,7 +442,8 @@ def main(argv: list[str] | None = None) -> int:
             queue.wake(store)
             return wait_job(store, job["job_id"])
         if args.command == "submit":
-            prepared = queue.PreparedStore(store).load(args.prepared)
+            prior = [job for job in store.jobs() if job["request_key"] == args.request_id]
+            prepared = {"digest": args.prepared} if prior else queue.PreparedStore(store).load(args.prepared)
             job = store.submit(args.prepared, prepared["digest"], args.request_id, args.timeout_seconds)
             queue.wake(store)
             emit({"schemaVersion": 1, "job": job, "workerOnline": queue.worker_online(store)})

@@ -69,6 +69,8 @@ final class EditorAuthoringScope {
         refreshRequirements.addAll(contribution.refreshRequirements());
     }
 
+    // Registration entries are matched by identity: the slot to replace is the exact instance.
+    @SuppressWarnings("ReferenceEquality")
     void captureActual(final EditorUndoContribution contribution) {
         for (int index = 0; index < contributions.size(); index++) {
             if (contributions.get(index) == contribution) {

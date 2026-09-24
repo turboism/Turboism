@@ -6,9 +6,9 @@ set -euo pipefail
 # context-menu), the probe JAR, a README, and SHA256SUMS. Nothing here is part
 # of the production preview bundle or product build.
 #
-# Note: :plugins:core is intentionally NOT staged here: its plugin id
-# "turboism.core" is a Runtime-reserved identity and the loader rejects it as
-# PLUGIN_RESERVED_ID. The runtime already owns the built-in turboism.core.
+# Note: there is no core plugin jar to stage here. The framework shell lives
+# inside :runtime (already in the agent jar), and its reserved id
+# "turboism.core" is rejected from external packages as PLUGIN_RESERVED_ID.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 

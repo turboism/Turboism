@@ -18,10 +18,58 @@ class RuntimeStartupConfigTest {
     Path temporaryHome;
 
     @Test
-    void missingGlobalConfigKeepsEveryStartupSuppressionDisabled() {
+    void missingGlobalConfigDefaultsEveryStartupSuppressionOn() {
         final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome);
 
         assertFalse(config.safeMode());
+        assertTrue(config.skipStartupUpdateCheck());
+        assertTrue(config.skipStartupSplash());
+        assertTrue(config.skipStartupInformation());
+    }
+
+    @Test
+    void missingStartupKeysDefaultOnAndExplicitFalseOptsOut() throws Exception {
+        Files.writeString(temporaryHome.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "startup-test",
+              "safeMode": false,
+              "hooks": {
+                "startup": {
+                  "skipSplash": false
+                }
+              }
+            }
+            """);
+
+        final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome);
+
+        assertTrue(config.skipStartupUpdateCheck());
+        assertFalse(config.skipStartupSplash());
+        assertTrue(config.skipStartupInformation());
+    }
+
+    @Test
+    void explicitFalseForEverySwitchRequestsNoSuppression() throws Exception {
+        Files.writeString(temporaryHome.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "startup-test",
+              "safeMode": false,
+              "hooks": {
+                "startup": {
+                  "skipUpdateCheck": false,
+                  "skipSplash": false,
+                  "skipInformation": false
+                }
+              }
+            }
+            """);
+
+        final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome);
+
         assertFalse(config.skipStartupUpdateCheck());
         assertFalse(config.skipStartupSplash());
         assertFalse(config.skipStartupInformation());

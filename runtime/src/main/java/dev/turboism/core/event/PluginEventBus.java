@@ -61,6 +61,9 @@ public final class PluginEventBus implements EventBus {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginClassLoader = pluginClassLoader;
         this.legacyExactRouting = legacyExactRouting;
+        // The facade's checker — not descriptor declarations — authorizes each
+        // concrete delivery to this owner's root/supertype subscriptions.
+        broker.bindOwnerPermissions(owner, permissionChecker);
     }
 
     @Override

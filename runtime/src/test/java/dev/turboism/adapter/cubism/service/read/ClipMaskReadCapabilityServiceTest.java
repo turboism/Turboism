@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -19,9 +20,13 @@ import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
+import dev.turboism.sdk.cubism.RenderStatusSnapshot;
+import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -30,6 +35,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -408,5 +414,127 @@ class ClipMaskReadCapabilityServiceTest {
         @Override public String hostVersion() { return "5.3.02"; }
         @Override public boolean supportsClipMaskRead() { return true; }
         @Override public List<ClipMaskSnapshot> clipMasks() { return snapshots; }
+    }
+
+    @Test
+    void closedPluginScopeRejectsEveryReadBeforeTouchingSourcesOrAdapters() {
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        final AtomicInteger hostReads = new AtomicInteger();
+        final CubismReadCapabilityServiceImpl service = new CubismReadCapabilityServiceImpl(
+            new UncheckedFacade(),
+            countingM12(hostReads),
+            ThemeStatusAdapterImpl.connected(countingThemeHost(hostReads)),
+            RenderStatusAdapter.Impl.connected(countingRenderHost(hostReads)),
+            ProjectWorkspaceAdapter.Impl.connected(countingWorkspaceHost(hostReads)),
+            ClipMaskReadAdapter.Impl.connected(countingClipHost(hostReads)),
+            "plugin.read.test",
+            (permissionId, operationId, capabilityId) -> { },
+            scopeActive::get
+        );
+
+        service.psdDocuments();
+        service.clipMasks();
+        service.textureAtlases();
+        service.renderStatus();
+        service.workspace();
+        service.themeStatus();
+        assertEquals(6, hostReads.get());
+
+        scopeActive.set(false);
+
+        final List<Supplier<?>> operations = List.of(
+            service::selection,
+            service::parameters,
+            service::modelObjects,
+            service::meshes,
+            service::deformers,
+            service::psdDocuments,
+            service::clipMasks,
+            service::textureAtlases,
+            service::renderStatus,
+            service::workspace,
+            service::themeStatus
+        );
+        for (Supplier<?> operation : operations) {
+            assertThrows(IllegalStateException.class, operation::get);
+        }
+        assertEquals(6, hostReads.get());
+    }
+
+    private static M12ReadSnapshotSource countingM12(final AtomicInteger reads) {
+        return new M12ReadSnapshotSource() {
+            @Override public List<PsdDocumentSnapshot> psdDocuments() {
+                reads.incrementAndGet();
+                return List.of();
+            }
+            @Override public List<ClipMaskSnapshot> clipMasks() {
+                reads.incrementAndGet();
+                return List.of();
+            }
+            @Override public List<TextureAtlasSnapshot> textureAtlases() {
+                reads.incrementAndGet();
+                return List.of();
+            }
+            @Override public Optional<RenderStatusSnapshot> renderStatus() {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+            @Override public Optional<WorkspaceSnapshot> workspace() {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+            @Override public Optional<ThemeStatusSnapshot> themeStatus() {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+        };
+    }
+
+    private static ThemeStatusAdapter.HostOperations countingThemeHost(final AtomicInteger reads) {
+        return new ThemeStatusAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.02"; }
+            @Override public boolean supportsThemeStatusRead() { return true; }
+            @Override public Optional<ThemeStatusSnapshot> themeStatus() {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+        };
+    }
+
+    private static RenderStatusAdapter.HostOperations countingRenderHost(final AtomicInteger reads) {
+        return new RenderStatusAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.02"; }
+            @Override public boolean supportsRenderStatusRead() { return true; }
+            @Override public Optional<RenderStatusSnapshot> renderStatus() {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+        };
+    }
+
+    private static ProjectWorkspaceAdapter.HostOperations countingWorkspaceHost(final AtomicInteger reads) {
+        return new ProjectWorkspaceAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.02"; }
+            @Override public boolean supportsProjectWorkspaceRead() { return true; }
+            @Override public Optional<ProjectSnapshot> activeProject() {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+            @Override public Optional<WorkspaceSnapshot> workspace() {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+        };
+    }
+
+    private static ClipMaskReadAdapter.HostOperations countingClipHost(final AtomicInteger reads) {
+        return new ClipMaskReadAdapter.HostOperations() {
+            @Override public String hostVersion() { return "5.3.02"; }
+            @Override public boolean supportsClipMaskRead() { return true; }
+            @Override public List<ClipMaskSnapshot> clipMasks() {
+                reads.incrementAndGet();
+                return List.of();
+            }
+        };
     }
 }

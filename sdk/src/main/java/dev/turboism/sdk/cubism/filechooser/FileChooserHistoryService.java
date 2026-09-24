@@ -16,10 +16,10 @@ import java.util.Optional;
  * {@link #exportSeparationEnabled()} is on.
  *
  * <p>Persistence is owned by the plugin side: a single {@link Provider}
- * registered by the core plugin stores both directories under the plugin
- * config directory ({@code <home>/config/dev.turboism.plugin.core/}). The
- * runtime service delegates reads/writes to the registered provider and is
- * fail-closed without one (reads empty, writes no-op).
+ * registered by the framework shell stores both directories under the
+ * shell's reserved config directory ({@code <home>/config/turboism.core/}).
+ * The runtime service delegates reads/writes to the registered provider and
+ * is fail-closed without one (reads empty, writes no-op).
  */
 public interface FileChooserHistoryService {
 
@@ -54,6 +54,15 @@ public interface FileChooserHistoryService {
      */
     Registration registerProvider(Provider provider);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
     /** Safe-mode instance: reads are empty and writes fail closed. */
     static FileChooserHistoryService unavailable() {
         return Unavailable.INSTANCE;
@@ -82,6 +91,7 @@ public interface FileChooserHistoryService {
     /** Handle for a provider registration; {@link #unregister()} is idempotent. */
         interface Registration extends AutoCloseable {
 
+        /** Removes the registered provider; idempotent and safe to call more than once. */
         void unregister();
 
         @Override
@@ -90,8 +100,14 @@ public interface FileChooserHistoryService {
         }
     }
 
+        /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
         enum Unavailable implements FileChooserHistoryService {
         INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public Optional<Path> projectRecentDirectory() {

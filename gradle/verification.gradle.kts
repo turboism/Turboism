@@ -1,5 +1,8 @@
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 
 /*
  * Verification is deliberately layered by cost:
@@ -75,7 +78,7 @@ tasks.register("checkGraalScriptHostValidation") {
 
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
-    description = "Verifies baseline localization-key completeness for participating official plugins."
+    description = "Verifies the full locale matrix for official-plugin and framework catalogs."
     dependsOn(":testing:integration-tests:officialPluginI18nCompletenessTest")
 }
 
@@ -146,14 +149,24 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
 }
 
+// The Javadoc rule parses production sources through the JDK compiler tree API; the JDK 17
+// toolchain path is wired to the checker so it never depends on an incidental system JRE.
+val codeQualityJavaHome = project.extensions.getByType<JavaToolchainService>()
+    .compilerFor { languageVersion.set(JavaLanguageVersion.of(17)) }
+    .map { it.metadata.installationPath.asFile.absolutePath }
+
 val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs negative fixtures proving each code-quality rule fails closed."
     workingDir(rootDir)
     inputs.files(
         "scripts/test/check_code_quality.py",
-        "scripts/test/test_check_code_quality.py"
+        "scripts/test/test_check_code_quality.py",
+        fileTree("scripts/test/java") { include("**/*.java") }
     )
+    doFirst {
+        environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
+    }
     commandLine("python3", "scripts/test/test_check_code_quality.py")
 }
 
@@ -170,6 +183,7 @@ tasks.register<Exec>("checkCodeQuality") {
             "type names, and retired governance tokens in machine assets."
     workingDir(rootDir)
     inputs.files("scripts/test/check_code_quality.py")
+    inputs.files(fileTree("scripts/test/java") { include("**/*.java") })
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
@@ -180,6 +194,7 @@ tasks.register<Exec>("checkCodeQuality") {
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
     doFirst {
+        environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
         val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
         val command = mutableListOf(
             "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
@@ -240,6 +255,176 @@ val checkEditorModelAliasesSelfTest by tasks.registering(Exec::class) {
 
 checkEditorModelAliases.configure {
     dependsOn(checkEditorModelAliasesSelfTest)
+}
+
+/*
+ * Draft pack metadata restates its referenced verification record (selector count,
+ * capability roster, record SHA-256). Those pins drifted once already; the check
+ * task recomputes them from the pinned record bytes, and the self test proves the
+ * tamper matrix fails closed.
+ */
+tasks.register<Exec>("syncDraftPackMetadata") {
+    group = "build"
+    description = "Rewrites DRAFT pack metadata projections from the referenced verification record bytes."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/sync_draft_pack_metadata.py",
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("compatibility/cubism/verification") { include("*.json") }
+    )
+    commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath)
+}
+
+val checkDraftPackMetadataSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed tamper fixtures for draft pack metadata synchronization."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/sync_draft_pack_metadata.py",
+        "scripts/test/test_sync_draft_pack_metadata.py"
+    )
+    inputs.files(
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("compatibility/cubism/verification") { include("*.json") }
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_sync_draft_pack_metadata",
+        "-v"
+    )
+}
+
+val checkDraftPackMetadata by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when DRAFT pack metadata does not match its referenced verification record."
+    dependsOn(checkDraftPackMetadataSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/sync_draft_pack_metadata.py",
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("compatibility/cubism/verification") { include("*.json") }
+    )
+    commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath, "--check")
+}
+
+/*
+ * The admitted Cubism version set is restated across trust roots, the release
+ * detector, the availability policy, packaging, host-validation catalogs and
+ * docs. Every site must carry the identical set so adding or retiring a version
+ * is one deliberate change rather than silent partial admission.
+ */
+val checkVersionSetCompletenessSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for admitted-version-set completeness."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_set_completeness.py",
+        "scripts/test/test_check_version_set_completeness.py"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_check_version_set_completeness",
+        "-v"
+    )
+}
+
+val checkVersionSetCompleteness by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when any surface restates a different admitted Cubism version set."
+    dependsOn(checkVersionSetCompletenessSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_set_completeness.py",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+        "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java",
+        "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java",
+        "bootstrap/build.gradle.kts",
+        "scripts/preview/host-validation-tasks.json",
+        "scripts/preview/host_validation.py",
+        "compatibility/cubism/index.md",
+        fileTree("compatibility/cubism/profiles/draft") { include("*.json") }
+    )
+    commandLine("python3", "scripts/check_version_set_completeness.py", rootDir.absolutePath)
+}
+
+/*
+ * The bootstrap fat JAR packages verification records from an explicit filename
+ * list; a record missing from it fails closed only when the agent extracts it at
+ * host start. The index check derives the list from the verification directory
+ * and cross-checks manifest verificationId pins, so it also runs as a build-time
+ * dependency of :bootstrap:processResources.
+ */
+val checkVerificationRecordIndexSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for the packaged verification-record index."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/verification_record_index.py",
+        "scripts/test/test_verification_record_index.py"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_verification_record_index",
+        "-v"
+    )
+}
+
+val checkVerificationRecordIndex by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when the packaged verification-record list drifts from the directory or manifest pins."
+    dependsOn(checkVerificationRecordIndexSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/verification_record_index.py",
+        "bootstrap/build.gradle.kts",
+        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") }
+    )
+    commandLine("python3", "scripts/verification_record_index.py", rootDir.absolutePath, "--check")
+}
+
+/*
+ * The VerificationManifest classes and selector contracts are generated by
+ * :runtime:generateVerificationSources from byte-hashed verification records
+ * plus per-family authoring files under scripts/verification-sources/. The
+ * check fails if a generated target reappears under src/main/java, and
+ * render-time validation keeps alias/capability literals bound to the record
+ * universe; byte-level equivalence against the retired checked-in sources was
+ * proven by the migration gate before the sources were removed.
+ */
+val checkVerificationSourcesSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for verification source generation and equivalence."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/generate_verification_sources.py",
+        "scripts/test/test_generate_verification_sources.py"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_generate_verification_sources",
+        "-v"
+    )
+}
+
+val checkVerificationSources by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves generated verification sources are byte-identical to checked-in sources and record-derived."
+    dependsOn(checkVerificationSourcesSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/generate_verification_sources.py",
+        fileTree("scripts/verification-sources") { include("**/*") },
+        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") },
+        fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
+        fileTree("runtime/src/main/java/dev/turboism/ui") { include("**/*.java") }
+    )
+    commandLine(
+        "python3", "scripts/generate_verification_sources.py",
+        rootDir.absolutePath, "check", "--expect", "generated"
+    )
 }
 
 val checkPackageLayout by tasks.registering(Exec::class) {
@@ -446,7 +631,8 @@ val devCheck by tasks.registering {
         "checkCodeQuality",
         checkRepositoryHygiene,
         checkEditorModelAliases,
-        "validatePluginMeta"
+        "validatePluginMeta",
+        ":runtime:checkHeadlessRuntimeClasspath"
     )
 }
 
@@ -534,6 +720,46 @@ registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5203", "
 registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5302", "5302", "5.3.02")
 registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5303", "5303", "5.3.03")
 
+val buildWarpAltSymmetryHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds and self-checks the validation-only Warp deformer Alt-symmetry reconnaissance probe."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/warp-deformer-alt-symmetry-host-probe/build.sh")
+}
+
+fun registerWarpAltSymmetryHostValidation(name: String, version: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the exact-host Cubism $version Warp deformer Alt-symmetry reconnaissance probe."
+        dependsOn("previewBundle", ":sdk:jar", ":plugins:warp-deformer-alt-symmetry:jar", buildWarpAltSymmetryHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-warp-deformer-alt-symmetry-host-validation.sh", version)
+    }
+}
+
+registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5203", "5203")
+registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5302", "5302")
+registerWarpAltSymmetryHostValidation("validateWarpAltSymmetryHost5303", "5303")
+
+val buildBoundingBoxWarpMirrorHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds and self-checks the validation-only BoundingBox Warp-mirror reconnaissance probe."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/boundingbox-warp-mirror-host-probe/build.sh")
+}
+
+tasks.register<Exec>("validateBoundingBoxWarpMirrorHost5303") {
+    group = "host verification"
+    description = "Runs the exact-host Cubism 5.3.03 BoundingBox Warp-mirror reconnaissance probe."
+    dependsOn("previewBundle", ":sdk:jar", ":plugins:boundingbox-warp-mirror:jar", buildBoundingBoxWarpMirrorHostProbe)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/run-boundingbox-warp-mirror-host-validation.sh", "5303")
+}
+
 val buildFpsHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Builds the test-only SDK FPS counting host exerciser."
@@ -555,6 +781,68 @@ fun registerFpsHostValidation(name: String, version: String) {
 
 registerFpsHostValidation("validateFpsHost5203", "5203")
 registerFpsHostValidation("validateFpsHost5302", "5302")
+
+val buildModelUpdateSkipHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK model-update-skip host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/model-update-skip-host-probe/build.sh")
+}
+
+fun registerModelUpdateSkipHostValidation(name: String, version: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the exact-host Cubism $version model-update-skip leg (-PturboismHostValidationMode=off|probe|on)."
+        dependsOn("previewBundle", ":sdk:jar", buildModelUpdateSkipHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        val mode = providers.gradleProperty("turboismHostValidationMode").orElse("probe")
+        doFirst {
+            commandLine(
+                "bash",
+                "scripts/preview/run-model-update-skip-host-validation.sh",
+                mode.get(),
+                version
+            )
+        }
+    }
+}
+
+registerModelUpdateSkipHostValidation("validateModelUpdateSkipHost5203", "5203")
+registerModelUpdateSkipHostValidation("validateModelUpdateSkipHost5302", "5302")
+registerModelUpdateSkipHostValidation("validateModelUpdateSkipHost5303", "5303")
+
+val buildIncrementalUpdateHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK incremental-update host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/incremental-update-host-probe/build.sh")
+}
+
+fun registerIncrementalUpdateHostValidation(name: String, version: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the exact-host Cubism $version incremental-update leg (-PturboismHostValidationMode=off|probe|on)."
+        dependsOn("previewBundle", ":sdk:jar", buildIncrementalUpdateHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        val mode = providers.gradleProperty("turboismHostValidationMode").orElse("probe")
+        doFirst {
+            commandLine(
+                "bash",
+                "scripts/preview/run-incremental-update-host-validation.sh",
+                mode.get(),
+                version
+            )
+        }
+    }
+}
+
+registerIncrementalUpdateHostValidation("validateIncrementalUpdateHost5203", "5203")
+registerIncrementalUpdateHostValidation("validateIncrementalUpdateHost5302", "5302")
+registerIncrementalUpdateHostValidation("validateIncrementalUpdateHost5303", "5303")
 
 val buildSeparateSavePathHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
@@ -719,11 +1007,88 @@ registerParameterHostValidation("validateParameterHost5203", "5203", "5.2.03")
 registerWorkspaceHostValidation("validateWorkspaceHost5302", "5302", "5.3.02")
 registerWorkspaceHostValidation("validateWorkspaceHost5203", "5203", "5.2.03")
 
+/*
+ * External-consumer gate for templates/plugin-template: the template is copied to a
+ * unique temporary directory and built exactly like a third-party consumer would —
+ * the SDK is the real :sdk:jar artifact dropped into libs/, and every declared
+ * repository is cleared through an init script so nothing resolves from ~/.m2 or
+ * the monorepo. The produced plugin JAR is bound to its tracked descriptor through
+ * the production PluginMetaValidationCli / FirstPartyMetadataVerificationCli gate
+ * tools (runtime-internal; they never enter the template compile classpath). The
+ * self-test proves the check fails closed on a drifted descriptor and on an SDK
+ * served from an empty resolution repository, so a stale ~/.m2 cannot mask drift.
+ */
+val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for the external plugin-template consumer check."
+    dependsOn(":sdk:jar", ":runtime:classes")
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_external_plugin_template.py",
+        fileTree("templates/plugin-template") { include("**/*") }
+    )
+    inputs.files(provider {
+        project(":runtime").extensions.getByType<SourceSetContainer>()
+            .named("main").get().runtimeClasspath
+    })
+    doFirst {
+        commandLine(
+            "python3", "scripts/test/check_external_plugin_template.py", "selftest",
+            "--repo-root", rootDir.absolutePath,
+            "--sdk-jar",
+            project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
+            "--sdk-version", project(":sdk").version.toString(),
+            "--runtime-classpath",
+            project(":runtime").extensions.getByType<SourceSetContainer>()
+                .named("main").get().runtimeClasspath.asPath,
+            "--java", file("${codeQualityJavaHome.get()}/bin/java").absolutePath,
+            "--work-dir",
+            layout.buildDirectory.dir("tmp/external-plugin-template/selftest").get().asFile.absolutePath,
+            "--shared-gradle-home", gradle.gradleUserHomeDir.absolutePath
+        )
+    }
+}
+
+tasks.register<Exec>("checkExternalPluginTemplate") {
+    group = "verification"
+    description = "Builds templates/plugin-template as an external consumer and validates the plugin JAR through production contract tools."
+    dependsOn(":sdk:jar", ":runtime:classes", checkExternalPluginTemplateSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_external_plugin_template.py",
+        fileTree("templates/plugin-template") { include("**/*") }
+    )
+    inputs.file(provider {
+        project(":sdk").tasks.named<Jar>("jar").get().archiveFile
+    })
+    inputs.files(provider {
+        project(":runtime").extensions.getByType<SourceSetContainer>()
+            .named("main").get().runtimeClasspath
+    })
+    doFirst {
+        commandLine(
+            "python3", "scripts/test/check_external_plugin_template.py", "check",
+            "--repo-root", rootDir.absolutePath,
+            "--sdk-jar",
+            project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
+            "--sdk-version", project(":sdk").version.toString(),
+            "--runtime-classpath",
+            project(":runtime").extensions.getByType<SourceSetContainer>()
+                .named("main").get().runtimeClasspath.asPath,
+            "--java", file("${codeQualityJavaHome.get()}/bin/java").absolutePath,
+            "--work-dir",
+            layout.buildDirectory.dir("tmp/external-plugin-template/check").get().asFile.absolutePath,
+            "--shared-gradle-home", gradle.gradleUserHomeDir.absolutePath
+        )
+    }
+}
+
 tasks.register("checkIntegration") {
     group = "verification"
     description = "Runs packaged runtime, plugin, preview-agent, and affected cross-module integration verification."
     dependsOn(
         devCheck,
+        "checkExternalPluginTemplate",
         checkAsyncHostReadFoundation,
         checkCubismCoreApiInventory,
         checkCubismCoreMemberPolicy,
@@ -733,13 +1098,27 @@ tasks.register("checkIntegration") {
         "verifyFirstPartyPluginMetadata",
         "verifyFirstPartyPluginReadmes",
         "checkDistributionProtocolContract",
+        "checkOfficialPluginI18nCompleteness",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
         "checkHistoryValidationProbePackaging",
         "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
+        ":bootstrap:checkBootstrapJarDependencyIsolation",
+        "contractParentAgentTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
+}
+
+val checkPerformanceProbeReports by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks legacy and image-pipeline diagnostic evidence without launching Cubism."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/preview/verify-cubism-performance-probe.py",
+        "scripts/test/test_image_performance_probe.py"
+    )
+    commandLine("python3", "-m", "unittest", "-v", "scripts/test/test_image_performance_probe.py")
 }
 
 val ordinaryTestTasks = subprojects
@@ -755,11 +1134,16 @@ val checkCompletedCommit by tasks.registering {
         ":sdk:javadoc",
         "checkOfficialPluginI18nCompleteness",
         checkOfficialPluginReadmes,
+        checkDraftPackMetadata,
+        checkVersionSetCompleteness,
+        checkVerificationRecordIndex,
+        checkVerificationSources,
         "checkSdkApiBaselineTool",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
         checkRemoteHygieneSelfTest,
         checkPluginEventReference,
+        checkPerformanceProbeReports,
         "generateSdkApiReport"
     )
 }
@@ -812,6 +1196,7 @@ tasks.register("checkRelease") {
         "checkSdkV8ExactApiCompatibility",
         "checkSdkV9ExactApiCompatibility",
         "checkSdkV10ExactApiCompatibility",
+        "checkSdkV11ExactApiCompatibility",
         "checkSdkV8Linkage",
         "checkTextureAtlasSdkV7Linkage",
         checkMarketReleaseMetadata,

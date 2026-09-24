@@ -2,6 +2,8 @@ package dev.turboism.preview;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.host.HostSession;
+import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
+import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
 import dev.turboism.core.descriptor.CorePluginDescriptor;
@@ -22,6 +24,7 @@ import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.GuardedServiceFixture;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -56,16 +59,60 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LocalPluginRuntimeCloseTest {
 
     @TempDir
     Path temporary;
+
+    @Test
+    void sharedPerformanceCloseFailureDoesNotSkipHostLaneAndCanBeRetried() throws Exception {
+        final AtomicBoolean allowRestore = new AtomicBoolean();
+        final AtomicInteger restoreAttempts = new AtomicInteger();
+        final PerformanceFpsHook hook = new PerformanceFpsHook() {
+            @Override public void install() { }
+            @Override public boolean isInstalled() { return !allowRestore.get(); }
+            @Override public long renderSceneCalls() { return 0; }
+            @Override public void close() {
+                restoreAttempts.incrementAndGet();
+                if (!allowRestore.get()) throw new IllegalStateException("injected restoration failure");
+            }
+        };
+        PerformanceFpsHookRegistry.publish(hook);
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession hostSession = new HostSession(Optional::empty);
+        try (PreviewLog log = new PreviewLog(temporary.resolve("failure-cleanup.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(temporary, scheduler, hostSession, log);
+            try {
+                final SharedAsyncHostReadLane lane = hostReadLane(runtime);
+                assertThrows(IllegalStateException.class, runtime::close);
+                assertTrue(lane.isClosed(), "earlier shared-service failure must not skip the final host read lane");
+                final int failedAttempts = restoreAttempts.get();
+                allowRestore.set(true);
+                runtime.close();
+                assertTrue(restoreAttempts.get() > failedAttempts, "incomplete cleanup must retain a retry route");
+                final int completedAttempts = restoreAttempts.get();
+                runtime.close();
+                assertEquals(completedAttempts, restoreAttempts.get(), "successful stages are not repeated");
+            } finally {
+                allowRestore.set(true);
+                runtime.close();
+            }
+        } finally {
+            PerformanceFpsHookRegistry.clear(hook);
+            hostSession.close();
+            scheduler.shutdown();
+        }
+    }
 
     @Test
     void closeAttemptsEveryStageRetainsUnsafeLoaderAndClosesSharedLaneLast() throws Exception {
@@ -409,6 +456,116 @@ class LocalPluginRuntimeCloseTest {
         assertFalse(log.contains("C:/Users/private"));
     }
 
+    @Test
+    void closeDefersTeardownUntilPreFenceSdkCallDrainsThenRunsExactlyOnce() throws Exception {
+        final List<String> order = new ArrayList<>();
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession hostSession = new HostSession(Optional::empty);
+        final Path logFile = temporary.resolve("logs/turboism.log");
+        final PluginLifecyclePolicy policy = new PluginLifecyclePolicy(
+            2,
+            16,
+            Duration.ofSeconds(5),
+            Duration.ofSeconds(2),
+            Duration.ofSeconds(3),
+            Duration.ofMillis(200),
+            Duration.ofMillis(40)
+        );
+        final CountDownLatch sdkEntered = new CountDownLatch(1);
+        final CountDownLatch sdkRelease = new CountDownLatch(1);
+        try (PreviewLog log = new PreviewLog(logFile)) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                temporary,
+                scheduler,
+                hostSession.adapterAccess(),
+                log,
+                (pluginId, phase) -> { },
+                policy
+            );
+            final PluginGenerationGuard guard = new PluginGenerationGuard("dev.example.held");
+            final GuardedServiceFixture service = new GuardedServiceFixture() {
+                @Override
+                public String mutate(final String value) {
+                    sdkEntered.countDown();
+                    try {
+                        sdkRelease.await(30, TimeUnit.SECONDS);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return value;
+                }
+                @Override public GuardedServiceFixture child() { return this; }
+                @Override public void close() { order.add("held-registration-close"); }
+            };
+            final GuardedServiceFixture guarded = guard.wrapForTesting(
+                service,
+                GuardedServiceFixture.class
+            );
+            // An SDK call admitted before fencing stays in flight across the whole close.
+            final Thread sdkCall = new Thread(() -> guarded.mutate("x"));
+            sdkCall.start();
+            assertTrue(sdkEntered.await(5, TimeUnit.SECONDS));
+
+            addLoaded(
+                runtime,
+                loaded(
+                    "dev.example.held",
+                    new RecordingPlugin("held", order, false),
+                    scope("held", order, false),
+                    new URLClassLoader(new URL[0], getClass().getClassLoader())
+                ),
+                new CleanupEvidenceCollector(),
+                guard
+            );
+
+            // Close fences the generation, but disable()/shutdown() must not start while the
+            // pre-fence SDK call is still executing — teardown bodies can destroy the state it
+            // touches.
+            runtime.close();
+            assertFalse(
+                order.contains("held-disable"),
+                "disable must not run while a pre-fence SDK call is held"
+            );
+            assertFalse(order.contains("held-shutdown"));
+            assertFalse(
+                order.contains("held-scope"),
+                "scope disposal must not run while a pre-fence SDK call is held"
+            );
+
+            sdkRelease.countDown();
+            sdkCall.join(5_000);
+            awaitTrue(() -> order.contains("held-disable") && order.contains("held-shutdown"));
+            Thread.sleep(200);
+            assertEquals(
+                1,
+                order.stream().filter("held-disable"::equals).count(),
+                "disable must run exactly once after the admitted call drains"
+            );
+            assertEquals(
+                1,
+                order.stream().filter("held-shutdown"::equals).count(),
+                "shutdown must run exactly once after the admitted call drains"
+            );
+            assertTrue(order.contains("held-scope"));
+        } finally {
+            sdkRelease.countDown();
+            hostSession.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private static void awaitTrue(
+        final java.util.function.BooleanSupplier condition
+    ) throws InterruptedException {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("condition did not become true in time");
+            }
+            Thread.sleep(10);
+        }
+    }
+
     private ObjectNode previewRuntimeReport(
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries
     ) {
@@ -506,11 +663,22 @@ class LocalPluginRuntimeCloseTest {
         addLoaded(runtime, fixture, new CleanupEvidenceCollector());
     }
 
-    @SuppressWarnings("unchecked")
     private static void addLoaded(
         final LocalPluginRuntime runtime,
         final LoadedFixture fixture,
         final CleanupEvidenceCollector cleanupEvidence
+    ) throws Exception {
+        addLoaded(
+            runtime, fixture, cleanupEvidence, new PluginGenerationGuard(fixture.runtime().id())
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addLoaded(
+        final LocalPluginRuntime runtime,
+        final LoadedFixture fixture,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final PluginGenerationGuard guard
     ) throws Exception {
         final Class<?> type = Class.forName(
             "dev.turboism.preview.LocalPluginRuntime$LoadedPlugin"
@@ -524,7 +692,8 @@ class LocalPluginRuntimeCloseTest {
             RuntimePluginLocalization.class,
             CleanupEvidenceCollector.class,
             dev.turboism.core.event.RuntimeEventBroker.Owner.class,
-            dev.turboism.core.plugin.context.CorePluginContext.class
+            dev.turboism.core.plugin.context.CorePluginContext.class,
+            PluginGenerationGuard.class
         );
         constructor.setAccessible(true);
         final Object value = constructor.newInstance(
@@ -536,7 +705,8 @@ class LocalPluginRuntimeCloseTest {
             fixture.localization(),
             cleanupEvidence,
             activeEventOwner(runtime, fixture.runtime().id()),
-            null
+            null,
+            guard
         );
         final Field field = LocalPluginRuntime.class.getDeclaredField("loaded");
         field.setAccessible(true);
