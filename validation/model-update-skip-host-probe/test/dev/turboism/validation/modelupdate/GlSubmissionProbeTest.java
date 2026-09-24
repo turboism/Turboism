@@ -454,17 +454,17 @@ public final class GlSubmissionProbeTest {
                 gl.glUniform1i(4, 1);          // redundant
                 gl.glUniform1i(4, 2);          // change
                 gl.glUniform1i(4, 1);          // change back: not
-                gl.glUniform1f(4, 0.5f);
+                gl.glUseProgram(10);
+                gl.glUniform1i(4, 1);          // different program key: not
+                gl.glUseProgram(9);
+                gl.glUniform1i(4, 1);          // (9,4)=1 persisted: redundant
+                gl.glUniform1f(4, 0.5f);       // clobbers the (9,4) slot: not
                 gl.glUniform1f(4, 0.5f);       // redundant (float scalar form)
                 java.nio.FloatBuffer matrix = java.nio.FloatBuffer.wrap(new float[16]);
                 gl.glUniformMatrix4fv(7, 1, false, matrix);
                 gl.glUniformMatrix4fv(7, 1, false, matrix); // redundant buffer payload
                 matrix.put(0, 1f);
                 gl.glUniformMatrix4fv(7, 1, false, matrix); // changed payload: not
-                gl.glUseProgram(10);
-                gl.glUniform1i(4, 1);          // different program key: not
-                gl.glUseProgram(9);
-                gl.glUniform1i(4, 1);          // (9,4)=1 persisted: redundant
                 gl.glLinkProgram(9);           // relink invalidates uniform state
                 gl.glUniform1i(4, 1);          // first after relink: not
 
@@ -568,8 +568,8 @@ public final class GlSubmissionProbeTest {
         String property = "turboism.validation.modelUpdateGlRedundancy";
         String prior = System.getProperty(property);
         try {
-            long offBytes = allocatedPerCalls(counters, false);
-            long onBytes = allocatedPerCalls(counters, true);
+            long offBytes = redundancyAllocatedPerCalls(counters, false);
+            long onBytes = redundancyAllocatedPerCalls(counters, true);
             check(onBytes <= offBytes + ALLOCATION_CALLS * 32L,
                 "redundancy observation must not add hot allocation: off=" + offBytes + " on=" + onBytes);
         } finally {
@@ -577,6 +577,31 @@ public final class GlSubmissionProbeTest {
             if (!wasEnabled) counters.setThreadAllocatedMemoryEnabled(false);
         }
     }
+
+    private static long redundancyAllocatedPerCalls(com.sun.management.ThreadMXBean counters, boolean redundancy)
+            throws Exception {
+        if (redundancy) System.setProperty("turboism.validation.modelUpdateGlRedundancy", "true");
+        else System.clearProperty("turboism.validation.modelUpdateGlRedundancy");
+        NativeGL nativeGl = new NativeGL();
+        try (GlSubmissionProbe probe = new GlSubmissionProbe(TestGL.class, nativeGl)) {
+            TestGL gl = (TestGL) probe.wrapped();
+            probe.start();
+            for (int i = 0; i < ALLOCATION_CALLS; i++) gl.glBindBuffer(34962, i);
+            long before = counters.getThreadAllocatedBytes(Thread.currentThread().getId());
+            for (int i = 0; i < ALLOCATION_CALLS; i++) {
+                gl.glBindBuffer(34962, i);
+                gl.glBufferSubData(34962, 0, 4, null);
+                gl.glDrawElements(4, 3, 5125, 0);
+            }
+            long allocated = counters.getThreadAllocatedBytes(Thread.currentThread().getId()) - before;
+            probe.stop();
+            check(nativeGl.uploads == ALLOCATION_CALLS, "measured window forwarded every call");
+            check(allocated >= 0L, "allocation counter readable");
+            return allocated;
+        }
+    }
+
+    private static void check(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
     }
 }

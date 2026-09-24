@@ -508,6 +508,22 @@ counts only calls that executed; `redundantNanos` is their delegate interval,
 i.e. the time upper bound removable by elision. `requireValid` rejects any
 method whose `redundant` exceeds `calls`.
 
+Usage — the redundancy leg inherits the categories-leg caveat that the GL
+proxy hides the concrete `GL4bcImpl` from the uniform cache, so the cache is
+effectively bypassed under instrumentation. Keep the cache explicitly off so
+the leg is honest about what it measures:
+
+```bash
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateGlCalls=true' \
+  --jvm-option '-Dturboism.validation.modelUpdateGlRedundancy=true' \
+  --jvm-option '-Dturboism.optimization.uniformLocationCache=false' \
+  --result-timeout 1200
+```
+
+(`modelUpdateGlCallCategories` may be added to the same leg for the method
+top-N context, or omitted to keep the report narrower; it is not required.)
+
 #### Production design sketch (not implemented)
 
 Two hook points could turn this observation into suppression:
@@ -575,6 +591,64 @@ elision active is a hypothesis test, not a correctness run.
 Usage: pass `-Dturboism.validation.glGetErrorElision=true` via `--jvm-option`
 to the host-validation wrapper like any other JVM option; it is read by the
 javaagent at `HOST_RESOLVED`, before the preview runtime starts.
+
+#### Composition conflict with the uniform-location lifecycle transform
+
+Observed on host: with `glGetErrorElision` and the uniform-location cache
+enabled in the same leg, the uniform hook fails closed with
+`TURBOISM_UNIFORM_LOCATION installation=FAILED ... uniform dependency body
+mismatch: com/live2d/graphics3d/shader/A.a`. Both features transform the same
+method, and they do not compose today.
+
+Mechanism. `VerifiedUniformLocationInstaller` verifies every target and
+dependency by capturing the class bytes and comparing the reviewed method
+shape against the reference bytes in the official JAR (`verify()` /
+`capture()` in the installer). `capture()` performs a `retransformClasses`
+with an observing transformer, so the bytes it sees are the output of the
+**whole registered retransform chain** replayed on that class — not the
+pristine JAR bytes. Once `GlGetErrorElisionTransformer` is registered, every
+retransformation of `shader/A` replays its rewrite, so the uniform installer's
+captured body differs from the JAR reference and `verify()` throws. Install
+order does not matter for the capture itself: even if uniform installs first,
+any later retransformation (including the installer's own close-time
+`sha256(capture(target))` restore check) replays the elision rewrite, so the
+recorded baseline hash never matches what capture returns afterwards.
+
+Candidate resolutions, in increasing scope:
+
+1. **Validate dependencies against a pre-chain baseline.** Keep per-class
+   snapshots of bytes captured before any Turboism retransformer runs (or have
+   the installer temporarily remove/disable the elision transformer during
+   `capture()`), and compare method shapes against that baseline. Risk: the
+   JVM has no API to ask for "bytes before transformer X"; a baseline registry
+   must be maintained by the hook layer itself, and every later verifier —
+   including the restore-time SHA-256 check — must agree on which baseline to
+   compare. Doable but turns verification into bookkeeping about chain order.
+2. **Install elision after uniform.** Ordering alone does not fix it: when
+   elision registers later, its own `ReviewedMethodShape` gate reads the
+   uniform-transformed body of `shader/A.a`, sees drift, and fails closed —
+   the leg silently loses the elision experiment (only visible via a missing
+   `elision=ACTIVE` marker), and the uniform restore check still captures
+   post-elision bytes afterwards. Order swaps the failure mode; it does not
+   remove it.
+3. **Relax elision's precondition on `shader/A`.** Teach the elision target a
+   second reviewed shape (the post-uniform-transform body). This composes the
+   rewrite, but it does not fix the uniform side at all — its verifier still
+   compares captured bytes against JAR originals at install and at close —
+   and it doubles the reviewed-shape surface: accepting a second shape means
+   auditing the exact uniform output bytes per host version.
+4. **Joint single-pass transform.** Have one verified installer apply both
+   rewrites to `shader/A.a` in one pass, verify method shapes against the JAR
+   baseline before mutation, and record per-stage hashes so restore can
+   distinguish "my rewrite" from chain output. This is the correct composition
+   model but is a real bootstrap change, not a validation-scope tweak.
+
+Recommendation: keep fail-closed behavior. The two features are alternative
+hypotheses for the same budget — an elision leg wants uniform caching off
+anyway (the cache changes how often `A.a` runs), and the instrumented legs
+already disable the cache because the proxy bypasses it. Do not combine them
+in one leg; if composition is ever productized it needs option 1 or 4 with
+baseline-preserving verification, never a relaxed gate alone.
 
 ### Mesa glthread A/B investigation (text only — no host evidence yet)
 
