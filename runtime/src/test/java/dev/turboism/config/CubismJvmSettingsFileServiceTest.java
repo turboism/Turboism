@@ -137,15 +137,21 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(service.modelUpdateSkip());
             assertTrue(service.uniformLocationCache());
             assertFalse(service.incrementalUpdate());
+            assertFalse(service.uploadElision(), "upload elision is opt-in");
             assertTrue(service.saveIncrementalUpdate(true));
+            assertTrue(service.saveUploadElision(true));
         }
         try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
                 new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
             assertTrue(reopened.incrementalUpdate(), "explicit experimental opt-in survives restart");
+            assertTrue(reopened.uploadElision(), "explicit upload-elision opt-in survives restart");
             assertTrue(reopened.uniformLocationCache());
             reopened.saveIncrementalUpdate(false);
+            reopened.saveUploadElision(false);
             assertFalse(reopened.incrementalUpdate());
+            assertFalse(reopened.uploadElision());
             assertFalse(Files.readString(home.resolve("config.json")).contains("incrementalUpdate"));
+            assertFalse(Files.readString(home.resolve("config.json")).contains("uploadElision"));
         }
     }
 

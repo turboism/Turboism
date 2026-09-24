@@ -41,6 +41,8 @@ final class SkippedFrameUploadTracker {
     private static final int INITIAL_SLOTS = 512;
     private static final int MAX_SLOTS = 16_384;
     private static final int PROBES = 8;
+    /** Default retained-payload ceiling; configurable via the bridge. */
+    static final long DEFAULT_SNAPSHOT_BUDGET = 64L * 1024 * 1024;
 
     /** Wrapper kind for per-side accounting. */
     enum Kind { FLOAT, INDEX }
@@ -70,14 +72,17 @@ final class SkippedFrameUploadTracker {
     }
 
     /** Clear provenance, recorded per kind for the close marker. */
-    enum ClearKind { CONTEXT, NON_SKIPPED, LIFECYCLE, EXCEPTION }
+    enum ClearKind { CONTEXT, NON_SKIPPED, LIFECYCLE, EXCEPTION, THREAD }
 
     private final Compare compare;
+    private final long maxSnapshotBytes;
     private Entry[] entries;
     private Object currentGl;
+    private Thread observedThread;
     private boolean clearedForRun = true;
     private long calls, elided, passed, clears, contextClears, nonSkippedClears,
-        lifecycleClears, exceptionClears, observerFailures, occupied;
+        lifecycleClears, exceptionClears, threadClears, observerFailures,
+        occupied, snapshotBudgetSkips;
     private long peakOccupied, failedInserts, grows;
     private final long[] kindCalls = new long[Kind.values().length];
     private final long[] kindElided = new long[Kind.values().length];
@@ -98,7 +103,12 @@ final class SkippedFrameUploadTracker {
     }
 
     SkippedFrameUploadTracker(final Compare compare) {
+        this(compare, DEFAULT_SNAPSHOT_BUDGET);
+    }
+
+    SkippedFrameUploadTracker(final Compare compare, final long maxSnapshotBytes) {
         this.compare = compare;
+        this.maxSnapshotBytes = maxSnapshotBytes;
         entries = newTable(INITIAL_SLOTS);
     }
 
@@ -119,6 +129,16 @@ final class SkippedFrameUploadTracker {
         calls++;
         if (kind != null) kindCalls[kind.ordinal()]++;
         try {
+            // GL calls are expected on a single render thread; a second thread
+            // means an unreviewed sharing pattern — clear and fail open.
+            final Thread thread = Thread.currentThread();
+            if (observedThread == null) {
+                observedThread = thread;
+            } else if (observedThread != thread) {
+                observedThread = thread;
+                observerFailures++;
+                clearAll(ClearKind.THREAD);
+            }
             if (gl != currentGl) {
                 currentGl = gl;
                 clearAll(ClearKind.CONTEXT);
@@ -264,6 +284,12 @@ final class SkippedFrameUploadTracker {
      * the table size; snapshots replace older ones per entry.
      */
     private void refreshSnapshot(final Entry entry, final Buffer buffer, final long size) {
+        // Retained-payload budget: refuse the copy and keep any older snapshot
+        // (stale content just mismatches and passes — fail-open, no eviction).
+        if (snapshotBytes - entry.snapshotSize + size > maxSnapshotBytes) {
+            snapshotBudgetSkips++;
+            return;
+        }
         final Buffer duplicate = buffer.duplicate();
         final Buffer copy;
         if (duplicate instanceof ByteBuffer b) {
@@ -356,6 +382,7 @@ final class SkippedFrameUploadTracker {
             case NON_SKIPPED -> nonSkippedClears++;
             case LIFECYCLE -> lifecycleClears++;
             case EXCEPTION -> exceptionClears++;
+            case THREAD -> threadClears++;
         }
     }
 
@@ -370,7 +397,9 @@ final class SkippedFrameUploadTracker {
         result.put("nonSkippedClears", nonSkippedClears);
         result.put("lifecycleClears", lifecycleClears);
         result.put("exceptionClears", exceptionClears);
+        result.put("threadClears", threadClears);
         result.put("observerFailures", observerFailures);
+        result.put("snapshotBudgetSkips", snapshotBudgetSkips);
         result.put("entries", occupied);
         result.put("capacity", (long) entries.length);
         result.put("peakEntries", peakOccupied);

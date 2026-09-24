@@ -299,10 +299,19 @@ final class CanvasWheelWorkload {
                         .append(after.get(key) - before.getOrDefault(key, 0L)).append('\n');
                 }
                 final Map<String, Long> elisionAfter = uploadElisionStats();
+                // Counters report the leg delta; gauges and high-water marks
+                // report the absolute reading — a delta would show 0 on every
+                // leg after the table first fills.
+                final java.util.Set<String> elisionGauges = java.util.Set.of(
+                    "entries", "capacity", "peakEntries", "snapshotBytes",
+                    "snapshotBytesPeak", "mode");
                 for (String key : elisionAfter.keySet().stream().sorted().toList()) {
                     if (key.equals("armed")) continue;
                     report.append(p).append("uploadElision.").append(key).append('=')
-                        .append(elisionAfter.get(key) - elisionBefore.getOrDefault(key, 0L)).append('\n');
+                        .append(elisionGauges.contains(key)
+                            ? elisionAfter.get(key)
+                            : elisionAfter.get(key) - elisionBefore.getOrDefault(key, 0L))
+                        .append('\n');
                 }
                 if (resources != null) {
                     for (var entry : resources.snapshot().entrySet()) {
