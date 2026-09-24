@@ -33,6 +33,9 @@ final class CanvasWheelWorkload {
     private static final String ELISION_PREDICATE = "turboism.upload-elision.predicate";
     private static final String ELISION_GATE = "turboism.upload-elision.gate";
     private static final String ELISION_STATS = "turboism.upload-elision.stats";
+    private static final String STATE_CONSULT = "turboism.state-elision.consult";
+    private static final String STATE_GATE = "turboism.state-elision.gate";
+    private static final String STATE_STATS = "turboism.state-elision.stats";
     private static final int WARMUP_PAIRS = 12;
     private static final int MEASURED_PAIRS = 100;
     // Calibration is diagnostic only. Its smaller sample count never satisfies acceptance.
@@ -79,7 +82,7 @@ final class CanvasWheelWorkload {
         final int measuredPairs = calibration ? 8 : MEASURED_PAIRS;
         Files.writeString(state.resolve("wheel-progress.txt"), "stage=canvas-ready\n");
         final String previous = System.getProperty(ENABLE);
-        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook", "matrixScratch", "uploadElision").contains(factor)) {
+        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook", "matrixScratch", "uploadElision", "redundantState").contains(factor)) {
             throw new IllegalArgumentException("unknown benchmark factor");
         }
         final StringBuilder report = new StringBuilder("schemaVersion=1\n")
@@ -117,6 +120,15 @@ final class CanvasWheelWorkload {
                         "uploadElision factor requires the skippedFrameUploadElision hook installed");
                 }
                 report.append("uploadElision.installed=true\n");
+            }
+            if (factor.equals("redundantState")) {
+                final java.util.Properties slots = System.getProperties();
+                if (!(slots.get(STATE_CONSULT) instanceof java.lang.invoke.MethodHandle)
+                    || !(slots.get(STATE_GATE) instanceof java.util.function.Consumer)) {
+                    throw new IllegalArgumentException(
+                        "redundantState factor requires the redundantStateElision hook installed");
+                }
+                report.append("stateElision.installed=true\n");
             }
             final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues") || factor.equals("uniformSuite");
             final boolean resourceTelemetry = Boolean.getBoolean("turboism.validation.resources");
@@ -164,6 +176,7 @@ final class CanvasWheelWorkload {
                 .append("glRedundancy=").append(glRedundancy).append('\n');
             final boolean diagnostic = probe || profile || gpuWait || glCalls || uniformShadow;
             if (factor.equals("uniformSuite") && diagnostic) throw new IllegalArgumentException("suite requires diagnostic profilers OFF");
+            if (factor.equals("redundantState") && diagnostic) throw new IllegalArgumentException("redundantState requires diagnostic profilers OFF");
             final int[] variants = factor.equals("uniformSuite") ? new int[]{0, 1, 2, 2, 1, 0}
                 : diagnostic ? new int[]{1} : new int[]{0, 1, 1, 0};
             for (int leg = 0; leg < variants.length; leg++) {
@@ -198,6 +211,16 @@ final class CanvasWheelWorkload {
                             consumer.accept(enabled);
                         }
                         canvas.repaint();
+                    } else if (factor.equals("redundantState")) {
+                        System.setProperty(ENABLE, "true");
+                        final Object gate = System.getProperties().get(STATE_GATE);
+                        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+                            throw new IllegalStateException("state elision gate absent");
+                        }
+                        if (gate instanceof java.util.function.Consumer consumer) {
+                            consumer.accept(enabled);
+                        }
+                        canvas.repaint();
                     } else if (factor.equals("canvasBuffering")) {
                         System.setProperty(ENABLE, "true");
                         canvas.setDoubleBuffered(enabled ? false : originalCanvasBuffering);
@@ -223,6 +246,7 @@ final class CanvasWheelWorkload {
                 final Map<String, Long> uniformBefore = uniformTrial != null ? uniformTrial.snapshot()
                     : narrowTrial != null ? narrowTrial.snapshot() : Map.of();
                 final Map<String, Long> elisionBefore = uploadElisionStats();
+                final Map<String, Long> stateBefore = stateElisionStats();
                 final long[] nanos = new long[measuredPairs * 2];
                 measuredQueueNanos = measuredHandlerNanos = measuredRepaintBarrierNanos = measuredResumeNanos = 0L;
                 final long elapsed;
@@ -311,6 +335,19 @@ final class CanvasWheelWorkload {
                         .append(elisionGauges.contains(key)
                             ? elisionAfter.get(key)
                             : elisionAfter.get(key) - elisionBefore.getOrDefault(key, 0L))
+                        .append('\n');
+                }
+                final Map<String, Long> stateAfter = stateElisionStats();
+                // Same convention: counters are leg deltas; gauges/peak
+                // readings report the absolute value at leg end.
+                final java.util.Set<String> stateGauges = java.util.Set.of(
+                    "entries", "contexts", "mode");
+                for (String key : stateAfter.keySet().stream().sorted().toList()) {
+                    if (key.equals("armed")) continue;
+                    report.append(p).append("stateElision.").append(key).append('=')
+                        .append(stateGauges.contains(key)
+                            ? stateAfter.get(key)
+                            : stateAfter.get(key) - stateBefore.getOrDefault(key, 0L))
                         .append('\n');
                 }
                 if (resources != null) {
@@ -639,7 +676,15 @@ final class CanvasWheelWorkload {
     }
 
     private static Map<String, Long> uploadElisionStats() {
-        final Object callback = System.getProperties().get(ELISION_STATS);
+        return statsSlot(ELISION_STATS);
+    }
+
+    private static Map<String, Long> stateElisionStats() {
+        return statsSlot(STATE_STATS);
+    }
+
+    private static Map<String, Long> statsSlot(final String property) {
+        final Object callback = System.getProperties().get(property);
         if (!(callback instanceof Supplier<?> supplier) || !(supplier.get() instanceof Map<?, ?> raw)) {
             return Map.of();
         }

@@ -30,8 +30,12 @@ final class NativeInteractionWorkload {
     private final String factor = System.getProperty("turboism.validation.modelUpdateFactor", "uniformHook");
     private final boolean matrixComparison = factor.equals("matrixScratch");
     private final boolean elision = factor.equals("uploadElision");
+    private final boolean stateElision = factor.equals("redundantState");
     private static final String ELISION_GATE = "turboism.upload-elision.gate";
     private static final String ELISION_STATS = "turboism.upload-elision.stats";
+    private static final String STATE_CONSULT = "turboism.state-elision.consult";
+    private static final String STATE_GATE = "turboism.state-elision.gate";
+    private static final String STATE_STATS = "turboism.state-elision.stats";
     private Frame window;
     private JComponent canvas;
     private NativeInteractionHost host;
@@ -49,9 +53,9 @@ final class NativeInteractionWorkload {
         if (fixture == null || fixture.isBlank() || !List.of("pan", "artmesh").contains(kind)) {
             throw new IllegalArgumentException("native interaction requires a fixture and pan/artmesh mode");
         }
-        if (!List.of("uniformHook", "matrixScratch", "uploadElision").contains(factor)) {
+        if (!List.of("uniformHook", "matrixScratch", "uploadElision", "redundantState").contains(factor)) {
             throw new IllegalArgumentException(
-                "native interaction factor must be uniformHook, matrixScratch or uploadElision");
+                "native interaction factor must be uniformHook, matrixScratch, uploadElision or redundantState");
         }
         if (Boolean.getBoolean("turboism.uniform-location.shadow")
             || Boolean.getBoolean("turboism.validation.modelUpdateGlCalls")
@@ -83,6 +87,15 @@ final class NativeInteractionWorkload {
             }
             report.append("uploadElision.installed=true\n");
         }
+        if (stateElision) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get(STATE_CONSULT) instanceof java.lang.invoke.MethodHandle)
+                || !(slots.get(STATE_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "redundantState factor requires the redundantStateElision hook installed");
+            }
+            report.append("stateElision.installed=true\n");
+        }
         Files.writeString(state.resolve("interaction-benchmark.txt"), report + "status=PREPARING\n");
         try {
             try (PreparationWatchdog preparation = new PreparationWatchdog(state, 30_000L)) {
@@ -104,11 +117,13 @@ final class NativeInteractionWorkload {
             for (int leg = 0; leg < variants.length; leg++) {
                 final boolean enabled = variants[leg];
                 edt(() -> {
-                    // uploadElision legs keep the uniform hook ON (production
-                    // default, matching the wheel runs) and toggle only the
-                    // elision gate so the legs differ in a single variable.
-                    hook.setEnabled(elision || enabled);
+                    // uploadElision and redundantState legs keep the uniform
+                    // hook ON (production default, matching the wheel runs)
+                    // and toggle only the elision gate so the legs differ in
+                    // a single variable.
+                    hook.setEnabled(elision || stateElision || enabled);
                     if (elision) setElisionArmed(enabled);
+                    if (stateElision) setStateElisionArmed(enabled);
                     return null;
                 });
                 Files.writeString(state.resolve("interaction-progress.txt"), "leg=" + leg + "\nstage=warmup\n");
@@ -162,6 +177,8 @@ final class NativeInteractionWorkload {
         final String beforePixels = kind.equals("artmesh") ? edt(() -> hook.capture(canvas).digest()) : "not-required";
         final Map<String, Long> elisionBefore = report != null && elision
             ? uploadElisionStats() : Map.of();
+        final Map<String, Long> stateBefore = report != null && stateElision
+            ? stateElisionStats() : Map.of();
         final long[] samples = new long[steps], queue = new long[steps], handler = new long[steps], repaint = new long[steps];
         final long[] started = {0L}, elapsed = {0L}, pressNanos = {0L}, releaseNanos = {0L};
         final List<Map<String, Long>> snapshots = new ArrayList<>();
@@ -235,7 +252,7 @@ final class NativeInteractionWorkload {
                 }
             });
             if (snapshots.size() != 2) throw new IllegalStateException("gesture accounting incomplete");
-            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || enabled, steps);
+            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || stateElision || enabled, steps);
             final var moved = edt(host::geometry);
             List<Integer> changed = NativeInteractionHost.changed(baseline, moved);
             final var movedCamera = edt(host::camera);
@@ -305,16 +322,18 @@ final class NativeInteractionWorkload {
             }
             if (report != null) {
                 verifyPixelsAtCurrentState(prefix + "restored");
-                edt(() -> { hook.setEnabled(elision || enabled); return null; });
+                edt(() -> { hook.setEnabled(elision || stateElision || enabled); return null; });
                 long[] sorted = samples.clone(); Arrays.sort(sorted);
                 long total = Arrays.stream(samples).sum();
                 long frames = NarrowUniformTrial.delta(snapshots.get(0), snapshots.get(1), "completedDisplayFrames");
                 report.append(prefix).append("enabled=").append(enabled).append('\n')
                     .append(prefix).append("variant=").append(elision
                         ? (enabled ? "upload-elision-on" : "upload-elision-off")
-                        : matrixComparison
-                            ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
-                            : (enabled ? "narrow-locations" : "native")).append('\n')
+                        : stateElision
+                            ? (enabled ? "state-elision-on" : "state-elision-off")
+                            : matrixComparison
+                                ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
+                                : (enabled ? "narrow-locations" : "native")).append('\n')
                     .append(prefix).append("samples=").append(steps).append('\n')
                     .append(prefix).append("elapsedNanos=").append(elapsed[0]).append('\n')
                     .append(prefix).append("meanNanos=").append(total / steps).append('\n')
@@ -354,6 +373,19 @@ final class NativeInteractionWorkload {
                             .append(elisionGauges.contains(key)
                                 ? elisionAfter.get(key)
                                 : elisionAfter.get(key) - elisionBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                if (stateElision) {
+                    final java.util.Set<String> stateGauges = java.util.Set.of(
+                        "entries", "contexts", "mode");
+                    final Map<String, Long> stateAfter = stateElisionStats();
+                    for (String key : stateAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("stateElision.").append(key).append('=')
+                            .append(stateGauges.contains(key)
+                                ? stateAfter.get(key)
+                                : stateAfter.get(key) - stateBefore.getOrDefault(key, 0L))
                             .append('\n');
                     }
                 }
@@ -397,7 +429,7 @@ final class NativeInteractionWorkload {
                 + "\nselected=" + selected + "\npoint=" + startPoint + "\n");
             if (!selected) throw new IllegalStateException("native picker found no editable single-ArtMesh target");
             Thread.sleep(600L);
-        } finally { edt(() -> { hook.setEnabled(elision || enabled); return null; }); }
+        } finally { edt(() -> { hook.setEnabled(elision || stateElision || enabled); return null; }); }
     }
 
     private record ParityCapture(FrameReadback image, String before, String after) { }
@@ -510,6 +542,32 @@ final class NativeInteractionWorkload {
         if (gate instanceof java.util.function.Consumer consumer) {
             consumer.accept(enabled);
         }
+    }
+
+    /** Arms/disarms the redundant-state elision bridge for the current leg. */
+    private static void setStateElisionArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(STATE_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("state elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> stateElisionStats() {
+        final Object callback = System.getProperties().get(STATE_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
     }
 
     private static Map<String, Long> uploadElisionStats() {
