@@ -9,8 +9,8 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.EditorExitEvent;
-import dev.turboism.sdk.event.cubism.EditorStartupEvent;
+import dev.turboism.sdk.cubism.event.EditorExitEvent;
+import dev.turboism.sdk.cubism.event.EditorStartupEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;

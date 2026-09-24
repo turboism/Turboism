@@ -42,7 +42,9 @@ import java.util.regex.Pattern;
  * workspace-control record, and injects it into the live production
  * {@link WorkspaceCoordinator}. The only reflective access is one private static holder field
  * ({@code TurboismAgent.RUNTIME}) of Turboism's own bootstrap; everything else uses public
- * Turboism API. It never reflects private Cubism implementation bodies and never bypasses
+ * Turboism API. Automatic matrix setup uses JDK Swing widgets to create a task-local custom
+ * workspace and answer only its native default-save confirmation. It never reflects private
+ * Cubism implementation bodies and never bypasses
  * licensing. A connect/disconnect marker protocol lets the operator disconnect the provider so
  * stale plugin calls can be observed failing closed. Default admission requires the production
  * runtime to be ACTIVE; an explicit {@code allowDegradedRuntime=true} admits a runtime in FAILED
@@ -221,6 +223,12 @@ public final class WorkspaceValidationAgent {
                 new CountingWorkspaceHostProvider(WorkspaceHostProviderFactory.create(resolver));
             final WorkspaceCoordinator coordinator = runtime.hostAccess().workspaceCoordinator();
 
+            if ("matrix".equals(System.getProperty("turboism.workspaceValidation.mode"))) {
+                WorkspaceValidationUi.prepare(
+                    WorkspaceHostProviderFactory.create(resolver), options.home().resolve("state")
+                );
+            }
+
             evidence.event("provider=" + provider.description()
                 + " coordinator=" + coordinator.getClass().getName());
             // Deterministic baseline: the provider is created READY but DISCONNECTED. No host
@@ -335,11 +343,17 @@ public final class WorkspaceValidationAgent {
         final WorkspaceCoordinator coordinator,
         final CountingWorkspaceHostProvider provider,
         final Evidence evidence
-    ) throws InterruptedException, IOException {
+    ) throws Exception {
         final Path state = home.resolve("state");
         long refreshCounter = 0;
         try {
             while (!Thread.currentThread().isInterrupted()) {
+                if ("matrix".equals(System.getProperty("turboism.workspaceValidation.mode"))
+                    && provider.isConnected()
+                    && Files.deleteIfExists(state.resolve("validation-agent.perturb-layout"))) {
+                    WorkspaceValidationUi.perturbLayout(state);
+                    Files.writeString(state.resolve("validation-agent.perturbed-layout"), "DONE\n");
+                }
                 final boolean disconnected = Files.exists(state.resolve(DISCONNECT_MARKER));
                 final boolean connected = Files.exists(state.resolve(CONNECT_MARKER));
                 if (disconnected && connected) {

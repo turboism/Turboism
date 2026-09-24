@@ -32,11 +32,11 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
-            "atlas", "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
-            "dialog-automation", "fps", "host-locale", "parameter",
+            "animation-timeline", "atlas", "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
+            "dialog-automation", "edit", "edit-protocol", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
             "parameter-batch-transfer", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
-            "startup-suppression", "status-bar", "theme", "update-check", "workspace",
+            "startup-suppression", "status-bar", "theme", "update-check", "warp-deformer-alt-symmetry", "workspace",
         }
         self.assertEqual(expected, set(self.manifest.tasks))
         self.assertEqual(1, self.manifest.resources["host-slot"].capacity)
@@ -51,6 +51,18 @@ class HostValidationSchedulerTest(unittest.TestCase):
         self.assertFalse(self.manifest.tasks["dialog-automation"].runnable)
         self.assertFalse(self.manifest.tasks["backup-interactive"].runnable)
 
+    def test_mcp_reserves_exact_host_and_display_for_native_close(self) -> None:
+        task = self.manifest.tasks["mcp"]
+        self.assertEqual(("5203", "5302", "5303"), task.versions)
+        self.assertEqual({"host-slot": 1, "display-input": 1}, task.resources)
+        with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not start the host")):
+            for version in task.versions:
+                command = scheduler.render_command(self.request("mcp:" + version), self.manifest)
+                self.assertTrue(command[1].endswith("run-mcp-host-validation.sh"))
+                self.assertEqual([version, "test-run"], command[2:])
+        with self.assertRaises(scheduler.SchedulerError):
+            self.request("mcp:5400")
+
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]
         self.assertEqual({"host-slot": 1, "display-input": 1, "performance-host": 1}, task.resources)
@@ -59,15 +71,21 @@ class HostValidationSchedulerTest(unittest.TestCase):
                          {f"ui-{dataset}-{count}-{implementation}" for dataset in ("circle", "geometry")
                           for count in (100, 500, 1000, 2500)
                           for implementation in ("native", "new")} |
+                         {f"ui-{dataset}-{count}-polygon" for dataset in ("circle", "geometry")
+                          for count in (100, 500, 1000)} |
                          {f"ui-{dataset}-{count}-new-parallel" for dataset in ("circle", "geometry")
                           for count in (100, 500)}, set(task.variants))
         self.assertEqual("geometry-100-new", self.request("atlas:5303").variant)
-        for spec in ("atlas:5302", "atlas:9999", "atlas:5303@geometry-2500-both",
+        for spec in ("atlas:9999", "atlas:5303@geometry-2500-both",
                      "atlas:5303@geometry-2499-new", "atlas:5303@geometry-100-both",
                      "atlas:5303@ui-geometry-2499-native", "atlas:5303@ui-circle-101-new",
-                     "atlas:5303@ui-circle-1000-new-parallel", "atlas:5303@ui-geometry-500-native-parallel"):
+                     "atlas:5303@ui-circle-1000-new-parallel", "atlas:5303@ui-geometry-500-native-parallel",
+                     "atlas:5303@ui-circle-2500-polygon", "atlas:5303@geometry-100-polygon"):
             with self.subTest(spec=spec), self.assertRaises(scheduler.SchedulerError):
                 self.request(spec)
+        for spec in ("atlas:5203@ui-circle-100-polygon", "atlas:5302@ui-geometry-1000-polygon"):
+            with self.subTest(spec=spec):
+                self.assertEqual(spec.split("@", 1)[1], self.request(spec).variant)
         with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not execute wrappers")):
             command = scheduler.render_command(self.request("atlas:5303"), self.manifest)
             self.assertTrue(command[1].endswith("run-atlas-host-validation.sh"))

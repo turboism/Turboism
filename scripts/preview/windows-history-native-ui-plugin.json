@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.history-native-ui",
+  "name": "Windows History Native UI Ingress Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only probe that records the semantic events an operator's own native Editor edits produce, together with the native Undo entries those edits created.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsHistoryNativeUiIngressProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the native Undo managers and the Turboism history to record what an operator edit did."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Record the semantic operations the runtime confirms for an operator's own Editor edit."
+    },
+    {
+      "id": "turboism.cubism.model.intercept",
+      "scope": "application",
+      "reason": "Record the before phase of a native edit entry so the entry announcement can be compared with the commit."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

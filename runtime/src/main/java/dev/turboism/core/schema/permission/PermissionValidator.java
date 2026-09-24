@@ -18,6 +18,7 @@ public final class PermissionValidator extends AbstractJsonValidator {
         "turboism.ui.menu", "turboism.ui.toolbar", "turboism.ui.palette",
         "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
         "turboism.cubism.model.observe", "turboism.cubism.model.intercept",
+        "turboism.cubism.edit",
         "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
         "turboism.cubism.recent-file.read",
         "turboism.file.read", "turboism.file.write", "turboism.network.fetch",
@@ -33,6 +34,10 @@ public final class PermissionValidator extends AbstractJsonValidator {
         "turboism.ui.status.notify", "turboism.ui.canvas.hint", "turboism.ui.appearance.modify", "turboism.ui.toolbar.contribute",
         "turboism.config.plugin.read", "turboism.config.plugin.write",
         "turboism.event.subscribe", "turboism.event.publish",
+        "turboism.ui.appearance.observe", "turboism.cubism.backup.observe",
+        "turboism.cubism.selection.observe", "turboism.ui.scene-table.observe",
+        "turboism.cubism.log.observe", "turboism.performance.sample.observe",
+        "turboism.action.invocation.observe", "turboism.plugin.lifecycle.observe",
         "turboism.performance.stats.read", "turboism.host.unsafe"
     );
 

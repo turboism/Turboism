@@ -34,6 +34,7 @@ interface: embedded
 - 在 Cubism 主窗口右侧垂直工具栏添加本地化的历史记录按钮。
 - 显示当前文档的原生撤销记录，并区分已应用和已撤销项目。
 - 通常每秒检查历史记录 generation/revision；点击记录时使用类型化撤销/重做 API 移动游标。
+- 对可信的单目标 `SET`／`ADD`／`REMOVE` 记录，使用本地化动作/属性、类型化 Cubism 对象图标和已捕获的目标名称；未知事实、组、缺少目标名或图标信息时保留保守文本回退。值与上下文仍保存在结构化历史中，绝不将 `vertexPositions` 推断为 `MOVE`；颜色属性只识别 `multiplyColor` 和 `screenColor`。
 
 ## 要求与兼容性
 

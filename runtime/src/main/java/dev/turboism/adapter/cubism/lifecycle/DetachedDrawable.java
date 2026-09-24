@@ -22,28 +22,28 @@ final class DetachedDrawable implements Drawable {
 
     private final ArtMeshId id;
     private final float opacity;
-    private final byte constantFlag;
-    private final byte dynamicFlag;
-    private final BlendMode blendMode;
-    private final int textureIndex;
+    private final DetachedValue<Byte> constantFlag;
+    private final DetachedValue<Byte> dynamicFlag;
+    private final DetachedValue<BlendMode> blendMode;
+    private final DetachedValue<Integer> textureIndex;
     private final int drawOrder;
-    private final int renderOrder;
-    private final Color multiplyColor;
-    private final Color screenColor;
+    private final DetachedValue<Integer> renderOrder;
+    private final DetachedValue<Color> multiplyColor;
+    private final DetachedValue<Color> screenColor;
     private final int parentPartIndex;
     private final int parentDeformerIndex;
 
     private DetachedDrawable(final Drawable source, final float opacity) {
         id = source.id();
         this.opacity = opacity;
-        constantFlag = source.constantFlag();
-        dynamicFlag = source.dynamicFlag();
-        blendMode = source.blendMode();
-        textureIndex = source.textureIndex();
+        constantFlag = DetachedValue.capture("constantFlag", source::constantFlag);
+        dynamicFlag = DetachedValue.capture("dynamicFlag", source::dynamicFlag);
+        blendMode = DetachedValue.capture("blendMode", source::blendMode);
+        textureIndex = DetachedValue.capture("textureIndex", source::textureIndex);
         drawOrder = source.drawOrder();
-        renderOrder = source.renderOrder();
-        multiplyColor = source.multiplyColor();
-        screenColor = source.screenColor();
+        renderOrder = DetachedValue.capture("renderOrder", source::renderOrder);
+        multiplyColor = DetachedValue.capture("multiplyColor", source::multiplyColor);
+        screenColor = DetachedValue.capture("screenColor", source::screenColor);
         parentPartIndex = source.parentPartIndex();
         parentDeformerIndex = source.parentDeformerIndex();
     }
@@ -53,19 +53,19 @@ final class DetachedDrawable implements Drawable {
     }
 
     @Override public ArtMeshId id() { return id; }
-    @Override public byte constantFlag() { return constantFlag; }
-    @Override public byte dynamicFlag() { return dynamicFlag; }
-    @Override public BlendMode blendMode() { return blendMode; }
-    @Override public int textureIndex() { return textureIndex; }
+    @Override public byte constantFlag() { return constantFlag.get(); }
+    @Override public byte dynamicFlag() { return dynamicFlag.get(); }
+    @Override public BlendMode blendMode() { return blendMode.get(); }
+    @Override public int textureIndex() { return textureIndex.get(); }
     @Override public int drawOrder() { return drawOrder; }
-    @Override public int renderOrder() { return renderOrder; }
+    @Override public int renderOrder() { return renderOrder.get(); }
     @Override public float getOpacity() { return opacity; }
     @Override public IntSequence masks() { return EMPTY_INTS; }
     @Override public FloatSequence vertexPositions() { return EMPTY_FLOATS; }
     @Override public FloatSequence vertexUvs() { return EMPTY_FLOATS; }
     @Override public IntSequence indices() { return EMPTY_INTS; }
-    @Override public Color multiplyColor() { return multiplyColor; }
-    @Override public Color screenColor() { return screenColor; }
+    @Override public Color multiplyColor() { return multiplyColor.get(); }
+    @Override public Color screenColor() { return screenColor.get(); }
     @Override public int parentPartIndex() { return parentPartIndex; }
     @Override public int parentDeformerIndex() { return parentDeformerIndex; }
     @Override public IntSequence parameters() { return EMPTY_INTS; }

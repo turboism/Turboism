@@ -9,7 +9,9 @@ public sealed interface EditorParameterizedRequest permits
     EditorModelingStatisticsRequest,
     EditorExternalAppSettingsRequest {
 
+    /** Returns the parameterized command this request targets. */
     EditorParameterizedCommand command();
 
+    /** Returns the host command identifier of {@link #command()}. */
     default String commandId() { return command().id(); }
 }

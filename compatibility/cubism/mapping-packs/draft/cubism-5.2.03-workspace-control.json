@@ -91,8 +91,8 @@
       "semanticName": "cubism.mapping.v5_2_03.workspace_control.05",
       "kind": "method",
       "owner": "workspace-control-5.2",
-      "name": "workspace.dock.current",
-      "runtime": "getLastWorkspace",
+      "name": "workspace.palette-manager.current",
+      "runtime": "getCurrentWorkspace",
       "profile": "cubism-5.2.03",
       "status": "DRAFT",
       "stability": "experimental",
@@ -101,8 +101,8 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
-        "requiredAccessFlags": 1,
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
@@ -275,6 +275,48 @@
       },
       "intermediary": "",
       "descriptor": "()V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.workspace_control.14",
+      "kind": "method",
+      "owner": "workspace-control-5.2",
+      "name": "workspace.workspace.default-layout",
+      "runtime": "getDefaultLayout",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()[B"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.workspace_control.15",
+      "kind": "method",
+      "owner": "workspace-control-5.2",
+      "name": "workspace.dock.palette-manager",
+      "runtime": "getPaletteManager",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/ui/dock/CPMPaletteManager;"
     }
   ]
 }

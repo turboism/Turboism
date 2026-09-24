@@ -7,6 +7,7 @@ import java.util.NoSuchElementException;
 /** Drawables in one Cubism model. */
 public interface Drawables {
 
+    /** Returns every drawable in the model, in host order. */
     List<Drawable> all();
 
     /** @throws NoSuchElementException when the ID is absent */

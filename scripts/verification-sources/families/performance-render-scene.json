@@ -1,0 +1,16 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "performance-render-scene",
+  "records": [
+    "cubism-5.2.03-performance-render-scene.json",
+    "cubism-5.3.02-performance-render-scene.json",
+    "cubism-5.3.03-performance-render-scene.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java"
+  ],
+  "packs": [],
+  "extraLiterals": [],
+  "coverageSources": [],
+  "coverage": false
+}

@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -35,6 +36,7 @@ public final class EditorAuthoringTransactionCoordinator {
     private final Host host;
     private final ThreadLocal<EditorAuthoringScope> ambient = new ThreadLocal<>();
     private final AtomicLong transactionSequence = new AtomicLong();
+    private final AtomicBoolean editScopeGate;
 
     /**
      * Creates a coordinator over one verified host adapter.
@@ -42,7 +44,25 @@ public final class EditorAuthoringTransactionCoordinator {
      * @param host native edit, history, refresh, and diagnostic boundary
      */
     public EditorAuthoringTransactionCoordinator(final Host host) {
+        this(host, new AtomicBoolean());
+    }
+
+    /**
+     * Creates a coordinator over one verified host adapter, mutually exclusive with external
+     * edit sessions (spec 046, T2).
+     *
+     * @param host native edit, history, refresh, and diagnostic boundary
+     * @param editScopeGate the editing-scope gate shared with the edit session manager: the
+     *     coordinator holds it for the duration of one root transaction, the session manager
+     *     holds it for a session's whole lifetime, so sessions and transactions can never
+     *     interleave in either direction
+     */
+    public EditorAuthoringTransactionCoordinator(
+        final Host host,
+        final AtomicBoolean editScopeGate
+    ) {
         this.host = Objects.requireNonNull(host, "host");
+        this.editScopeGate = Objects.requireNonNull(editScopeGate, "editScopeGate");
     }
 
     /**
@@ -72,52 +92,68 @@ public final class EditorAuthoringTransactionCoordinator {
                 diagnostic("authoring.scope-rejected", null)
             );
         }
-        if (!checkedBinding.isCurrentThread() || !current(checkedBinding)) {
+        // The shared editing-scope gate makes the session/transaction exclusion atomic across
+        // threads: an admitted edit session holds the gate for its lifetime, so a concurrent
+        // session open always wins or loses the CAS cleanly.
+        if (!editScopeGate.compareAndSet(false, true)) {
             return AuthoringTransactionResult.rejectedScope(
                 Optional.empty(),
-                diagnostic("authoring.scope-rejected", null)
+                diagnostic("authoring.edit-scope-conflict", null)
             );
         }
-
-        final HistorySnapshot before;
+        // Once the CAS succeeds every path — including an Error raised before the scope is
+        // established — must release the gate; a missed release wedges every session and
+        // transaction across threads.
         try {
-            before = Objects.requireNonNull(host.history(checkedBinding), "history");
-        } catch (RuntimeException failure) {
-            return AuthoringTransactionResult.unavailable(
-                diagnostic("authoring.history-unavailable", failure)
-            );
-        }
-        if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
-            return AuthoringTransactionResult.unavailable(
-                diagnostic("authoring.history-unavailable", null)
-            );
-        }
+            if (!checkedBinding.isCurrentThread() || !current(checkedBinding)) {
+                return AuthoringTransactionResult.rejectedScope(
+                    Optional.empty(),
+                    diagnostic("authoring.scope-rejected", null)
+                );
+            }
 
-        final EditorAuthoringScope scope = new EditorAuthoringScope(
-            checkedBinding,
-            checkedOptions,
-            nextTransactionId(),
-            before
-        );
-        ambient.set(scope);
-        try {
-            final T value;
+            final HistorySnapshot before;
             try {
-                value = checkedWork.run();
-                if (!current(checkedBinding)) {
-                    throw new ScopeRejectedException("authoring binding changed before commit");
+                before = Objects.requireNonNull(host.history(checkedBinding), "history");
+            } catch (RuntimeException failure) {
+                return AuthoringTransactionResult.unavailable(
+                    diagnostic("authoring.history-unavailable", failure)
+                );
+            }
+            if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
+                return AuthoringTransactionResult.unavailable(
+                    diagnostic("authoring.history-unavailable", null)
+                );
+            }
+
+            final EditorAuthoringScope scope = new EditorAuthoringScope(
+                checkedBinding,
+                checkedOptions,
+                nextTransactionId(),
+                before
+            );
+            ambient.set(scope);
+            try {
+                final T value;
+                try {
+                    value = checkedWork.run();
+                    if (!current(checkedBinding)) {
+                        throw new ScopeRejectedException("authoring binding changed before commit");
+                    }
+                } catch (ScopeRejectedException failure) {
+                    return recover(scope, failure, true);
+                } catch (Exception | Error failure) {
+                    return recover(scope, failure, false);
                 }
-            } catch (ScopeRejectedException failure) {
-                return recover(scope, failure, true);
-            } catch (Exception | Error failure) {
-                return recover(scope, failure, false);
+                if (!scope.changed()) {
+                    return noChange(scope, value);
+                }
+                return commit(scope, value);
+            } finally {
+                ambient.remove();
             }
-            if (!scope.changed()) {
-                return noChange(scope, value);
-            }
-            return commit(scope, value);
         } finally {
-            ambient.remove();
+            editScopeGate.set(false);
         }
     }
 
@@ -426,7 +462,7 @@ public final class EditorAuthoringTransactionCoordinator {
         final ArrayList<HistoryEntryDetail> children = new ArrayList<>();
         final ArrayList<HistoryTarget> targets = new ArrayList<>();
         final ArrayList<HistoryChange> changes = new ArrayList<>();
-        final Map<String, Integer> targetIndexes = new LinkedHashMap<>();
+        final Map<HistoryTarget, Integer> targetIndexes = new LinkedHashMap<>();
         boolean truncated = false;
         for (final EditorUndoContribution contribution : contributions) {
             if (children.size() >= MAX_SEMANTIC_ITEMS) {
@@ -438,13 +474,12 @@ public final class EditorAuthoringTransactionCoordinator {
             final int[] remapped = new int[child.targets().size()];
             for (int index = 0; index < child.targets().size(); index++) {
                 final HistoryTarget target = child.targets().get(index);
-                final String key = contribution.targetIdentity() + "\u0000" + index;
-                final Integer existing = targetIndexes.get(key);
+                final Integer existing = targetIndexes.get(target);
                 if (existing != null) {
                     remapped[index] = existing;
                 } else if (targets.size() < MAX_SEMANTIC_ITEMS) {
                     remapped[index] = targets.size();
-                    targetIndexes.put(key, remapped[index]);
+                    targetIndexes.put(target, remapped[index]);
                     targets.add(target);
                 } else {
                     remapped[index] = -1;
@@ -469,7 +504,8 @@ public final class EditorAuthoringTransactionCoordinator {
                     change.property(),
                     change.before(),
                     change.after(),
-                    change.context()
+                    change.context(),
+                    change.relation()
                 ));
             }
         }

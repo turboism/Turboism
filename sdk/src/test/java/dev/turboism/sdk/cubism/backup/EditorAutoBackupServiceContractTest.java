@@ -43,7 +43,7 @@ final class EditorAutoBackupServiceContractTest {
     @Test
     void serviceSurfaceIsStableAndFailsClosed() {
         assertEquals(
-            List.of("backupAfterSave", "backupNow", "registerSyncTarget", "settings", "statuses", "unavailable", "updateSettings"),
+            List.of("backupAfterSave", "backupNow", "isAvailable", "registerSyncTarget", "settings", "statuses", "unavailable", "updateSettings"),
             Arrays.stream(EditorAutoBackupService.class.getDeclaredMethods())
                 .filter(method -> Modifier.isPublic(method.getModifiers()))
                 .map(Method::getName)

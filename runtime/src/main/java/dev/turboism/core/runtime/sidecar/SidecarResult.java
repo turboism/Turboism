@@ -59,9 +59,13 @@ public record SidecarResult(
         return new SidecarResult(Kind.TIMEOUT, "", "SIDECAR_TIMEOUT", errorMessage);
     }
 
+    /** Which of the three run outcomes occurred. */
     public enum Kind {
+        /** The worker finished and produced a payload. */
         SUCCESS,
+        /** The worker reported a failure; {@code errorCode}/{@code errorMessage} carry the detail. */
         ERROR,
+        /** The worker exceeded its budget and was destroyed. */
         TIMEOUT
     }
 }

@@ -1,6 +1,8 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.core.archive.ArchiveStructureException;
+import dev.turboism.core.archive.StrictZipArchive;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,6 +56,8 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
             return new Accepted(plan);
         } catch (DistributionValidationException exception) {
             return rejected(exception.code(), exception.getMessage(), exception.problemPath());
+        } catch (ArchiveStructureException exception) {
+            return rejected(exception.code(), exception.getMessage(), exception.problemPath());
         } catch (IOException exception) {
             return rejected(DistributionErrors.PACKAGE_IO, "Package I/O failed", packagePath.toString());
         } catch (Exception exception) {
@@ -100,6 +104,8 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
             return new Prepared(new PreparedPluginPackage(plan, staged));
         } catch (DistributionValidationException exception) {
             return new PreparationRejected(exception.code());
+        } catch (ArchiveStructureException exception) {
+            return new PreparationRejected(exception.code());
         } catch (Exception exception) {
             return new PreparationRejected("PLUGIN_STAGE_FAILED");
         } finally {
@@ -108,7 +114,8 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
     }
 
     private PluginInstallPlan inspectArchive(Path snapshot, RawObservation raw) throws Exception {
-        try (StrictZipArchive archive = StrictZipArchive.open(snapshot, LIMITS)) {
+        try (StrictZipArchive archive =
+            StrictZipArchive.open(snapshot, LIMITS, PluginPathPolicy.ARCHIVE)) {
             StrictZipArchive.Entry manifestEntry = archive.entry(PluginManifestReader.NAME);
             require(manifestEntry != null && !manifestEntry.directory(),
                 "MANIFEST_MISSING", PluginManifestReader.NAME);
@@ -187,7 +194,8 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         final String targetName = plan.descriptor().id() + "-"
             + plan.packageIdentity().rawArchiveSha256() + ".jar";
         final ConfinedStagingFiles.Target staged = ConfinedStagingFiles.create(requestedDirectory, targetName);
-        try (StrictZipArchive archive = StrictZipArchive.open(snapshot, LIMITS)) {
+        try (StrictZipArchive archive =
+            StrictZipArchive.open(snapshot, LIMITS, PluginPathPolicy.ARCHIVE)) {
             final StrictZipArchive.Entry entry = archive.entry(planned.archivePath());
             require(entry != null && !entry.directory(), "ARTIFACT_MISSING", planned.archivePath());
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");

@@ -7,10 +7,14 @@ import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URL;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +34,13 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
     implements BoundingBoxOverlayButtonHostOperations {
 
     private static final int MAX_CUSTOM_BUTTONS = 8;
+    /**
+     * Bound on cached per-overlay entries: overlays are per-view host objects (expected count
+     * ~1); this cap keeps the table bounded under pathological overlay churn. The eldest
+     * inserted key is evicted first and its buttons are detached through its last observed
+     * scene; a live evicted overlay simply rebuilds its buttons on its next update.
+     */
+    private static final int MAX_CACHED_OVERLAYS = 16;
     private static final Object[] EMPTY_BUTTONS = new Object[0];
 
     private static final String BUTTON_CREATE = "cubism.ui-bounding-box-overlay.button.create";
@@ -47,10 +58,17 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         "cubism.ui-bounding-box-overlay.writable-image.create";
     private static final String ICON_SET_CREATE = "cubism.ui-bounding-box-overlay.icon-set.create";
 
+    private static final System.Logger POSITION_LOG =
+        System.getLogger(VerifiedBoundingBoxOverlayButtonHostOperations.class.getName());
+    private static final long POSITION_LOG_INTERVAL_NANOS = 2_000_000_000L;
+
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
     private final Map<Object, CachedButtons> buttonsByOverlay = new IdentityHashMap<>();
+    /** FIFO of live {@link #buttonsByOverlay} keys; guarded by the same monitor. */
+    private final Deque<Object> overlayOrder = new ArrayDeque<>();
     private volatile List<BoundingBoxOverlayButtonDescriptor> descriptors = List.of();
+    private volatile long lastPositionLogNanos;
 
     public VerifiedBoundingBoxOverlayButtonHostOperations(
         final VerifiedMemberResolver resolver,
@@ -137,20 +155,123 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
             return EMPTY_BUTTONS;
         }
         final CachedButtons cached;
+        final List<CachedButtons> evicted = new ArrayList<>();
         synchronized (buttonsByOverlay) {
             final CachedButtons existing = buttonsByOverlay.get(overlay);
             if (existing != null && existing.snapshot == current) {
                 cached = existing;
             } else {
                 cached = rebuild(existing, overlay, current, sceneGraph);
+                if (existing == null) {
+                    overlayOrder.addLast(overlay);
+                }
                 buttonsByOverlay.put(overlay, cached);
             }
             cached.scene = sceneGraph;
+            while (overlayOrder.size() > MAX_CACHED_OVERLAYS) {
+                final CachedButtons eldest = buttonsByOverlay.remove(overlayOrder.pollFirst());
+                if (eldest != null) {
+                    evicted.add(eldest);
+                }
+            }
+        }
+        // Evicted overlays lose their side-table entry; their buttons are detached through the
+        // last scene each entry observed so nothing lingers in a live host scene.
+        RuntimeException evictFailure = null;
+        for (final CachedButtons entry : evicted) {
+            for (final Object button : entry.buttons) {
+                evictFailure = append(evictFailure, detachButton(button, entry.scene));
+            }
+        }
+        if (evictFailure != null) {
+            throw evictFailure;
         }
         // The native update$setupButton helper is the sole enabler/setup/positioning path;
         // no proactive setEnabled(true) is emitted here. setEnabled(false) is reserved for
         // detach/cleanup below.
+        logButtonPositionsThrottled(cached);
         return cached.array;
+    }
+
+    /**
+     * Best-effort diagnostic marker: publishes each contributed button's live bounds so
+     * host validation can aim a real {@code Robot} click at the GL-rendered button.
+     * Deliberately uses plain reflection instead of verified selectors: the path is
+     * observation-only, runs on the host update thread, throttles itself, and any
+     * reflective failure degrades to an {@code unavailable} marker, never to a write or
+     * a functional change.
+     */
+    private void logButtonPositionsThrottled(final CachedButtons cached) {
+        try {
+            final long now = System.nanoTime();
+            if (now - lastPositionLogNanos < POSITION_LOG_INTERVAL_NANOS) {
+                return;
+            }
+            lastPositionLogNanos = now;
+            for (int i = 0; i < cached.buttons.size(); i++) {
+                final String pluginId = i < cached.snapshot.size()
+                    ? cached.snapshot.get(i).pluginId()
+                    : "unknown";
+                POSITION_LOG.log(
+                    System.Logger.Level.INFO,
+                    "BBOX_OVERLAY_BUTTON_RECT plugin=" + pluginId
+                        + " index=" + i + " " + buttonBounds(cached.buttons.get(i))
+                );
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // Observation-only diagnostic: never let a marker failure reach the
+            // host update path that mounts the real buttons.
+        }
+    }
+
+    private static String buttonBounds(final Object entity) {
+        final String rect = rectOnComponent(entity);
+        final String world = worldTranslation(entity);
+        return "rect=" + rect + " world=" + world;
+    }
+
+    private static String rectOnComponent(final Object entity) {
+        try {
+            final Object rect = invokeNoArg(entity, "getRectOnComponent");
+            if (rect != null) {
+                return floatGetter(rect, "getX") + "," + floatGetter(rect, "getY")
+                    + "," + floatGetter(rect, "getWidth") + ","
+                    + floatGetter(rect, "getHeight");
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+        }
+        return "unavailable";
+    }
+
+    private static String worldTranslation(final Object entity) {
+        try {
+            final Object transform = invokeNoArg(entity, "getTransform");
+            final Object affine = transform == null
+                ? null : invokeNoArg(transform, "getLocalToWorldAffine");
+            if (affine instanceof AffineTransform at) {
+                return at.getTranslateX() + "," + at.getTranslateY();
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+        }
+        return "unavailable";
+    }
+
+    private static Object invokeNoArg(final Object target, final String name) {
+        try {
+            final Method method = target.getClass().getMethod(name);
+            return method.invoke(target);
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            return null;
+        }
+    }
+
+    private static float floatGetter(final Object target, final String name) {
+        try {
+            final Method method = target.getClass().getMethod(name);
+            return ((Number) method.invoke(target)).floatValue();
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            return Float.NaN;
+        }
     }
 
     /**
@@ -256,6 +377,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
         return resolver.invoke(BUTTON_CREATE, overlay, iconSet(descriptor), callback);
     }
 
+    // Button currency is identity: descriptors bind the exact native widget instance.
+    @SuppressWarnings("ReferenceEquality")
     private boolean isCurrent(final BoundingBoxOverlayButton button) {
         for (BoundingBoxOverlayButtonDescriptor descriptor : descriptors) {
             if (descriptor.button() == button) {
@@ -280,12 +403,18 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
             descriptor.pluginId(),
             icons.disabled().orElse(icons.normal())
         );
+        // Native slot order observed from the legacy icon-set expansion of a
+        // (normal, hover) pair into [n, n, h, h, n, h, h]: slots are
+        // (normal, disabled, hover, pressed) then (normal, hover, pressed) for
+        // the toggled set. Feeding our semantic order (normal, hover, pressed,
+        // disabled) put the hover image on the disabled slot and pressed on the
+        // hover slot — hover never visibly changed.
         return resolver.construct(
             ICON_SET_CREATE,
             normal,
+            disabled,
             hover,
             pressed,
-            disabled,
             normal,
             hover,
             pressed
@@ -353,6 +482,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
                 }
             } finally {
                 buttonsByOverlay.clear();
+                overlayOrder.clear();
             }
             return first;
         }

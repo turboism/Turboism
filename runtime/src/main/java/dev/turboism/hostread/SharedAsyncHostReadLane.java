@@ -99,6 +99,32 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
     }
 
     /**
+     * Admits one session-owned observation action onto the serialized lane without a
+     * plugin-facing handle — no deadline or cancellation tracking; the caller fences
+     * late results itself. Runtime-owned observers (for example selection polling)
+     * use this so their host reads share the single bounded host-read worker instead
+     * of running on scheduler timers or unmanaged threads.
+     *
+     * @param action the read action; must be bounded and tolerate interruption
+     * @return {@code false} when the lane is closed or its bounded queue is
+     *     saturated — the caller decides whether to retry later
+     */
+    public boolean offerSessionObservation(final Runnable action) {
+        Objects.requireNonNull(action, "action");
+        synchronized (lifecycleLock) {
+            if (closed.get()) {
+                return false;
+            }
+            try {
+                executor.execute(action);
+                return true;
+            } catch (RejectedExecutionException exception) {
+                return false;
+            }
+        }
+    }
+
+    /**
      * @return the name of the single lane worker thread, or the empty string
      *     until that thread has run its first task
      */

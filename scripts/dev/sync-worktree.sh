@@ -45,7 +45,7 @@ WT_ID="$(bash "$SCRIPT_DIR/worktree-id.sh")"
 
 BUILD_ROOT="${WT_ROOT}/build/worktree/${WT_ID}"
 RUNTIME_JAR="${BUILD_ROOT}/runtime/libs/runtime-0.1.0-SNAPSHOT-${WT_ID}.jar"
-SDK_JAR="${BUILD_ROOT}/sdk/libs/sdk-0.1.0-SNAPSHOT-${WT_ID}.jar"
+SDK_JAR="$(find "${BUILD_ROOT}/sdk/libs" -maxdepth 1 -type f -name 'sdk-*.jar' | LC_ALL=C sort | head -n 1)"
 DEMO_PLUGIN_JAR="${BUILD_ROOT}/demo/libs/demo-0.1.0-SNAPSHOT-${WT_ID}.jar"
 TESTFRAMEWORK_JAR="${BUILD_ROOT}/testframework/libs/testframework-0.1.0-SNAPSHOT-${WT_ID}.jar"
 

@@ -25,7 +25,8 @@ import java.util.UUID;
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final String CORE_ID = "turboism.core";
+    private static final String CORE_ID =
+        dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
     private final Path home;
     private final Path plugins;
     private final Path staging;
@@ -337,14 +338,28 @@ public final class PendingPluginOperations {
 
     record StagedInstall(boolean accepted, String code, PreparedPluginJar prepared) { }
     record StagedUninstall(boolean accepted, String code) { }
-    public enum Status { APPLIED, ROLLED_BACK, RECOVERY_REQUIRED }
+    /** What happened to the plugin directory when the pending journal was applied. */
+    public enum Status {
+        /** All journalled operations were applied. */
+        APPLIED,
+        /** The apply failed and the staged changes were rolled back. */
+        ROLLED_BACK,
+        /** The journal could not be applied safely; manual recovery is required. */
+        RECOVERY_REQUIRED
+    }
     /**
      * Outcome of applying the pending-operations journal.
      *
      * @param status what happened to the plugin directory
      * @param code stable diagnostic code identifying the specific outcome, for logs and tests
      */
-    public record ApplyResult(Status status, String code) { public boolean applied() { return status == Status.APPLIED; } }
+    public record ApplyResult(Status status, String code) {
+        /**
+         * @return {@code true} only when {@link #status()} is {@link Status#APPLIED}; a
+         *         rolled-back or recovery-required apply does not count
+         */
+        public boolean applied() { return status == Status.APPLIED; }
+    }
 
     private static final class PendingJournalInvalidException extends IllegalStateException {
         PendingJournalInvalidException(final Throwable cause) { super("PLUGIN_PENDING_INVALID", cause); }

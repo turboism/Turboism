@@ -11,6 +11,7 @@ public interface ParameterGroups {
     /** Returns all groups in stable pre-order, starting with the root group. */
     List<ParameterGroup> all();
 
+    /** Returns the root parameter folder. */
     ParameterGroup root();
 
     /** @throws NoSuchElementException when the ID is absent */

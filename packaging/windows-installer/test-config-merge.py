@@ -29,12 +29,11 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 16 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 # 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），项目数不变。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:clipmask-viewer",
-    ":plugins:core",
     ":plugins:cubism-tab-filter",
     ":plugins:history-panel",
     ":plugins:mcp",
@@ -76,8 +75,8 @@ def load_manifest():
     check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
     check("清单无重复", len(set(lines)) == len(lines))
     check("清单按 ASCII 升序", lines == sorted(lines))
-    check("清单与冻结 17 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
-    modules = [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
+    check("清单与冻结 16 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
+    modules = [l[len(":plugins:"):] for l in lines]
     check("公开排除模块不在清单", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
     return modules
@@ -119,7 +118,8 @@ V0_FIELDS = {
 V1_FIELDS = {
     "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-    "hooks", "launcher",
+    "hooks", "launcher", "reduceAutoBackup",
+    "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 LOCALES = {"system", "en", "ja", "ko", "zh-Hans", "zh-Hant"}
@@ -128,7 +128,12 @@ STARTUP_FIELDS = {
     "skipUpdateCheck", "skipSplash", "skipInformation",
     "separateExportSaveDirectory",
 }
-LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
+LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+V0_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
+BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+BOOLEAN_V1_FIELDS = {
+    "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+}
 CUBISM_JVMS = {"graalvm", "bundled"}
 
 
@@ -171,6 +176,9 @@ def validate_v1(doc):
         raise ValueError("safeMode must be boolean")
     if "useTextIcon" in doc and type(doc["useTextIcon"]) is not bool:
         raise ValueError("useTextIcon must be boolean")
+    for field in BOOLEAN_V1_FIELDS:
+        if field in doc and type(doc[field]) is not bool:
+            raise ValueError(field + " must be boolean")
     if "hooks" in doc:
         hooks = doc["hooks"]
         if not isinstance(hooks, dict) or set(hooks) - HOOK_FIELDS:
@@ -191,6 +199,9 @@ def validate_v1(doc):
         if "cubismJvm" in launcher:
             if not isinstance(launcher["cubismJvm"], str) or launcher["cubismJvm"] not in CUBISM_JVMS:
                 raise ValueError("launcher.cubismJvm is invalid")
+        for field in BOOLEAN_LAUNCHER_FIELDS:
+            if field in launcher and type(launcher[field]) is not bool:
+                raise ValueError("launcher." + field + " must be boolean")
         if "graalVmPath" in launcher:
             path = launcher["graalVmPath"]
             if (not isinstance(path, str) or not path.strip() or len(path) > 4096
@@ -218,7 +229,7 @@ def migrate_v0(doc):
         if field in doc:
             migrated[field] = doc[field]
     launcher = dict(doc.get("launcher", {"cubismJvm": "graalvm"}))
-    if set(launcher) - LAUNCHER_FIELDS:
+    if set(launcher) - V0_LAUNCHER_FIELDS:
         raise ValueError("unsupported legacy launcher field")
     for field in ("cubismJvm", "graalVmPath"):
         if field in doc:
@@ -338,14 +349,11 @@ def check_config_migration_contract():
     config_start = text.index('Section "-写入配置" SecConfig')
     config_end = text.index("SectionEnd", config_start)
     section = text[config_start:config_end]
-    first_payload = min(
-        text.index('Section "-核心文件" SecCore'),
-        text.index('Section "-托管 GraalVM" SecManagedGraal'),
-    )
     check("CM1 config commit precedes every permanent payload section",
-          config_start < first_payload
+          config_start < text.index('Section "-核心文件" SecCore')
           and config_start < text.index('!include "plugin-sections.nsh"')
-          and 'Section "-插件载荷" SecPluginPayload' in generated)
+          and 'Section "-插件载荷" SecPluginPayload' in generated
+          and 'Section "-托管 GraalVM"' not in text)
     check("CM2 NSIS uses the current staged helper rather than an installed prior version",
           '$PLUGINSDIR\\Turboism-config\\configure_turboism.ps1' in section
           and '${STAGING_DIR}/configure_turboism.ps1' in section
@@ -386,6 +394,21 @@ def check_config_migration_contract():
           and "hooks.startup" in configure
           and 'Assert-RuntimeStringArray $pluginDirs.Value "pluginDirs"' in configure
           and "must be an array of strings" in configure)
+    check("CM6b v1 validator admits every runtime schema field",
+          all(name in configure for name in (
+              "reduceAutoBackup", "meshTriangulationHashFix",
+              "atlasTileBbox", "atlasCacheReuse",
+          ))
+          and '"zgc", "modelUpdateSkip", "incrementalUpdate"' in configure)
+    check("CM6c merged documents with runtime boolean fields pass v1",
+          validate_v1({
+              "format": "turboism.runtime.config", "schemaVersion": 1,
+              "worktreeId": "turboism-runtime", "pluginDirs": ["plugins"],
+              "reduceAutoBackup": True, "meshTriangulationHashFix": False,
+              "atlasTileBbox": True, "atlasCacheReuse": False,
+              "launcher": {"cubismJvm": "bundled", "zgc": False,
+                           "modelUpdateSkip": False, "incrementalUpdate": True, "uniformLocationCache": False},
+          }) is not None)
     check("CM7 migration/selection publish atomically and fail closed",
           "[System.IO.File]::Replace($temporary, $configPath, $backup, $true)" in configure
           and "if ($published -and (Test-Path -LiteralPath $backup -PathType Leaf))" in configure
@@ -443,18 +466,43 @@ def check_managed_graal_installer_contract():
           "${NSD_CreateRadioButton}" in text and "$(GraalNowChoice)" in text
           and "$(GraalLaterChoice)" in text and "Function ModeLeave" in text)
     check("GI3 no install occurs unless selected",
-          "${If} $installManagedGraal == 1" in text
+          "${If} $installManagedGraal != 1" in text
           and "install-managed-graal.ps1" in text)
-    graal_start = text.index('Section "-托管 GraalVM"')
-    graal_end = text.index("SectionEnd", graal_start)
-    graal_section = text[graal_start:graal_end]
-    check("GI4 selected failure warns and continues installer",
-          "ManagedGraalInstallError" in graal_section
-          and "DetailPrint" in graal_section
-          and "MB_ICONEXCLAMATION" in graal_section
-          and "Abort" not in graal_section)
-    check("GI4b config preflight precedes optional Graal payload mutation",
-          text.index('Section "-写入配置"') < graal_start)
+    graal_page = text.index("Page custom GraalCreate GraalLeave")
+    install_page = text.index("Page custom GraalInstallCreate GraalInstallLeave")
+    discovery_page = text.index("Page custom CubismDiscoveryCreate CubismDiscoveryLeave")
+    check("GI4 managed Graal install is a dedicated page right after the strategy page",
+          graal_page < install_page < discovery_page
+          and install_page < text.index("Page custom LaunchOptionsCreate")
+          and text.index("MUI_PAGE_DIRECTORY") < graal_page
+          and 'Section "-托管 GraalVM"' not in text)
+    graal_create_start = text.index("Function GraalInstallCreate")
+    graal_create_end = text.index("FunctionEnd", graal_create_start)
+    graal_create = text[graal_create_start:graal_create_end]
+    graal_begin_start = text.index("Function GraalInstallBegin")
+    graal_begin_end = text.index("FunctionEnd", graal_begin_start)
+    graal_begin = text[graal_begin_start:graal_begin_end]
+    check("GI4b install page skips itself when install-later was chosen",
+          "${If} $installManagedGraal != 1" in graal_create
+          and "Abort" in graal_create)
+    check("GI4c config migration preflight precedes the download worker",
+          "-MigrateConfig" in graal_begin
+          and graal_begin.index("-MigrateConfig") < graal_begin.index("ExecShell")
+          and "install-managed-graal.ps1" in graal_begin
+          and "-StatusFile" in graal_begin and "-CancelFile" in graal_begin)
+    check("GI4d page polls the worker status file and never blocks the wizard",
+          "${NSD_CreateTimer} GraalInstallPoll 250" in graal_begin
+          and "SW_HIDE" in graal_begin
+          and "Function GraalInstallPoll" in text
+          and "FileReadUTF16LE $GraalInstallHandle $line" in text
+          and "TURBOISM_GRAAL_STATUS_V1" in text
+          and "graal-status.txt" in text and "graal-cancel.flag" in text)
+    check("GI4e selected failure stays on the page and offers retry",
+          "ManagedGraalInstallError" in text
+          and "Function GraalInstallRetryClick" in text
+          and "Function GraalInstallCancelClick" in text
+          and "${NSD_OnBack} GraalInstallBack" in graal_create
+          and "EnableWindow $GraalInstallNext 0" in graal_create)
     service = (INSTALLER_NSI.parents[2] / "runtime/src/main/java/dev/turboism/graal/ManagedGraalRuntimeService.java").read_text(encoding="utf-8")
     check("GI5 native installer uses the runtime service's exact archive pins",
           all(pin in bridge and pin in service for pin in (
@@ -486,6 +534,22 @@ def check_managed_graal_installer_contract():
           and '${NSD_CreateRadioButton} 0 67u 100% 16u "$(GraalNowChoice)"' in graal_create
           and '${NSD_CreateRadioButton} 0 84u 100% 16u "$(GraalLaterChoice)"' in graal_create
           and '${NSD_CreateLabel} 12u 101u 96% 42u "$(GraalProgressHint)"' in graal_create)
+    graal_install_keys = (
+        "GraalInstallTitle", "GraalInstallPreparing", "GraalStateDownloading",
+        "GraalStateVerifying", "GraalStateExtracting", "GraalInstallReady",
+        "GraalInstallAlready", "GraalInstallCancelled", "GraalInstallCancelling",
+        "GraalInstallCancelText", "GraalInstallRetryText",
+    )
+    check("GI12 install page has English, Simplified Chinese, Japanese, and Korean text",
+          all(text.count("LangString %s ${LANG_" % key) == 4 for key in graal_install_keys)
+          and 'LangString GraalInstallTitle ${LANG_SIMPCHINESE} "Turboism 托管的 GraalVM"' in text)
+    check("GI13 worker exposes the page's status and cancel protocol",
+          'Write-ManagedGraalStatus ("STATE|" + $State + "|" + $Done + "|" + $Total)' in bridge
+          and '"TURBOISM_GRAAL_STATUS_V1", $Record' in bridge
+          and '[string]$StatusFile' in bridge and '[string]$CancelFile' in bridge
+          and 'Write-ManagedGraalStatus ("EXIT|" + $result)' in bridge
+          and 'Test-Path -LiteralPath $script:graalCancelPath' in bridge
+          and "TURBOISM_GRAAL_STATUS_V1" in text)
 
 
 def check_configurator_flow_contract():
@@ -504,12 +568,15 @@ def check_configurator_flow_contract():
     discovery_start = text.index("Function CubismDiscoveryCreate")
     discovery_end = text.index("FunctionEnd", discovery_start)
     discovery_create = text[discovery_start:discovery_end]
+    prepare_start = text.index("Function CubismDiscoveryPrepareFiles")
+    discovery_prepare = text[prepare_start:text.index("FunctionEnd", prepare_start)]
     check("CF1c pre-install discovery stages the current exact verifier payload",
-          all(path in discovery_create for path in (
+          "Call CubismDiscoveryPrepareFiles" in discovery_create
+          and all(path in discovery_prepare for path in (
               '${STAGING_DIR}/turboism-agent.jar',
               '${STAGING_DIR}/configure_turboism.ps1',
               '${STAGING_DIR}/cubism-launch-common.ps1'))
-          and "$PLUGINSDIR\\Turboism-discovery-$CubismDiscoveryGeneration" in discovery_create)
+          and "$PLUGINSDIR\\Turboism-discovery-$CubismDiscoveryGeneration" in discovery_prepare)
     scanner_exec = next(line for line in discovery_create.splitlines()
                         if "InstallerDiscoveryOutput" in line)
     check("CF1d pre-install discovery launches asynchronously without taking focus",
@@ -523,6 +590,8 @@ def check_configurator_flow_contract():
     poll_start = text.index("Function CubismDiscoveryPoll")
     poll_end = text.index("FunctionEnd", poll_start)
     poll = text[poll_start:poll_end]
+    reader_start = text.index("Function CubismDiscoveryReadResult")
+    reader = text[reader_start:text.index("FunctionEnd", reader_start)]
     fail_start = text.index("Function CubismDiscoveryFail")
     fail_end = text.index("FunctionEnd", fail_start)
     fail = text[fail_start:fail_end]
@@ -556,11 +625,12 @@ def check_configurator_flow_contract():
           and "[System.IO.File]::Move($temporary, $output)" in common)
     check("CF1i2 discovery report preserves localized labels and non-ASCII paths",
           "[System.Text.UnicodeEncoding]::new($false, $true, $true)" in common
-          and "FileReadUTF16LE $CubismDiscoveryHandle $line" in poll)
+          and "FileReadUTF16LE $CubismDiscoveryHandle $line" in reader
+          and "Call CubismDiscoveryReadResult" in poll)
     check("CF1i3 result parsing cannot overwrite the open report handle",
-          'FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r' in poll
-          and "FileClose $CubismDiscoveryHandle" in poll
-          and "FileReadUTF16LE $0 $line" not in poll)
+          'FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r' in reader
+          and "FileClose $CubismDiscoveryHandle" in reader
+          and "FileReadUTF16LE $0 $line" not in reader)
     discovery_keys = (
         "CubismDiscoveryTitle", "CubismDiscoveryScanning", "CubismDiscoveryComplete",
         "CubismDiscoveryNone", "CubismDiscoveryFailed", "CubismDiscoveryTimeout",
@@ -578,7 +648,7 @@ def check_configurator_flow_contract():
           and 'LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描已安装的 Cubism 编辑器……"' in text)
     check("CF1j2 scaled discovery list exposes complete paths horizontally",
           "${NSD_AddStyle} $CubismDiscoveryList ${WS_HSCROLL}" in discovery_create
-          and "${LB_SETHORIZONTALEXTENT} 8192" in poll)
+          and "${LB_SETHORIZONTALEXTENT} 8192" in reader)
     check("CF1k exact artifact probes and the entire pre-install worker are time-bounded",
           "$script:CubismArtifactProbeTimeoutMilliseconds = 20000" in common
           and "WaitForExit($script:CubismArtifactProbeTimeoutMilliseconds)" in common
@@ -614,7 +684,42 @@ def check_configurator_flow_contract():
           "ExecWait" not in text
           and "ExecShell \"\" \"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\"" in scanner_exec
           and "SW_HIDE" in scanner_exec
-          and text.count("nsExec::ExecToLog") == 11)
+          and all(
+              line.strip().startswith("nsExec::ExecToLog")
+              or (line.strip().startswith('ExecShell ""') and "SW_HIDE" in line)
+              for line in text.splitlines()
+              if "powershell.exe" in line and line.strip().startswith(("Exec", "nsExec::"))))
+    check("CF2-cache all final operations reuse the digest-bound middle scan",
+          success.count("${CUBISM_DISCOVERY_HANDOFF}") == 5
+          and "InstallerDiscoveryOutput" not in success
+          and 'Goto InstallerConfigurationDone' in success
+          and success.index('-IntegrateBat') < success.index('RMDir /r "$CubismDiscoveryWorkDir"')
+          and '-InstallerDiscoverySnapshot "$CubismDiscoveryResult.json"' in text
+          and '-InstallerDiscoverySnapshotSha256 "$CubismDiscoverySnapshotHash"' in text)
+    check("CF2-cache reader validates the snapshot envelope before accepting it",
+          '"SNAPSHOT|"' in reader
+          and 'StrLen $0 $CubismDiscoverySnapshotHash' in reader
+          and '${If} $0 != 64' in reader
+          and '${For} $pos 0 63' in reader
+          and '$CubismDiscoverySnapshotHash == ""' in reader
+          and '${FileExists} "$CubismDiscoveryResult.json"' in reader)
+    silent_start = text.index('Section "-静默发现 Cubism"')
+    silent = text[silent_start:text.index("SectionEnd", silent_start)]
+    check("CF2-cache silent installation scans once before permanent configuration",
+          'IfSilent 0 SilentDiscoveryDone' in silent
+          and 'Call CubismDiscoveryPrepareFiles' in silent
+          and 'Call CubismDiscoveryReadResult' in silent
+          and silent.count('InstallerDiscoveryOutput') == 1
+          and silent_start < text.index('Section "-写入配置"'))
+    cached_start = common.index('function Read-CubismInstallerSnapshot')
+    cached_reader = common[cached_start:common.index('function Write-CubismInstallerDiscoveryReport', cached_start)]
+    check("CF2-cache snapshot import never enumerates drives or launches a version probe",
+          all(name not in cached_reader for name in (
+              'Get-CubismDiscoveryRoots', 'Get-CubismInstallations', 'Get-CubismVersionFromArtifact'))
+          and 'Get-CubismSha256 $application' in cached_reader
+          and 'Get-CubismSha256 $java' in cached_reader
+          and 'Get-CubismSha256 $agent' in cached_reader
+          and 'Get-ConfiguratorCandidates -State $state' in configure)
     check("CF2b BAT integration elevates only the selected helper operation",
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
@@ -871,11 +976,13 @@ def check_launcher_and_shortcut_contract():
           and 'explorer.exe' in text)
     install_success = text[text.index("Function .onInstSuccess"):
                            text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
-    check("L7b discovery payload is removed before the Finish page",
+    check("L7b discovery payload is removed after configuration and before the Finish page",
           'RMDir /r "$CubismDiscoveryWorkDir"' in install_success
           and 'StrCpy $CubismDiscoveryWorkDir ""' in install_success
-          and install_success.index('RMDir /r "$CubismDiscoveryWorkDir"')
-              < install_success.index("-InitializeSelection"))
+          and install_success.index('-InitializeSelection')
+              < install_success.index('-IntegrateBat')
+              < install_success.index('InstallerConfigurationDone:')
+              < install_success.index('RMDir /r "$CubismDiscoveryWorkDir"'))
     check("L8 managed launcher prints the Turboism banner before Cubism selection",
           "function Write-TurboismLauncherBanner" in launcher
           and "For you, a bouquet." in launcher
