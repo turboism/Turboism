@@ -1009,3 +1009,85 @@ transform's target set; verified against `Role` targets).
 - The consult adds ~100–200 ns per guarded call even when passing; the
   in-run ABBA comparison includes this cost in both arms' `passed` paths, so
   the measured delta is the net upper bound, not the gross upload time saved.
+
+### Input-path elision upper bound (experimental transform, not a proxy)
+
+The 5.3.03 production JFR attributes ~80 EDT native samples (~4–5 ms/event) to
+per-input-event Win32/Wine focus and cursor calls: `CWidget.requestFocus`
+(→ `peer.requestFocus` → `shouldNativelyFocusHeavyweight`, ~2 calls/event via
+`SGViewWindowManager.mouseWheel` and the unconditional
+`setCurrentViewContext → activateView`) and `CWidget.setCursor` (→
+`Component.setCursor` → `updateCursorImmediately`, ~1–2 calls/event via
+`decideAction/mouseAction → N.a → CECompletePack.setCursorPack`, none of which
+de-duplicate). A third chain (`RepaintManager.validateInvalidComponents →
+Container.validate → updateCursorImmediately`) is driven by the genuine
+zoom-label text change on every wheel event — `JLabel.setText` already
+de-duplicates identical text, so no provably safe third site exists; it is
+reported here, not implemented.
+
+Flag (default OFF):
+
+```text
+-Dturboism.validation.inputPathElision=true
+```
+
+Mechanism — host method-entry transform, JDK reads only:
+
+- `com/live2d/ui/CWidget.requestFocus()V` gains an entry consult of the
+  `turboism.input-path.focus` `Predicate` slot: the bridge elides only when the
+  widget's `JComponent` `isFocusOwner()` and its containing `Window`
+  `isFocused()` — both pure `KeyboardFocusManager` reads — so the skipped
+  forward cannot change observable focus state.
+- `com/live2d/ui/CWidget.setCursor(Lcom/live2d/type/CCursor;)V` gains an entry
+  consult of the `turboism.input-path.cursor` `BiPredicate` slot receiving
+  `(widget, CCursor)`: the bridge elides only when the component is showing,
+  `isCursorSet()` and `getCursor()` is the *identical* `java.awt.Cursor`
+  instance the call would assign (`Cursor` equality is identity; the cursor
+  packs keep a shared `Cursor` field, so unchanged cursor packs hit this
+  rule). A hidden component, an unset cursor field, a different `Cursor`
+  instance and a `null` pack cursor all pass through to the native path.
+- Both reviewed method shapes must equal the official artifact's reference
+  (`ReviewedMethodShape` gate) and both injections must apply, otherwise the
+  class is left untouched (fail-closed). The dependencies the bridge reads —
+  `CWidget.getJComponent()Ljavax/swing/JComponent;` and
+  `CCursor.getJCursor()Ljava/awt/Cursor;` — are shape-verified against the
+  artifact at install. All three reviewed versions (5.2.03/5.3.02/5.3.03)
+  carry bytecode-identical bodies and admit the experiment by digest.
+- Install marker: `TURBOISM_INPUT_PATH elision=ACTIVE sites=2`; the close
+  marker reports `focusCalls/focusElided/focusPassed`,
+  `cursorCalls/cursorElided/cursorPassed` and `observerFailures`.
+- `CWidget` subclasses that do not override these two methods inherit the
+  rewritten bodies; an overriding subclass would bypass the consult (none of
+  the observed hot-path widgets override them — the JFR frames name
+  `CWidget.requestFocus` itself).
+
+Correctness gates per run: `leg.N.canvasPixelDigest` equality across legs,
+`leg.N.focusOwner`/`leg.N.canvasCursor` fingerprints identical on every leg
+(`crossLegFocusOwnerParity`/`crossLegCanvasCursorParity`), plus the existing
+geometry/undo/source parity on pan and ArtMesh legs. OFF legs still evaluate
+the consult and count `passed`, so the ABBA delta is the net effect including
+observer overhead.
+
+```bash
+# wheel ABBA (off/on/on/off legs inside one run); production uploadElision and
+# the uniform cache stay ON in both arms — the delta is the stacked increment.
+# Point the fixture env at the heavy project before launching
+# (TURBOISM_HOST_VALIDATION_FIXTURE_5303=<heavy.cmo3 path> with sha256
+# 029e9a4e…f80c as TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256):
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=inputPath' \
+  --jvm-option '-Dturboism.validation.inputPathElision=true' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --ready-marker 'TURBOISM_INPUT_PATH elision=ACTIVE' \
+  --result-timeout 1200
+
+# pan / artmesh (same flag set; pan expects changedMeshCount=0, artmesh =1):
+bash scripts/preview/run-model-update-skip-host-validation.sh on-pan 5303 <leg-id> ...
+bash scripts/preview/run-model-update-skip-host-validation.sh on-artmesh 5303 <leg-id> ...
+```
+
+A cross-run control without the transform (`-Dturboism.validation.inputPathElision=false`)
+is meaningful; on an unreviewed artifact the install must report
+`TURBOISM_INPUT_PATH installation=NOT_ADMITTED` (fail-closed), so do NOT pass
+`modelUpdateFactor=inputPath` there — the workload requires the installed gate
+and fails by design without it.
