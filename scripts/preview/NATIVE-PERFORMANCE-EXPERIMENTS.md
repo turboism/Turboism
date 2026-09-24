@@ -1550,8 +1550,12 @@ n8 是这套链路的首次实机有效性证据。
 - **实现/协议**：不改产品代码；经 host-validation manifest `--jvm-option` 注入。
   C=无附加；T1=`-Xmx4g`。`native-resource:5302` + `memoryIdleSeconds=780` 扩展窗，
   `measure-task-memory.py`/`NativeMemoryObservation`/jvm.csv。序列 C/T1/T1/C/C/T1，
-  另有校准轮 ma-cal-c（不计入）。主指标口径含 swap（PSS+SwapPss、RSS+VmSwap，
-  监督 450c6396 裁决：本机 zram+swapfile 常态换页，裸 PSS 会偏袒承压更大的控制臂）；
+  另有校准轮 ma-cal-c（不计入）。主指标口径含 swap（rollup.Pss+rollup.SwapPss、
+  rollup.Rss+rollup.Swap，监督 450c6396 裁决：本机 zram+swapfile 常态换页，
+  裸 PSS 会偏袒承压更大的控制臂）。**口径边界**：所有内存数字为单一 main Java PID
+  的 smaps_rollup，不覆盖 Proton 全进程树或系统物理内存；PSS+SwapPss 不等于
+  本机 zram 实际占用。OOME/fatal 判定基于每轮 2 个文件（runtime log+
+  cubism-console.txt）的文本扫描。
   作废阈=轮内 maxVmSwap>1GiB。fixture heavy.cmo3 sha256 `029e9a4e…c7f80c`。
 - **终态**：6/6 succeeded/PASS/normalExit/cleanup=safe；T1 三轮 jvm.csv 首行
   heapMaxBytes=4294967296（断言激活）；六轮 maxVmSwap 0–974.2MiB 均<1GiB → 全 VALID。
@@ -1562,13 +1566,14 @@ n8 是这套链路的首次实机有效性证据。
   - 加载峰 PSS：C 4448.4 [3283.5,4742.3] vs T1 2918.8 [2874.7,3044.5]，
     Δ=−1529.6/−34.4%，**区间零重叠（T1 max < C min）——本战役唯一干净分离**。
   - 护栏：OOME/fatal=0、normalExit 6/6、loadWall T1 58.1–59.7s vs C 58.1–62.0s、
-    zoom 60/60、dirty/Undo 不变、GC 无回退。
+    zoom 60/60、dirty/Undo 不变、GC 累计时间无回退。
 - **机制**：softCache.matchedDecodedBytes 六轮逐字节相同（239009448；
   cohort 848→585；archived 352308846）；closedHeapCommittedMed 区间亦重叠
   （T1 1948–2382 vs C 2032–2400）。「堆上限→软引用逐出→缓存字节下降→PSS 下降」
   链条**不被证据支持**；T1 加载峰收益归因于堆 bound 本身而非软缓存逐出。
-- **判定**：稳态/关闭后收益 **INCONCLUSIVE**（中位偏向 T1 但重叠+机制平坦+臂内
-  方差同级，n=3 不可分离）；加载峰削减 **SUPPORTED**；软引用机制 **NOT DEMONSTRATED**。
+- **判定**：按 SC-1 v2（2026-09-24 监督裁决）6/6 轮有效；SC-1 整体未通过；
+  加载峰方向 SUPPORTED。稳态/关闭后收益 **INCONCLUSIVE**（中位偏向 T1 但重叠+
+  机制平坦+臂内方差同级，n=3 不可分离）；软引用机制 **NOT DEMONSTRATED**。
   不作为默认设置变更依据；加载峰方向建议独立切片复测。
 - **T2 未跑**：decodedBytes 零变化使 SoftRefLRUPolicyMSPerMB 假设链断裂，
   原假设下无 falsifiable 增量；是否另设目标跑 T2 由监督裁决。
@@ -1578,3 +1583,35 @@ n8 是这套链路的首次实机有效性证据。
   job/run/prepared ID 逐轮登记于 campaign-notes.md。
 - **重试条件**：加载峰独立协议（固定环境底噪、更多轮次、heap committed 追踪）；
   或先证明 decoded 缓存对堆压力敏感的机制证据再谈 T2；不得用本批中位差宣称稳态收益。
+
+## M-B — T08 GL 归因 + glGetError elision + 切片 A 同腿对照（052/T08，2026-09-24）
+
+- **协议**：5.3.03 + heavy.cmo3（sha256 029e9a4e…c7f80c），`model-update-skip:5303`
+  quiet wheel 负载，event→EDT-barrier + native repaint barrier（非物理 FPS）。
+  执行 worktree `perf/052-gl-attribution`（先 @2748affe1，后 @0e24fa2a1/0eb8f535c）。
+- **腿 A 归因（仪器化，仅解释构成非收益证据）**：`modelUpdateGlCalls`+
+  `modelUpdateGlCallCategories`，200 事件腿 mean 133.37ms。
+  类别 delegate 合计 53.17ms/ev（leg mean 39.9%；observer 自耗 30.18ms/ev），
+  state 14.91 / errorCheck 9.04 / upload 8.72 / query 6.75 / uniformWrite 5.24 /
+  readback 4.96 / draw 3.53 ms/ev。SC-5「≥80% quiet 帧耗时」在仪器化口径下**未达**
+  （其余 ~50ms 为探针不可见宿主侧）。top 方法：glGetError 8.96M/1.81s、
+  glBufferSubData 475k/1.74s、glGetUniformLocation 670k/1.33s。
+- **校准腿**：uniform OFF（`UNIFORM_LOCATION NOT_ADMITTED` 核实）全部类别计数与
+  prod 逐字节相同——本负载下 uniform 缓存对 GL 流无影响，prod 归因即有效画面。
+- **B 腿首轮作废**：ON 腿 elision 激活成功但 uniform 安装校验 `shader/A.a` 原始
+  方法体与 elision 改写冲突 → UNIFORM_LOCATION FAILED（混杂臂作废）。
+  **产品化阻塞项：elision 与 uniform 缓存在 shader/A.a 互斥，不可兼得。**
+- **u0 ABBA（uniform 两臂 OFF，modelSkip factor 内嵌 {0,1,1,0}）**：4/4 VALID，
+  ON 腿 `elision=ACTIVE sites=1` 核实。
+  **elision 实测 Δ≈−1.1ms/事件**（skip-ON 子腿池化 58.50→57.32ms；displays/s
+  17.02→17.37）——量级小，「调用数」假设被否定。
+- **切片 A（modelUpdateSkip）同腿内对照**：leg0/3(OFF) vs leg1/2(ON)，
+  四 run 中位 Δ≈**−20.0ms/事件**（77.3→57.4ms 量级），jobs
+  4902d6df/dc7634ca/90f0463e/81eae713。
+- **冗余归因（诊断）**：3.99M/10.63M calls 冗余（保守上限 7.08ms/ev），
+  invalidations=1,572,001（≈7,860/ev，窗口几乎即失效），uniformRedundant 仅
+  87/ev——去重路线**否决**。
+- **证据**：`~/.local/state/turboism/performance-evidence/20260924-perf052-t08/run/`
+  {t08-attr-prod-r1,t08-attr-cal-r1,t08-elision-{off,on}-r{1,2},
+  t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1}；明细见
+  `build/perf052-t08/campaign-notes.md`。上传抑制（t08b）与 JFR 腿在途。
