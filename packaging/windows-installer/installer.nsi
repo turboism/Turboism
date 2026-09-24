@@ -142,12 +142,12 @@ Page custom LaunchOptionsCreate LaunchOptionsLeave
 !insertmacro MUI_LANGUAGE "Japanese"
 !insertmacro MUI_LANGUAGE "Korean"
 
-; EULA 正文只有 en/zh-Hans/ja 三份译文；韩语界面回退英文正文（见 packaging/eula/），
-; 简体中文仍是权威文本。不要为韩语伪造第四份法律文本。
+; EULA 正文提供 en/zh-Hans/ja/ko 四种语言（见 packaging/eula/），
+; 简体中文仍是权威文本，其他语言为译文。
 LicenseLangString EulaFile ${LANG_ENGLISH} "${EULA_DIR}/EULA.en.txt"
 LicenseLangString EulaFile ${LANG_SIMPCHINESE} "${EULA_DIR}/EULA.zh-Hans.txt"
 LicenseLangString EulaFile ${LANG_JAPANESE} "${EULA_DIR}/EULA.ja.txt"
-LicenseLangString EulaFile ${LANG_KOREAN} "${EULA_DIR}/EULA.en.txt"
+LicenseLangString EulaFile ${LANG_KOREAN} "${EULA_DIR}/EULA.ko.txt"
 
 ; ---------- 自定义文案 LangString（en/zh/ja/ko） ----------
 LangString TurboismWelcomeTitle ${LANG_ENGLISH} "Welcome to Turboism Setup"
@@ -1538,6 +1538,7 @@ Section "Uninstall"
   Delete "$INSTDIR\EULA.en.txt"
   Delete "$INSTDIR\EULA.zh-Hans.txt"
   Delete "$INSTDIR\EULA.ja.txt"
+  Delete "$INSTDIR\EULA.ko.txt"
   Delete "$INSTDIR\uninstall.exe"
   ; 运行时数据目录
   RMDir /r "$INSTDIR\plugins"

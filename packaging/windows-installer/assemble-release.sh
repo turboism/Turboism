@@ -187,6 +187,7 @@ core_payload.extend([
     ("EULA.en.txt", stage / "EULA.en.txt"),
     ("EULA.zh-Hans.txt", stage / "EULA.zh-Hans.txt"),
     ("EULA.ja.txt", stage / "EULA.ja.txt"),
+    ("EULA.ko.txt", stage / "EULA.ko.txt"),
 ])
 plugin_payload = [
     (f'plugins/{p["module"]}.jar', stage / "plugins" / f'{p["module"]}.jar')
@@ -418,7 +419,7 @@ else
   # 无 BOM 的 UTF-8 中文会在非 UTF-8 ACP 下乱码。仅为 makensis 生成带 BOM 的
   # EULA 副本，源文件（Java 安装器/ZIP 使用的无 BOM 版本）保持字节不变。
   mkdir -p "$generated/eula"
-  for lang in en zh-Hans ja; do
+  for lang in en zh-Hans ja ko; do
     { printf '\xef\xbb\xbf'; cat "$repo_root/packaging/eula/EULA.$lang.txt"; } > "$generated/eula/EULA.$lang.txt"
   done
   # VIProductVersion 需要纯数字 x.y.z.w；无法从 VER 推导时跳过版本资源
