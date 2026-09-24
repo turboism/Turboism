@@ -1488,20 +1488,45 @@ raise SystemExit(1)
 PY
 }
 
-# Snapshot the task-bound java.exe process evidence: Linux thread comm names
+# Snapshot the task-bound Java process evidence: Linux thread comm names
 # (a Mesa glthread worker appears as "gl0" per util_queue "%s%i" naming) and the
-# whitelisted debug variables the process actually inherited. Selection binds
-# the exact task WINEPREFIX, never a comm or substring match on foreign jobs.
+# whitelisted debug variables the process actually inherited. Task binding uses
+# the exact TURBOISM_HOST_VALIDATION_TASK_DIR marker first and a normalized
+# WINEPREFIX path second, never a comm substring on foreign jobs. The Java
+# process is the task-bound process whose comm (or argv0 basename) is a
+# java-family name — java.exe or javaw.exe — because the official launcher may
+# start either. Every task-bound process and every process carrying a
+# WINEPREFIX marker is listed as diagnostics so a zero-match run shows exactly
+# which name or path form the field used.
 capture_java_gl_evidence() {
   local phase="$1"
-  if ! python3 - "$prefix_dir/pfx" "$evidence_dir" "$phase" <<'PY'; then
+  local proc_root="${2:-/proc}"
+  if ! python3 - "$phase" "$task_dir" "$prefix_dir" "$evidence_dir" "$proc_root" <<'PY'; then
+import os
 import re
 import sys
 from pathlib import Path
 
-prefix = sys.argv[1].encode()
-evidence = Path(sys.argv[2])
-phase = sys.argv[3]
+phase = sys.argv[1]
+task_dir = sys.argv[2]
+prefix_arg = sys.argv[3]
+evidence = Path(sys.argv[4])
+proc_root = Path(sys.argv[5])
+
+task_dir_real = os.path.realpath(task_dir)
+prefix_real = {os.path.realpath(prefix_arg),
+               os.path.realpath(os.path.join(prefix_arg, "pfx"))}
+
+JAVA_COMMS = {"java.exe", "javaw.exe", "java", "javaw"}
+
+def environ_map(raw):
+    entries = {}
+    for entry in raw.split(b"\x00"):
+        if not entry or b"=" not in entry:
+            continue
+        name, _, value = entry.partition(b"=")
+        entries[name.decode("utf-8", "replace")] = value.decode("utf-8", "replace")
+    return entries
 
 def start_time(stat):
     closing = stat.rfind(b")")
@@ -1513,26 +1538,61 @@ def start_time(stat):
 def admitted_env_name(name):
     return name == "mesa_glthread" or name.startswith("MESA_") or name.startswith("GALLIUM_HUD")
 
-matches = []
-for proc in Path("/proc").iterdir():
+def java_match(comm, cmdline):
+    if comm.lower() in JAVA_COMMS:
+        return "comm"
+    argv0 = cmdline.split(b"\x00", 1)[0].replace(b"\\", b"/").rsplit(b"/", 1)[-1].lower()
+    if argv0 in {b"java.exe", b"javaw.exe", b"java", b"javaw"}:
+        return "cmdline"
+    return ""
+
+task_bound = []
+prefix_carriers = []
+for proc in proc_root.iterdir():
     if not proc.name.isdigit():
         continue
     try:
-        if (proc / "comm").read_bytes().rstrip(b"\n") != b"java.exe":
-            continue
-        raw_environ = (proc / "environ").read_bytes()
-        entries = [entry for entry in raw_environ.split(b"\x00") if entry]
-        if not any(entry == b"WINEPREFIX=" + prefix for entry in entries):
-            continue
-        matches.append((int(proc.name), start_time((proc / "stat").read_bytes()), entries))
+        comm = (proc / "comm").read_bytes().rstrip(b"\n").decode("utf-8", "replace")
+        environ = environ_map((proc / "environ").read_bytes())
+        try:
+            cmdline = (proc / "cmdline").read_bytes()
+        except OSError:
+            cmdline = b""
+        try:
+            start = start_time((proc / "stat").read_bytes())
+        except OSError:
+            start = None
     except OSError:
         continue
+    wineprefix = environ.get("WINEPREFIX")
+    marker = environ.get("TURBOISM_HOST_VALIDATION_TASK_DIR")
+    if wineprefix is not None or marker is not None:
+        prefix_carriers.append((proc.name, comm, wineprefix or "", marker or ""))
+    bound_via = ""
+    if marker is not None and os.path.realpath(marker) == task_dir_real:
+        bound_via = "taskDir"
+    elif wineprefix is not None and os.path.realpath(wineprefix) in prefix_real:
+        bound_via = "wineprefix"
+    if bound_via:
+        task_bound.append({
+            "pid": int(proc.name), "comm": comm, "environ": environ,
+            "cmdline": cmdline, "start": start, "via": bound_via,
+        })
+
+matches = []
+for proc in task_bound:
+    matched = java_match(proc["comm"], proc["cmdline"])
+    if matched:
+        proc["match"] = matched
+        matches.append(proc)
 
 thread_rows = []
 gl_thread_count = 0
-for pid, _start, _entries in matches:
+for proc in matches:
+    pid = proc["pid"]
+    proc["threadCount"] = 0
     try:
-        tasks = sorted((Path("/proc") / str(pid) / "task").iterdir(), key=lambda path: int(path.name))
+        tasks = sorted((proc_root / str(pid) / "task").iterdir(), key=lambda path: int(path.name))
         for task in tasks:
             try:
                 comm = (task / "comm").read_bytes().rstrip(b"\n").decode("utf-8", "replace")
@@ -1540,18 +1600,38 @@ for pid, _start, _entries in matches:
                 continue
             if re.fullmatch(r"gl\d+", comm):
                 gl_thread_count += 1
+            proc["threadCount"] += 1
             thread_rows.append(f"{pid}\t{task.name}\t{comm}")
     except OSError:
         thread_rows.append(f"{pid}\tunreadable\tprocess-vanished")
 
+def clean(text):
+    return re.sub(r"[\x00-\x1f\x7f]", "?", text)
+
 with (evidence / f"java-process.{phase}.properties").open("w", encoding="utf-8") as stream:
-    stream.write("schemaVersion=1\n")
+    stream.write("schemaVersion=2\n")
     stream.write(f"phase={phase}\n")
     stream.write(f"javaProcessCount={len(matches)}\n")
     stream.write(f"glThreadCount={gl_thread_count}\n")
-    for index, (pid, start, _entries) in enumerate(matches):
-        stream.write(f"java.{index}.pid={pid}\n")
-        stream.write(f"java.{index}.start={start or 'unknown'}\n")
+    stream.write(f"taskProcessCount={len(task_bound)}\n")
+    stream.write(f"prefixCarrierCount={len(prefix_carriers)}\n")
+    for index, proc in enumerate(matches):
+        stream.write(f"java.{index}.pid={proc['pid']}\n")
+        stream.write(f"java.{index}.start={proc['start'] or 'unknown'}\n")
+        stream.write(f"java.{index}.comm={clean(proc['comm'])}\n")
+        stream.write(f"java.{index}.match={proc['match']}\n")
+        stream.write(f"java.{index}.boundVia={proc['via']}\n")
+        stream.write(f"java.{index}.threadCount={proc.get('threadCount', 0)}\n")
+    for index, proc in enumerate(task_bound):
+        stream.write(f"task.{index}.pid={proc['pid']}\n")
+        stream.write(f"task.{index}.comm={clean(proc['comm'])}\n")
+        stream.write(f"task.{index}.boundVia={proc['via']}\n")
+        stream.write(f"task.{index}.wineprefix={clean(proc['environ'].get('WINEPREFIX', 'ABSENT'))}\n")
+    for index, (pid, comm, wineprefix, marker) in enumerate(prefix_carriers):
+        stream.write(f"carrier.{index}.pid={pid}\n")
+        stream.write(f"carrier.{index}.comm={clean(comm)}\n")
+        stream.write(f"carrier.{index}.wineprefix={clean(wineprefix or 'ABSENT')}\n")
+        stream.write(f"carrier.{index}.taskDir={clean(marker or 'ABSENT')}\n")
 
 with (evidence / f"java-threads.{phase}.txt").open("w", encoding="utf-8") as stream:
     stream.write("pid\ttid\tcomm\n")
@@ -1560,22 +1640,19 @@ with (evidence / f"java-threads.{phase}.txt").open("w", encoding="utf-8") as str
 
 observed_glthread = False
 with (evidence / f"java-environ.{phase}.properties").open("w", encoding="utf-8") as stream:
-    stream.write("schemaVersion=1\n")
+    stream.write("schemaVersion=2\n")
     stream.write(f"phase={phase}\n")
-    for pid, _start, entries in matches:
-        for entry in entries:
-            name, separator, value = entry.partition(b"=")
-            if not separator:
+    for proc in matches:
+        for name, value in sorted(proc["environ"].items()):
+            if not admitted_env_name(name):
                 continue
-            text_name = name.decode("ascii", "replace")
-            if not admitted_env_name(text_name):
+            if re.search(r"[\x00-\x1f\x7f]", value):
                 continue
-            text_value = value.decode("utf-8", "replace")
-            if re.search(r"[\x00-\x1f\x7f]", text_value):
-                continue
-            stream.write(f"java.{pid}.{text_name}={text_value}\n")
-            if text_name == "mesa_glthread":
+            stream.write(f"java.{proc['pid']}.{name}={value}\n")
+            if name == "mesa_glthread":
                 observed_glthread = True
+        stream.write(f"java.{proc['pid']}.wineprefix={clean(proc['environ'].get('WINEPREFIX', 'ABSENT'))}\n")
+        stream.write(f"java.{proc['pid']}.taskDir={clean(proc['environ'].get('TURBOISM_HOST_VALIDATION_TASK_DIR', 'ABSENT'))}\n")
     if not observed_glthread:
         stream.write("mesa_glthread=ABSENT\n")
 PY

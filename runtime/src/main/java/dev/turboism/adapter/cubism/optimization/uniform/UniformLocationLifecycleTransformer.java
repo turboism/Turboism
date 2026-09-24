@@ -57,6 +57,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     private final Role role;
     private final String owner;
     private final Map<String, List<String>> shapes = new HashMap<>();
+    private final Map<String, List<String>> composedShapes = new HashMap<>();
     private final Map<String, Integer> locals = new HashMap<>();
     private volatile String failure, beforeSha256;
     private volatile int matches;
@@ -155,6 +156,17 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         if (!expected.equals(observed)) throw new IllegalArgumentException("incomplete JOGL shared program mutation coverage");
     }
 
+    /**
+     * Additionally admits one exact reviewed shape for a method — the output a
+     * registered upstream retransform (the reviewed glGetError elision) is known
+     * to produce. The installer computes the shape from the attested reference
+     * bytes and only registers it while that upstream transform is installed;
+     * anything else still fails the official-shape check below.
+     */
+    public void acceptComposedShape(String method, List<String> shape) {
+        composedShapes.put(Objects.requireNonNull(method, "method"), List.copyOf(shape));
+    }
+
     /** Registers a fail-closed action before installing this transformer. */
     public void onRejection(Runnable action) { onRejection = Objects.requireNonNull(action, "action"); }
     /** Returns the latest rejection, or null. */
@@ -172,9 +184,13 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                 Path.of(domain.getCodeSource().getLocation().toURI()).toAbsolutePath().normalize())) {
                 throw new IllegalArgumentException("lifecycle artifact mismatch");
             }
-            for (var target : role.methods.entrySet()) if (!shapes.get(target.getKey()).equals(
-                ReviewedMethodShape.read(bytes, owner, target.getKey(), target.getValue()))) {
-                throw new IllegalArgumentException("lifecycle method shape mismatch: " + target.getKey());
+            for (var target : role.methods.entrySet()) {
+                List<String> observed = ReviewedMethodShape.read(
+                    bytes, owner, target.getKey(), target.getValue());
+                if (!shapes.get(target.getKey()).equals(observed)
+                    && !composedShapes.getOrDefault(target.getKey(), List.of()).equals(observed)) {
+                    throw new IllegalArgumentException("lifecycle method shape mismatch: " + target.getKey());
+                }
             }
             ClassReader reader = new ClassReader(bytes);
             ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {

@@ -123,6 +123,24 @@ public class GlGetErrorElisionTransformerTest {
         return w.toByteArray();
     }
 
+    /** The marker body after elision: {@code aload_1; pop; iconst_0; ireturn}. */
+    private static byte[] elidedMarker(boolean drift) {
+        ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        w.visit(V17, ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
+        MethodVisitor m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "a",
+            "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
+        m.visitCode();
+        m.visitVarInsn(ALOAD, 1);
+        m.visitInsn(POP);
+        m.visitInsn(ICONST_0);
+        if (drift) m.visitInsn(NOP);
+        m.visitInsn(IRETURN);
+        m.visitMaxs(0, 0);
+        m.visitEnd();
+        w.visitEnd();
+        return w.toByteArray();
+    }
+
     /** Same owner but the marker name carries a foreign descriptor. */
     private static byte[] foreignDescriptor() {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
@@ -225,6 +243,103 @@ public class GlGetErrorElisionTransformerTest {
             marker(false, true, false)), "drifted body without the site fails the shape gate");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
+    }
+
+    @Test void installedMarkerTracksLoaderAndOwner() throws Exception {
+        Path artifact = Files.createTempFile("host", ".jar");
+        Loader loader = new Loader(artifact);
+        Loader other = new Loader(artifact);
+        String owner = GlGetErrorElisionTarget.OWNER;
+        try {
+            assertFalse(GlGetErrorElisionTransformer.isInstalled(loader, owner));
+            GlGetErrorElisionTransformer.markInstalled(loader, owner);
+            assertTrue(GlGetErrorElisionTransformer.isInstalled(loader, owner));
+            assertFalse(GlGetErrorElisionTransformer.isInstalled(other, owner),
+                "a different defining loader must not inherit the marker");
+            assertFalse(GlGetErrorElisionTransformer.isInstalled(loader, "x/y/Z"),
+                "a foreign owner must not inherit the marker");
+        } finally {
+            GlGetErrorElisionTransformer.clearInstalled(loader, owner);
+        }
+        assertFalse(GlGetErrorElisionTransformer.isInstalled(loader, owner));
+    }
+
+    @Test void composedShapeIsTheProbeOutputShape() throws Exception {
+        Path artifact = Files.createTempFile("host", ".jar");
+        Loader loader = new Loader(artifact);
+        byte[] reference = marker(false, false, false);
+        Class<?> type = loader.define(OWNER, reference);
+        List<String> composed = GlGetErrorElisionTransformer.composedShape(
+            loader, artifact, reference, T5303, type);
+        assertNotNull(composed, "probe must admit the reviewed reference");
+        var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
+        byte[] rewritten = transformer.transform(null, loader, OWNER, null,
+            loader.domain, reference);
+        assertNotNull(rewritten, transformer.failure());
+        assertEquals(composed, dev.turboism.adapter.cubism.optimization.ReviewedMethodShape
+            .read(rewritten, OWNER, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I"),
+            "the advertised composed shape must equal the real rewrite output");
+        assertTrue(composed.stream().noneMatch(op -> op.contains("glGetError")),
+            "the composed shape must not retain the elided call");
+    }
+
+    @Test void uniformRewrittenBodyIsRejected() throws Exception {
+        // The composition contract pins install order: elision runs upstream of
+        // the uniform lifecycle observer. If that order ever flips, the elision
+        // gate must keep failing closed instead of rewriting foreign bytes.
+        Path artifact = Files.createTempFile("host", ".jar");
+        Loader loader = new Loader(artifact);
+        byte[] reference = marker(false, false, false);
+        Class<?> type = loader.define(OWNER, reference);
+        var uniform = new dev.turboism.adapter.cubism.optimization.uniform
+            .UniformLocationLifecycleTransformer(loader, artifact, reference,
+                dev.turboism.adapter.cubism.optimization.uniform
+                    .UniformLocationLifecycleTransformer.Role.ERROR);
+        byte[] wrapped = uniform.transform(type.getModule(), loader, OWNER, type,
+            loader.domain, reference);
+        assertNotNull(wrapped, uniform.failure());
+        var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, T5303);
+        assertNull(transformer.transform(type.getModule(), loader, OWNER, type,
+            loader.domain, wrapped),
+            "a body already carrying the uniform observer is not the reviewed shape");
+        assertNotNull(transformer.failure());
+        assertEquals(0, transformer.elided());
+    }
+
+    @Test void uniformLifecycleAcceptsOnlyTheRegisteredComposedShape() throws Exception {
+        Path artifact = Files.createTempFile("host", ".jar");
+        Loader loader = new Loader(artifact);
+        byte[] reference = marker(false, false, false);
+        Class<?> type = loader.define(OWNER, reference);
+        List<String> composed = GlGetErrorElisionTransformer.composedShape(
+            loader, artifact, reference, T5303, type);
+        assertNotNull(composed);
+        var uniform = new dev.turboism.adapter.cubism.optimization.uniform
+            .UniformLocationLifecycleTransformer(loader, artifact, reference,
+                dev.turboism.adapter.cubism.optimization.uniform
+                    .UniformLocationLifecycleTransformer.Role.ERROR);
+        byte[] elided = elidedMarker(false);
+        // Without a registered composed shape the elided body is foreign drift.
+        assertNull(uniform.transform(type.getModule(), loader, OWNER, type,
+            loader.domain, elided));
+        assertNotNull(uniform.failure());
+        uniform.acceptComposedShape("a", composed);
+        byte[] output = uniform.transform(type.getModule(), loader, OWNER, type,
+            loader.domain, elided);
+        assertNotNull(output, uniform.failure());
+        List<String> outputShape = dev.turboism.adapter.cubism.optimization.ReviewedMethodShape
+            .read(output, OWNER, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I");
+        assertTrue(outputShape.stream().noneMatch(op -> op.contains("glGetError")),
+            "the composed result must not resurrect the elided call");
+        // A drifted elided body is still not either reviewed shape.
+        var second = new dev.turboism.adapter.cubism.optimization.uniform
+            .UniformLocationLifecycleTransformer(loader, artifact, reference,
+                dev.turboism.adapter.cubism.optimization.uniform
+                    .UniformLocationLifecycleTransformer.Role.ERROR);
+        second.acceptComposedShape("a", composed);
+        assertNull(second.transform(type.getModule(), loader, OWNER, type,
+            loader.domain, elidedMarker(true)));
+        assertNotNull(second.failure());
     }
 
     @Test void wrongLoaderNameAndArtifactAreRejected() throws Exception {

@@ -30,6 +30,7 @@ import javax.swing.SwingUtilities;
 final class CanvasWheelWorkload {
     private static final String ENABLE = "turboism.optimization.modelUpdateSkip";
     private static final String STATS = "turboism.model-update-skip.stats";
+    private static final String UNIFORM_STATS = "turboism.uniform-location.stats";
     private static final String ELISION_PREDICATE = "turboism.upload-elision.predicate";
     private static final String ELISION_GATE = "turboism.upload-elision.gate";
     private static final String ELISION_STATS = "turboism.upload-elision.stats";
@@ -247,6 +248,7 @@ final class CanvasWheelWorkload {
                     : narrowTrial != null ? narrowTrial.snapshot() : Map.of();
                 final Map<String, Long> elisionBefore = uploadElisionStats();
                 final Map<String, Long> stateBefore = stateElisionStats();
+                final Map<String, Long> uniformHookBefore = statsSlot(UNIFORM_STATS);
                 final long[] nanos = new long[measuredPairs * 2];
                 measuredQueueNanos = measuredHandlerNanos = measuredRepaintBarrierNanos = measuredResumeNanos = 0L;
                 final long elapsed;
@@ -348,6 +350,17 @@ final class CanvasWheelWorkload {
                         .append(stateGauges.contains(key)
                             ? stateAfter.get(key)
                             : stateAfter.get(key) - stateBefore.getOrDefault(key, 0L))
+                        .append('\n');
+                }
+                // Production uniform-hook engagement for co-installed legs: the
+                // slot is absent unless the reviewed uniform hook published it,
+                // so these keys only appear when the cache is actually live.
+                final Map<String, Long> uniformHookAfter = statsSlot(UNIFORM_STATS);
+                for (String key : uniformHookAfter.keySet().stream().sorted().toList()) {
+                    report.append(p).append("uniformLocationHook.").append(key).append('=')
+                        .append(key.equals("active")
+                            ? uniformHookAfter.get(key)
+                            : uniformHookAfter.get(key) - uniformHookBefore.getOrDefault(key, 0L))
                         .append('\n');
                 }
                 if (resources != null) {

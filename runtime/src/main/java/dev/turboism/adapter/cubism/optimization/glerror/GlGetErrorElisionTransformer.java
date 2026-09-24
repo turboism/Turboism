@@ -34,6 +34,17 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
     private static final String GL_METHOD = "glGetError";
     private static final String GL_DESCRIPTOR = "()I";
 
+    /**
+     * Tracks the (loader, owner) pairs this elision rewrote and left installed.
+     * The uniform-location lifecycle verifier consults it so a class body that
+     * carries <em>this</em> reviewed elision can be told apart from foreign
+     * bytecode drift; an unrecorded elided body still fails closed.
+     */
+    private record Installation(ClassLoader loader, String owner) { }
+
+    private static final java.util.Set<Installation> INSTALLED =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private final ClassLoader loader;
     private final Path artifact;
     private final GlGetErrorElisionTarget target;
@@ -64,6 +75,49 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
         expectedSites = sites(reference);
         if (expectedSites < 1) {
             throw new IllegalArgumentException("reviewed glGetError call site absent");
+        }
+    }
+
+    /**
+     * Records that this elision is installed for the given defining loader and
+     * reviewed owner. Called by the verified installer only after admission.
+     */
+    public static void markInstalled(final ClassLoader loader, final String owner) {
+        INSTALLED.add(new Installation(loader, owner));
+    }
+
+    /** Drops the installation record when the verified installer restores. */
+    public static void clearInstalled(final ClassLoader loader, final String owner) {
+        INSTALLED.remove(new Installation(loader, owner));
+    }
+
+    /** Returns whether this elision is installed for the loader/owner pair. */
+    public static boolean isInstalled(final ClassLoader loader, final String owner) {
+        return INSTALLED.contains(new Installation(loader, owner));
+    }
+
+    /**
+     * Returns the exact reviewed method shape this transform produces for the
+     * official body — the bytes a later transformer in the retransform chain
+     * will observe. Computed by running a private probe instance over the
+     * attested reference bytes; {@code null} when the rewrite cannot run.
+     */
+    public static List<String> composedShape(final ClassLoader loader, final Path artifact,
+                                             final byte[] reference,
+                                             final GlGetErrorElisionTarget target,
+                                             final Class<?> type) {
+        try {
+            final GlGetErrorElisionTransformer probe =
+                new GlGetErrorElisionTransformer(loader, artifact, reference, target);
+            final byte[] rewritten = probe.transform(type.getModule(), loader,
+                target.owner(), null, type.getProtectionDomain(), reference);
+            if (rewritten == null) {
+                return null;
+            }
+            return ReviewedMethodShape.read(
+                rewritten, target.owner(), target.method(), target.descriptor());
+        } catch (Exception | LinkageError failure) {
+            return null;
         }
     }
 
