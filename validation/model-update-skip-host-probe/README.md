@@ -700,3 +700,131 @@ direction):
   while glGetError time collapses is consistent with the sync-point
   hypothesis; unchanged totals would refute it. Report requested env state
   and observed thread evidence separately — never conflate them.
+
+### Skipped-frame upload elision upper bound (experimental transform, not a proxy)
+
+T08 attribution measured `glBufferSubData` as the largest single native
+hotspot (175/636 EDT native samples ≈ 10 ms/event by ReadPixels calibration),
+with ~2,377 uploads/event including ~954 index uploads whose payloads were
+99.6% byte-identical to the previous frame (r3). This experiment measures the
+**upper bound** of suppressing repeated uploads on frames where slice A
+already skipped the model update — geometry is then unchanged by
+construction.
+
+Flag (default OFF):
+
+```text
+-Dturboism.validation.skippedFrameUploadElision=true
+```
+
+Mechanism — host call-site transform, no GL proxy:
+
+- The reviewed private upload method `b(GL2ES2,int)` inside the persistent-VBO
+  wrappers `com/live2d/graphics3d/mesh/a/b` (float attributes) and
+  `.../mesh/a/c` (index data) is rewritten in place: the entry of the
+  `glBufferData` block (gated by the second `ILOAD 3; IFEQ` pair) and the entry
+  of the `glBufferSubData` block (gated by `k(); IFEQ`) each gain a
+  loader-neutral `BiPredicate` consult (the `turboism.upload-elision.predicate`
+  slot in `System.getProperties()`); `true` jumps straight to the post-upload
+  join. Both blocks contain only the upload call and its pure argument
+  evaluation, so binding calls, `glDeleteBuffers`/`glGenBuffers` regeneration,
+  dirty-flag clearing and the trailing bookkeeping are untouched — only the
+  upload operation is suppressed. The upload call is wrapped in a `Throwable` handler that
+  notifies the `turboism.upload-elision.failure` slot and rethrows; the
+  `glGenBuffers` site notifies `turboism.upload-elision.lifecycle` so a
+  regenerated buffer clears the tracker before the guarded call is reached.
+- The frame gate is `turboism.model-update-skip.frame-skipped`, an
+  `AtomicBoolean` slot published by the model-update-skip bridge: cleared at
+  every predicate entry and set to the real skip decision only on the
+  non-probe path, so a stale skip decision cannot survive into a non-skipped
+  frame (a render with no intervening update call keeps the flag, which is
+  still safe — the host never rewrote the buffer contents; documented as a
+  residual attribution caveat, not a correctness one).
+- Elision requires `armed` (the `turboism.upload-elision.gate` slot, flipped
+  per leg by the workload) AND the frame-skipped flag AND a recorded baseline
+  for the same `(gl context identity, buffer name)` with identical byte size,
+  identical `Buffer` object identity and identical `position`/`limit`. **No
+  payload bytes are compared** — this is an upper bound, not a
+  correctness-preserving cache. The first qualifying upload always executes
+  and records the baseline. Context identity changes, buffer lifecycle
+  notifications, the first call of a non-skipped-frame run, native upload
+  exceptions and any observer failure all clear the whole table.
+
+Markers:
+
+- `TURBOISM_UPLOAD_ELISION elision=ACTIVE sites=4` — both wrappers rewrote
+  (2 sites each). `installation=COMPLETE` alone is not evidence.
+- Close marker: `TURBOISM_UPLOAD_ELISION closed elided=N passed=N calls=N
+  clears=... contextClears= nonSkippedClears= lifecycleClears=
+  exceptionClears= observerFailures= restored=true|false`.
+- Per-leg workload keys: `leg.N.uploadElision.{calls,elided,passed,clears,
+  contextClears,nonSkippedClears,lifecycleClears,exceptionClears,
+  observerFailures,entries}`.
+
+Admission: reviewed 5.3.02/5.3.03 only. 5.2.03 lacks the `shader/A.a(Buffer)J`
+size helper the bridge resolves (its `shader/A` is an unrelated Kotlin
+lambda), so it fails closed to `installation=NOT_ADMITTED`.
+
+#### Pixel parity
+
+`leg.N.canvasPixelParity` / `leg.N.canvasPixelDigest` are already emitted for
+every factor other than `modelSkip`, and the leg fails fast with
+"buffering change altered canvas pixels" if the toggle repaint differs. Using
+`uploadElision` as the factor therefore yields both keys plus a screen-capture
+digest per leg at the base camera; the driver compares
+`leg.{0,3}.canvasPixelDigest` (gate off) against `leg.{1,2}.canvasPixelDigest`
+(gate on) for equality, and `canvasPixelParity=true` must hold on every leg.
+This captures the leg-boundary frame only — in-frame corruption between
+boundaries is not covered by this gate; treat digests as a smoke check, not a
+full-frame equality proof.
+
+#### ABBA usage (in-run legs; gate toggled per leg)
+
+```bash
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.validation.skippedFrameUploadElision=true' \
+  --result-timeout 1200
+```
+
+One run yields off/on/on/off legs (workload variants `0,1,1,0`): the flag
+installs the transform and bridge; the workload's `uploadElision` factor arms
+the gate on enabled legs and disarms it on control legs. Model-update skip
+stays enabled on every leg (the wrapper's `-Dturboism.optimization.modelUpdateSkip`
+default), because skipped frames are the precondition under test. Keep the
+instrumented probes OFF in these legs — `modelUpdateGlCalls` wraps GL in the
+submission proxy, which changes upload timing and double-counts nothing.
+
+A cross-run control without the transform is also meaningful:
+
+```bash
+... <off-leg-id> --jvm-option '-Dturboism.validation.skippedFrameUploadElision=false'
+```
+
+#### Composition with other transforms
+
+The transform rewrites only `mesh/a/b` and `mesh/a/c` — disjoint from the
+glGetError elision (`shader/A.a(GL,String,Z)`) and from the uniform-location
+lifecycle transform (`shader/GShader`, `shader/A`, JOGL). Its dependency
+verification reads `shader/A.a(Buffer)J`, a method neither other transform
+touches, so installing this experiment alongside either leaves their shape
+gates unaffected; conversely our captures of `shader/A` replay other
+transformers' output but only verify the untouched `a(Buffer)J` method.
+**Uniform caching keeps its production default in both arms** — no mutual
+exclusion needed (the mesh classes were never in the uniform lifecycle
+transform's target set; verified against `Role` targets).
+
+#### Residual risks / unmeasured assumptions
+
+- Buffer object identity + position/limit + byte size equality is a proxy for
+  "same bytes": a same-object buffer refilled between frames without an
+  update would be wrongly elided. Under the wheel workload slice A always
+  skips, so refills do not occur on measured legs; a mixed workload would
+  over-attribute. This is the intended upper-bound approximation.
+- `glGenBuffers` regeneration clears via the lifecycle slot, but host paths
+  that replace `i()`'s content outside the reviewed method would not be
+  noticed until the name no longer matches (still fail-open: a different name
+  passes).
+- The consult adds ~100–200 ns per guarded call even when passing; the
+  in-run ABBA comparison includes this cost in both arms' `passed` paths, so
+  the measured delta is the net upper bound, not the gross upload time saved.
