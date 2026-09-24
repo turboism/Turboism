@@ -1,6 +1,7 @@
 package dev.turboism.core.runtime;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.work.PluginExecutorSet;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
@@ -156,6 +157,68 @@ public final class RuntimeScheduler {
             task,
             bindCancellation(token, callback)
         );
+    }
+
+    /**
+     * Submits one event-delivery drain on the plugin's dedicated event lane, kept separate from
+     * the task executor so subscriber callbacks never consume the task lane's worker, queue,
+     * timeout budget, or circuit-breaker window.
+     *
+     * <p>The same admission checks as {@link #submitLightweight} apply: a closed scheduler or a
+     * non-lightweight task is refused. The lane itself applies no wall-clock timeout and no
+     * circuit breaker — a slow or failing subscriber is reported through delivery diagnostics
+     * rather than interrupted.
+     *
+     * @param task the drain task, used to attribute diagnostics
+     * @param token cancellation token bound to the delivering thread for the drain's duration
+     * @param callback the drain body
+     * @return the lane's submission; rejected with {@code RUNTIME_UNAVAILABLE} when the
+     *     scheduler is closed, {@code POLICY_REJECTED} when the task is not lightweight, or
+     *     {@code REJECTED_BACKPRESSURE} when the lane queue is full
+     */
+    public PluginWorkSubmission submitEventDelivery(
+        PluginTask task,
+        RuntimeCancellationToken token,
+        Runnable callback
+    ) {
+        Objects.requireNonNull(task, "task");
+        Objects.requireNonNull(token, "token");
+        Objects.requireNonNull(callback, "callback");
+        if (closed.get()) {
+            return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
+        }
+        if (policy.classify(task) != WorkBudget.LIGHTWEIGHT) {
+            emitRejected(task);
+            return rejected(PluginWorkStatus.POLICY_REJECTED, "POLICY_REJECTED");
+        }
+        return executorRegistry.eventLane(task.pluginId()).submit(
+            task,
+            bindCancellation(token, callback)
+        );
+    }
+
+    /**
+     * Claims the plugin's executor set for one lifecycle generation. The returned handle is what
+     * {@link #releasePluginExecutors} must name at the generation's terminal cleanup so the
+     * release is compare-and-remove safe against a newer generation's replacement set.
+     *
+     * @param pluginId the owning plugin, must not be blank
+     * @return the executor set currently mapped for the plugin
+     */
+    public PluginExecutorSet claimPluginExecutors(String pluginId) {
+        return executorRegistry.claim(pluginId);
+    }
+
+    /**
+     * Releases the executor set captured by {@link #claimPluginExecutors}: removed from the
+     * registry if still mapped, then shut down either way. A stale claim never closes a newer
+     * generation's set.
+     *
+     * @param pluginId the owning plugin, must not be blank
+     * @param expected the set captured at fencing
+     */
+    public void releasePluginExecutors(String pluginId, PluginExecutorSet expected) {
+        executorRegistry.release(pluginId, expected);
     }
 
     /**

@@ -192,6 +192,18 @@ final class PreviewPluginLoader {
                     failure
                 );
             }
+            // Capture the executor set under this generation's owner so the cleanup tail can
+            // release exactly that set — a same-id reload cannot have its executor closed by
+            // this generation's cleanup.
+            try {
+                eventOwner.claimExecutors();
+            } catch (Throwable failure) {
+                log.error(
+                    "plugin-loader",
+                    "Plugin executor claim after load failure failed safely",
+                    failure
+                );
+            }
         }
         final DisposableScope scope = resources.scope;
         if (scope != null) {
@@ -582,6 +594,21 @@ final class PreviewPluginLoader {
                 }
             }
         }
+        // Executor release sits at the tail — past every deferral return — so late completion
+        // submissions during scope close still land on the claimed set, and so the set dies on
+        // the terminal pass whether cleanup succeeded or stays retained for a failed step.
+        if (resources.eventOwner != null && !resources.executorReleased) {
+            resources.executorReleased = true;
+            try {
+                resources.eventOwner.releaseExecutors();
+            } catch (Throwable failure) {
+                log.error(
+                    pluginId,
+                    "Plugin executor release after load failure failed safely",
+                    failure
+                );
+            }
+        }
         if (!(resources.scopeClosed && resources.loaderClosed) && !resources.retentionLogged) {
             resources.retentionLogged = true;
             log.error(
@@ -708,6 +735,7 @@ final class PreviewPluginLoader {
         volatile boolean retentionLogged;
         volatile boolean rolledBack;
         volatile boolean shutdownCalled;
+        volatile boolean executorReleased;
         List<dev.turboism.sdk.plugin.Registration> eventRegistrations = List.of();
         int initialized;
         int enabled;
