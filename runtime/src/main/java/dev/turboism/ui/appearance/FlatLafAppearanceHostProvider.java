@@ -163,21 +163,46 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
         }
     }
 
+    /** Narrow host-side operations the provider needs: snapshot, swap, and refresh of UI defaults. */
     public interface HostOperations {
+        /**
+         * @return a copy of the host's current appearance defaults, for later comparison or
+         *         restoration
+         */
         Map<String, String> capture();
 
+        /**
+         * @return whether a {@link #capture()} baseline can later be restored through
+         *         {@link #restore(Map)}; defaults to {@code false}
+         */
         default boolean capturedBaselineCanBeRestored() {
             return false;
         }
 
+        /**
+         * Replaces the host's appearance defaults with {@code defaults}.
+         *
+         * @param defaults the complete defaults map to install
+         */
         void replace(Map<String, String> defaults);
 
+        /**
+         * Restores a previously captured baseline.
+         *
+         * <p>The default throws because not every host generation can restore; check
+         * {@link #capturedBaselineCanBeRestored()} before relying on this.</p>
+         *
+         * @param defaults a map previously returned by {@link #capture()}
+         * @throws UnsupportedOperationException when restoration is not supported
+         */
         default void restore(final Map<String, String> defaults) {
             throw new UnsupportedOperationException("captured appearance baseline is not restorable");
         }
 
+        /** Restores the host's own original appearance defaults. */
         void restoreNative();
 
+        /** Asks the host to re-read its appearance and repaint. */
         void refresh();
     }
 }

@@ -1,5 +1,11 @@
 # Minimum ordinary CI gate. Expensive host and release integration checks remain
 # in their dedicated workflows and completed-commit verification paths.
+#
+# The dev-check job runs devCheck plus checkCompletedCommit (all module tests,
+# packaged integration, Javadoc and tooling selftests) for every pull request
+# and every main push. Visible-AWT tests run on an isolated Xvfb display with a
+# fresh Gradle process. This workflow never publishes, never allocates a product
+# build number and never launches a real host.
 
 name: CI
 
@@ -33,5 +39,14 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Run minimum development gate
-        run: ./gradlew --no-daemon devCheck --console=plain
+      - name: Install the isolated display server
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb
+
+      - name: Install the pinned workflow guard tool
+        run: python3 -m pip install 'PyYAML==6.0.3'
+
+      - name: Verify the CI coverage contract
+        run: python3 scripts/test/test_ci_coverage.py
+
+      - name: Run development and completed-commit gates
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon devCheck checkCompletedCommit --console=plain

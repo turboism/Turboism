@@ -482,6 +482,15 @@ class ManifestValidationTest(unittest.TestCase):
             {"project": ":plugins:noja", "channel": "stable", "cubismVersions": [],
              "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
         ], expect_ok=False)
+        self.fixture.write_manifest([])
+        make_module(self.tmp, "noko", "dev.turboism.plugin.noko", False,
+                    locales=("en", "ja", "zh-Hans", "zh-Hant"))
+        (self.tmp / "settings.gradle.kts").write_text(
+            'rootProject.name = "fixture"\ninclude("plugins:noko")\n')
+        self.plan([
+            {"project": ":plugins:noko", "channel": "stable", "cubismVersions": [],
+             "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
+        ], expect_ok=False)
 
     def test_incomplete_i18n_rejected(self):
         (self.tmp / "plugins/mcp/src/main/resources/META-INF/turboism/i18n/"
@@ -578,7 +587,11 @@ class StagingTest(unittest.TestCase):
         self.assertEqual(mcp["localizations"]["en"]["description"],
                          "Loopback MCP server for Turboism automation.")
         self.assertEqual(mcp["localizations"]["zh-Hans"]["name"], "zh-Hans mcp plugin")
+        self.assertEqual(mcp["localizations"]["zh-Hant"]["name"], "zh-Hant mcp plugin")
         self.assertEqual(mcp["localizations"]["ja"]["name"], "ja mcp plugin")
+        self.assertEqual(mcp["localizations"]["ko"]["name"], "ko mcp plugin")
+        self.assertEqual(sorted(mcp["localizations"]),
+                         ["en", "ja", "ko", "zh-Hans", "zh-Hant"])
         backup = artifacts[1]
         self.assertEqual(backup["policy"]["channel"], "stable")
         self.assertEqual(backup["policy"]["cubismVersions"], ["5.2.03", "5.3.02"])

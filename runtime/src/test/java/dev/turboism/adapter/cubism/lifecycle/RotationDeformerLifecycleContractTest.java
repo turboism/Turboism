@@ -14,8 +14,8 @@ import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerBaseAngleEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerFormEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;

@@ -18,9 +18,13 @@ public record HostSessionFailure(Code code, String message) {
         }
     }
 
+    /** Which stage of the session left its healthy path. */
     public enum Code {
+        /** Producing the host instance descriptor failed. */
         SOURCE_FAILED,
+        /** Connecting the adapter set to the host failed. */
         CONNECTION_FAILED,
+        /** Session cleanup after a failure itself failed. */
         CLEANUP_FAILED
     }
 }

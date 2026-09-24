@@ -85,6 +85,12 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 
 プラグイン開発は、[デモプラグイン](plugins/demo/README.md)、その[ビルド設定](plugins/demo/build.gradle.kts)、[プラグイン記述ファイル](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)を参考に始められます。プラグインは `compileOnly` で `:sdk` に依存し、ランタイムの内部実装や `com.live2d.*` クラスには直接依存しないでください。
 
+このリポジトリの**外側**でプラグインを開発する場合、Turboism 本体のビルドは不要です。各 GitHub Release には `turboism-sdk-<version>.jar`（`.sha256` サイドカー付き）が同梱されます。[templates/plugin-template](templates/plugin-template/) を独立したプロジェクトとしてコピーし、SDK JAR を `libs/` ディレクトリに入れて、その README の手順に従ってください。フレームワーク貢献者は、SDK と `@SubscribeEvent` アノテーションプロセッサをローカル Maven リポジトリに公開し、`mavenLocal()` から `dev.turboism:sdk` と `dev.turboism:event-processor` を解決することもできます：
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
 ```bash
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
@@ -96,6 +102,6 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
 - [アーキテクチャ](ARCHITECTURE.md)と[ロードマップ](ROADMAP.md)
 - [SDK API 契約と互換性](sdk/api-contracts/)、[SDK v10 移行ガイド](sdk/api-contracts/sdk-api-v10-review.md)、[SDK v9](sdk/api-contracts/sdk-api-v9-review.md)・[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) レビューは履歴監査として保持
-- [デモプラグイン](plugins/demo/README.md)
+- [デモプラグイン](plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](templates/plugin-template/)
 - [Java インストーラーの詳細](packaging/java-installer/README-java-installer.md)
 - [リリース手順](RELEASING.md)と[変更履歴](CHANGELOG.md)

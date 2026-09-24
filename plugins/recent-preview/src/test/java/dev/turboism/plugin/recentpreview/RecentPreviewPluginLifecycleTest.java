@@ -283,7 +283,7 @@ final class RecentPreviewPluginLifecycleTest {
         final List<String> warnings = new ArrayList<>();
         final RecentPreviewPlugin plugin = new RecentPreviewPlugin();
 
-        // recentPreviews() throws UnsupportedOperationException (safe mode).
+        // recentPreviews() returns the unavailable sentinel (safe mode).
         plugin.init(unsafeContext(file, captures, refreshes, warnings));
         plugin.enable();
 
@@ -473,7 +473,7 @@ final class RecentPreviewPluginLifecycleTest {
         return (PluginContext) Proxy.newProxyInstance(
             PluginContext.class.getClassLoader(), new Class<?>[]{PluginContext.class},
             (proxy, method, args) -> switch (method.getName()) {
-                case "recentPreviews" -> throw new UnsupportedOperationException("not available");
+                case "recentPreviews" -> RecentPreviewContributionService.unavailable();
                 default -> java.lang.reflect.Proxy.getInvocationHandler(safe).invoke(proxy, method, args);
             }
         );

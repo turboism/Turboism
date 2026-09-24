@@ -340,9 +340,12 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             final String expectedOriginalId = originalId;
             final Optional<WorkspaceInfo> alternateValue = initial.available().stream()
                 .filter(info -> !info.id().value().equals(expectedOriginalId))
+                .filter(info -> info.id().value().equals(
+                    System.getProperty("turboism.workspaceValidation.customId", "")
+                ))
                 .findFirst();
             require(report, "workspace.alternate", alternateValue.isPresent(),
-                "no existing alternate workspace was returned");
+                "native UI did not create the task-local custom workspace");
             final WorkspaceInfo alternate = alternateValue.orElseThrow();
             final String alternateId = alternate.id().value();
             require(report, "workspace.availableList", initial.available().size() > 1,
@@ -373,6 +376,11 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             final WorkspaceOperationResult defaultAlternate = switchTo(workspace, alternate.id());
             requireOperation(report, "updateDefault.prepare", defaultAlternate,
                 WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+            final var layoutBeforeSave = currentLayout();
+            perturbLayout(stateDir);
+            final var savedLayout = currentLayout();
+            require(report, "updateDefault.layoutChanged", !savedLayout.equals(layoutBeforeSave),
+                "native palette toggle did not change the dock tree");
             final WorkspaceOperationResult updatedAlternate = updateDefault(workspace);
             recordOperation(report, "updateDefault.alternate", updatedAlternate);
             requireOperation(report, "updateDefault.alternate", updatedAlternate,
@@ -391,10 +399,15 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             final WorkspaceOperationResult resetBack = switchTo(workspace, alternate.id());
             requireOperation(report, "resetDefault.prepare", resetBack,
                 WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+            perturbLayout(stateDir);
+            require(report, "resetDefault.layoutPerturbed", !currentLayout().equals(savedLayout),
+                "reset requires a layout different from the saved default");
             final WorkspaceOperationResult resetAlternate = resetDefault(workspace);
             recordOperation(report, "resetDefault.restore", resetAlternate);
             requireOperation(report, "resetDefault.restore", resetAlternate,
                 WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+            require(report, "resetDefault.layoutRestored", currentLayout().equals(savedLayout),
+                "native reset did not restore the saved dock tree");
             report.add("resetDefault.restoredId=" + encodeValue(alternateId));
 
             final WorkspaceOperationResult finalOriginal = switchTo(workspace, original.id());
@@ -523,6 +536,30 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         return workspace.current().toCompletableFuture().get(
             SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS
         );
+    }
+
+    private dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot currentLayout() throws Exception {
+        final var layout = context.workspaceLayout().current().toCompletableFuture().get(
+            SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS
+        );
+        if (layout.availability()
+            != dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot.Availability.AVAILABLE
+            || layout.root().isEmpty()) {
+            throw new IllegalStateException("Verified workspace layout is unavailable: " + layout);
+        }
+        return layout;
+    }
+
+    private static void perturbLayout(final Path stateDir) throws Exception {
+        final Path done = stateDir.resolve("validation-agent.perturbed-layout");
+        Files.deleteIfExists(done);
+        writeMarker(stateDir, "validation-agent.perturb-layout");
+        final long deadline = System.nanoTime() + SDK_CALL_TIMEOUT.toNanos();
+        while (System.nanoTime() < deadline) {
+            if (Files.deleteIfExists(done)) return;
+            Thread.sleep(100);
+        }
+        throw new IllegalStateException("Native workspace layout perturbation timed out");
     }
 
     private static void awaitProjectReadiness(

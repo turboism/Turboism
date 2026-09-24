@@ -24,12 +24,35 @@ class HostSessionCompositionApiTest {
         assertEquals(
             Set.of(
                 signature(HostInstanceSource.class),
-                signature(HostInstanceSource.class, java.util.Locale.class)
+                signature(HostInstanceSource.class, java.util.Locale.class),
+                signature(HostInstanceSource.class, java.util.function.Supplier.class),
+                signature(
+                    HostInstanceSource.class,
+                    java.util.Locale.class,
+                    dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
+                ),
+                signature(
+                    HostInstanceSource.class,
+                    java.util.function.Supplier.class,
+                    dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
+                )
             ),
             publicConstructorSignatures(HostSession.class)
         );
         assertEquals(
-            Set.of(signature(), signature(java.util.Locale.class)),
+            Set.of(
+                signature(),
+                signature(java.util.Locale.class),
+                signature(java.util.function.Supplier.class),
+                signature(
+                    java.util.Locale.class,
+                    dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
+                ),
+                signature(
+                    java.util.function.Supplier.class,
+                    dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence.class
+                )
+            ),
             publicConstructorSignatures(HostRuntimeIngress.class)
         );
         assertConstructorIsNonPublic(
@@ -65,6 +88,7 @@ class HostSessionCompositionApiTest {
                 "adapters():dev.turboism.adapter.RuntimeHostAdapters",
                 "cubismEditorVersion():java.util.Optional",
                 "modelAccess():dev.turboism.sdk.cubism.model.CubismModelAccess",
+                "currentHostSelection():dev.turboism.adapter.cubism.HostSnapshotSource$HostSelection",
                 "history():dev.turboism.sdk.cubism.history.CubismHistory",
                 "coreRuntimeInfo():dev.turboism.sdk.cubism.core.CoreRuntimeInfo",
                 "modelAppearanceSource():dev.turboism.adapter.cubism.HostSnapshotSource",
@@ -97,6 +121,8 @@ class HostSessionCompositionApiTest {
                 "textureAtlasEditorUi():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi",
                 "textureAtlasEditorSession():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession",
                 "textureAtlasAlgorithms():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry",
+                "textureAtlasSelection():dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection",
+                "textureAtlasAutoLayoutDispatch():java.util.function.BooleanSupplier",
                 "boundingBoxOverlayResolver():java.util.Optional",
                 "adapterAccess():dev.turboism.adapter.host.RuntimeHostAdapterAccess",
                 "objectContextMenuHandler():dev.turboism.ui.context.NativeObjectContextMenuBridge$Handler",

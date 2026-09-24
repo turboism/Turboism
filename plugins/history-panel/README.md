@@ -34,6 +34,7 @@ Projects the active document's native Undo history into a floating semantic time
 - Adds a localized History button to the right-side vertical Cubism tool strip.
 - Renders every reachable Undo entry as `FULL`, `PARTIAL`, or `LABEL_ONLY` semantic detail. Turboism-captured metadata is authoritative; allowlisted native decoders may supplement host entries; unknown operations stay label-only.
 - Shows a semantic description without repeating the raw host label; label-only entries keep the host label once. Each group shows only its summary, never its first change or a `+N` suffix. Rows retain affected target count, detail level, and known Turboism attribution; host-unattributed origin is omitted and groups cannot expand.
+- Trusted single-target `SET`, `ADD`, and `REMOVE` rows use a localized action/property, a typed Cubism object icon, and the captured target name. Unknown facts, groups, or missing target/icon data keep conservative text fallback; values and context remain structured, `vertexPositions` is never presented as `MOVE`, and only `multiplyColor`/`screenColor` are color properties.
 - Refreshes when history identity or semantic content changes and navigates only by stable entry ID against the unchanged generation, revision, document/manager binding, and entry sequence.
 
 ## Requirements and compatibility

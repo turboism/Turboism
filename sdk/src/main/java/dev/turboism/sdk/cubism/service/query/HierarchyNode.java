@@ -34,6 +34,7 @@ public record HierarchyNode(
         childIds = List.copyOf(Objects.requireNonNull(childIds, "childIds"));
     }
 
+    /** The category of model object a hierarchy node stands for. */
     public enum Kind {
         MODEL,
         PARAMETER,

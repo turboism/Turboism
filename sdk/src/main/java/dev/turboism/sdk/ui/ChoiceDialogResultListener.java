@@ -12,5 +12,11 @@ package dev.turboism.sdk.ui;
 @FunctionalInterface
 public interface ChoiceDialogResultListener {
 
+    /**
+     * Called once when the dialog closes.
+     *
+     * @param optionId the selected option id, or {@code null} on cancel
+     * @param actionId the secondary action id, or {@code null} for accept/cancel
+     */
     void onResult(String optionId, String actionId);
 }

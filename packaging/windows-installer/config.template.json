@@ -4,6 +4,13 @@
   "worktreeId": "turboism-runtime",
   "pluginDirs": ["plugins"],
   "useTextIcon": false,
+  "hooks": {
+    "startup": {
+      "skipUpdateCheck": true,
+      "skipSplash": true,
+      "skipInformation": true
+    }
+  },
   "launcher": {
     "cubismJvm": "graalvm"
   }
