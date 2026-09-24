@@ -158,6 +158,17 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
+     * Whether an ambient authoring transaction is open on the calling thread. Write paths that
+     * cannot join the ambient scope (hand-written native Undo envelopes) consult this to fail
+     * closed instead of creating a detached Undo group the root transaction cannot roll back.
+     *
+     * @return true when the current thread carries an active ambient authoring scope
+     */
+    public boolean ambientScopeActive() {
+        return ambient.get() != null;
+    }
+
+    /**
      * Applies one changed writer contribution. With no ambient root this method opens a standalone
      * transaction using the contribution's label; with a matching ambient root it joins that root.
      *

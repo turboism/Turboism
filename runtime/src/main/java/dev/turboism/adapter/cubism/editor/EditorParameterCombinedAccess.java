@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorParameterCombinedWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -14,15 +15,26 @@ final class EditorParameterCombinedAccess {
     private final VerifiedMemberResolver resolver;
     private final ModelGuard modelGuard;
     private final ParameterSourceLookup sourceLookup;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorParameterCombinedAccess(
         final VerifiedMemberResolver resolver,
         final ModelGuard modelGuard,
         final ParameterSourceLookup sourceLookup
     ) {
+        this(resolver, modelGuard, sourceLookup, null);
+    }
+
+    EditorParameterCombinedAccess(
+        final VerifiedMemberResolver resolver,
+        final ModelGuard modelGuard,
+        final ParameterSourceLookup sourceLookup,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.sourceLookup = Objects.requireNonNull(sourceLookup, "sourceLookup");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     Optional<ParameterId> partner(
@@ -41,6 +53,18 @@ final class EditorParameterCombinedAccess {
     }
 
     void combine(
+        final String expectedIdentity,
+        final Object expectedModel,
+        final ParameterId id,
+        final ParameterId partnerId
+    ) {
+        EditorHostThread.dispatch("Cubism parameter combine", () -> {
+            combineOnEdt(expectedIdentity, expectedModel, id, partnerId);
+            return null;
+        });
+    }
+
+    private void combineOnEdt(
         final String expectedIdentity,
         final Object expectedModel,
         final ParameterId id,
@@ -96,6 +120,17 @@ final class EditorParameterCombinedAccess {
         final Object expectedModel,
         final ParameterId id
     ) {
+        EditorHostThread.dispatch("Cubism parameter uncombine", () -> {
+            uncombineOnEdt(expectedIdentity, expectedModel, id);
+            return null;
+        });
+    }
+
+    private void uncombineOnEdt(
+        final String expectedIdentity,
+        final Object expectedModel,
+        final ParameterId id
+    ) {
         requireAuthorization();
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
         final Object source = sourceLookup.source(expectedModel, id);
@@ -124,6 +159,10 @@ final class EditorParameterCombinedAccess {
         final Object secondSource,
         final Runnable mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism parameter combine write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Parameter.combine/uncombine"
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app

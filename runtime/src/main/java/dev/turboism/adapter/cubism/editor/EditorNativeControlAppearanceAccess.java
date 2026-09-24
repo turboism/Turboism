@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
@@ -30,13 +31,23 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorNativeControlAppearanceAccess(
         final VerifiedMemberResolver resolver,
         final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding
     ) {
+        this(resolver, currentBinding, null);
+    }
+
+    EditorNativeControlAppearanceAccess(
+        final VerifiedMemberResolver resolver,
+        final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentBinding = Objects.requireNonNull(currentBinding, "currentBinding");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     @Override
@@ -59,9 +70,23 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
         final NativeLabelColorTarget target,
         final NativeLabelColor color
     ) {
+        EditorHostThread.dispatch("Cubism native label-color write", () -> {
+            setNativeLabelColorOnEdt(target, color);
+            return null;
+        });
+    }
+
+    private void setNativeLabelColorOnEdt(
+        final NativeLabelColorTarget target,
+        final NativeLabelColor color
+    ) {
+        EditorHostThread.requireHostThread("Cubism native label-color write");
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(color, "color");
         requireWriteAuthorization();
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Model.setNativeLabelColor"
+        );
         final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
         final Object labelColor = labelColor(binding, target);
         final NativeLabelColorValue requested = nativeValue(color);

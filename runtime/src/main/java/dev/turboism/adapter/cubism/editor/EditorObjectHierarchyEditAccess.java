@@ -85,6 +85,11 @@ final class EditorObjectHierarchyEditAccess {
         final Object parentSource,
         final int index
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createPartSource(identity, modelSource, model, requestedName, parentSource, index)
+            );
+        }
         final String name = requireName(requestedName);
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
@@ -125,6 +130,11 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final ArtMeshGeometry geometry
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createArtMeshSource(identity, modelSource, model, requestedName, parentSource, parentIsDeformer, index, geometry)
+            );
+        }
         final String name = requireName(requestedName);
         final ArtMeshGeometry checkedGeometry = Objects.requireNonNull(geometry, "geometry");
         requireArtMeshCreateAuthorized();
@@ -329,6 +339,14 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final WarpGrid requestedGrid
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createWarpSource(
+                    identity, modelSource, model, requestedName, parentSource,
+                    parentIsDeformer, index, requestedGrid
+                )
+            );
+        }
         final WarpGrid grid = requireGrid(requestedGrid);
         final String name = requireName(requestedName);
         requireEditAuthorized();
@@ -370,6 +388,14 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final RotationDeformerForm requestedForm
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch("Cubism hierarchy edit", () ->
+                createRotationSource(
+                    identity, modelSource, model, requestedName, parentSource,
+                    parentIsDeformer, index, requestedForm
+                )
+            );
+        }
         final RotationDeformerForm form = Objects.requireNonNull(requestedForm, "form");
         final String name = requireName(requestedName);
         requireEditAuthorized();
@@ -439,6 +465,13 @@ final class EditorObjectHierarchyEditAccess {
         final Object nodeSource,
         final String kindLabel
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
+                remove(identity, modelSource, model, nodeSource, kindLabel);
+                return null;
+            });
+            return;
+        }
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         write(
@@ -479,6 +512,13 @@ final class EditorObjectHierarchyEditAccess {
         final String requestedName,
         final String kindLabel
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
+                setName(identity, modelSource, model, nodeSource, requestedName, kindLabel);
+                return null;
+            });
+            return;
+        }
         final String name = requireName(requestedName);
         requireRenameAuthorized();
         currentGuard.requireCurrent(identity, model);
@@ -521,6 +561,13 @@ final class EditorObjectHierarchyEditAccess {
         final int index,
         final String kindLabel
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism hierarchy edit", () -> {
+                setParent(identity, modelSource, model, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+                return null;
+            });
+            return;
+        }
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         rejectCycle(nodeSource, parentSource, parentIsDeformer);
@@ -671,6 +718,10 @@ final class EditorObjectHierarchyEditAccess {
         final String action,
         final Runnable mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism hierarchy edit");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -804,6 +855,10 @@ final class EditorObjectHierarchyEditAccess {
         final String operation,
         final boolean parentIsDeformer
     ) {
+        EditorHostThread.requireHostThread("Cubism hierarchy create");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app

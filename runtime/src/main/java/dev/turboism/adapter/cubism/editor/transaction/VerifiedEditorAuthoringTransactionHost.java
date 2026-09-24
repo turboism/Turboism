@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import dev.turboism.adapter.cubism.editor.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -108,6 +109,7 @@ public final class VerifiedEditorAuthoringTransactionHost
         final EditorAuthoringTransactionCoordinator.Binding binding,
         final String label
     ) {
+        EditorHostThread.requireHostThread("Cubism authoring edit begin");
         final NativeBinding active = currentFor(binding);
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode",
@@ -135,6 +137,7 @@ public final class VerifiedEditorAuthoringTransactionHost
         final Object edit,
         final boolean abort
     ) {
+        EditorHostThread.requireHostThread("Cubism authoring edit end");
         final Object editMode;
         synchronized (editLock) {
             editMode = editModes.remove(Objects.requireNonNull(edit, "edit"));

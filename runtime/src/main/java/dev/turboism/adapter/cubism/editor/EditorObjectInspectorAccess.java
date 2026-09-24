@@ -61,6 +61,13 @@ final class EditorObjectInspectorAccess {
         final DeformerRef ref,
         final String name
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setDeformerName(identity, modelSource, model, ref, name);
+                return null;
+            });
+            return;
+        }
         requireDeformerInspectorAuthorization();
         final DeformerRef value = core.currentDeformer(identity, modelSource, model, ref);
         final String requested = Objects.requireNonNull(name, "name");
@@ -82,6 +89,13 @@ final class EditorObjectInspectorAccess {
         final DeformerRef ref,
         final DeformerId id
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setDeformerId(identity, modelSource, model, ref, id);
+                return null;
+            });
+            return;
+        }
         requireDeformerInspectorAuthorization();
         final DeformerRef value = core.currentDeformer(identity, modelSource, model, ref);
         final String newId = Objects.requireNonNull(id, "id").value();
@@ -107,6 +121,13 @@ final class EditorObjectInspectorAccess {
         final DeformerRef ref,
         final Optional<DeformerId> target
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setDeformerTarget(identity, modelSource, model, ref, target);
+                return null;
+            });
+            return;
+        }
         requireDeformerInspectorAuthorization();
         final DeformerRef value = core.currentDeformer(identity, modelSource, model, ref);
         final Optional<DeformerId> requested = Objects.requireNonNull(target, "target");
@@ -164,6 +185,13 @@ final class EditorObjectInspectorAccess {
         final DeformerRef ref,
         final Color color
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setDeformerMultiplyColor(identity, modelSource, model, ref, color);
+                return null;
+            });
+            return;
+        }
         setDeformerColor(identity, modelSource, model, ref, color, true);
     }
 
@@ -174,6 +202,13 @@ final class EditorObjectInspectorAccess {
         final DeformerRef ref,
         final Color color
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setDeformerScreenColor(identity, modelSource, model, ref, color);
+                return null;
+            });
+            return;
+        }
         setDeformerColor(identity, modelSource, model, ref, color, false);
     }
 
@@ -184,6 +219,13 @@ final class EditorObjectInspectorAccess {
         final GlueRef ref,
         final String name
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setGlueName(identity, modelSource, model, ref, name);
+                return null;
+            });
+            return;
+        }
         requireGlueInspectorAuthorization();
         final GlueRef value = core.currentGlue(identity, modelSource, model, ref);
         final String requested = Objects.requireNonNull(name, "name");
@@ -228,6 +270,13 @@ final class EditorObjectInspectorAccess {
         final GlueRef ref,
         final GlueId id
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setGlueId(identity, modelSource, model, ref, id);
+                return null;
+            });
+            return;
+        }
         requireGlueInspectorAuthorization();
         final GlueRef value = core.currentGlue(identity, modelSource, model, ref);
         final String newId = Objects.requireNonNull(id, "id").value();
@@ -274,6 +323,13 @@ final class EditorObjectInspectorAccess {
         final GlueRef ref,
         final float intensity
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setGlueIntensity(identity, modelSource, model, ref, intensity);
+                return null;
+            });
+            return;
+        }
         requireGlueInspectorAuthorization();
         final GlueRef value = core.currentGlue(identity, modelSource, model, ref);
         if (!Float.isFinite(intensity)) throw new IllegalArgumentException("intensity must be finite");
@@ -324,6 +380,13 @@ final class EditorObjectInspectorAccess {
         final GlueRef ref,
         final ArtMeshId id
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setGlueDrawableA(identity, modelSource, model, ref, id);
+                return null;
+            });
+            return;
+        }
         setGlueDrawable(identity, modelSource, model, ref, id, true);
     }
 
@@ -334,6 +397,13 @@ final class EditorObjectInspectorAccess {
         final GlueRef ref,
         final ArtMeshId id
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism inspector write", () -> {
+                setGlueDrawableB(identity, modelSource, model, ref, id);
+                return null;
+            });
+            return;
+        }
         setGlueDrawable(identity, modelSource, model, ref, id, false);
     }
 
@@ -486,6 +556,7 @@ final class EditorObjectInspectorAccess {
         final Runnable compensation,
         final BooleanSupplier restored
     ) {
+        EditorHostThread.requireHostThread("Cubism Glue inspector write");
         currentGuard.requireCurrent(identity, model);
         if (authoringCoordinator == null) {
             writeInspector(modelSource, objectSource, action, mutation);
@@ -596,6 +667,10 @@ final class EditorObjectInspectorAccess {
         final String action,
         final Runnable mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism inspector write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -653,6 +728,10 @@ final class EditorObjectInspectorAccess {
         final Object deformerSource,
         final Object targetGuid
     ) {
+        EditorHostThread.requireHostThread("Cubism inspector write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Deformer.setTarget"
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app

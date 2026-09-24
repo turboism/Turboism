@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -42,6 +43,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
     private final CurrentGuard currentGuard;
     private final TargetLookup targetLookup;
     private final ParameterSourceLookup parameterSourceLookup;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorParameterBindingBatchAccess(
         final VerifiedMemberResolver resolver,
@@ -52,6 +54,22 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         final TargetLookup targetLookup,
         final ParameterSourceLookup parameterSourceLookup
     ) {
+        this(
+            resolver, identity, modelSource, model,
+            currentGuard, targetLookup, parameterSourceLookup, null
+        );
+    }
+
+    EditorParameterBindingBatchAccess(
+        final VerifiedMemberResolver resolver,
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final CurrentGuard currentGuard,
+        final TargetLookup targetLookup,
+        final ParameterSourceLookup parameterSourceLookup,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.identity = Objects.requireNonNull(identity, "identity");
         this.modelSource = Objects.requireNonNull(modelSource, "modelSource");
@@ -59,10 +77,18 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         this.targetLookup = Objects.requireNonNull(targetLookup, "targetLookup");
         this.parameterSourceLookup = Objects.requireNonNull(parameterSourceLookup, "parameterSourceLookup");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     @Override
     public void invert(final List<ParameterBindingTarget> targets) {
+        EditorHostThread.dispatch("Cubism parameter binding batch write", () -> {
+            invertOnEdt(targets);
+            return null;
+        });
+    }
+
+    private void invertOnEdt(final List<ParameterBindingTarget> targets) {
         final List<ParameterBindingTarget> selected = targets(targets);
         requireAuthorized(
             EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
@@ -100,6 +126,13 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
 
     @Override
     public void transfer(final ParameterBindingTransferPlan plan) {
+        EditorHostThread.dispatch("Cubism parameter binding batch write", () -> {
+            transferOnEdt(plan);
+            return null;
+        });
+    }
+
+    private void transferOnEdt(final ParameterBindingTransferPlan plan) {
         Objects.requireNonNull(plan, "plan");
         final List<ParameterBindingTarget> selected = targets(plan.targets());
         requireAuthorized(EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
@@ -152,6 +185,13 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
 
     @Override
     public void transferClamped(final ParameterBindingTransferPlan plan) {
+        EditorHostThread.dispatch("Cubism parameter binding batch write", () -> {
+            transferClampedOnEdt(plan);
+            return null;
+        });
+    }
+
+    private void transferClampedOnEdt(final ParameterBindingTransferPlan plan) {
         Objects.requireNonNull(plan, "plan");
         final List<ParameterBindingTarget> selected = targets(plan.targets());
         requireAuthorized(EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID, EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES);
@@ -243,6 +283,13 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
 
     @Override
     public void transferMorphClamped(final ParameterBindingTransferPlan plan) {
+        EditorHostThread.dispatch("Cubism parameter binding batch write", () -> {
+            transferMorphClampedOnEdt(plan);
+            return null;
+        });
+    }
+
+    private void transferMorphClampedOnEdt(final ParameterBindingTransferPlan plan) {
         Objects.requireNonNull(plan, "plan");
         final List<ParameterBindingTarget> selected = targets(plan.targets());
         requireAuthorized(
@@ -329,6 +376,10 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         final List<ParameterBindingTarget> targets,
         final Map<ParameterBindingTarget, List<MorphTransfer>> transfers
     ) {
+        EditorHostThread.requireHostThread("Cubism parameter binding batch write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Parameter binding batch " + action
+        );
         currentGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
@@ -451,6 +502,10 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         final List<ParameterBindingTarget> targets,
         final Mutation mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism parameter binding batch write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Parameter binding batch " + action
+        );
         currentGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);

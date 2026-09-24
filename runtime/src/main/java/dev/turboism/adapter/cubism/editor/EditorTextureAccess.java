@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelImageId;
@@ -62,13 +63,23 @@ final class EditorTextureAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorTextureAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, null);
+    }
+
+    EditorTextureAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     ModelTextures textures(final String identity, final Object source, final Object model) {
@@ -187,6 +198,10 @@ final class EditorTextureAccess {
         final Object source,
         final Operation operation
     ) {
+        EditorHostThread.requireHostThread("Cubism texture write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, label
+        );
         final Object app = resolver.invokeStatic(APP_INSTANCE);
         final Object document = resolver.invoke(CURRENT_DOCUMENT, app);
         final Object editMode = resolver.invoke(EDIT_MODE, document);
@@ -422,6 +437,13 @@ final class EditorTextureAccess {
 
         @Override
         public void addModelImageGroup(final String name) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                addModelImageGroupOnEdt(name);
+                return null;
+            });
+        }
+
+        private void addModelImageGroupOnEdt(final String name) {
             requireWriteAuthorization();
             final String value = Objects.requireNonNull(name, "name");
             if (value.strip().isEmpty()) throw new IllegalArgumentException("name must not be blank");
@@ -434,6 +456,13 @@ final class EditorTextureAccess {
 
         @Override
         public void removeModelImage(final ModelImageId id) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                removeModelImageOnEdt(id);
+                return null;
+            });
+        }
+
+        private void removeModelImageOnEdt(final ModelImageId id) {
             requireWriteAuthorization();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
@@ -444,6 +473,16 @@ final class EditorTextureAccess {
 
         @Override
         public TextureAtlasId addTextureAtlas(final String name, final int widthPixels, final int heightPixels) {
+            return EditorHostThread.dispatch("Cubism texture write", () ->
+                addTextureAtlasOnEdt(name, widthPixels, heightPixels)
+            );
+        }
+
+        private TextureAtlasId addTextureAtlasOnEdt(
+            final String name,
+            final int widthPixels,
+            final int heightPixels
+        ) {
             requireWriteAuthorization();
             final String value = Objects.requireNonNull(name, "name");
             if (value.strip().isEmpty()) throw new IllegalArgumentException("name must not be blank");
@@ -461,6 +500,13 @@ final class EditorTextureAccess {
 
         @Override
         public void removeTextureAtlas(final TextureAtlasId id) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                removeTextureAtlasOnEdt(id);
+                return null;
+            });
+        }
+
+        private void removeTextureAtlasOnEdt(final TextureAtlasId id) {
             requireWriteAuthorization();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
@@ -471,6 +517,13 @@ final class EditorTextureAccess {
 
         @Override
         public void removeRawImage(final RawImageId id) {
+            EditorHostThread.dispatch("Cubism texture write", () -> {
+                removeRawImageOnEdt(id);
+                return null;
+            });
+        }
+
+        private void removeRawImageOnEdt(final RawImageId id) {
             requireWriteAuthorization();
             requireRawImageRemoval();
             Objects.requireNonNull(id, "id");

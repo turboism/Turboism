@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
@@ -44,6 +45,7 @@ final class EditorPartOpacityAccess {
     private final EditorPartStructureAccess structureAccess;
     private final EditorMorphTargetAccess morphTargetAccess;
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorPartOpacityAccess(
         final VerifiedMemberResolver resolver,
@@ -52,11 +54,23 @@ final class EditorPartOpacityAccess {
         final EditorMorphTargetAccess morphTargetAccess,
         final EditorObjectHierarchyEditAccess hierarchyEditAccess
     ) {
+        this(resolver, modelGuard, structureAccess, morphTargetAccess, hierarchyEditAccess, null);
+    }
+
+    EditorPartOpacityAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorPartStructureAccess structureAccess,
+        final EditorMorphTargetAccess morphTargetAccess,
+        final EditorObjectHierarchyEditAccess hierarchyEditAccess,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.structureAccess = Objects.requireNonNull(structureAccess, "structureAccess");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
         this.hierarchyEditAccess = Objects.requireNonNull(hierarchyEditAccess, "hierarchyEditAccess");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     Parts parts(final String identity, final Object source, final Object model) {
@@ -276,6 +290,21 @@ final class EditorPartOpacityAccess {
         final Object expectedPart,
         final String requestedName
     ) {
+        EditorHostThread.dispatch("Cubism Part name write", () -> {
+            setNameOnEdt(identity, source, model, id, expectedSource, expectedPart, requestedName);
+            return null;
+        });
+    }
+
+    private void setNameOnEdt(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final String requestedName
+    ) {
         final String name = Objects.requireNonNull(requestedName, "name");
         if (name.isBlank()) throw new IllegalArgumentException("name must not be blank");
         requireNameWriteAuthorization();
@@ -309,6 +338,25 @@ final class EditorPartOpacityAccess {
         final Object expectedPart,
         final float opacity
     ) {
+        EditorHostThread.dispatch("Cubism Part opacity write", () -> {
+            setOpacityOnEdt(identity, source, model, id, expectedSource, expectedPart, opacity);
+            return null;
+        });
+    }
+
+    private void setOpacityOnEdt(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final float opacity
+    ) {
+        EditorHostThread.requireHostThread("Cubism Part opacity write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Part.setOpacity"
+        );
         if (!Float.isFinite(opacity)) {
             throw new IllegalArgumentException("opacity must be finite");
         }
@@ -386,6 +434,21 @@ final class EditorPartOpacityAccess {
         final Object expectedPart,
         final String requestedId
     ) {
+        EditorHostThread.dispatch("Cubism Part ID write", () -> {
+            setPartIdOnEdt(identity, source, model, id, expectedSource, expectedPart, requestedId);
+            return null;
+        });
+    }
+
+    private void setPartIdOnEdt(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final String requestedId
+    ) {
         final String newId = Objects.requireNonNull(requestedId, "id");
         requirePartInspectorAuthorization();
         final PartBinding current = requireCurrentPart(
@@ -407,6 +470,21 @@ final class EditorPartOpacityAccess {
     }
 
     void setPartMaskIds(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final List<ArtMeshId> masks
+    ) {
+        EditorHostThread.dispatch("Cubism Part clipping-mask write", () -> {
+            setPartMaskIdsOnEdt(identity, source, model, id, expectedSource, expectedPart, masks);
+            return null;
+        });
+    }
+
+    private void setPartMaskIdsOnEdt(
         final String identity,
         final Object source,
         final Object model,
@@ -442,6 +520,23 @@ final class EditorPartOpacityAccess {
     }
 
     void setPartAlphaComposition(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final Object expectedSource,
+        final Object expectedPart,
+        final AlphaComposition composition
+    ) {
+        EditorHostThread.dispatch("Cubism Part alpha-composition write", () -> {
+            setPartAlphaCompositionOnEdt(
+                identity, source, model, id, expectedSource, expectedPart, composition
+            );
+            return null;
+        });
+    }
+
+    private void setPartAlphaCompositionOnEdt(
         final String identity,
         final Object source,
         final Object model,
@@ -486,6 +581,10 @@ final class EditorPartOpacityAccess {
         final String actionName,
         final Runnable mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism Part inspector write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, actionName
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -803,6 +902,10 @@ final class EditorPartOpacityAccess {
         final String actionName,
         final Runnable mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism Part basic-setting write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, actionName
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -1026,6 +1129,12 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public Part create(final String name, final Part parent, final int index) {
+            return EditorHostThread.dispatch("Cubism Parts", () ->
+                createOnEdt(name, parent, index)
+            );
+        }
+
+        private Part createOnEdt(final String name, final Part parent, final int index) {
             modelGuard.requireCurrent(identity, model);
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             requirePartSourceCurrent(source, model, parentSource);
@@ -1045,6 +1154,13 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public void remove(final Part part) {
+            EditorHostThread.dispatch("Cubism Parts", () -> {
+                removeOnEdt(part);
+                return null;
+            });
+        }
+
+        private void removeOnEdt(final Part part) {
             Objects.requireNonNull(part, "part");
             modelGuard.requireCurrent(identity, model);
             final Object nodeSource = nativeSourceOf(part, "Part");
@@ -1118,6 +1234,13 @@ final class EditorPartOpacityAccess {
             return EditorPartOpacityAccess.this.shortName(current());
         }
         @Override public void setShortName(final Optional<String> value) {
+            EditorHostThread.dispatch("Cubism Part write", () -> {
+                setShortNameOnEdt(value);
+                return null;
+            });
+        }
+
+        private void setShortNameOnEdt(final Optional<String> value) {
             requireBasicSettingsWriteAuthorization();
             final Optional<String> requested = Objects.requireNonNull(value, "value");
             if (requested.filter(String::isBlank).isPresent()) {
@@ -1145,6 +1268,13 @@ final class EditorPartOpacityAccess {
             );
         }
         @Override public void setVisible(final boolean value) {
+            EditorHostThread.dispatch("Cubism Part write", () -> {
+                setVisibleOnEdt(value);
+                return null;
+            });
+        }
+
+        private void setVisibleOnEdt(final boolean value) {
             requireBasicSettingsWriteAuthorization();
             final PartBinding current = current();
             if (visible() == value) return;
@@ -1175,6 +1305,13 @@ final class EditorPartOpacityAccess {
             );
         }
         @Override public void setLocked(final boolean value) {
+            EditorHostThread.dispatch("Cubism Part write", () -> {
+                setLockedOnEdt(value);
+                return null;
+            });
+        }
+
+        private void setLockedOnEdt(final boolean value) {
             requireBasicSettingsWriteAuthorization();
             final PartBinding current = current();
             if (locked() == value) return;
@@ -1201,6 +1338,13 @@ final class EditorPartOpacityAccess {
             return EditorPartOpacityAccess.this.editColor(current());
         }
         @Override public void setEditColor(final Optional<Color> value) {
+            EditorHostThread.dispatch("Cubism Part write", () -> {
+                setEditColorOnEdt(value);
+                return null;
+            });
+        }
+
+        private void setEditColorOnEdt(final Optional<Color> value) {
             requireBasicSettingsWriteAuthorization();
             final Optional<Color> requested = Objects.requireNonNull(value, "value");
             final PartBinding current = current();
@@ -1234,6 +1378,13 @@ final class EditorPartOpacityAccess {
             );
         }
         @Override public void setSketch(final boolean value) {
+            EditorHostThread.dispatch("Cubism Part write", () -> {
+                setSketchOnEdt(value);
+                return null;
+            });
+        }
+
+        private void setSketchOnEdt(final boolean value) {
             requireBasicSettingsWriteAuthorization();
             final PartBinding current = current();
             if (sketch() == value) return;
@@ -1253,6 +1404,13 @@ final class EditorPartOpacityAccess {
             return EditorPartOpacityAccess.this.defaultOrder(current());
         }
         @Override public void setDefaultOrder(final int value) {
+            EditorHostThread.dispatch("Cubism Part write", () -> {
+                setDefaultOrderOnEdt(value);
+                return null;
+            });
+        }
+
+        private void setDefaultOrderOnEdt(final int value) {
             requireBasicSettingsWriteAuthorization();
             final PartBinding current = current();
             if (EditorPartOpacityAccess.this.defaultOrder(current) == value) return;
@@ -1297,6 +1455,13 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public void setParent(final Part parent, final int index) {
+            EditorHostThread.dispatch("Cubism Part write", () -> {
+                setParentOnEdt(parent, index);
+                return null;
+            });
+        }
+
+        private void setParentOnEdt(final Part parent, final int index) {
             current();
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             requirePartSourceCurrent(source, model, parentSource);

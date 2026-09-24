@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -16,13 +17,23 @@ final class EditorMorphTargetAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorMorphTargetAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, null);
+    }
+
+    EditorMorphTargetAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     MorphTargets morphTargets(final String identity, final Object source, final Object model, final Object objectSource) {
@@ -248,9 +259,20 @@ final class EditorMorphTargetAccess {
         }
 
         @Override public void setParameterAndKeyValue(final ParameterId id, final float value) {
+            EditorHostThread.dispatch("Cubism Morph Target write", () -> {
+                setParameterAndKeyValueOnEdt(id, value);
+                return null;
+            });
+        }
+
+        private void setParameterAndKeyValueOnEdt(final ParameterId id, final float value) {
+            EditorHostThread.requireHostThread("Cubism Morph Target write");
             Objects.requireNonNull(id, "id");
             if (!Float.isFinite(value)) throw new IllegalArgumentException("key value must be finite");
             requireWriteAuthorization();
+            EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+                authoringCoordinator, "MorphTarget.setParameterAndKeyValue"
+            );
             currentSetOrThrow();
             if (parameterId().equals(id) && Float.compare(keyValue(), value) == 0) return;
             final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");

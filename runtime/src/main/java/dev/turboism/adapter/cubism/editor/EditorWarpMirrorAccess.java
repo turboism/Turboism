@@ -75,6 +75,10 @@ final class EditorWarpMirrorAccess implements WarpMirrorRuntimeService.Port {
     @Override
     public WarpMirrorResult apply(final WarpMirrorRequest request) {
         Objects.requireNonNull(request, "request");
+        return EditorHostThread.dispatch("Cubism warp mirror", () -> applyOnEdt(request));
+    }
+
+    private WarpMirrorResult applyOnEdt(final WarpMirrorRequest request) {
         try {
             final NativeBinding binding = current.get();
             final Capture capture = capture(binding, request);
@@ -258,6 +262,7 @@ final class EditorWarpMirrorAccess implements WarpMirrorRuntimeService.Port {
         final WarpMirrorPairing.Result pairing,
         final List<PreparedCompensation> compensations
     ) {
+        EditorHostThread.requireHostThread("Cubism warp mirror commit");
         final MutationState mutation = new MutationState();
         final EditorAuthoringTransactionCoordinator.Binding authoring;
         try {
