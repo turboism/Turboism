@@ -112,6 +112,34 @@ class GeneratedSubscriberCatalogLoaderTest {
     }
 
     @Test
+    void catalogMatchingNoEntrypointIsDiagnosticOnly() throws Exception {
+        final Path root = Files.createTempDirectory("unmatched-subscriber-loader");
+        final Path serviceFile = root.resolve("META-INF/services").resolve(
+            GeneratedSubscriberCatalog.class.getName()
+        );
+        Files.createDirectories(serviceFile.getParent());
+        Files.writeString(
+            serviceFile,
+            FixtureCatalog.class.getName() + System.lineSeparator()
+        );
+        final URL testClasses = FixtureSubscriber.class.getProtectionDomain()
+            .getCodeSource().getLocation();
+        try (URLClassLoader loader = fixtureLoader(root, testClasses)) {
+            // FixtureCatalog targets FixtureSubscriber, but the entrypoint list holds a
+            // different class: the catalog must be skipped (diagnostic only) and the
+            // entrypoint must still resolve through reflection fallback.
+            final List<EventSubscriberDescriptor> descriptors =
+                new GeneratedSubscriberCatalogLoader().inspect(
+                    List.of(new Subscriber()),
+                    loader
+                );
+
+            assertEquals(1, descriptors.size());
+            assertEquals("on", descriptors.get(0).method().getName());
+        }
+    }
+
+    @Test
     void rejectsDuplicateCatalogProvidersForOneEntrypoint() throws Exception {
         final IllegalArgumentException failure = assertThrows(
             IllegalArgumentException.class,
