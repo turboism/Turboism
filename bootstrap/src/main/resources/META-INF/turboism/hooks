@@ -17,6 +17,11 @@ dev.turboism.bootstrap.TextureUploadPreparationHookContributor
 dev.turboism.bootstrap.WarpPositionProjectionHookContributor
 dev.turboism.bootstrap.ModelUpdateSkipHookContributor
 dev.turboism.bootstrap.IncrementalUpdateHookContributor
+# Must install before the uniform-location cache: both transform
+# shader/A.a(GL,String,Z)I and retransformation replays the chain on original
+# bytes in registration order. With elision upstream, the uniform ERROR-role
+# transformer admits the reviewed composed (elided) shape; the reverse order
+# would fail closed on both sides.
 dev.turboism.bootstrap.GlGetErrorElisionHookContributor
 dev.turboism.bootstrap.SkippedFrameUploadElisionHookContributor
 dev.turboism.bootstrap.UniformLocationCacheHookContributor

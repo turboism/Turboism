@@ -667,65 +667,40 @@ Usage: pass `-Dturboism.validation.glGetErrorElision=true` via `--jvm-option`
 to the host-validation wrapper like any other JVM option; it is read by the
 javaagent at `HOST_RESOLVED`, before the preview runtime starts.
 
-#### Composition conflict with the uniform-location lifecycle transform
+#### Composition with the uniform-location lifecycle transform (implemented)
 
-Observed on host: with `glGetErrorElision` and the uniform-location cache
-enabled in the same leg, the uniform hook fails closed with
-`TURBOISM_UNIFORM_LOCATION installation=FAILED ... uniform dependency body
-mismatch: com/live2d/graphics3d/shader/A.a`. Both features transform the same
-method, and they do not compose today.
+Both features transform `shader/A.a(GL,String,Z)I`: the elision removes the
+`invokeinterface GL.glGetError()I` call, while the uniform ERROR role wraps
+that call to observe its result. Retransformation replays the registered
+transformer chain on the *original* class bytes in registration order, so the
+manifest pins `GlGetErrorElisionHookContributor` before
+`UniformLocationCacheHookContributor` (a `HookManifestTest`-pinned order):
 
-Mechanism. `VerifiedUniformLocationInstaller` verifies every target and
-dependency by capturing the class bytes and comparing the reviewed method
-shape against the reference bytes in the official JAR (`verify()` /
-`capture()` in the installer). `capture()` performs a `retransformClasses`
-with an observing transformer, so the bytes it sees are the output of the
-**whole registered retransform chain** replayed on that class — not the
-pristine JAR bytes. Once `GlGetErrorElisionTransformer` is registered, every
-retransformation of `shader/A` replays its rewrite, so the uniform installer's
-captured body differs from the JAR reference and `verify()` throws. Install
-order does not matter for the capture itself: even if uniform installs first,
-any later retransformation (including the installer's own close-time
-`sha256(capture(target))` restore check) replays the elision rewrite, so the
-recorded baseline hash never matches what capture returns afterwards.
+- **Elision runs upstream.** Its transform always sees official bytes and its
+  restore baseline is the official SHA-256.
+- **Uniform runs downstream.** The ERROR-role shape gate and the installer's
+  `verify()` admit exactly two reviewed shapes for the marker method: the
+  official shape, or the *composed* shape — the byte shape the elision's own
+  probe produces on the attested JAR reference
+  (`GlGetErrorElisionTransformer.composedShape`). The composed shape is only
+  registered while the elision's installation marker
+  (`markInstalled`/`clearInstalled` around the verified install) is present,
+  so a byte-identical body from an unregistered transform still fails closed.
+- **Restore order is reverse install order** (`HookRegistry` closes
+  last-installed first): uniform restores against its elided baseline, then
+  elision restores against the official baseline. Both checks pass because
+  each baseline was captured under the chain state that exists when the
+  transformer is removed.
+- **Semantics:** on the composed body no `glGetError` call remains, so the
+  ERROR observer simply never fires — equivalent to the steady-state
+  `error=0` stream, and consistent with elision semantics (the host's error
+  branch cannot fire anyway). The uniform cache itself (call-site lookup,
+  FRAME begin/end, MUTATIONS invalidation) is unaffected.
+- **If the order ever flips** the elision gate sees the uniform-observed body,
+  fails its shape check, and reports `installation=FAILED` — fail-closed,
+  never a silent partial rewrite.
 
-Candidate resolutions, in increasing scope:
-
-1. **Validate dependencies against a pre-chain baseline.** Keep per-class
-   snapshots of bytes captured before any Turboism retransformer runs (or have
-   the installer temporarily remove/disable the elision transformer during
-   `capture()`), and compare method shapes against that baseline. Risk: the
-   JVM has no API to ask for "bytes before transformer X"; a baseline registry
-   must be maintained by the hook layer itself, and every later verifier —
-   including the restore-time SHA-256 check — must agree on which baseline to
-   compare. Doable but turns verification into bookkeeping about chain order.
-2. **Install elision after uniform.** Ordering alone does not fix it: when
-   elision registers later, its own `ReviewedMethodShape` gate reads the
-   uniform-transformed body of `shader/A.a`, sees drift, and fails closed —
-   the leg silently loses the elision experiment (only visible via a missing
-   `elision=ACTIVE` marker), and the uniform restore check still captures
-   post-elision bytes afterwards. Order swaps the failure mode; it does not
-   remove it.
-3. **Relax elision's precondition on `shader/A`.** Teach the elision target a
-   second reviewed shape (the post-uniform-transform body). This composes the
-   rewrite, but it does not fix the uniform side at all — its verifier still
-   compares captured bytes against JAR originals at install and at close —
-   and it doubles the reviewed-shape surface: accepting a second shape means
-   auditing the exact uniform output bytes per host version.
-4. **Joint single-pass transform.** Have one verified installer apply both
-   rewrites to `shader/A.a` in one pass, verify method shapes against the JAR
-   baseline before mutation, and record per-stage hashes so restore can
-   distinguish "my rewrite" from chain output. This is the correct composition
-   model but is a real bootstrap change, not a validation-scope tweak.
-
-Recommendation: keep fail-closed behavior. The two features are alternative
-hypotheses for the same budget — an elision leg wants uniform caching off
-anyway (the cache changes how often `A.a` runs), and the instrumented legs
-already disable the cache because the proxy bypasses it. Do not combine them
-in one leg; if composition is ever productized it needs option 1 or 4 with
-baseline-preserving verification, never a relaxed gate alone.
-
-### Mesa glthread A/B investigation (`--linux-env` implemented; mechanism verified, no host evidence yet)
+### Mesa glthread A/B investigation (`--linux-env` implemented; env var proven on host, glthread-alone slower — last-shot composition below)
 
 Hypothesis under test: if Mesa `glthread` is enabled on the Proton + Mesa
 26.1 iris host, the EDT only enqueues GL calls while a worker thread does the
@@ -733,6 +708,16 @@ driver work, letting Java-side render preparation overlap with driver time —
 the ~38% EDT GL block and ~18% Java preparation currently serialize on one
 thread. The field thread list showed `gdrv0` (a Gallium driver worker) but no
 glthread worker, consistent with glthread being off today.
+
+**T22 field result (6 runs):** `--linux-env` reaches the wine process — ON
+runs log 9 `ATTENTION ... mesa_glthread overridden by environment` lines each
+in `launcher.out`, OFF runs zero. But glthread alone made the wheel **slower
+by 4–10 ms**: the working theory is that the host's per-draw `glGetError`
+checks (and other `glGet*` queries) each force a synchronous round-trip into
+the glthread worker, so every remaining sync point costs a context switch
+instead of a cheap native call. The last-shot composition below removes the
+two biggest sync sources (elision for `glGetError`, the uniform cache for
+`glGetUniformLocation`) before re-measuring glthread.
 
 **Mechanism.** `--windows-env` writes Windows-side `set` lines inside the
 prefix — the wrong channel for `mesa_glthread`, which Linux-side Mesa reads
@@ -749,16 +734,31 @@ into a job that did not declare it — OFF legs stay genuinely off. Ambient
 `MESA_*` names other than those still pass through (not enumerable); never
 run measured legs under a shell that exports Mesa overrides.
 
-**Evidence written per run.** `launch-environment.properties` records the
-requested assignments. After readiness markers and again after the terminal
-result, the runner snapshots the task-bound `java.exe` process (selected by
-exact `WINEPREFIX=<task prefix>` match in `/proc/<pid>/environ`, never a comm
-substring): `java-process.<phase>.properties` (pid, start, `glThreadCount`),
-`java-threads.<phase>.txt` (every `task/*/comm`), and
-`java-environ.<phase>.properties` (whitelisted names actually inherited,
-`mesa_glthread=ABSENT` when missing). Mesa 26.1.5 names the glthread worker
-via `util_queue` `"%s%i"` naming on queue `"gl"` → comm **`gl0`**; `gdrv0` in
-field lists is a separate Gallium driver thread. Mesa also prints
+**Evidence written per run** (schema v2 — the T22 collector matched only
+`comm == java.exe` with a byte-exact WINEPREFIX and found `javaProcessCount=0`
+on every run; the process is `javaw.exe` under Wine and the prefix path form
+may differ). `launch-environment.properties` records the requested
+assignments. After readiness markers and again after the terminal result the
+runner snapshots the **task-bound** processes: bound by exact
+`TURBOISM_HOST_VALIDATION_TASK_DIR` (exported by `launch.sh`) or a
+realpath-normalized `WINEPREFIX` equal to `<prefix>` or `<prefix>/pfx` in
+`/proc/<pid>/environ` — never a comm substring. The Java process is the
+task-bound entry whose comm or argv0 basename is `java*`/`javaw*`
+(`java.<i>.match` records which). Files:
+
+- `java-process.<phase>.properties` — `javaProcessCount`, `glThreadCount`,
+  per-process `pid/start/comm/match/boundVia/threadCount`, plus diagnostics
+  `taskProcess.*` (every bound process incl. its WINEPREFIX) and
+  `carrier.*` (every process carrying a WINEPREFIX/task marker — a zero-match
+  run is self-diagnosing from these alone).
+- `java-threads.<phase>.txt` — every `task/*/comm` of each matched process.
+- `java-environ.<phase>.properties` — whitelisted names actually inherited
+  (`mesa_glthread=ABSENT` when missing) plus the bound process's
+  `wineprefix`/`taskDir` values.
+
+Mesa 26.1.5 names the glthread worker via `util_queue` `"%s%i"` naming on
+queue `"gl"` → comm **`gl0`**; `gdrv0` in field lists is a separate Gallium
+driver thread. Mesa also prints
 `ATTENTION: default value of option mesa_glthread overridden by environment`
 to the process stderr when the env var overrides the drirc default — that
 lands in `cubism-console.txt` and corroborates activation independently of
@@ -775,30 +775,62 @@ global `mesa_glthread` override — so the env var is the sole effective lever
 and nothing silently re-enables/disables it. `~/.drirc` must not be edited
 (global state visible to other tasks).
 
-**Driver usage (cross-run ABBA — glthread is process-level, cannot toggle
-within a run).** Same wheel harness, production uniform + uploadElision +
-inputPath stack kept constant:
+**Driver usage (cross-run A/B/C — glthread is process-level, cannot toggle
+within a run).** Same wheel harness; the uniform cache, uploadElision and
+inputPath stay at production settings in every run, so each configuration
+adds exactly one variable. Three configurations, three runs each, interleaved
+to bound drift (e.g. `A B C B C A C A B`):
 
 ```bash
-# OFF leg (repeat for the OFF slots; linux-env absent entirely)
-bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-off \
+# A = production baseline: uniform cache + uploadElision + inputPath
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-A-1 \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
   --jvm-option '-Dturboism.optimization.uploadElision=true' \
   --jvm-option '-Dturboism.optimization.inputPath=true' \
   --result-timeout 1200
 
-# ON leg
-bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-on \
+# B = A + glGetError elision (removes the per-draw sync query)
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-B-1 \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
   --jvm-option '-Dturboism.optimization.uploadElision=true' \
   --jvm-option '-Dturboism.optimization.inputPath=true' \
+  --jvm-option '-Dturboism.validation.glGetErrorElision=true' \
+  --ready-marker 'TURBOISM_GL_ERROR_ELISION elision=ACTIVE' \
+  --result-timeout 1200
+
+# C = B + Mesa glthread
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-C-1 \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --jvm-option '-Dturboism.optimization.inputPath=true' \
+  --jvm-option '-Dturboism.validation.glGetErrorElision=true' \
   --linux-env 'mesa_glthread=true' \
+  --ready-marker 'TURBOISM_GL_ERROR_ELISION elision=ACTIVE' \
   --result-timeout 1200
 ```
 
-Run the sequence OFF/ON/ON/OFF/OFF/ON to bound drift. Judging requires
-`java-environ.result.properties` showing `java.<pid>.mesa_glthread=true` AND
-`java-process.result.properties glThreadCount>=1` (comm `gl0` in
-`java-threads.result.txt`) on ON legs, with `mesa_glthread=ABSENT` and
-`glThreadCount=0` on OFF legs; then compare the wheel `eventMs` across runs.
+The `uploadElision` factor only gates the leg switch; production elision stays
+on the whole run. Compare **legs 1 and 2** (`leg.1.eventMs`, `leg.2.eventMs` —
+the ON legs) across configurations; legs 0/3 are the within-run OFF reference.
+
+**Validity gates — a run only counts when all of these hold:**
+
+- B and C runs: `TURBOISM_GL_ERROR_ELISION elision=ACTIVE sites=<n>` in the
+  runtime log (the ready marker already gates this), AND
+  `TURBOISM_UNIFORM_LOCATION installation=COMPLETE`, AND
+  `leg.N.uniformLocationHook.hits>0` in the result (the wheel workload now
+  emits the production hook's stats slot as `uniformLocationHook.*` whenever
+  the slot is published — presence itself proves the cache is live).
+- C runs: `launcher.out` shows the Mesa
+  `ATTENTION ... mesa_glthread overridden` line, AND
+  `java-environ.result.properties` shows `java.<pid>.mesa_glthread=true`, AND
+  `java-process.result.properties` shows `glThreadCount>=1` with a `gl0` row
+  in `java-threads.result.txt`. A/B runs must show `mesa_glthread=ABSENT` and
+  `glThreadCount=0`.
+- Every run: `canvasPixelDigest` identical across legs and across
+  configurations — an elision or glthread regression that corrupts pixels
+  voids the timing.
+
 `GALLIUM_HUD` is admitted for attended debug legs only — it draws into the GL
 framebuffer and breaks canvas pixel digests, never use it in measured legs.
 `--graphics-device nvidia` bypasses Mesa entirely (NVIDIA proprietary GL), so
