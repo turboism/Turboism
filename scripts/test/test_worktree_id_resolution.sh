@@ -42,4 +42,16 @@ id=$(cd "${WORKDIR}/dir-name-id" && env -u TURBOISM_WORKTREE_ID bash scripts/dev
 [ "${id}" = "dir-name-id" ] || fail "directory name fallback failed"
 rm -rf "${WORKDIR}"
 
+# Test 6: --resolve prints a forbidden id instead of failing
+id=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=test bash scripts/dev/worktree-id.sh --resolve)
+[ "${id}" = "test" ] || fail "--resolve should still print the forbidden id"
+
+# Test 7: --resolve prints an invalid id instead of failing
+id=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=1invalid bash scripts/dev/worktree-id.sh --resolve)
+[ "${id}" = "1invalid" ] || fail "--resolve should still print the invalid id"
+
+# Test 8: --resolve still sanitizes the candidate
+id=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID='My Weird_ID!' bash scripts/dev/worktree-id.sh --resolve)
+[ "${id}" = "my-weird-id" ] || fail "--resolve should sanitize the id"
+
 echo "PASS: worktree id resolution"

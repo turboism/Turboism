@@ -11,17 +11,43 @@ plugins {
     id("org.izpack.gradle") version "3.2.3"
 }
 
-val defaultWorktreeId = providers.exec {
-    commandLine("bash", "scripts/dev/worktree-id.sh")
+// scripts/dev/worktree-id.sh owns worktree ID resolution. --resolve only sanitizes,
+// so configuration never fails on a forbidden/invalid ID; tasks that consume the ID
+// fail closed on turboismWorktreeIdError instead.
+val worktreeIdOverride = providers.gradleProperty("turboismWorktreeId")
+    .orElse(providers.environmentVariable("TURBOISM_WORKTREE_ID"))
+val worktreeIdProbe = providers.exec {
+    commandLine("bash", "scripts/dev/worktree-id.sh", "--resolve")
     workingDir(rootProject.layout.projectDirectory)
-}.standardOutput.asText.map { output ->
-    output.trim().ifBlank { rootProject.layout.projectDirectory.asFile.name }
+    isIgnoreExitValue = true
+    worktreeIdOverride.orNull?.let { environment("TURBOISM_WORKTREE_ID", it) }
+}
+val probedWorktreeId = runCatching {
+    worktreeIdProbe.result.get().takeIf { it.exitValue == 0 }
+        ?.let { worktreeIdProbe.standardOutput.asText.get().trim() }
+}.getOrNull().orEmpty()
+
+fun sanitizeWorktreeId(raw: String): String = raw.lowercase()
+    .replace(Regex("[^a-z0-9.-]+"), "-")
+    .trim('-')
+    .replace(Regex("-{2,}"), "-")
+
+val resolvedWorktreeId = probedWorktreeId
+    .ifBlank { sanitizeWorktreeId(worktreeIdOverride.orElse("").get()) }
+    .ifBlank { sanitizeWorktreeId(rootProject.layout.projectDirectory.asFile.name) }
+    .let { if (it.isBlank() || it == "." || it == "..") "worktree" else it }
+
+// Mirrors validate_id in scripts/dev/worktree-id.sh; keep messages identical.
+fun worktreeIdValidationError(id: String): String? = when {
+    !id.matches(Regex("[a-z][a-z0-9-]{2,63}")) ->
+        "Invalid worktree ID: $id (must match [a-z][a-z0-9-]{2,63})"
+    id in setOf("test", "tmp", "new", "main-copy", "my-work") ->
+        "Forbidden worktree ID: $id"
+    else -> null
 }
 
-rootProject.extra["turboismResolvedWorktreeId"] = providers.gradleProperty("turboismWorktreeId")
-    .orElse(providers.environmentVariable("TURBOISM_WORKTREE_ID"))
-    .orElse(defaultWorktreeId)
-    .get()
+rootProject.extra["turboismResolvedWorktreeId"] = resolvedWorktreeId
+rootProject.extra["turboismWorktreeIdError"] = worktreeIdValidationError(resolvedWorktreeId)
 
 allprojects {
     repositories {
@@ -68,6 +94,7 @@ tasks.register<JavaExec>("mappingReview") {
     val legacyCliArgs = providers.gradleProperty("turboismMappingReviewArgs")
     systemProperty("turboism.worktree.id", rootProject.extra["turboismResolvedWorktreeId"] as String)
     doFirst {
+        (rootProject.extra["turboismWorktreeIdError"] as String?)?.let { throw GradleException(it) }
         if (legacyCliArgs.isPresent) {
             throw GradleException("-PturboismMappingReviewArgs is unsupported; pass -PturboismMappingReviewArgsFile=<path> instead.")
         }

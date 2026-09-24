@@ -51,6 +51,13 @@ validate_id() {
   esac
 }
 
+resolve_only=0
+if [ "${1:-}" = "--resolve" ]; then
+  resolve_only=1
+fi
+
 id=$(resolve_worktree_id)
-validate_id "${id}"
+if [ "${resolve_only}" -eq 0 ]; then
+  validate_id "${id}"
+fi
 echo "${id}"
