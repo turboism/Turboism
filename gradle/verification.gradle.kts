@@ -638,6 +638,16 @@ val devCheck by tasks.registering {
 
 val resolvedHostValidationWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 
+// Worktree ID resolution no longer fails configuration (see build.gradle.kts), so
+// host-validation tasks fail closed here before touching packaging or the host queue.
+tasks.withType<Exec>().configureEach {
+    doFirst {
+        if (environment.containsKey("TURBOISM_WORKTREE_ID")) {
+            (rootProject.extra["turboismWorktreeIdError"] as String?)?.let { throw GradleException(it) }
+        }
+    }
+}
+
 val packageParameterHostValidation by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Packages the test-only SDK probe and parameter host-validation bundle."
