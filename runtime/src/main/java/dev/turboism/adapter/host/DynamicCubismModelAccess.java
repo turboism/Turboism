@@ -3,6 +3,12 @@ import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.adapter.cubism.model.ModelObjectProviderUnavailableException;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorBlocker;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorBlockerCode;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorRequest;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorResult;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorService;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -56,7 +62,7 @@ import java.util.function.Function;
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
 final class DynamicCubismModelAccess implements CubismModelAccess,
     NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider {
+    RuntimeAuthoringTransactionProvider, RuntimeWarpMirrorProvider {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
@@ -100,6 +106,29 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             : fallback;
     }
 
+    /**
+     * Live Editor object selection for the session snapshot seam. An inactive or
+     * unauthorized connection reports the honest empty selection; a wired read whose
+     * live-document read fails propagates instead of being masked.
+     */
+    dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection currentHostSelection() {
+        final AccessLease lease;
+        try {
+            lease = acquireActiveLease();
+        } catch (IllegalStateException noActiveModel) {
+            return dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection.empty();
+        }
+        try {
+            if (lease.modelAccess() instanceof dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess editorBacked
+                && editorBacked.selectionReadAuthorized()) {
+                return editorBacked.readHostSelection();
+            }
+            return dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection.empty();
+        } finally {
+            release(lease);
+        }
+    }
+
     @Override
     public AuthoringTransactionService authoringTransactions(final String pluginId) {
         final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
@@ -138,6 +167,35 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 } finally {
                     release(lease);
                 }
+            }
+        };
+    }
+
+    @Override
+    public WarpMirrorService warpMirrorService(final String pluginId) {
+        final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("pluginId must not be blank");
+        }
+        return request -> {
+            final WarpMirrorRequest checked = Objects.requireNonNull(request, "request");
+            final AccessLease lease;
+            try {
+                lease = acquireActiveLease();
+            } catch (IllegalStateException unavailable) {
+                return WarpMirrorResult.blocked(java.util.List.of(new WarpMirrorBlocker(
+                    WarpMirrorBlockerCode.UNAVAILABLE,
+                    "The Editor host session is unavailable.")));
+            }
+            try {
+                if (!(lease.modelAccess() instanceof RuntimeWarpMirrorProvider provider)) {
+                    return WarpMirrorResult.blocked(java.util.List.of(new WarpMirrorBlocker(
+                        WarpMirrorBlockerCode.UNAVAILABLE,
+                        "The Warp mirror provider is unavailable on this host.")));
+                }
+                return provider.warpMirrorService(owner).apply(checked);
+            } finally {
+                release(lease);
             }
         };
     }

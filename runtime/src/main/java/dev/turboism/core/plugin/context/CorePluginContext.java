@@ -544,7 +544,8 @@ public final class CorePluginContext implements PluginContext {
         this.dependencies = hostAccess == null
             ? Objects.requireNonNull(dependencies, "dependencies")
             : dependencies.withHostSnapshotSource(HostSessionSnapshotSource.forSession(
-                hostAccess.adapters().projectWorkspace()
+                hostAccess.adapters().projectWorkspace(),
+                hostAccess::currentHostSelection
             ));
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         final CubismServicesFactory servicesFactory = Objects.requireNonNull(

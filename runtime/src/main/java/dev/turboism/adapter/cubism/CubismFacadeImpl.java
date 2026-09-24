@@ -80,6 +80,8 @@ public final class CubismFacadeImpl implements CubismFacade {
     private CubismHistory history = CubismHistory.unavailable();
     private AuthoringTransactionService authoringTransactions =
         AuthoringTransactionService.unavailable();
+    private dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror =
+        dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
@@ -336,6 +338,45 @@ public final class CubismFacadeImpl implements CubismFacade {
             authoringTransactions,
             "authoringTransactions"
         );
+    }
+
+    /** Full production construction seam including the Warp mirror operation service. */
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final CubismHistory history,
+        final AuthoringTransactionService authoringTransactions,
+        final dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror
+    ) {
+        this(
+            source,
+            permissionGate,
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            nativeInvocations,
+            editorObjectLifecycle,
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
+            textureAtlasAlgorithms,
+            history,
+            authoringTransactions
+        );
+        this.warpMirror = Objects.requireNonNull(warpMirror, "warpMirror");
     }
 
     public CubismFacadeImpl(
@@ -865,6 +906,23 @@ public final class CubismFacadeImpl implements CubismFacade {
                     "authoringTransactions.execute"
                 );
                 return delegate.execute(options, work);
+            }
+        };
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror() {
+        requireActiveScope();
+        final dev.turboism.sdk.cubism.mirror.WarpMirrorService delegate = warpMirror;
+        return new dev.turboism.sdk.cubism.mirror.WarpMirrorService() {
+            @Override
+            public dev.turboism.sdk.cubism.mirror.WarpMirrorResult apply(
+                final dev.turboism.sdk.cubism.mirror.WarpMirrorRequest request
+            ) {
+                requireActiveScope();
+                permissionGate.require(MODEL_READ_PERMISSION, "warpMirror.apply");
+                permissionGate.require(MODEL_WRITE_PERMISSION, "warpMirror.apply");
+                return delegate.apply(request);
             }
         };
     }

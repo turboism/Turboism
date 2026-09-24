@@ -40,6 +40,7 @@ import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorCon
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import java.util.List;
 import java.util.Set;
@@ -68,7 +69,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "b6ed488e17c2452eaa085e21fdab23063e93204e66843882925eae63dda9634c",
+        "34b3825f538ae375abcd63721c1823018de354f3a5d0bf68c9fa1f04c65a0ecd",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -77,7 +78,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "41b9b93d6e1e38f65b1b7af5d146b7394d935cdf7d2a8b5ef6bceed17defb744",
+        "36dc29b45eddf55b02f6b7c3010a5e2f9754d22dff027193ccd09be24f58ec49",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -90,7 +91,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.editor-model.static",
-        "4e92ece4cb18cf4d780ae972e221c35f6ad911c3c922e8dbf2d012fcc7c3067b",
+        "5882bbad35690da6545fe9d1c47ef3d53ad44051949659588a9fdb1befbe6b7f",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -103,6 +104,7 @@ public final class EditorModelVerificationManifest {
     public static final Set<String> CAPABILITY_IDS = Set.of(
         "cubism.editor-model.read",
         "cubism.editor-model.write",
+        "cubism.editor-model.warp-mirror",
         EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
         EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
         EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
@@ -163,6 +165,10 @@ public final class EditorModelVerificationManifest {
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
+        "cubism.editor-model.warp-grid.simple.create",
+        "cubism.editor-model.warp-grid.transform.create",
+        "cubism.editor-model.warp-grid.transform.inverse",
+        "cubism.editor-model.warp-grid.transform.forward",
         "cubism.editor-model.form-guid.value",
         "cubism.editor-model.image-canvas.class",
         "cubism.editor-model.image-canvas.height",
@@ -611,7 +617,11 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.keyform-grid.add-key",
         "cubism.editor-model.keyform-grid.remove-key",
         "cubism.editor-model.keyform-grid.remove-all-key",
-        "cubism.editor-model.keyform-grid.rearrange-keys"
+        "cubism.editor-model.keyform-grid.rearrange-keys",
+        "cubism.editor-model.parameter-controllable.calculated-form",
+        "cubism.editor-model.parameter-controllable-source.default-key-form",
+        "cubism.editor-model.deformer.transform-local-to-canvas",
+        "cubism.editor-model.deformer.transform-canvas-to-local"
     ), union(
 
             union(
@@ -750,6 +760,7 @@ public final class EditorModelVerificationManifest {
     static Set<String> cubism5303Capabilities() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorHistorySemanticSelectorContract.CAPABILITY_ID);
+        values.add(EditorSelectionReadSelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 

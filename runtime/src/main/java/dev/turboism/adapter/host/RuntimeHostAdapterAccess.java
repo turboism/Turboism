@@ -34,6 +34,13 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     CubismModelAccess modelAccess();
 
+    /**
+     * Live Editor object selection for the session snapshot seam. Implementations return
+     * {@link HostSnapshotSource.HostSelection#empty()} while no verified selection read is
+     * wired; a wired read may propagate live-read failures.
+     */
+    HostSnapshotSource.HostSelection currentHostSelection();
+
     CubismHistory history();
     HostSnapshotSource modelAppearanceSource();
 
@@ -286,6 +293,13 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public CubismModelAccess modelAccess() {
         return modelAccess;
+    }
+
+    @Override
+    public HostSnapshotSource.HostSelection currentHostSelection() {
+        return modelAccess instanceof DynamicCubismModelAccess dynamic
+            ? dynamic.currentHostSelection()
+            : HostSnapshotSource.HostSelection.empty();
     }
 
     @Override
