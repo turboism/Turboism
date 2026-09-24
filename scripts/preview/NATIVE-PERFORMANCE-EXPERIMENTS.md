@@ -1629,6 +1629,9 @@ n8 是这套链路的首次实机有效性证据。
   t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1,
   t08b-upload-r{1,2},t08b-jfr-prod-r1}；明细见
   `build/perf052-t08/campaign-notes.md`。
-- **T08d 阻塞（待裁决）**：修复码在 runtime 类，仅经 agent fat jar 内嵌
-  送达；preview agent 10a89bb1 内嵌类为旧版（无 failedInserts）。preview
-  目录无独立 runtime jar 可同步。四腿未提交。
+- **T08d（裁决 A 后提交）**：监督确认 T03「agent 未变」有误——runtime 类仅经
+  agent fat jar 内嵌送达，preview 无独立 runtime jar。按裁决重建
+  :bootstrap:jar → agent **3807fb65**（已验证内嵌 tracker 含
+  failedInserts、installer 与 7c57f805d 一致；复制入 preview 未跑
+  previewBundle）。四腿 FIFO：id-r1 3a85e0e2 / content-r1 3f39cdaf /
+  id-r2 afaf7e26 / content-r2 cb50d3d9（probe 2a56fed1、head 7c57f805d）。
