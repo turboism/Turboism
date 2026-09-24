@@ -8,8 +8,13 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -165,6 +170,58 @@ class EditorUiContributionAuthorityTest {
     }
 
     @Test
+    void concurrentReconcilesLeaveExactlyOneOrderedInstall() throws Exception {
+        RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
+        long generation = lifecycle.connecting().generation();
+        GatedProvider provider = new GatedProvider(EditorUiFamily.MENU);
+        provider.admit(generation);
+        lifecycle.ready(generation, Set.of(EditorUiFamily.MENU));
+        EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
+        authority.installProvider(provider);
+
+        Thread first = new Thread(
+            () -> authority.contribute(contribution("plugin-a", "first", 0)),
+            "contribute-first"
+        );
+        first.start();
+        assertTrue(
+            provider.applyEntered.await(5, TimeUnit.SECONDS),
+            "the first reconcile must reach the provider before the second contributes"
+        );
+
+        Thread second = new Thread(
+            () -> authority.contribute(contribution("plugin-b", "second", 1)),
+            "contribute-second"
+        );
+        second.start();
+        awaitTrue(
+            () -> authority.contributions(EditorUiFamily.MENU).size() == 2,
+            "the second contribution must be recorded before the gate opens"
+        );
+        provider.releaseApply.countDown();
+        first.join(TimeUnit.SECONDS.toMillis(5));
+        second.join(TimeUnit.SECONDS.toMillis(5));
+        assertFalse(first.isAlive(), "first contribute did not finish");
+        assertFalse(second.isAlive(), "second contribute did not finish");
+
+        assertEquals(
+            1,
+            provider.liveInstalls().size(),
+            "concurrent reconciles must leave exactly one live native install, not one per writer"
+        );
+        assertEquals(
+            List.of("plugin-a:first", "plugin-b:second"),
+            provider.liveInstalls().get(0).descriptors
+        );
+
+        authority.close();
+        assertTrue(
+            provider.liveInstalls().isEmpty(),
+            "every registration the provider issued must be closed by authority close"
+        );
+    }
+
+    @Test
     void closeDisposesNativeAndRejectsNewContributions() {
         RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
         long generation = lifecycle.connecting().generation();
@@ -207,6 +264,104 @@ class EditorUiContributionAuthorityTest {
             order,
             pluginId + ":" + id
         );
+    }
+
+    private static void awaitTrue(
+        final java.util.function.BooleanSupplier condition,
+        final String description
+    ) throws InterruptedException {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("timed out waiting for: " + description);
+            }
+            Thread.sleep(1);
+        }
+    }
+
+    /**
+     * Provider whose first {@code apply} call blocks on a latch so two concurrent reconciles
+     * can be interleaved deterministically. Every issued registration records its installed
+     * snapshot and stays observable until closed.
+     */
+    private static final class GatedProvider implements EditorUiContributionProvider {
+        private final EditorUiFamily family;
+        private final CountDownLatch applyEntered = new CountDownLatch(1);
+        private final CountDownLatch releaseApply = new CountDownLatch(1);
+        private final AtomicBoolean gateArmed = new AtomicBoolean(true);
+        private final List<Install> installs = new CopyOnWriteArrayList<>();
+        private EditorUiProviderAdmission admission;
+
+        private GatedProvider(final EditorUiFamily family) {
+            this.family = family;
+            this.admission = EditorUiProviderAdmission.safeMode(
+                family,
+                "ui.provider.mapping-not-verified"
+            );
+        }
+
+        private void admit(final long generation) {
+            admission = EditorUiProviderAdmission.admitted(
+                family,
+                generation,
+                new EditorUiProviderAdmission.VerificationEvidence(
+                    "5.3.02",
+                    42,
+                    "a".repeat(64),
+                    "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
+                    "b".repeat(64)
+                )
+            );
+        }
+
+        private List<Install> liveInstalls() {
+            return installs.stream().filter(install -> !install.closed).toList();
+        }
+
+        @Override
+        public EditorUiFamily family() {
+            return family;
+        }
+
+        @Override
+        public EditorUiProviderAdmission admission() {
+            return admission;
+        }
+
+        @Override
+        public Registration apply(
+            final long hostGeneration,
+            final List<EditorUiContribution<?>> contributions
+        ) {
+            final Install install = new Install(
+                contributions.stream().map(value -> (String) value.descriptor()).toList()
+            );
+            installs.add(install);
+            if (gateArmed.compareAndSet(true, false)) {
+                applyEntered.countDown();
+                try {
+                    releaseApply.await();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("gated apply interrupted", exception);
+                }
+            }
+            return install;
+        }
+
+        private static final class Install implements Registration {
+            private final List<String> descriptors;
+            private volatile boolean closed;
+
+            private Install(final List<String> descriptors) {
+                this.descriptors = descriptors;
+            }
+
+            @Override
+            public void close() {
+                closed = true;
+            }
+        }
     }
 
     private static final class RecordingProvider implements EditorUiContributionProvider {
