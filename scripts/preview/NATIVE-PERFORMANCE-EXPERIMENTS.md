@@ -1668,3 +1668,9 @@ n8 是这套链路的首次实机有效性证据。
   2411a920 一致）：t20-wheel fea5b0ac/5ccec5d2、t20-pan f38e40eb、
   t20-drag d50f76b9（canvasComposite+两叠加）；t21-mscratch
   1535062d/5b23f525（matrixScratch 首个完整 ABBA）。
+- **T20/T21 结果**：canvasComposite 与 matrixScratch 均 NO_BENEFIT
+  （fea5b0ac/5ccec5d2/f38e40eb/d50f76b9、1535062d/5b23f525）。
+  windowDigest 全运行=bade8f59，截图门无效。
+- **T22 glthread 跨运行 ABBA 已提交**（gl-attribution@d90b3fe76，
+  --linux-env 新能力）：fdb9d6e6/f815c2c4/93aca62a/e8564408/
+  c68652bb/24a54463（OFF/ON/ON/OFF/OFF/ON）。
