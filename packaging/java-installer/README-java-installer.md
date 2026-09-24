@@ -130,9 +130,8 @@ The installer UI ships in English, Simplified Chinese, Japanese and Korean
 (`eng`, `chn`, `jpn` and `kor` langpacks in `installer.xml`). With more than one
 langpack present and no `-language` argument, IzPack opens its modal
 language-selection dialog before the first panel; passing
-`-language eng|chn|jpn|kor` preselects a language and skips that dialog. No
-Korean EULA translation exists, so `LicencePanel.eula_kor` resolves to
-`EULA.en.txt` while the rest of the Korean UI stays translated.
+`-language eng|chn|jpn|kor` preselects a language and skips that dialog. The EULA is available in all four languages;
+`LicencePanel.eula_kor` resolves to `EULA.ko.txt`.
 
 macOS CI: the manual workflow
 `.github/workflows/macos-packaging-verification.yml` (Apple Silicon and
