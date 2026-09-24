@@ -725,56 +725,85 @@ already disable the cache because the proxy bypasses it. Do not combine them
 in one leg; if composition is ever productized it needs option 1 or 4 with
 baseline-preserving verification, never a relaxed gate alone.
 
-### Mesa glthread A/B investigation (text only — no host evidence yet)
+### Mesa glthread A/B investigation (`--linux-env` implemented; mechanism verified, no host evidence yet)
 
 Hypothesis under test: if Mesa `glthread` is enabled on the Proton + Mesa
-26.1 iris host, every `glGetError`/`glGet*` is a pipeline synchronization
-point, which could explain a large share of the undecomposed quiet residue.
+26.1 iris host, the EDT only enqueues GL calls while a worker thread does the
+driver work, letting Java-side render preparation overlap with driver time —
+the ~38% EDT GL block and ~18% Java preparation currently serialize on one
+thread. The field thread list showed `gdrv0` (a Gallium driver worker) but no
+glthread worker, consistent with glthread being off today.
 
-**Can the runner inject the variable?** `--windows-env NAME=value` writes
-`set "NAME=value"` lines into the Windows `launch.bat` inside the prefix —
-that is a Wine/Windows environment block, **not** the Linux environment of
-the `wine64` process that loads Mesa. `mesa_glthread` is read by the
-Linux-side Mesa (iris is a Gallium driver) via `getenv`, so `--windows-env`
-is the wrong channel for it. The Linux-side injection points that do exist:
+**Mechanism.** `--windows-env` writes Windows-side `set` lines inside the
+prefix — the wrong channel for `mesa_glthread`, which Linux-side Mesa reads
+via `getenv` inside the `java.exe` wine process. The runner now owns a
+first-class `--linux-env NAME=value` option: each assignment is whitelist
+checked (`mesa_glthread`, `MESA_[A-Z0-9_]+`, `GALLIUM_HUD`,
+`GALLIUM_HUD_PERIOD`; values limited to `[A-Za-z0-9._:,=+/-]`), lands in
+normalized argv → `runner-request.json` → the prepared snapshot (which also
+snapshots `tool/scripts`, so only jobs prepared with this branch support it),
+and is emitted as literal `export` lines in the generated `launch.sh` before
+the Proton wrapper call. The enumerable managed names are `unset` first so an
+ambient `mesa_glthread`/`GALLIUM_HUD*` in the worker environment cannot leak
+into a job that did not declare it — OFF legs stay genuinely off. Ambient
+`MESA_*` names other than those still pass through (not enumerable); never
+run measured legs under a shell that exports Mesa overrides.
 
-- The generated `launch.sh` (task dir) inherits the validating shell's
-  environment before invoking `"$proton_wrapper" ... cmd /c launch.bat`. An
-  exported `mesa_glthread=true|false` in the runner's own environment should
-  propagate through `launch.sh` to the Proton wrapper and the wine64
-  process. Caveat: propagation through Proton's own env handling is not
-  verified offline, and the `.env` loader deliberately allowlists `TURBOISM_*`
-  keys — a bare `mesa_glthread` export is outside that declared contract.
-- A first-class mechanism (a dedicated `--linux-env`/runner option, or a
-  `TURBOISM_*` key the launcher explicitly re-exports inside `launch.sh`)
-  would be the clean fix and needs a small runner change; do not improvise
-  edits to generated scripts for a measured leg.
+**Evidence written per run.** `launch-environment.properties` records the
+requested assignments. After readiness markers and again after the terminal
+result, the runner snapshots the task-bound `java.exe` process (selected by
+exact `WINEPREFIX=<task prefix>` match in `/proc/<pid>/environ`, never a comm
+substring): `java-process.<phase>.properties` (pid, start, `glThreadCount`),
+`java-threads.<phase>.txt` (every `task/*/comm`), and
+`java-environ.<phase>.properties` (whitelisted names actually inherited,
+`mesa_glthread=ABSENT` when missing). Mesa 26.1.5 names the glthread worker
+via `util_queue` `"%s%i"` naming on queue `"gl"` → comm **`gl0`**; `gdrv0` in
+field lists is a separate Gallium driver thread. Mesa also prints
+`ATTENTION: default value of option mesa_glthread overridden by environment`
+to the process stderr when the env var overrides the drirc default — that
+lands in `cubism-console.txt` and corroborates activation independently of
+the thread snapshot.
 
-So: A/B is feasible via runner-process environment inheritance
-(`mesa_glthread=true` vs `mesa_glthread=false` exported before invoking the
-queue/wrapper), but whether the value survives to the wine64 process is an
-assumption that must be verified per leg, not trusted.
+**Why the env var wins.** Mesa 26.1.5 `dri_context.c` resolves glthread in
+order: `mesa_glthread_driver` (drirc driver default) → disabled if fewer than
+4 total/5 big CPUs → `mesa_glthread_app_profile` (drirc per-app) →
+`mesa_glthread` env var, which overrides all of the above when present. A
+final `thread_safe` gate can still veto. This machine has no `~/.drirc` or
+`/etc/drirc`; `/usr/share/drirc.d/00-mesa-defaults.conf` contains 319 app
+rules matched by Wine-visible exe name, none for `java`/`java.exe`, and no
+global `mesa_glthread` override — so the env var is the sole effective lever
+and nothing silently re-enables/disables it. `~/.drirc` must not be edited
+(global state visible to other tasks).
 
-**Verifying the actual glthread state in the field** — requesting the env
-var is never proof Mesa honored it (drirc app profiles can override either
-direction):
+**Driver usage (cross-run ABBA — glthread is process-level, cannot toggle
+within a run).** Same wheel harness, production uniform + uploadElision +
+inputPath stack kept constant:
 
-- `/proc/<pid>/task/*/comm` on the editor's `java.exe` wine64 process
-  (locate via `scripts/preview/find-cubism-java-pid.sh`): Mesa's submission
-  worker shows up as an extra thread (comm names like `glthread`/
-  driver-suffixed workers; the exact comm string on Mesa 26.1 should be
-  observed, not assumed). Absence of the worker means glthread is off.
-- `MESA_DEBUG=1`/`MESA_INFO=1` in the same Linux-side environment prints
-  driver/context lines to the process stderr, which lands in the task's
-  `launcher.out` (`launch.sh` redirects it). Useful corroboration of which
-  driver/context flags are active.
-- `GALLIUM_HUD` draws an on-screen HUD (iris is Gallium) — usable only in
-  attended/debug legs, needs the same env channel, and perturbs rendering;
-  not for measured legs.
-- Cross-check: an elision leg that still shows the glthread worker thread
-  while glGetError time collapses is consistent with the sync-point
-  hypothesis; unchanged totals would refute it. Report requested env state
-  and observed thread evidence separately — never conflate them.
+```bash
+# OFF leg (repeat for the OFF slots; linux-env absent entirely)
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-off \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --jvm-option '-Dturboism.optimization.inputPath=true' \
+  --result-timeout 1200
+
+# ON leg
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-on \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --jvm-option '-Dturboism.optimization.inputPath=true' \
+  --linux-env 'mesa_glthread=true' \
+  --result-timeout 1200
+```
+
+Run the sequence OFF/ON/ON/OFF/OFF/ON to bound drift. Judging requires
+`java-environ.result.properties` showing `java.<pid>.mesa_glthread=true` AND
+`java-process.result.properties glThreadCount>=1` (comm `gl0` in
+`java-threads.result.txt`) on ON legs, with `mesa_glthread=ABSENT` and
+`glThreadCount=0` on OFF legs; then compare the wheel `eventMs` across runs.
+`GALLIUM_HUD` is admitted for attended debug legs only — it draws into the GL
+framebuffer and breaks canvas pixel digests, never use it in measured legs.
+`--graphics-device nvidia` bypasses Mesa entirely (NVIDIA proprietary GL), so
+glthread legs are meaningless there — keep `inherit` (iris) for this
+experiment.
 
 ### Skipped-frame upload elision upper bound (experimental transform, not a proxy)
 
