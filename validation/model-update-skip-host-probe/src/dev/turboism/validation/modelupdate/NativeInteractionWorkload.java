@@ -31,10 +31,14 @@ final class NativeInteractionWorkload {
     private final boolean matrixComparison = factor.equals("matrixScratch");
     private final boolean elision = factor.equals("uploadElision");
     private final boolean inputPath = factor.equals("inputPath");
+    private final boolean composite = factor.equals("canvasComposite");
     private static final String ELISION_GATE = "turboism.upload-elision.gate";
     private static final String ELISION_STATS = "turboism.upload-elision.stats";
     private static final String INPUTPATH_GATE = "turboism.input-path.gate";
     private static final String INPUTPATH_STATS = "turboism.input-path.stats";
+    private static final String COMPOSITE_PREDICATE = "turboism.canvas-composite.paint";
+    private static final String COMPOSITE_GATE = "turboism.canvas-composite.gate";
+    private static final String COMPOSITE_STATS = "turboism.canvas-composite.stats";
     private Frame window;
     private JComponent canvas;
     private NativeInteractionHost host;
@@ -48,15 +52,16 @@ final class NativeInteractionWorkload {
     private final List<String> legRestoredDigests = new ArrayList<>();
     private final List<String> legFocusOwners = new ArrayList<>();
     private final List<String> legCanvasCursors = new ArrayList<>();
+    private final List<String> legWindowDigests = new ArrayList<>();
     private int lastX, lastY;
 
     NativeInteractionWorkload(String fixture, Path state, String kind) {
         if (fixture == null || fixture.isBlank() || !List.of("pan", "artmesh").contains(kind)) {
             throw new IllegalArgumentException("native interaction requires a fixture and pan/artmesh mode");
         }
-        if (!List.of("uniformHook", "matrixScratch", "uploadElision", "inputPath").contains(factor)) {
+        if (!List.of("uniformHook", "matrixScratch", "uploadElision", "inputPath", "canvasComposite").contains(factor)) {
             throw new IllegalArgumentException(
-                "native interaction factor must be uniformHook, matrixScratch, uploadElision or inputPath");
+                "native interaction factor must be uniformHook, matrixScratch, uploadElision, inputPath or canvasComposite");
         }
         if (Boolean.getBoolean("turboism.uniform-location.shadow")
             || Boolean.getBoolean("turboism.validation.modelUpdateGlCalls")
@@ -98,6 +103,16 @@ final class NativeInteractionWorkload {
             }
             report.append("inputPath.installed=true\n");
         }
+        if (composite) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get(COMPOSITE_PREDICATE)
+                        instanceof java.util.function.Predicate<?>)
+                || !(slots.get(COMPOSITE_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "canvasComposite factor requires the canvasCompositeElision hook installed");
+            }
+            report.append("canvasComposite.installed=true\n");
+        }
         Files.writeString(state.resolve("interaction-benchmark.txt"), report + "status=PREPARING\n");
         try {
             try (PreparationWatchdog preparation = new PreparationWatchdog(state, 30_000L)) {
@@ -123,9 +138,10 @@ final class NativeInteractionWorkload {
                     // (production default, matching the wheel runs) and toggle
                     // only the experiment gate so the legs differ in a single
                     // variable.
-                    hook.setEnabled(elision || inputPath || enabled);
+                    hook.setEnabled(elision || inputPath || composite || enabled);
                     if (elision) setElisionArmed(enabled);
                     if (inputPath) setInputPathArmed(enabled);
+                    if (composite) setCompositeArmed(enabled);
                     return null;
                 });
                 Files.writeString(state.resolve("interaction-progress.txt"), "leg=" + leg + "\nstage=warmup\n");
@@ -155,11 +171,17 @@ final class NativeInteractionWorkload {
                 throw new IllegalStateException("focus/cursor state differs across legs: owners="
                     + legFocusOwners + " cursors=" + legCanvasCursors);
             }
+            if (!legWindowDigests.isEmpty()
+                && legWindowDigests.stream().distinct().count() != 1) {
+                throw new IllegalStateException(
+                    "window-level screenshots differ across legs: " + legWindowDigests);
+            }
             report.append("crossLegBaselineParity=").append(legBaselineDigests.stream().distinct().count() == 1).append('\n')
                 .append("crossLegMovedGeometryParity=").append(legMovedDigests.stream().distinct().count() == 1).append('\n')
                 .append("crossLegRestoredGeometryParity=").append(legRestoredDigests.stream().distinct().count() == 1).append('\n')
                 .append("crossLegFocusOwnerParity=").append(legFocusOwners.stream().distinct().count() == 1).append('\n')
                 .append("crossLegCanvasCursorParity=").append(legCanvasCursors.stream().distinct().count() == 1).append('\n')
+                .append("crossLegWindowDigestParity=").append(legWindowDigests.stream().distinct().count() == 1).append('\n')
                 .append("status=PASS\n");
         } catch (Throwable failure) {
             report.append("status=FAIL\nerror=").append(failure).append('\n');
@@ -192,6 +214,8 @@ final class NativeInteractionWorkload {
             ? uploadElisionStats() : Map.of();
         final Map<String, Long> inputPathBefore = report != null && inputPath
             ? inputPathStats() : Map.of();
+        final Map<String, Long> compositeBefore = report != null && composite
+            ? compositeStats() : Map.of();
         final long[] samples = new long[steps], queue = new long[steps], handler = new long[steps], repaint = new long[steps];
         final long[] started = {0L}, elapsed = {0L}, pressNanos = {0L}, releaseNanos = {0L};
         final List<Map<String, Long>> snapshots = new ArrayList<>();
@@ -265,7 +289,7 @@ final class NativeInteractionWorkload {
                 }
             });
             if (snapshots.size() != 2) throw new IllegalStateException("gesture accounting incomplete");
-            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || inputPath || enabled, steps);
+            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || inputPath || composite || enabled, steps);
             final var moved = edt(host::geometry);
             List<Integer> changed = NativeInteractionHost.changed(baseline, moved);
             final var movedCamera = edt(host::camera);
@@ -335,7 +359,7 @@ final class NativeInteractionWorkload {
             }
             if (report != null) {
                 verifyPixelsAtCurrentState(prefix + "restored");
-                edt(() -> { hook.setEnabled(elision || inputPath || enabled); return null; });
+                edt(() -> { hook.setEnabled(elision || inputPath || composite || enabled); return null; });
                 long[] sorted = samples.clone(); Arrays.sort(sorted);
                 long total = Arrays.stream(samples).sum();
                 long frames = NarrowUniformTrial.delta(snapshots.get(0), snapshots.get(1), "completedDisplayFrames");
@@ -344,6 +368,8 @@ final class NativeInteractionWorkload {
                         ? (enabled ? "upload-elision-on" : "upload-elision-off")
                         : inputPath
                             ? (enabled ? "input-path-on" : "input-path-off")
+                        : composite
+                            ? (enabled ? "canvas-composite-on" : "canvas-composite-off")
                         : matrixComparison
                             ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
                             : (enabled ? "narrow-locations" : "native")).append('\n')
@@ -399,12 +425,32 @@ final class NativeInteractionWorkload {
                             .append('\n');
                     }
                 }
+                if (composite) {
+                    final Map<String, Long> compositeAfter = compositeStats();
+                    for (String key : compositeAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("canvasComposite.").append(key).append('=')
+                            .append(compositeAfter.get(key)
+                                - compositeBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
                 final String legFocusOwner = edt(NativeInteractionWorkload::focusOwnerFingerprint);
                 final String legCanvasCursor = edt(this::canvasCursorFingerprint);
                 legFocusOwners.add(legFocusOwner);
                 legCanvasCursors.add(legCanvasCursor);
                 report.append(prefix).append("focusOwner=").append(legFocusOwner).append('\n')
                     .append(prefix).append("canvasCursor=").append(legCanvasCursor).append('\n');
+                // Window-level parity: geometry/pixel digests do not observe
+                // the on-screen composite. Capture the canvas parent region
+                // via Robot; fall back to an offscreen printAll render when
+                // Robot is unavailable — printAll proves the Swing paint
+                // result but cannot see the real screen blit.
+                final String[] windowShot = edt(this::windowSnapshot);
+                legWindowDigests.add(windowShot[0]);
+                report.append(prefix).append("windowDigest=").append(windowShot[0]).append('\n')
+                    .append(prefix).append("windowDigestMethod=").append(windowShot[1]).append('\n')
+                    .append(prefix).append("windowDistinctColors=").append(windowShot[2]).append('\n');
                 final String baselineDigest = geometryDigest(baseline);
                 final String movedDigest = geometryDigest(moved);
                 report.append(prefix).append("geometryDigest=").append(baselineDigest).append('\n')
@@ -445,7 +491,7 @@ final class NativeInteractionWorkload {
                 + "\nselected=" + selected + "\npoint=" + startPoint + "\n");
             if (!selected) throw new IllegalStateException("native picker found no editable single-ArtMesh target");
             Thread.sleep(600L);
-        } finally { edt(() -> { hook.setEnabled(elision || inputPath || enabled); return null; }); }
+        } finally { edt(() -> { hook.setEnabled(elision || inputPath || composite || enabled); return null; }); }
     }
 
     private record ParityCapture(FrameReadback image, String before, String after) { }
@@ -599,6 +645,86 @@ final class NativeInteractionWorkload {
             }
         });
         return result;
+    }
+
+    /** Arms/disarms the canvas-composite elision bridge for the current leg. */
+    private static void setCompositeArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(COMPOSITE_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("canvas composite elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> compositeStats() {
+        final Object callback = System.getProperties().get(COMPOSITE_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
+    }
+
+    /**
+     * Window-level screenshot of the canvas and its parent region. Returns
+     * {@code {digest, method, distinctColors}}: {@code robot} captures real
+     * on-screen pixels (preferred — proves the Wine/GDI composite result);
+     * when Robot is unavailable the fallback re-renders the canvas parent
+     * tree via {@code printAll} (proves the Swing paint result but cannot
+     * observe the actual screen blit).
+     */
+    private String[] windowSnapshot() {
+        final Component parent = canvas.getParent() != null ? canvas.getParent() : canvas;
+        try {
+            final java.awt.Rectangle bounds =
+                new java.awt.Rectangle(parent.getLocationOnScreen(), parent.getSize());
+            final java.awt.image.BufferedImage image =
+                new java.awt.Robot().createScreenCapture(bounds);
+            return imageResult(image, "robot");
+        } catch (Throwable robotFailure) {
+            final int w = Math.max(1, parent.getWidth());
+            final int h = Math.max(1, parent.getHeight());
+            final java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            final java.awt.Graphics2D g = image.createGraphics();
+            try {
+                parent.printAll(g);
+            } finally {
+                g.dispose();
+            }
+            return imageResult(image, "printAll");
+        }
+    }
+
+    private static String[] imageResult(final java.awt.image.BufferedImage image,
+                                        final String method) {
+        try {
+            final java.security.MessageDigest digest =
+                java.security.MessageDigest.getInstance("SHA-256");
+            final java.util.HashSet<Integer> colors = new java.util.HashSet<>();
+            final int[] row = new int[image.getWidth()];
+            for (int y = 0; y < image.getHeight(); y++) {
+                image.getRGB(0, y, image.getWidth(), 1, row, 0, image.getWidth());
+                for (int px : row) {
+                    colors.add(px);
+                    digest.update((byte) (px >>> 16));
+                    digest.update((byte) (px >>> 8));
+                    digest.update((byte) px);
+                }
+            }
+            return new String[] {java.util.HexFormat.of().formatHex(digest.digest()),
+                method, Integer.toString(colors.size())};
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /** Stable fingerprint of the Java-side focus owner (class + identity). */

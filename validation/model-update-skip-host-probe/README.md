@@ -1098,3 +1098,70 @@ is meaningful; on an unreviewed artifact the install must report
 `TURBOISM_INPUT_PATH installation=NOT_ADMITTED` (fail-closed), so do NOT pass
 `modelUpdateFactor=inputPath` there — the workload requires the installed gate
 and fails by design without it.
+
+### Canvas-composite elision upper bound (experimental transform, not a proxy)
+
+The T19 stacked JFR (`3272baaa`, uploadElision + inputPath armed) attributes
+~17% of EDT native samples to the Swing/GDI composite path: the GLJPanel
+offscreen image is drawn into the shared Swing back buffer
+(`DrawImage.copyImage`/`Blit.Blit`), the back buffer is then blitted to the
+screen via `GDIBlitLoops.nativeBlit` under Wine, and the opaque parent panels
+(`com/live2d/ui/swingImpl/u`) fill their background per frame
+(`FlatPanelUI.update → FillRect`).
+
+Flag (default OFF):
+
+```text
+-Dturboism.validation.canvasCompositeElision=true
+```
+
+Mechanism — two entry consults, both pixel-exact under their gates:
+
+- `javax/swing/RepaintManager$PaintManager.paint(JComponent,JComponent,Graphics,
+  int,int,int,int)Z` (java.desktop, JDK loader, attested against the running
+  VM's own jrt bytes): a `turboism.canvas-composite.paint` `Predicate` slot
+  receives the painting component; `true` returns `false`, selecting the JDK's
+  own direct-paint fallback in `RepaintManager.paint` (`setClip` +
+  `paintToOffscreen` — which paints component+border+children straight into
+  the window graphics). The bridge answers `true` only when the repaint's
+  subtree contains a visible `GLJPanel`, so only canvas repaints bypass the
+  back buffer. The `RepaintManager.paint` caller shape is verified as a
+  dependency so a JDK without the fallback is refused.
+- `com/formdev/flatlaf/ui/FlatPanelUI.update(Graphics,JComponent)V` (FlatLaf
+  jar beside the host artifact, host loader, exact code source): a
+  `turboism.canvas-composite.fill` `BiPredicate` slot receives `(graphics,
+  component)`; `true` returns early, skipping the background fill. The bridge
+  answers `true` only when the panel is opaque and its full bounds are covered
+  by a visible opaque `GLJPanel` subtree — GLJPanel is opaque on the modeling
+  canvas (the host never calls `setTranslucent` there), its readback image is
+  3-component (no alpha) and it paints over its entire bounds, so the fill is
+  provably invisible overdraw.
+
+Research results that did NOT become sites: the repaint region per wheel
+event is the whole canvas (the GL content genuinely changed — not
+shrinkable); the vertical flip runs on the GPU (`fboFlipped` +
+`GLSLTextureRaster` under FBO+GL2ES2) rather than the `readBackIntsForCPUVFlip`
+CPU loop; `glReadPixels` itself is the required readback. `GMatrix44.<init>` /
+`GTransform.getLocalToWorldMatrix` dominate the separate "Java render prep"
+bucket (the `matrixScratch` target).
+
+Install marker: `TURBOISM_CANVAS_COMPOSITE elision=ACTIVE sites=2`; the close
+marker reports `paintElided/paintPassed`, `fillElided/fillPassed` and
+`observerFailures`. Correctness gates per run: `leg.N.canvasPixelDigest`
+equality, `leg.N.windowDigest` equality across legs (`crossLegWindowDigestParity`)
+with `windowDigestMethod`/`windowDistinctColors` recorded, focus/cursor
+fingerprints, and the existing geometry/undo parity on native legs. OFF legs
+still evaluate the consult and count `passed`.
+
+```bash
+# wheel ABBA stacked on production uploadElision + inputPathElision:
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=canvasComposite' \
+  --jvm-option '-Dturboism.validation.canvasCompositeElision=true' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --jvm-option '-Dturboism.optimization.inputPathElision=true' \
+  --ready-marker 'TURBOISM_CANVAS_COMPOSITE elision=ACTIVE' \
+  --result-timeout 1200
+```
+
+(same flag set with `on-pan`/`on-artmesh` for the native drag workloads).
