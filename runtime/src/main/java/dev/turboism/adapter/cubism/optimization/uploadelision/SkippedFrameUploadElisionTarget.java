@@ -14,10 +14,13 @@ import java.util.Optional;
  * method {@code b(GL2ES2,int)}: bind, then either {@code glBufferData} on the
  * reallocate path or {@code glBufferSubData} on the dirty path, followed by
  * dirty-flag clearing. The method body is bytecode-identical between the
- * reviewed 5.3.02 and 5.3.03 artifacts (verified by javap comparison). The
- * 5.2.03 artifact keeps the same wrapper layout but its {@code shader/A}
- * helper lacks the reviewed {@code a(Buffer)J} size method the bridge reads,
- * so it stays unsupported.</p>
+ * reviewed 5.3.02 and 5.3.03 artifacts (verified by javap comparison of both
+ * wrappers), and 5.3.02's {@code shader/A} exposes the reviewed
+ * {@code a(Buffer)J} size method. The 5.2.03 artifact keeps the same wrapper
+ * layout but binds the size call to {@code shader/y.a(Buffer)J} instead — its
+ * {@code shader/A} is an unrelated Kotlin {@code Function0} lambda class — so
+ * 5.2.03 stays unsupported and fails closed on both the digest gate and the
+ * dependency check.</p>
  */
 public record SkippedFrameUploadElisionTarget(
         HostArtifactDigest digest,
