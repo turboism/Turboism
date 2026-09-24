@@ -141,13 +141,14 @@ public interface ProtectedExportHostOperations {
 
     /**
      * Physics settings sources — outside the parameter-controllable census.
-     * Protected export admits only models with none.
+     * Pass-through content: admitted untouched and pinned by identity and
+     * structure signature so a mid-session mutation is a drift rejection.
      */
     List<?> allPhysicsSettings(Object modelSource);
 
     /**
      * Motion-sync settings sources — outside the parameter-controllable census.
-     * Protected export admits only models with none.
+     * Same pass-through semantics as physics settings.
      */
     List<?> allMotionSyncSettings(Object modelSource);
 
@@ -260,12 +261,20 @@ public interface ProtectedExportHostOperations {
     boolean isDeformerSource(Object object);
 
     /**
-     * Stable family token for a census object outside the supported whitelist —
-     * e.g. {@code glue}, {@code art-path}, {@code deform-path}, {@code alias} —
-     * or a bounded {@code unknown:<class-clue>} token when no family matches.
+     * True when {@code object} is a parameter-controllable source — the
+     * supertype of every member {@link #allObjects} may carry. Objects failing
+     * this check have no pinnable identity and cannot pass through.
+     */
+    boolean isControllableSource(Object object);
+
+    /**
+     * Stable family token for a census object — {@code warp}, {@code rotation},
+     * {@code artmesh}, {@code part}, {@code glue}, {@code art-path},
+     * {@code alias}, a package-derived token such as {@code deform-path}, or a
+     * bounded {@code unknown:<class-clue>} token when no family matches.
      * Diagnostics only; never {@code null} and never longer than a short token.
      */
-    String unsupportedObjectFamily(Object object);
+    String censusFamily(Object object);
 
     boolean isWarpDeformer(Object object);
 
@@ -297,6 +306,38 @@ public interface ProtectedExportHostOperations {
      * (child parts and member drawables/deformers). Empty when none or unreadable.
      */
     List<String> partChildGuids(Object partSource);
+
+    /**
+     * Parent-edge GUID string of a controllable source
+     * ({@code getTargetDeformerGuid}) — the parent deformer a source hangs
+     * under, or {@code null} for a root-level member. Flattening may
+     * legitimately re-root a pass-through object's parent edge (the removed
+     * deformer), so the drift check treats a transition to {@code null} as
+     * legal and any other change as drift.
+     */
+    String sourceTargetDeformerGuid(Object source);
+
+    /**
+     * Ordered reference-GUID strings a pass-through object carries, composed
+     * per family: Glue returns its two target ArtMesh GUIDs, an ArtPath its
+     * brush GUID then clip-mask GUIDs, an alias its reference-object GUID then
+     * clip-mask GUIDs, a Part its clip-mask GUIDs, an ArtMesh its clip-mask
+     * GUIDs; a family without references returns an empty list. Entries are
+     * {@code null} when the reference slot is unset. These references ride on
+     * stable GUIDs, which ArtMesh name/ID obfuscation never rewrites — the
+     * census pins them so a drift is a rejection rather than an invisible
+     * reference break.
+     */
+    List<String> passThroughReferenceGuids(Object source);
+
+    /**
+     * Ordered {@code key=value} flag tokens pinning the host-reported content
+     * flags of a source — drawable clip-inversion, part offscreen/clipping/
+     * color-composition/alpha-composition, alias flags — empty for families
+     * without pinnable flags or on hosts that do not expose them. Tokens are
+     * deterministic so a silent flag mutation is a drift rejection.
+     */
+    List<String> passThroughFlagSignature(Object source);
 
     /** Deformer GUID string; the receiver must be a deformer source. */
     String deformerGuid(Object deformerSource);
@@ -330,24 +371,69 @@ public interface ProtectedExportHostOperations {
     boolean usesExtendedInterpolation(Object modelSource);
 
     /**
-     * Unsupported feature families the host reports for a model source via its
-     * own {@code contain*} gates — the authoritative semantic checks for
-     * content the object census cannot see (blend/multiply/screen color,
-     * morph-target parameters and enhancements, aliases, art paths, inverted
-     * clipping, quad transforms, offscreen rendering, motion sync). The
-     * returned tokens are stable family names for reporting only; empty means
-     * the host detects none of them.
+     * Content feature families the host reports for a model source via its own
+     * {@code contain*} gates — the authoritative semantic checks for content
+     * the object census cannot see (blend/multiply/screen color, morph-target
+     * parameters and enhancements, aliases, art paths, inverted clipping, quad
+     * transforms, offscreen rendering, motion sync). Detected families are
+     * pass-through content: the returned tokens are pinned in the census so a
+     * feature silently appearing or disappearing mid-session is a drift
+     * rejection. Empty means the host detects none of them.
      */
-    List<String> unsupportedModelFeatures(Object modelSource);
+    List<String> modelFeatureFlags(Object modelSource);
 
     /**
-     * Unsupported structures embedded inside an otherwise-allowed controllable
+     * Content structures embedded inside an otherwise-allowed controllable
      * source — invisible to the {@link #allObjects} census because they live in
      * members, not the object list: keyform morph-target sets, extended morph
-     * target sets and any attached extension objects. Empty means the source
-     * carries none of them.
+     * target sets and any attached extension objects (deform-path skinning
+     * lives here). They are pass-through content: the token list is pinned in
+     * the census so a mutation or serialization loss is a drift rejection.
+     * Empty means the source carries none of them.
      */
-    List<String> embeddedUnsupportedFamilies(Object controllableSource);
+    List<String> embeddedContentFamilies(Object controllableSource);
+
+    // ------------------------------------------------------------------
+    // Pass-through settings objects (physics, motion sync)
+    // ------------------------------------------------------------------
+
+    /**
+     * True when {@code object} is a physics settings source. Physics settings
+     * are pass-through content: they are never rewritten, but each is pinned by
+     * identity and structure so a mutation mid-session is a drift rejection.
+     */
+    boolean isPhysicsSettingsSource(Object object);
+
+    /**
+     * True when {@code object} is a motion-sync setting source. Same
+     * pass-through semantics as physics settings.
+     */
+    boolean isMotionSyncSettingSource(Object object);
+
+    /**
+     * Stable GUID string of a settings source (physics or motion sync);
+     * {@code null} when the object is not a recognized settings family or the
+     * GUID is unset — the census treats that as unpinnable and rejects.
+     */
+    String settingsGuid(Object settingsSource);
+
+    /**
+     * ID string of a settings source; {@code null} when unrecognized or unset.
+     */
+    String settingsIdString(Object settingsSource);
+
+    /**
+     * Local name of a settings source; {@code null} when unrecognized.
+     */
+    String settingsName(Object settingsSource);
+
+    /**
+     * Ordered {@code key=value} structure tokens pinning a settings source's
+     * authored content — for physics, the enable flag and input/output/vertex
+     * counts; for motion sync, the content checksum. {@code null} when the
+     * object is not a recognized settings family (unpinnable → reject).
+     */
+    List<String> settingsSignature(Object settingsSource);
 
     // ------------------------------------------------------------------
     // Export dialog identity + native re-drive

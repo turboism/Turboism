@@ -123,6 +123,28 @@ class RuntimeExportSettingsAuthorityTest {
     }
 
     @Test
+    void vetoedConfirmTombstonesTheDialogOwner() {
+        final TestContext context = new TestContext();
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        authority.hostGeneration(7L);
+        final JPanel container = dialogContent();
+        final Object owner = new Object();
+        assertNullResult(authority.attach(owner, container));
+        checkbox(container, "Localized protect").setSelected(true);
+
+        assertSame(Boolean.FALSE, authority.decide(owner),
+            "a checked confirm must veto");
+        // The consumed owner must never regain native continuation: a second
+        // confirm on a still-open dialog after the veto must fail closed rather
+        // than fall through to the unknown-owner passthrough — otherwise the
+        // original document would be exported natively past the veto.
+        assertSame(Boolean.FALSE, authority.decide(owner),
+            "a re-confirmed vetoed owner must stay vetoed");
+        assertEquals(1, context.callbackCalls.size(),
+            "the tombstoned re-confirm must not reach the plugin callback");
+    }
+
+    @Test
     void attachFailureFailsClosedAtConfirm() {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();

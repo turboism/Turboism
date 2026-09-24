@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Pure deformer-flatten planner over {@link ProtectedExportHostOperations} reads.
@@ -20,21 +21,28 @@ import java.util.TreeMap;
  * as roots, matching the native downward-traversal semantics. Cycles, duplicate GUIDs,
  * unresolved deformer-parent edges and unsupported families are hard rejections —
  * never skipped.</p>
+ *
+ * <p>Everything else in the census is pass-through content, never filtered: any
+ * controllable source outside the flatten/obfuscate surface (Glue, ArtPath, alias,
+ * and future families alike) is admitted and pinned by the model census instead.
+ * The only remaining structural rejections are objects whose identity cannot be
+ * pinned — a census member that is not a controllable source, or carries no stable
+ * GUID or ID — and duplicate identities, which would make the census ambiguous.</p>
  */
 public final class ProtectedExportDeformerPlan {
 
     /**
      * Deterministic leaf-to-root deformer GUID application order, plus the stable
-     * GUIDs of the Glue sources admitted as an untouched pass-through channel —
+     * GUIDs of every census object admitted as an untouched pass-through channel —
      * they are never applied, renamed or re-identified; the list exists so every
      * consumer of the plan can see the channel was censused deliberately.
      */
-    public record Order(List<String> leafToRootGuids, List<String> passThroughGlueGuids) {
+    public record Order(List<String> leafToRootGuids, List<String> passThroughGuids) {
         public Order {
             leafToRootGuids = List.copyOf(Objects.requireNonNull(leafToRootGuids,
                 "leafToRootGuids"));
-            passThroughGlueGuids = List.copyOf(Objects.requireNonNull(
-                passThroughGlueGuids, "passThroughGlueGuids"));
+            passThroughGuids = List.copyOf(Objects.requireNonNull(
+                passThroughGuids, "passThroughGuids"));
         }
     }
 
@@ -52,7 +60,7 @@ public final class ProtectedExportDeformerPlan {
     ) {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(modelSource, "modelSource");
-        final List<String> glueGuids = admitStructure(host, modelSource);
+        final List<String> passThroughGuids = admitStructure(host, modelSource);
         final List<?> deformers = host.allDeformers(modelSource);
         final Map<String, Object> byGuid = new LinkedHashMap<>();
         for (Object deformer : deformers) {
@@ -122,107 +130,126 @@ public final class ProtectedExportDeformerPlan {
             throw new ProtectedExportPlanRejection(
                 "protected-export.deformer-cycle");
         }
-        return new Order(order, glueGuids);
+        return new Order(order, passThroughGuids);
     }
 
     /**
      * Whole-structure admission. The parameter-controllable census ({@code allObjects}
      * covers drawable, deformer, affecter, part and alias sources on the exact host)
-     * must contain only supported families — Warp/Rotation deformers, ArtMeshes,
-     * parts and Glue affecters. Glue is the explicit pass-through exception the user
-     * ruled for this slice: it is admitted, never flattened or obfuscated, and its
-     * identity is pinned by the model census. ArtPath/DeformPath sources are
-     * drawables and aliases are controllable sources, so every one of them lands in
-     * this census and is rejected here. Physics and motion-sync settings live
-     * outside the census and get their own emptiness check.
+     * no longer filters families: Warp/Rotation deformers are flattened, ArtMeshes
+     * are obfuscated, parts are preserved, and every other controllable source is an
+     * untouched pass-through member whose identity and references the model census
+     * pins. Physics and motion-sync settings live outside the census and pass
+     * through under their own pinning.
      *
-     * <p>Category whitelisting alone is not sufficient: unsupported content also
-     * hides <em>inside</em> otherwise-allowed sources. The host's own {@code contain*}
-     * gates answer the model-level families (blend colors, morph-target
-     * parameters/enhancements, aliases, art paths, inverted clipping, quad
-     * transforms, offscreen rendering, motion sync), and every admitted object —
-     * Glue included — is scanned for embedded members the census cannot see:
-     * keyform morph-target sets, extended morph-target sets and attached extension
-     * objects. Anything detected or unknown rejects; the runtime never relies on a
-     * plugin-side planner having run first.</p>
+     * <p>What still rejects is only what cannot be safely pinned: a census member
+     * that is not a controllable source or carries no stable GUID/ID, an unknown
+     * family whose references cannot be enumerated, or a duplicate identity that
+     * would make the census ambiguous. Embedded content (morph-target sets,
+     * extensions such as deform-path skinning) and the host {@code contain*}
+     * feature flags are pass-through as well — they are pinned by the census, not
+     * rejected.</p>
      *
-     * @return the sorted stable GUIDs of the admitted Glue sources (the untouched
-     *     pass-through channel), never {@code null}
+     * @return the sorted stable GUIDs of the admitted pass-through sources, never
+     *     {@code null}
      */
     private static List<String> admitStructure(
         final ProtectedExportHostOperations host,
         final Object modelSource
     ) {
         final List<?> objects = host.allObjects(modelSource);
-        final Map<String, Integer> unsupported = new TreeMap<>();
-        final List<String> glueGuids = new ArrayList<>();
+        final Map<String, Integer> unpinnable = new TreeMap<>();
+        final Set<String> seenGuids = new LinkedHashSet<>();
+        final Set<String> duplicateGuids = new LinkedHashSet<>();
+        final List<String> passThrough = new ArrayList<>();
         for (Object object : objects) {
-            if (object != null && host.isGlueSource(object)) {
-                final String guid = host.objectGuid(object);
-                if (guid == null || guid.isBlank()) {
-                    throw new ProtectedExportPlanRejection(
-                        "protected-export.glue-identity-missing");
-                }
-                glueGuids.add(guid);
-                continue;
-            }
-            final boolean supported = object != null
+            final String family = familyOf(host, object);
+            final boolean protectedFamily = object != null
                 && (host.isWarpDeformer(object) || host.isRotationDeformer(object)
                     || host.isArtMeshSource(object) || host.isPartSource(object));
-            if (!supported) {
-                String family;
-                try {
-                    family = host.unsupportedObjectFamily(object);
-                } catch (Throwable failure) {
-                    family = "unknown";
-                }
-                if (family == null || family.isBlank()) {
-                    family = "unknown";
-                }
+            final boolean knownPassThrough = !protectedFamily
+                && ("glue".equals(family) || "art-path".equals(family)
+                    || "alias".equals(family));
+            final String guid = protectedFamily || knownPassThrough
+                ? pinnableGuid(host, object) : null;
+            if (guid == null) {
                 // Bounded key space: overflow families fold into "other" so the
                 // detail stays readable on pathological censuses.
-                final String key =
-                    unsupported.size() < 12 || unsupported.containsKey(family)
-                        ? family : "other";
-                unsupported.merge(key, 1, Integer::sum);
+                final String key = unpinnable.size() < 12
+                        || unpinnable.containsKey(family)
+                    ? family : "other";
+                unpinnable.merge(key, 1, Integer::sum);
+                continue;
+            }
+            if (!seenGuids.add(guid)) {
+                duplicateGuids.add(guid);
+            }
+            if (knownPassThrough) {
+                passThrough.add(guid);
             }
         }
-        if (!unsupported.isEmpty()) {
+        if (!unpinnable.isEmpty()) {
             final StringBuilder detail =
-                new StringBuilder("protected-export.unsupported-structure:");
-            for (Map.Entry<String, Integer> entry : unsupported.entrySet()) {
+                new StringBuilder("protected-export.unpinnable-structure:");
+            for (Map.Entry<String, Integer> entry : unpinnable.entrySet()) {
                 detail.append(entry.getKey()).append('=').append(entry.getValue())
                     .append(',');
             }
             detail.setLength(detail.length() - 1);
             throw new ProtectedExportPlanRejection(detail.toString());
         }
-        final int physicsSettings = host.allPhysicsSettings(modelSource).size();
-        final int motionSyncSettings = host.allMotionSyncSettings(modelSource).size();
-        if (physicsSettings != 0 || motionSyncSettings != 0) {
+        if (!duplicateGuids.isEmpty()) {
             throw new ProtectedExportPlanRejection(
-                "protected-export.unsupported-settings:physics="
-                    + physicsSettings + ",motion-sync=" + motionSyncSettings);
+                "protected-export.duplicate-guid:"
+                    + String.join(",", new TreeSet<>(duplicateGuids)));
         }
-        final List<String> features = host.unsupportedModelFeatures(modelSource);
-        if (!features.isEmpty()) {
-            throw new ProtectedExportPlanRejection(
-                "protected-export.unsupported-feature:"
-                    + String.join(",", features));
+        passThrough.sort(Comparator.naturalOrder());
+        return List.copyOf(passThrough);
+    }
+
+    /**
+     * The stable GUID of a census member, or {@code null} when the member has no
+     * pinnable identity — not a controllable source, a blank/missing GUID, or a
+     * blank/missing ID. Such members reject the session rather than pass through
+     * half-pinned.
+     */
+    private static String pinnableGuid(
+        final ProtectedExportHostOperations host,
+        final Object object
+    ) {
+        if (object == null || !host.isControllableSource(object)) {
+            return null;
         }
-        for (Object object : objects) {
-            if (object == null) {
-                continue;
+        try {
+            final String guid = host.objectGuid(object);
+            final String id = host.objectIdString(object);
+            if (guid == null || guid.isBlank() || id == null || id.isBlank()) {
+                return null;
             }
-            final List<String> embedded = host.embeddedUnsupportedFamilies(object);
-            if (!embedded.isEmpty()) {
-                throw new ProtectedExportPlanRejection(
-                    "protected-export.embedded-structure:"
-                        + String.join(",", embedded));
-            }
+            return guid;
+        } catch (RuntimeException unreadable) {
+            return null;
         }
-        glueGuids.sort(Comparator.naturalOrder());
-        return List.copyOf(new LinkedHashSet<>(glueGuids));
+    }
+
+    /**
+     * Bounded family token for diagnostics; degrades to {@code unknown} when the
+     * host cannot classify the object at all.
+     */
+    private static String familyOf(
+        final ProtectedExportHostOperations host,
+        final Object object
+    ) {
+        if (object == null) {
+            return "null";
+        }
+        String family;
+        try {
+            family = host.censusFamily(object);
+        } catch (Throwable failure) {
+            family = "unknown";
+        }
+        return family == null || family.isBlank() ? "unknown" : family;
     }
 
     /** Bounded preflight rejection identity for an unplannable deformer census. */

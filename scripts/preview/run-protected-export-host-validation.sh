@@ -19,7 +19,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
   echo "usage: run-protected-export-host-validation.sh <5203|5302|5303> [run-label] [phase] [runner-options...]" >&2
-  echo "  phase: dialog (default) | copy-binding | flatten | export | dirty-export | glue-export | export-native | census | atlas-fixture | expect-reject | expect-reject-structure | comma combinations" >&2
+  echo "  phase: dialog (default) | copy-binding | flatten | export | dirty-export | glue-export | physics-export | broad-structure | export-native | census | atlas-fixture | expect-reject | expect-reject-structure | comma combinations" >&2
   exit 2
 fi
 
@@ -39,13 +39,14 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 case "$phase" in
-  dialog | copy-binding | flatten | export | dirty-export | glue-export | export-native \
+  dialog | copy-binding | flatten | export | dirty-export | glue-export \
+    | physics-export | broad-structure | export-native \
     | census | atlas-fixture | census,atlas-fixture | expect-reject \
     | expect-reject-structure \
     | dialog,copy-binding \
     | copy-binding,flatten | dialog,copy-binding,flatten) ;;
   *)
-    echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, flatten, export, dirty-export, glue-export, export-native, census, atlas-fixture, expect-reject, or a comma combination)" >&2
+    echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, flatten, export, dirty-export, glue-export, physics-export, broad-structure, export-native, census, atlas-fixture, expect-reject, or a comma combination)" >&2
     exit 2
     ;;
 esac
@@ -84,6 +85,19 @@ if [ "$build" = 1 ]; then
 fi
 
 turboism_select_fixture "$version" || exit 2
+
+# Physics/broad variants exercise the feature-rich fixture
+# (physics, motion-sync, morph targets, blend colors) instead of the clean
+# positive fixture — the pass-through surface has to be real content, not an
+# empty census.
+case "$phase" in
+  physics-export | broad-structure)
+    if [ -n "${TURBOISM_HOST_VALIDATION_FIXTURE_PASSTHROUGH:-}" ]; then
+      fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PASSTHROUGH"
+      fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PASSTHROUGH_SHA256"
+    fi
+    ;;
+esac
 
 plugin_jar_dir="$repo_root/build/worktree/$worktree_id/protected-export/libs"
 plugin_jar="$(find "$plugin_jar_dir" -maxdepth 1 -name "protected-export-*-SNAPSHOT-$worktree_id.jar" -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)"
