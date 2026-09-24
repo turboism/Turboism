@@ -1621,8 +1621,14 @@ n8 是这套链路的首次实机有效性证据。
   57c4854b（worktree .env 缺覆盖），cleanup=safe、不计入样本。修正 env 调用后
   重提 r2（expected==actual=029e9a4e 核实）：upload-id-r2 2fb0591c /
   upload-content-r2 a70e41a1（agent 10a89bb1@4333086b1、exerciser c29ba1a8）。
+  **r2 跑完即定性「缺陷暴露轮，不计收益」**：报告证实旧 tracker
+  （passNoBaseline/compares=0，无 failedInserts）——512 格表耗尽 +
+  content 比较恒假，7c57f805d 已修复。
 - **证据**：`~/.local/state/turboism/performance-evidence/20260924-perf052-t08/run/`
   {t08-attr-prod-r1,t08-attr-cal-r1,t08-elision-{off,on}-r{1,2},
   t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1,
   t08b-upload-r{1,2},t08b-jfr-prod-r1}；明细见
   `build/perf052-t08/campaign-notes.md`。
+- **T08d 阻塞（待裁决）**：修复码在 runtime 类，仅经 agent fat jar 内嵌
+  送达；preview agent 10a89bb1 内嵌类为旧版（无 failedInserts）。preview
+  目录无独立 runtime jar 可同步。四腿未提交。
