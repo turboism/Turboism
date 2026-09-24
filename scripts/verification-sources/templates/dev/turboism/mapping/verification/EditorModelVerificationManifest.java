@@ -221,10 +221,6 @@ public final class EditorModelVerificationManifest {
     );
     private static final Set<String> STRUCTURE_ALIASES = Set.of(
         "cubism.editor-model.copy-helper.copy",
-        "cubism.editor-model.warp-grid.simple.create",
-        "cubism.editor-model.warp-grid.transform.create",
-        "cubism.editor-model.warp-grid.transform.inverse",
-        "cubism.editor-model.warp-grid.transform.forward",
         "cubism.editor-model.form-guid.value",
         "cubism.editor-model.image-canvas.class",
         "cubism.editor-model.image-canvas.height",
@@ -417,6 +413,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-helper.morph-target-eligible",
         "cubism.editor-model.parameter-source.model-source",
         "cubism.editor-model.model-source.all-objects",
+        "cubism.editor-model.model-source.all-parameters",
         "cubism.editor-model.parameter-controllable.class",
         "cubism.editor-model.parameter-controllable.keyform-grid",
         "cubism.editor-model.parameter-controllable.interpolated-form",
@@ -924,7 +921,6 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism5303StaticAliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.addAll(Set.of(
-            "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
             "cubism.editor-model.morph-target-set.create-undo",

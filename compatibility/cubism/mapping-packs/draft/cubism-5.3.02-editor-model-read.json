@@ -2307,6 +2307,33 @@
       "descriptor": "()Ljava/util/List;"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.all_parameters",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.model-source.all-parameters",
+      "runtime": "getAllParameters",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.model-source.all-parameters",
+        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.all_parameters",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact 5.3.02 classfile verification; record-parity backfill"
+      }
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.class.keyform_grid",
       "kind": "class",
       "owner": "editor-model-parameter-definition-write",
@@ -13511,114 +13538,6 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.constructor.warp_simple_grid",
-      "kind": "constructor",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.warp-grid.simple.create",
-      "runtime": "<init>",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-5.3.02-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/bezier/CSimpleGrid",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "descriptor": "(II[F)V",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-grid.simple.create",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.constructor.warp_simple_grid",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "Warp mirror exact classfile declaration review"
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.constructor.warp_grid_transform",
-      "kind": "constructor",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.warp-grid.transform.create",
-      "runtime": "<init>",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-5.3.02-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "descriptor": "(Lcom/live2d/cubism/doc/model/deformer/warp/grid/ICGrid;Lcom/live2d/cubism/doc/model/deformer/warp/grid/ICGrid;II)V",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-grid.transform.create",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.constructor.warp_grid_transform",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "Warp mirror exact classfile declaration review"
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.warp_grid_transform_forward",
-      "kind": "method",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.warp-grid.transform.forward",
-      "runtime": "transform",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-5.3.02-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "descriptor": "([F[F)[F",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-grid.transform.forward",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_grid_transform_forward",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "Warp mirror exact classfile declaration review"
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.warp_grid_transform_inverse",
-      "kind": "method",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.warp-grid.transform.inverse",
-      "runtime": "inverseTransform",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-5.3.02-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "descriptor": "([FI[FIIZ)V",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-grid.transform.inverse",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.warp_grid_transform_inverse",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "Warp mirror exact classfile declaration review"
-      }
-    },
-    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.method.deformer_transform_canvas_to_local",
       "kind": "method",
       "owner": "editor-model-read",
@@ -17425,7 +17344,7 @@
       "main": "b8c09b5a",
       "entryUnionCount": 393
     },
-    "selectorCount": 835,
+    "selectorCount": 831,
     "capabilityCount": 104,
     "capabilityIds": [
       "cubism.editor-history.move",
@@ -17533,6 +17452,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "84e9da4430c3d2259012b3fc392234eb64dab2292eae7bcf395178ae4f502af0"
+    "verificationRecordSha256": "ac66369faa7be4e9623c91a7097b25f93846fd81c99a545967212553ff0b4caa"
   }
 }
