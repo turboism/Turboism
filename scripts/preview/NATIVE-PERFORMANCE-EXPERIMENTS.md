@@ -1654,3 +1654,8 @@ n8 是这套链路的首次实机有效性证据。
 - **T18 已提交**（e29480026，agent 29de18a6/probe 489d15f2，叠加生产
   uploadElision 测增量）：wheel-r1 22869304 / wheel-r2 bc423db3 /
   pan 9cdfd063 / drag 520489e9。
+  **T18 结果**：4/4 PASS、sites=195、每事件省略 ~2 万调用、parity 全过，
+  但增量 −0.6ms（噪声内）→ **NO_BENEFIT 否决**。
+- **T17 已提交**（input-path@3f06f8789，agent 2116dbed/probe 0ece749e 与
+  声明一致，叠加生产 uploadElision）：wheel-r1 2d9da268 / wheel-r2
+  0be033d9 / pan c88b8400 / drag 66710607。
