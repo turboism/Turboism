@@ -189,6 +189,43 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String GLUE_TARGET_A = PREFIX + "glue-source.target-art-mesh-a";
     private static final String GLUE_TARGET_B = PREFIX + "glue-source.target-art-mesh-b";
 
+    private static final String CONTROLLABLE_CLASS = PREFIX + "controllable-source.class";
+    private static final String SOURCE_TARGET_DEFORMER = PREFIX + "source.target-deformer-guid";
+    private static final String DRAWABLE_CLIP_GUIDS = PREFIX + "drawable.clip-guids";
+    private static final String DRAWABLE_INVERT_CLIP = PREFIX + "drawable.invert-clipping";
+    private static final String ART_PATH_CLASS = PREFIX + "art-path-source.class";
+    private static final String ART_PATH_BRUSH = PREFIX + "art-path.brush-guid";
+    private static final String ALIAS_CLASS = PREFIX + "alias-source.class";
+    private static final String ALIAS_REFERENCE = PREFIX + "alias.reference-object-guid";
+    private static final String ALIAS_CLIP_GUIDS = PREFIX + "alias.clip-guids";
+    private static final String ALIAS_INVERT_CLIP = PREFIX + "alias.invert-clipping";
+    private static final String ALIAS_USE_OFFSCREEN = PREFIX + "alias.use-offscreen";
+    private static final String ALIAS_COLOR_COMPOSITION =
+        PREFIX + "alias.color-composition";
+    private static final String ALIAS_ALPHA_COMPOSITION =
+        PREFIX + "alias.alpha-composition";
+    private static final String ALIAS_CIRCULATED = PREFIX + "alias.circulated";
+    private static final String PART_CLIP_GUIDS = PREFIX + "part.clip-guids";
+    private static final String PART_INVERT_CLIP = PREFIX + "part.invert-clipping";
+    private static final String PART_USE_OFFSCREEN = PREFIX + "part.use-offscreen";
+    private static final String PART_COLOR_COMPOSITION = PREFIX + "part.color-composition";
+    private static final String PART_ALPHA_COMPOSITION = PREFIX + "part.alpha-composition";
+    private static final String PHYSICS_SETTINGS_CLASS =
+        PREFIX + "physics-settings-source.class";
+    private static final String PHYSICS_SETTINGS_GUID = PREFIX + "physics-settings.guid";
+    private static final String PHYSICS_SETTINGS_ID = PREFIX + "physics-settings.id";
+    private static final String PHYSICS_SETTINGS_NAME = PREFIX + "physics-settings.name";
+    private static final String PHYSICS_SETTINGS_ENABLE = PREFIX + "physics-settings.enable";
+    private static final String PHYSICS_SETTINGS_INPUTS = PREFIX + "physics-settings.inputs";
+    private static final String PHYSICS_SETTINGS_OUTPUTS = PREFIX + "physics-settings.outputs";
+    private static final String PHYSICS_SETTINGS_VERTICES =
+        PREFIX + "physics-settings.vertices";
+    private static final String MOTION_SYNC_CLASS = PREFIX + "motion-sync-setting.class";
+    private static final String MOTION_SYNC_GUID = PREFIX + "motion-sync-setting.guid";
+    private static final String MOTION_SYNC_ID = PREFIX + "motion-sync-setting.id";
+    private static final String MOTION_SYNC_NAME = PREFIX + "motion-sync-setting.name";
+    private static final String MOTION_SYNC_CHECKSUM = PREFIX + "motion-sync-setting.checksum";
+
     private static final String DIALOG_CLASS = PREFIX + "export-dialog.class";
     private static final String DIALOG_MODEL_SOURCE = PREFIX + "export-dialog.model-source";
     private static final String DRIVER_CLASS = PREFIX + "export-driver.class";
@@ -230,6 +267,16 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SOURCE_GRID, SOURCE_EXT_GRID, GRID_BINDINGS, BINDING_EXT_TYPE, BINDING_ILLEGAL,
         BINDING_PARAMETER_ID, BINDING_KEYS, PART_CHILD_GUIDS,
         GLUE_TARGET_A, GLUE_TARGET_B,
+        SOURCE_TARGET_DEFORMER, DRAWABLE_CLIP_GUIDS, DRAWABLE_INVERT_CLIP,
+        ART_PATH_BRUSH,
+        ALIAS_REFERENCE, ALIAS_CLIP_GUIDS, ALIAS_INVERT_CLIP, ALIAS_USE_OFFSCREEN,
+        ALIAS_COLOR_COMPOSITION, ALIAS_ALPHA_COMPOSITION, ALIAS_CIRCULATED,
+        PART_CLIP_GUIDS, PART_INVERT_CLIP, PART_USE_OFFSCREEN,
+        PART_COLOR_COMPOSITION, PART_ALPHA_COMPOSITION,
+        PHYSICS_SETTINGS_GUID, PHYSICS_SETTINGS_ID, PHYSICS_SETTINGS_NAME,
+        PHYSICS_SETTINGS_ENABLE, PHYSICS_SETTINGS_INPUTS, PHYSICS_SETTINGS_OUTPUTS,
+        PHYSICS_SETTINGS_VERTICES,
+        MOTION_SYNC_GUID, MOTION_SYNC_ID, MOTION_SYNC_NAME, MOTION_SYNC_CHECKSUM,
         DEFORMER_GUID, DEFORMER_TARGET, DEFORMER_CHILDREN,
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
         GUID_UUID, ID_STRING,
@@ -250,6 +297,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         SELECTOR_INTERFACE, SELECTOR_CLASS, EDIT_MODE_BASE_CLASS, EDIT_MODE_CLASS,
         MODEL_SOURCE_CLASS, MODEL_CLASS, DEFORMER_CLASS, WARP_CLASS, ROTATION_CLASS,
         ART_MESH_CLASS, PART_CLASS, PARAMETER_CLASS, DRAWABLE_CLASS, GLUE_CLASS,
+        CONTROLLABLE_CLASS, ART_PATH_CLASS, ALIAS_CLASS,
+        PHYSICS_SETTINGS_CLASS, MOTION_SYNC_CLASS,
         DRAWABLE_ID_CLASS, PARAMETER_ID_CLASS, GUID_CLASS, ID_CLASS,
         PARAMETER_SET_CLASS, PARAMETER_INSTANCE_CLASS,
         ART_MESH_INSTANCE_CLASS, ART_MESH_FORM_CLASS,
@@ -261,20 +310,28 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     public static final Set<String> REQUIRED_ALIASES = requiredAliases();
 
     /**
-     * {@code contain*} gates that only exist on Cubism 5.3.x {@code CModelSource}. The
-     * reviewed 5.2.03 record omits them because the gated features did not exist in that
-     * release; they remain mandatory on every 5.3.x admission.
+     * Selectors that only exist on Cubism 5.3.x builds: {@code contain*} gates
+     * whose gated features did not ship in 5.2.03, the alias family
+     * ({@code CAliasSource} is absent from the 5.2.03 jar), and the part
+     * detail members (clip/invert/offscreen/composition) that 5.2.03
+     * {@code CPartSource} does not declare. The reviewed 5.2.03 record omits
+     * them; they remain mandatory on every 5.3.x admission.
      */
-    private static final Set<String> CUBISM_5_3_ONLY_GATE_ALIASES = Set.of(
-        MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ALIAS, MS_CONTAIN_OFFSCREEN
+    private static final Set<String> CUBISM_5_3_ONLY_ALIASES = Set.of(
+        MS_CONTAIN_ADVANCED_BLEND, MS_CONTAIN_ALIAS, MS_CONTAIN_OFFSCREEN,
+        ALIAS_CLASS, ALIAS_REFERENCE, ALIAS_CLIP_GUIDS, ALIAS_INVERT_CLIP,
+        ALIAS_USE_OFFSCREEN, ALIAS_COLOR_COMPOSITION, ALIAS_ALPHA_COMPOSITION,
+        ALIAS_CIRCULATED,
+        PART_CLIP_GUIDS, PART_INVERT_CLIP, PART_USE_OFFSCREEN,
+        PART_COLOR_COMPOSITION, PART_ALPHA_COMPOSITION
     );
 
     private static final Set<String> CUBISM_5_2_METHOD_ALIASES_USED =
-        without(METHOD_ALIASES_USED, CUBISM_5_3_ONLY_GATE_ALIASES);
+        without(METHOD_ALIASES_USED, CUBISM_5_3_ONLY_ALIASES);
 
     /** Exact alias roster this implementation requires on the reviewed 5.2.03 build. */
     public static final Set<String> CUBISM_5_2_REQUIRED_ALIASES =
-        without(REQUIRED_ALIASES, CUBISM_5_3_ONLY_GATE_ALIASES);
+        without(REQUIRED_ALIASES, CUBISM_5_3_ONLY_ALIASES);
 
     private static Set<String> requiredAliases() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(METHOD_ALIASES_USED);
@@ -298,20 +355,29 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         return CUBISM_5_2_METHOD_ALIASES_USED;
     }
 
+    private static final Set<String> CUBISM_5_2_CLASS_ALIASES_USED =
+        without(CLASS_ALIASES_REQUIRED, CUBISM_5_3_ONLY_ALIASES);
+
     /** Exact class aliases used for runtime type validation by this implementation. */
     public static Set<String> classAliasesUsed() {
         return CLASS_ALIASES_REQUIRED;
     }
 
+    /** Exact class aliases used on the reviewed 5.2.03 build (no {@code CAliasSource}). */
+    public static Set<String> cubism52ClassAliasesUsed() {
+        return CUBISM_5_2_CLASS_ALIASES_USED;
+    }
+
     /**
      * The model source's own {@code contain*} gates — the host's semantic answer
      * to feature content the object census cannot see. Each predicate maps to a
-     * stable family token; any {@code true} is a hard admission rejection.
+     * stable family token. Detected families are pass-through content: the flag
+     * set is pinned in the census, never a rejection reason by itself.
      */
     private static final Map<String, String> FEATURE_GATES = featureGates();
 
     private static final Map<String, String> CUBISM_5_2_FEATURE_GATES =
-        withoutGates(FEATURE_GATES, CUBISM_5_3_ONLY_GATE_ALIASES);
+        withoutGates(FEATURE_GATES, CUBISM_5_3_ONLY_ALIASES);
 
     private static Map<String, String> featureGates() {
         final Map<String, String> gates = new LinkedHashMap<>();
@@ -341,17 +407,18 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     private final VerifiedMemberResolver resolver;
     private final Map<String, String> admittedFeatureGates;
+    private final boolean cubism52;
 
     public VerifiedProtectedExportHostOperations(final VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        final boolean cubism52 = resolver.isExactCubismVersion(
+        this.cubism52 = resolver.isExactCubismVersion(
             ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03
         );
         this.admittedFeatureGates = cubism52 ? CUBISM_5_2_FEATURE_GATES : FEATURE_GATES;
         if (!resolver.authorizes(
             ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
             ProtectedExportVerificationManifest.CAPABILITY_IDS,
-            cubism52 ? CUBISM_5_2_REQUIRED_ALIASES : REQUIRED_ALIASES
+            this.cubism52 ? CUBISM_5_2_REQUIRED_ALIASES : REQUIRED_ALIASES
         )) {
             throw new IllegalArgumentException(
                 "verified access plan does not authorize the protected-export slice"
@@ -928,6 +995,196 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         return List.copyOf(children);
     }
 
+    @Override
+    public boolean isControllableSource(final Object object) {
+        return resolver.isInstance(CONTROLLABLE_CLASS, object);
+    }
+
+    @Override
+    public String sourceTargetDeformerGuid(final Object source) {
+        if (source == null || !resolver.isInstance(CONTROLLABLE_CLASS, source)) {
+            return null;
+        }
+        final Object target = resolver.invoke(SOURCE_TARGET_DEFORMER, source);
+        return target == null ? null : (String) resolver.invoke(GUID_UUID, target);
+    }
+
+    /**
+     * Ordered reference GUIDs a census member carries, composed per family. Glue
+     * targets are resolved mesh GUIDs; ArtPath carries its brush GUID followed by
+     * clip-mask GUIDs; an alias carries its reference-object GUID followed by
+     * clip-mask GUIDs; parts and ArtMeshes carry clip-mask GUIDs. Reference slots
+     * that are unset read as {@code null} entries so the census can pin their
+     * presence-or-absence exactly.
+     */
+    @Override
+    public List<String> passThroughReferenceGuids(final Object source) {
+        if (source == null) {
+            return List.of();
+        }
+        if (resolver.isInstance(GLUE_CLASS, source)) {
+            return glueTargetGuids(source);
+        }
+        final List<String> references = new ArrayList<>();
+        if (resolver.isInstance(ART_PATH_CLASS, source)) {
+            references.add(readGuid(resolver.invoke(ART_PATH_BRUSH, source)));
+            references.addAll(clipGuidStrings(resolver.invoke(DRAWABLE_CLIP_GUIDS, source)));
+            return java.util.Collections.unmodifiableList(references);
+        }
+        if (!cubism52 && resolver.isInstance(ALIAS_CLASS, source)) {
+            references.add(readGuid(resolver.invoke(ALIAS_REFERENCE, source)));
+            references.addAll(clipGuidStrings(resolver.invoke(ALIAS_CLIP_GUIDS, source)));
+            return java.util.Collections.unmodifiableList(references);
+        }
+        if (!cubism52 && resolver.isInstance(PART_CLASS, source)) {
+            references.addAll(clipGuidStrings(resolver.invoke(PART_CLIP_GUIDS, source)));
+            return java.util.Collections.unmodifiableList(references);
+        }
+        if (resolver.isInstance(DRAWABLE_CLASS, source)) {
+            references.addAll(clipGuidStrings(resolver.invoke(DRAWABLE_CLIP_GUIDS, source)));
+        }
+        return java.util.Collections.unmodifiableList(references);
+    }
+
+    /**
+     * Ordered {@code key=value} flag tokens for the source's content flags. The
+     * token order is fixed per family so census equality is deterministic.
+     */
+    @Override
+    public List<String> passThroughFlagSignature(final Object source) {
+        if (source == null) {
+            return List.of();
+        }
+        final List<String> flags = new ArrayList<>();
+        if (!cubism52 && resolver.isInstance(ALIAS_CLASS, source)) {
+            flags.add("invertClipping=" + flagValue(ALIAS_INVERT_CLIP, source));
+            flags.add("useOffscreen=" + flagValue(ALIAS_USE_OFFSCREEN, source));
+            flags.add("colorComposition=" + enumName(
+                resolver.invoke(ALIAS_COLOR_COMPOSITION, source)));
+            flags.add("alphaComposition=" + enumName(
+                resolver.invoke(ALIAS_ALPHA_COMPOSITION, source)));
+            flags.add("circulated=" + flagValue(ALIAS_CIRCULATED, source));
+            return List.copyOf(flags);
+        }
+        if (!cubism52 && resolver.isInstance(PART_CLASS, source)) {
+            flags.add("useOffscreen=" + flagValue(PART_USE_OFFSCREEN, source));
+            flags.add("invertClipping=" + flagValue(PART_INVERT_CLIP, source));
+            flags.add("colorComposition=" + enumName(
+                resolver.invoke(PART_COLOR_COMPOSITION, source)));
+            flags.add("alphaComposition=" + enumName(
+                resolver.invoke(PART_ALPHA_COMPOSITION, source)));
+            return List.copyOf(flags);
+        }
+        if (resolver.isInstance(DRAWABLE_CLASS, source)) {
+            flags.add("invertClipping=" + flagValue(DRAWABLE_INVERT_CLIP, source));
+        }
+        return List.copyOf(flags);
+    }
+
+    /** The {@code getUuidString} of a GUID object, or {@code null} when unset. */
+    private String readGuid(final Object guid) {
+        return guid == null ? null : (String) resolver.invoke(GUID_UUID, guid);
+    }
+
+    /** UUID strings of a GUID list member ({@code CArrayList<CClipGuid>} etc.). */
+    private List<String> clipGuidStrings(final Object guids) {
+        if (!(guids instanceof List<?> list)) {
+            return List.of();
+        }
+        final List<String> result = new ArrayList<>(list.size());
+        for (Object guid : list) {
+            result.add(readGuid(guid));
+        }
+        return java.util.Collections.unmodifiableList(result);
+    }
+
+    /** Boolean member rendered as a signature token value. */
+    private String flagValue(final String alias, final Object source) {
+        return String.valueOf(resolver.invoke(alias, source));
+    }
+
+    /** Enum member rendered by name; falls back to the value's string form. */
+    private static String enumName(final Object value) {
+        return value instanceof Enum<?> enumeration ? enumeration.name()
+            : String.valueOf(value);
+    }
+
+    @Override
+    public boolean isPhysicsSettingsSource(final Object object) {
+        return resolver.isInstance(PHYSICS_SETTINGS_CLASS, object);
+    }
+
+    @Override
+    public boolean isMotionSyncSettingSource(final Object object) {
+        return resolver.isInstance(MOTION_SYNC_CLASS, object);
+    }
+
+    @Override
+    public String settingsGuid(final Object settingsSource) {
+        if (isPhysicsSettingsSource(settingsSource)) {
+            return readGuid(resolver.invoke(PHYSICS_SETTINGS_GUID, settingsSource));
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            return readGuid(resolver.invoke(MOTION_SYNC_GUID, settingsSource));
+        }
+        return null;
+    }
+
+    @Override
+    public String settingsIdString(final Object settingsSource) {
+        final Object id;
+        if (isPhysicsSettingsSource(settingsSource)) {
+            id = resolver.invoke(PHYSICS_SETTINGS_ID, settingsSource);
+        } else if (isMotionSyncSettingSource(settingsSource)) {
+            id = resolver.invoke(MOTION_SYNC_ID, settingsSource);
+        } else {
+            return null;
+        }
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public String settingsName(final Object settingsSource) {
+        final Object name;
+        if (isPhysicsSettingsSource(settingsSource)) {
+            name = resolver.invoke(PHYSICS_SETTINGS_NAME, settingsSource);
+        } else if (isMotionSyncSettingSource(settingsSource)) {
+            name = resolver.invoke(MOTION_SYNC_NAME, settingsSource);
+        } else {
+            return null;
+        }
+        return name instanceof String text ? text : null;
+    }
+
+    /**
+     * Structure tokens pinning a settings object's authored content. Physics
+     * carries its enable flag plus input/output/vertex counts — the pendulum
+     * members' exact values stay opaque to the census, so a count loss is the
+     * drift boundary. Motion sync carries the host's own content checksum,
+     * which covers the parameter mapping wholesale. {@code null} marks an
+     * unrecognized settings family — unpinnable, so the census rejects it.
+     */
+    @Override
+    public List<String> settingsSignature(final Object settingsSource) {
+        if (isPhysicsSettingsSource(settingsSource)) {
+            return List.of(
+                "enable=" + flagValue(PHYSICS_SETTINGS_ENABLE, settingsSource),
+                "inputs=" + listSize(resolver.invoke(PHYSICS_SETTINGS_INPUTS, settingsSource)),
+                "outputs=" + listSize(resolver.invoke(PHYSICS_SETTINGS_OUTPUTS, settingsSource)),
+                "vertices=" + listSize(resolver.invoke(PHYSICS_SETTINGS_VERTICES, settingsSource))
+            );
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            return List.of(
+                "checksum=" + resolver.invoke(MOTION_SYNC_CHECKSUM, settingsSource));
+        }
+        return null;
+    }
+
+    private static int listSize(final Object value) {
+        return value instanceof List<?> list ? list.size() : -1;
+    }
+
     /** Float member of a parameter source, or {@code null} when unreadable. */
     private Float floatParameterMember(final String alias, final Object parameterSource) {
         if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
@@ -1035,12 +1292,13 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     /**
      * The admitted model source's own {@code contain*} gates — the host's semantic answer
      * to feature content the object census cannot see. Each predicate maps to a stable
-     * family token; any {@code true} is a hard admission rejection. The gate roster is the
-     * exact one the admitted record verified: on 5.2.03 the three 5.3-only predicates are
-     * absent because the gated features cannot exist in a 5.2 document.
+     * family token; detected families are pass-through content pinned by the census,
+     * never a rejection reason. The gate roster is the exact one the admitted record
+     * verified: on 5.2.03 the three 5.3-only predicates are absent because the gated
+     * features cannot exist in a 5.2 document.
      */
     @Override
-    public List<String> unsupportedModelFeatures(final Object modelSource) {
+    public List<String> modelFeatureFlags(final Object modelSource) {
         if (modelSource == null) {
             return List.of();
         }
@@ -1058,10 +1316,10 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * model: texture inputs carry the atlas mapping, editable-mesh /
      * mesh-generator / warp-bezier / original-shape extensions carry standard
      * edit-time data. They are not feature carriers, so their presence alone
-     * must not reject a model. Any other extension class (glue deform-path
+     * does not mark the source. Any other extension class (glue deform-path
      * skinning, art path, auto-yure, controller, rotate-3d, subdivision,
      * topology observer, extended interpolation, or an unknown future type)
-     * is a feature carrier and rejects the source.
+     * is recorded as pass-through content the census pins.
      */
     private static final Set<String> STANDARD_EXTENSION_CLASSES = Set.of(
         "com.live2d.cubism.doc.model.extension.textureInput.CTextureInputExtension",
@@ -1074,11 +1332,11 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * Structures embedded inside a controllable source that never appear in the
      * object census: a keyform morph-target set with actual targets, an
      * extended morph-target set, or a non-standard extension object attached to
-     * the source. Extension classes are named in the token so the rejection is
-     * diagnosable.
+     * the source. Extension classes are named in the token so a census drift is
+     * diagnosable; the tokens pin the content rather than reject it.
      */
     @Override
-    public List<String> embeddedUnsupportedFamilies(final Object controllableSource) {
+    public List<String> embeddedContentFamilies(final Object controllableSource) {
         if (controllableSource == null) {
             return List.of();
         }
@@ -1102,13 +1360,13 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     /**
-     * Family tokens for census objects outside the supported whitelist, keyed by
-     * the reviewed model package layout of the admitted builds. Deform-path
-     * skinning classes live under the glue package, so the more specific prefix
-     * must be tested first. Classes absent from an admitted build (aliases do
-     * not exist on 5.2.03) simply never match there.
+     * Family tokens for census objects, keyed by the reviewed model package
+     * layout of the admitted builds. Deform-path skinning classes live under
+     * the glue package, so the more specific prefix must be tested first.
+     * Classes absent from an admitted build (aliases do not exist on 5.2.03)
+     * simply never match there.
      */
-    private static final List<Map.Entry<String, String>> UNSUPPORTED_FAMILY_PREFIXES =
+    private static final List<Map.Entry<String, String>> FAMILY_PREFIXES =
         List.of(
             Map.entry(
                 "com.live2d.cubism.doc.model.affecter.glue.deformPathSkinning.",
@@ -1121,13 +1379,13 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         );
 
     /**
-     * Classifies a rejected census object by its class-hierarchy package — a
-     * pure {@code getClass()} read that never resolves host members. Unknown
+     * Classifies a census object by its class-hierarchy package — a pure
+     * {@code getClass()} read that never resolves host members. Unknown
      * families degrade to a bounded simple-name clue, never a stack of
      * internal detail.
      */
     @Override
-    public String unsupportedObjectFamily(final Object object) {
+    public String censusFamily(final Object object) {
         if (object == null) {
             return "unknown";
         }
@@ -1135,7 +1393,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
              type != null && type != Object.class;
              type = type.getSuperclass()) {
             final String name = type.getName();
-            for (Map.Entry<String, String> family : UNSUPPORTED_FAMILY_PREFIXES) {
+            for (Map.Entry<String, String> family : FAMILY_PREFIXES) {
                 if (name.startsWith(family.getKey())) {
                     return family.getValue();
                 }

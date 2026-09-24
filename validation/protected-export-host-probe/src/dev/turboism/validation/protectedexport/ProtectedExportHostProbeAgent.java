@@ -44,7 +44,9 @@ import javax.swing.filechooser.FileSystemView;
  * <p>It answers the question that no offline test can: on the reviewed Cubism 5.3.02 build, does
  * the transformed Embedded-Model Export Settings dialog actually carry the contributed option, and
  * does the decision gate behave like the native contract — unchecked confirmation continues the
- * native export path, a checked candidate rejects, and a cancel does neither?</p>
+ * native export path, a checked candidate drives the protected export (rejecting only what the
+ * census cannot pin, such as an injected ArtPath with no stable GUID), and a
+ * cancel does neither?</p>
  *
  * <p>The probe is reflection-only over {@code com.live2d.*} plus plain Swing traversal. It never
  * imports a host type, never reads or writes the model, and never lets an export complete: every
@@ -196,11 +198,20 @@ public final class ProtectedExportHostProbeAgent {
             if (phases.contains("glue-export")) {
                 phaseExportGlue(controller, appCtrl, stateDir, evidence);
             }
+            if (phases.contains("physics-export")) {
+                phaseExportPhysics(controller, appCtrl, stateDir, evidence);
+            }
+            if (phases.contains("broad-structure")) {
+                phaseExportBroad(controller, appCtrl, stateDir, evidence);
+            }
             if (phases.contains("export-native")) {
                 phaseExportNative(controller, appCtrl, stateDir, evidence);
             }
+            // Content alone no longer rejects: both expected-rejection variants
+            // inject a census member that cannot be pinned (an ArtPath with its
+            // stable GUID stripped), which is the remaining fail-closed surface.
             if (phases.contains("expect-reject")) {
-                phaseExpectReject(controller, appCtrl, stateDir, evidence, false);
+                phaseExpectReject(controller, appCtrl, stateDir, evidence, true);
             }
             if (phases.contains("expect-reject-structure")) {
                 phaseExpectReject(controller, appCtrl, stateDir, evidence, true);
@@ -299,6 +310,21 @@ public final class ProtectedExportHostProbeAgent {
         } catch (Throwable failure) {
             evidence.put("checkedSelectionFailure", text(failure));
         }
+        // Content alone no longer rejects: every admissible family is pass-through.
+        // The checked veto gate still needs a fail-closed trigger, so an ArtPath
+        // with its stable GUID stripped is injected for the decision — the
+        // session rejects the unpinnable census member and the veto dialog
+        // surfaces.
+        UnsupportedInjection injection = null;
+        try {
+            final Object original = readNoArg(controller, "getCurrentDoc");
+            injection = onEdt(() ->
+                injectUnsupportedSources(original, evidence, "checked"));
+        } catch (Throwable failure) {
+            evidence.put("checkedInjectionFailure", text(failure));
+        }
+        evidence.put("checkedUnpinnableInjected",
+            Boolean.toString(injection != null && !injection.injected.isEmpty()));
         final AbstractButton confirm = findButton(settings, confirmAction());
         if (confirm == null) {
             evidence.fail("CHECKED_CONFIRM_BUTTON_MISSING");
@@ -327,6 +353,18 @@ public final class ProtectedExportHostProbeAgent {
         if (settings.isVisible()) {
             dismiss(settings);
             evidence.put("checkedSettingsStillOpen", "dismissed");
+        }
+        if (injection != null) {
+            try {
+                final UnsupportedInjection toRestore = injection;
+                onEdt(() -> {
+                    toRestore.restore();
+                    return null;
+                });
+                evidence.put("checkedInjectionRestored", "true");
+            } catch (Throwable failure) {
+                evidence.put("checkedInjectionRestored", "failed:" + text(failure));
+            }
         }
         return true;
     }
@@ -439,7 +477,7 @@ public final class ProtectedExportHostProbeAgent {
         final Evidence evidence
     ) {
         phaseExportRun(controller, appCtrl, stateDir, evidence, "exp.", false,
-            false);
+            false, false, false);
     }
 
     /**
@@ -456,7 +494,7 @@ public final class ProtectedExportHostProbeAgent {
         final Evidence evidence
     ) {
         phaseExportRun(controller, appCtrl, stateDir, evidence, "dexp.", true,
-            false);
+            false, false, false);
     }
 
     /**
@@ -473,7 +511,41 @@ public final class ProtectedExportHostProbeAgent {
         final Evidence evidence
     ) {
         phaseExportRun(controller, appCtrl, stateDir, evidence, "gexp.", false,
-            true);
+            true, false, false);
+    }
+
+    /**
+     * Physics variant: drives the protected export on a physics-bearing fixture
+     * and turns the user's native physics3 output checkbox on inside the inner
+     * dialog, so the published output must carry a physics3.json whose setting
+     * IDs exactly reproduce the censused set.
+     */
+    private static void phaseExportPhysics(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        phaseExportRun(controller, appCtrl, stateDir, evidence, "pexp.", false,
+            false, true, true);
+    }
+
+    /**
+     * Broad-structure variant: drives the protected export on the feature-rich
+     * fixture — morph targets, blend colors, physics and motion-sync content
+     * all ride through as censused pass-through. In-memory injections are not
+     * usable here: a member absent from the serialized document can never
+     * appear on the bound copy, so the census mismatch would bind-fail before
+     * any pass-through path runs.
+     */
+    private static void phaseExportBroad(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        phaseExportRun(controller, appCtrl, stateDir, evidence, "bexp.", false,
+            false, false, true);
     }
 
     private static void phaseExportRun(
@@ -483,7 +555,9 @@ public final class ProtectedExportHostProbeAgent {
         final Evidence evidence,
         final String prefix,
         final boolean dirty,
-        final boolean glue
+        final boolean glue,
+        final boolean physicsOutput,
+        final boolean placeMeshes
     ) {
         try {
             final Object original = readNoArg(controller, "getCurrentDoc");
@@ -501,6 +575,24 @@ public final class ProtectedExportHostProbeAgent {
             // Inject first so the snapshot baseline already carries whatever the
             // in-memory atlas scaffolding changes (undo position included).
             ensureTextureAtlas(controller, evidence);
+            if (placeMeshes) {
+                // The feature-rich fixture's meshes carry no atlas placements,
+                // so the exporter would drop every drawable and the behavior
+                // oracle would have nothing to compare. Shelf-pack the model
+                // images into the atlas and relink each mesh to TEXTURE_ATLAS —
+                // in-memory only; the source file stays byte-identical.
+                final String placement = onEdtBounded(APPLY_STEP_MILLIS,
+                    () -> placeAllMeshesIntoAtlas(controller, evidence, prefix));
+                evidence.put(prefix + "meshPlacement", placement);
+            }
+            if (physicsOutput) {
+                // Pin the fixture's physics setting IDs so the published
+                // physics3.json can be compared against the exact census set.
+                final List<String> physicsIds = onEdtBounded(APPLY_STEP_MILLIS,
+                    () -> physicsSettingIds(original));
+                evidence.put(prefix + "censusPhysicsIds",
+                    String.join(",", physicsIds));
+            }
             if (glue) {
                 // Glue variant: build one real Glue relation on the live model
                 // through the editor's own construction sequence, so the export
@@ -515,7 +607,7 @@ public final class ProtectedExportHostProbeAgent {
                 if (evidence.error != null) {
                     return;
                 }
-            } else if (!glue) {
+            } else if (!glue && !placeMeshes) {
                 final Object modifiedCheck =
                     readNoArg(content, "isModifiedAfterSaving");
                 if (Boolean.TRUE.equals(modifiedCheck)) {
@@ -606,6 +698,43 @@ public final class ProtectedExportHostProbeAgent {
                 dismiss(inner);
                 return;
             }
+            if (physicsOutput) {
+                // The physics3 output stays governed by the user's native
+                // checkbox — turn it on here so the staged physics3.json is
+                // exercised against the censused setting IDs.
+                final AbstractButton physicsBox =
+                    findButtonByText(inner, "physics3.json");
+                if (physicsBox == null) {
+                    evidence.put(prefix + "physicsOutputCheckbox", "missing");
+                    dismiss(inner);
+                    return;
+                }
+                onEdt(() -> {
+                    if (!physicsBox.isSelected()) {
+                        physicsBox.doClick(0);
+                    }
+                    return null;
+                });
+                final boolean selected = physicsBox.isSelected();
+                evidence.put(prefix + "physicsOutputChecked",
+                    Boolean.toString(selected));
+                if (!selected) {
+                    evidence.fail("EXP_PHYSICS_CHECKBOX_NOT_ENABLED");
+                    dismiss(inner);
+                    return;
+                }
+                // Toggling a native export option is a user action: the host
+                // persists it onto the document and marks it modified. The
+                // dirty-preservation baseline for this variant is the state
+                // right after the toggle — the session itself must not drift it
+                // further.
+                final Object baselineContent = content;
+                final Boolean baselineModified = onEdt(() ->
+                    Boolean.valueOf(Boolean.TRUE.equals(
+                        readNoArg(baselineContent, "isModifiedAfterSaving"))));
+                evidence.put(prefix + "postCheckboxModified",
+                    String.valueOf(baselineModified));
+            }
             final AbstractButton innerConfirm = findButton(inner, confirmAction());
             if (innerConfirm == null) {
                 evidence.fail("EXP_INNER_CONFIRM_MISSING");
@@ -645,8 +774,16 @@ public final class ProtectedExportHostProbeAgent {
                     snapshotDocument(restored, evidence, prefix + "restored");
                 evidence.put(prefix + "sameLiveDocument",
                     Boolean.toString(after.docId == before.docId));
+                // For the physics variant the baseline is the state after the
+                // probe's own native checkbox toggle — a legitimate user action
+                // that dirties the document before the session runs.
+                final boolean modifiedBaseline = physicsOutput
+                    && evidence.values.containsKey(prefix + "postCheckboxModified")
+                    ? Boolean.parseBoolean(
+                        evidence.values.get(prefix + "postCheckboxModified"))
+                    : before.modified;
                 evidence.put(prefix + "modifiedPreserved",
-                    Boolean.toString(after.modified == before.modified));
+                    Boolean.toString(after.modified == modifiedBaseline));
                 evidence.put(prefix + "undoPreserved",
                     Boolean.toString(
                         after.undoSignature.equals(before.undoSignature)));
@@ -668,6 +805,9 @@ public final class ProtectedExportHostProbeAgent {
                     .equals(evidence.values.get(prefix + "origFileSha256"))));
             if (glue) {
                 recordGlueOutcome(restored, evidence, prefix);
+            }
+            if (physicsOutput) {
+                recordPhysicsOutcome(approved, evidence, prefix);
             }
             reportStagingResidue(stateDir, evidence, prefix);
         } catch (Throwable failure) {
@@ -1319,10 +1459,10 @@ public final class ProtectedExportHostProbeAgent {
                 return;
             }
             if (injectUnsupported) {
-                // Census-negative variant: one art path drawable lands in
-                // getAllObjects on every admitted build, so the session must
-                // reject with a readable family-count detail. Glue is admitted
-                // since the pass-through ruling, so it no longer counts here.
+                // Fail-closed surface: a deform-path-skinning member has no
+                // pinnable identity semantics — the census cannot pin it, so
+                // the session must reject at preflight with a readable
+                // unpinnable-structure detail rather than publish.
                 injection = onEdt(() ->
                     injectUnsupportedSources(original, evidence, prefix));
                 if (injection == null || injection.injected.isEmpty()) {
@@ -1330,10 +1470,10 @@ public final class ProtectedExportHostProbeAgent {
                     return;
                 }
                 evidence.put(prefix + "injectedFamilies",
-                    "art-path=" + injection.artPaths);
+                    "art-path=" + injection.unpinnable);
                 evidence.put(prefix + "expectedDetail",
-                    "protected-export.unsupported-structure:art-path="
-                        + injection.artPaths);
+                    "protected-export.unpinnable-structure:art-path="
+                        + injection.unpinnable);
             }
             ensureTextureAtlas(controller, evidence);
             final DocumentState before =
@@ -1487,10 +1627,12 @@ public final class ProtectedExportHostProbeAgent {
     }
 
     /**
-     * One in-memory injection of an unsupported-family source into the live
-     * model's drawable census list. The object is never serialized — the session
-     * rejects at preflight — and {@link #restore} removes it so the authoring
-     * document returns untouched.
+     * One in-memory injection of an unpinnable census member — a
+     * {@code CArtPathSource} whose stable GUID is nulled — into the live
+     * model's drawable census list. A proper drawable subtype keeps host
+     * iteration intact (the dialog still opens); the missing identity is what
+     * the session must reject at preflight, and {@link #restore} removes it so
+     * the authoring document returns untouched.
      */
     private static UnsupportedInjection injectUnsupportedSources(
         final Object document,
@@ -1509,18 +1651,147 @@ public final class ProtectedExportHostProbeAgent {
         if (drawables == null) {
             return null;
         }
+        // A freshly-constructed ArtPath gets a real GUID — the member only
+        // becomes unpinnable once that identity is stripped. The census cannot
+        // pin it, so admission must reject at preflight with
+        // unpinnable-structure:art-path=N — before any copy bind, so the
+        // in-memory member never has to serialize.
         final Class<?> artPathType = Class.forName(
             "com.live2d.cubism.doc.model.drawable.artPath.CArtPathSource");
         final java.lang.reflect.Constructor<?> artPathCtor =
             artPathType.getDeclaredConstructor();
         artPathCtor.setAccessible(true);
         final Object artPath = artPathCtor.newInstance();
+        // setGuid is Kotlin null-checked, so the identity is stripped through
+        // the backing field instead.
+        final Field guidField = Class.forName(
+            "com.live2d.cubism.doc.model.drawable.ACDrawableSource")
+            .getDeclaredField("guid");
+        guidField.setAccessible(true);
+        guidField.set(artPath, null);
         drawables.add(artPath);
         injection.injected.add(new InjectSlot(drawables, artPath));
-        injection.artPaths++;
+        injection.unpinnable++;
         evidence.put(prefix + "injectedCount",
             Integer.toString(injection.injected.size()));
         return injection;
+    }
+
+    /**
+     * The live model's physics setting IDs — the census set a staged
+     * physics3.json must reproduce.
+     */
+    private static List<String> physicsSettingIds(final Object document) {
+        final Object source = readNoArg(document, "getModelSource");
+        final List<String> ids = new ArrayList<>();
+        for (Object settings : asList(readNoArg(source, "getAllPhysicsSettings"))) {
+            final Object id = readNoArg(settings, "getId");
+            final Object value = id == null ? null : readNoArg(id, "getIdString");
+            if (value != null && !value.toString().isBlank()) {
+                ids.add(value.toString());
+            }
+        }
+        java.util.Collections.sort(ids);
+        return List.copyOf(ids);
+    }
+
+    /**
+     * Post-export physics evidence: the published directory must carry a
+     * physics3.json whose {@code PhysicsSettings[].Id} set equals the censused
+     * setting IDs recorded before the export ran.
+     */
+    private static void recordPhysicsOutcome(
+        final File approved,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        final Path parent = approved.toPath().toAbsolutePath().getParent();
+        Path physics3 = null;
+        try (java.util.stream.Stream<Path> files = Files.list(parent)) {
+            for (Path file : files.toList()) {
+                if (file.getFileName().toString().endsWith(".physics3.json")) {
+                    physics3 = file;
+                }
+            }
+        } catch (IOException failure) {
+            evidence.put(prefix + "physics3ReadFailure", text(failure));
+            return;
+        }
+        evidence.put(prefix + "physics3Published",
+            Boolean.toString(physics3 != null));
+        if (physics3 == null) {
+            return;
+        }
+        try {
+            final String content = Files.readString(physics3);
+            final List<String> ids = new ArrayList<>();
+            // Scope to the PhysicsSettings array — Input/Output parameter
+            // entries carry their own Id fields elsewhere in the document.
+            final java.util.regex.Matcher settingsKey = java.util.regex.Pattern
+                .compile("\"(?:PhysicsSettings|physicsSettings)\"\\s*:")
+                .matcher(content);
+            String slice = "";
+            if (settingsKey.find()) {
+                final int open = content.indexOf('[', settingsKey.end());
+                if (open >= 0) {
+                    int depth = 0;
+                    int close = open;
+                    for (int i = open; i < content.length(); i++) {
+                        final char c = content.charAt(i);
+                        if (c == '[') {
+                            depth++;
+                        } else if (c == ']') {
+                            depth--;
+                            if (depth == 0) {
+                                close = i;
+                                break;
+                            }
+                        }
+                    }
+                    slice = content.substring(open, close + 1);
+                }
+            }
+            final java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("\"Id\"\\s*:\\s*\"([^\"]+)\"")
+                .matcher(slice);
+            while (matcher.find()) {
+                ids.add(matcher.group(1));
+            }
+            java.util.Collections.sort(ids);
+            evidence.put(prefix + "publishedPhysics3Ids", String.join(",", ids));
+            final List<String> expected = new ArrayList<>();
+            for (String id : evidence.values
+                .getOrDefault(prefix + "censusPhysicsIds", "").split(",")) {
+                if (!id.isBlank()) {
+                    expected.add(id);
+                }
+            }
+            java.util.Collections.sort(expected);
+            evidence.put(prefix + "physics3IdsMatch",
+                Boolean.toString(ids.equals(expected)));
+        } catch (IOException failure) {
+            evidence.put(prefix + "physics3ReadFailure", text(failure));
+        }
+    }
+
+    /**
+     * The first {@link AbstractButton} whose label contains {@code token} —
+     * locale-sensitive surfaces key on stable substrings like
+     * {@code "physics3.json"}.
+     */
+    private static AbstractButton findButtonByText(
+        final Container root,
+        final String token
+    ) {
+        for (Component component : allComponents(root)) {
+            if (component instanceof AbstractButton button) {
+                final String label = button.getText();
+                if (label != null && label.contains(token)) {
+                    return button;
+                }
+            }
+        }
+        return null;
     }
 
     private record InjectSlot(List<Object> list, Object object) {
@@ -1528,7 +1799,7 @@ public final class ProtectedExportHostProbeAgent {
 
     private static final class UnsupportedInjection {
         final List<InjectSlot> injected = new ArrayList<>();
-        int artPaths;
+        int unpinnable;
 
         void restore() {
             for (InjectSlot slot : injected) {
@@ -4843,6 +5114,14 @@ public final class ProtectedExportHostProbeAgent {
                 && evidence.values.getOrDefault("checkedVetoKey", "").isEmpty()) {
                 unmet.add("veto diagnostic dialog carried no failure key");
             }
+            if ("true".equals(evidence.values.get("checkedConfirmClicked"))
+                && !"true".equals(evidence.values.get("checkedUnpinnableInjected"))) {
+                unmet.add("checked veto drive never injected the unpinnable census member");
+            }
+            if ("true".equals(evidence.values.get("checkedUnpinnableInjected"))
+                && !"true".equals(evidence.values.get("checkedInjectionRestored"))) {
+                unmet.add("injected unpinnable member was not removed from the authoring document");
+            }
             if (intOf(evidence, "bridgeCancelCalls") < 1) {
                 unmet.add("cancel path never reached the bridge cleanup");
             }
@@ -4935,6 +5214,43 @@ public final class ProtectedExportHostProbeAgent {
                 unmet.add("original selection changed across the export");
             }
         }
+        if (phases.test("physics-export")) {
+            requireExportSession(evidence, unmet, "pexp.");
+            if (evidence.values.getOrDefault("pexp.censusPhysicsIds", "").isEmpty()) {
+                unmet.add("physics fixture carried no physics settings to pin");
+            }
+            if (!"true".equals(evidence.values.get("pexp.physicsOutputChecked"))) {
+                unmet.add("native physics3 output checkbox was not enabled");
+            }
+            // physics3.json emission is the native writer's call — the fixture's
+            // physics settings alone do not trigger it (the same plain native
+            // export on this fixture writes no physics3.json either). When the
+            // file IS emitted its setting IDs must match the census; the
+            // pass-through guarantee itself is the pinned settings census plus
+            // a published session, not the artifact.
+            if ("true".equals(evidence.values.get("pexp.physics3Published"))
+                && !"true".equals(evidence.values.get("pexp.physics3IdsMatch"))) {
+                unmet.add("published physics3.json setting IDs diverge from the census");
+            }
+            if (!"true".equals(evidence.values.get("pexp.undoPreserved"))) {
+                unmet.add("original undo state changed across the physics export");
+            }
+            if (!"true".equals(evidence.values.get("pexp.selectionPreserved"))) {
+                unmet.add("original selection changed across the physics export");
+            }
+        }
+        if (phases.test("broad-structure")) {
+            // The feature-rich fixture itself carries the broad unsupported
+            // content (morph targets, blend colors, physics); publishing proves
+            // every pinnable family rode through the census untouched.
+            requireExportSession(evidence, unmet, "bexp.");
+            if (!"true".equals(evidence.values.get("bexp.undoPreserved"))) {
+                unmet.add("original undo state changed across the broad-structure export");
+            }
+            if (!"true".equals(evidence.values.get("bexp.selectionPreserved"))) {
+                unmet.add("original selection changed across the broad-structure export");
+            }
+        }
         if (phases.test("export-native")) {
             if (intOf(evidence, "natOuterInjectedCheckBoxCount") < 1) {
                 unmet.add("contributed option missing from the outer dialog");
@@ -4972,7 +5288,7 @@ public final class ProtectedExportHostProbeAgent {
         }
         if (phases.test("expect-reject-structure")) {
             if (!"true".equals(evidence.values.get("rej.detailMatched"))) {
-                unmet.add("unsupported-structure rejection did not surface the family-count detail");
+                unmet.add("unpinnable-structure rejection did not surface the family-count detail");
             }
             if (!"true".equals(evidence.values.get("rej.injectionRestored"))) {
                 unmet.add("injected unsupported sources were not removed from the authoring document");

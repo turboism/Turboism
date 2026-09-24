@@ -491,18 +491,18 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
-    void rejectsWhenUnsupportedObjectEntersCensus() throws Exception {
+    void rejectsWhenUnpinnableObjectEntersCensus() throws Exception {
         final Fixture fixture = new Fixture();
-        // An unclassifiable member inside getAllObjects must reject the session
-        // at preflight — before any copy is created or written.
-        fixture.host.original.model.unsupportedObjects.add(new Object());
+        // A census member that is not a controllable source has no pinnable
+        // identity — the session rejects at preflight before any copy is made.
+        fixture.host.original.model.unpinnableObjects.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
         assertEquals(
-            "protected-export.unsupported-structure:unknown=1",
+            "protected-export.unpinnable-structure:unknown=1",
             report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null, "no copy may be bound");
@@ -511,27 +511,110 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
-    void rejectsWithFamilyCountsWhenUnsupportedObjectsEnterCensus() throws Exception {
+    void rejectsWithFamilyCountsWhenUnpinnableObjectsEnterCensus() throws Exception {
         final Fixture fixture = new Fixture();
-        // An admitted Glue beside art-path and unclassifiable members: the
-        // family-count detail must cover only the rejected families — Glue is
-        // the pass-through channel and never counts as unsupported.
+        // An admitted Glue beside two members with no pinnable identity: the
+        // family-count detail must cover only the rejected members — Glue is a
+        // pass-through channel and never counts as unpinnable.
         fixture.host.original.model.glues.add(new FakeGlue(
             "glue-1-guid", "Glue1", "glue-one",
             fixture.host.original.model.artMeshes.get(0),
             fixture.host.original.model.artMeshes.get(1)));
-        fixture.host.original.model.unsupportedObjects.add(new FakeUnsupported("art-path"));
-        fixture.host.original.model.unsupportedObjects.add(new Object());
+        fixture.host.original.model.unpinnableObjects.add(new FakeUnsupported("art-path"));
+        fixture.host.original.model.unpinnableObjects.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
         assertEquals(
-            "protected-export.unsupported-structure:art-path=1,unknown=1",
+            "protected-export.unpinnable-structure:art-path=1,unknown=1",
             report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null, "no copy may be bound");
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsUnknownCensusFamilyAsUnpinnable() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A controllable member of a family whose references cannot be
+        // enumerated (deform-path) cannot be safely pinned — it fails closed.
+        fixture.host.original.model.passThrough.add(new FakePassThrough(
+            "deform-path", "dp-1-guid", "dp-1", "deformPath", List.of()));
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertEquals(
+            "protected-export.unpinnable-structure:deform-path=1",
+            report.failureDetail());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsDuplicateCensusIdentities() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A pass-through member colliding with an ArtMesh GUID makes the census
+        // ambiguous — fail closed.
+        fixture.host.original.model.passThrough.add(new FakePassThrough(
+            "art-path", "m-a-guid", "ap-1", "artPath", List.of()));
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertEquals(
+            "protected-export.duplicate-guid:m-a-guid",
+            report.failureDetail());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void publishesWithPassThroughFamiliesUnchanged() throws Exception {
+        final Fixture fixture = new Fixture();
+        // ArtPath and alias members ride the session untouched: admitted by
+        // admission, pinned by the census, preserved verbatim on the original.
+        fixture.host.original.model.passThrough.add(new FakePassThrough(
+            "art-path", "ap-1-guid", "ArtPath1", "art-path-one",
+            List.of("m-a-guid")));
+        fixture.host.original.model.passThrough.add(new FakePassThrough(
+            "alias", "al-1-guid", "Alias1", "alias-one", List.of("m-b-guid")));
+        fixture.host.original.model.parts.get(0).childGuids.add("ap-1-guid");
+        fixture.host.original.model.parts.get(0).childGuids.add("al-1-guid");
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNull(report.failureKey());
+        assertTrue(report.published());
+        for (FakePassThrough member : fixture.host.original.model.passThrough) {
+            assertTrue(member.name.endsWith("-one"),
+                "original pass-through identity untouched: " + member.name);
+        }
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenPassThroughIdentityDriftsDuringFlatten() throws Exception {
+        final Fixture fixture = new Fixture();
+        // An out-of-band mutation renames a pass-through member while flatten
+        // runs — the post-mutation census compares against the bound snapshot
+        // and refuses.
+        fixture.host.original.model.passThrough.add(new FakePassThrough(
+            "art-path", "ap-1-guid", "ArtPath1", "art-path-one", List.of()));
+        fixture.host.mutatePassThroughMidRun = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
+        assertEquals("pass-through-identity-drift", report.failureDetail());
+        assertFalse(report.published());
+        assertTrue(fixture.destinationFiles().isEmpty());
         orchestrator.close();
     }
 
@@ -576,7 +659,7 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
-        assertEquals("glue-identity-drift", report.failureDetail());
+        assertEquals("pass-through-identity-drift", report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.destinationFiles().isEmpty());
         orchestrator.close();
@@ -623,30 +706,119 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
-    void rejectsWhenPhysicsSettingsArePresent() throws Exception {
+    void publishesWithPhysicsSettingsPassingThrough() throws Exception {
         final Fixture fixture = new Fixture();
-        // Physics settings live outside getAllObjects and need their own gate.
+        // Physics settings live outside getAllObjects — the settings census pins
+        // their identity and structure, and the staged physics3.json (emitted
+        // because the user's physics output checkbox is on) must carry the same
+        // setting IDs.
+        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
+            "phys-1-guid", "PhysicsSetting1", "hair",
+            List.of("enable=true", "inputs=1", "outputs=1", "vertices=3")));
+        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
+            "phys-2-guid", "PhysicsSetting2", "skirt",
+            List.of("enable=true", "inputs=2", "outputs=1", "vertices=6")));
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey());
+        assertTrue(report.published());
+        assertTrue(Files.isRegularFile(
+            fixture.realPick.toPath().getParent().resolve("model.physics3.json")));
+        orchestrator.close();
+    }
+
+    @Test
+    void publishesWhenPhysicsOutputCheckboxIsOff() throws Exception {
+        final Fixture fixture = new Fixture();
+        // Physics settings pinned but the user's native output checkbox off: no
+        // physics3.json is staged and validation must not demand one.
+        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
+            "phys-1-guid", "PhysicsSetting1", "hair",
+            List.of("enable=true", "inputs=1")));
+        fixture.host.exportWritesPhysics = false;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey());
+        assertTrue(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenStagedPhysicsIdsDiverge() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The exporter silently drops one physics setting: the staged
+        // physics3.json no longer matches the census set — reject.
+        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
+            "phys-1-guid", "PhysicsSetting1", "hair",
+            List.of("enable=true", "inputs=1")));
+        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
+            "phys-2-guid", "PhysicsSetting2", "skirt",
+            List.of("enable=true", "inputs=2")));
+        fixture.host.exportDropsPhysicsSetting = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().contains("physics3-ids"),
+            "expected physics3-ids rejection, got " + report.failureKey());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenSettingsIdentityDriftsDuringFlatten() throws Exception {
+        final Fixture fixture = new Fixture();
+        // An out-of-band mutation flips a physics signature mid-run; the
+        // post-mutation census compares against the bound snapshot.
+        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
+            "phys-1-guid", "PhysicsSetting1", "hair",
+            List.of("enable=true", "inputs=1")));
+        fixture.host.mutateSettingsMidRun = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
+        assertEquals("settings-identity-drift", report.failureDetail());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsUnpinnablePhysicsSettingsEntry() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A settings entry with no stable GUID/ID cannot be pinned — it rejects
+        // rather than riding through unseen.
         fixture.host.original.model.physicsSettings.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertEquals(
+            "protected-export.unpinnable-settings:unknown",
+            report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null);
         orchestrator.close();
     }
 
     @Test
-    void rejectsWhenMotionSyncSettingsArePresent() throws Exception {
+    void publishesWithMotionSyncSettingsPassingThrough() throws Exception {
         final Fixture fixture = new Fixture();
-        fixture.host.original.model.motionSyncSettings.add(new Object());
+        fixture.host.original.model.motionSyncSettings.add(
+            new FakeMotionSyncSettings("ms-1-guid", "MotionSync1", "voice", 4242));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey());
+        assertTrue(report.published());
         orchestrator.close();
     }
 
@@ -976,49 +1148,49 @@ class ProtectedExportOrchestratorTest {
     // ------------------------------------------------------------------
 
     @Test
-    void rejectsModelFeatureInvisibleToCensus() throws Exception {
+    void publishesWithContentFeatureFlagSet() throws Exception {
         final Fixture fixture = new Fixture();
         // Multiply colour lives on ArtMesh colour composition — the object
-        // census sees only supported families, the host contain* gate must
-        // still reject before any copy is written.
+        // census never sees it; the host contain* gate pins it as pass-through
+        // content so flatten/obfuscation must leave the flag set unchanged.
         fixture.host.multiplyColor = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
-        assertTrue(fixture.host.copy == null || !fixture.host.copy.file.exists(),
-            "unsupported model must be refused before a copy is written");
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey());
+        assertTrue(report.published());
         orchestrator.close();
     }
 
     @Test
-    void rejectsMorphTargetsEmbeddedInsideArtMesh() throws Exception {
+    void publishesWithMorphTargetsEmbeddedInsideArtMesh() throws Exception {
         final Fixture fixture = new Fixture();
-        // A keyform morph-target set embedded in an ArtMesh source — the exact
-        // hidden family the r19 fixture carried — must reject at admission even
-        // though every census object is a supported category.
+        // A keyform morph-target set embedded in an ArtMesh source is
+        // pass-through content: the census pins its signature on the owning
+        // object rather than rejecting the family outright.
         fixture.host.embeddedMorphTargets = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey());
+        assertTrue(report.published());
         orchestrator.close();
     }
 
     @Test
-    void rejectsExtensionAttachedToDeformer() throws Exception {
+    void publishesWithExtensionAttachedToDeformer() throws Exception {
         final Fixture fixture = new Fixture();
+        // A feature extension attached to a flattened deformer is pinned in the
+        // census and legitimately disappears with its owner — not a rejection.
         fixture.host.attachedExtension = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey());
+        assertTrue(report.published());
         orchestrator.close();
     }
 
@@ -1598,7 +1770,37 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
-    /** A census object outside the supported whitelist with a known family token. */
+    /**
+     * A pass-through census member — art-path, alias or a named family token —
+     * with a pinnable identity (stable GUID + ID + name), a parent-deformer edge
+     * and ordered reference/flag signatures the census records.
+     */
+    private static final class FakePassThrough {
+        final String family;
+        final String guid;
+        final String id;
+        String name;
+        String targetDeformerGuid;
+        final List<String> referenceGuids;
+        final List<String> flags;
+
+        FakePassThrough(
+            final String family,
+            final String guid,
+            final String id,
+            final String name,
+            final List<String> referenceGuids
+        ) {
+            this.family = family;
+            this.guid = guid;
+            this.id = id;
+            this.name = name;
+            this.referenceGuids = new ArrayList<>(referenceGuids);
+            this.flags = new ArrayList<>();
+        }
+    }
+
+    /** A census object that is not a controllable source — nothing to pin. */
     private static final class FakeUnsupported {
         final String family;
 
@@ -1607,15 +1809,53 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
+    /** A physics settings object: identity plus a pinned structure signature. */
+    private static final class FakePhysicsSettings {
+        final String guid;
+        final String id;
+        String name;
+        final List<String> signature;
+
+        FakePhysicsSettings(
+            final String guid,
+            final String id,
+            final String name,
+            final List<String> signature
+        ) {
+            this.guid = guid;
+            this.id = id;
+            this.name = name;
+            this.signature = new ArrayList<>(signature);
+        }
+    }
+
+    /** A motion-sync setting object: identity plus the host content checksum. */
+    private static final class FakeMotionSyncSettings {
+        final String guid;
+        final String id;
+        String name;
+        final List<String> signature;
+
+        FakeMotionSyncSettings(final String guid, final String id,
+            final String name, final int checksum) {
+            this.guid = guid;
+            this.id = id;
+            this.name = name;
+            this.signature = new ArrayList<>(List.of("checksum=" + checksum));
+        }
+    }
+
     private static final class FakeModel {
         final List<FakeDeformer> deformers = new ArrayList<>();
         final List<FakeArtMesh> artMeshes = new ArrayList<>();
         final List<FakeParameter> parameters = new ArrayList<>();
         final List<FakePart> parts = new ArrayList<>();
-        /** Glue affecters — the admitted pass-through channel. */
+        /** Glue affecters — an admitted pass-through channel. */
         final List<FakeGlue> glues = new ArrayList<>();
-        /** Objects in allObjects that are none of the supported families. */
-        final List<Object> unsupportedObjects = new ArrayList<>();
+        /** Other admitted pass-through census members (art-path, alias, ...). */
+        final List<FakePassThrough> passThrough = new ArrayList<>();
+        /** Census members with no pinnable identity — must still reject. */
+        final List<Object> unpinnableObjects = new ArrayList<>();
         final List<Object> physicsSettings = new ArrayList<>();
         final List<Object> motionSyncSettings = new ArrayList<>();
         // The host enumerates a synthetic root part in getAllParts but never
@@ -1701,7 +1941,11 @@ class ProtectedExportOrchestratorTest {
         volatile boolean selectsExtraDeformer;
         volatile boolean mutatePartNameMidRun;
         volatile boolean mutateGlueMidRun;
+        volatile boolean mutatePassThroughMidRun;
+        volatile boolean mutateSettingsMidRun;
         volatile boolean exportDropsGlue;
+        volatile boolean exportWritesPhysics = true;
+        volatile boolean exportDropsPhysicsSetting;
         volatile boolean switchActiveDocOnSelect;
         volatile boolean multiplyColor;
         volatile boolean embeddedMorphTargets;
@@ -1879,9 +2123,33 @@ class ProtectedExportOrchestratorTest {
                     copyMeshByGuid(fresh.model, glue.targetA),
                     copyMeshByGuid(fresh.model, glue.targetB)));
             }
-            fresh.model.unsupportedObjects.addAll(original.model.unsupportedObjects);
-            fresh.model.physicsSettings.addAll(original.model.physicsSettings);
-            fresh.model.motionSyncSettings.addAll(original.model.motionSyncSettings);
+            for (FakePassThrough member : original.model.passThrough) {
+                // Serialized pass-through members keep identity, parent edge,
+                // references and flags byte-identical.
+                final FakePassThrough cloned = new FakePassThrough(member.family,
+                    member.guid, member.id, member.name, member.referenceGuids);
+                cloned.targetDeformerGuid = member.targetDeformerGuid;
+                cloned.flags.addAll(member.flags);
+                fresh.model.passThrough.add(cloned);
+            }
+            fresh.model.unpinnableObjects.addAll(original.model.unpinnableObjects);
+            for (Object setting : original.model.physicsSettings) {
+                if (setting instanceof FakePhysicsSettings physics) {
+                    fresh.model.physicsSettings.add(new FakePhysicsSettings(
+                        physics.guid, physics.id, physics.name, physics.signature));
+                } else {
+                    fresh.model.physicsSettings.add(setting);
+                }
+            }
+            for (Object setting : original.model.motionSyncSettings) {
+                if (setting instanceof FakeMotionSyncSettings sync) {
+                    fresh.model.motionSyncSettings.add(new FakeMotionSyncSettings(
+                        sync.guid, sync.id, sync.name,
+                        Integer.parseInt(sync.signature.get(0).substring("checksum=".length()))));
+                } else {
+                    fresh.model.motionSyncSettings.add(setting);
+                }
+            }
             copy = fresh;
             project.add(fresh);
             activeDoc = fresh;
@@ -2035,6 +2303,17 @@ class ProtectedExportOrchestratorTest {
                     // identity — the pass-through census must catch it.
                     doc.model.glues.forEach(glue -> glue.name = "glue-mutated");
                 }
+                if (mutatePassThroughMidRun && doc == copy) {
+                    doc.model.passThrough.forEach(
+                        member -> member.name = "member-mutated");
+                }
+                if (mutateSettingsMidRun && doc == copy) {
+                    doc.model.physicsSettings.forEach(setting -> {
+                        if (setting instanceof FakePhysicsSettings physics) {
+                            physics.signature.set(0, "enable=false");
+                        }
+                    });
+                }
                 final List<FakeDeformer> removed = doc.model.deformers.stream()
                     .filter(d -> doc.selector.selected.contains(d))
                     .toList();
@@ -2142,7 +2421,8 @@ class ProtectedExportOrchestratorTest {
             all.add(model.rootPart);
             all.addAll(model.parts);
             all.addAll(model.glues);
-            all.addAll(model.unsupportedObjects);
+            all.addAll(model.passThrough);
+            all.addAll(model.unpinnableObjects);
             return all;
         }
 
@@ -2300,6 +2580,9 @@ class ProtectedExportOrchestratorTest {
             if (source instanceof FakeGlue glue) {
                 return glue.guid;
             }
+            if (source instanceof FakePassThrough member) {
+                return member.guid;
+            }
             return "object-guid";
         }
 
@@ -2318,6 +2601,9 @@ class ProtectedExportOrchestratorTest {
             }
             if (source instanceof FakeGlue glue) {
                 return glue.id;
+            }
+            if (source instanceof FakePassThrough member) {
+                return member.id;
             }
             return "object-id-" + System.identityHashCode(source);
         }
@@ -2354,6 +2640,50 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
+        public boolean isControllableSource(final Object object) {
+            return object instanceof FakeDeformer || object instanceof FakeArtMesh
+                || object instanceof FakePart || object instanceof FakeGlue
+                || object instanceof FakePassThrough;
+        }
+
+        @Override
+        public String sourceTargetDeformerGuid(final Object source) {
+            if (source instanceof FakePassThrough member) {
+                return member.targetDeformerGuid;
+            }
+            if (source instanceof FakeDeformer deformer) {
+                return deformer.targetGuid;
+            }
+            return null;
+        }
+
+        /**
+         * Family-defined reference pins: Glue yields its two mesh targets,
+         * a FakePassThrough yields its recorded references, everything else
+         * contributes nothing.
+         */
+        @Override
+        public List<String> passThroughReferenceGuids(final Object source) {
+            if (source instanceof FakeGlue) {
+                return glueTargetGuids(source);
+            }
+            if (source instanceof FakePassThrough member) {
+                return java.util.Collections.unmodifiableList(
+                    new ArrayList<>(member.referenceGuids));
+            }
+            return List.of();
+        }
+
+        @Override
+        public List<String> passThroughFlagSignature(final Object source) {
+            if (source instanceof FakePassThrough member) {
+                return java.util.Collections.unmodifiableList(
+                    new ArrayList<>(member.flags));
+            }
+            return List.of();
+        }
+
+        @Override
         public List<String> glueTargetGuids(final Object glueSource) {
             if (!(glueSource instanceof FakeGlue glue)) {
                 return List.of();
@@ -2382,6 +2712,9 @@ class ProtectedExportOrchestratorTest {
             }
             if (source instanceof FakeGlue glue) {
                 return glue.name;
+            }
+            if (source instanceof FakePassThrough member) {
+                return member.name;
             }
             return "object-name-" + System.identityHashCode(source);
         }
@@ -2438,9 +2771,69 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
-        public String unsupportedObjectFamily(final Object object) {
+        public String censusFamily(final Object object) {
+            if (object instanceof FakeGlue) {
+                return "glue";
+            }
+            if (object instanceof FakePassThrough member) {
+                return member.family;
+            }
             return object instanceof FakeUnsupported unsupported
                 ? unsupported.family : "unknown";
+        }
+
+        @Override
+        public boolean isPhysicsSettingsSource(final Object object) {
+            return object instanceof FakePhysicsSettings;
+        }
+
+        @Override
+        public boolean isMotionSyncSettingSource(final Object object) {
+            return object instanceof FakeMotionSyncSettings;
+        }
+
+        @Override
+        public String settingsGuid(final Object settingsSource) {
+            if (settingsSource instanceof FakePhysicsSettings physics) {
+                return physics.guid;
+            }
+            if (settingsSource instanceof FakeMotionSyncSettings sync) {
+                return sync.guid;
+            }
+            return null;
+        }
+
+        @Override
+        public String settingsIdString(final Object settingsSource) {
+            if (settingsSource instanceof FakePhysicsSettings physics) {
+                return physics.id;
+            }
+            if (settingsSource instanceof FakeMotionSyncSettings sync) {
+                return sync.id;
+            }
+            return null;
+        }
+
+        @Override
+        public String settingsName(final Object settingsSource) {
+            if (settingsSource instanceof FakePhysicsSettings physics) {
+                return physics.name;
+            }
+            if (settingsSource instanceof FakeMotionSyncSettings sync) {
+                return sync.name;
+            }
+            return null;
+        }
+
+        @Override
+        public List<String> settingsSignature(final Object settingsSource) {
+            if (settingsSource instanceof FakePhysicsSettings physics) {
+                return List.copyOf(physics.signature);
+            }
+            if (settingsSource instanceof FakeMotionSyncSettings sync) {
+                return List.copyOf(sync.signature);
+            }
+            return null;
         }
 
         @Override
@@ -2479,15 +2872,15 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
-        public List<String> unsupportedModelFeatures(final Object modelSource) {
-            // Mirrors the host contain* gates: any populated flag is a family
-            // the census cannot see — multiply colour lives on ArtMesh colour
-            // composition, not the object list.
+        public List<String> modelFeatureFlags(final Object modelSource) {
+            // Mirrors the host contain* gates: any populated flag is pass-through
+            // content pinned by the census — multiply colour lives on ArtMesh
+            // colour composition, not the object list.
             return multiplyColor ? List.of("multiply-color") : List.of();
         }
 
         @Override
-        public List<String> embeddedUnsupportedFamilies(final Object controllableSource) {
+        public List<String> embeddedContentFamilies(final Object controllableSource) {
             final List<String> detected = new ArrayList<>();
             if (embeddedMorphTargets
                 && controllableSource instanceof FakeArtMesh mesh
@@ -2549,8 +2942,38 @@ class ProtectedExportOrchestratorTest {
                     paths.add(staged.toPath().toAbsolutePath().toString());
                     final Path modelJson = parent.resolve(
                         staged.getName().replace(".moc3", "") + ".model3.json");
-                    Files.writeString(modelJson,
-                        "{\"FileReferences\":{\"Moc\":\"" + staged.getName() + "\"}}");
+                    final StringBuilder modelRefs = new StringBuilder(
+                        "{\"FileReferences\":{\"Moc\":\"" + staged.getName() + "\"");
+                    final Path physicsJson = parent.resolve(
+                        staged.getName().replace(".moc3", "") + ".physics3.json");
+                    if (exportWritesPhysics && !exportedModel.physicsSettings.isEmpty()) {
+                        // The user's physics output checkbox is on: the native
+                        // flow emits physics3.json with every setting ID.
+                        final StringBuilder physicsBody = new StringBuilder(
+                            "{\"Version\":3,\"PhysicsSettings\":[");
+                        boolean first = true;
+                        boolean dropped = false;
+                        for (Object setting : exportedModel.physicsSettings) {
+                            if (exportDropsPhysicsSetting && !dropped) {
+                                dropped = true; // a setting silently dropped by export
+                                continue;
+                            }
+                            if (setting instanceof FakePhysicsSettings physics) {
+                                if (!first) {
+                                    physicsBody.append(',');
+                                }
+                                physicsBody.append("{\"Id\":\"").append(physics.id)
+                                    .append("\"}");
+                                first = false;
+                            }
+                        }
+                        physicsBody.append("]}");
+                        Files.writeString(physicsJson, physicsBody.toString());
+                        paths.add(physicsJson.toAbsolutePath().toString());
+                        modelRefs.append(",\"Physics\":\"").append(physicsJson.getFileName())
+                            .append("\"");
+                    }
+                    Files.writeString(modelJson, modelRefs.append("}}").toString());
                     paths.add(modelJson.toAbsolutePath().toString());
                 } catch (IOException ignored) {
                 }

@@ -46,6 +46,7 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -151,18 +152,22 @@ class ProtectedExportPlannerTest {
     }
 
     @Test
-    void rejectsPartAndDrawableMorphTargetsIncludingReadFailure() {
+    void morphTargetsPassThroughButReadFailuresReject() {
+        // Morph-target content is pass-through: populated sets on parts and
+        // drawables are admitted untouched by the plan.
         final Fixture partTargets = validFixture();
         partTargets.root.answers().put("morphTargets", morphTargets(List.of(proxy(
             MorphTarget.class, Map.of(), partTargets.mutations
         ).value())));
-        assertRejectedReadOnly(partTargets);
+        assertNotNull(new ProtectedExportPlanner().plan(partTargets.model));
+        assertEquals(0, partTargets.mutations.mutatorCalls.get());
 
         final Fixture drawableTargets = validFixture();
         drawableTargets.primaryDrawable.answers().put("morphTargets", morphTargets(List.of(proxy(
             MorphTarget.class, Map.of(), drawableTargets.mutations
         ).value())));
-        assertRejectedReadOnly(drawableTargets);
+        assertNotNull(new ProtectedExportPlanner().plan(drawableTargets.model));
+        assertEquals(0, drawableTargets.mutations.mutatorCalls.get());
 
         final Fixture readFailure = validFixture();
         readFailure.primaryDrawable.answers().put(
@@ -342,19 +347,26 @@ class ProtectedExportPlannerTest {
     }
 
     @Test
-    void rejectsNonNormalInstancesUnknownParametersAndUnsupportedFamilies() {
+    void admitsNonNormalInstancesAndParametersAsPassThrough() {
+        // Render-type, parameter-type and combination state are pass-through
+        // content: they never gate the descriptive plan.
         final Fixture instance = validFixture();
         instance.model.instances = List.of(() -> InstanceRenderType.ART_PATH);
-        assertRejectedReadOnly(instance);
+        assertNotNull(new ProtectedExportPlanner().plan(instance.model));
 
         final Fixture unknownParameter = validFixture();
         unknownParameter.parameter.answers().put("type", ParameterType.UNKNOWN);
-        assertRejectedReadOnly(unknownParameter);
+        assertNotNull(new ProtectedExportPlanner().plan(unknownParameter.model));
 
         final Fixture combined = validFixture();
         combined.parameter.answers().put("combined", Optional.of(true));
-        assertRejectedReadOnly(combined);
+        assertNotNull(new ProtectedExportPlanner().plan(combined.model));
+    }
 
+    @Test
+    void rejectsUnsupportedDeformerAndBindingFamilies() {
+        // Deformer families the flatten cannot apply and binding families whose
+        // contract cannot be validated still fail closed.
         final Fixture unsupportedDeformer = validFixture();
         unsupportedDeformer.model.deformers = List.of(proxy(
             Deformer.class,
@@ -645,36 +657,34 @@ class ProtectedExportPlannerTest {
     }
 
     @Test
-    void rejectsAdditionalUnsupportedSnapshotsAndAllNonNormalInstances() {
+    void admitsAllInstanceRenderTypesAndParameterShapesAsPassThrough() {
         for (InstanceRenderType renderType : InstanceRenderType.values()) {
-            if (renderType == InstanceRenderType.NORMAL) {
-                continue;
-            }
             final Fixture instance = validFixture();
             instance.model.instances = List.of(() -> renderType);
-            assertRejectedReadOnly(instance);
+            assertNotNull(new ProtectedExportPlanner().plan(instance.model),
+                "render type " + renderType + " must pass through");
         }
 
         final Fixture blendShape = validFixture();
         blendShape.parameter.answers().put("type", ParameterType.BLEND_SHAPE);
-        assertRejectedReadOnly(blendShape);
+        assertNotNull(new ProtectedExportPlanner().plan(blendShape.model));
 
+        final Fixture combinedWith = validFixture();
+        combinedWith.parameter.answers().put("combinedWith", Optional.of(new ParameterId("other")));
+        assertNotNull(new ProtectedExportPlanner().plan(combinedWith.model));
+    }
+
+    @Test
+    void rejectsUnreadableSnapshots() {
+        // Presence gates stay: a snapshot surface that cannot be read at all is
+        // ambiguous input, not pass-through content.
         final Fixture combinedUnavailable = validFixture();
         combinedUnavailable.parameter.answers().put("combined", Optional.empty());
         assertRejectedReadOnly(combinedUnavailable);
 
-        final Fixture combinedWith = validFixture();
-        combinedWith.parameter.answers().put("combinedWith", Optional.of(new ParameterId("other")));
-        assertRejectedReadOnly(combinedWith);
-
         final Fixture bindingsUnavailable = validFixture();
         bindingsUnavailable.rootDeformer.answers().remove("getParameterBindings");
         assertRejectedReadOnly(bindingsUnavailable);
-
-        final Fixture modelInstancesUnavailable = validFixture();
-        modelInstancesUnavailable.model.modelInstancesFailure =
-            new UnsupportedOperationException("model instances unavailable");
-        assertRejectedReadOnly(modelInstancesUnavailable);
     }
 
     @Test

@@ -41,6 +41,8 @@ public final class RuntimeExportSettingsAuthority
     public static final String IDENTITY_UNAVAILABLE_KEY = "export-settings.identity-unavailable";
     /** The live host identity no longer matches the identity captured at attach. */
     public static final String IDENTITY_MISMATCH_KEY = "export-settings.identity-mismatch";
+    /** A dialog whose decision was already consumed must never be confirmed again. */
+    public static final String DIALOG_CONSUMED_KEY = "export-settings.dialog-consumed";
 
     private final Object bindingsLock = new Object();
     private final Map<String, Binding> bindings = new LinkedHashMap<>();
@@ -423,6 +425,19 @@ public final class RuntimeExportSettingsAuthority
                     invalidDialogs.put(
                         owner,
                         state.failureKey() != null ? state.failureKey() : ATTACH_FAILED_KEY
+                    );
+                }
+            } else if (!decision.allowed()) {
+                // A consumed veto tombstones the owner: this dialog instance can
+                // never re-acquire native continuation. Without it a re-confirm
+                // on a still-open dialog evaluates as a foreign owner and runs a
+                // plain native export of the original document — bypassing a
+                // vetoed or session-armed decision entirely.
+                synchronized (dialogsLock) {
+                    invalidDialogs.put(
+                        owner,
+                        decision.vetoKey() != null
+                            ? decision.vetoKey() : DIALOG_CONSUMED_KEY
                     );
                 }
             }

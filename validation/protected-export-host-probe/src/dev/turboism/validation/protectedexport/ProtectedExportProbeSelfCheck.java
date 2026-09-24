@@ -193,7 +193,7 @@ public final class ProtectedExportProbeSelfCheck {
                 ProtectedExportHostProbeAgent.vetoKeyFromMessage(
                     "The export was stopped by a Turboism export option.\n\n"
                         + "protected-export.preflight-failed\n"
-                        + "protected-export.unsupported-settings:physics=2")),
+                        + "protected-export.unpinnable-structure:art-path=1")),
             "session failure key was not extracted"
         );
         require(

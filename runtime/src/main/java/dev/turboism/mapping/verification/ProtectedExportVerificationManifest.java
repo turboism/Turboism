@@ -12,13 +12,19 @@ import java.util.Set;
  * used to retire the dirty copy. Only the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts
  * admit it.</p>
  *
- * <p>The reviewed 5.2.03 record declares 138 selectors rather than 141: Cubism 5.2.03's
+ * <p>The reviewed 5.2.03 record declares 157 selectors rather than 173: Cubism 5.2.03's
  * {@code CModelSource} predates the advanced-blend, alias and offscreen-rendering feature
- * predicates, so the three {@code contain*} gates for features the host cannot express are
- * absent from the record and from {@link #cubism52Aliases()}. They are not optional on 5.3.x —
- * the 5.3 records still pin all 141 selectors. The three {@code glue-source.*} selectors admit
- * the Glue census reads — Glue is an untouched pass-through channel, pinned by identity so a
- * mid-session drift fails closed.</p>
+ * predicates, {@code CAliasSource} does not exist in the 5.2.03 artifact, and its
+ * {@code CPartSource} does not declare the clip/offscreen/composition members — so those
+ * sixteen selectors are absent from the record and from {@link #cubism52Aliases()}. They
+ * are not optional on 5.3.x — the 5.3 records still pin all 173 selectors.</p>
+ *
+ * <p>Beyond the transform surface (deformer apply, ArtMesh obfuscation, export driver), the
+ * record pins the pass-through census reads: every controllable source's stable GUID, ID,
+ * parent-deformer edge, clip-mask and family-specific reference reads, content flags, the
+ * physics and motion-sync settings identities/signatures, and the host {@code contain*}
+ * feature predicates. Pass-through content is never transformed — these selectors exist so
+ * its identity and references are pinned and any drift fails closed.</p>
  */
 public final class ProtectedExportVerificationManifest {
 
@@ -40,7 +46,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.protected-export.static",
-        "0289622e33f82f906afb7d83acbd79362c4c5edc3adb3d4f882bc711225bc3ac",
+        "48af2ec84878f87b241fbd884257aaecd018d7f13c6afbc31bddc7a2ddd1ecec",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -49,7 +55,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.protected-export.static",
-        "6c61460eab8b19f8afc244340cab2a1a501506d8f900228a11f152c3541c5fd7",
+        "5253f967a8b860640a34e3ddf03787c5e9fced396d338a40618480f9fe67a1b6",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -58,7 +64,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.protected-export.static",
-        "0990701147c84e7e8c67af3df3edf5c9417483c6a92d3bc98b549acbe15fe17f",
+        "eebff38c3a43e9f3508581757bfc6818990d48fce9ba7b65e16ae17cb750413f",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -67,11 +73,30 @@ public final class ProtectedExportVerificationManifest {
         RECORD_5_2_03, RECORD_5_3_02, RECORD_5_3_03
     );
 
-    /** Feature-gate aliases that only exist on Cubism 5.3.x {@code CModelSource}. */
-    private static final Set<String> CUBISM_5_3_ONLY_GATE_ALIASES = Set.of(
+    /**
+     * Selectors that only exist on Cubism 5.3.x builds: the {@code contain*}
+     * gates whose gated features 5.2.03 cannot express, the alias family
+     * ({@code CAliasSource} is absent from the 5.2.03 artifact), and the part
+     * clip/offscreen/composition members 5.2.03 {@code CPartSource} does not
+     * declare.
+     */
+    private static final Set<String> CUBISM_5_3_ONLY_ALIASES = Set.of(
         "cubism.protected-export.model-source.contain-advanced-blend",
         "cubism.protected-export.model-source.contain-alias",
-        "cubism.protected-export.model-source.contain-offscreen-rendering"
+        "cubism.protected-export.model-source.contain-offscreen-rendering",
+        "cubism.protected-export.alias-source.class",
+        "cubism.protected-export.alias.reference-object-guid",
+        "cubism.protected-export.alias.clip-guids",
+        "cubism.protected-export.alias.invert-clipping",
+        "cubism.protected-export.alias.use-offscreen",
+        "cubism.protected-export.alias.color-composition",
+        "cubism.protected-export.alias.alpha-composition",
+        "cubism.protected-export.alias.circulated",
+        "cubism.protected-export.part.clip-guids",
+        "cubism.protected-export.part.invert-clipping",
+        "cubism.protected-export.part.use-offscreen",
+        "cubism.protected-export.part.color-composition",
+        "cubism.protected-export.part.alpha-composition"
     );
 
     /** Every selector alias declared by the reviewed protected-export record. */
@@ -83,12 +108,23 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.app-controller.instance",
         "cubism.protected-export.app-controller.main-frame-ctrl",
         "cubism.protected-export.app-controller.open",
+        "cubism.protected-export.alias-source.class",
+        "cubism.protected-export.alias.alpha-composition",
+        "cubism.protected-export.alias.circulated",
+        "cubism.protected-export.alias.clip-guids",
+        "cubism.protected-export.alias.color-composition",
+        "cubism.protected-export.alias.invert-clipping",
+        "cubism.protected-export.alias.reference-object-guid",
+        "cubism.protected-export.alias.use-offscreen",
         "cubism.protected-export.art-mesh.class",
         "cubism.protected-export.art-mesh-form.class",
         "cubism.protected-export.art-mesh-form.positions",
         "cubism.protected-export.art-mesh-instance.calculated-form",
         "cubism.protected-export.art-mesh-instance.class",
         "cubism.protected-export.art-mesh-instance.source",
+        "cubism.protected-export.art-path-source.class",
+        "cubism.protected-export.art-path.brush-guid",
+        "cubism.protected-export.controllable-source.class",
         "cubism.protected-export.deformer-source.children",
         "cubism.protected-export.deformer-source.class",
         "cubism.protected-export.deformer.guid",
@@ -105,7 +141,9 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.drawable-id.class",
         "cubism.protected-export.drawable-id.create",
         "cubism.protected-export.drawable-source.class",
+        "cubism.protected-export.drawable.clip-guids",
         "cubism.protected-export.drawable.id",
+        "cubism.protected-export.drawable.invert-clipping",
         "cubism.protected-export.drawable.set-id",
         "cubism.protected-export.edit-mode-base.class",
         "cubism.protected-export.edit-mode.apply-deformer",
@@ -177,6 +215,11 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.model.reinit-instance-exe",
         "cubism.protected-export.morph-target-set.class",
         "cubism.protected-export.morph-target-set.morph-targets",
+        "cubism.protected-export.motion-sync-setting.checksum",
+        "cubism.protected-export.motion-sync-setting.class",
+        "cubism.protected-export.motion-sync-setting.guid",
+        "cubism.protected-export.motion-sync-setting.id",
+        "cubism.protected-export.motion-sync-setting.name",
         "cubism.protected-export.parameter-id.class",
         "cubism.protected-export.parameter-instance.class",
         "cubism.protected-export.parameter-instance.id",
@@ -191,8 +234,21 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.parameter-source.name",
         "cubism.protected-export.parameter-source.repeat",
         "cubism.protected-export.parameter.class",
+        "cubism.protected-export.part.alpha-composition",
         "cubism.protected-export.part.child-guids",
         "cubism.protected-export.part.class",
+        "cubism.protected-export.part.clip-guids",
+        "cubism.protected-export.part.color-composition",
+        "cubism.protected-export.part.invert-clipping",
+        "cubism.protected-export.part.use-offscreen",
+        "cubism.protected-export.physics-settings-source.class",
+        "cubism.protected-export.physics-settings.enable",
+        "cubism.protected-export.physics-settings.guid",
+        "cubism.protected-export.physics-settings.id",
+        "cubism.protected-export.physics-settings.inputs",
+        "cubism.protected-export.physics-settings.name",
+        "cubism.protected-export.physics-settings.outputs",
+        "cubism.protected-export.physics-settings.vertices",
         "cubism.protected-export.project.children",
         "cubism.protected-export.project.class",
         "cubism.protected-export.rotation-deformer.class",
@@ -212,6 +268,7 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.source.keyform-grid",
         "cubism.protected-export.source.local-name",
         "cubism.protected-export.source.set-local-name",
+        "cubism.protected-export.source.target-deformer-guid",
         "cubism.protected-export.undo-manager.can-undo",
         "cubism.protected-export.undo-manager.class",
         "cubism.protected-export.undo-manager.edit-count",
@@ -221,12 +278,12 @@ public final class ProtectedExportVerificationManifest {
 
     /**
      * Exact selector roster carried by the reviewed 5.2.03 record: the full slice minus the
-     * three {@code contain*} gates that Cubism 5.2.03's {@code CModelSource} does not
-     * implement because the gated features did not exist in that release.
+     * {@link #CUBISM_5_3_ONLY_ALIASES} set — gates for features 5.2.03 cannot express, the
+     * alias family that does not exist there, and the part detail members it lacks.
      */
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(REQUIRED_ALIASES);
-        aliases.removeAll(CUBISM_5_3_ONLY_GATE_ALIASES);
+        aliases.removeAll(CUBISM_5_3_ONLY_ALIASES);
         return Set.copyOf(aliases);
     }
 

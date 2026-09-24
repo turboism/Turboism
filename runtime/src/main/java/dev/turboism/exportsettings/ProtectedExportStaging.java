@@ -205,6 +205,10 @@ public final class ProtectedExportStaging {
      * @param expectedPartIds the copy's part ID set; staged must equal it
      * @param expectedGlueIds the copy's Glue ID set; staged must carry them
      *     verbatim — Glue is pass-through, never re-identified
+     * @param expectedPhysicsIds the copy's physics setting ID set; when the
+     *     native flow emitted a {@code physics3.json} (the user's own physics
+     *     output checkbox governs whether it is written at all) its setting IDs
+     *     must equal the census set — no drops, no extras
      * @param behavior host-side evaluated-geometry oracle captured post-flatten;
      *     when non-null the staged model must reproduce it under the identical
      *     parameter-sample replay, or validation fails closed
@@ -216,6 +220,7 @@ public final class ProtectedExportStaging {
         final Map<String, ParameterExpectation> expectedParameters,
         final Set<String> expectedPartIds,
         final Set<String> expectedGlueIds,
+        final Set<String> expectedPhysicsIds,
         final BehaviorSnapshot behavior
     ) {
         if (stagedPick == null || reportedPaths == null || reportedPaths.isEmpty()) {
@@ -262,6 +267,19 @@ public final class ProtectedExportStaging {
             } else if (name.endsWith(".model3.json")) {
                 if (!validateModelJson(path, staged)) {
                     return Validation.rejected("protected-export.model3-invalid");
+                }
+            } else if (name.endsWith(".physics3.json")) {
+                // Physics is pass-through content governed by the user's own
+                // native output checkbox — when a physics3.json was staged, its
+                // setting IDs must exactly reproduce the censused set.
+                final Set<String> physicsIds = physicsSettingIds(path);
+                if (physicsIds == null) {
+                    return Validation.rejected("protected-export.physics3-invalid");
+                }
+                if (!physicsIds.equals(expectedPhysicsIds)) {
+                    return Validation.rejected(
+                        "protected-export.physics3-ids",
+                        setDiffDetail(physicsIds, expectedPhysicsIds));
                 }
             }
         }
@@ -369,9 +387,10 @@ public final class ProtectedExportStaging {
 
     /**
      * Per-parameter behavior check: the staged moc3 must carry the same evaluable
-     * contract the copy's source census recorded — range, default, repeat flag and
-     * the baked key positions flatten produced. Exact float equality is required;
-     * any drift means the published model would not behave like the authored one.
+     * contract the copy's source census recorded — range, default and repeat flag
+     * are exact; key positions are asserted one-sided (staged ⊆ the post-mutation
+     * authored union) because authored positions bound on carriers that do not
+     * serialize into moc3 legitimately drop from the output.
      * Parameters without recorded key positions keep the contract check only — an
      * unbound parameter may legitimately serialize a different implicit key list.
      */
@@ -406,13 +425,17 @@ public final class ProtectedExportStaging {
                     .append("!=").append(expected.repeat()).append(';');
             }
             if (!expected.keys().isEmpty()) {
+                // One-sided bound: every staged key position must come from an
+                // authored binding on the post-flatten copy. The reverse is not
+                // asserted — authored positions bound on non-serializing
+                // carriers (consumed deformers, morph content, glue/art-path
+                // bindings) legitimately absent from the moc3 key list; binding
+                // correctness is the behavior oracle's contract.
                 final Set<Float> stagedKeys = new LinkedHashSet<>(staged.keyValues());
                 final Set<Float> expectedKeys = new LinkedHashSet<>(expected.keys());
-                if (!stagedKeys.equals(expectedKeys)) {
+                if (!expectedKeys.containsAll(stagedKeys)) {
                     drift.append("keys unexpected=")
                         .append(bounded(floatDiff(stagedKeys, expectedKeys)))
-                        .append(",missing=")
-                        .append(bounded(floatDiff(expectedKeys, stagedKeys)))
                         .append(';');
                 }
             }
@@ -824,6 +847,38 @@ public final class ProtectedExportStaging {
         }
         if (node.isArray()) {
             node.forEach(child -> collectNames(child, names));
+        }
+    }
+
+    /**
+     * Setting IDs of a staged {@code physics3.json} — the {@code PhysicsSettings[]}
+     * entries' {@code Id} fields. {@code null} when the file cannot be read as a
+     * physics3 document at all (malformed JSON or a missing settings array).
+     */
+    private Set<String> physicsSettingIds(final Path physicsJson) {
+        try {
+            final JsonNode root = json.readTree(Files.readAllBytes(physicsJson));
+            JsonNode settings = root.get("PhysicsSettings");
+            if (settings == null) {
+                settings = root.get("physicsSettings");
+            }
+            if (settings == null || !settings.isArray()) {
+                return null;
+            }
+            final Set<String> ids = new LinkedHashSet<>();
+            for (JsonNode setting : settings) {
+                JsonNode id = setting.get("Id");
+                if (id == null) {
+                    id = setting.get("id");
+                }
+                if (id == null || !id.isTextual() || id.asText().isBlank()) {
+                    return null;
+                }
+                ids.add(id.asText());
+            }
+            return ids;
+        } catch (IOException | RuntimeException failure) {
+            return null;
         }
     }
 

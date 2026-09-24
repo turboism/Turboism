@@ -8,15 +8,11 @@ import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.GlueId;
-import dev.turboism.sdk.cubism.model.InstanceRenderType;
-import dev.turboism.sdk.cubism.model.ModelInstance;
-import dev.turboism.sdk.cubism.model.MorphTarget;
 import dev.turboism.sdk.cubism.model.MorphTargets;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
-import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
@@ -102,7 +98,6 @@ final class ProtectedExportPlanner {
 
         final List<ProtectedExportPlan.GlueSnapshot> glueSnapshots =
             snapshotGlues(model, drawablesById, parametersById);
-        rejectUnsupportedInstances(model);
         validateParameterBindings(
             parameters,
             parametersById,
@@ -135,7 +130,7 @@ final class ProtectedExportPlanner {
             for (PartId childId : childIds) {
                 requireId(childId, "Part child");
             }
-            rejectMorphTargets(part.morphTargets(), "Part");
+            requireMorphTargetsReadable(part.morphTargets(), "Part");
             result.add(new PartSnapshot(id, name, parentId, childIds, finite(part.getOpacity(), "Part opacity")));
         }
         return List.copyOf(result);
@@ -145,18 +140,17 @@ final class ProtectedExportPlanner {
         final List<ParameterSnapshot> result = new ArrayList<>();
         for (Parameter parameter : parameters) {
             final ParameterId id = requireId(parameter.id(), "Parameter");
-            final ParameterType type = Objects.requireNonNull(parameter.type(), "Parameter type");
+            // Parameter type/combination are pass-through content: only the
+            // reads themselves must succeed for the snapshot to be unambiguous.
+            Objects.requireNonNull(parameter.type(), "Parameter type");
             final Optional<Boolean> combined = requiredOptional(
                 parameter.combined(), "Parameter combination state"
             );
             final Optional<ParameterId> combinedWith = requiredOptional(
                 parameter.combinedWith(), "Parameter combination partner"
             );
-            if (type != ParameterType.NORMAL) {
-                throw invalid("unsupported or unknown parameter type " + type);
-            }
-            if (combined.isEmpty() || combined.orElseThrow() || combinedWith.isPresent()) {
-                throw invalid("combined or unknown parameter is unsupported");
+            if (combined.isEmpty()) {
+                throw invalid("parameter combination state is unreadable");
             }
             result.add(new ParameterSnapshot(
                 id,
@@ -191,7 +185,7 @@ final class ProtectedExportPlanner {
             final ArtMeshId id = requireId(drawable.id(), "ArtMesh");
             final String guid = text(drawable.guid(), "ArtMesh GUID");
             final String name = text(drawable.name(), "ArtMesh name");
-            rejectMorphTargets(drawable.morphTargets(), "ArtMesh");
+            requireMorphTargetsReadable(drawable.morphTargets(), "ArtMesh");
             result.add(new DrawableSnapshot(
                 id,
                 guid,
@@ -204,14 +198,16 @@ final class ProtectedExportPlanner {
         return List.copyOf(result);
     }
 
-    private static void rejectMorphTargets(final MorphTargets morphTargets, final String label) {
+    /**
+     * Morph targets are pass-through content: they are never transformed, so a
+     * populated set is admitted. The snapshot must still be readable — an
+     * unreadable surface means the model snapshot itself is ambiguous.
+     */
+    private static void requireMorphTargetsReadable(final MorphTargets morphTargets, final String label) {
         if (morphTargets == null) {
             throw invalid("missing " + label + " Morph Target snapshot");
         }
-        final List<MorphTarget> targets = snapshot(morphTargets.all(), label + " Morph Target");
-        if (!targets.isEmpty()) {
-            throw invalid(label + " Morph Targets are unsupported");
-        }
+        snapshot(morphTargets.all(), label + " Morph Target");
     }
 
     /**
@@ -254,14 +250,6 @@ final class ProtectedExportPlanner {
                 id, drawableA, drawableB, boundParameters));
         }
         return List.copyOf(result);
-    }
-
-    private static void rejectUnsupportedInstances(final CubismModel model) {
-        for (ModelInstance instance : snapshot(model.modelInstances(), "model instance")) {
-            if (instance.renderType() != InstanceRenderType.NORMAL) {
-                throw invalid("unsupported model instance render type");
-            }
-        }
     }
 
     private static void validateParameterBindings(
