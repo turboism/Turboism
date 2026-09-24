@@ -36,6 +36,9 @@ final class HookManifestTest {
                 GlGetErrorElisionHookContributor.class,
                 SkippedFrameUploadElisionHookContributor.class,
                 UniformLocationCacheHookContributor.class,
+                // Order-sensitive: must follow the uniform lifecycle transform
+                // (see META-INF/turboism/hooks).
+                RedundantStateElisionHookContributor.class,
                 MatrixScratchHookContributor.class,
                 NativeEditBeginHookContributor.class,
                 EditApiDispatchHookContributor.class,

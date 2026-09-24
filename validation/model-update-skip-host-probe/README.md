@@ -557,6 +557,77 @@ transition or transform mismatch disables suppression entirely — never suppres
 when the state model is incomplete, which is precisely why this probe only
 counts an upper bound and never skips a call.
 
+### Redundant-state elision timing leg (experimental transform on pinned JOGL)
+
+`-Dturboism.validation.redundantStateElision=true` implements the
+`GL4bcImpl`-level option from the sketch above. The bundled `jogl-all.jar`
+(`7dbedb4b…`, byte-identical across 5.2.03/5.3.02/5.3.03) is digest-attested;
+`GL4bcImpl` is rewritten so each tracked setter first consults a per-context
+state table and returns early when the arguments exactly equal the recorded
+state. Intercepting at the implementation — not at host call sites — covers
+every Java caller (host renderer, JOGL internals, the GLJPanel backing path);
+the class has no other state-writing dispatch path.
+
+Tracked setters and their keys: `glUseProgram`; `glEnable`/`glDisable` by
+capability; `glBlendFunc`/`glBlendFuncSeparate` (aliased to one signature) and
+`glBlendEquation`/`glBlendEquationSeparate`; `glCullFace`/`glFrontFace`;
+`glDepthMask`/`glDepthFunc`/`glColorMask`; `glStencilFunc`/`glStencilOp`/
+`glStencilMask`; `glActiveTexture`; `glBindTexture` keyed by (active unit,
+target); `glBindSampler` by unit; `glEnableVertexAttribArray`/
+`glDisableVertexAttribArray` by index; `glBindBuffer` by target.
+
+State is kept per `GL4bcImpl` instance (one per GLContext) and only the
+thread that owns the context may consult it — a foreign thread clears and
+re-records. Fail-open invalidation covers every untracked mutation surface:
+`glDelete*` bumps a global epoch (shared-group name reuse); VAO
+(`glBindVertexArray`, `glVertexArray*`, `glBindVertexBuffer`), framebuffer and
+renderbuffer binds, program lifecycle (`glLinkProgram`, `glUseProgramStages`,
+`glBindProgram*`, `glProgramBinary`), push/pop (`glPush*`/`glPop*` — state can
+be restored wholesale), indexed/ARB/EXT/APPLE variants of every tracked domain
+(`glEnablei`, `glStencilFuncSeparate`, `glBindBufferBase`, `glBindTextures`,
+`glBindImageTexture`, …), display-list and NV command-list replay
+(`glCallList`, `glDrawCommandsStates*`, …) each clear the calling context; a
+thrown tracked call clears its context before rethrowing. Unknown state always
+passes through — the experiment can only under-count savings, never suppress
+a real change.
+
+Log markers: `TURBOISM_STATE_ELISION elision=ACTIVE sites=N` on successful
+rewrite (N = instrumented methods: 21 tracked + discovered invalidators); the
+close marker dumps every `elided/passed` per site plus per-method
+`*Invalidations` and the clear counters.
+
+ABBA usage — the `redundantState` factor toggles only the elision gate;
+model-update skip, the uniform cache and (optionally) production upload
+elision stay at their production configuration so the legs measure the
+stacked real increment:
+
+```bash
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=redundantState' \
+  --jvm-option '-Dturboism.validation.redundantStateElision=true' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --result-timeout 1200
+```
+
+Report keys per leg: `leg.N.stateElision.{calls,elided,passed,passGate,
+passNoBaseline,passChanged,passUnknownUnit,entries,contexts,epochClears,
+contextClears,threadClears,exceptionClears,observerFailures}`, per-site
+`leg.N.stateElision.<site>{Calls,Elided,Passed}` and per-method
+`*Invalidations`, alongside the usual `leg.N.canvasPixelDigest`/`Parity`.
+`canvasPixelParity` compares before/after-leg pixels; cross-leg digest
+equality across off/on/on/off is the pixel-correctness evidence. The same
+factor works in `NativeInteractionWorkload` (`nativeInteraction=pan|artmesh`)
+with identical semantics — the uniform hook stays ON and only the state
+gate toggles; the drag legs additionally assert the cross-leg baseline/moved/
+restored geometry digests.
+
+Composition: this experiment transforms only `jogamp/opengl/gl4/GL4bcImpl`
+method entries; the uniform lifecycle transformer wraps different bodies
+(`shader/*` plus the program-mutation methods, which here are entry-level
+invalidators). Both are entry/exit observers that compose through the
+retransformation chain — each sees the previous round's bytecode and the
+shape checks only cover the official instructions.
+
 ### glGetError elision timing leg (experimental transform, not a proxy)
 
 `-Dturboism.validation.glGetErrorElision=true` enables a completely separate

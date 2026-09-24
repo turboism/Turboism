@@ -20,6 +20,13 @@ dev.turboism.bootstrap.IncrementalUpdateHookContributor
 dev.turboism.bootstrap.GlGetErrorElisionHookContributor
 dev.turboism.bootstrap.SkippedFrameUploadElisionHookContributor
 dev.turboism.bootstrap.UniformLocationCacheHookContributor
+# Must register after the uniform-location cache: the lifecycle transformer
+# shape-checks glLinkProgram/glDeleteProgram/* on GL4bcImpl — the same methods
+# this experiment wraps as invalidators. Retransformation replays the chain on
+# original bytes in registration order, so the lifecycle transformer must run
+# first and see clean bytes; this transform only shape-checks its 21 tracked
+# setters, which the lifecycle observer never touches.
+dev.turboism.bootstrap.RedundantStateElisionHookContributor
 dev.turboism.bootstrap.MatrixScratchHookContributor
 dev.turboism.bootstrap.NativeEditBeginHookContributor
 dev.turboism.bootstrap.EditApiDispatchHookContributor
