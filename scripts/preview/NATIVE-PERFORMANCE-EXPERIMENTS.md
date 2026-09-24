@@ -1611,7 +1611,16 @@ n8 是这套链路的首次实机有效性证据。
 - **冗余归因（诊断）**：3.99M/10.63M calls 冗余（保守上限 7.08ms/ev），
   invalidations=1,572,001（≈7,860/ev，窗口几乎即失效），uniformRedundant 仅
   87/ev——去重路线**否决**。
+- **T08b 上传抑制（identity 模式，2 run × {off,on,on,off}）**：jobs
+  da81e362/48375f95 均 PASS，`UPLOAD_ELISION elision=ACTIVE sites=4` 核实；
+  ON 子腿 elided=102,200/475,400（**21.5% 签名命中**），四腿 canvasPixelDigest
+  全同（正确性门过）。均值 Δ：r1 −3.40ms、r2 −3.12ms（监督登记口径约
+  −1.5~−3ms）。本构建无 `restored=true` 关闭标记（属 4333086b1 后功能）。
+- **T08b JFR 诊断腿** 8ecda9e1：wheel-leg-0.jfr 归档（仅诊断）。
+- **T08c 已提交**（identity/content 两模式，agent 10a89bb1@4333086b1，
+  exerciser c29ba1a8）：upload-id f36d3e98 / upload-content 862936a9。
 - **证据**：`~/.local/state/turboism/performance-evidence/20260924-perf052-t08/run/`
   {t08-attr-prod-r1,t08-attr-cal-r1,t08-elision-{off,on}-r{1,2},
-  t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1}；明细见
-  `build/perf052-t08/campaign-notes.md`。上传抑制（t08b）与 JFR 腿在途。
+  t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1,
+  t08b-upload-r{1,2},t08b-jfr-prod-r1}；明细见
+  `build/perf052-t08/campaign-notes.md`。
