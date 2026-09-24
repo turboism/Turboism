@@ -128,9 +128,9 @@ STARTUP_FIELDS = {
     "skipUpdateCheck", "skipSplash", "skipInformation",
     "separateExportSaveDirectory",
 }
-LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision"}
 V0_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
-BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"}
+BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision"}
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
 }
