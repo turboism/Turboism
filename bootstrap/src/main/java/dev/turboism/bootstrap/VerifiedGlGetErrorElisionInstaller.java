@@ -105,6 +105,10 @@ final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
                 throw new IllegalStateException("glGetError elision entry not admitted: "
                     + transformer.failure());
             }
+            // Publish only after the rewrite is verified: downstream verified
+            // installers may then admit the composed (elided) method shape.
+            GlGetErrorElisionTransformer.markInstalled(
+                entry.getClassLoader(), target.owner());
         } catch (Exception | Error failure) {
             try {
                 close();
@@ -128,6 +132,9 @@ final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
     @Override public synchronized void close() {
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
+        // The marker is dropped before the restore capture so bytes that stay
+        // elided after a failed restore are no longer claimed as ours.
+        GlGetErrorElisionTransformer.clearInstalled(entry.getClassLoader(), target.owner());
         try {
             final byte[] original = capture(entry);
             final String hash = HexFormat.of().formatHex(

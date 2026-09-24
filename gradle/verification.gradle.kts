@@ -29,6 +29,13 @@ tasks.register<Exec>("checkCubismHostValidationArguments") {
     commandLine("bash", "scripts/test/test_cubism_host_validation_arguments.sh")
 }
 
+tasks.register<Exec>("checkCubismHostValidationJavaEvidence") {
+    group = "verification"
+    description = "Verifies task-bound Java process evidence matching, gl-thread scan, and zero-match diagnostics offline."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_cubism_host_validation_java_evidence.sh")
+}
+
 tasks.register<Exec>("checkCubismHostValidationLocalTransport") {
     group = "verification"
     description = "Verifies local host command/copy transport and side-effect-free dry runs."
@@ -69,6 +76,7 @@ tasks.register("checkGraalScriptHostValidation") {
     description = "Runs offline Graal script host-validation contracts."
     dependsOn(
         "checkCubismHostValidationArguments",
+        "checkCubismHostValidationJavaEvidence",
         "checkFxValidationBrokerArguments",
         "checkGraalScriptHostValidationDryRun",
         "checkGraalPreviewLauncherContract"
