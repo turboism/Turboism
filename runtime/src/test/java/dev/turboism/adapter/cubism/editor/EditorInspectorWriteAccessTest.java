@@ -348,6 +348,67 @@ class EditorInspectorWriteAccessTest {
         assertFalse(fixture.document.dirty);
     }
 
+    /**
+     * FR-014 fail-closed: a hand-written Undo envelope inside an authoring transaction must
+     * reject with the typed ambient rejection instead of opening a detached native edit the
+     * root transaction cannot join or roll back.
+     */
+    @Test
+    void handWrittenEnvelopeInsideTransactionRejectsWithoutDetachedUndo() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Rejected envelope write"),
+            () -> {
+                final var part = access.active().parts().find(new PartId("PartClip"));
+                final EditorAmbientTransactionRejection rejection = assertThrows(
+                    EditorAmbientTransactionRejection.class,
+                    () -> part.setId(new PartId("Detached")),
+                    "hand-written envelopes must fail closed inside a transaction"
+                );
+                assertTrue(rejection.getMessage().contains("detached Undo group"));
+                assertTrue(rejection.getMessage().contains("Parameter.setValue"));
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
+        assertEquals("PartClip", fixture.partClip.source.id.value());
+        assertEquals(0, fixture.editMode.edits.size(), "no native edit may begin");
+        assertTrue(fixture.document.undoManager.entries.isEmpty(),
+            "no detached Undo entry may be committed");
+        assertEquals(0, fixture.pack.partRefreshCount);
+        assertFalse(fixture.document.dirty);
+    }
+
+    @Test
+    void propagatingEnvelopeRejectionRollsBackTheRootTransaction() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Envelope write escapes"),
+            () -> {
+                access.active().parts().find(new PartId("PartClip"))
+                    .setId(new PartId("Detached"));
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals("PartClip", fixture.partClip.source.id.value());
+        assertEquals(0, fixture.editMode.edits.size());
+        assertTrue(fixture.document.undoManager.entries.isEmpty());
+        assertFalse(fixture.document.dirty);
+    }
+
     @Test
     void glueNameIdIntensityAndDrawableWritesUseNativeUndoEnvelope() {
         final Fixture fixture = new Fixture();

@@ -113,6 +113,13 @@ final class EditorObjectWriteAccess {
         final ObjectRef value,
         final ArtMeshGeometry geometry
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                replaceArtMeshGeometry(modelSource, value, geometry);
+                return null;
+            });
+            return;
+        }
         Objects.requireNonNull(geometry, "geometry");
         requireWriteAuthorized(Kind.ART_MESH);
         if (geometry.equals(core.geometry(value.source(), value.instance()))) return;
@@ -179,6 +186,13 @@ final class EditorObjectWriteAccess {
         final DeformerRef value,
         final WarpGrid grid
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                replaceWarpGrid(modelSource, value, grid);
+                return null;
+            });
+            return;
+        }
         Objects.requireNonNull(grid, "grid");
         requireWriteAuthorized(Kind.WARP);
         if (grid.equals(core.warpGrid(value.source(), value.instance()))) return;
@@ -243,6 +257,13 @@ final class EditorObjectWriteAccess {
         final DeformerRef value,
         final RotationDeformerForm form
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                replaceRotationForm(modelSource, value, form);
+                return null;
+            });
+            return;
+        }
         Objects.requireNonNull(form, "form");
         requireWriteAuthorized(Kind.ROTATION);
         final RotationDeformerForm original = core.rotationForm(value.instance());
@@ -300,6 +321,13 @@ final class EditorObjectWriteAccess {
         final String action,
         final Runnable mutation
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                write(kind, modelSource, objectSource, action, mutation);
+                return null;
+            });
+            return;
+        }
         requireWriteAuthorized(kind);
         writeEnvelope(UndoKind.ALL_EDIT, kind, modelSource, List.of(objectSource), action, mutation, false);
     }
@@ -311,6 +339,13 @@ final class EditorObjectWriteAccess {
         final String action,
         final Runnable mutation
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                writeClipMaskBatch(modelSource, undoSources, action, mutation);
+                return null;
+            });
+            return;
+        }
         writeEnvelope(
             UndoKind.ALL_EDIT,
             Kind.ART_MESH,
@@ -340,6 +375,7 @@ final class EditorObjectWriteAccess {
         final Runnable mutation, final BooleanSupplier applied,
         final Runnable compensation, final BooleanSupplier restored
     ) {
+        EditorHostThread.requireHostThread("Cubism ArtMesh property write");
         if (authoringCoordinator == null || !resolver.authorizesFeature(
             "adapter.editor-model.readwrite", "cubism.editor-history.read",
             EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
@@ -391,6 +427,10 @@ final class EditorObjectWriteAccess {
         final Runnable mutation,
         final boolean inspectorRefresh
     ) {
+        EditorHostThread.requireHostThread("Cubism object write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -529,6 +569,13 @@ final class EditorObjectWriteAccess {
         final boolean value,
         final String action
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setSourceFlag(kind, modelSource, objectSource, readAlias, writeAlias, value, action);
+                return null;
+            });
+            return;
+        }
         requireWriteAuthorized(kind);
         if (core.sourceFlag(readAlias, objectSource, action) == value) return;
         write(kind, modelSource, objectSource, action, () ->
@@ -546,6 +593,13 @@ final class EditorObjectWriteAccess {
         final float value,
         final String action
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setOpacity(kind, modelSource, objectSource, form, readAlias, writeAlias, value, action);
+                return null;
+            });
+            return;
+        }
         if (!Float.isFinite(value)) throw new IllegalArgumentException("opacity must be finite");
         requireWriteAuthorized(kind);
         final float original = number(resolver.invoke(readAlias, form), action);
@@ -588,6 +642,13 @@ final class EditorObjectWriteAccess {
         final Object objectSource,
         final String id
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setId(modelSource, objectSource, id);
+                return null;
+            });
+            return;
+        }
         if (id == null) throw new IllegalArgumentException("id must not be null");
         final String current = core.objectId(objectSource);
         if (id.equals(current)) return;
@@ -651,6 +712,13 @@ final class EditorObjectWriteAccess {
         final ObjectRef current,
         final Optional<DeformerId> targetDeformer
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setTargetDeformer(identity, modelSource, model, current, targetDeformer);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         final Object target;
         if (targetDeformer.isPresent()) {
@@ -678,6 +746,9 @@ final class EditorObjectWriteAccess {
         } else {
             target = null;
         }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "ArtMesh.setTargetDeformer"
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -752,6 +823,13 @@ final class EditorObjectWriteAccess {
         final ObjectRef current,
         final List<ArtMeshId> maskIds
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setClippingMaskIds(identity, modelSource, model, current, maskIds);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         final ArrayList<Object> resolved = new ArrayList<>(maskIds.size());
         for (ArtMeshId maskId : maskIds) {
@@ -785,6 +863,13 @@ final class EditorObjectWriteAccess {
         final Object objectSource,
         final boolean value
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setInvertedMask(modelSource, objectSource, value);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         if (core.sourceFlag("cubism.editor-model.art-mesh-source.inverted-mask", objectSource, "ArtMesh inverted-mask state") == value) {
             return;
@@ -809,6 +894,13 @@ final class EditorObjectWriteAccess {
         final Object form,
         final int value
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setDrawOrder(modelSource, objectSource, form, value);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         final int clamped = Math.max(0, Math.min(1000, value));
         final int original = integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", form), "draw order");
@@ -828,6 +920,13 @@ final class EditorObjectWriteAccess {
         final Color color,
         final String action
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setColor(modelSource, objectSource, form, colorAlias, color, action);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         if (targetVersionNumber(modelSource) < TARGET_VERSION_SDK42) {
             throw new UnsupportedOperationException(
@@ -874,6 +973,13 @@ final class EditorObjectWriteAccess {
         final Object objectSource,
         final ColorComposition composition
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setColorComposition(modelSource, objectSource, composition);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         final Object hostValue = hostEnumValue(
             "cubism.editor-model.color-composition.values",
@@ -894,6 +1000,13 @@ final class EditorObjectWriteAccess {
         final Object objectSource,
         final AlphaComposition composition
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setAlphaComposition(modelSource, objectSource, composition);
+                return null;
+            });
+            return;
+        }
         if (isCubism52()) {
             throw new UnsupportedOperationException(
                 "ArtMesh alpha composition is unavailable on Cubism 5.2 hosts (AlphaComposition introduced in 5.3)."
@@ -935,6 +1048,13 @@ final class EditorObjectWriteAccess {
         final Object artMesh,
         final boolean value
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setCulling(modelSource, objectSource, artMesh, value);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         if (core.sourceFlag("cubism.editor-model.art-mesh-source.culling", objectSource, "ArtMesh culling state") == value) {
             return;
@@ -952,6 +1072,13 @@ final class EditorObjectWriteAccess {
         final Object objectSource,
         final String userData
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism object write", () -> {
+                setUserData(modelSource, objectSource, userData);
+                return null;
+            });
+            return;
+        }
         requireInspectorWriteAuthorized();
         if (userData == null) throw new IllegalArgumentException("userData must not be null");
         writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh user data", () ->
