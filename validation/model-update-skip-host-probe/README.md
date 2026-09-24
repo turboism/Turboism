@@ -742,13 +742,55 @@ Mechanism — host call-site transform, no GL proxy:
   residual attribution caveat, not a correctness one).
 - Elision requires `armed` (the `turboism.upload-elision.gate` slot, flipped
   per leg by the workload) AND the frame-skipped flag AND a recorded baseline
-  for the same `(gl context identity, buffer name)` with identical byte size,
-  identical `Buffer` object identity and identical `position`/`limit`. **No
-  payload bytes are compared** — this is an upper bound, not a
-  correctness-preserving cache. The first qualifying upload always executes
-  and records the baseline. Context identity changes, buffer lifecycle
+  for the same `(gl context identity, buffer name)`. Two compare modes,
+  selected once at install time via
+  `-Dturboism.validation.skippedFrameUploadElision.compare=identity|content`
+  (default `identity`):
+  - `identity`: byte size, `Buffer` object identity and `position`/`limit`
+    must equal the baseline. **No payload bytes are compared** — the pure
+    upper bound.
+  - `content`: meta signature (size + region) must match AND the payload is
+    compared byte-for-byte against a retained snapshot of the last uploaded
+    content via `Buffer.mismatch` (JDK vectorized compare). Different buffer
+    objects with equal bytes elide; the same buffer object mutated in place
+    still passes (the host's `a(float[])`/`a(int[])` path refills the reused
+    direct buffer). Snapshots retain one payload copy per tracked entry —
+    `snapshotBytes` reports the retained total (the experiment's memory cost,
+    explicitly reported per leg and at close), `compares`/`compareNanos`
+    report comparison work.
+- The first qualifying upload always executes and records the baseline (and
+  the snapshot, in content mode). Context identity changes, buffer lifecycle
   notifications, the first call of a non-skipped-frame run, native upload
   exceptions and any observer failure all clear the whole table.
+
+Pass-reason accounting per leg (`leg.N.uploadElision.*`):
+
+- `floatCalls/floatElided/floatPassed`, `indexCalls/indexElided/indexPassed`
+  — split by wrapper kind (`mesh/a/b` vs `mesh/a/c`).
+- `passGate` — frame not skipped or leg gate disarmed; `passNoBaseline` —
+  first-seen `(gl,name)`; `passSize`, `passRegion`, `passBuffer` — baseline
+  exists but the byte size, position/limit or buffer object differs
+  (`passBuffer` only in identity mode); `passContent` — meta matched but
+  payload bytes differ (content mode only).
+
+#### First-measure findings (5303 heavy wheel, identity mode)
+
+- 21.5% of consults elided; 79% passed. Every leg's `clears` stayed 0 — no
+  context, lifecycle or exception clears — so all passes were signature
+  misses. The reason counters exist to attribute those misses.
+- Bytecode research (`mesh/a/a`, `mesh/a/b`, `mesh/a/c`, `shader/A`): the
+  payload buffer is a **persistent direct buffer reused across frames** —
+  `A.a(FloatBuffer,[FIII)` clears+puts into the same object while capacity
+  suffices and only `allocateDirect`s on growth, so object identity, position
+  (0) and limit (capacity) are stable when the content size is stable. The
+  base-class `l()` marks dirty *and* bumps a private `k` version counter, but
+  `l()` only runs from property setters while `a(float[])`/`a(int[])` write
+  content without bumping `k` — so the counter is not a trustworthy
+  content-version signature and is not used.
+- Expectation for the reason split: `passBuffer` dominates iff the host
+  re-wraps or re-allocates payload buffers per frame (auxiliary UI meshes);
+  `passNoBaseline`/`passSize` dominate iff new buffers appear per frame;
+  `passGate` dominates iff uploads run while the frame-skipped flag is low.
 
 Markers:
 
@@ -785,6 +827,8 @@ bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg
   --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
   --jvm-option '-Dturboism.validation.skippedFrameUploadElision=true' \
   --result-timeout 1200
+# content-compare run (adds a per-entry payload snapshot; watch snapshotBytes):
+... --jvm-option '-Dturboism.validation.skippedFrameUploadElision.compare=content'
 ```
 
 One run yields off/on/on/off legs (workload variants `0,1,1,0`): the flag
