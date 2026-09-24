@@ -14,7 +14,7 @@ javac --release 17 -d "$out" \
   "$src/NativeParitySequence.java" "$tests/NativeParitySequenceTest.java" \
   "$src/NativeInteractionHost.java" "$tests/NativeInteractionHostTest.java" \
   "$src/PreparationWatchdog.java" "$tests/PreparationWatchdogTest.java" \
-  "$src/GlSubmissionProbe.java" "$src/GlCallCategory.java" "$src/UploadPayloadObserver.java" \
+  "$src/GlSubmissionProbe.java" "$src/GlCallCategory.java" "$src/GlRedundancyTracker.java" "$src/UploadPayloadObserver.java" \
   "$src/ProcessMemorySample.java" "$src/BenchmarkResources.java" "$src/NarrowUniformTrial.java" \
   "$src/UniformLocationCache.java" "$src/UniformValueCache.java" "$src/UniformLocationTrial.java" "$src/FrameReadback.java" \
   "$tests/GlSubmissionProbeTest.java" "$tests/GlCallCategoryTest.java" "$tests/UploadPayloadObserverTest.java" \
