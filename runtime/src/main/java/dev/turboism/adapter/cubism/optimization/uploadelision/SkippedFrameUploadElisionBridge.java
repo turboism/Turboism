@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.optimization.uploadelision;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.ClearKind;
+import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.Compare;
+import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.Kind;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -41,13 +43,24 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     public static final String FAILURE_PROPERTY = "turboism.upload-elision.failure";
     /** Payload-free statistics slot. */
     public static final String STATS_PROPERTY = "turboism.upload-elision.stats";
+    /**
+     * Baseline matching strategy: {@code identity} (default, object identity +
+     * size + region) or {@code content} (meta signature plus a
+     * {@link Buffer#mismatch} check against a retained payload snapshot —
+     * reports {@code snapshotBytes} and {@code compareNanos}).
+     */
+    public static final String COMPARE_PROPERTY =
+        "turboism.validation.skippedFrameUploadElision.compare";
 
     private static final int MAX_WRAPPER_KINDS = 8;
 
     private final MethodHandle nameHandle;
     private final MethodHandle sizeHandle;
     private final Map<Class<?>, MethodHandle> bufferHandles = new ConcurrentHashMap<>();
-    private final SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker();
+    private final Map<Class<?>, Kind> kinds = new ConcurrentHashMap<>();
+    private final SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker(
+        "content".equals(System.getProperty(COMPARE_PROPERTY, "identity"))
+            ? Compare.CONTENT : Compare.IDENTITY);
     private final AtomicBoolean active = new AtomicBoolean();
     private final BiPredicate<Object, Object> predicate = this::test;
     private final Consumer<Boolean> gate = this::setArmed;
@@ -128,8 +141,13 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     private boolean test(final Object wrapper, final Object gl) {
         if (!active.get()) return false;
         try {
-            final MethodHandle bufferGet = bufferHandle(wrapper.getClass());
+            final Class<?> wrapperType = wrapper.getClass();
+            final MethodHandle bufferGet = bufferHandle(wrapperType);
             if (bufferGet == null) { tracker.observerFailed(); return false; }
+            final Kind kind = kinds.computeIfAbsent(wrapperType, type ->
+                type.getName().replace('.', '/')
+                    .equals(SkippedFrameUploadElisionTarget.INDEX_OWNER)
+                    ? Kind.INDEX : Kind.FLOAT);
             final IntBuffer names = (IntBuffer) nameHandle.invoke(wrapper);
             final Buffer buffer = (Buffer) bufferGet.invoke(wrapper);
             if (names == null || names.capacity() < 1 || buffer == null) {
@@ -145,7 +163,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                 return false;
             }
             return tracker.consider(gl, name, size, buffer, position, limit,
-                frameSkipped(), armed);
+                frameSkipped(), armed, kind);
         } catch (Throwable observerFailure) {
             tracker.observerFailed();
             return false;
