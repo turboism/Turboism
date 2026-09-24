@@ -53,6 +53,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     /** Button plus the self-built per-state icon entities mounted inside it. */
     private record BuiltButton(Object button, Map<Integer, Object> stateEntities) { }
 
+    /** @return the process-wide registry wired to the runtime tool-strip mount hook */
     public static RuntimeViewContextMenuRegistry getInstance() {
         return INSTANCE;
     }
