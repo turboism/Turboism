@@ -1659,3 +1659,8 @@ n8 是这套链路的首次实机有效性证据。
 - **T17 已提交**（input-path@3f06f8789，agent 2116dbed/probe 0ece749e 与
   声明一致，叠加生产 uploadElision）：wheel-r1 2d9da268 / wheel-r2
   0be033d9 / pan c88b8400 / drag 66710607。
+  **T17 结果**：4/4 PASS、sites=2、handler 4.2–5.0→1.1–1.2ms、总
+  −1.3~−3.9ms、parity 全 true（监督登记）。
+- **T19 JFR 预算腿已提交**（同 worktree）：stack 3272baaa（叠加两 elision）
+  / base e3100aab（生产默认）；stackdepth=128 经 FlightRecorderOptions，
+  sample period 硬编码 5ms 不可调。诊断腿。
