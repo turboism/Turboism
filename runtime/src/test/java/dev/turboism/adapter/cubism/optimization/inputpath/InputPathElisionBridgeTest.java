@@ -237,6 +237,23 @@ public class InputPathElisionBridgeTest {
         assertEquals(0L, snapshot.get("focusElided"));
     }
 
+    @Test void productionInstallArmsImmediately() throws Exception {
+        setUp();
+        bridge.close();
+        bridge = new InputPathElisionBridge(loader);
+        bridge.install(true);
+        component.showing = true;
+        component.cursorSet = true;
+        component.cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
+        final Class<?> cursorType = loader.loadClass(CCURSOR.replace('/', '.'));
+        final Object packCursor = cursorType.getDeclaredConstructor().newInstance();
+        cursorType.getField("jcursor").set(packCursor, component.cursor);
+        assertTrue(cursorSlot().test(widget, packCursor),
+            "production installs consult armed without the leg gate");
+        assertEquals(1L, stats().get("cursorElided"));
+        assertEquals(1L, stats().get("armed"));
+    }
+
     @Test void missingComponentCountsObserverFailure() throws Exception {
         setUp();
         arm(true);

@@ -1025,11 +1025,18 @@ zoom-label text change on every wheel event — `JLabel.setText` already
 de-duplicates identical text, so no provably safe third site exists; it is
 reported here, not implemented.
 
-Flag (default OFF):
+Flags (default OFF):
 
 ```text
--Dturboism.validation.inputPathElision=true
+-Dturboism.validation.inputPathElision=true   # harness: per-leg gate, off/on/on/off
+-Dturboism.optimization.inputPathElision=true # production opt-in (settings page toggle)
 ```
+
+The production switch is wired like `uploadElision`: `launcher.inputPathElision`
+in config.json (persisted via the settings page), emitted only when enabled by
+the managed launcher, hook id `cubism.render.input-path-elision` under the
+startup hook policy, armed at install. When both flags are set the validation
+mode wins — the workload owns the leg gate.
 
 Mechanism — host method-entry transform, JDK reads only:
 

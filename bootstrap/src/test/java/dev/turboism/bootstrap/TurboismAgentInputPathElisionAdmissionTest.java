@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionBridge;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTransformer;
 import org.junit.jupiter.api.Test;
 
@@ -51,6 +52,42 @@ final class TurboismAgentInputPathElisionAdmissionTest {
                 System.clearProperty(InputPathElisionTransformer.ENABLE_PROPERTY);
             } else {
                 System.setProperty(InputPathElisionTransformer.ENABLE_PROPERTY, prior);
+            }
+        }
+    }
+
+    @Test
+    void productionFlagOffInstallsNothing() {
+        withProperty(InputPathElisionBridge.ENABLE_PROPERTY, "false", () -> {
+            final InputPathElisionHookContributor contributor =
+                new InputPathElisionHookContributor();
+            // Neither flag set: NOT_ADMITTED before any host access.
+            assertNotNull(contributor.install(environment(true)));
+        });
+    }
+
+    @Test
+    void productionFlagOnWithoutHostFailsSafe() {
+        withProperty(InputPathElisionBridge.ENABLE_PROPERTY, "true", () -> {
+            final InputPathElisionHookContributor contributor =
+                new InputPathElisionHookContributor();
+            // The missing host surfaces as installation=FAILED inside install();
+            // production opt-in must never stop official startup.
+            assertNotNull(contributor.install(environment(true)));
+        });
+    }
+
+    private static void withProperty(final String name, final String value,
+                                     final Runnable body) {
+        final String prior = System.getProperty(name);
+        System.setProperty(name, value);
+        try {
+            body.run();
+        } finally {
+            if (prior == null) {
+                System.clearProperty(name);
+            } else {
+                System.setProperty(name, prior);
             }
         }
     }

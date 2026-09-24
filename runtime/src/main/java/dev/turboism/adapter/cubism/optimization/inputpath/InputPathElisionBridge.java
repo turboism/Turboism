@@ -45,6 +45,8 @@ import javax.swing.SwingUtilities;
  */
 public final class InputPathElisionBridge implements AutoCloseable {
 
+    /** Production opt-in switch, persisted by the managed launcher. */
+    public static final String ENABLE_PROPERTY = "turboism.optimization.inputPathElision";
     /** Slot for the {@code Predicate<Object>} focus consult. */
     public static final String FOCUS_PROPERTY = "turboism.input-path.focus";
     /** Slot for the {@code BiPredicate<Object,Object>} cursor consult. */
@@ -86,8 +88,21 @@ public final class InputPathElisionBridge implements AutoCloseable {
             MethodType.methodType(Cursor.class));
     }
 
+    /** The production switch; the validation flag is intentionally separate. */
+    public static boolean enabledByPreference() {
+        return Boolean.getBoolean(ENABLE_PROPERTY);
+    }
+
     /** Occupies the consult/gate/stats slots; refuses to replace another installation. */
     public synchronized void install() {
+        install(false);
+    }
+
+    /**
+     * Occupies the slots; production installs arm the consult immediately while
+     * validation installs stay disarmed until the workload's leg gate flips.
+     */
+    public synchronized void install(final boolean production) {
         if (active.get()) throw new IllegalStateException("input path elision already installed");
         final Properties properties = System.getProperties();
         synchronized (properties) {
@@ -102,6 +117,7 @@ public final class InputPathElisionBridge implements AutoCloseable {
                 properties.put(STATS_PROPERTY, statistics);
                 installedProperties = properties;
                 active.set(true);
+                armed = production;
             } catch (RuntimeException | Error failure) {
                 properties.remove(FOCUS_PROPERTY, focus);
                 properties.remove(CURSOR_PROPERTY, cursor);
