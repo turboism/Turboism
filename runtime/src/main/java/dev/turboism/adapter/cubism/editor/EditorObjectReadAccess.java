@@ -37,6 +37,7 @@ import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -648,4 +649,56 @@ final class EditorObjectReadAccess {
         }
     }
 
+
+    /**
+     * Enumerates every drawable ArtMesh and deformer of the bound model generation as
+     * native source/instance pairs with hierarchy links, for cross-object authoring
+     * operations such as the Warp mirror compensation.
+     */
+    List<NativeObjectRef> nativeObjects(
+        final String identity,
+        final Object modelSource,
+        final Object model
+    ) {
+        final List<DeformerRef> deformers = core.deformerRefs(identity, modelSource, model);
+        final java.util.IdentityHashMap<Object, String> deformerIds = new java.util.IdentityHashMap<>();
+        for (DeformerRef deformer : deformers) deformerIds.put(deformer.source(), deformer.id());
+        final ArrayList<NativeObjectRef> values = new ArrayList<>();
+        for (DeformerRef deformer : deformers) {
+            values.add(nativeObject(deformer.id(), deformer.source(), deformer.instance(), deformer.kind(), deformerIds));
+        }
+        for (ObjectRef mesh : core.artMeshes(identity, modelSource, model)) {
+            values.add(nativeObject(mesh.id(), mesh.source(), mesh.instance(), Kind.ART_MESH, deformerIds));
+        }
+        return List.copyOf(values);
+    }
+
+    private NativeObjectRef nativeObject(
+        final String id,
+        final Object source,
+        final Object instance,
+        final Kind kind,
+        final java.util.IdentityHashMap<Object, String> deformerIds
+    ) {
+        final Object target = core.targetDeformerSource(source);
+        final String targetId = target == null ? null : deformerIds.get(target);
+        final Object locked = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", source
+        );
+        return new NativeObjectRef(id, source, instance, kind.name(), targetId, Boolean.TRUE.equals(locked));
+    }
+
+    /**
+     * Native handle for one Editor object: identity, live source and instance, object kind
+     * ({@code ART_MESH}/{@code WARP}/{@code ROTATION}), parent-deformer id, and the
+     * effective (hierarchy-including) lock state.
+     */
+    record NativeObjectRef(
+        String id,
+        Object source,
+        Object instance,
+        String kind,
+        String targetDeformerId,
+        boolean locked
+    ) { }
 }
