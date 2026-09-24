@@ -45,16 +45,17 @@ public final class ProtectedExportObfuscationPlan {
 
     /**
      * Deterministic GUID → protected-identity mapping for every censused ArtMesh,
-     * plus the stable GUIDs of Glue sources admitted as an untouched pass-through
-     * channel. Glue GUIDs never appear in {@code byGuid}: a Glue keeps its
-     * authored name, ID and mesh references.
+     * plus the stable GUIDs of every census member admitted as an untouched
+     * pass-through channel (Glue, ArtPath, alias). Pass-through GUIDs never appear
+     * in {@code byGuid}: a pass-through object keeps its authored name, ID and
+     * references.
      */
-    public record Plan(Map<String, Target> byGuid, List<String> passThroughGlueGuids) {
+    public record Plan(Map<String, Target> byGuid, List<String> passThroughGuids) {
         public Plan {
             byGuid = java.util.Collections.unmodifiableMap(
                 new LinkedHashMap<>(Objects.requireNonNull(byGuid, "byGuid")));
-            passThroughGlueGuids = List.copyOf(Objects.requireNonNull(
-                passThroughGlueGuids, "passThroughGlueGuids"));
+            passThroughGuids = List.copyOf(Objects.requireNonNull(
+                passThroughGuids, "passThroughGuids"));
         }
 
         /** Every planned drawable-ID token. */
@@ -104,16 +105,20 @@ public final class ProtectedExportObfuscationPlan {
         // additionally guarantees every rewrite is a real change.
         final Set<String> reservedIds = new LinkedHashSet<>();
         final Set<String> reservedNames = new LinkedHashSet<>();
-        final Set<String> glueGuids = new LinkedHashSet<>();
+        final Set<String> passThroughGuids = new LinkedHashSet<>();
         for (Object object : host.allObjects(modelSource)) {
-            if (host.isGlueSource(object)) {
-                // Pass-through channel: the Glue's own identity is reserved like
-                // every other source's but never planned for a rewrite.
+            if (object == null || !host.isControllableSource(object)) {
+                continue;
+            }
+            if (!host.isWarpDeformer(object) && !host.isRotationDeformer(object)
+                && !host.isArtMeshSource(object) && !host.isPartSource(object)) {
+                // Pass-through channel: the object's own identity is reserved
+                // like every other source's but never planned for a rewrite.
                 final String guid = host.objectGuid(object);
                 if (guid == null || guid.isBlank()) {
-                    throw reject("protected-export.obfuscation-glue-identity-missing");
+                    throw reject("protected-export.obfuscation-pass-through-identity-missing");
                 }
-                glueGuids.add(guid);
+                passThroughGuids.add(guid);
             }
             final String id = host.objectIdString(object);
             if (id != null) {
@@ -176,7 +181,7 @@ public final class ProtectedExportObfuscationPlan {
                 throw reject("protected-export.obfuscation-unallocatable");
             }
         }
-        final List<String> passThrough = new ArrayList<>(glueGuids);
+        final List<String> passThrough = new ArrayList<>(passThroughGuids);
         passThrough.sort(Comparator.naturalOrder());
         return new Plan(result, passThrough);
     }
