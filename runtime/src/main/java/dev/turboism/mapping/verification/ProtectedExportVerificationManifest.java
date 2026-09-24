@@ -12,11 +12,13 @@ import java.util.Set;
  * used to retire the dirty copy. Only the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts
  * admit it.</p>
  *
- * <p>The reviewed 5.2.03 record declares 135 selectors rather than 138: Cubism 5.2.03's
+ * <p>The reviewed 5.2.03 record declares 138 selectors rather than 141: Cubism 5.2.03's
  * {@code CModelSource} predates the advanced-blend, alias and offscreen-rendering feature
  * predicates, so the three {@code contain*} gates for features the host cannot express are
  * absent from the record and from {@link #cubism52Aliases()}. They are not optional on 5.3.x —
- * the 5.3 records still pin all 138 selectors.</p>
+ * the 5.3 records still pin all 141 selectors. The three {@code glue-source.*} selectors admit
+ * the Glue census reads — Glue is an untouched pass-through channel, pinned by identity so a
+ * mid-session drift fails closed.</p>
  */
 public final class ProtectedExportVerificationManifest {
 
@@ -38,7 +40,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.protected-export.static",
-        "b608bedf7d54e85dcddfd9791a525f18f819f9e9062a84645f715425eda3eb43",
+        "0289622e33f82f906afb7d83acbd79362c4c5edc3adb3d4f882bc711225bc3ac",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -47,7 +49,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.protected-export.static",
-        "af4637b318d84ea77cffd5769a95c952bfb2afc74f2e5785c564f5995dd0a147",
+        "6c61460eab8b19f8afc244340cab2a1a501506d8f900228a11f152c3541c5fd7",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -56,7 +58,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.protected-export.static",
-        "c4c64a6163bb715350c83eb02b5bb14e8a3b560acf8239bd9c94481e11b01ff5",
+        "0990701147c84e7e8c67af3df3edf5c9417483c6a92d3bc98b549acbe15fe17f",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -128,6 +130,9 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.file-handle.loader",
         "cubism.protected-export.file-handle.release",
         "cubism.protected-export.file-handle.unload",
+        "cubism.protected-export.glue-source.class",
+        "cubism.protected-export.glue-source.target-art-mesh-a",
+        "cubism.protected-export.glue-source.target-art-mesh-b",
         "cubism.protected-export.guid.class",
         "cubism.protected-export.guid.uuid-string",
         "cubism.protected-export.id.class",

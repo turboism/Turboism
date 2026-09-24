@@ -3,6 +3,7 @@ package dev.turboism.plugin.protectedexport;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.PartId;
 
 import java.util.Collections;
@@ -27,7 +28,8 @@ record ProtectedExportPlan(
     List<PartId> partIds,
     List<ParameterId> parameterIds,
     Map<ArtMeshId, ArtMeshTarget> artMeshTargets,
-    List<PartSnapshot> partSnapshots
+    List<PartSnapshot> partSnapshots,
+    List<GlueSnapshot> glueSnapshots
 ) {
     private static final Pattern TARGET_ID_PATTERN = Pattern.compile("[0-9a-zA-Z_@]+");
 
@@ -38,6 +40,7 @@ record ProtectedExportPlan(
         parameterIds = List.copyOf(Objects.requireNonNull(parameterIds, "parameterIds"));
         artMeshTargets = immutableOrderedMap(artMeshTargets, "artMeshTargets");
         partSnapshots = List.copyOf(Objects.requireNonNull(partSnapshots, "partSnapshots"));
+        glueSnapshots = List.copyOf(Objects.requireNonNull(glueSnapshots, "glueSnapshots"));
     }
 
     /**
@@ -79,6 +82,28 @@ record ProtectedExportPlan(
                 || !TARGET_ID_PATTERN.matcher(idToken).matches()) {
                 throw new IllegalArgumentException("ArtMesh target ID token is invalid");
             }
+        }
+    }
+
+    /**
+     * Read-only identity of one Glue relation admitted as an untouched
+     * pass-through channel: the plan never renames, re-identifies or retargets a
+     * Glue. {@code drawableA}/{@code drawableB} are the referenced ArtMesh IDs and
+     * {@code parameterIds} the Glue's bound parameters — both verified against the
+     * model census before admission.
+     */
+    record GlueSnapshot(
+        GlueId id,
+        ArtMeshId drawableA,
+        ArtMeshId drawableB,
+        List<ParameterId> parameterIds
+    ) {
+        GlueSnapshot {
+            id = Objects.requireNonNull(id, "id");
+            drawableA = Objects.requireNonNull(drawableA, "drawableA");
+            drawableB = Objects.requireNonNull(drawableB, "drawableB");
+            parameterIds = List.copyOf(
+                Objects.requireNonNull(parameterIds, "parameterIds"));
         }
     }
 

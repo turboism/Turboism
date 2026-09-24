@@ -203,6 +203,8 @@ public final class ProtectedExportStaging {
      * @param expectedParameters parameter ID → expected contract (range, default,
      *     repeat, baked key positions); staged parameters must match every field
      * @param expectedPartIds the copy's part ID set; staged must equal it
+     * @param expectedGlueIds the copy's Glue ID set; staged must carry them
+     *     verbatim — Glue is pass-through, never re-identified
      * @param behavior host-side evaluated-geometry oracle captured post-flatten;
      *     when non-null the staged model must reproduce it under the identical
      *     parameter-sample replay, or validation fails closed
@@ -213,6 +215,7 @@ public final class ProtectedExportStaging {
         final Set<String> expectedDrawableIds,
         final Map<String, ParameterExpectation> expectedParameters,
         final Set<String> expectedPartIds,
+        final Set<String> expectedGlueIds,
         final BehaviorSnapshot behavior
     ) {
         if (stagedPick == null || reportedPaths == null || reportedPaths.isEmpty()) {
@@ -252,7 +255,7 @@ public final class ProtectedExportStaging {
                 sawMoc = true;
                 final MocFailure failure = validateMoc(
                     path, expectedDrawableIds, expectedParameters, expectedPartIds,
-                    behavior);
+                    expectedGlueIds, behavior);
                 if (failure != null) {
                     return Validation.rejected(failure.key(), failure.detail());
                 }
@@ -280,6 +283,7 @@ public final class ProtectedExportStaging {
         final Set<String> expectedDrawableIds,
         final Map<String, ParameterExpectation> expectedParameters,
         final Set<String> expectedPartIds,
+        final Set<String> expectedGlueIds,
         final BehaviorSnapshot behavior
     ) {
         if (mocLoader == null) {
@@ -338,6 +342,16 @@ public final class ProtectedExportStaging {
                         return new MocFailure(
                             "protected-export.moc3-deformers-remain",
                             "remaining=" + bounded(deformerIds));
+                    }
+                    // Glue is pass-through: the staged artifact must carry every
+                    // censused Glue under its unchanged ID — no drops, no extras.
+                    final Set<String> glueIds = model.glues().stream()
+                        .map(g -> g.id())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                    if (!glueIds.equals(expectedGlueIds)) {
+                        return new MocFailure(
+                            "protected-export.moc3-glue-ids",
+                            setDiffDetail(glueIds, expectedGlueIds));
                     }
                     return null;
                 }
