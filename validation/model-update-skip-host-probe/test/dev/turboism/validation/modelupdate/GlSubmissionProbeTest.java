@@ -17,6 +17,30 @@ public final class GlSubmissionProbeTest {
         void glGenBuffers(int n, java.nio.IntBuffer buffers);
         void glDeleteBuffers(int n, java.nio.IntBuffer buffers);
         void glFail();
+        void glActiveTexture(int texture);
+        void glBindTexture(int target, int texture);
+        void glBindSampler(int unit, int sampler);
+        void glUseProgram(int program);
+        void glEnable(int cap);
+        void glDisable(int cap);
+        void glEnablei(int cap, int index);
+        void glBlendFunc(int sfactor, int dfactor);
+        void glBlendFuncSeparate(int srcRGB, int dstRGB, int srcAlpha, int dstAlpha);
+        void glBlendEquation(int mode);
+        void glCullFace(int mode);
+        void glDepthMask(boolean flag);
+        void glStencilFunc(int func, int ref, int mask);
+        void glStencilFuncSeparate(int face, int func, int ref, int mask);
+        void glViewport(int x, int y, int width, int height);
+        void glScissor(int x, int y, int width, int height);
+        void glPixelStorei(int pname, int param);
+        void glEnableVertexAttribArray(int index);
+        void glVertexAttribPointer(int index, int size, int type, boolean normalized, int stride, long pointer);
+        void glUniform1f(int location, float v0);
+        void glUniformMatrix4fv(int location, int count, boolean transpose, java.nio.FloatBuffer value);
+        void glLinkProgram(int program);
+        void glDeleteTextures(int n, java.nio.IntBuffer textures);
+        void glTexParameteri(int target, int pname, int param);
     }
     public static final class NativeGL implements TestGL {
         int uploads, errorQueries;
@@ -40,8 +64,37 @@ public final class GlSubmissionProbeTest {
         @Override public void glUniform1i(int location, int v0) { }
         @Override public void glReadPixels(int x, int y, int width, int height, int format, int type, java.nio.Buffer data) { }
         @Override public void glGenBuffers(int n, java.nio.IntBuffer buffers) { }
-        @Override public void glDeleteBuffers(int n, java.nio.IntBuffer buffers) { }
+        @Override public void glDeleteBuffers(int n, java.nio.IntBuffer buffers) { deletes++; }
         @Override public void glFail() { throw expected; }
+        int enables, deletes, textures;
+        boolean failNextEnable;
+        @Override public void glActiveTexture(int texture) { }
+        @Override public void glBindTexture(int target, int texture) { textures++; }
+        @Override public void glBindSampler(int unit, int sampler) { }
+        @Override public void glUseProgram(int program) { }
+        @Override public void glEnable(int cap) {
+            enables++;
+            if (failNextEnable) { failNextEnable = false; throw expected; }
+        }
+        @Override public void glDisable(int cap) { }
+        @Override public void glEnablei(int cap, int index) { }
+        @Override public void glBlendFunc(int sfactor, int dfactor) { }
+        @Override public void glBlendFuncSeparate(int srcRGB, int dstRGB, int srcAlpha, int dstAlpha) { }
+        @Override public void glBlendEquation(int mode) { }
+        @Override public void glCullFace(int mode) { }
+        @Override public void glDepthMask(boolean flag) { }
+        @Override public void glStencilFunc(int func, int ref, int mask) { }
+        @Override public void glStencilFuncSeparate(int face, int func, int ref, int mask) { }
+        @Override public void glViewport(int x, int y, int width, int height) { }
+        @Override public void glScissor(int x, int y, int width, int height) { }
+        @Override public void glPixelStorei(int pname, int param) { }
+        @Override public void glEnableVertexAttribArray(int index) { }
+        @Override public void glVertexAttribPointer(int index, int size, int type, boolean normalized, int stride, long pointer) { }
+        @Override public void glUniform1f(int location, float v0) { }
+        @Override public void glUniformMatrix4fv(int location, int count, boolean transpose, java.nio.FloatBuffer value) { }
+        @Override public void glLinkProgram(int program) { }
+        @Override public void glDeleteTextures(int n, java.nio.IntBuffer textures) { deletes++; }
+        @Override public void glTexParameteri(int target, int pname, int param) { }
     }
     public static void main(String[] args) throws Exception {
         if (args.length > 0 && args[0].equals("--verify-real-api")) {
@@ -77,6 +130,8 @@ public final class GlSubmissionProbeTest {
         check(!report.contains("glCalls.getGL2ES2"), "view accessors are not GL calls");
         check(report.contains("glCategories.enabled=false\n"), "category attribution defaults off");
         check(!report.contains("glCategories.draw.calls"), "disabled categories emit no partition lines");
+        check(report.contains("glRedundancy.enabled=false\n"), "redundancy observation defaults off");
+        check(!report.contains("glRedundancy.glBindBuffer"), "disabled redundancy emits no method lines");
         boolean incompleteRejected = false;
         try { probe.requireValid(); } catch (IllegalStateException incomplete) { incompleteRejected = true; }
         check(incompleteRejected, "upload-only observation cannot certify renderer and readback coverage");
@@ -96,7 +151,9 @@ public final class GlSubmissionProbeTest {
         uploadTargetAccounting();
         categoryAttribution();
         categoryAttributionAllocation();
-        System.out.println("GlSubmissionProbeTest PASS (forwarding, views, intervals, bytes, exceptions, exact-payload observation, target reconciliation, category partition, allocation neutrality)");
+        redundancyAccounting();
+        redundancyAllocation();
+        System.out.println("GlSubmissionProbeTest PASS (forwarding, views, intervals, bytes, exceptions, exact-payload observation, target reconciliation, category partition, redundancy accounting, allocation neutrality)");
     }
     private static void repeatedUploadObservation() throws Exception {
         String property = "turboism.validation.modelUpdateUploadPayloads";
@@ -310,7 +367,216 @@ public final class GlSubmissionProbeTest {
         }
     }
 
-    private static void check(boolean condition, String message) {
+    /**
+     * Opt-in redundant-state observation: exact-repeat calls are counted per
+     * method, untracked mutators invalidate conservatively, and the first call
+     * after any invalidation is never redundant. Every native call still runs.
+     */
+    private static void redundancyAccounting() throws Exception {
+        String property = "turboism.validation.modelUpdateGlRedundancy";
+        String prior = System.getProperty(property);
+        System.setProperty(property, "true");
+        try {
+            NativeGL nativeGl = new NativeGL();
+            try (GlSubmissionProbe probe = new GlSubmissionProbe(TestGL.class, nativeGl)) {
+                TestGL gl = (TestGL) probe.wrapped();
+                probe.start();
+
+                gl.glBindBuffer(34962, 7);   // record
+                gl.glBindBuffer(34962, 7);   // redundant
+                gl.glBindBuffer(34962, 8);   // change
+                gl.glBindBuffer(34962, 7);   // change back, not redundant
+                gl.glBindBuffer(34963, 7);   // independent target slot
+                gl.glBindBuffer(34963, 7);   // redundant
+
+                gl.glActiveTexture(33984);   // record GL_TEXTURE0
+                gl.glActiveTexture(33984);   // redundant
+                gl.glBindTexture(3553, 5);   // record unit0/2D
+                gl.glBindTexture(3553, 5);   // redundant
+                gl.glActiveTexture(33985);   // switch unit
+                gl.glBindTexture(3553, 5);   // unit1: not redundant
+                gl.glActiveTexture(33984);
+                gl.glBindTexture(3553, 5);   // unit0 entry persisted: redundant
+
+                gl.glBindSampler(0, 3);
+                gl.glBindSampler(0, 3);      // redundant
+                gl.glBindSampler(1, 3);      // different unit: not
+
+                gl.glEnable(3042);           // record
+                gl.glEnable(3042);           // redundant
+                gl.glDisable(3042);          // cap now false
+                gl.glEnable(3042);           // change: not redundant
+                gl.glEnablei(3042, 0);       // untracked indexed write: invalidates cap
+                gl.glEnable(3042);           // first after invalidation: not
+                gl.glEnable(3042);           // redundant
+
+                gl.glBlendFunc(770, 771);
+                gl.glBlendFunc(770, 771);    // redundant
+                gl.glBlendFuncSeparate(770, 771, 1, 0);
+                gl.glBlendFuncSeparate(770, 771, 1, 0); // redundant, own slot
+                gl.glBlendEquation(32774);
+                gl.glBlendEquation(32774);   // redundant
+
+                gl.glDepthMask(true);
+                gl.glDepthMask(true);        // redundant
+                gl.glCullFace(1029);
+                gl.glCullFace(1029);         // redundant
+                gl.glStencilFunc(519, 0, 255);
+                gl.glStencilFunc(519, 0, 255); // redundant
+                gl.glStencilFuncSeparate(1028, 519, 0, 255); // invalidates raster
+                gl.glStencilFunc(519, 0, 255);   // first after invalidation: not
+
+                gl.glViewport(0, 0, 100, 100);
+                gl.glViewport(0, 0, 100, 100); // redundant
+                gl.glScissor(0, 0, 10, 10);
+                gl.glScissor(0, 0, 10, 10);    // redundant
+                gl.glPixelStorei(3317, 4);
+                gl.glPixelStorei(3317, 4);     // redundant
+                gl.glPixelStorei(3317, 1);     // change
+                gl.glPixelStorei(3317, 4);     // not
+
+                gl.glBindBuffer(34962, 9);     // array buffer for pointer keys
+                gl.glEnableVertexAttribArray(0);
+                gl.glEnableVertexAttribArray(0);  // redundant
+                gl.glEnableVertexAttribArray(1);  // different index: not
+                gl.glVertexAttribPointer(0, 2, 5126, false, 0, 0L);
+                gl.glVertexAttribPointer(0, 2, 5126, false, 0, 0L); // redundant
+                gl.glBindBuffer(34962, 10);       // pointer keys include ARRAY_BUFFER
+                gl.glVertexAttribPointer(0, 2, 5126, false, 0, 0L); // not redundant
+                gl.glVertexAttribPointer(0, 2, 5126, false, 0, 0L); // redundant
+                gl.glBindVertexArray(33);         // invalidates attribs + element binding
+                gl.glVertexAttribPointer(0, 2, 5126, false, 0, 0L); // not
+                gl.glEnableVertexAttribArray(0);  // not
+
+                gl.glUseProgram(9);
+                gl.glUseProgram(9);            // redundant
+                gl.glUniform1i(4, 1);
+                gl.glUniform1i(4, 1);          // redundant
+                gl.glUniform1i(4, 2);          // change
+                gl.glUniform1i(4, 1);          // change back: not
+                gl.glUniform1f(4, 0.5f);
+                gl.glUniform1f(4, 0.5f);       // redundant (float scalar form)
+                java.nio.FloatBuffer matrix = java.nio.FloatBuffer.wrap(new float[16]);
+                gl.glUniformMatrix4fv(7, 1, false, matrix);
+                gl.glUniformMatrix4fv(7, 1, false, matrix); // redundant buffer payload
+                matrix.put(0, 1f);
+                gl.glUniformMatrix4fv(7, 1, false, matrix); // changed payload: not
+                gl.glUseProgram(10);
+                gl.glUniform1i(4, 1);          // different program key: not
+                gl.glUseProgram(9);
+                gl.glUniform1i(4, 1);          // (9,4)=1 persisted: redundant
+                gl.glLinkProgram(9);           // relink invalidates uniform state
+                gl.glUniform1i(4, 1);          // first after relink: not
+
+                gl.glBindBuffer(34962, 44);
+                gl.glBindBuffer(34962, 44);    // redundant
+                gl.glDeleteBuffers(1, null);   // invalidates buffer bindings
+                gl.glBindBuffer(34962, 44);    // first after deletion: not
+                gl.glBindBuffer(34962, 44);    // redundant
+                gl.glTexParameteri(3553, 10241, 9729); // untracked state: no invalidation
+                gl.glBindBuffer(34962, 44);    // still redundant
+                nativeGl.context = new Object();
+                gl.glBindBuffer(34962, 44);    // context switch: not
+                gl.glBindBuffer(34962, 44);    // redundant under new context
+
+                // requireValid workload coverage for the redundancy invariant.
+                gl.glBufferData(34962, 64, null, 35048);
+                gl.glDrawElements(4, 3, 5125, 0);
+                gl.glReadPixels(0, 0, 1, 1, 6408, 5121, null);
+                probe.stop();
+                probe.requireValid();
+
+                String report = probe.report();
+                check(report.contains("glRedundancy.enabled=true\n"), "opt-in flag honored");
+                check(report.contains("glRedundancy.glBindBuffer.calls=15\n"), "bind calls");
+                check(report.contains("glRedundancy.glBindBuffer.redundant=6\n"), "bind redundant");
+                check(report.contains("glRedundancy.glActiveTexture.redundant=1\n"), "active-texture redundant");
+                check(report.contains("glRedundancy.glBindTexture.calls=4\n"), "texture calls");
+                check(report.contains("glRedundancy.glBindTexture.redundant=2\n"), "texture per-unit separation");
+                check(report.contains("glRedundancy.glBindSampler.redundant=1\n"), "sampler per-unit separation");
+                check(report.contains("glRedundancy.glEnable.calls=5\n"), "enable calls including invalidation");
+                check(report.contains("glRedundancy.glEnable.redundant=2\n"), "enable redundant after invalidations");
+                check(report.contains("glRedundancy.glBlendFunc.redundant=1\n"), "blend-func redundant");
+                check(report.contains("glRedundancy.glBlendFuncSeparate.redundant=1\n"), "separate blend slot");
+                check(report.contains("glRedundancy.glDepthMask.redundant=1\n"), "depth-mask redundant");
+                check(report.contains("glRedundancy.glStencilFunc.calls=3\n"), "stencil-func calls");
+                check(report.contains("glRedundancy.glStencilFunc.redundant=1\n"), "stencil invalidated by Separate");
+                check(report.contains("glRedundancy.glViewport.redundant=1\n"), "viewport redundant");
+                check(report.contains("glRedundancy.glPixelStorei.calls=4\n"), "pixel-store calls");
+                check(report.contains("glRedundancy.glEnableVertexAttribArray.calls=4\n"), "attrib-enable calls");
+                check(report.contains("glRedundancy.glEnableVertexAttribArray.redundant=1\n"), "attrib per-index separation");
+                check(report.contains("glRedundancy.glVertexAttribPointer.calls=5\n"), "attrib-pointer calls");
+                check(report.contains("glRedundancy.glVertexAttribPointer.redundant=2\n"), "pointer includes array-buffer binding");
+                check(report.contains("glRedundancy.glUseProgram.redundant=1\n"), "use-program redundant");
+                check(report.contains("glRedundancy.uniformRedundant.calls=12\n"), "uniform aggregate calls");
+                check(report.contains("glRedundancy.uniformRedundant.redundant=4\n"), "uniform aggregate redundant");
+                check(!report.contains("glRedundancy.glUniform1i."), "uniforms aggregate only, no per-method lines");
+                check(report.contains("glRedundancy.calls=") && report.contains("glRedundancy.redundant=")
+                    && report.contains("glRedundancy.redundantNanos="), "summary keys emitted");
+                check(report.contains("glRedundancy.invalidations="), "invalidation counter emitted");
+                check(nativeGl.enables == 5 && nativeGl.textures == 4 && nativeGl.deletes == 1,
+                    "every native call forwarded exactly once");
+
+                // Reconciliation: per-method redundant totals equal the summary.
+                java.util.Map<String, Long> metrics = new java.util.HashMap<>();
+                for (String line : report.split("\\n")) {
+                    String[] pair = line.split("=", 2);
+                    if (pair.length == 2 && pair[1].matches("-?[0-9]+")) metrics.put(pair[0], Long.parseLong(pair[1]));
+                }
+                long redundantSum = 0L;
+                for (java.util.Map.Entry<String, Long> entry : metrics.entrySet()) {
+                    if (entry.getKey().startsWith("glRedundancy.") && entry.getKey().endsWith(".redundant")
+                        && !entry.getKey().equals("glRedundancy.redundant")) redundantSum += entry.getValue();
+                }
+                check(redundantSum == metrics.get("glRedundancy.redundant"), "summary reconciles with per-method lines");
+
+                probe.start(); // a new window starts with all state unknown
+                gl.glBindBuffer(34962, 44);    // record: not redundant
+                gl.glBindBuffer(34962, 44);    // redundant
+                nativeGl.failNextEnable = true;
+                try { gl.glEnable(3042); throw new AssertionError("exception swallowed"); }
+                catch (IllegalStateException expected) { check(expected == nativeGl.expected, "enable exception identity"); }
+                gl.glEnable(3042);           // failed delegate kept no state: not
+                gl.glEnable(3042);           // redundant
+                probe.stop();
+                report = probe.report();
+                check(report.contains("glRedundancy.glBindBuffer.calls=2\n"), "start resets state knowledge");
+                check(report.contains("glRedundancy.glBindBuffer.redundant=1\n"), "first window call never redundant");
+                check(report.contains("glRedundancy.glEnable.calls=3\n"), "exception window calls counted");
+                check(report.contains("glRedundancy.glEnable.redundant=1\n"), "failed call invalidates its entry");
+                check(nativeGl.enables == 8, "exception path forwarded natively too");
+            }
+        } finally {
+            if (prior == null) System.clearProperty(property); else System.setProperty(property, prior);
+        }
+    }
+
+    /**
+     * The redundancy path must not add per-call container allocation over the
+     * existing probe beyond reflective context-read noise: same delegate calls,
+     * only bookkeeping differs.
+     */
+    private static void redundancyAllocation() throws Exception {
+        var bean = java.lang.management.ManagementFactory.getThreadMXBean();
+        if (!(bean instanceof com.sun.management.ThreadMXBean counters)
+            || !counters.isThreadAllocatedMemorySupported()) {
+            System.out.println("redundancy allocation check skipped: thread allocation counter unavailable");
+            return;
+        }
+        boolean wasEnabled = counters.isThreadAllocatedMemoryEnabled();
+        if (!wasEnabled) counters.setThreadAllocatedMemoryEnabled(true);
+        String property = "turboism.validation.modelUpdateGlRedundancy";
+        String prior = System.getProperty(property);
+        try {
+            long offBytes = allocatedPerCalls(counters, false);
+            long onBytes = allocatedPerCalls(counters, true);
+            check(onBytes <= offBytes + ALLOCATION_CALLS * 32L,
+                "redundancy observation must not add hot allocation: off=" + offBytes + " on=" + onBytes);
+        } finally {
+            if (prior == null) System.clearProperty(property); else System.setProperty(property, prior);
+            if (!wasEnabled) counters.setThreadAllocatedMemoryEnabled(false);
+        }
+    }
         if (!condition) throw new AssertionError(message);
     }
 }
