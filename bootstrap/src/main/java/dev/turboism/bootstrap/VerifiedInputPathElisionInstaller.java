@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionBridge;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTarget;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTransformer;
+import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
@@ -33,6 +34,17 @@ import java.util.jar.JarFile;
  * coexists with all of them.</p>
  */
 final class VerifiedInputPathElisionInstaller implements AutoCloseable {
+
+    /** Startup hook id used by the safe-mode / disabledHooks policy. */
+    static final String HOOK_ID = "cubism.render.input-path-elision";
+
+    /** Exact production admission: reviewed digest + JVM17 + hook policy. */
+    static boolean admitted(final HostArtifactDigest digest, final RuntimeStartupConfig config,
+                            final boolean requested, final Runtime.Version jvm) {
+        return requested && jvm.feature() >= 17
+            && InputPathElisionTarget.of(digest).isPresent()
+            && config.hookEnabled(HOOK_ID);
+    }
 
     private final Instrumentation instrumentation;
     private final InputPathElisionTarget target;
@@ -126,12 +138,16 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     }
 
     synchronized void install() throws Exception {
+        install(false);
+    }
+
+    synchronized void install(final boolean production) throws Exception {
         if (installed) return;
         if (!instrumentation.isModifiableClass(entry)) {
             throw new IllegalStateException("input path elision entry unmodifiable: "
                 + entry.getName());
         }
-        bridge.install();
+        bridge.install(production);
         try {
             instrumentation.addTransformer(transformer, true);
             instrumentation.retransformClasses(entry);
