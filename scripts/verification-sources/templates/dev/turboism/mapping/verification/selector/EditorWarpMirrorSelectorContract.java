@@ -24,10 +24,6 @@ public final class EditorWarpMirrorSelectorContract {
     private static final Set<String> MIRROR_ALIASES = Set.of(
         "cubism.editor-model.parameter-controllable.calculated-form",
         "cubism.editor-model.parameter-controllable-source.default-key-form",
-        "cubism.editor-model.warp-grid.simple.create",
-        "cubism.editor-model.warp-grid.transform.create",
-        "cubism.editor-model.warp-grid.transform.inverse",
-        "cubism.editor-model.warp-grid.transform.forward",
         "cubism.editor-model.deformer.transform-local-to-canvas",
         "cubism.editor-model.deformer.transform-canvas-to-local",
         "cubism.editor-model.art-mesh-source.keyforms",

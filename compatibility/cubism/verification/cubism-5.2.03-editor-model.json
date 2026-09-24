@@ -2963,6 +2963,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.all_parameters",
+      "alias": "cubism.editor-model.model-source.all-parameters",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": "getAllParameters",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_2_03.editor_model.method.model-source_canvas",
       "alias": "cubism.editor-model.model-source.canvas",
       "kind": "method",
@@ -7446,50 +7457,6 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllable",
       "memberName": "getCalculatedForm",
       "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_2_03.editor_model.constructor.warp_simple_grid",
-      "alias": "cubism.editor-model.warp-grid.simple.create",
-      "kind": "constructor",
-      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/bezier/CSimpleGrid",
-      "memberName": "<init>",
-      "descriptor": "(II[F)V",
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_2_03.editor_model.constructor.warp_grid_transform",
-      "alias": "cubism.editor-model.warp-grid.transform.create",
-      "kind": "constructor",
-      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-      "memberName": "<init>",
-      "descriptor": "(Lcom/live2d/cubism/doc/model/deformer/warp/grid/ICGrid;Lcom/live2d/cubism/doc/model/deformer/warp/grid/ICGrid;II)V",
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_grid_transform_inverse",
-      "alias": "cubism.editor-model.warp-grid.transform.inverse",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-      "memberName": "inverseTransform",
-      "descriptor": "([FI[FIIZ)V",
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_grid_transform_forward",
-      "alias": "cubism.editor-model.warp-grid.transform.forward",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-      "memberName": "transform",
-      "descriptor": "([F[F)[F",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
