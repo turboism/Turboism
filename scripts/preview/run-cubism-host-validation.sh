@@ -71,6 +71,8 @@ Common options:
   --focus-editor-window                     opt-in task-local niri focus tracking
   --jvm-option <JVM option>                  repeatable
   --windows-env <NAME=value>                 repeatable task-local launch environment
+  --linux-env <NAME=value>                   repeatable job-local Linux launch environment;
+      restricted to reviewed Mesa/Proton debug names (mesa_glthread, MESA_*, GALLIUM_HUD*)
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
   --cubism-java-console-marker <exact text>  require this text in Cubism console evidence
   --run-label <label, default r1>
@@ -347,6 +349,7 @@ client_python=''
 focus_editor_window=0
 jvm_options=()
 windows_environment=()
+linux_environment=()
 cubism_java=''
 cubism_java_console_marker=''
 run_label='r1'
@@ -403,6 +406,7 @@ while [ "$#" -gt 0 ]; do
     --focus-editor-window) focus_editor_window=1; shift ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
     --windows-env) require_value "$@"; windows_environment+=("$2"); shift 2 ;;
+    --linux-env) require_value "$@"; linux_environment+=("$2"); shift 2 ;;
     --cubism-java) require_value "$@"; cubism_java="$2"; shift 2 ;;
     --cubism-java-console-marker) require_value "$@"; cubism_java_console_marker="$2"; shift 2 ;;
     --run-label) require_value "$@"; run_label="$2"; shift 2 ;;
@@ -594,6 +598,31 @@ for assignment in "${windows_environment[@]}"; do
     [[ "$environment_value" != *"$forbidden"* ]] \
       || fail "Windows environment value contains an unsupported command character: $forbidden"
   done
+done
+
+# Job-local Linux-side environment. Only reviewed Mesa/Proton debug names may
+# pass; the value charset excludes every shell metacharacter so the generated
+# launch script can export them literally without quoting risk. Linux names are
+# case-sensitive (mesa_glthread is lowercase); duplicates compare exactly.
+linux_environment_names=()
+for assignment in "${linux_environment[@]}"; do
+  require_safe_text "$assignment" "Linux environment assignment"
+  [[ "$assignment" =~ ^([A-Za-z_][A-Za-z0-9_]*)=.+$ ]] \
+    || fail "Linux environment assignment must use NAME=value: $assignment"
+  environment_name="${BASH_REMATCH[1]}"
+  environment_value="${assignment#*=}"
+  case "$environment_name" in
+    mesa_glthread|GALLIUM_HUD|GALLIUM_HUD_PERIOD) ;;
+    *) [[ "$environment_name" =~ ^MESA_[A-Z0-9_]{1,48}$ ]] \
+        || fail "Linux environment name is not an admitted Mesa debug variable: $environment_name" ;;
+  esac
+  [[ "$environment_value" =~ ^[A-Za-z0-9._:,=+/-]{1,200}$ ]] \
+    || fail "Linux environment value contains an unsupported character"
+  for existing_name in "${linux_environment_names[@]}"; do
+    [ "$existing_name" != "$environment_name" ] \
+      || fail "duplicate Linux environment name: $environment_name"
+  done
+  linux_environment_names+=("$environment_name")
 done
 
 for hook in "$remote_pre_launch" "$remote_post_launch" "$remote_pre_cleanup"; do
@@ -834,6 +863,7 @@ fi
 [ "$focus_editor_window" = 1 ] && normalized_argv+=(--focus-editor-window)
 for option in "${jvm_options[@]}"; do normalized_argv+=(--jvm-option "$option"); done
 for assignment in "${windows_environment[@]}"; do normalized_argv+=(--windows-env "$assignment"); done
+for assignment in "${linux_environment[@]}"; do normalized_argv+=(--linux-env "$assignment"); done
 [ -n "$cubism_java" ] && normalized_argv+=(--cubism-java "$cubism_java")
 [ -n "$cubism_java_console_marker" ] && normalized_argv+=(--cubism-java-console-marker "$cubism_java_console_marker")
 [ "$keep_prefix" = 1 ] && normalized_argv+=(--keep-prefix)
@@ -897,6 +927,7 @@ if [ "$dry_run" = 1 ]; then
     "remotePostLaunch=$remote_post_launch" \
     "remotePreCleanup=$remote_pre_cleanup" \
     "windowsEnvironmentCount=${#windows_environment[@]}" \
+    "linuxEnvironmentCount=${#linux_environment[@]}" \
     "graphicsDevice=$graphics_device" \
     "goldenCubism=$golden_cubism" \
     "clonedCubism=$cloned_cubism" \
@@ -935,6 +966,9 @@ if [ "$dry_run" = 1 ]; then
     dry_environment="${dry_environment//\{FIXTURE\}/$dry_win_fixture}"
     dry_environment="${dry_environment//\{FIXTURE_NAME\}/$fixture_name}"
     printf 'windowsEnvironment.%s=%s\n' "$index" "$dry_environment"
+  done
+  for index in "${!linux_environment[@]}"; do
+    printf 'linuxEnvironment.%s=%s\n' "$index" "${linux_environment[$index]}"
   done
   for index in "${!jvm_options[@]}"; do
     dry_option="${jvm_options[$index]}"
@@ -1454,6 +1488,103 @@ raise SystemExit(1)
 PY
 }
 
+# Snapshot the task-bound java.exe process evidence: Linux thread comm names
+# (a Mesa glthread worker appears as "gl0" per util_queue "%s%i" naming) and the
+# whitelisted debug variables the process actually inherited. Selection binds
+# the exact task WINEPREFIX, never a comm or substring match on foreign jobs.
+capture_java_gl_evidence() {
+  local phase="$1"
+  if ! python3 - "$prefix_dir/pfx" "$evidence_dir" "$phase" <<'PY'; then
+import re
+import sys
+from pathlib import Path
+
+prefix = sys.argv[1].encode()
+evidence = Path(sys.argv[2])
+phase = sys.argv[3]
+
+def start_time(stat):
+    closing = stat.rfind(b")")
+    if closing < 0:
+        return None
+    fields = stat[closing + 2:].split()
+    return fields[19].decode("ascii") if len(fields) >= 20 else None
+
+def admitted_env_name(name):
+    return name == "mesa_glthread" or name.startswith("MESA_") or name.startswith("GALLIUM_HUD")
+
+matches = []
+for proc in Path("/proc").iterdir():
+    if not proc.name.isdigit():
+        continue
+    try:
+        if (proc / "comm").read_bytes().rstrip(b"\n") != b"java.exe":
+            continue
+        raw_environ = (proc / "environ").read_bytes()
+        entries = [entry for entry in raw_environ.split(b"\x00") if entry]
+        if not any(entry == b"WINEPREFIX=" + prefix for entry in entries):
+            continue
+        matches.append((int(proc.name), start_time((proc / "stat").read_bytes()), entries))
+    except OSError:
+        continue
+
+thread_rows = []
+gl_thread_count = 0
+for pid, _start, _entries in matches:
+    try:
+        tasks = sorted((Path("/proc") / str(pid) / "task").iterdir(), key=lambda path: int(path.name))
+        for task in tasks:
+            try:
+                comm = (task / "comm").read_bytes().rstrip(b"\n").decode("utf-8", "replace")
+            except OSError:
+                continue
+            if re.fullmatch(r"gl\d+", comm):
+                gl_thread_count += 1
+            thread_rows.append(f"{pid}\t{task.name}\t{comm}")
+    except OSError:
+        thread_rows.append(f"{pid}\tunreadable\tprocess-vanished")
+
+with (evidence / f"java-process.{phase}.properties").open("w", encoding="utf-8") as stream:
+    stream.write("schemaVersion=1\n")
+    stream.write(f"phase={phase}\n")
+    stream.write(f"javaProcessCount={len(matches)}\n")
+    stream.write(f"glThreadCount={gl_thread_count}\n")
+    for index, (pid, start, _entries) in enumerate(matches):
+        stream.write(f"java.{index}.pid={pid}\n")
+        stream.write(f"java.{index}.start={start or 'unknown'}\n")
+
+with (evidence / f"java-threads.{phase}.txt").open("w", encoding="utf-8") as stream:
+    stream.write("pid\ttid\tcomm\n")
+    for row in thread_rows:
+        stream.write(row + "\n")
+
+observed_glthread = False
+with (evidence / f"java-environ.{phase}.properties").open("w", encoding="utf-8") as stream:
+    stream.write("schemaVersion=1\n")
+    stream.write(f"phase={phase}\n")
+    for pid, _start, entries in matches:
+        for entry in entries:
+            name, separator, value = entry.partition(b"=")
+            if not separator:
+                continue
+            text_name = name.decode("ascii", "replace")
+            if not admitted_env_name(text_name):
+                continue
+            text_value = value.decode("utf-8", "replace")
+            if re.search(r"[\x00-\x1f\x7f]", text_value):
+                continue
+            stream.write(f"java.{pid}.{text_name}={text_value}\n")
+            if text_name == "mesa_glthread":
+                observed_glthread = True
+    if not observed_glthread:
+        stream.write("mesa_glthread=ABSENT\n")
+PY
+    printf 'schemaVersion=1\nphase=%s\ncapture=error\n' "$phase" \
+      > "$evidence_dir/java-gl-${phase}.properties"
+    return 0
+  fi
+}
+
 verify_staged_artifacts() {
   local phase="$1" actual expected spec local_path remote_name
   expected="$(sha256_file "$agent")"
@@ -1926,12 +2057,29 @@ exit /b %ERRORLEVEL%
 BAT
 run_remote_hook "$remote_pre_launch"
 local_copy_to "$local_tmp/launch.bat" "$task_dir/launch.bat"
+# Whitelist-checked Mesa/Proton debug variables for this job only; every name
+# and value was charset-validated, so a literal export line cannot smuggle
+# shell syntax into the generated script. The enumerable managed names are
+# unset first so an ambient mesa_glthread/GALLIUM_HUD in the worker environment
+# cannot leak into a job that did not declare it (OFF legs stay genuinely off).
+linux_environment_exports=''
+for assignment in "${linux_environment[@]}"; do
+  linux_environment_exports+="export ${assignment}"$'\n'
+done
+linux_environment_unsets=''
+for managed_name in mesa_glthread GALLIUM_HUD GALLIUM_HUD_PERIOD; do
+  managed_declared=0
+  for existing_name in "${linux_environment_names[@]}"; do
+    [ "$existing_name" = "$managed_name" ] && managed_declared=1 && break
+  done
+  [ "$managed_declared" = 1 ] || linux_environment_unsets+="unset ${managed_name}"$'\n'
+done
 cat > "$local_tmp/launch.sh" <<SH
 #!/bin/sh
 set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
-# Select the GLX vendor before Proton/Wine initializes its Unix graphics stack.
+${linux_environment_unsets}${linux_environment_exports}# Select the GLX vendor before Proton/Wine initializes its Unix graphics stack.
 # The fixed enum is validated and snapshotted; inherit makes no environment change.
 if [ "$graphics_device" = nvidia ]; then
   export __NV_PRIME_RENDER_OFFLOAD=1
@@ -1986,6 +2134,15 @@ SH
 local_copy_to "$local_tmp/launch.sh" "$task_dir/launch.sh"
 chmod 700 -- "$task_dir/launch.sh"
 
+{
+  printf 'schemaVersion=1\n'
+  printf 'linuxEnvironmentCount=%s\n' "${#linux_environment[@]}"
+  for index in "${!linux_environment[@]}"; do
+    printf 'linuxEnvironment.%s=%s\n' "$index" "${linux_environment[$index]}"
+  done
+  printf 'graphicsDevice=%s\n' "$graphics_device"
+} > "$evidence_dir/launch-environment.properties"
+
 # External-host admission is checked by the queue while holding its account lock.
 log "launching exact Cubism $version through official BAT"
 (
@@ -2015,6 +2172,7 @@ if [ "${#ready_markers[@]}" -gt 0 ]; then
   done
   [ "${ready:-0}" = 1 ] || fail "readiness timeout after ${ready_timeout}s"
 fi
+capture_java_gl_evidence ready
 
 if [ -n "$trigger_path" ]; then
   log "creating trigger $trigger_path"
@@ -2061,6 +2219,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   sleep "$poll_seconds"
 done
 [ "$result_passed" = 1 ] || fail "result timeout after ${result_timeout}s"
+capture_java_gl_evidence result
 
 log "terminal PASS observed; waiting for graceful launcher exit"
 deadline=$((SECONDS + exit_timeout))

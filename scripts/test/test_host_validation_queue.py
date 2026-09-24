@@ -368,6 +368,27 @@ class PreparedStoreTest(unittest.TestCase):
                 self.prepared.capture(request, self.source, "test:5302")
         self.assertEqual([], self.store.jobs())
 
+    def test_linux_env_is_snapshotted_and_replayed_verbatim(self) -> None:
+        request = {**self.request, "argv": [*self.request["argv"],
+            "--linux-env", "mesa_glthread=true", "--linux-env", "GALLIUM_HUD_PERIOD=0.5"]}
+        prepared = self.prepared.capture(request, self.source, "test:5302")
+        command = self.prepared.command(prepared["digest"], self.base / "evidence")
+        values = [command[index + 1] for index, argument in enumerate(command) if argument == "--linux-env"]
+        self.assertEqual(["mesa_glthread=true", "GALLIUM_HUD_PERIOD=0.5"], values)
+        reloaded = self.prepared.capture(request, self.source, "test:5302")
+        self.assertEqual(prepared["digest"], reloaded["digest"])
+
+    def test_linux_env_whitelist_rejects_unreviewed_names_and_values(self) -> None:
+        for assignment in ("LD_PRELOAD=/tmp/pwned.so", "PATH=/tmp", "WINEPREFIX=/other",
+                           "Mesa_Debug=1", "MESA_debug=1", "mesa_glthread_driver=1",
+                           "mesa_glthread", "mesa_glthread=", "mesa_glthread=true;touch-x",
+                           "mesa_glthread=$(touch-x)", "mesa_glthread=true false"):
+            with self.subTest(assignment=assignment):
+                request = {**self.request, "argv": [*self.request["argv"], "--linux-env", assignment]}
+                with self.assertRaises(queue.QueueError):
+                    self.prepared.capture(request, self.source, "test:5302")
+        self.assertEqual([], self.store.jobs())
+
     def test_prepared_tampering_rejected(self) -> None:
         prepared = self.prepared.capture(self.request, self.source, "test:5302")
         command = self.prepared.command(prepared["digest"], self.base / "evidence")
