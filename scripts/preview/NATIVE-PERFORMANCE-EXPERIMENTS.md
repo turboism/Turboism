@@ -1649,3 +1649,8 @@ n8 是这套链路的首次实机有效性证据。
   abba-r1 51b671c9 / abba-r2 5de31e0d（render-prep@7bf78df6d，
   **agent 偏差：bbae158b→40995669741c**，previewBundle 建目录时重建覆盖，
   同 commit 已申报）。
+  **T08f/T12c 结果（7/7 PASS）**：pan −6.1 / drag −11.0 / wheel-5302 −7ms；
+  failclosed-5203 NOT_ADMITTED+PASS；T12c shadow=0 但腿慢 7–10ms → 否决。
+- **T18 已提交**（e29480026，agent 29de18a6/probe 489d15f2，叠加生产
+  uploadElision 测增量）：wheel-r1 22869304 / wheel-r2 bc423db3 /
+  pan 9cdfd063 / drag 520489e9。
