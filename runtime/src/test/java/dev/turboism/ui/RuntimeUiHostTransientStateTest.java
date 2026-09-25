@@ -1,11 +1,18 @@
 package dev.turboism.ui;
 
+import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
+import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.ChoiceDialogOption;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.ui.contribution.EditorUiContributionAuthority;
+import dev.turboism.ui.host.EditorUiFamily;
+import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 
 import java.awt.GraphicsEnvironment;
 import java.nio.file.Files;
@@ -16,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -117,16 +125,86 @@ class RuntimeUiHostTransientStateTest {
         assertEquals(1, second.notifications().size());
     }
 
+    @Test
+    void statusNotificationRegistrationsEnrollInThePluginScope() throws Exception {
+        DisposableScope scope = new DisposableScope();
+        RuntimeUiHostCapabilityService service = service("plugin.test", scope);
+
+        service.notifyStatus(new StatusNotification("status-1", "INFO", "value"));
+        assertEquals(1, service.notifications().size());
+
+        scope.close();
+
+        assertTrue(
+            service.notifications().isEmpty(),
+            "a tracked status notification must be dismissed with the plugin scope"
+        );
+    }
+
+    @Test
+    void trackedCanvasHintFallbackIsClearedWhenThePluginScopeCloses() throws Exception {
+        DisposableScope scope = new DisposableScope();
+        RuntimeUiHostCapabilityService service = service("plugin.test", scope);
+
+        service.notifyCanvasHint(new CanvasHintNotification("hint-1", "message", 1.0f));
+        assertEquals(1, service.canvasHints().size());
+
+        scope.close();
+
+        assertTrue(
+            service.canvasHints().isEmpty(),
+            "the hint handle is enrolled once, so scope close clears the tracked fallback"
+        );
+    }
+
+    @Test
+    void aSealedScopeRejectsContributionsWithoutLeavingAuthorityOrListState() {
+        DisposableScope scope = new DisposableScope();
+        EditorUiContributionAuthority authority =
+            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle());
+        RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
+            PermissionChecker.allowAll(),
+            "plugin.test",
+            UiHostStateSource.DEFAULT,
+            scope,
+            StatusToolbarAdapterImpl.safeMode(),
+            UiSurfaceAdapterImpl.safeMode(),
+            null,
+            authority
+        );
+        scope.seal();
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> service.contributeOverlay(new OverlayContribution("overlay-1", "anchor", 0))
+        );
+        assertTrue(
+            service.overlays().isEmpty(),
+            "a rejected contribution must not stay in the tracked overlay list"
+        );
+        assertTrue(
+            authority.contributions(EditorUiFamily.OVERLAY_STATUS).isEmpty(),
+            "a rejected contribution must not stay registered with the contribution authority"
+        );
+    }
+
     private static RuntimeUiHostCapabilityService service() {
         return service("plugin.test");
     }
 
     private static RuntimeUiHostCapabilityService service(final String pluginId) {
+        return service(pluginId, new DisposableScope());
+    }
+
+    private static RuntimeUiHostCapabilityService service(
+        final String pluginId,
+        final DisposableScope scope
+    ) {
         return new RuntimeUiHostCapabilityService(
             PermissionChecker.allowAll(),
             pluginId,
             UiHostStateSource.DEFAULT,
-            new DisposableScope()
+            scope
         );
     }
 
