@@ -360,6 +360,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
         final String category = switch (kind) {
             case COMPUTE -> "compute";
             case LOW_FREQUENCY_REFRESH -> "refresh";
+            case LONG_RUNNING -> "long";
         };
         final String level = switch (priority) {
             case NORMAL -> "normal";
@@ -443,7 +444,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             case REJECTED_CIRCUIT_OPEN -> TaskRejectionReason.CIRCUIT_OPEN;
             case POLICY_REJECTED -> TaskRejectionReason.POLICY_REJECTED;
             case RUNTIME_UNAVAILABLE -> TaskRejectionReason.RUNTIME_UNAVAILABLE;
-            case FAILED, TIMED_OUT, SUCCEEDED -> TaskRejectionReason.RUNTIME_UNAVAILABLE;
+            case FAILED, TIMED_OUT, SUCCEEDED, CANCELED -> TaskRejectionReason.RUNTIME_UNAVAILABLE;
         };
     }
 

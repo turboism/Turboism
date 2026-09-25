@@ -3,6 +3,7 @@ package dev.turboism.core.event;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.work.PluginExecutorSet;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
@@ -35,6 +36,7 @@ public final class RuntimeEventBroker {
         );
     private static final String DEFAULT_CAPABILITY = "none";
     private static final int DEFAULT_MAILBOX_CAPACITY = 64;
+    private static final Duration DEFAULT_SLOW_DELIVERY = Duration.ofSeconds(5);
     private static final Comparator<Subscription<? extends EventBus.TurboismEvent>> SUBSCRIPTION_ORDER =
         Comparator
             .comparingInt((Subscription<? extends EventBus.TurboismEvent> value) ->
@@ -70,6 +72,10 @@ public final class RuntimeEventBroker {
     private final ConcurrentMap<PluginEventOwnerKey, PermissionChecker> ownerPermissions =
         new ConcurrentHashMap<>();
     private final Set<DeniedRoute> deniedDeliveries = ConcurrentHashMap.newKeySet();
+    private final Set<DeniedRoute> slowDeliveries = ConcurrentHashMap.newKeySet();
+    private final ConcurrentMap<PluginEventOwnerKey, PluginExecutorSet> executorClaims =
+        new ConcurrentHashMap<>();
+    private final Duration slowDeliveryThreshold;
     private final CopyOnWriteArrayList<Consumer<Class<?>>> subscriptionDemandListeners =
         new CopyOnWriteArrayList<>();
 
@@ -105,6 +111,24 @@ public final class RuntimeEventBroker {
         final Consumer<SubscriberFailure> subscriberFailureSink,
         final PublicEventContractCatalog publicContracts
     ) {
+        this(
+            scheduler,
+            mailboxCapacity,
+            diagnosticSink,
+            subscriberFailureSink,
+            publicContracts,
+            DEFAULT_SLOW_DELIVERY
+        );
+    }
+
+    RuntimeEventBroker(
+        final RuntimeScheduler scheduler,
+        final int mailboxCapacity,
+        final Consumer<DeliveryDiagnostic> diagnosticSink,
+        final Consumer<SubscriberFailure> subscriberFailureSink,
+        final PublicEventContractCatalog publicContracts,
+        final Duration slowDeliveryThreshold
+    ) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         if (mailboxCapacity < 1) {
             throw new IllegalArgumentException("mailboxCapacity must be positive");
@@ -117,6 +141,10 @@ public final class RuntimeEventBroker {
         );
         this.publicContracts = publicContracts;
         this.publicRoutes = new PublicEventRouteCatalog(publicContracts);
+        this.slowDeliveryThreshold = Objects.requireNonNull(
+            slowDeliveryThreshold,
+            "slowDeliveryThreshold"
+        );
     }
 
     /** Validates shared public event payload classes before plugin code is initialized. */
@@ -770,7 +798,7 @@ public final class RuntimeEventBroker {
 
     private void scheduleDrain(final OwnerState owner) {
         final RuntimeCancellationToken token = owner.drainToken();
-        final PluginWorkSubmission submission = scheduler.submitLightweight(
+        final PluginWorkSubmission submission = scheduler.submitEventDelivery(
             new PluginTask(
                 EVENT_TASK_TYPE,
                 owner.key().pluginId(),
@@ -803,6 +831,7 @@ public final class RuntimeEventBroker {
                     owner.deliveryFinished();
                     continue;
                 }
+                final long startedNanos = System.nanoTime();
                 try {
                     delivery.deliver(owner.key());
                 } catch (ThreadDeath | VirtualMachineError fatal) {
@@ -815,6 +844,18 @@ public final class RuntimeEventBroker {
                     ));
                 } finally {
                     owner.deliveryFinished();
+                    // Delivery runs on the event lane with no wall-clock limiter: a slow
+                    // subscriber is reported once per owner/type instead of interrupted.
+                    if (System.nanoTime() - startedNanos >= slowDeliveryThreshold.toNanos()
+                        && slowDeliveries.add(
+                            new DeniedRoute(owner.key(), delivery.event().getClass())
+                        )) {
+                        diagnose(new DeliveryDiagnostic(
+                            owner.key(),
+                            delivery.event().getClass().getName(),
+                            DeliveryDiagnostic.Code.SUBSCRIBER_SLOW
+                        ));
+                    }
                 }
             }
         } finally {
@@ -1043,6 +1084,30 @@ public final class RuntimeEventBroker {
         publicRoutes.remove(owner);
         ownerPermissions.remove(owner);
         deniedDeliveries.removeIf(route -> route.owner().equals(owner));
+        slowDeliveries.removeIf(route -> route.owner().equals(owner));
+    }
+
+    /**
+     * Captures the executor set mapped to this generation's plugin id. Idempotent per key: the
+     * first claim wins so a re-driven fence never swaps the captured set mid-close. Claims are
+     * tracked independently of owner lifecycle, so a release after {@link #close} still works —
+     * the failed-load path closes the owner before its executor release runs.
+     */
+    private void claimExecutors(final PluginEventOwnerKey key) {
+        executorClaims.computeIfAbsent(key, k ->
+            scheduler.claimPluginExecutors(k.pluginId()));
+    }
+
+    /**
+     * Removes this generation's executor claim and shuts the captured set down through
+     * generation-safe compare-and-remove: a set the registry has already replaced for a newer
+     * generation is left running, while this generation's own set always dies.
+     */
+    private void releaseExecutors(final PluginEventOwnerKey key) {
+        final PluginExecutorSet claimed = executorClaims.remove(key);
+        if (claimed != null) {
+            scheduler.releasePluginExecutors(key.pluginId(), claimed);
+        }
     }
 
     private OwnerLifecycle lifecycle(final PluginEventOwnerKey owner) {
@@ -1141,6 +1206,24 @@ public final class RuntimeEventBroker {
             broker.beginClosing(key);
         }
 
+        /**
+         * Claims this generation's plugin executor set for lifecycle reclamation. Call at
+         * fencing; the captured set is what {@link #releaseExecutors()} will shut down.
+         * Idempotent per generation.
+         */
+        public void claimExecutors() {
+            broker.claimExecutors(key);
+        }
+
+        /**
+         * Releases this generation's claimed executor set: removed from the registry when still
+         * mapped, then shut down either way. Safe to call after {@link #close()} — the failed
+         * load path closes the owner before its executor release runs — and idempotent.
+         */
+        public void releaseExecutors() {
+            broker.releaseExecutors(key);
+        }
+
         /** Waits up to the timeout for this owner mailbox to become quiescent. */
         public boolean awaitQuiescence(final Duration timeout) {
             return broker.awaitQuiescence(key, timeout);
@@ -1219,7 +1302,9 @@ public final class RuntimeEventBroker {
             /** The subscriber callback threw; the failure was contained. */
             SUBSCRIBER_FAILED,
             /** The bound permission checker denied delivery of the concrete event type. */
-            DELIVERY_PERMISSION_DENIED
+            DELIVERY_PERMISSION_DENIED,
+            /** The subscriber callback exceeded the slow-delivery threshold. */
+            SUBSCRIBER_SLOW
         }
     }
 
