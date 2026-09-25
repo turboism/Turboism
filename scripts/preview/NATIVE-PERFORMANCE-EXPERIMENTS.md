@@ -1674,3 +1674,8 @@ n8 是这套链路的首次实机有效性证据。
 - **T22 glthread 跨运行 ABBA 已提交**（gl-attribution@d90b3fe76，
   --linux-env 新能力）：fdb9d6e6/f815c2c4/93aca62a/e8564408/
   c68652bb/24a54463（OFF/ON/ON/OFF/OFF/ON）。
+- **T22 结果**：mesa_glthread REGRESSION（+4~10ms），ATTENTION 已生效；
+  glThreadCount 采集 bug 已修为 schema v2。fdb9d6e6→24a54463。
+- **T23 已提交**（gl-attribution@e225d8092，agent dec25e67/probe
+  6c251a9d）：A/B/C×3 交错 a806fe0f 4cd4357a 6ff1766c d41821fd
+  0039629c 77f16ced 95452622 c6371809 8cdc00cb。
