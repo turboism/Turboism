@@ -796,6 +796,40 @@ final class EditorAuthoringTransactionCoordinatorTest {
     }
 
     /**
+     * The legA3EditModeCancel defect class, transaction side: with a pre-existing redo
+     * tail the abort path ({@code group-undo} + {@code endEdit(true)}) never commits and
+     * never reverts, so the tail must survive rollback untouched.
+     */
+    @Test
+    void envelopeRollbackPreservesAPreExistingRedoTail() {
+        final BindingFixture fixture = new BindingFixture();
+        for (int i = 0; i < 7; i++) {
+            fixture.host.entries.add(new HistoryEntry(i, "pre-" + i, true));
+        }
+        fixture.host.position = 6;
+        final AtomicInteger value = new AtomicInteger();
+        fixture.host.groupUndoAction = () -> value.set(0);
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Tail rollback"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(
+                    envelopeContribution("env", value, 0, 1, fixture.coordinator,
+                        new ArrayList<>(), new ArrayList<>())
+                );
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(1, fixture.host.groupUndoCount);
+        assertEquals(List.of("group-undo", "end:true"), fixture.host.order);
+        assertEquals(7, fixture.host.entries.size());
+        assertEquals(6, fixture.host.position);
+    }
+
+    /**
      * When the native group undo already restored an envelope contribution (flag-probe
      * restored), the reverse-order compensation must skip it.
      */
@@ -1049,6 +1083,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         private Optional<String> preparedId = Optional.empty();
         private Optional<HistoryAction> lastSemanticAction = Optional.empty();
         private int entriesPerCommit = 1;
+        private int position;
         private int groupUndoCount;
         private Runnable groupUndoAction = () -> { };
         private RuntimeException groupUndoFailure;
@@ -1082,10 +1117,10 @@ final class EditorAuthoringTransactionCoordinatorTest {
                 HistorySnapshot.Availability.AVAILABLE,
                 1,
                 revision,
-                entries.size(),
+                position,
                 List.copyOf(entries),
-                !entries.isEmpty(),
-                false,
+                position > 0,
+                position < entries.size(),
                 "document-binding-1",
                 "manager-binding-1"
             );
@@ -1127,9 +1162,12 @@ final class EditorAuthoringTransactionCoordinatorTest {
                 return;
             }
             commitCount++;
+            // A native commit truncates the redo tail before pushing the new entry.
+            entries.subList(position, entries.size()).clear();
             for (int index = 0; index < entriesPerCommit; index++) {
                 entries.add(new HistoryEntry(entries.size(), currentLabel, true));
             }
+            position = entries.size();
             revision++;
         }
 
