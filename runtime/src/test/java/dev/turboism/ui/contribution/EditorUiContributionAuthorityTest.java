@@ -5,6 +5,8 @@ import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.SwingUtilities;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -15,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -222,6 +225,52 @@ class EditorUiContributionAuthorityTest {
     }
 
     @Test
+    void edtContributeDoesNotDeadlockBehindProviderInvokeAndWait() throws Exception {
+        RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
+        long generation = lifecycle.connecting().generation();
+        EdtDispatchProvider provider = new EdtDispatchProvider(EditorUiFamily.MENU);
+        provider.admit(generation);
+        lifecycle.ready(generation, Set.of(EditorUiFamily.MENU));
+        EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
+        provider.authority = authority;
+        authority.installProvider(provider);
+
+        // The writer's provider call parks inside invokeAndWait while its EDT runnable adds a
+        // second contribution to the same family. With a blocking per-family lock this
+        // deadlocks: the writer holds the lock while waiting for the EDT, and the EDT-side
+        // contribute() waits on the same lock.
+        Thread writer = new Thread(
+            () -> authority.contribute(contribution("plugin-a", "first", 0)),
+            "contribute-off-edt"
+        );
+        writer.start();
+        assertTrue(
+            provider.applyEntered.await(5, TimeUnit.SECONDS),
+            "the first reconcile must reach the provider before the EDT contribution runs"
+        );
+        assertTrue(
+            provider.edtContributeDone.await(5, TimeUnit.SECONDS),
+            "an EDT contribute must return while another reconcile is parked in invokeAndWait"
+        );
+        writer.join(TimeUnit.SECONDS.toMillis(5));
+        assertFalse(writer.isAlive(), "the writer's contribute did not finish");
+        assertNull(provider.edtFailure, "the EDT contribution must not fail");
+
+        assertEquals(
+            1,
+            provider.liveInstalls().size(),
+            "the coalesced reconcile must fold both contributions into one live install"
+        );
+        assertEquals(
+            List.of("plugin-a:first", "plugin-b:second"),
+            provider.liveInstalls().get(0).descriptors
+        );
+
+        authority.close();
+        assertTrue(provider.liveInstalls().isEmpty());
+    }
+
+    @Test
     void closeDisposesNativeAndRejectsNewContributions() {
         RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
         long generation = lifecycle.connecting().generation();
@@ -348,19 +397,103 @@ class EditorUiContributionAuthorityTest {
             }
             return install;
         }
+    }
 
-        private static final class Install implements Registration {
-            private final List<String> descriptors;
-            private volatile boolean closed;
+    /** Native-install stand-in recording the snapshot it was created from until closed. */
+    private static final class Install implements Registration {
+        private final List<String> descriptors;
+        private volatile boolean closed;
 
-            private Install(final List<String> descriptors) {
-                this.descriptors = descriptors;
+        private Install(final List<String> descriptors) {
+            this.descriptors = descriptors;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+    }
+
+    /**
+     * Provider whose first {@code apply} call parks on {@code SwingUtilities.invokeAndWait}
+     * while the dispatched runnable contributes to the same family from the EDT — the exact
+     * interleave that deadlocks a blocking per-family reconcile lock.
+     */
+    private static final class EdtDispatchProvider implements EditorUiContributionProvider {
+        private final EditorUiFamily family;
+        private final CountDownLatch applyEntered = new CountDownLatch(1);
+        private final CountDownLatch edtContributeDone = new CountDownLatch(1);
+        private final AtomicBoolean dispatchArmed = new AtomicBoolean(true);
+        private final List<Install> installs = new CopyOnWriteArrayList<>();
+        private volatile EditorUiContributionAuthority authority;
+        private volatile Throwable edtFailure;
+        private EditorUiProviderAdmission admission;
+
+        private EdtDispatchProvider(final EditorUiFamily family) {
+            this.family = family;
+            this.admission = EditorUiProviderAdmission.safeMode(
+                family,
+                "ui.provider.mapping-not-verified"
+            );
+        }
+
+        private void admit(final long generation) {
+            admission = EditorUiProviderAdmission.admitted(
+                family,
+                generation,
+                new EditorUiProviderAdmission.VerificationEvidence(
+                    "5.3.02",
+                    42,
+                    "a".repeat(64),
+                    "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
+                    "b".repeat(64)
+                )
+            );
+        }
+
+        private List<Install> liveInstalls() {
+            return installs.stream().filter(install -> !install.closed).toList();
+        }
+
+        @Override
+        public EditorUiFamily family() {
+            return family;
+        }
+
+        @Override
+        public EditorUiProviderAdmission admission() {
+            return admission;
+        }
+
+        @Override
+        public Registration apply(
+            final long hostGeneration,
+            final List<EditorUiContribution<?>> contributions
+        ) {
+            final Install install = new Install(
+                contributions.stream().map(value -> (String) value.descriptor()).toList()
+            );
+            installs.add(install);
+            if (dispatchArmed.compareAndSet(true, false)) {
+                applyEntered.countDown();
+                try {
+                    SwingUtilities.invokeAndWait(() -> {
+                        try {
+                            authority.contribute(contribution("plugin-b", "second", 1));
+                        } catch (RuntimeException | Error failure) {
+                            edtFailure = failure;
+                        } finally {
+                            edtContributeDone.countDown();
+                        }
+                    });
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("edt dispatch interrupted", exception);
+                } catch (InvocationTargetException exception) {
+                    throw new IllegalStateException("edt dispatch failed", exception);
+                }
             }
-
-            @Override
-            public void close() {
-                closed = true;
-            }
+            return install;
         }
     }
 
