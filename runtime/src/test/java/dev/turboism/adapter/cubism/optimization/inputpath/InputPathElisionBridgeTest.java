@@ -1,6 +1,11 @@
 package dev.turboism.adapter.cubism.optimization.inputpath;
 
+import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.DefaultKeyboardFocusManager;
+import java.awt.KeyboardFocusManager;
+import java.awt.Window;
+import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.BiPredicate;
@@ -21,7 +26,7 @@ import static org.objectweb.asm.Opcodes.*;
  * The consults never reach native state: {@code focusAlreadyHeld} reads only
  * the Java focus manager and {@code cursorUnchanged} reads only component
  * fields, so a headless JComponent subclass can drive every decision branch
- * except a genuinely focused window (reported by the real-host legs instead).
+ * including activation transitions via an isolated focus manager without a native peer.
  */
 public class InputPathElisionBridgeTest {
 
@@ -35,11 +40,12 @@ public class InputPathElisionBridgeTest {
         }
     }
 
-    /** A JComponent whose Java-side focus/cursor state is test-controlled. */
+    /** A JComponent whose Java-side showing/cursor state is test-controlled. */
     private static final class FakeComponent extends JComponent {
-        private boolean focusOwner, showing, cursorSet;
+        private boolean showing, cursorSet;
         private Cursor cursor;
-        @Override public boolean isFocusOwner() { return focusOwner; }
+        private Window parentWindow;
+        @Override public java.awt.Container getParent() { return parentWindow; }
         @Override public boolean isShowing() { return showing; }
         @Override public boolean isCursorSet() { return cursorSet; }
         @Override public Cursor getCursor() { return cursor; }
@@ -97,6 +103,7 @@ public class InputPathElisionBridgeTest {
     private InputPathElisionBridge bridge;
     private Object widget;
     private FakeComponent component;
+    private KeyboardFocusManager priorFocusManager;
 
     private void setUp() throws Exception {
         loader = new Loader();
@@ -110,6 +117,9 @@ public class InputPathElisionBridgeTest {
     }
 
     @AfterEach void tearDown() {
+        if (priorFocusManager != null) {
+            KeyboardFocusManager.setCurrentKeyboardFocusManager(priorFocusManager);
+        }
         if (bridge != null) bridge.close();
         final Properties properties = System.getProperties();
         properties.remove(InputPathElisionBridge.FOCUS_PROPERTY);
@@ -158,7 +168,6 @@ public class InputPathElisionBridgeTest {
 
     @Test void disarmedConsultsPassAndCount() throws Exception {
         setUp();
-        component.focusOwner = true;
         component.showing = true;
         component.cursorSet = true;
         component.cursor = Cursor.getDefaultCursor();
@@ -224,17 +233,65 @@ public class InputPathElisionBridgeTest {
         return instance;
     }
 
-    @Test void focusRequiresOwnerAndFocusedWindow() throws Exception {
+    /** A focus manager whose owner/focused/active state is test-controlled. */
+    private static final class FakeFocusManager extends DefaultKeyboardFocusManager {
+        private Component owner;
+        private Window focusedWindow;
+        private Window activeWindow;
+        @Override public Component getFocusOwner() { return owner; }
+        @Override public Window getFocusedWindow() { return focusedWindow; }
+        @Override public Window getActiveWindow() { return activeWindow; }
+    }
+
+    /**
+     * A Window instance without a peer: {@code allocateInstance} skips the
+     * constructor that would fail headless, while {@code isFocused()} and
+     * {@code isActive()} delegate to the (injected) KeyboardFocusManager, so
+     * the reviewed focus rule can be exercised end to end.
+     */
+    private static Window bareWindow() {
+        try {
+            final Field unsafe = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+            unsafe.setAccessible(true);
+            return (Window) ((sun.misc.Unsafe) unsafe.get(null))
+                .allocateInstance(Window.class);
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    @Test void productionFocusRequiresExactOwnerFocusedWindowAndActiveWindow() throws Exception {
         setUp();
-        arm(true);
-        assertFalse(focusSlot().test(widget), "not the focus owner");
-        component.focusOwner = true;
-        assertFalse(focusSlot().test(widget),
-            "focus owner without a focused ancestor window still passes");
-        Map<String, Long> snapshot = stats();
-        assertEquals(2L, snapshot.get("focusCalls"));
-        assertEquals(2L, snapshot.get("focusPassed"));
-        assertEquals(0L, snapshot.get("focusElided"));
+        bridge.close();
+        bridge = new InputPathElisionBridge(loader);
+        bridge.install(true); // production is armed before the first focus request
+        final FakeFocusManager manager = new FakeFocusManager();
+        priorFocusManager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        KeyboardFocusManager.setCurrentKeyboardFocusManager(manager);
+        final Window window = bareWindow();
+        final Window other = bareWindow();
+        assertFalse(focusSlot().test(widget), "startup without focus must forward");
+        manager.owner = component;
+        manager.focusedWindow = window;
+        manager.activeWindow = window;
+        assertFalse(focusSlot().test(widget), "detached component must forward");
+        component.parentWindow = window;
+        manager.activeWindow = null;
+        assertFalse(focusSlot().test(widget), "stale owner in inactive window must forward");
+        manager.activeWindow = other;
+        assertFalse(focusSlot().test(widget), "another active window must forward");
+        manager.activeWindow = window;
+        manager.focusedWindow = other;
+        assertFalse(focusSlot().test(widget), "another focused window must forward");
+        manager.focusedWindow = window;
+        manager.owner = new FakeComponent();
+        assertFalse(focusSlot().test(widget), "another focus owner must forward");
+        manager.owner = component;
+        assertTrue(window.isActive());
+        assertTrue(focusSlot().test(widget), "only all three conditions permit elision");
+        assertEquals(6L, stats().get("focusPassed"));
+        assertEquals(1L, stats().get("focusElided"));
+        assertEquals(0L, stats().get("observerFailures"));
     }
 
     @Test void productionInstallArmsImmediately() throws Exception {
