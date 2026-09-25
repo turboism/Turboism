@@ -575,3 +575,15 @@ and `CRect` is not the host field type. It reads only XML and
 prints JSON; it does not modify a CMO or reconstruct bindings. Serialized values supplement
 the saved stage only; live Undo input details remain `NOT_OBSERVED`. Focused checks:
 `python3 scripts/test/test_external_psd_structural_xml.py`.
+
+### Failure-only file-holder observation
+
+The admitted RSS observer takes one bounded task-scope `/proc` fd/maps snapshot after a
+FAIL terminal. Only `external-edit.psd` and its `.tmp` sibling under task-local
+`turboism-psd-*` directories are reported, with PID/start-ticks and cgroup identity
+rechecked around reads. It reads no file contents, sends no signals, and never
+changes the atomic-save gate. Limits are a 2-second checkpoint budget (individual OS reads cannot be interrupted),
+128 processes/observations,
+4096 descriptors per process and 4 MiB of mappings per process; partial coverage
+is explicit. Linux file presence is not Windows sharing-mode or lock proof;
+absence cannot prove that a Windows handle was absent at the failed move.

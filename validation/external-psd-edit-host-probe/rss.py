@@ -149,6 +149,78 @@ class Scope:
         return value
 
 
+def psd_file_holders(scope: Scope, task: Path) -> dict:
+    """Failure-only task-scoped fd/maps metadata, never Windows sharing-mode proof."""
+    scope.check()
+    task = Path(task)
+    if not task.is_absolute() or task.resolve() != task:
+        raise IdentityChanged("unsafe diagnostic task root")
+    deadline = time.monotonic() + 2.0
+    rows, skipped = [], []
+    truncated = False
+
+    def target_path(raw):
+        # A deleted file may still have an open descriptor or mapping.
+        raw = raw.removesuffix(" (deleted)")
+        path = Path(raw)
+        if path.name not in ("external-edit.psd", "external-edit.psd.tmp") or not path.is_absolute():
+            return None
+        resolved = path.resolve()
+        if not resolved.is_relative_to(task) or not resolved.parent.name.startswith("turboism-psd-"):
+            return None
+        return str(resolved.relative_to(task))
+
+    pids = sorted(set(map(int, (scope.path / "cgroup.procs").read_text().split())))
+    if len(pids) > 128:
+        truncated = True
+    for pid in pids[:128]:
+        if time.monotonic() >= deadline or len(rows) >= 128:
+            truncated = True
+            break
+        process = scope.proc / str(pid)
+        observed = []
+        try:
+            ticks = process_start_ticks((process / "stat").read_text())
+            group = "0::" + scope.group
+            if (process / "cgroup").read_text().splitlines() != [group]:
+                raise IdentityChanged("holder left task scope")
+            comm = (process / "comm").read_text().strip()[:64]
+            for index, fd in enumerate((process / "fd").iterdir()):
+                if index >= 4096 or time.monotonic() >= deadline or len(rows) + len(observed) >= 128:
+                    truncated = True
+                    break
+                try:
+                    target = target_path(os.readlink(fd))
+                    if target is not None:
+                        observed.append(dict(kind="fd", descriptor=fd.name, taskRelativePath=target))
+                except (FileNotFoundError, ProcessLookupError):
+                    continue
+            with (process / "maps").open("rb") as stream:
+                data = stream.read(4 * 1024 * 1024 + 1)
+            if len(data) > 4 * 1024 * 1024:
+                truncated = True
+            for line in data[:4 * 1024 * 1024].decode("utf-8", errors="surrogateescape").splitlines():
+                if time.monotonic() >= deadline or len(rows) + len(observed) >= 128:
+                    truncated = True
+                    break
+                fields = line.split(None, 5)
+                target = target_path(fields[5]) if len(fields) == 6 else None
+                if target is not None:
+                    observed.append(dict(kind="mapping", permissions=fields[1], taskRelativePath=target))
+            if (process_start_ticks((process / "stat").read_text()) != ticks
+                    or (process / "cgroup").read_text().splitlines() != [group]
+                    or (process / "comm").read_text().strip()[:64] != comm):
+                raise IdentityChanged("holder identity changed during observation")
+            rows.extend(dict(row, pid=pid, processStartTicks=ticks, comm=comm) for row in observed)
+        except (OSError, ValueError, IdentityChanged) as failure:
+            # Do not emit observations collected across a changed or unreadable identity.
+            skipped.append(dict(pid=pid, reason=type(failure).__name__))
+    scope.check()
+    return dict(status="PARTIAL" if skipped or truncated else "OBSERVED", holders=rows,
+                skipped=skipped, truncated=truncated, windowsSharingMode="UNAVAILABLE",
+                semantics="task-scoped Linux fd/maps snapshot after FAIL; no holder is not proof of no Windows lock")
+
+
 def terminal_status(path: Path, run_id: str):
     if not path.exists():
         return None
@@ -191,7 +263,7 @@ def machine_description(proc=Path("/proc")) -> dict:
     return result
 
 
-def collect(scope: Scope, terminal: Path, run_id: str, timeout: int) -> dict:
+def collect(scope: Scope, terminal: Path, run_id: str, timeout: int, task: Path | None = None) -> dict:
     started = time.monotonic_ns()
     deadline = started + timeout * 1_000_000_000
     report = {"schemaVersion": 1, "runId": run_id, "periodMillis": 50,
@@ -221,6 +293,8 @@ def collect(scope: Scope, terminal: Path, run_id: str, timeout: int) -> dict:
         status = terminal_status(terminal, run_id)
         if status:
             report["probeTerminalStatus"] = status
+            if status == "FAIL" and task is not None:
+                report["psdFileHolders"] = psd_file_holders(scope, task)
             break
         time.sleep(PERIOD_SECONDS)
     report["elapsedNanos"] = time.monotonic_ns() - started
@@ -257,7 +331,7 @@ def main(argv: list[str]) -> int:
     # Exclusive creation preserves any earlier report. The Runner owns cleanup on all failures.
     with output.open("x") as stream:
         try:
-            report = collect(Scope(metadata), home / "state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties", run_id, seconds)
+            report = collect(Scope(metadata), home / "state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties", run_id, seconds, task)
         except Exception as failure:
             report = {"observationStatus": "UNAVAILABLE", "complete": False,
                       "error": type(failure).__name__ + ": " + str(failure)}
