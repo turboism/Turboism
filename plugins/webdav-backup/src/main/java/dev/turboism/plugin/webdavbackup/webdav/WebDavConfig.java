@@ -78,7 +78,6 @@ public record WebDavConfig(
      */
     public static String normalizePath(final String raw) {
         String value = Objects.requireNonNull(raw, "raw").replace('\\', '/');
-        boolean trailingSlash = value.endsWith("/");
         String[] segments = value.split("/");
         java.util.ArrayDeque<String> stack = new java.util.ArrayDeque<>();
         for (String segment : segments) {
@@ -95,10 +94,7 @@ public record WebDavConfig(
             stack.addLast(segment);
         }
         String joined = String.join("/", stack);
-        if (joined.isEmpty()) {
-            return "/";
-        }
-        return trailingSlash ? "/" + joined + "/" : "/" + joined;
+        return joined.isEmpty() ? "/" : "/" + joined;
     }
 
     @Override

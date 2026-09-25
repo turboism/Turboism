@@ -230,6 +230,17 @@ class RuntimeUserFileAccessServiceTest {
         final var mismatch = first.writeUtf8Atomic(oneOperationRead, "bad")
             .toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(UserFileErrorCode.MODE_MISMATCH, mismatch.error().orElseThrow().code());
+        assertEquals(
+            UserFileHandleState.ACTIVE,
+            oneOperationRead.state(),
+            "a rejected call must not consume a one-operation grant"
+        );
+        assertEquals(
+            "value",
+            first.readUtf8(oneOperationRead, 16).toCompletableFuture()
+                .get(2, TimeUnit.SECONDS).value().orElseThrow(),
+            "the grant must still serve a matching call after a mode-mismatched one"
+        );
         assertEquals(UserFileHandleState.CLOSED, oneOperationRead.state());
     }
 
@@ -274,7 +285,8 @@ class RuntimeUserFileAccessServiceTest {
     }
 
     @Test
-    void oneOperationGrantIsConsumedEvenWhenCurrentPermissionIsMissing() throws Exception {
+    void oneOperationGrantSurvivesPermissionDeniedCallsAndStillServesAMatchingOne()
+        throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "value");
         final RuntimeUserFileAccessService service = service(
@@ -289,8 +301,20 @@ class RuntimeUserFileAccessServiceTest {
         final var denied = service.writeUtf8Atomic(handle, "not-written")
             .toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(UserFileErrorCode.PERMISSION_DENIED, denied.error().orElseThrow().code());
-        assertEquals(UserFileHandleState.CLOSED, handle.state());
+        assertEquals(
+            UserFileHandleState.ACTIVE,
+            handle.state(),
+            "a permission-denied call must not consume a one-operation grant"
+        );
         assertEquals("value", Files.readString(selected));
+
+        assertEquals(
+            "value",
+            service.readUtf8(handle, 16).toCompletableFuture()
+                .get(2, TimeUnit.SECONDS).value().orElseThrow(),
+            "the grant must still serve an authorized call after a denied one"
+        );
+        assertEquals(UserFileHandleState.CLOSED, handle.state());
     }
 
     @Test

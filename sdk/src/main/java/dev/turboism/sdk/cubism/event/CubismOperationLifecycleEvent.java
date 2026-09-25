@@ -13,7 +13,8 @@ public sealed interface CubismOperationLifecycleEvent extends TurboismEvent
     /** Returns the semantic operation this lifecycle event describes. */
     CubismOperationEvent operation();
 
-    /** State published synchronously before the operation executes. */
+    /** Observation published when the operation starts; delivered asynchronously through the
+     *  subscriber mailbox, so subscribers cannot veto or mutate the operation. */
     record Before(CubismOperationEvent operation)
         implements CubismOperationLifecycleEvent {
         public Before { operation = Objects.requireNonNull(operation, "operation"); }

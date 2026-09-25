@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,16 +62,29 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         for (Element root : round.getRootElements()) {
             collectCandidates(root, candidates);
         }
+        // Annotated members become effective through a public concrete host class: a method
+        // declared on a valid candidate or inherited from any supertype. Elements that no
+        // candidate can ever expose are rejected below instead of disappearing silently.
+        final Set<String> reachableSubscribers = new HashSet<>();
         for (TypeElement owner : candidates) {
-            final List<ExecutableElement> methods = processingEnv.getElementUtils()
+            final List<ExecutableElement> annotated = processingEnv.getElementUtils()
                 .getAllMembers(owner).stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD)
                 .map(ExecutableElement.class::cast)
                 .filter(method -> method.getAnnotation(SubscribeEvent.class) != null)
-                .filter(method -> validate(method, owner))
+                .toList();
+            annotated.forEach(method -> reachableSubscribers.add(signature(method)));
+            final List<ExecutableElement> methods = annotated.stream()
+                .filter(this::validate)
                 .toList();
             if (!methods.isEmpty()) {
                 subscribers.put(owner, methods);
+            }
+        }
+        for (Element element : round.getElementsAnnotatedWith(SubscribeEvent.class)) {
+            if (element instanceof ExecutableElement method
+                && !reachableSubscribers.contains(signature(method))) {
+                error(method, "subscriber owner must be a public concrete class");
             }
         }
         subscribers.entrySet().stream()
@@ -102,13 +116,8 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         }
     }
 
-    private boolean validate(final ExecutableElement method, final TypeElement owner) {
+    private boolean validate(final ExecutableElement method) {
         boolean valid = true;
-        if (!owner.getModifiers().contains(Modifier.PUBLIC)
-            || owner.getModifiers().contains(Modifier.ABSTRACT)) {
-            error(method, "subscriber owner must be a public concrete class");
-            valid = false;
-        }
         if (!method.getModifiers().contains(Modifier.PUBLIC)
             || method.getModifiers().contains(Modifier.STATIC)) {
             error(method, "subscriber must be a public instance method");

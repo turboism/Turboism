@@ -5,7 +5,7 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Objects;
 
-/** Bounded process-local history of authenticated MCP session and request activity. */
+/** Bounded process-local history of session and request activity on the credential-free, Origin-checked loopback MCP endpoint. */
 final class McpConnectionHistory {
 
     static final int MAX_ENTRIES = 200;

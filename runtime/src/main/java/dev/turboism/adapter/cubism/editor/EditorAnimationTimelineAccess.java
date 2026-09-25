@@ -44,6 +44,8 @@ final class EditorAnimationTimelineAccess {
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
     private final String identity;
     private final Object model;
+    private final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator
+        authoringCoordinator;
 
     EditorAnimationTimelineAccess(
         final VerifiedMemberResolver resolver,
@@ -51,10 +53,22 @@ final class EditorAnimationTimelineAccess {
         final String identity,
         final Object model
     ) {
+        this(resolver, modelGuard, identity, model, null);
+    }
+
+    EditorAnimationTimelineAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final String identity,
+        final Object model,
+        final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator
+            authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.identity = Objects.requireNonNull(identity, "identity");
         this.model = Objects.requireNonNull(model, "model");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     private boolean writeAuthorized() {
@@ -265,6 +279,13 @@ final class EditorAnimationTimelineAccess {
         @Override public List<AnimationTrack> tracks() { return tracks; }
 
         @Override public void rename(final String newName) {
+            EditorHostThread.dispatch("Cubism animation scene write", () -> {
+                renameOnEdt(newName);
+                return null;
+            });
+        }
+
+        private void renameOnEdt(final String newName) {
             Objects.requireNonNull(newName, "name");
             if (newName.isBlank()) {
                 throw new IllegalArgumentException("scene name must be non-blank");
@@ -291,6 +312,13 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public void seekTo(final int frame) {
+            EditorHostThread.dispatch("Cubism animation playback", () -> {
+                seekToOnEdt(frame);
+                return null;
+            });
+        }
+
+        private void seekToOnEdt(final int frame) {
             requirePlaybackAuthorization();
             modelGuard.requireCurrent(identity, model);
             final List<?> instances = sceneInstances();
@@ -317,6 +345,13 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public void activate() {
+            EditorHostThread.dispatch("Cubism animation scene activation", () -> {
+                activateOnEdt();
+                return null;
+            });
+        }
+
+        private void activateOnEdt() {
             requireSceneEditAuthorization();
             modelGuard.requireCurrent(identity, model);
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
@@ -343,6 +378,13 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public void setDefaultCurveType(final AnimationCurveType curveType) {
+            EditorHostThread.dispatch("Cubism animation scene write", () -> {
+                setDefaultCurveTypeOnEdt(curveType);
+                return null;
+            });
+        }
+
+        private void setDefaultCurveTypeOnEdt(final AnimationCurveType curveType) {
             Objects.requireNonNull(curveType, "curveType");
             requireSceneEditAuthorization();
             modelGuard.requireCurrent(identity, model);
@@ -827,6 +869,13 @@ final class EditorAnimationTimelineAccess {
         @Override public List<AnimationKeyframe> keyframes() { return keyframes; }
 
         @Override public void setKeyframe(final int frame, final double value) {
+            EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
+                setKeyframeOnEdt(frame, value);
+                return null;
+            });
+        }
+
+        private void setKeyframeOnEdt(final int frame, final double value) {
             if (!Double.isFinite(value)) {
                 throw new IllegalArgumentException("keyframe value must be finite");
             }
@@ -844,6 +893,17 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public void setKeyframe(
+            final int frame,
+            final double value,
+            final AnimationCurveType curveType
+        ) {
+            EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
+                setKeyframeOnEdt(frame, value, curveType);
+                return null;
+            });
+        }
+
+        private void setKeyframeOnEdt(
             final int frame,
             final double value,
             final AnimationCurveType curveType
@@ -870,6 +930,13 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public void setKeyframe(final int frame, final float x, final float y) {
+            EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
+                setKeyframeOnEdt(frame, x, y);
+                return null;
+            });
+        }
+
+        private void setKeyframeOnEdt(final int frame, final float x, final float y) {
             if (!Float.isFinite(x) || !Float.isFinite(y)) {
                 throw new IllegalArgumentException("keyframe coordinates must be finite");
             }
@@ -887,6 +954,13 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public void removeKeyframe(final int frame) {
+            EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
+                removeKeyframeOnEdt(frame);
+                return null;
+            });
+        }
+
+        private void removeKeyframeOnEdt(final int frame) {
             if (!keyframeFrames(attribute).contains(frame)) {
                 return;
             }
@@ -903,19 +977,25 @@ final class EditorAnimationTimelineAccess {
             if (frameDelta == 0) {
                 return keyframes.size();
             }
-            return transformKeyframes(frame -> frame + frameDelta,
-                KeyData::shiftedTo,
-                "Turboism: Offset Animation Keyframes");
+            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
+                transformKeyframes(
+                    frame -> frame + frameDelta,
+                    KeyData::shiftedTo,
+                    "Turboism: Offset Animation Keyframes"
+                )
+            );
         }
 
         @Override public int scaleKeyframeTimes(final double factor, final int originFrame) {
             if (!Double.isFinite(factor) || factor <= 0.0) {
                 throw new IllegalArgumentException("scale factor must be positive and finite");
             }
-            return transformKeyframes(
-                frame -> originFrame + (int) Math.round((frame - originFrame) * factor),
-                (key, newFrame) -> key.scaledTo(newFrame, originFrame, factor),
-                "Turboism: Scale Animation Keyframe Times"
+            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
+                transformKeyframes(
+                    frame -> originFrame + (int) Math.round((frame - originFrame) * factor),
+                    (key, newFrame) -> key.scaledTo(newFrame, originFrame, factor),
+                    "Turboism: Scale Animation Keyframe Times"
+                )
             );
         }
 
@@ -923,14 +1003,25 @@ final class EditorAnimationTimelineAccess {
             if (stepFrames <= 0) {
                 throw new IllegalArgumentException("step must be positive");
             }
-            return transformKeyframes(
-                frame -> (int) (Math.round(frame / (double) stepFrames) * stepFrames),
-                KeyData::shiftedTo,
-                "Turboism: Quantize Animation Keyframes"
+            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
+                transformKeyframes(
+                    frame -> (int) (Math.round(frame / (double) stepFrames) * stepFrames),
+                    KeyData::shiftedTo,
+                    "Turboism: Quantize Animation Keyframes"
+                )
             );
         }
 
         @Override public int copyKeyframesFrom(
+            final AnimationAttribute source,
+            final boolean replace
+        ) {
+            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
+                copyKeyframesFromOnEdt(source, replace)
+            );
+        }
+
+        private int copyKeyframesFromOnEdt(
             final AnimationAttribute source,
             final boolean replace
         ) {
@@ -960,6 +1051,16 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public int applyCurveType(
+            final AnimationCurveType curveType,
+            final int fromFrame,
+            final int toFrame
+        ) {
+            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
+                applyCurveTypeOnEdt(curveType, fromFrame, toFrame)
+            );
+        }
+
+        private int applyCurveTypeOnEdt(
             final AnimationCurveType curveType,
             final int fromFrame,
             final int toFrame
@@ -1004,6 +1105,16 @@ final class EditorAnimationTimelineAccess {
             final int frame,
             final AnimationCurveType curveType
         ) {
+            EditorHostThread.dispatch("Cubism animation keyframe write", () -> {
+                recordKeyframeOnEdt(frame, curveType);
+                return null;
+            });
+        }
+
+        private void recordKeyframeOnEdt(
+            final int frame,
+            final AnimationCurveType curveType
+        ) {
             Objects.requireNonNull(curveType, "curveType");
             requireEvalAuthorization();
             requireWritableAttribute();
@@ -1018,6 +1129,17 @@ final class EditorAnimationTimelineAccess {
         }
 
         @Override public int bakeEvaluated(
+            final int fromFrame,
+            final int toFrame,
+            final int stepFrames,
+            final AnimationCurveType curveType
+        ) {
+            return EditorHostThread.dispatch("Cubism animation keyframe write", () ->
+                bakeEvaluatedOnEdt(fromFrame, toFrame, stepFrames, curveType)
+            );
+        }
+
+        private int bakeEvaluatedOnEdt(
             final int fromFrame,
             final int toFrame,
             final int stepFrames,
@@ -1620,6 +1742,10 @@ final class EditorAnimationTimelineAccess {
         final java.util.function.Supplier<Object> undoFactory,
         final Runnable mutation
     ) {
+        EditorHostThread.requireHostThread("Cubism animation timeline write");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Animation timeline write: " + label
+        );
         final Object editMode = resolver.invoke(
             "cubism.editor-model.scene-document.current-edit-mode", sceneDocument
         );

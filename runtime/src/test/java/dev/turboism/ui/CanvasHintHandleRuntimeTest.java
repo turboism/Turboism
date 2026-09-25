@@ -11,7 +11,10 @@ import dev.turboism.sdk.ui.StatusNotification;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -119,8 +122,61 @@ class CanvasHintHandleRuntimeTest {
         assertEquals(1, adapter.closed, "disposal must clear the hint once, not once per renew");
     }
 
+    @Test
+    void aRenewRacingCloseLeavesNoLiveNativeHint() throws Exception {
+        LatchingAdapter adapter = new LatchingAdapter();
+        RuntimeUiHostCapabilityService service = service(adapter, new DisposableScope());
+        CanvasHintHandle handle = service.notifyCanvasHint(
+            new CanvasHintNotification("screen-color", "Incompatible", 1.0f)
+        );
+        assertEquals(1, adapter.shown.size());
+
+        adapter.armNextShow();
+        Thread renewer = new Thread(handle::renew, "hint-renew");
+        renewer.start();
+        assertTrue(
+            adapter.showEntered.await(5, TimeUnit.SECONDS),
+            "renew must reach the host call before close runs"
+        );
+
+        Thread closer = new Thread(handle::close, "hint-close");
+        closer.start();
+        // Deterministic interleave: a close that cannot be delayed by the in-flight renew
+        // (baseline bug) runs to completion; a close that correctly waits for the in-flight
+        // host call parks on the handle's lock. Either terminal state releases the gate.
+        awaitTrue(
+            () -> closer.getState() == Thread.State.TERMINATED
+                || closer.getState() == Thread.State.BLOCKED,
+            "close must either finish or block on the handle lock"
+        );
+        adapter.releaseShow.countDown();
+        renewer.join(TimeUnit.SECONDS.toMillis(5));
+        closer.join(TimeUnit.SECONDS.toMillis(5));
+        assertFalse(renewer.isAlive(), "renew did not finish");
+        assertFalse(closer.isAlive(), "close did not finish");
+
+        assertEquals(2, adapter.issued.size(), "the armed renew must have reached the host");
+        assertTrue(
+            adapter.issued.get(adapter.issued.size() - 1).closed.get(),
+            "the newest hint registration must be dismissed once the handle is closed"
+        );
+    }
+
+    private static void awaitTrue(
+        final java.util.function.BooleanSupplier condition,
+        final String description
+    ) throws InterruptedException {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("timed out waiting for: " + description);
+            }
+            Thread.sleep(1);
+        }
+    }
+
     private static RuntimeUiHostCapabilityService service(
-        final RecordingAdapter adapter,
+        final StatusToolbarAdapter adapter,
         final DisposableScope scope
     ) {
         return new RuntimeUiHostCapabilityService(
@@ -149,6 +205,56 @@ class CanvasHintHandleRuntimeTest {
             return AdapterResult.unavailable(
                 SafeModeDiagnostic.capabilityUnavailable(Capability.STATUS_NOTIFY.id())
             );
+        }
+    }
+
+    /**
+     * Adapter whose armed {@code notifyCanvasHint} call blocks on a latch so a renew can be
+     * interleaved deterministically with a concurrent close.
+     */
+    private static final class LatchingAdapter implements StatusToolbarAdapter {
+
+        private final List<CanvasHintNotification> shown =
+            Collections.synchronizedList(new ArrayList<>());
+        private final List<IssuedHint> issued = Collections.synchronizedList(new ArrayList<>());
+        private final CountDownLatch showEntered = new CountDownLatch(1);
+        private final CountDownLatch releaseShow = new CountDownLatch(1);
+        private final AtomicBoolean armed = new AtomicBoolean();
+
+        private void armNextShow() {
+            armed.set(true);
+        }
+
+        @Override
+        public AdapterResult<Registration> notifyCanvasHint(final CanvasHintNotification notification) {
+            shown.add(notification);
+            final IssuedHint hint = new IssuedHint();
+            issued.add(hint);
+            if (armed.compareAndSet(true, false)) {
+                showEntered.countDown();
+                try {
+                    releaseShow.await();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return AdapterResult.available(hint);
+        }
+
+        @Override
+        public AdapterResult<Registration> notifyStatus(final StatusNotification notification) {
+            return AdapterResult.unavailable(
+                SafeModeDiagnostic.capabilityUnavailable(Capability.STATUS_NOTIFY.id())
+            );
+        }
+
+        private static final class IssuedHint implements Registration {
+            private final AtomicBoolean closed = new AtomicBoolean();
+
+            @Override
+            public void close() {
+                closed.set(true);
+            }
         }
     }
 }

@@ -88,6 +88,18 @@ final class PreviewPluginShutdownStages {
                 progress.classloaderState, id
             );
         }
+        // Terminal tail, reached only by a non-deferred pass: the executor set captured at
+        // fencing is released once scope closers and the classloader stage have run — the
+        // last paths that can still submit completion work — and only here so deferred
+        // re-drives keep the executor alive until teardown is actually over.
+        if (!progress.executorReleased) {
+            progress.executorReleased = true;
+            try {
+                loadedPlugin.eventOwner().releaseExecutors();
+            } catch (Throwable failure) {
+                log.error(id, "Plugin executor release failed safely", failure);
+            }
+        }
         log.info(
             id,
             "Plugin lifecycle: close complete disable=" + progress.disableState
@@ -312,6 +324,8 @@ final class PreviewPluginShutdownStages {
         String classloaderState;
         boolean unloadAttempted;
         String unloadState;
+        /** Set once this generation's claimed executor set has been released. */
+        boolean executorReleased;
         /** Set once a terminal UNLOAD verdict has been published for this generation. */
         boolean unloadVerdictPublished;
         /**

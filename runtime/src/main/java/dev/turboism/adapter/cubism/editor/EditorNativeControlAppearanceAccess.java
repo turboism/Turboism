@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
@@ -10,6 +12,7 @@ import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.ui.appearance.PresetColor;
 import dev.turboism.sdk.ui.appearance.UiColor;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -30,13 +33,23 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorNativeControlAppearanceAccess(
         final VerifiedMemberResolver resolver,
         final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding
     ) {
+        this(resolver, currentBinding, null);
+    }
+
+    EditorNativeControlAppearanceAccess(
+        final VerifiedMemberResolver resolver,
+        final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentBinding = Objects.requireNonNull(currentBinding, "currentBinding");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     @Override
@@ -59,6 +72,17 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
         final NativeLabelColorTarget target,
         final NativeLabelColor color
     ) {
+        EditorHostThread.dispatch("Cubism native label-color write", () -> {
+            setNativeLabelColorOnEdt(target, color);
+            return null;
+        });
+    }
+
+    private void setNativeLabelColorOnEdt(
+        final NativeLabelColorTarget target,
+        final NativeLabelColor color
+    ) {
+        EditorHostThread.requireHostThread("Cubism native label-color write");
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(color, "color");
         requireWriteAuthorization();
@@ -78,6 +102,57 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
         );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = binding.document();
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            final NativeLabelColorValue before = readNativeValue(labelColor);
+            ambientJoin.orElseThrow().admit(
+                "cubism.model.set-native-label-color",
+                "label-color:" + sourceId,
+                ACTION_NAME,
+                (edit, transactionLabel) -> {
+                    addUndo(edit, labelColor);
+                    trace(transaction, "undo-admitted", binding, sourceId, "undoAccepted=true");
+                    final Object listener = resolver.createFunctionalProxy(
+                        "cubism.editor-model.undo-listener.class",
+                        ignored -> {
+                            resolver.invoke(
+                                "cubism.editor-model.model-source.update-instances",
+                                binding.source()
+                            );
+                            refresh(app, target, transaction, binding, sourceId);
+                            return null;
+                        }
+                    );
+                    resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
+                },
+                () -> {
+                    requireCurrent(binding);
+                    requireSameLabelColor(binding, target, labelColor);
+                    apply(labelColor, requested);
+                    requireCurrent(binding);
+                    requireSameLabelColor(binding, target, labelColor);
+                },
+                () -> exactMatch(requested, readNativeValue(labelColor)),
+                () -> apply(labelColor, before),
+                () -> exactMatch(before, readNativeValue(labelColor)),
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    target.palette() == NativeLabelColorTarget.Palette.PART
+                        ? EditorRefreshRequirement.PART_PALETTE
+                        : target.palette() == NativeLabelColorTarget.Palette.DEFORMER
+                            ? EditorRefreshRequirement.DEFORMER_PALETTE
+                            : EditorRefreshRequirement.PARAMETER_PALETTE,
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            requireCurrent(binding);
+            requireSameLabelColor(binding, target, labelColor);
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Model.setNativeLabelColor"
+        );
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode", document
         );

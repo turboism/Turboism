@@ -22,6 +22,8 @@ final class EditorAuthoringScope {
     private Object edit;
     private boolean editEndAttempted;
     private boolean editClosed;
+    private boolean envelopeContributionJoined;
+    private boolean groupUndoApplied;
 
     EditorAuthoringScope(
         final EditorAuthoringTransactionCoordinator.Binding binding,
@@ -83,6 +85,22 @@ final class EditorAuthoringScope {
 
     List<EditorUndoContribution> contributions() {
         return List.copyOf(contributions);
+    }
+
+    void noteEnvelopeContribution() {
+        envelopeContributionJoined = true;
+    }
+
+    boolean envelopeContributionJoined() {
+        return envelopeContributionJoined;
+    }
+
+    void markGroupUndoApplied() {
+        groupUndoApplied = true;
+    }
+
+    boolean groupUndoApplied() {
+        return groupUndoApplied;
     }
 
     Set<EditorRefreshRequirement> refreshRequirements() {

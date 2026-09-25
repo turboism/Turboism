@@ -36,13 +36,25 @@ final class EditorDocumentReadAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator
+        authoringCoordinator;
 
     EditorDocumentReadAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, null);
+    }
+
+    EditorDocumentReadAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator
+            authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     PhysicsSettings physicsSettings(final String identity, final Object source, final Object model) {
@@ -205,7 +217,9 @@ final class EditorDocumentReadAccess {
             EditorAnimationTimelineReadSelectorContract.REQUIRED_ALIASES
         );
         final EditorAnimationTimelineAccess timelineAccess = timelineAuthorized
-            ? new EditorAnimationTimelineAccess(resolver, modelGuard, identity, model)
+            ? new EditorAnimationTimelineAccess(
+                resolver, modelGuard, identity, model, authoringCoordinator
+            )
             : null;
         final List<AnimationDocument> documents = new ArrayList<>();
         for (Object content : list(
