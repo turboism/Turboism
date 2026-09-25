@@ -111,9 +111,9 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         armed = production;
     }
 
-    /** Production opt-in preference; off unless explicitly enabled. */
+    /** Production preference; on by default, an explicit {@code =false} opts out. */
     public static boolean enabledByPreference() {
-        return Boolean.parseBoolean(System.getProperty(ENABLE_PROPERTY, "false"));
+        return Boolean.parseBoolean(System.getProperty(ENABLE_PROPERTY, "true"));
     }
 
     private static long snapshotBudget() {

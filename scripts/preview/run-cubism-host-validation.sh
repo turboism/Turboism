@@ -895,6 +895,75 @@ if [ -n "$prepare_dir" ]; then
   exit 0
 fi
 
+# The Proton-scoped product options resolve to on by default on this
+# Linux/Proton launch path — it is the only platform where they take effect:
+# launcher.mesaGlThread exports mesa_glthread=true for the Mesa threaded
+# submitter AND injects the deferred error-check property so the shader
+# helper's per-call glGetError no longer forces a flush (both halves come
+# from the same flag — Mesa threading alone was measured a regression);
+# launcher.inputPathElision injects the input-path elision property. An
+# explicit false in the home config always wins and is propagated as an
+# explicit -D=false so the JVM-side Proton default cannot re-enable it.
+# Windows launchers never emit either property; the options are inert there.
+# Computed before dry-run so the report shows the effective launch state.
+mesa_gl_thread=0
+input_path_elision=0
+launcher_prefs="$(python3 - "$home_config" <<'PY'
+import json, sys
+def state(launcher, name):
+    value = launcher.get(name)
+    if value is True:
+        return "on"
+    return "off" if value is not None else "default"
+launcher = {}
+try:
+    with open(sys.argv[1], encoding="utf-8") as stream:
+        document = json.load(stream)
+    candidate = document.get("launcher")
+    if isinstance(candidate, dict):
+        launcher = candidate
+except Exception:
+    pass
+print("mesaGlThread=%s" % state(launcher, "mesaGlThread"))
+print("inputPathElision=%s" % state(launcher, "inputPathElision"))
+print("uploadElision=%s" % state(launcher, "uploadElision"))
+PY
+)"
+upload_elision=1
+while IFS='=' read -r pref_name pref_value; do
+  case "$pref_name" in
+    mesaGlThread) [ "$pref_value" = off ] || mesa_gl_thread=1 ;;
+    inputPathElision) [ "$pref_value" = off ] || input_path_elision=1 ;;
+    uploadElision) [ "$pref_value" = off ] && upload_elision=0 ;;
+  esac
+done <<PREFS
+$launcher_prefs
+PREFS
+# The product launcher.mesaGlThread option supplies its Mesa side itself so a
+# driver cannot enable glthread without deferred checking; an explicit
+# --linux-env declaration still wins when the driver pinned the experiment.
+if [ "$mesa_gl_thread" = 1 ]; then
+  mesa_declared=0
+  for existing_name in "${linux_environment_names[@]}"; do
+    [ "$existing_name" = "mesa_glthread" ] && mesa_declared=1 && break
+  done
+  if [ "$mesa_declared" = 0 ]; then
+    linux_environment+=("mesa_glthread=true")
+    linux_environment_names+=("mesa_glthread")
+  fi
+fi
+# This launch path always runs under Wine/Proton: publish the managed marker
+# so the JVM-side Proton-default resolution for the scoped options has an
+# authoritative signal instead of relying only on generic Wine markers.
+turboism_proton_declared=0
+for existing_name in "${linux_environment_names[@]}"; do
+  [ "$existing_name" = "TURBOISM_PROTON" ] && turboism_proton_declared=1 && break
+done
+if [ "$turboism_proton_declared" = 0 ]; then
+  linux_environment+=("TURBOISM_PROTON=1")
+  linux_environment_names+=("TURBOISM_PROTON")
+fi
+
 if [ "$dry_run" = 1 ]; then
   printf '%s\n' \
     "name=$name" \
@@ -940,7 +1009,9 @@ if [ "$dry_run" = 1 ]; then
     "clientScript=$client_script" \
     "clientScriptTaskName=$client_script_remote_name" \
     "evidenceArchiver=$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
-    "localEvidenceDir=$local_evidence_dir"
+    "localEvidenceDir=$local_evidence_dir" \
+    "mesaGlThread=$mesa_gl_thread" \
+    "inputPathElision=$input_path_elision"
   for index in "${!resolved_plugins[@]}"; do printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"; done
   for index in "${!resolved_home_files[@]}"; do printf 'homeFile.%s=%s\n' "$index" "${resolved_home_files[$index]}"; done
   for index in "${!resolved_home_dirs[@]}"; do printf 'homeDir.%s=%s\n' "$index" "${resolved_home_dirs[$index]}"; done
@@ -1998,28 +2069,6 @@ for spec in "${resolved_home_dirs[@]}"; do
   local_copy_dir_contents_to "$local_path" "$home_dir/$relative_path"
 done
 
-# The combined launcher.mesaGlThread product option (persisted, default off)
-# takes effect only on this Linux/Proton launch path: when the staged home
-# config enables it we export mesa_glthread=true for the Mesa threaded
-# submitter AND inject the deferred error-check property so the shader
-# helper's per-call glGetError no longer forces a flush. Both halves come
-# from the same flag — Mesa threading alone was measured a regression.
-# Windows launchers never emit either; the option is inert there.
-mesa_gl_thread=0
-if [ -f "$home_dir/config.json" ]; then
-  mesa_gl_thread="$(python3 - "$home_dir/config.json" <<'PY'
-import json, sys
-try:
-    with open(sys.argv[1], encoding="utf-8") as stream:
-        document = json.load(stream)
-    launcher = document.get("launcher")
-    value = launcher.get("mesaGlThread") if isinstance(launcher, dict) else None
-    print(1 if value is True else 0)
-except Exception:
-    print(0)
-PY
-)"
-fi
 for spec in "${resolved_aux_agents[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
@@ -2125,9 +2174,33 @@ for option in "${jvm_options[@]}"; do
   option="${option//\{FIXTURE_NAME\}/$fixture_name}"
   all_jvm_options+=("$option")
 done
-# launcher.mesaGlThread=true installs the deferred error-check hook.
-if [ "$mesa_gl_thread" = 1 ]; then
-  all_jvm_options+=('-Dturboism.optimization.mesaGlThread=true')
+# The Proton-scoped options emit an explicit property either way: effective
+# on gets =true, effective off (explicit config false or invalid value)
+# gets =false so the JVM-side Proton default cannot re-enable it. An
+# explicit --jvm-option already in the list wins — these tokens come last
+# in JAVA_TOOL_OPTIONS only when the driver did not declare one.
+if ! array_contains_line all_jvm_options '-Dturboism.optimization.mesaGlThread=true' &&
+   ! array_contains_line all_jvm_options '-Dturboism.optimization.mesaGlThread=false'; then
+  if [ "$mesa_gl_thread" = 1 ]; then
+    all_jvm_options+=('-Dturboism.optimization.mesaGlThread=true')
+  else
+    all_jvm_options+=('-Dturboism.optimization.mesaGlThread=false')
+  fi
+fi
+if ! array_contains_line all_jvm_options '-Dturboism.optimization.inputPathElision=true' &&
+   ! array_contains_line all_jvm_options '-Dturboism.optimization.inputPathElision=false'; then
+  if [ "$input_path_elision" = 1 ]; then
+    all_jvm_options+=('-Dturboism.optimization.inputPathElision=true')
+  else
+    all_jvm_options+=('-Dturboism.optimization.inputPathElision=false')
+  fi
+fi
+# uploadElision is default-on on every platform; only an explicit config
+# false needs propagation here.
+if [ "$upload_elision" = 0 ] &&
+   ! array_contains_line all_jvm_options '-Dturboism.optimization.uploadElision=true' &&
+   ! array_contains_line all_jvm_options '-Dturboism.optimization.uploadElision=false'; then
+  all_jvm_options+=('-Dturboism.optimization.uploadElision=false')
 fi
 java_tool_options=''
 for option in "${all_jvm_options[@]}"; do
@@ -2164,19 +2237,6 @@ exit /b %ERRORLEVEL%
 BAT
 run_remote_hook "$remote_pre_launch"
 local_copy_to "$local_tmp/launch.bat" "$task_dir/launch.bat"
-# The product launcher.mesaGlThread option supplies its Mesa side itself so a
-# driver cannot enable glthread without deferred checking; an explicit
-# --linux-env declaration still wins when the driver pinned the experiment.
-if [ "$mesa_gl_thread" = 1 ]; then
-  mesa_declared=0
-  for existing_name in "${linux_environment_names[@]}"; do
-    [ "$existing_name" = "mesa_glthread" ] && mesa_declared=1 && break
-  done
-  if [ "$mesa_declared" = 0 ]; then
-    linux_environment+=("mesa_glthread=true")
-    linux_environment_names+=("mesa_glthread")
-  fi
-fi
 # Whitelist-checked Mesa/Proton debug variables for this job only; every name
 # and value was charset-validated, so a literal export line cannot smuggle
 # shell syntax into the generated script. The enumerable managed names are
@@ -2257,6 +2317,7 @@ chmod 700 -- "$task_dir/launch.sh"
 {
   printf 'schemaVersion=1\n'
   printf 'mesaGlThread=%s\n' "$mesa_gl_thread"
+  printf 'inputPathElision=%s\n' "$input_path_elision"
   printf 'linuxEnvironmentCount=%s\n' "${#linux_environment[@]}"
   for index in "${!linux_environment[@]}"; do
     printf 'linuxEnvironment.%s=%s\n' "$index" "${linux_environment[$index]}"

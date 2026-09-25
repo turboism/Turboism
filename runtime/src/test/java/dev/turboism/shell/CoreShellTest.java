@@ -101,10 +101,11 @@ class CoreShellTest {
             )),
             context.mainToolbar().buttonContributions()
         );
-        assertEquals(11, context.uiHost().settingsContributions().size());
+        assertEquals(14, context.uiHost().settingsContributions().size());
         assertEquals(
             List.of("cubism-graalvm-path", "cubism-jvm", "cubism-disable-auto-backup",
                 "cubism-zgc", "model-update-skip", "incremental-update", "uniform-location-cache",
+                "upload-elision", "input-path-elision", "mesa-gl-thread",
                 "performance-restart-note", "mesh-triangulation-hash",
                 "atlas-tile-bbox", "atlas-cache-reuse"),
             context.uiHost().settingsContributions().stream()
@@ -127,10 +128,10 @@ class CoreShellTest {
         assertTrue(!panel.content().toString().contains("Safe Mode"));
         assertEquals(
             List.of(
-                "Turboism/Settings:turboism.core.settings.open:10",
-                "Turboism/Plugin Management:turboism.core.plugins.open:11",
-                "Turboism/Logs:turboism.core.logs.open:12",
-                "Turboism/About:turboism.core.about.open:13"
+                "Plugins/Settings:turboism.core.settings.open:10",
+                "Plugins/Plugin Management:turboism.core.plugins.open:11",
+                "Plugins/Logs:turboism.core.logs.open:12",
+                "Plugins/About:turboism.core.about.open:13"
             ),
             context.menus().contributions().stream()
                 .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
