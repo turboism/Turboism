@@ -1696,3 +1696,7 @@ n8 是这套链路的首次实机有效性证据。
 - **T26 默认冒烟已提交**（integration/perf-052@00924fc25，agent
   c7a62d26 修正后值、probe 79150434）：b26f3227 76970314 5e5d7dab
   8a8064c8（default-wheel/optout-wheel/default-pan/default-drag）。
+- **T26 结果**：default-wheel/optout/drag PASS、pan FAIL（焦点），
+  修复+同步 main@3ffaf5ea1 后分支至 f2fb6a4c8。
+- **T27 修复后冒烟已提交**（agent bc30133a/probe a90ae65d）：
+  ec469091 eab6251c b024662a 81253d1d；pan 须 PASS。
