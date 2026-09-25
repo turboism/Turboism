@@ -337,24 +337,30 @@ final class EditorRawImagePsdAccess {
                     "parsed PSD did not reconstruct as the verified CLayeredImage type"
                 );
             }
-            EditorRawImagePsdIntegrityAccess.Verification integrityVerification;
-            if (beforeSnapshot == null) {
-                integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
-                    "source binding snapshot was not supplied; export fidelity was not compared"
-                );
-            } else {
-                try {
-                    final EditorRawImagePsdIntegrityAccess.Snapshot afterSnapshot =
-                        integrityAccess.captureOnHostThread(reconstructed);
-                    integrityVerification = integrityAccess.verify(beforeSnapshot, afterSnapshot);
-                } catch (RuntimeException failure) {
+            try {
+                EditorRawImagePsdIntegrityAccess.Verification integrityVerification;
+                if (beforeSnapshot == null) {
                     integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
-                        "reparsed PSD was readable but export fidelity could not be observed: "
-                            + message(failure)
+                        "source binding snapshot was not supplied; export fidelity was not compared"
                     );
+                } else {
+                    try {
+                        final EditorRawImagePsdIntegrityAccess.Snapshot afterSnapshot =
+                            integrityAccess.captureOnHostThread(reconstructed);
+                        integrityVerification = integrityAccess.verify(beforeSnapshot, afterSnapshot);
+                    } catch (RuntimeException failure) {
+                        integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
+                            "reparsed PSD was readable but export fidelity could not be observed: "
+                                + message(failure)
+                        );
+                    }
                 }
+                return ExportResult.readableUnverified(target, pathSafety, integrityVerification);
+            } finally {
+                // This detached reconstruction belongs only to export verification, never the model or Undo.
+                phase = FailurePhase.DISPOSE;
+                resolver.invoke(EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS, reconstructed);
             }
-            return ExportResult.readableUnverified(target, pathSafety, integrityVerification);
         } catch (IOException exception) {
             return ExportResult.targetCheckFailed(target, saveReturned, pathSafety, phase, exception);
         } catch (RuntimeException exception) {
@@ -742,7 +748,8 @@ final class EditorRawImagePsdAccess {
         TARGET_POSTCHECK,
         OUTPUT_CHECK,
         PARSE,
-        CONSTRUCT
+        CONSTRUCT,
+        DISPOSE
     }
 
     enum SelectionStatus {

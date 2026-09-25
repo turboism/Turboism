@@ -344,6 +344,8 @@ class EditorRawImagePsdSourceBindingTest {
             result.integrityVerification().status()
         );
         assertTrue(result.integrityVerification().detail().contains("could not be observed"));
+        assertEquals(1L, SyntheticSourceFixture.events().stream().filter("dispose"::equals).count());
+        assertTrue(SyntheticSourceFixture.hostEvents().stream().allMatch(Boolean::booleanValue));
     }
 
     @Test
@@ -753,6 +755,15 @@ class EditorRawImagePsdSourceBindingTest {
                 "(" + reference(SyntheticSourceFixture.PsdDocument.class)
                     + "Ljava/io/File;Ljava/lang/String;)V",
                 StaticSelector.ACCESS_PUBLIC
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
+                SyntheticSourceFixture.LayeredImage.class,
+                "dispose",
+                "()V"
             )
         );
         selectors.put(
@@ -1431,6 +1442,13 @@ class EditorRawImagePsdSourceBindingTest {
                     default -> copyEntries(source.children, parsed.mode);
                 };
                 constructedRootGuid = this.guid.value;
+            }
+
+            public void dispose() {
+                if (!guid.value.startsWith("reparsed-root-")) {
+                    throw new AssertionError("source image must not be disposed");
+                }
+                record("dispose");
             }
 
             public Guid getGuid() {

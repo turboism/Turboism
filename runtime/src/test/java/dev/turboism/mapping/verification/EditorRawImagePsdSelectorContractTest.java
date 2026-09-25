@@ -135,6 +135,16 @@ class EditorRawImagePsdSelectorContractTest {
         );
         assertShape(
             selectors,
+            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
+            StaticSelector.Kind.METHOD,
+            "com/live2d/cubism/doc/resources/CLayeredImage",
+            "dispose",
+            "()V",
+            17,
+            8
+        );
+        assertShape(
+            selectors,
             EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
             StaticSelector.Kind.CLASS,
             "com/live2d/util/a/a",
