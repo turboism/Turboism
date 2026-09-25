@@ -297,19 +297,24 @@ class CubismJvmSettingsFileServiceTest {
 
     @Test
     void protonMarkerVariantsDriveThePlatformDefault() throws Exception {
+        // Only the managed marker is authoritative for the platform default;
+        // ambient Wine variables are user-settable on native Windows and must
+        // never flip it.
+        try (CubismJvmSettingsFileService service = service(
+                Map.of("TURBOISM_PROTON", "1"))) {
+            assertTrue(service.inputPathElision());
+            assertTrue(service.mesaGlThread());
+        }
         for (final Map<String, String> env : java.util.List.of(
             Map.of("WINEPREFIX", "/pfx"),
             Map.of("STEAM_COMPAT_DATA_PATH", "/steam/compat"),
-            Map.of("WINEFSYNC", "1")
+            Map.of("WINEFSYNC", "1"),
+            Map.of("TURBOISM_PROTON", "")
         )) {
             try (CubismJvmSettingsFileService service = service(env)) {
-                assertTrue(service.inputPathElision(), "env=" + env);
-                assertTrue(service.mesaGlThread(), "env=" + env);
+                assertFalse(service.inputPathElision(), "env=" + env);
+                assertFalse(service.mesaGlThread(), "env=" + env);
             }
-        }
-        // Empty marker values carry no signal.
-        try (CubismJvmSettingsFileService service = service(Map.of("WINEPREFIX", ""))) {
-            assertFalse(service.inputPathElision());
         }
     }
 
