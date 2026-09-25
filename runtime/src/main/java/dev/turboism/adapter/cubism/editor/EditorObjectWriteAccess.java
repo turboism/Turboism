@@ -822,13 +822,11 @@ final class EditorObjectWriteAccess {
                         final Object rootGuid = resolver.invoke(
                             "cubism.editor-model.deformer-guid.root", companion);
                         changeUndo = resolver.invoke(
-                            "cubism.editor-model.parameter-controllable-handler"
-                                + ".change-target-deformer-guid",
+                            "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
                             handler, model, rootGuid, Boolean.FALSE);
                     } else {
                         changeUndo = resolver.invoke(
-                            "cubism.editor-model.parameter-controllable-handler"
-                                + ".change-target-deformer",
+                            "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
                             handler, model, target);
                     }
                     HostUndoMutationScope.requireUndoAccepted(
