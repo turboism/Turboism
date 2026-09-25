@@ -42,6 +42,24 @@ val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
 }
 
+// gradle.gradleHomeDir is null under embedded/tooling-API launches, and the launcher
+// is bin/gradle.bat on Windows; resolve it at execution time so other builds and
+// tasks are unaffected.
+fun sdkHistoryGradleLauncher(): String {
+    val home = gradle.gradleHomeDir ?: throw GradleException(
+        "Gradle home is unavailable in this launch mode; run SDK history reconstruction through the Gradle wrapper"
+    )
+    val script = if (System.getProperty("os.name", "").lowercase().contains("win")) "gradle.bat" else "gradle"
+    return home.resolve("bin/$script").absolutePath
+}
+
+tasks.matching { it.name.startsWith("prepareSdk") && it.name.endsWith("ExactReference") }
+    .withType<Exec>().configureEach {
+        doFirst {
+            args("--gradle", sdkHistoryGradleLauncher())
+        }
+    }
+
 val checkSdkApiBaselineTool by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs deterministic SDK API baseline mutation and compatibility selftests."
@@ -71,7 +89,6 @@ val prepareSdkV2ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV2ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV2ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -90,7 +107,6 @@ val prepareSdkV3ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV3ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -109,7 +125,6 @@ val prepareSdkV4ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV4ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV4ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -128,7 +143,6 @@ val prepareSdkV5ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV5ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV5ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -147,7 +161,6 @@ val prepareSdkV6ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV6ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV6ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -166,7 +179,6 @@ val prepareSdkV7ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV7ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV7ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -185,7 +197,6 @@ val prepareSdkV8ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV8ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV8ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -204,7 +215,6 @@ val prepareSdkV9ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV9ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV9ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -223,7 +233,6 @@ val prepareSdkV10ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV10ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV10ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )
@@ -242,7 +251,6 @@ val prepareSdkV11ExactReference by tasks.registering(Exec::class) {
         "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
         "--root", rootDir.absolutePath,
         "--commit", sdkV11ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
         "--output", sdkV11ExactReferenceArtifact.get().asFile.absolutePath,
         "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
     )

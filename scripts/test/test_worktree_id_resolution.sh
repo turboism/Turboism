@@ -42,4 +42,29 @@ id=$(cd "${WORKDIR}/dir-name-id" && env -u TURBOISM_WORKTREE_ID bash scripts/dev
 [ "${id}" = "dir-name-id" ] || fail "directory name fallback failed"
 rm -rf "${WORKDIR}"
 
+# Test 6: --resolve prints a forbidden id instead of failing
+id=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=test bash scripts/dev/worktree-id.sh --resolve)
+[ "${id}" = "test" ] || fail "--resolve should still print the forbidden id"
+
+# Test 7: --resolve prints an invalid id instead of failing
+id=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=1invalid bash scripts/dev/worktree-id.sh --resolve)
+[ "${id}" = "1invalid" ] || fail "--resolve should still print the invalid id"
+
+# Test 8: --resolve still sanitizes the candidate
+id=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID='My Weird_ID!' bash scripts/dev/worktree-id.sh --resolve)
+[ "${id}" = "my-weird-id" ] || fail "--resolve should sanitize the id"
+
+# Test 9: --resolve reports the forbidden verdict on stderr without failing
+err=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=test bash scripts/dev/worktree-id.sh --resolve 2>&1 >/dev/null)
+[ "${err}" = "Forbidden worktree ID: test" ] || fail "--resolve should report the forbidden verdict on stderr, got: ${err}"
+
+# Test 10: --resolve reports the invalid verdict on stderr without failing
+err=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=1invalid bash scripts/dev/worktree-id.sh --resolve 2>&1 >/dev/null)
+[ "${err}" = "Invalid worktree ID: 1invalid (must match [a-z][a-z0-9-]{2,63})" ] \
+  || fail "--resolve should report the invalid verdict on stderr, got: ${err}"
+
+# Test 11: --resolve reports an empty verdict for a valid id
+err=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=valid-id bash scripts/dev/worktree-id.sh --resolve 2>&1 >/dev/null)
+[ -z "${err}" ] || fail "--resolve should report an empty verdict for a valid id, got: ${err}"
+
 echo "PASS: worktree id resolution"
