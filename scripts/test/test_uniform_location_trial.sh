@@ -13,6 +13,7 @@ javac --release 17 -d "$out" \
   "$src/NativeDragSequence.java" "$tests/NativeDragSequenceTest.java" \
   "$src/NativeParitySequence.java" "$tests/NativeParitySequenceTest.java" \
   "$src/NativeInteractionHost.java" "$tests/NativeInteractionHostTest.java" \
+  "$src/NativeInteractionFocus.java" "$tests/NativeInteractionFocusTest.java" \
   "$src/NativeInteractionWorkload.java" "$tests/NativeInteractionWorkloadFactorTest.java" \
   "$src/PreparationWatchdog.java" "$tests/PreparationWatchdogTest.java" \
   "$src/GlSubmissionProbe.java" "$src/GlCallCategory.java" "$src/GlRedundancyTracker.java" "$src/UploadPayloadObserver.java" \
@@ -21,6 +22,6 @@ javac --release 17 -d "$out" \
   "$tests/GlSubmissionProbeTest.java" "$tests/GlCallCategoryTest.java" "$tests/UploadPayloadObserverTest.java" \
   "$tests/UniformLocationCacheTest.java" "$tests/UniformLocationTrialTest.java" "$tests/FrameReadbackTest.java" \
   "$tests/UniformValueCacheTest.java" "$tests/UniformValueAllocationTest.java" "$tests/BenchmarkResourcesTest.java" "$tests/NarrowUniformTrialTest.java" "$tests/MatrixScratchTrialTest.java"
-for name in CanvasWheelParityTest NativeParitySequenceTest PreparationWatchdogTest AllocationProfileTest GlSubmissionProbeTest GlCallCategoryTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest MatrixScratchTrialTest NativeDragSequenceTest NativeInteractionHostTest NativeInteractionWorkloadFactorTest; do
+for name in NativeInteractionFocusTest CanvasWheelParityTest NativeParitySequenceTest PreparationWatchdogTest AllocationProfileTest GlSubmissionProbeTest GlCallCategoryTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest MatrixScratchTrialTest NativeDragSequenceTest NativeInteractionHostTest NativeInteractionWorkloadFactorTest; do
   java -cp "$out" "dev.turboism.validation.modelupdate.$name"
 done
