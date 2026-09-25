@@ -1684,3 +1684,9 @@ n8 是这套链路的首次实机有效性证据。
 - **T24 已提交**（gl-attribution@397da398e，agent 60c23c93/probe
   99289c05）：A/C×4 交错 6d5a85ba 89a43556 4cf636a7 18af79af
   5d829d4c f8b89996 ef111bfa a4075a88。
+- **T24 结果**：glthread 组合 SUPPORTED 中位 −6.5ms（4cf636a7 digest
+  差异=几何）。6d5a85ba→a4075a88。
+- **T25 最终验收已提交**（gl-attribution@da80de22a，agent f15b78a4）：
+  A/F 16 腿（wheel×8 pan×4 drag×4）b8c09000 eacb646f b67f6e32
+  9a8ac557 7c66afcd b94e77d7 16b19f1e ffea6d8b 9823ef79 bd1b9f18
+  58bb1c0c 531a4c31 0f9c90fc 01bad54e 7fcd956b b9161829。
