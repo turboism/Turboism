@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridg
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionBridge;
+import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -322,6 +323,34 @@ final class CubismJvmSettingsContribution {
             },
             false,
             84
+        );
+    }
+
+    /**
+     * Default-off opt-in, Linux/Mesa only: exports {@code mesa_glthread=true}
+     * on the Linux/Proton launch path and installs the deferred GL error-check
+     * hook so the shader helper's per-call {@code glGetError} no longer flushes
+     * the threaded submitter. Experimental; Windows launches ignore it.
+     */
+    static SettingsContribution createMesaGlThreadToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "mesa-gl-thread",
+            "settings.optimization.mesa-gl-thread",
+            DeferredGlErrorCheckTransformer.ENABLE_PROPERTY,
+            settings::mesaGlThread,
+            value -> {
+                if (settings.saveMesaGlThread(value) != value) {
+                    throw new IllegalStateException("Mesa GL-thread preference was not saved");
+                }
+                return value;
+            },
+            false,
+            85
         );
     }
 
