@@ -2041,6 +2041,7 @@ final class SessionOpsContractTest {
             final Object foreign = new Object();
             currentGroup = foreign;
             if (commit) {
+                entries.subList(position, entries.size()).clear();
                 entries.add(foreign);
                 position = entries.size();
                 currentGroup = null;
@@ -2050,7 +2051,10 @@ final class SessionOpsContractTest {
         HistorySnapshot snapshot() {
             final List<HistoryEntry> rows = new ArrayList<>();
             for (int i = 0; i < entries.size(); i++) {
-                rows.add(new HistoryEntry(i, "entry-" + i, true));
+                // Labels carry the entry's identity: a foreign entry occupying a
+                // pre-session slot must not compare equal to the entry it replaced.
+                rows.add(new HistoryEntry(
+                    i, "entry-" + System.identityHashCode(entries.get(i)), true));
             }
             return new HistorySnapshot(
                 HistorySnapshot.Availability.AVAILABLE,
@@ -2100,6 +2104,7 @@ final class SessionOpsContractTest {
             final boolean cancel
         ) {
             if (!cancel && currentGroup != null) {
+                entries.subList(position, entries.size()).clear();
                 entries.add(currentGroup);
                 position = entries.size();
             }
