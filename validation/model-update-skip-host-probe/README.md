@@ -691,11 +691,20 @@ manifest pins `GlGetErrorElisionHookContributor` before
   elision restores against the official baseline. Both checks pass because
   each baseline was captured under the chain state that exists when the
   transformer is removed.
-- **Semantics:** on the composed body no `glGetError` call remains, so the
-  ERROR observer simply never fires — equivalent to the steady-state
-  `error=0` stream, and consistent with elision semantics (the host's error
-  branch cannot fire anyway). The uniform cache itself (call-site lookup,
-  FRAME begin/end, MUTATIONS invalidation) is unaffected.
+- **Semantics on the composed body (T23 fix):** the ERROR observer normally
+  anchors on the `invokeinterface glGetError` instruction, which the elision
+  replaced with `pop; iconst_0` — without compensation the callback silently
+  never fires, and since `FrameUniformLocationCache` only confirms pending
+  locations via `checkedError`, the cache installed COMPLETE yet hit 0
+  (measured in T23). The transformer therefore treats the reviewed
+  `pop; iconst_0` pair as the elided call and emits the identical
+  `error(gl, 0)` observation after the constant — the `GL_NO_ERROR` the
+  elision guarantees. The receiver local is derived from the official body
+  (the instruction before the query must be a plain `aload`; both reviewed
+  versions use `aload_1`), the pair count must be exactly one, and any
+  mismatch fails the install closed. On the official body the observer is
+  byte-identical to before — the elision path activates only when the
+  observed shape is the registered composed one.
 - **If the order ever flips** the elision gate sees the uniform-observed body,
   fails its shape check, and reports `installation=FAILED` — fail-closed,
   never a silent partial rewrite.
@@ -718,6 +727,16 @@ the glthread worker, so every remaining sync point costs a context switch
 instead of a cheap native call. The last-shot composition below removes the
 two biggest sync sources (elision for `glGetError`, the uniform cache for
 `glGetUniformLocation`) before re-measuring glthread.
+
+**T23 field result (9 runs, all PASS, pixels identical):** glthread did engage
+on C runs — the worker comm is `java.exe:gl0` (the fixed `(^|:)gl[0-9]+$`
+matcher counts it now; T23's `glThreadCount=0` was the old exact-name miss).
+B/C installed `uniform COMPLETE` but `hits=0`: the elided `glGetError` anchor
+silently removed the ERROR-role confirmation callback, so recorded locations
+stayed pending forever — fixed above by emitting `error(gl, 0)` at the
+reviewed `pop; iconst_0` site. Medians (legs 1/2): A 53.6 ms, B 65.6 ms
+(noisy), C 52.75 ms — C already matched A *without* the uniform cache
+engaging, so the corrected composition justifies one more A/C round.
 
 **Mechanism.** `--windows-env` writes Windows-side `set` lines inside the
 prefix — the wrong channel for `mesa_glthread`, which Linux-side Mesa reads
@@ -757,8 +776,11 @@ task-bound entry whose comm or argv0 basename is `java*`/`javaw*`
   `wineprefix`/`taskDir` values.
 
 Mesa 26.1.5 names the glthread worker via `util_queue` `"%s%i"` naming on
-queue `"gl"` → comm **`gl0`**; `gdrv0` in field lists is a separate Gallium
-driver thread. Mesa also prints
+queue `"gl"` → `gl0`, and Wine tags the thread comm with the process image,
+so the observed name is **`java.exe:gl0`** (the collector matches
+`(^|:)gl[0-9]+$`; T23's `glThreadCount=0` was this exact-name miss — the
+thread was present). `gdrv0` in field lists is a separate Gallium
+driver thread and does not count. Mesa also prints
 `ATTENTION: default value of option mesa_glthread overridden by environment`
 to the process stderr when the env var overrides the drirc default — that
 lands in `cubism-console.txt` and corroborates activation independently of
@@ -775,31 +797,23 @@ global `mesa_glthread` override — so the env var is the sole effective lever
 and nothing silently re-enables/disables it. `~/.drirc` must not be edited
 (global state visible to other tasks).
 
-**Driver usage (cross-run A/B/C — glthread is process-level, cannot toggle
-within a run).** Same wheel harness; the uniform cache, uploadElision and
-inputPath stay at production settings in every run, so each configuration
-adds exactly one variable. Three configurations, three runs each, interleaved
-to bound drift (e.g. `A B C B C A C A B`):
+**Driver usage (cross-run A/C retest after the T23 fix — glthread is
+process-level, cannot toggle within a run).** Same wheel harness; the uniform
+cache, uploadElision and inputPath stay at production settings in every run.
+T23 already measured B (elision without glthread: 65.6 ms, noisy), so the
+retest is A vs C only — four runs each, interleaved `A C C A A C C A` to
+bound drift:
 
 ```bash
 # A = production baseline: uniform cache + uploadElision + inputPath
-bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-A-1 \
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt2-A-1 \
   --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
   --jvm-option '-Dturboism.optimization.uploadElision=true' \
   --jvm-option '-Dturboism.optimization.inputPath=true' \
   --result-timeout 1200
 
-# B = A + glGetError elision (removes the per-draw sync query)
-bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-B-1 \
-  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
-  --jvm-option '-Dturboism.optimization.uploadElision=true' \
-  --jvm-option '-Dturboism.optimization.inputPath=true' \
-  --jvm-option '-Dturboism.validation.glGetErrorElision=true' \
-  --ready-marker 'TURBOISM_GL_ERROR_ELISION elision=ACTIVE' \
-  --result-timeout 1200
-
-# C = B + Mesa glthread
-bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt-C-1 \
+# C = A + glGetError elision + Mesa glthread
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 glt2-C-1 \
   --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
   --jvm-option '-Dturboism.optimization.uploadElision=true' \
   --jvm-option '-Dturboism.optimization.inputPath=true' \
@@ -815,18 +829,18 @@ the ON legs) across configurations; legs 0/3 are the within-run OFF reference.
 
 **Validity gates — a run only counts when all of these hold:**
 
-- B and C runs: `TURBOISM_GL_ERROR_ELISION elision=ACTIVE sites=<n>` in the
-  runtime log (the ready marker already gates this), AND
+- C runs: `TURBOISM_GL_ERROR_ELISION elision=ACTIVE sites=<n>` in the runtime
+  log (the ready marker already gates this), AND
   `TURBOISM_UNIFORM_LOCATION installation=COMPLETE`, AND
-  `leg.N.uniformLocationHook.hits>0` in the result (the wheel workload now
-  emits the production hook's stats slot as `uniformLocationHook.*` whenever
-  the slot is published — presence itself proves the cache is live).
-- C runs: `launcher.out` shows the Mesa
+  `leg.N.uniformLocationHook.hits>0` in the result — the wheel workload emits
+  the production hook's stats slot as `uniformLocationHook.*` whenever the
+  slot is published, and hits>0 now proves the elided-site `error(gl, 0)`
+  confirmation actually reached the cache — AND `launcher.out` shows the Mesa
   `ATTENTION ... mesa_glthread overridden` line, AND
   `java-environ.result.properties` shows `java.<pid>.mesa_glthread=true`, AND
-  `java-process.result.properties` shows `glThreadCount>=1` with a `gl0` row
-  in `java-threads.result.txt`. A/B runs must show `mesa_glthread=ABSENT` and
-  `glThreadCount=0`.
+  `java-process.result.properties` shows `glThreadCount>=1` with a
+  `java.exe:gl0` row in `java-threads.result.txt`. A runs must show
+  `mesa_glthread=ABSENT` and `glThreadCount=0`.
 - Every run: `canvasPixelDigest` identical across legs and across
   configurations — an elision or glthread regression that corrupts pixels
   voids the timing.
