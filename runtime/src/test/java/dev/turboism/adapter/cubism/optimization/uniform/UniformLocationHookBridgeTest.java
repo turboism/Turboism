@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.optimization.uniform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,8 +24,23 @@ class UniformLocationHookBridgeTest {
     }
     public static final class GL {
         final Context context;
+        int error, queries;
         GL(Context context) { this.context = context; }
         public Context getContext() { return context; }
+        public int glGetError() { queries++; return error; }
+    }
+    /** Stand-in for {@code com.live2d.util.log.a}: singleton field plus static sink. */
+    public static final class Logger {
+        public static final Logger a = new Logger();
+        public final java.util.List<String> messages = new java.util.ArrayList<>();
+        public static void b(Logger self, Object message, boolean silent, String tag,
+                             int level, Object attachment) {
+            self.messages.add((String) message);
+        }
+    }
+    /** Stand-in for the host {@code com.jogamp.opengl.GLException} shape. */
+    public static final class GLException extends RuntimeException {
+        public GLException(String message) { super(message); }
     }
     public static final class Frame {
         final GL gl;
@@ -46,6 +63,26 @@ class UniformLocationHookBridgeTest {
             lookup.findStatic(getClass(), "currentContext", MethodType.methodType(Object.class)),
             lookup.findVirtual(Context.class, "isShared", MethodType.methodType(boolean.class)).asType(MethodType.methodType(boolean.class, Object.class)),
             lookup.findVirtual(Context.class, "isCreated", MethodType.methodType(boolean.class)).asType(MethodType.methodType(boolean.class, Object.class)));
+    }
+    private UniformLocationHookBridge deferredBridge() throws Exception {
+        MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+        MethodHandles.Lookup own = MethodHandles.lookup();
+        var deferred = new UniformLocationHookBridge.DeferredAccessors(
+            lookup.findVirtual(GL.class, "glGetError", MethodType.methodType(int.class))
+                .asType(MethodType.methodType(int.class, Object.class)),
+            Logger.a,
+            lookup.findStatic(Logger.class, "b", MethodType.methodType(void.class, Logger.class,
+                    Object.class, boolean.class, String.class, int.class, Object.class))
+                .asType(MethodType.methodType(void.class, Object.class, Object.class,
+                    boolean.class, String.class, int.class, Object.class)),
+            lookup.findConstructor(GLException.class, MethodType.methodType(void.class, String.class)));
+        return new UniformLocationHookBridge(
+            own.findVirtual(Frame.class, "getGL", MethodType.methodType(GL.class)).asType(MethodType.methodType(Object.class, Object.class)),
+            own.findVirtual(GL.class, "getContext", MethodType.methodType(Context.class)).asType(MethodType.methodType(Object.class, Object.class)),
+            own.findStatic(getClass(), "currentContext", MethodType.methodType(Object.class)),
+            own.findVirtual(Context.class, "isShared", MethodType.methodType(boolean.class)).asType(MethodType.methodType(boolean.class, Object.class)),
+            own.findVirtual(Context.class, "isCreated", MethodType.methodType(boolean.class)).asType(MethodType.methodType(boolean.class, Object.class)),
+            deferred);
     }
     @Test void installsTypedSlotsAndPreservesOtherOwnersOnClose() throws Throwable {
         try (UniformLocationHookBridge bridge = bridge()) {
@@ -238,6 +275,158 @@ class UniformLocationHookBridgeTest {
             bridge.begin(new Object());
             assertEquals(Integer.MIN_VALUE, bridge.lookup(new Object(), 7, "x"));
             assertTrue(bridge.statistics().get("failures") > 0L);
+        }
+    }
+    /**
+     * Deferred mode: an in-frame checkpoint returns GL_NO_ERROR without a
+     * native query, the emitted zero flows through the paired error callback
+     * and confirms pending locations within the frame exactly like the
+     * elision emission, and the frame boundary performs the single real query.
+     */
+    @Test void deferredCheckpointDefersAndFrameEndConfirmsPending() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            bridge.record(gl, 7, "x", 8);
+            assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x"),
+                "pending before the deferred checkpoint");
+            assertEquals(0, bridge.deferQuery(gl, "shader/A.a", true));
+            bridge.error(gl, 0);   // the checkpoint's emitted zero, as in the composed body
+            assertEquals(8, bridge.lookup(gl, 7, "x"),
+                "the deferred checkpoint's zero confirms pending within the frame");
+            assertEquals(0, gl.queries, "no native glGetError inside the frame");
+            bridge.end(scope);
+            assertEquals(1, gl.queries, "the frame boundary performs one real query");
+            assertNull(bridge.consumeReport());
+            assertEquals(1L, bridge.statistics().get("deferredFrames"));
+            assertEquals(1L, bridge.statistics().get("deferredChecks"));
+        }
+    }
+    /**
+     * A nonzero frame-end result invalidates the pending entries (never
+     * confirmed), logs through the host logger shape and arms the host
+     * GLException when the first deferred checkpoint was throwing (z=true).
+     */
+    @Test void deferredErrorInvalidatesPendingLogsAndArmsThrow() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Logger.a.messages.clear();
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(0, bridge.deferQuery(gl, "shader/A.a", true));
+            bridge.error(gl, 0);
+            bridge.record(gl, 7, "x", 8);
+            gl.error = 1280;
+            bridge.end(scope);
+            assertEquals(1, gl.queries);
+            assertEquals(1, Logger.a.messages.size());
+            assertTrue(Logger.a.messages.get(0).contains("GL_INVALID_ENUM"));
+            Throwable armed = (Throwable) bridge.consumeReport();
+            assertInstanceOf(GLException.class, armed);
+            assertTrue(armed.getMessage().contains("shader/A.a: glError GL_INVALID_ENUM"));
+            assertNull(bridge.consumeReport(), "the armed report is consumed once");
+            scope = bridge.begin(new Frame(gl));
+            assertEquals(Integer.MIN_VALUE, bridge.lookup(gl, 7, "x"),
+                "an erroneous frame never confirms its pending locations");
+            bridge.end(scope);
+            assertEquals(1L, bridge.statistics().get("deferredErrors"));
+            assertEquals(1L, bridge.statistics().get("deferredThrows"));
+            assertEquals(1L, bridge.statistics().get("glErrors"));
+        }
+    }
+    /** A first deferred checkpoint with z=false keeps host semantics: log only. */
+    @Test void deferredNonThrowingCheckpointLogsWithoutArming() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Logger.a.messages.clear();
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(0, bridge.deferQuery(gl, "texture", false));
+            bridge.error(gl, 0);
+            gl.error = 1285;
+            bridge.end(scope);
+            assertEquals(1, Logger.a.messages.size());
+            assertTrue(Logger.a.messages.get(0).contains("GL_OUT_OF_MEMORY"));
+            assertNull(bridge.consumeReport(), "z=false reports by log only");
+            assertEquals(0L, bridge.statistics().get("deferredThrows"));
+        }
+    }
+    /** Unmapped codes arm IllegalStateException without logging — the host default branch. */
+    @Test void deferredUnknownErrorArmsIllegalStateWithoutLogging() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Logger.a.messages.clear();
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(0, bridge.deferQuery(gl, "shader/A.a", false));
+            bridge.error(gl, 0);
+            gl.error = 1283;
+            bridge.end(scope);
+            assertTrue(Logger.a.messages.isEmpty(), "unknown codes throw before logging");
+            Throwable armed = (Throwable) bridge.consumeReport();
+            assertInstanceOf(IllegalStateException.class, armed);
+            assertEquals("Not impl : 1283", armed.getMessage());
+        }
+    }
+    /**
+     * Outside an owned frame — and for a foreign GL — the checkpoint falls back
+     * to the real query, preserving the site's exact upstream semantics.
+     */
+    @Test void outOfFrameAndForeignGlDeferQueryRunsRealQuery() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        GL foreign = new GL(context); foreign.error = 1281;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            gl.error = 1282;
+            assertEquals(1282, bridge.deferQuery(gl, "outside", true),
+                "no frame: the real glGetError runs");
+            assertEquals(1, gl.queries);
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(1281, bridge.deferQuery(foreign, "foreign", true),
+                "a non-frame GL keeps the real query inside a frame");
+            assertEquals(1, foreign.queries);
+            assertEquals(1, gl.queries);
+            bridge.end(scope);
+            assertEquals(1, gl.queries, "no deferred checkpoint ran — no frame-end query");
+            assertTrue(bridge.statistics().get("deferredFallbacks") >= 2L);
+        }
+    }
+    /** Without resolved deferred accessors the checkpoint throws for the emitted fallback. */
+    @Test void deferQueryWithoutAccessorsThrowsForFallback() throws Throwable {
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = bridge()) {
+            bridge.install();
+            assertThrows(IllegalStateException.class,
+                () -> { bridge.deferQuery(gl, "ctx", true); });
+            long scope = bridge.begin(new Frame(gl));
+            assertThrows(IllegalStateException.class,
+                () -> { bridge.deferQuery(gl, "ctx", true); });
+            bridge.end(scope);
+            assertEquals(0, gl.queries, "no accessor means nothing may fabricate a result");
+        }
+    }
+    /** An armed report left by an aborted frame is disarmed by the next frame entry. */
+    @Test void abortedFrameReportIsDisarmedAtNextBegin() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            bridge.deferQuery(gl, "shader/A.a", true);
+            bridge.error(gl, 0);
+            gl.error = 1286;
+            bridge.end(scope);          // arms a throw the RETURN consult never consumed
+            long next = bridge.begin(new Frame(gl));
+            assertNull(bridge.consumeReport(),
+                "the previous frame's armed report must not surface in the next frame");
+            gl.error = 0;
+            bridge.end(next);
         }
     }
 }

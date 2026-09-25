@@ -16,6 +16,7 @@ import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -57,7 +58,9 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     private final Role role;
     private final String owner;
     private final Map<String, List<String>> shapes = new HashMap<>();
+    private final Map<String, List<String>> composedShapes = new HashMap<>();
     private final Map<String, Integer> locals = new HashMap<>();
+    private final int errorReceiver;
     private volatile String failure, beforeSha256;
     private volatile int matches;
     private Runnable onRejection = () -> { };
@@ -106,6 +109,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             shapes.put(target.getKey(), shape);
         }
         int[] errorCalls = {0};
+        int[] receiver = {-1};
         new ClassReader(reference).accept(new ClassVisitor(Opcodes.ASM9) {
             @Override public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
                 if (!descriptor.equals(role.methods.get(name))) return null;
@@ -113,8 +117,35 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                     throw new IllegalArgumentException("unsupported lifecycle access");
                 }
                 return new MethodVisitor(Opcodes.ASM9) {
+                    /**
+                     * The local index when the immediately preceding instruction
+                     * pushed a reference, else -1. The elision replaces the error
+                     * query with {@code pop; iconst_0}, so the composed-body probe
+                     * must re-read the receiver from its local; only a preceding
+                     * plain {@code aload} makes that derivation exact.
+                     */
+                    int previous = -1;
+                    void advance(int state) { previous = state; }
+                    @Override public void visitCode() { previous = -1; }
+                    @Override public void visitInsn(int opcode) { advance(-1); }
+                    @Override public void visitIntInsn(int opcode, int operand) { advance(-1); }
+                    @Override public void visitVarInsn(int opcode, int variable) {
+                        advance(opcode == Opcodes.ALOAD ? variable : -1);
+                    }
+                    @Override public void visitTypeInsn(int opcode, String type) { advance(-1); }
+                    @Override public void visitFieldInsn(int opcode, String type, String field, String desc) { advance(-1); }
+                    @Override public void visitJumpInsn(int opcode, Label label) { advance(-1); }
+                    @Override public void visitLdcInsn(Object value) { advance(-1); }
+                    @Override public void visitIincInsn(int variable, int increment) { advance(-1); }
+                    @Override public void visitTableSwitchInsn(int min, int max, Label fallback, Label... targets) { advance(-1); }
+                    @Override public void visitLookupSwitchInsn(Label fallback, int[] keys, Label[] targets) { advance(-1); }
+                    @Override public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrap, Object... args) { advance(-1); }
+                    @Override public void visitMultiANewArrayInsn(String desc, int dimensions) { advance(-1); }
                     @Override public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean itf) {
-                        if (errorQuery(opcode, owner, method, desc, itf)) errorCalls[0]++;
+                        if (errorQuery(opcode, owner, method, desc, itf)) {
+                            errorCalls[0]++; receiver[0] = previous;
+                        }
+                        advance(-1);
                     }
                     @Override public void visitMaxs(int stack, int maxLocals) { locals.put(name, maxLocals); }
                 };
@@ -123,6 +154,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         if (locals.size() != shapes.size() || (role == Role.ERROR && errorCalls[0] != 1)) {
             throw new IllegalArgumentException("incomplete lifecycle method bodies");
         }
+        this.errorReceiver = role == Role.ERROR ? receiver[0] : -1;
     }
     /**
      * Verifies that every bundled public GLSL program-mutating implementation is covered.
@@ -155,6 +187,17 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         if (!expected.equals(observed)) throw new IllegalArgumentException("incomplete JOGL shared program mutation coverage");
     }
 
+    /**
+     * Additionally admits one exact reviewed shape for a method — the output a
+     * registered upstream retransform (the reviewed glGetError elision) is known
+     * to produce. The installer computes the shape from the attested reference
+     * bytes and only registers it while that upstream transform is installed;
+     * anything else still fails the official-shape check below.
+     */
+    public void acceptComposedShape(String method, List<String> shape) {
+        composedShapes.put(Objects.requireNonNull(method, "method"), List.copyOf(shape));
+    }
+
     /** Registers a fail-closed action before installing this transformer. */
     public void onRejection(Runnable action) { onRejection = Objects.requireNonNull(action, "action"); }
     /** Returns the latest rejection, or null. */
@@ -172,20 +215,42 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                 Path.of(domain.getCodeSource().getLocation().toURI()).toAbsolutePath().normalize())) {
                 throw new IllegalArgumentException("lifecycle artifact mismatch");
             }
-            for (var target : role.methods.entrySet()) if (!shapes.get(target.getKey()).equals(
-                ReviewedMethodShape.read(bytes, owner, target.getKey(), target.getValue()))) {
-                throw new IllegalArgumentException("lifecycle method shape mismatch: " + target.getKey());
+            boolean composed = false;
+            for (var target : role.methods.entrySet()) {
+                List<String> observed = ReviewedMethodShape.read(
+                    bytes, owner, target.getKey(), target.getValue());
+                if (!shapes.get(target.getKey()).equals(observed)) {
+                    if (!composedShapes.getOrDefault(target.getKey(), List.of()).equals(observed)) {
+                        throw new IllegalArgumentException("lifecycle method shape mismatch: " + target.getKey());
+                    }
+                    composed = true;
+                }
+            }
+            if (composed && errorReceiver < 0) {
+                throw new IllegalArgumentException(
+                    "lifecycle composed body without a derivable error receiver: " + owner);
             }
             ClassReader reader = new ClassReader(bytes);
             ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
                 @Override protected ClassLoader getClassLoader() { return loader; }
             };
+            final boolean elidedError = composed && role == Role.ERROR;
+            final Observer[] observer = {null};
             reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
                 @Override public MethodVisitor visitMethod(int access, String method, String desc, String signature, String[] exceptions) {
                     MethodVisitor original = super.visitMethod(access, method, desc, signature, exceptions);
-                    return desc.equals(role.methods.get(method)) ? new Observer(original, role, locals.get(method)) : original;
+                    if (!desc.equals(role.methods.get(method))) return original;
+                    return observer[0] = new Observer(original, role, locals.get(method), elidedError, errorReceiver);
                 }
             }, ClassReader.EXPAND_FRAMES);
+            // The elided body must expose exactly one reviewed pop;iconst_0
+            // site, and the replacement error callback must actually emit —
+            // anything else would silently reintroduce the unconfirmed-pending
+            // failure this composition exists to remove.
+            if (elidedError && (observer[0] == null || observer[0].elisionSites != 1)) {
+                throw new IllegalArgumentException(
+                    "lifecycle composed error site absent or ambiguous: " + owner);
+            }
             byte[] changed = writer.toByteArray();
             if (beforeSha256 == null) beforeSha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
             matches++;
@@ -204,9 +269,24 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     private static final class Observer extends MethodVisitor {
         private final Role role;
         private final int base;
+        /**
+         * When the upstream glGetError elision composed this body, its reviewed
+         * {@code pop; iconst_0} pair stands in for the elided query: the
+         * observed result is the constant {@code GL_NO_ERROR} the elision
+         * guarantees, so the same confirmation callback is emitted after the
+         * constant is pushed. Inert unless {@link #elision} is set.
+         */
+        private final boolean elision;
+        private final int errorGl;
+        private int previousInsn = -1;
+        int elisionSites;
         private final List<Handler> originalHandlers = new ArrayList<>();
         private final Label bodyStart = new Label(), bodyEnd = new Label(), exceptionalExit = new Label();
-        Observer(MethodVisitor visitor, Role role, int base) { super(Opcodes.ASM9, visitor); this.role = role; this.base = base; }
+        Observer(MethodVisitor visitor, Role role, int base) { this(visitor, role, base, false, -1); }
+        Observer(MethodVisitor visitor, Role role, int base, boolean elision, int errorGl) {
+            super(Opcodes.ASM9, visitor);
+            this.role = role; this.base = base; this.elision = elision; this.errorGl = errorGl;
+        }
         @Override public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
             originalHandlers.add(new Handler(start, end, handler, type));
         }
@@ -225,10 +305,50 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             }
         }
         @Override public void visitInsn(int opcode) {
+            if (elision && opcode == Opcodes.ICONST_0 && previousInsn == Opcodes.POP) {
+                super.visitInsn(opcode);
+                super.visitVarInsn(Opcodes.ISTORE, base + 1);
+                guarded(UniformLocationHookBridge.ERROR_PROPERTY, "(Ljava/lang/Object;I)V", () -> {
+                    super.visitVarInsn(Opcodes.ALOAD, errorGl); super.visitVarInsn(Opcodes.ILOAD, base + 1);
+                }, () -> { });
+                super.visitVarInsn(Opcodes.ILOAD, base + 1);
+                elisionSites++;
+                previousInsn = opcode;
+                return;
+            }
+            previousInsn = opcode;
             if ((role == Role.FRAME || role.programMutations()) && opcode == Opcodes.RETURN) endFrame();
             super.visitInsn(opcode);
         }
+        /**
+         * Every instruction kind other than a bare {@code visitInsn} breaks a
+         * pending {@code pop; iconst_0} pair; a missed clear can only produce an
+         * extra site, and the installer rejects any count other than one.
+         */
+        private void breakPair() { previousInsn = -1; }
+        @Override public void visitIntInsn(int opcode, int operand) { breakPair(); super.visitIntInsn(opcode, operand); }
+        @Override public void visitVarInsn(int opcode, int variable) { breakPair(); super.visitVarInsn(opcode, variable); }
+        @Override public void visitTypeInsn(int opcode, String type) { breakPair(); super.visitTypeInsn(opcode, type); }
+        @Override public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+            breakPair(); super.visitFieldInsn(opcode, owner, name, desc);
+        }
+        @Override public void visitJumpInsn(int opcode, Label label) { breakPair(); super.visitJumpInsn(opcode, label); }
+        @Override public void visitLdcInsn(Object value) { breakPair(); super.visitLdcInsn(value); }
+        @Override public void visitIincInsn(int variable, int increment) { breakPair(); super.visitIincInsn(variable, increment); }
+        @Override public void visitTableSwitchInsn(int min, int max, Label fallback, Label... targets) {
+            breakPair(); super.visitTableSwitchInsn(min, max, fallback, targets);
+        }
+        @Override public void visitLookupSwitchInsn(Label fallback, int[] keys, Label[] targets) {
+            breakPair(); super.visitLookupSwitchInsn(fallback, keys, targets);
+        }
+        @Override public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrap, Object... args) {
+            breakPair(); super.visitInvokeDynamicInsn(name, desc, bootstrap, args);
+        }
+        @Override public void visitMultiANewArrayInsn(String desc, int dimensions) {
+            breakPair(); super.visitMultiANewArrayInsn(desc, dimensions);
+        }
         @Override public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean itf) {
+            breakPair();
             if (role != Role.ERROR || !errorQuery(opcode, owner, method, desc, itf)) {
                 super.visitMethodInsn(opcode, owner, method, desc, itf); return;
             }
