@@ -85,11 +85,25 @@ final class PreviewContextServicesScenario {
     }
 
     private static void awaitReady(final Path ready) throws Exception {
-        final long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        // Loaded runners are slow on loaded CI machines; match the shared UI wait budget.
+        final long deadline = System.nanoTime() + Duration.ofSeconds(60).toNanos();
         while (!Files.isRegularFile(ready) && System.nanoTime() < deadline) {
             Thread.sleep(10L);
         }
-        assertTrue(Files.isRegularFile(ready), "fixture plugin did not publish its ready marker");
+        assertTrue(Files.isRegularFile(ready),
+            "fixture plugin did not publish its ready marker at " + ready
+                + " within 60s; marker directory contents: " + listMarkerDirectory(ready));
+    }
+
+    private static String listMarkerDirectory(final Path ready) throws IOException {
+        final Path directory = ready.getParent();
+        if (directory == null || !Files.isDirectory(directory)) {
+            return "<missing marker directory>";
+        }
+        try (java.util.stream.Stream<Path> entries = Files.list(directory)) {
+            return entries.map(path -> path.getFileName().toString()).sorted()
+                .collect(java.util.stream.Collectors.joining(", "));
+        }
     }
 
     private static Map<String, String> readMarker(final Path ready) throws IOException {
