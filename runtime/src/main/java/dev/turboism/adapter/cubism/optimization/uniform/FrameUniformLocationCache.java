@@ -8,12 +8,13 @@ package dev.turboism.adapter.cubism.optimization.uniform;
  * A result is pending until the application's existing error observation from the
  * SAME context and thread confirms it. Reentrancy, context changes, errors and
  * mutations retire reuse until the outer scope ends. Tokens prevent stale cleanup
- * from ending a later frame; all host/name references are released on matching end.
+ * from ending a later frame. Ordinary frames release results on end; deferred
+ * frames may hand confirmed results to the same thread/context on the next begin.
  */
 final class FrameUniformLocationCache implements AutoCloseable {
     static final int MISS = Integer.MIN_VALUE;
     private final int bound;
-    // Reuse storage, never results, between frames. At most half the slots are
+    // At most half the slots are
     // occupied, so lookup always reaches an empty slot even under hash collisions.
     private String[] names = new String[0];
     private int[] programs = new int[0];
@@ -23,7 +24,7 @@ final class FrameUniformLocationCache implements AutoCloseable {
     private int[] pendingSlots = new int[0];
     private int size, pendingCount;
     private Object context;
-    private Thread owner;
+    private Thread owner, retainedOwner;
     private long sequence, scope;
     private boolean active, closed;
 
@@ -33,6 +34,17 @@ final class FrameUniformLocationCache implements AutoCloseable {
     }
 
     synchronized long begin(Object current, boolean supported) {
+        return begin(current, supported, false);
+    }
+
+    /**
+     * {@code persistent} selects deferred-error-check retention: entries
+     * confirmed by the previous frame's real boundary query stay usable
+     * instead of being cleared, so a location recorded in frame N becomes
+     * hittable in frame N+1 once that frame's {@code glGetError} proved clean.
+     * A different context or an unsupported frame still clears everything.
+     */
+    synchronized long begin(Object current, boolean supported, boolean persistent) {
         if (closed) return 0;
         if (owner != null) {
             // Do not reopen reuse inside an unclosed outer render invocation.
@@ -43,8 +55,11 @@ final class FrameUniformLocationCache implements AutoCloseable {
         scope = ++sequence;
         owner = Thread.currentThread();
         active = supported && current != null;
-        context = active ? current : null;
-        clear();
+        if (!(persistent && active && current == context
+                && retainedOwner == Thread.currentThread())) {
+            context = active ? current : null;
+            clear();
+        }
         return scope;
     }
 
@@ -98,10 +113,28 @@ final class FrameUniformLocationCache implements AutoCloseable {
         context = null;
     }
     synchronized void end(long token) {
+        end(token, false);
+    }
+
+    /**
+     * {@code retainConfirmed} is the deferred-error-check frame boundary: the
+     * real boundary query returned {@code GL_NO_ERROR}, so every pending entry
+     * recorded this frame is confirmed now and the whole table is kept for the
+     * next frame's lookups. Without it the original per-frame wipe applies.
+     */
+    synchronized void end(long token, boolean retainConfirmed) {
         if (owner != Thread.currentThread() || token == 0 || token != scope) return;
-        clear();
+        if (retainConfirmed && active) {
+            for (int index = 0; index < pendingCount; index++) {
+                confirmed[pendingSlots[index]] = true;
+            }
+            pendingCount = 0;
+            retainedOwner = owner;
+        } else {
+            clear();
+            context = null;
+        }
         active = false;
-        context = null;
         owner = null;
         scope = 0;
     }
@@ -147,6 +180,7 @@ final class FrameUniformLocationCache implements AutoCloseable {
         pendingCount = nextPendingCount;
     }
     private void clear() {
+        retainedOwner = null;
         for (int index = 0; index < size; index++) {
             int slot = occupiedSlots[index];
             names[slot] = null;

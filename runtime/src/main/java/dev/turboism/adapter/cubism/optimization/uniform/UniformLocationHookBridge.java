@@ -123,6 +123,13 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     private int deferredQueries;
     private String deferredContext;
     private boolean deferredThrowSite;
+    /**
+     * Set once an owned deferred checkpoint is observed. With complete
+     * program-mutation coverage, the uniform cache may keep
+     * entries across frame boundaries (pending entries are confirmed only by
+     * the real frame-end query, never by the checkpoint's synthetic zero).
+     */
+    private boolean deferredMode;
     private Throwable deferredReport;
     private String expectedName;
     private int expectedProgram, expectedLocation;
@@ -256,7 +263,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 && (supportedGlType == null || gl.getClass() == supportedGlType)
                 && (boolean) contextCreated.invokeExact(context)
                 && context == (Object) currentContext.invokeExact();
-            long opened = cache.begin(context, supported);
+            long opened = cache.begin(context, supported, deferredMode && mutationCoverage);
             frames++;
             if (opened == 0L) { frameSupported = false; return 0L; }
             if (!supported) rejectedFrames++;
@@ -276,26 +283,46 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         if (frameOwner != Thread.currentThread() || scope == 0L || scope != token) return;
         // Deferred error checking: the frame's checkpoints skipped their native
         // queries, so this frame boundary performs the one real glGetError the
-        // host would have consumed at its first deferred checkpoint. A nonzero
-        // result invalidates this frame's whole cache (locations confirmed by
-        // the deferred checkpoints were optimistic) and arms the host-equivalent
-        // report, which the frame-exit emission rethrows after this callback.
+        // host would have consumed at its first deferred checkpoint. A clean
+        // result confirms the frame's pending locations — they stay usable in
+        // the next frame — while a nonzero result invalidates the whole cache
+        // and arms the host-equivalent report, which the frame-exit emission
+        // rethrows after this callback.
+        boolean deferredClean = false;
         if (deferredQueries > 0) {
             try {
                 int observed = (int) deferredAccessors.glGetError().invokeExact(frameGl);
                 deferredFrames++;
-                error(frameGl, observed);
-                reportDeferred(observed);
+                if (observed == 0) {
+                    deferredClean = true;
+                } else {
+                    glErrors++;
+                    frameSupported = false;
+                    cache.invalidate();
+                    reportDeferred(observed);
+                }
             } catch (Throwable queryFailure) {
+                // The real frame-end query itself failed: never swallow it —
+                // retire the cache and arm the original throwable so the
+                // emitted frame-exit consult rethrows it unchanged.
                 deferredReport = queryFailure;
                 deferredThrows++;
                 retire();
             }
             deferredQueries = 0; deferredContext = null; deferredThrowSite = false;
         }
-        cache.end(scope);
+        cache.end(scope, deferredClean && canRetainDeferredResults());
         completedFrames++;
         frameOwner = null; frameGl = null; frameSupported = false; token = 0L; expected = false; expectedName = null;
+    }
+    private boolean canRetainDeferredResults() {
+        if (!frameSupported || !mutationCoverage) return false;
+        try {
+            return ownedContext(frameGl) != null;
+        } catch (Throwable observerFailure) {
+            retire();
+            return false;
+        }
     }
     private Object ownedContext(Object gl) throws Throwable {
         if (!installed || closed || retired || !frameSupported || frameOwner != Thread.currentThread()) return null;
@@ -344,17 +371,41 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Observes an existing error result from the current frame's exact GL context. */
     public synchronized void error(Object gl, int error) {
+        // A real out-of-frame error must also discard deferred carry-over.
+        if (error != 0 && frameOwner == null) {
+            glErrors++;
+            invalidate();
+            return;
+        }
         try {
             Object context = ownedContext(gl);
             if (context == null) return;
+            // Inside a deferred frame every checkpoint zero is synthetic — the
+            // real query only happens at the frame boundary. A synthetic zero
+            // must not confirm pending locations: an invalid location (-1)
+            // would otherwise become hittable mid-frame on nothing but the
+            // checkpoint's constant return. Real errors still invalidate.
+            if (deferredMode && error == 0) return;
             if (error != 0) { glErrors++; frameSupported = false; }
             cache.checkedError(context, error);
         } catch (Throwable problem) { retire(); }
     }
     /**
-     * Returns a synthetic zero inside an owned frame. Outside the frame the
-     * sentinel requests the original query in emitted code, outside the
-     * observer catch, so native failures propagate without a second query.
+     * Deferred error-check checkpoint emitted by the deferred-GL-error
+     * transform. Inside the owned render frame it records the checkpoint —
+     * first call wins the report context — and returns {@code GL_NO_ERROR}
+     * without a native query. The returned zero still flows through the
+     * uniform lifecycle transform's emitted error callback, but the bridge
+     * suppresses that synthetic confirmation — pending locations are promoted
+     * only by the frame-end real query, so a stale or invalid location can
+     * never become hittable mid-frame on a constant return.
+     *
+     * <p>Outside the frame, after close/retire, or without resolved accessors
+     * it returns {@link #DEFERRED_FALLBACK} instead of running the query
+     * itself: the emitted code then performs the real {@code glGetError}
+     * inline exactly once and its own exception propagates unchanged. The
+     * emitted catch still re-runs the inline query if this callback itself
+     * fails, because an observer failure must not reach the host.</p>
      */
     public synchronized int deferQuery(Object gl, String context, boolean throwing) {
         if (!installed || closed || retired || deferredAccessors == null
@@ -364,6 +415,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         }
         deferredChecks++;
         deferredQueries++;
+        deferredMode = true;
         if (deferredContext == null) {
             deferredContext = context;
             deferredThrowSite = throwing;
