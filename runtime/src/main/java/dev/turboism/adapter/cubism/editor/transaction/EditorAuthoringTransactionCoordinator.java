@@ -169,6 +169,40 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
+     * Admits one hand-written native-Undo-envelope contribution into the ambient root
+     * transaction. The contribution's Undo object is attached to the shared root edit instead
+     * of opening a nested edit-mode bracket, so commit produces one Undo group and rollback is
+     * handled by the scope-wide native group-undo step. Only usable on the ambient thread while
+     * a root transaction is open; standalone envelopes keep their own begin/end path.
+     *
+     * @param contribution changed authoring primitive admitted from a hand-written envelope
+     * @throws IllegalStateException when no ambient transaction is active on this thread
+     */
+    public void mutateEnvelope(final EditorUndoContribution contribution) {
+        final EditorAuthoringScope scope = ambient.get();
+        if (scope == null || !scope.binding().isCurrentThread()) {
+            throw new IllegalStateException(
+                "No ambient Editor authoring transaction is active on the host thread."
+            );
+        }
+        scope.noteEnvelopeContribution();
+        apply(scope, scope.binding(), Objects.requireNonNull(contribution, "contribution"));
+    }
+
+    /**
+     * Whether the ambient root transaction's native group-undo step has completed during the
+     * active recovery. Hand-written-envelope contributions without an explicit readback use this
+     * as their restored probe: it asserts that the native mechanism responsible for rewinding
+     * their admitted Undo objects actually ran.
+     *
+     * @return true when the ambient scope's root group undo was applied this recovery
+     */
+    public boolean ambientGroupUndoApplied() {
+        final EditorAuthoringScope scope = ambient.get();
+        return scope != null && scope.groupUndoApplied();
+    }
+
+    /**
      * Applies one changed writer contribution. With no ambient root this method opens a standalone
      * transaction using the contribution's label; with a matching ambient root it joins that root.
      *
@@ -348,6 +382,19 @@ public final class EditorAuthoringTransactionCoordinator {
     ) {
         Throwable recoveryFailure = null;
         if (scope.edit() != null && !scope.editEndAttempted()) {
+            // Hand-written-envelope contributions admit arbitrary native Undo objects whose
+            // model effect is only rewound by the native group undo; edit-mode.end(abort)
+            // discards the bracket without restoring. Run it while the bracket is still open,
+            // exactly like the edit-session compensating recovery. Pure coordinator
+            // contributions keep the byte-identical compensation-only path.
+            if (scope.envelopeContributionJoined()) {
+                try {
+                    host.undoEditGroup(scope.binding(), scope.edit());
+                    scope.markGroupUndoApplied();
+                } catch (RuntimeException | Error undoFailure) {
+                    recoveryFailure = append(recoveryFailure, undoFailure);
+                }
+            }
             try {
                 scope.markEditEndAttempted();
                 host.endEdit(scope.binding(), scope.edit(), true);
@@ -375,6 +422,7 @@ public final class EditorAuthoringTransactionCoordinator {
                     throw new IllegalStateException(
                         "Authoring rollback verification failed: "
                             + contribution.operationId()
+                            + " on " + contribution.targetIdentity()
                     );
                 }
             } catch (RuntimeException | Error compensationFailure) {
@@ -672,6 +720,16 @@ public final class EditorAuthoringTransactionCoordinator {
 
         /** Closes the native edit; {@code abort=true} requests the verified abort path. */
         void endEdit(Binding binding, Object edit, boolean abort);
+
+        /**
+         * Undoes every mutation admitted to the still-open root edit in place, without closing
+         * or committing the bracket. Invoked on the rollback path only when hand-written
+         * envelope contributions joined the ambient transaction: their admitted Undo objects
+         * are the only artifacts that know how to restore the model, and {@code endEdit(abort)}
+         * discards the group without applying it. Equivalent to the verified edit-session
+         * compensating recovery's {@code cubism.editor-model.undo.group-undo} step.
+         */
+        void undoEditGroup(Binding binding, Object edit);
 
         /** Performs coalesced model update, refresh, repaint, and dirty-state work. */
         void refresh(Binding binding, Set<EditorRefreshRequirement> requirements);

@@ -1,10 +1,12 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
+import java.util.EnumSet;
 import java.util.Objects;
 
 /** Verified Editor-native default-keyform lock access. */
@@ -62,9 +64,6 @@ final class EditorDefaultKeyformLockAccess {
         final boolean locked
     ) {
         EditorHostThread.requireHostThread("Cubism default-keyform lock write");
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Model.setDefaultKeyformLocked"
-        );
         requireWriteAuthorization();
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
         if (locked(source) == locked) {
@@ -75,13 +74,36 @@ final class EditorDefaultKeyformLockAccess {
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
         );
+        final boolean before = locked(source);
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.model.set-default-keyform-locked",
+                expectedIdentity + ":model:default-keyform-locked",
+                ACTION_NAME,
+                (edit, transactionLabel) -> addUndo(edit, source, before, locked, app),
+                () -> setLocked(source, locked),
+                () -> locked(source) == locked,
+                () -> setLocked(source, before),
+                () -> locked(source) == before,
+                EnumSet.of(
+                    EditorRefreshRequirement.PARAMETER_PALETTE,
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            modelGuard.requireCurrent(expectedIdentity, expectedModel);
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Model.setDefaultKeyformLocked"
+        );
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode", document
         );
         final Object undo = resolver.invoke(
             "cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME
         );
-        final boolean before = locked(source);
         boolean completed = false;
         try {
             addUndo(undo, source, before, locked, app);

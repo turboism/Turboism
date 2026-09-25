@@ -154,6 +154,23 @@ public final class VerifiedEditorAuthoringTransactionHost
     }
 
     @Override
+    public void undoEditGroup(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final Object edit
+    ) {
+        EditorHostThread.requireHostThread("Cubism authoring edit group undo");
+        currentFor(binding);
+        synchronized (editLock) {
+            if (!editModes.containsKey(Objects.requireNonNull(edit, "edit"))) {
+                throw new IllegalArgumentException(
+                    "Editor authoring edit token is invalid or closed"
+                );
+            }
+        }
+        resolver.invoke("cubism.editor-model.undo.group-undo", edit);
+    }
+
+    @Override
     public void refresh(
         final EditorAuthoringTransactionCoordinator.Binding binding,
         final Set<EditorRefreshRequirement> requirements
