@@ -1,6 +1,6 @@
 # 原生性能实验台账
 
-最后更新：2026-09-11（I37 P09 重复快照读取量化与修复轮）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
+最后更新：2026-09-24（M-A1..M-A6 协议 A -Xmx4g 六轮实机 A/B 完结）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
 
 本台账是本任务的统一检索入口，不是构建/运行时依赖，也不替代结构化 exact-host 证据。历史数据、失败和后续相反结果必须同时保留。所有实现位于独立分支；未授权合并或推送 main。
 
@@ -32,6 +32,7 @@
 | P02 | 局部上传/图集、更新合并等 | 未实施，契约证据不足 | 补精确失效/消费边界后才进入实现 |
 | P08 | Turboism 编辑器绑定陈旧强引用 | 已修复（弱引用，共两处）；离线回归先失败后通过；实机字节收益未测 | 不重复修同一槽；实机 A/B 需另设 editor binding 场景并单独授权 |
 | P09 | 版本化读取的重复宿主读 | 已量化并修复：一次 `runtimeWithVersion()` 的宿主读 2+3 → 1+1；离线回归先失败后通过；端到端收益未测 | 不重复优化同一处；单次 `activeProject()` 自身成本仍未动，属另一切片 |
+| M-A1..6 | -Xmx4g 堆上限六轮实机 A/B（协议 A） | 稳态 INCONCLUSIVE（中位达阈但区间重叠、机制平坦）；加载峰 −34.4% 为唯一干净分离；软引用机制未证实 | 不改默认；加载峰另设独立协议；不用中位差宣称稳态收益 |
 
 ## 公共实验条件与工件
 
@@ -1543,3 +1544,149 @@ n8 是这套链路的首次实机有效性证据。
 判定：GraalVM 单换=可行+温和收益（JDK 25 兼容 OK，加载略快，
 停顿天花板降但 G1 仍在）；Graal+ZGC=停顿归零但加载更慢。
 两者都是 opt-in 材质，非默认推荐。
+
+## M-A1..M-A6 — 协议 A：-Xmx4g 堆上限对内存占用的实机 A/B（052/T04/C1，2026-09-24）
+
+- **实现/协议**：不改产品代码；经 host-validation manifest `--jvm-option` 注入。
+  C=无附加；T1=`-Xmx4g`。`native-resource:5302` + `memoryIdleSeconds=780` 扩展窗，
+  `measure-task-memory.py`/`NativeMemoryObservation`/jvm.csv。序列 C/T1/T1/C/C/T1，
+  另有校准轮 ma-cal-c（不计入）。主指标口径含 swap（rollup.Pss+rollup.SwapPss、
+  rollup.Rss+rollup.Swap，监督 450c6396 裁决：本机 zram+swapfile 常态换页，
+  裸 PSS 会偏袒承压更大的控制臂）。**口径边界**：所有内存数字为单一 main Java PID
+  的 smaps_rollup，不覆盖 Proton 全进程树或系统物理内存；PSS+SwapPss 不等于
+  本机 zram 实际占用。OOME/fatal 判定基于每轮 2 个文件（runtime log+
+  cubism-console.txt）的文本扫描。
+  作废阈=轮内 maxVmSwap>1GiB。fixture heavy.cmo3 sha256 `029e9a4e…c7f80c`。
+- **终态**：6/6 succeeded/PASS/normalExit/cleanup=safe；T1 三轮 jvm.csv 首行
+  heapMaxBytes=4294967296（断言激活）；六轮 maxVmSwap 0–974.2MiB 均<1GiB → 全 VALID。
+- **结果（中位/范围，MiB）**：
+  - closed 段 PSS：C 2933.5 [2547.0,2948.6] vs T1 2495.9 [2469.8,2922.8]，Δ=−437.6
+    中位达阈但区间近全重叠（c3=2547 入 T1 区、t1c=2922.8 入 C 区）。
+  - idle 末 RSS：Δ=−36.7 不达阈；MemAvail 中位 +727.9 达阈但重叠且受环境底噪支配。
+  - 加载峰 PSS：C 4448.4 [3283.5,4742.3] vs T1 2918.8 [2874.7,3044.5]，
+    Δ=−1529.6/−34.4%，**区间零重叠（T1 max < C min）——本战役唯一干净分离**。
+  - 护栏：OOME/fatal=0、normalExit 6/6、loadWall T1 58.1–59.7s vs C 58.1–62.0s、
+    zoom 60/60、dirty/Undo 不变、GC 累计时间无回退。
+- **机制**：softCache.matchedDecodedBytes 六轮逐字节相同（239009448；
+  cohort 848→585；archived 352308846）；closedHeapCommittedMed 区间亦重叠
+  （T1 1948–2382 vs C 2032–2400）。「堆上限→软引用逐出→缓存字节下降→PSS 下降」
+  链条**不被证据支持**；T1 加载峰收益归因于堆 bound 本身而非软缓存逐出。
+- **判定**：按 SC-1 v2（2026-09-24 监督裁决）6/6 轮有效；SC-1 整体未通过；
+  加载峰方向 SUPPORTED。稳态/关闭后收益 **INCONCLUSIVE**（中位偏向 T1 但重叠+
+  机制平坦+臂内方差同级，n=3 不可分离）；软引用机制 **NOT DEMONSTRATED**。
+  不作为默认设置变更依据；加载峰方向建议独立切片复测。
+- **T2 未跑**：decodedBytes 零变化使 SoftRefLRUPolicyMSPerMB 假设链断裂，
+  原假设下无 falsifiable 增量；是否另设目标跑 T2 由监督裁决。
+- **证据**：`~/.local/state/turboism/performance-evidence/20260923-perf052-protocol-a/run/{ma-c1,ma-t1a,ma-t1b,ma-c2,ma-c3,ma-t1c}`；
+  每轮束 sha256 与全档 MANIFEST.sha256=`51a1e802…bf1548` 见
+  `build/perf052-c1/{campaign-notes.md,sc1-summary.json,final-report.md}`。
+  job/run/prepared ID 逐轮登记于 campaign-notes.md。
+- **重试条件**：加载峰独立协议（固定环境底噪、更多轮次、heap committed 追踪）；
+  或先证明 decoded 缓存对堆压力敏感的机制证据再谈 T2；不得用本批中位差宣称稳态收益。
+
+## M-B — T08 GL 归因 + glGetError elision + 切片 A 同腿对照（052/T08，2026-09-24）
+
+- **协议**：5.3.03 + heavy.cmo3（sha256 029e9a4e…c7f80c），`model-update-skip:5303`
+  quiet wheel 负载，event→EDT-barrier + native repaint barrier（非物理 FPS）。
+  执行 worktree `perf/052-gl-attribution`（先 @2748affe1，后 @0e24fa2a1/0eb8f535c）。
+- **腿 A 归因（仪器化，仅解释构成非收益证据）**：`modelUpdateGlCalls`+
+  `modelUpdateGlCallCategories`，200 事件腿 mean 133.37ms。
+  类别 delegate 合计 53.17ms/ev（leg mean 39.9%；observer 自耗 30.18ms/ev），
+  state 14.91 / errorCheck 9.04 / upload 8.72 / query 6.75 / uniformWrite 5.24 /
+  readback 4.96 / draw 3.53 ms/ev。SC-5「≥80% quiet 帧耗时」在仪器化口径下**未达**
+  （其余 ~50ms 为探针不可见宿主侧）。top 方法：glGetError 8.96M/1.81s、
+  glBufferSubData 475k/1.74s、glGetUniformLocation 670k/1.33s。
+- **校准腿**：uniform OFF（`UNIFORM_LOCATION NOT_ADMITTED` 核实）全部类别计数与
+  prod 逐字节相同——本负载下 uniform 缓存对 GL 流无影响，prod 归因即有效画面。
+- **B 腿首轮作废**：ON 腿 elision 激活成功但 uniform 安装校验 `shader/A.a` 原始
+  方法体与 elision 改写冲突 → UNIFORM_LOCATION FAILED（混杂臂作废）。
+  **产品化阻塞项：elision 与 uniform 缓存在 shader/A.a 互斥，不可兼得。**
+- **u0 ABBA（uniform 两臂 OFF，modelSkip factor 内嵌 {0,1,1,0}）**：4/4 VALID，
+  ON 腿 `elision=ACTIVE sites=1` 核实。
+  **elision 实测 Δ≈−1.1ms/事件**（skip-ON 子腿池化 58.50→57.32ms；displays/s
+  17.02→17.37）——量级小，「调用数」假设被否定。
+- **切片 A（modelUpdateSkip）同腿内对照**：leg0/3(OFF) vs leg1/2(ON)，
+  四 run 中位 Δ≈**−20.0ms/事件**（77.3→57.4ms 量级），jobs
+  4902d6df/dc7634ca/90f0463e/81eae713。
+- **冗余归因（诊断）**：3.99M/10.63M calls 冗余（保守上限 7.08ms/ev），
+  invalidations=1,572,001（≈7,860/ev，窗口几乎即失效），uniformRedundant 仅
+  87/ev——去重路线**否决**。
+- **T08b 上传抑制（identity 模式，2 run × {off,on,on,off}）**：jobs
+  da81e362/48375f95 均 PASS，`UPLOAD_ELISION elision=ACTIVE sites=4` 核实；
+  ON 子腿 elided=102,200/475,400（**21.5% 签名命中**），四腿 canvasPixelDigest
+  全同（正确性门过）。均值 Δ：r1 −3.40ms、r2 −3.12ms（监督登记口径约
+  −1.5~−3ms）。本构建无 `restored=true` 关闭标记（属 4333086b1 后功能）。
+- **T08b JFR 诊断腿** 8ecda9e1：wheel-leg-0.jfr 归档（仅诊断）。
+- **T08c**：r1 两腿（f36d3e98/862936a9）预检失败——fixture 期望 SHA 回落
+  57c4854b（worktree .env 缺覆盖），cleanup=safe、不计入样本。修正 env 调用后
+  重提 r2（expected==actual=029e9a4e 核实）：upload-id-r2 2fb0591c /
+  upload-content-r2 a70e41a1（agent 10a89bb1@4333086b1、exerciser c29ba1a8）。
+  **r2 跑完即定性「缺陷暴露轮，不计收益」**：报告证实旧 tracker
+  （passNoBaseline/compares=0，无 failedInserts）——512 格表耗尽 +
+  content 比较恒假，7c57f805d 已修复。
+- **证据**：`~/.local/state/turboism/performance-evidence/20260924-perf052-t08/run/`
+  {t08-attr-prod-r1,t08-attr-cal-r1,t08-elision-{off,on}-r{1,2},
+  t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1,
+  t08b-upload-r{1,2},t08b-jfr-prod-r1}；明细见
+  `build/perf052-t08/campaign-notes.md`。
+- **T08d（裁决 A 后提交）**：监督确认 T03「agent 未变」有误——runtime 类仅经
+  agent fat jar 内嵌送达，preview 无独立 runtime jar。按裁决重建
+  :bootstrap:jar → agent **3807fb65**（已验证内嵌 tracker 含
+  failedInserts、installer 与 7c57f805d 一致；复制入 preview 未跑
+  previewBundle）。四腿 FIFO：id-r1 3a85e0e2 / content-r1 3f39cdaf /
+  id-r2 afaf7e26 / content-r2 cb50d3d9（probe 2a56fed1、head 7c57f805d）。
+  **T08d 结果**：4/4 VALID（sites=4、elided=475,400=100%、failedInserts=0、
+  digest 全同）；腿均值 Δ −5.1~−17.1ms（监督口径约 −6.5ms/事件）。
+- **T08e（产品开关腿，已提交）**：aa8941c7f 接入
+  turboism.optimization.uploadElision（默认关、content、64MiB 预算）；
+  agent c0a7b8b8 复制入 preview。jobs 654dbd59/d035ad29。
+  **T08e 结果**：mode=production，ON 腿 elided=100%、failedInserts=0、
+  observerFailures=0、digest 全同；快照代价 peakEntries=2378/
+  snapshotBytesPeak=4.95MB/budgetSkips=0；Δ −8.16/−8.30ms。
+- **T08f 验收矩阵 + T12c 已提交**（7 腿 FIFO）：t08f-pan e86c24ff /
+  drag 8778b490 / wheel-5302 1e4c124c / failclosed-5203 10648074
+  （gl-attribution@18a45d955 agent f6044ff5）；t12c-shadow f9ac7436 /
+  abba-r1 51b671c9 / abba-r2 5de31e0d（render-prep@7bf78df6d，
+  **agent 偏差：bbae158b→40995669741c**，previewBundle 建目录时重建覆盖，
+  同 commit 已申报）。
+  **T08f/T12c 结果（7/7 PASS）**：pan −6.1 / drag −11.0 / wheel-5302 −7ms；
+  failclosed-5203 NOT_ADMITTED+PASS；T12c shadow=0 但腿慢 7–10ms → 否决。
+- **T18 已提交**（e29480026，agent 29de18a6/probe 489d15f2，叠加生产
+  uploadElision 测增量）：wheel-r1 22869304 / wheel-r2 bc423db3 /
+  pan 9cdfd063 / drag 520489e9。
+  **T18 结果**：4/4 PASS、sites=195、每事件省略 ~2 万调用、parity 全过，
+  但增量 −0.6ms（噪声内）→ **NO_BENEFIT 否决**。
+- **T17 已提交**（input-path@3f06f8789，agent 2116dbed/probe 0ece749e 与
+  声明一致，叠加生产 uploadElision）：wheel-r1 2d9da268 / wheel-r2
+  0be033d9 / pan c88b8400 / drag 66710607。
+  **T17 结果**：4/4 PASS、sites=2、handler 4.2–5.0→1.1–1.2ms、总
+  −1.3~−3.9ms、parity 全 true（监督登记）。
+- **T19 JFR 预算腿已提交**（同 worktree）：stack 3272baaa（叠加两 elision）
+  / base e3100aab（生产默认）；stackdepth=128 经 FlightRecorderOptions，
+  sample period 硬编码 5ms 不可调。诊断腿。
+- **T20+T21 已提交**（input-path@142a6b336，agent 28bd561e/probe
+  2411a920 一致）：t20-wheel fea5b0ac/5ccec5d2、t20-pan f38e40eb、
+  t20-drag d50f76b9（canvasComposite+两叠加）；t21-mscratch
+  1535062d/5b23f525（matrixScratch 首个完整 ABBA）。
+- **T20/T21 结果**：canvasComposite 与 matrixScratch 均 NO_BENEFIT
+  （fea5b0ac/5ccec5d2/f38e40eb/d50f76b9、1535062d/5b23f525）。
+  windowDigest 全运行=bade8f59，截图门无效。
+- **T22 glthread 跨运行 ABBA 已提交**（gl-attribution@d90b3fe76，
+  --linux-env 新能力）：fdb9d6e6/f815c2c4/93aca62a/e8564408/
+  c68652bb/24a54463（OFF/ON/ON/OFF/OFF/ON）。
+- **T22 结果**：mesa_glthread REGRESSION（+4~10ms），ATTENTION 已生效；
+  glThreadCount 采集 bug 已修为 schema v2。fdb9d6e6→24a54463。
+- **T23 已提交**（gl-attribution@e225d8092，agent dec25e67/probe
+  6c251a9d）：A/B/C×3 交错 a806fe0f 4cd4357a 6ff1766c d41821fd
+  0039629c 77f16ced 95452622 c6371809 8cdc00cb。
+- **T23 结果**：INCONCLUSIVE——glthread 实已启用（java.exe:gl0），
+  但 B/C uniform 命中=0（elision 切断确认路径，混杂）。
+- **T24 已提交**（gl-attribution@397da398e，agent 60c23c93/probe
+  99289c05）：A/C×4 交错 6d5a85ba 89a43556 4cf636a7 18af79af
+  5d829d4c f8b89996 ef111bfa a4075a88。
+- **T24 结果**：glthread 组合 SUPPORTED 中位 −6.5ms（4cf636a7 digest
+  差异=几何）。6d5a85ba→a4075a88。
+- **T25 最终验收已提交**（gl-attribution@da80de22a，agent f15b78a4）：
+  A/F 16 腿（wheel×8 pan×4 drag×4）b8c09000 eacb646f b67f6e32
+  9a8ac557 7c66afcd b94e77d7 16b19f1e ffea6d8b 9823ef79 bd1b9f18
+  58bb1c0c 531a4c31 0f9c90fc 01bad54e 7fcd956b b9161829。
