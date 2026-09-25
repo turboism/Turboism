@@ -58,7 +58,8 @@ prefix = tmp / 'prefix-1'
 write_proc(proc_root, '201', b'javaw.exe\n',
            f'TURBOISM_HOST_VALIDATION_TASK_DIR={task_dir}\x00WINEPREFIX={prefix}/pfx\x00mesa_glthread=true\x00'.encode(),
            b'C:\\jre\\bin\\javaw.exe\x00-Dx=1\x00',
-           '1001', threads={'201': b'javaw.exe', '301': b'gl0', '302': b'gdrv0'})
+           '1001', threads={'201': b'javaw.exe', '301': b'java.exe:gl0',
+                            '302': b'gdrv0', '303': b'xgl0'})
 write_proc(proc_root, '202', b'wineserver\n',
            f'WINEPREFIX={prefix}/pfx\x00'.encode(), b'wineserver\x00', '1002')
 result = run(proc_root, tmp / 'out-1', str(task_dir), str(prefix))
@@ -72,7 +73,7 @@ assert data['java.0.match'] == 'comm', data
 env = props(tmp / 'out-1' / 'java-environ.ready.properties')
 assert env['java.201.mesa_glthread'] == 'true', env
 threads = (tmp / 'out-1' / 'java-threads.ready.txt').read_text()
-assert '\tgl0\n' in threads and '\tgdrv0\n' in threads, threads
+assert '\tjava.exe:gl0\n' in threads and '\tgdrv0\n' in threads, threads
 
 # --- Case 2: java.exe bound through a symlinked WINEPREFIX only ---
 proc_root = tmp / 'proc-symlink'

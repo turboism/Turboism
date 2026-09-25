@@ -1598,7 +1598,10 @@ for proc in matches:
                 comm = (task / "comm").read_bytes().rstrip(b"\n").decode("utf-8", "replace")
             except OSError:
                 continue
-            if re.fullmatch(r"gl\d+", comm):
+            # Wine tags thread comm names with the process image ("java.exe:gl0"),
+            # so the Mesa glthread worker matches a gl<index> suffix after an
+            # optional "<image>:" prefix — never a bare substring.
+            if re.search(r"(^|:)gl[0-9]+$", comm):
                 gl_thread_count += 1
             proc["threadCount"] += 1
             thread_rows.append(f"{pid}\t{task.name}\t{comm}")

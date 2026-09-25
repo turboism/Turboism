@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -21,19 +23,21 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 class UniformLocationLifecycleTransformerTest {
-    private static int begins, ends, errors, mutations, mutationsEnded;
+    private static int begins, ends, errors, errorCalls, mutations, mutationsEnded;
+    private static Object errorArg;
     private static long ended;
     private static boolean failCallbacks;
     private static final Path ARTIFACT = Path.of("reviewed.jar").toAbsolutePath();
     public static long begin(Object frame) { begins++; if (failCallbacks) throw new IllegalStateException(); return 61; }
     public static void end(long token) { ends++; ended = token; if (failCallbacks) throw new IllegalStateException(); }
-    public static void error(Object gl, int value) { errors = value; if (failCallbacks) throw new IllegalStateException(); }
+    public static void error(Object gl, int value) { errors = value; errorArg = gl; errorCalls++; if (failCallbacks) throw new IllegalStateException(); }
     public static void invalidate() { mutations++; if (failCallbacks) throw new IllegalStateException(); }
     public static long mutationBegin() { mutations++; if (failCallbacks) throw new IllegalStateException(); return 71; }
     public static void mutationEnd(long scope) { mutationsEnded++; ended = scope; if (failCallbacks) throw new IllegalStateException(); }
     @AfterEach void cleanup() {
         for (String key : UniformLocationHookBridge.slots()) System.getProperties().remove(key);
-        begins = ends = errors = mutations = mutationsEnded = 0; ended = 0; failCallbacks = false;
+        begins = ends = errors = errorCalls = mutations = mutationsEnded = 0;
+        errorArg = null; ended = 0; failCallbacks = false;
     }
     private void callbacks() throws Exception {
         var lookup = MethodHandles.lookup();
@@ -77,6 +81,102 @@ class UniformLocationLifecycleTransformerTest {
         assertEquals(1282, errors); assertEquals(1, fixture.errorQueries);
         failCallbacks = true;
         assertEquals(1282, fixture.runError()); assertEquals(2, fixture.errorQueries);
+    }
+    /**
+     * With the upstream glGetError elision installed, the ERROR body arrives
+     * composed as {@code aload; pop; iconst_0}: the transformer must emit the
+     * same {@code error(gl, 0)} confirmation the elided query stood for, so
+     * pending locations keep confirming. The downstream chain —
+     * {@code bridge.error} → {@code cache.checkedError(0)} → confirmed →
+     * {@code lookup} hits — is covered by the cache/bridge tests.
+     */
+    @Test void elidedErrorBodyStillConfirmsWithZero() throws Exception {
+        callbacks();
+        Fixture fixture = new Fixture(UniformLocationLifecycleTransformer.Role.ERROR, true);
+        assertEquals(0, fixture.runError(), "the elision result is GL_NO_ERROR");
+        assertEquals(0, fixture.errorQueries, "the elided body must not reach the native query");
+        assertEquals(1, errorCalls, "the replacement callback must fire exactly once");
+        assertEquals(0, errors, "the composed observation is the guaranteed no-error");
+        assertSame(fixture.gl, errorArg, "the callback must receive the same GL receiver");
+    }
+    /**
+     * An official body must take the native path byte-for-byte even when a
+     * composed shape is registered — the elision variant is only admitted when
+     * the observed body is the exact composed output.
+     */
+    @Test void officialBodyWithRegisteredComposedShapeIsByteIdentical() throws Exception {
+        Loader loader = new Loader();
+        ClassWriter writer = empty(UniformLocationLifecycleTransformer.Role.ERROR.owner(), false);
+        MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, "a",
+            "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
+        method.visitCode(); method.visitVarInsn(Opcodes.ALOAD, 1);
+        method.visitMethodInsn(Opcodes.INVOKEINTERFACE, "com/jogamp/opengl/GL",
+            "glGetError", "()I", true);
+        method.visitInsn(Opcodes.IRETURN); method.visitMaxs(0, 0); method.visitEnd();
+        writer.visitEnd();
+        byte[] reference = writer.toByteArray();
+        ProtectionDomain domain = new ProtectionDomain(
+            new CodeSource(ARTIFACT.toUri().toURL(), (Certificate[]) null), null);
+        var plain = new UniformLocationLifecycleTransformer(loader, ARTIFACT, reference,
+            UniformLocationLifecycleTransformer.Role.ERROR);
+        byte[] nativeOutput = plain.transform(null, loader,
+            UniformLocationLifecycleTransformer.Role.ERROR.owner(), null, domain, reference);
+        assertNotNull(nativeOutput, plain.failure());
+        var admitted = new UniformLocationLifecycleTransformer(loader, ARTIFACT, reference,
+            UniformLocationLifecycleTransformer.Role.ERROR);
+        admitted.acceptComposedShape("a", java.util.List.of("op:87", "op:3"));
+        byte[] composedRegistered = admitted.transform(null, loader,
+            UniformLocationLifecycleTransformer.Role.ERROR.owner(), null, domain, reference);
+        assertNotNull(composedRegistered, admitted.failure());
+        assertArrayEquals(nativeOutput, composedRegistered,
+            "a registered composed shape must not change the official-body rewrite");
+    }
+    /**
+     * The composed admission requires an {@code aload} receiver ahead of the
+     * elided site; a reference whose query receiver is not a plain local load
+     * must reject the elided body rather than emit a callback on a wrong gl.
+     */
+    @Test void composedBodyWithoutLoadableReceiverIsRejected() throws Exception {
+        Loader loader = new Loader();
+        String owner = UniformLocationLifecycleTransformer.Role.ERROR.owner();
+        ClassWriter writer = empty(owner, false);
+        MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, "a",
+            "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
+        method.visitCode();
+        // getstatic foreign ; invokeinterface glGetError ; ireturn — receiver is
+        // not a local load, so no elision-composed body can be instrumented.
+        method.visitFieldInsn(Opcodes.GETSTATIC, owner, "failure", "Ljava/lang/RuntimeException;");
+        method.visitTypeInsn(Opcodes.CHECKCAST, "com/jogamp/opengl/GL");
+        method.visitMethodInsn(Opcodes.INVOKEINTERFACE, "com/jogamp/opengl/GL",
+            "glGetError", "()I", true);
+        method.visitInsn(Opcodes.IRETURN); method.visitMaxs(0, 0); method.visitEnd();
+        writer.visitEnd();
+        byte[] reference = writer.toByteArray();
+        var transformer = new UniformLocationLifecycleTransformer(loader, ARTIFACT, reference,
+            UniformLocationLifecycleTransformer.Role.ERROR);
+        transformer.acceptComposedShape("a", java.util.List.of("op:87", "op:3"));
+        ProtectionDomain domain = new ProtectionDomain(
+            new CodeSource(ARTIFACT.toUri().toURL(), (Certificate[]) null), null);
+        // Hand-built elided counterpart with a non-local receiver producer.
+        ClassWriter elidedWriter = empty(owner, false);
+        MethodVisitor elided = elidedWriter.visitMethod(Opcodes.ACC_PUBLIC, "a",
+            "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I", null, null);
+        elided.visitCode();
+        elided.visitFieldInsn(Opcodes.GETSTATIC, owner, "failure", "Ljava/lang/RuntimeException;");
+        elided.visitTypeInsn(Opcodes.CHECKCAST, "com/jogamp/opengl/GL");
+        elided.visitInsn(Opcodes.POP);
+        elided.visitInsn(Opcodes.ICONST_0);
+        elided.visitInsn(Opcodes.IRETURN); elided.visitMaxs(0, 0); elided.visitEnd();
+        elidedWriter.visitEnd();
+        // Admit the exact elided shape, then prove the missing receiver is rejected.
+        var shape = dev.turboism.adapter.cubism.optimization.ReviewedMethodShape
+            .read(elidedWriter.toByteArray(), owner, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I");
+        assertNotNull(shape);
+        var gated = new UniformLocationLifecycleTransformer(loader, ARTIFACT, reference,
+            UniformLocationLifecycleTransformer.Role.ERROR);
+        gated.acceptComposedShape("a", shape);
+        assertNull(gated.transform(null, loader, owner, null, domain, elidedWriter.toByteArray()));
+        assertNotNull(gated.failure());
     }
     @Test void nativeErrorQueryExceptionIsNotRetriedOrSwallowed() throws Exception {
         callbacks();
@@ -157,6 +257,15 @@ class UniformLocationLifecycleTransformerTest {
         int errorQueries;
         RuntimeException queryFailure;
         Fixture(UniformLocationLifecycleTransformer.Role role) throws Exception {
+            this(role, false);
+        }
+        /**
+         * {@code elided} feeds the body the upstream glGetError elision actually
+         * produces on the same reference, admitted through the generated composed
+         * shape — the exact state the retransform chain presents when both hooks
+         * are installed.
+         */
+        Fixture(UniformLocationLifecycleTransformer.Role role, boolean elided) throws Exception {
             Loader loader = new Loader();
             ClassWriter ctx = empty("com/live2d/graphics3d/a", false); ctx.visitEnd();
             frameType = loader.define("com/live2d/graphics3d/a", ctx.toByteArray());
@@ -176,9 +285,21 @@ class UniformLocationLifecycleTransformerTest {
                 method.visitInsn(Opcodes.IRETURN); method.visitMaxs(0, 0); method.visitEnd();
             } else for (var target : role.methods().entrySet()) body(writer, owner, target.getKey(), target.getValue());
             writer.visitEnd(); byte[] reference = writer.toByteArray();
-            UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(loader, ARTIFACT, reference, role);
             ProtectionDomain domain = new ProtectionDomain(new CodeSource(ARTIFACT.toUri().toURL(), (Certificate[]) null), null);
-            byte[] rewritten = transformer.transform(null, loader, owner, null, domain, reference);
+            byte[] input = reference;
+            UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(loader, ARTIFACT, reference, role);
+            if (elided) {
+                var target = dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget
+                    .of(dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow();
+                var elision = new dev.turboism.adapter.cubism.optimization.glerror
+                    .GlGetErrorElisionTransformer(loader, ARTIFACT, reference, target);
+                input = elision.transform(null, loader, owner, null, domain, reference);
+                assertNotNull(input, elision.failure());
+                transformer.acceptComposedShape("a",
+                    dev.turboism.adapter.cubism.optimization.ReviewedMethodShape
+                        .read(input, owner, "a", "(Lcom/jogamp/opengl/GL;Ljava/lang/String;Z)I"));
+            }
+            byte[] rewritten = transformer.transform(null, loader, owner, null, domain, input);
             assertNotNull(rewritten, transformer.failure());
             type = loader.define(owner, rewritten); instance = type.getConstructor().newInstance();
         }
