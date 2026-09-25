@@ -77,7 +77,8 @@ final class SkippedFrameUploadTracker {
     private final Compare compare;
     private final long maxSnapshotBytes;
     private Entry[] entries;
-    private Object currentGl;
+    // Preserve context-change accounting without pinning the host after clearAll.
+    private java.lang.ref.WeakReference<Object> currentGl = new java.lang.ref.WeakReference<>(null);
     private Thread observedThread;
     private boolean clearedForRun = true;
     private long calls, elided, passed, clears, contextClears, nonSkippedClears,
@@ -139,8 +140,8 @@ final class SkippedFrameUploadTracker {
                 observerFailures++;
                 clearAll(ClearKind.THREAD);
             }
-            if (gl != currentGl) {
-                currentGl = gl;
+            if (gl != currentGl.get()) {
+                currentGl = new java.lang.ref.WeakReference<>(gl);
                 clearAll(ClearKind.CONTEXT);
             }
             if (!skipped) {
@@ -186,7 +187,7 @@ final class SkippedFrameUploadTracker {
                 elide = contentEqual(entry, (Buffer) buffer);
                 if (!elide) {
                     refreshSnapshot(entry, (Buffer) buffer, size);
-                    record(entry, gl, name, size, buffer, position, limit);
+                    record(entry, gl, name, size, retained(buffer), position, limit);
                     passed++;
                     if (kind != null) kindPassed[kind.ordinal()]++;
                     passReasons[PassReason.CONTENT.ordinal()]++;
@@ -208,7 +209,7 @@ final class SkippedFrameUploadTracker {
             if (compare == Compare.CONTENT) {
                 refreshSnapshot(entry, (Buffer) buffer, size);
             }
-            record(entry, gl, name, size, buffer, position, limit);
+            record(entry, gl, name, size, retained(buffer), position, limit);
             passed++;
             if (kind != null) kindPassed[kind.ordinal()]++;
             passReasons[reason.ordinal()]++;
@@ -229,6 +230,16 @@ final class SkippedFrameUploadTracker {
     void observerFailed() {
         observerFailures++;
         try { clearAll(ClearKind.EXCEPTION); } catch (Throwable ignored) { }
+    }
+
+    /**
+     * CONTENT mode matches on the snapshot alone — the live host buffer is
+     * never consulted again, so it is not retained (a strong reference would
+     * pin the host's direct buffer long after the entry is stale). IDENTITY
+     * mode still needs the object for the {@code ==} match.
+     */
+    private Object retained(final Object buffer) {
+        return compare == Compare.CONTENT ? null : buffer;
     }
 
     private void record(final Entry entry, final Object gl, final int name, final long size,
@@ -397,6 +408,8 @@ final class SkippedFrameUploadTracker {
     private void clearAll(final ClearKind kind) {
         for (final Entry entry : entries) {
             entry.occupied = false;
+            entry.gl = null;
+            entry.buffer = null;
             entry.snapshot = null;
             entry.snapshotSize = 0;
         }
