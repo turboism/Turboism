@@ -1997,6 +1997,29 @@ for spec in "${resolved_home_dirs[@]}"; do
   local_prepare_directory "$home_dir/$relative_path"
   local_copy_dir_contents_to "$local_path" "$home_dir/$relative_path"
 done
+
+# The combined launcher.mesaGlThread product option (persisted, default off)
+# takes effect only on this Linux/Proton launch path: when the staged home
+# config enables it we export mesa_glthread=true for the Mesa threaded
+# submitter AND inject the deferred error-check property so the shader
+# helper's per-call glGetError no longer forces a flush. Both halves come
+# from the same flag — Mesa threading alone was measured a regression.
+# Windows launchers never emit either; the option is inert there.
+mesa_gl_thread=0
+if [ -f "$home_dir/config.json" ]; then
+  mesa_gl_thread="$(python3 - "$home_dir/config.json" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as stream:
+        document = json.load(stream)
+    launcher = document.get("launcher")
+    value = launcher.get("mesaGlThread") if isinstance(launcher, dict) else None
+    print(1 if value is True else 0)
+except Exception:
+    print(0)
+PY
+)"
+fi
 for spec in "${resolved_aux_agents[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
@@ -2102,6 +2125,10 @@ for option in "${jvm_options[@]}"; do
   option="${option//\{FIXTURE_NAME\}/$fixture_name}"
   all_jvm_options+=("$option")
 done
+# launcher.mesaGlThread=true installs the deferred error-check hook.
+if [ "$mesa_gl_thread" = 1 ]; then
+  all_jvm_options+=('-Dturboism.optimization.mesaGlThread=true')
+fi
 java_tool_options=''
 for option in "${all_jvm_options[@]}"; do
   quoted_option="$(windows_java_tool_option "$option")"
@@ -2137,6 +2164,19 @@ exit /b %ERRORLEVEL%
 BAT
 run_remote_hook "$remote_pre_launch"
 local_copy_to "$local_tmp/launch.bat" "$task_dir/launch.bat"
+# The product launcher.mesaGlThread option supplies its Mesa side itself so a
+# driver cannot enable glthread without deferred checking; an explicit
+# --linux-env declaration still wins when the driver pinned the experiment.
+if [ "$mesa_gl_thread" = 1 ]; then
+  mesa_declared=0
+  for existing_name in "${linux_environment_names[@]}"; do
+    [ "$existing_name" = "mesa_glthread" ] && mesa_declared=1 && break
+  done
+  if [ "$mesa_declared" = 0 ]; then
+    linux_environment+=("mesa_glthread=true")
+    linux_environment_names+=("mesa_glthread")
+  fi
+fi
 # Whitelist-checked Mesa/Proton debug variables for this job only; every name
 # and value was charset-validated, so a literal export line cannot smuggle
 # shell syntax into the generated script. The enumerable managed names are
@@ -2216,6 +2256,7 @@ chmod 700 -- "$task_dir/launch.sh"
 
 {
   printf 'schemaVersion=1\n'
+  printf 'mesaGlThread=%s\n' "$mesa_gl_thread"
   printf 'linuxEnvironmentCount=%s\n' "${#linux_environment[@]}"
   for index in "${!linux_environment[@]}"; do
     printf 'linuxEnvironment.%s=%s\n' "$index" "${linux_environment[$index]}"

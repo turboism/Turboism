@@ -129,6 +129,25 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /**
+     * Launcher preference: when true the next managed launch under the
+     * Linux/Proton path exports {@code mesa_glthread=true} and adds
+     * {@code -Dturboism.optimization.mesaGlThread=true}, so Mesa submits GL
+     * work from a dedicated thread while the deferred error-check hook keeps
+     * the shader helper's per-call {@code glGetError} from flushing it. The
+     * pair is one combined option — Mesa threading without deferred checking
+     * was measured a regression. Off by default; experimental, Linux/Mesa
+     * only; Windows launches ignore it entirely. Takes effect on next launch.
+     */
+    default boolean mesaGlThread() {
+        return false;
+    }
+
+    /** Persists the mesa-gl-thread preference; installation changes require restart. */
+    default boolean saveMesaGlThread(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /** Persists the uniform-location cache preference; installation changes require restart. */
     default boolean saveUniformLocationCache(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");

@@ -845,10 +845,10 @@ final class ConfigMerge {
     private static final Set<String> LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath", "zgc",
             "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
-            "inputPathElision");
+            "inputPathElision", "mesaGlThread");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
             "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
-            "inputPathElision");
+            "inputPathElision", "mesaGlThread");
     private static final Set<String> CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Pattern WORKTREE_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{2,63}$");
 

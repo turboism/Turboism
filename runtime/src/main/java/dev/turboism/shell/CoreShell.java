@@ -133,6 +133,11 @@ public final class CoreShell implements ShellHandle {
             )
         ));
         context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createMesaGlThreadToggle(
+                localization(context), services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.createPerformanceNote(localization(context))
         ));
         context.disposableScope().register(context.uiHost().contributeSettings(
