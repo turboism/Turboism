@@ -40,9 +40,18 @@ public final class UniformLocationHookBridge implements AutoCloseable {
      * Typed {@code (Object,String,boolean)int} deferred error-check checkpoint.
      * Installed by the deferred-GL-error transform on the shader helper: inside
      * an owned frame it records the checkpoint and returns {@code GL_NO_ERROR}
-     * without a native query; anywhere else it runs the real {@code glGetError}.
+     * without a native query; anywhere else it returns
+     * {@link #DEFERRED_FALLBACK}, which the emitted code replaces with the
+     * real inline {@code glGetError} — the native call then runs exactly once
+     * and its own exception propagates unchanged.
      */
     public static final String DEFER_QUERY_PROPERTY = "turboism.deferred-error.query";
+    /**
+     * Return value telling the emitted checkpoint to run the real
+     * {@code glGetError} inline. {@code glGetError} never produces a negative
+     * value, so {@link Integer#MIN_VALUE} cannot collide with a real result.
+     */
+    public static final int DEFERRED_FALLBACK = Integer.MIN_VALUE;
     /**
      * Typed {@code ()Object} frame-exit report consult: returns the throwable the
      * frame-end deferred check armed (host-equivalent error reporting), or null.
@@ -53,14 +62,14 @@ public final class UniformLocationHookBridge implements AutoCloseable {
 
     /**
      * Extra handles the deferred error-check path needs: the real
-     * {@code GL.glGetError} for frame-end and pass-through queries, the host
+     * {@code GL.glGetError} for frame-end queries, the host
      * error logger and the host {@code GLException(String)} constructor so the
      * frame-end report reproduces {@code shader/A.a(GL,String,Z)}'s semantics —
      * known codes log through {@code util/log/a.b} and throw only when the
      * first deferred checkpoint passed {@code z=true}; unmapped codes arm
      * {@code IllegalStateException("Not impl : " + code)} exactly like the
      * host's default branch. {@code null} keeps deferred checkpoints inert:
-     * {@link #deferQuery} then throws, and the emitted catch falls back to the
+     * {@link #deferQuery} returns {@link #DEFERRED_FALLBACK} for the emitted
      * real inline query.
      */
     public record DeferredAccessors(MethodHandle glGetError, Object logger, MethodHandle log,
@@ -277,7 +286,9 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 deferredFrames++;
                 error(frameGl, observed);
                 reportDeferred(observed);
-            } catch (Throwable problem) {
+            } catch (Throwable queryFailure) {
+                deferredReport = queryFailure;
+                deferredThrows++;
                 retire();
             }
             deferredQueries = 0; deferredContext = null; deferredThrowSite = false;
@@ -341,27 +352,15 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         } catch (Throwable problem) { retire(); }
     }
     /**
-     * Deferred error-check checkpoint emitted by the deferred-GL-error
-     * transform. Inside the owned render frame it records the checkpoint —
-     * first call wins the report context — and returns {@code GL_NO_ERROR}
-     * without a native query. The returned zero then flows through the uniform
-     * lifecycle transform's own emitted error callback, confirming pending
-     * locations within the frame exactly like the reviewed elision emission;
-     * the frame-end real query still invalidates the frame and reports any
-     * observed error, so the optimistic window ends at the frame boundary.
-     * Outside the frame, after close/retire, or without resolved accessors it
-     * runs the real {@code glGetError} (or throws so the emitted catch runs the
-     * real call inline), keeping the site's exact upstream semantics.
+     * Returns a synthetic zero inside an owned frame. Outside the frame the
+     * sentinel requests the original query in emitted code, outside the
+     * observer catch, so native failures propagate without a second query.
      */
-    public synchronized int deferQuery(Object gl, String context, boolean throwing)
-            throws Throwable {
+    public synchronized int deferQuery(Object gl, String context, boolean throwing) {
         if (!installed || closed || retired || deferredAccessors == null
             || frameOwner != Thread.currentThread() || gl != frameGl || token == 0L) {
             deferredFallbacks++;
-            if (deferredAccessors == null) {
-                throw new IllegalStateException("deferred GL error accessor absent");
-            }
-            return (int) deferredAccessors.glGetError().invokeExact(gl);
+            return DEFERRED_FALLBACK;
         }
         deferredChecks++;
         deferredQueries++;

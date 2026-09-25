@@ -35,14 +35,14 @@ class DeferredGlErrorCheckTransformerTest {
     private static int deferredQueries, reportConsults;
     private static Object deferredGl;
     private static String deferredContext;
-    private static boolean deferredThrowing, failCallbacks;
+    private static boolean deferredThrowing, failCallbacks, deferFallback;
     private static Object report;
 
     public static int deferQuery(Object gl, String context, boolean throwing) {
         deferredQueries++; deferredGl = gl; deferredContext = context;
         deferredThrowing = throwing;
         if (failCallbacks) throw new IllegalStateException();
-        return 0;
+        return deferFallback ? UniformLocationHookBridge.DEFERRED_FALLBACK : 0;
     }
     public static Object consumeReport() {
         reportConsults++;
@@ -53,7 +53,7 @@ class DeferredGlErrorCheckTransformerTest {
         System.getProperties().remove(UniformLocationHookBridge.DEFER_QUERY_PROPERTY);
         System.getProperties().remove(UniformLocationHookBridge.DEFER_REPORT_PROPERTY);
         deferredQueries = reportConsults = 0; deferredGl = null; deferredContext = null;
-        deferredThrowing = failCallbacks = false; report = null;
+        deferredThrowing = failCallbacks = deferFallback = false; report = null;
     }
     private void deferredCallbacks() throws Exception {
         var lookup = MethodHandles.lookup();
@@ -93,6 +93,39 @@ class DeferredGlErrorCheckTransformerTest {
         assertEquals(1282, fixture.runError());
         assertEquals(1, fixture.errorQueries);
     }
+    /**
+     * A callback returning {@code DEFERRED_FALLBACK} runs the real query
+     * inline exactly once — the native result, not the sentinel, is what the
+     * site returns.
+     */
+    @Test void deferFallbackRunsRealQueryInlineExactlyOnce() throws Exception {
+        deferredCallbacks();
+        deferFallback = true;
+        Fixture fixture = new Fixture();
+        assertEquals(1282, fixture.runError(),
+            "the inline real query's result reaches the caller");
+        assertEquals(1, deferredQueries, "the consult ran");
+        assertEquals(1, fixture.errorQueries,
+            "the real glGetError ran exactly once, inline");
+    }
+    @Test void realQueryFailureIsNeverRetriedOrSwallowed() throws Exception {
+        for (int mode = 0; mode < 3; mode++) {
+            for (Throwable failure : List.of(new IllegalStateException("native"),
+                    new LinkageError("driver"))) {
+                cleanup();
+                if (mode != 0) deferredCallbacks();
+                failCallbacks = mode == 1;
+                deferFallback = mode == 2;
+                Fixture fixture = new Fixture();
+                fixture.nativeFailure = failure;
+                InvocationTargetException thrown =
+                    assertThrows(InvocationTargetException.class, fixture::runError);
+                assertSame(failure, thrown.getCause(), "native throwable identity");
+                assertEquals(1, fixture.errorQueries, "real query must execute exactly once");
+            }
+        }
+    }
+
     /** A wrong-shaped slot is ignored the same way: real query, no consult. */
     @Test void siteWrongSlotShapeRunsNativeQuery() throws Exception {
         System.getProperties().put(UniformLocationHookBridge.DEFER_QUERY_PROPERTY, "wrong");
@@ -181,6 +214,7 @@ class DeferredGlErrorCheckTransformerTest {
         final Object errorInstance, frameInstance, gl;
         final byte[] errorReference, frameReference;
         int errorQueries;
+        Throwable nativeFailure;
         Fixture() throws Exception {
             // The GL owner must be an interface for the invokeinterface to link.
             ClassWriter glInterface = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
@@ -192,7 +226,11 @@ class DeferredGlErrorCheckTransformerTest {
             glInterface.visitEnd();
             Class<?> glType = loader.define("com/jogamp/opengl/GL", glInterface.toByteArray());
             gl = Proxy.newProxyInstance(loader, new Class<?>[] {glType},
-                (proxy, invoked, args) -> { errorQueries++; return 1282; });
+                (proxy, invoked, args) -> {
+                    errorQueries++;
+                    if (nativeFailure != null) throw nativeFailure;
+                    return 1282;
+                });
 
             ClassWriter argWriter = empty("com/live2d/graphics3d/a");
             argWriter.visitEnd();
