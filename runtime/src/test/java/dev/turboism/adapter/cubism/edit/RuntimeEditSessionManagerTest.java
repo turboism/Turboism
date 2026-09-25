@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.edit.CancelSource;
 import dev.turboism.sdk.cubism.edit.EditCancelledException;
 import dev.turboism.sdk.cubism.edit.EditSession;
@@ -19,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -178,6 +182,128 @@ final class RuntimeEditSessionManagerTest {
         assertEquals(List.of(Boolean.FALSE), fixture.host.endEditCancelFlags);
         assertEquals(1, fixture.host.revertCount);
         assertEquals(1, fixture.host.refreshCount);
+    }
+
+    @Test
+    void cancelWithARedoTailPreservesEveryCommittedEntry() throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        // The legA3EditModeCancel setup: seven committed entries, cursor at six — one
+        // already-undone redo-tail entry must survive the cancel untouched.
+        for (int i = 0; i < 7; i++) {
+            fixture.host.committedEntries.add(new Object());
+        }
+        fixture.host.position = 6;
+        final EditSession session = fixture.open();
+
+        final EditSessionCloseResult result = session.cancel();
+
+        assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
+        // Commit-for-revert would truncate the tail — the recovery must delegate to the
+        // compensating sequence (group undo in place + abort) instead of committing.
+        assertEquals(0, fixture.host.revertCount);
+        assertEquals(List.of(Boolean.TRUE), fixture.host.endEditCancelFlags);
+        assertEquals(1, fixture.host.undoGroupCount);
+        assertEquals(7, fixture.host.committedEntries.size());
+        assertEquals(6, fixture.host.position);
+        assertEquals(1, fixture.host.refreshCount);
+    }
+
+    @Test
+    void cancelWithAnUnreadableHistorySnapshotCompensatesInsteadOfReverting()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        final EditSession session = fixture.open();
+        fixture.host.failNextHistory = true;
+
+        // The recovery-time history read failed — no proof the cursor is at the tip, so
+        // commit-for-revert must not run even though the revert row binds.
+        assertEquals(EditSessionCloseOutcome.CANCELLED, session.cancel().outcome());
+        assertEquals(0, fixture.host.revertCount);
+        assertEquals(List.of(Boolean.TRUE), fixture.host.endEditCancelFlags);
+    }
+
+    @Test
+    void displacedSessionWithForeignCommitAndRedoTailNeverRevertsPreSessionSlots()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        for (int i = 0; i < 7; i++) {
+            fixture.host.committedEntries.add(new Object());
+        }
+        fixture.host.position = 6;
+        final EditSession session = fixture.open();
+        // A foreign edit displaced the session group and committed — the commit already
+        // truncated the redo tail, so index 6 now holds the foreign entry.
+        fixture.host.committedEntries.subList(6, 7).clear();
+        fixture.host.committedEntries.add(new Object());
+        fixture.host.position = 7;
+        fixture.host.currentGroup = null;
+
+        final EditSessionCloseResult result = session.cancel();
+
+        // The foreign entry occupies a pre-session slot — revert() must not pop it; the
+        // cursor move leaves the residual entry difference as a typed recovery failure.
+        assertEquals(EditSessionCloseOutcome.FAILED, result.outcome());
+        assertEquals(0, fixture.host.revertCount);
+        assertEquals(List.of(6), fixture.host.cursorMoves);
+        assertEquals(7, fixture.host.committedEntries.size());
+        assertEquals(6, fixture.host.position);
+    }
+
+    @Test
+    void displacedSessionWithRedoTailAndOpenForeignGroupPreservesHistory()
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        fixture.host.revertVerified = true;
+        for (int i = 0; i < 7; i++) {
+            fixture.host.committedEntries.add(new Object());
+        }
+        fixture.host.position = 6;
+        final EditSession session = fixture.open();
+        // A foreign edit displaced the session group but never committed — the redo
+        // tail survives and the snapshot stays equal to the pre-session one.
+        fixture.host.currentGroup = new Object();
+
+        final EditSessionCloseResult result = session.cancel();
+
+        assertEquals(EditSessionCloseOutcome.CANCELLED, result.outcome());
+        assertEquals(0, fixture.host.revertCount);
+        assertEquals(7, fixture.host.committedEntries.size());
+        assertEquals(6, fixture.host.position);
+    }
+
+    @Test
+    void diagnosticIdKeepsTheFailureClassAndSummaryInRuntimeLogs() {
+        final List<String> records = new ArrayList<>();
+        RuntimeDiagnostics.install((level, component, message, failure) ->
+            records.add(level + "|" + component + "|" + message));
+        try {
+            final VerifiedEditorEditSessionHost verifiedHost = new VerifiedEditorEditSessionHost(
+                TestVerifiedResolvers.create(
+                    "5.3.02", "adapter.test", Set.of("cubism.test"),
+                    List.of(StaticSelector.method(
+                        "cubism.test.member", "java/lang/Object", "toString",
+                        "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC)),
+                    RuntimeEditSessionManagerTest.class.getClassLoader()),
+                () -> null,
+                () -> 0L);
+
+            final String id = verifiedHost.diagnosticId(
+                "cubism.edit.cancel-failed",
+                new EditUnavailableException(
+                    "cubism.edit.recovery-failed",
+                    "Cubism edit session recovery left the Undo history changed"));
+
+            assertEquals("cubism.edit.cancel-failed", id);
+            assertEquals(1, records.size());
+            assertTrue(records.get(0).startsWith("WARN|edit-session|cubism.edit.cancel-failed"));
+            assertTrue(records.get(0).contains("EditUnavailableException"));
+            assertTrue(records.get(0).contains("left the Undo history changed"));
+        } finally {
+            RuntimeDiagnostics.clear();
+        }
     }
 
     @Test
@@ -552,6 +678,7 @@ final class RuntimeEditSessionManagerTest {
         boolean revertVerified;
         boolean failOutsideDispatch;
         boolean failRevert;
+        boolean failNextHistory;
         boolean failUndoGroup;
         boolean failNextEndEdit;
         boolean historyChangedOnRecovery;
@@ -585,6 +712,10 @@ final class RuntimeEditSessionManagerTest {
             final EditorAuthoringTransactionCoordinator.Binding expected
         ) {
             onHost("history");
+            if (failNextHistory) {
+                failNextHistory = false;
+                throw new IllegalStateException("history read failed");
+            }
             if (historyChangedOnRecovery) {
                 return new HistorySnapshot(
                     HistorySnapshot.Availability.AVAILABLE, 1, 9, 0, List.of(), false, false);
@@ -594,7 +725,10 @@ final class RuntimeEditSessionManagerTest {
             }
             final List<HistoryEntry> rows = new ArrayList<>();
             for (int i = 0; i < committedEntries.size(); i++) {
-                rows.add(new HistoryEntry(i, "entry-" + i, true));
+                // Labels carry the entry's identity: a foreign entry occupying a
+                // pre-session slot must not compare equal to the entry it replaced.
+                rows.add(new HistoryEntry(
+                    i, "entry-" + System.identityHashCode(committedEntries.get(i)), true));
             }
             return new HistorySnapshot(
                 HistorySnapshot.Availability.AVAILABLE,
@@ -630,6 +764,8 @@ final class RuntimeEditSessionManagerTest {
                 throw new IllegalStateException("endEdit failed");
             }
             if (!cancel && currentGroup != null) {
+                // A native commit truncates the redo tail before pushing the new entry.
+                committedEntries.subList(position, committedEntries.size()).clear();
                 committedEntries.add(currentGroup);
                 position = committedEntries.size();
             }

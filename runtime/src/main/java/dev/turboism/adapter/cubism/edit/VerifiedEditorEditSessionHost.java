@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransaction
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
@@ -37,6 +38,8 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     /** Bounded synchronous wait for host-thread dispatch (spec 046, decision 6). */
     public static final long DEFAULT_DISPATCH_TIMEOUT_MS = 30_000;
 
+    private static final String COMPONENT = "edit-session";
+    private static final int DIAGNOSTIC_MESSAGE_LIMIT = 160;
     private static final String UNDO_MANAGER_ALIAS =
         "cubism.editor-history.document.undo-manager";
     private static final String UNDO_REVERT_ALIAS =
@@ -393,7 +396,28 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
 
     @Override
     public String diagnosticId(final String code, final Throwable failure) {
-        return Objects.requireNonNull(code, "code");
+        final String checked = Objects.requireNonNull(code, "code");
+        if (failure != null) {
+            // Keep the root cause in the runtime log without widening the SDK-facing
+            // identifier: exception class plus a bounded message, no host internals.
+            RuntimeDiagnostics.warn(
+                COMPONENT,
+                checked
+                    + " failure=" + failure.getClass().getName()
+                    + " message=" + abbreviate(failure.getMessage())
+                    + " suppressed=" + failure.getSuppressed().length
+            );
+        }
+        return checked;
+    }
+
+    private static String abbreviate(final String message) {
+        if (message == null) {
+            return "none";
+        }
+        return message.length() <= DIAGNOSTIC_MESSAGE_LIMIT
+            ? message
+            : message.substring(0, DIAGNOSTIC_MESSAGE_LIMIT) + "…";
     }
 
     private VerifiedEditorAuthoringTransactionHost.NativeBinding currentFor(

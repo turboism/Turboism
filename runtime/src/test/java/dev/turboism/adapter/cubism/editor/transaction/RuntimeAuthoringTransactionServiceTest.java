@@ -309,6 +309,7 @@ final class RuntimeAuthoringTransactionServiceTest {
         private long revision;
         private String currentLabel = "";
         private int beginCount;
+        private int position;
         private int commitCount;
         private int abortCount;
         private int groupUndoCount;
@@ -337,10 +338,10 @@ final class RuntimeAuthoringTransactionServiceTest {
                 HistorySnapshot.Availability.AVAILABLE,
                 1,
                 revision,
-                entries.size(),
+                position,
                 List.copyOf(entries),
-                !entries.isEmpty(),
-                false,
+                position > 0,
+                position < entries.size(),
                 "document-binding-1",
                 "manager-binding-1"
             );
@@ -369,7 +370,10 @@ final class RuntimeAuthoringTransactionServiceTest {
                 return;
             }
             commitCount++;
+            // A native commit truncates the redo tail before pushing the new entry.
+            entries.subList(position, entries.size()).clear();
             entries.add(new HistoryEntry(entries.size(), currentLabel, true));
+            position = entries.size();
             revision++;
         }
 
