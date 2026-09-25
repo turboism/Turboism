@@ -72,7 +72,8 @@ Common options:
   --jvm-option <JVM option>                  repeatable
   --windows-env <NAME=value>                 repeatable task-local launch environment
   --linux-env <NAME=value>                   repeatable job-local Linux launch environment;
-      restricted to reviewed Mesa/Proton debug names (mesa_glthread, MESA_*, GALLIUM_HUD*)
+      restricted to reviewed Mesa/Proton debug names (mesa_glthread, MESA_*, GALLIUM_HUD*);
+      mesa_glthread accepts true/false and resolves together with the deferred-check JVM flag
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
   --cubism-java-console-marker <exact text>  require this text in Cubism console evidence
   --run-label <label, default r1>
@@ -895,62 +896,154 @@ if [ -n "$prepare_dir" ]; then
   exit 0
 fi
 
-# The Proton-scoped product options resolve to on by default on this
-# Linux/Proton launch path — it is the only platform where they take effect:
-# launcher.mesaGlThread exports mesa_glthread=true for the Mesa threaded
-# submitter AND injects the deferred error-check property so the shader
-# helper's per-call glGetError no longer forces a flush (both halves come
-# from the same flag — Mesa threading alone was measured a regression);
-# launcher.inputPathElision injects the input-path elision property. An
-# explicit false in the home config always wins and is propagated as an
-# explicit -D=false so the JVM-side Proton default cannot re-enable it.
-# Windows launchers never emit either property; the options are inert there.
-# Computed before dry-run so the report shows the effective launch state.
-mesa_gl_thread=0
-input_path_elision=0
+# Resolve preferences, final JVM overrides and prerequisites before generating
+# either half of the combined Mesa/deferred option. Runtime admission still
+# verifies the host bytecode; its ACTIVE marker is checked below.
+mesa_gl_thread=1
+input_path_elision=1
+upload_elision=1
+uniform_location_cache=1
+safe_mode=0
+uniform_hook_enabled=1
+deferred_hook_enabled=1
+config_readable=1
 launcher_prefs="$(python3 - "$home_config" <<'PY'
 import json, sys
-def state(launcher, name):
-    value = launcher.get(name)
-    if value is True:
-        return "on"
-    return "off" if value is not None else "default"
-launcher = {}
 try:
-    with open(sys.argv[1], encoding="utf-8") as stream:
-        document = json.load(stream)
-    candidate = document.get("launcher")
-    if isinstance(candidate, dict):
-        launcher = candidate
-except Exception:
-    pass
-print("mesaGlThread=%s" % state(launcher, "mesaGlThread"))
-print("inputPathElision=%s" % state(launcher, "inputPathElision"))
-print("uploadElision=%s" % state(launcher, "uploadElision"))
+    document = {}
+    if sys.argv[1]:
+        with open(sys.argv[1], 'rb') as stream:
+            data = stream.read(65537)
+        if len(data) > 65536:
+            raise ValueError('oversize config')
+        document = json.loads(data)
+    if not isinstance(document, dict):
+        raise ValueError('config must be an object')
+    launcher = document.get('launcher', {})
+    hooks = document.get('hooks', {})
+    if not isinstance(launcher, dict) or not isinstance(hooks, dict):
+        raise ValueError('invalid launcher/hooks')
+    safe = document.get('safeMode', False)
+    disabled = hooks.get('disabledIds', [])
+    if type(safe) is not bool or not isinstance(disabled, list) or any(
+            not isinstance(item, str) for item in disabled):
+        raise ValueError('invalid startup policy')
+    preferences = {}
+    for name in ('mesaGlThread', 'inputPathElision', 'uploadElision', 'uniformLocationCache'):
+        value = launcher.get(name, True)
+        if type(value) is not bool:
+            raise ValueError('invalid launcher boolean')
+        preferences[name] = int(value)
+    for name, value in preferences.items():
+        print('%s=%s' % (name, value))
+    print('safeMode=%d' % safe)
+    print('uniformHook=%d' % ('cubism.render.uniform-location-cache' not in disabled))
+    print('deferredHook=%d' % ('cubism.render.mesa-gl-thread' not in disabled))
+except (OSError, ValueError, TypeError):
+    # Do not turn a parse failure into Proton default-on. The runtime's full
+    # schema/host admission can reject further cases and emits an INACTIVE warning.
+    print('configReadable=0')
 PY
 )"
-upload_elision=1
 while IFS='=' read -r pref_name pref_value; do
   case "$pref_name" in
-    mesaGlThread) [ "$pref_value" = off ] || mesa_gl_thread=1 ;;
-    inputPathElision) [ "$pref_value" = off ] || input_path_elision=1 ;;
-    uploadElision) [ "$pref_value" = off ] && upload_elision=0 ;;
+    mesaGlThread) mesa_gl_thread="$pref_value" ;;
+    inputPathElision) input_path_elision="$pref_value" ;;
+    uploadElision) upload_elision="$pref_value" ;;
+    uniformLocationCache) uniform_location_cache="$pref_value" ;;
+    safeMode) safe_mode="$pref_value" ;;
+    uniformHook) uniform_hook_enabled="$pref_value" ;;
+    deferredHook) deferred_hook_enabled="$pref_value" ;;
+    configReadable) config_readable="$pref_value" ;;
   esac
 done <<PREFS
 $launcher_prefs
 PREFS
-# The product launcher.mesaGlThread option supplies its Mesa side itself so a
-# driver cannot enable glthread without deferred checking; an explicit
-# --linux-env declaration still wins when the driver pinned the experiment.
-if [ "$mesa_gl_thread" = 1 ]; then
-  mesa_declared=0
-  for existing_name in "${linux_environment_names[@]}"; do
-    [ "$existing_name" = "mesa_glthread" ] && mesa_declared=1 && break
-  done
-  if [ "$mesa_declared" = 0 ]; then
-    linux_environment+=("mesa_glthread=true")
-    linux_environment_names+=("mesa_glthread")
+
+# Match Boolean.parseBoolean (including empty/bare properties), with the JVM's
+# last-value-wins semantics. Remove the managed tokens and emit one canonical
+# value each only after dependency resolution.
+mesa_jvm_declared=0
+validation_error_elision=0
+resolved_jvm_options=()
+for option in "${jvm_options[@]}"; do
+  property="${option%%=*}"
+  value=''
+  [[ "$option" != *=* ]] || value="${option#*=}"
+  boolean_value=0
+  [[ "${value,,}" != true ]] || boolean_value=1
+  case "$property" in
+    -Dturboism.optimization.mesaGlThread)
+      mesa_gl_thread="$boolean_value"; mesa_jvm_declared=1 ;;
+    -Dturboism.optimization.inputPathElision) input_path_elision="$boolean_value" ;;
+    -Dturboism.optimization.uploadElision) upload_elision="$boolean_value" ;;
+    -Dturboism.optimization.uniformLocationCache) uniform_location_cache="$boolean_value" ;;
+    -Dturboism.validation.glGetErrorElision)
+      validation_error_elision="$boolean_value"; resolved_jvm_options+=("$option") ;;
+    *) resolved_jvm_options+=("$option") ;;
+  esac
+done
+mesa_declared=0
+for assignment in "${linux_environment[@]}"; do
+  case "$assignment" in
+    mesa_glthread=*)
+      mesa_declared=1
+      case "${assignment#*=}" in
+        true) mesa_pin_resolved=1 ;;
+        false) mesa_pin_resolved=0 ;;
+        *) fail "mesa_glthread must be true or false" ;;
+      esac
+      if [ "$mesa_jvm_declared" = 1 ] && [ "$mesa_gl_thread" != "$mesa_pin_resolved" ]; then
+        fail "conflicting mesaGlThread overrides: final JVM property and mesa_glthread disagree"
+      fi
+      mesa_gl_thread="$mesa_pin_resolved" ;;
+  esac
+done
+mesa_gl_thread_reason=resolved
+if [ "$config_readable" = 0 ]; then
+  mesa_gl_thread_reason=config-unreadable
+elif [ "$safe_mode" = 1 ]; then
+  mesa_gl_thread_reason=safe-mode
+elif [ "$uniform_hook_enabled" = 0 ]; then
+  mesa_gl_thread_reason=uniform-hook-disabled
+elif [ "$deferred_hook_enabled" = 0 ]; then
+  mesa_gl_thread_reason=deferred-hook-disabled
+elif [ "$uniform_location_cache" = 0 ]; then
+  mesa_gl_thread_reason=uniform-location-cache-disabled
+elif [ "$validation_error_elision" = 1 ]; then
+  mesa_gl_thread_reason=validation-elision-enabled
+fi
+if [ "$mesa_gl_thread_reason" != resolved ]; then
+  if [ "$mesa_gl_thread" = 1 ]; then
+    log "WARNING: disabling mesaGlThread and deferred checking: $mesa_gl_thread_reason"
   fi
+  mesa_gl_thread=0
+fi
+
+# Both dry-run and the actual JAVA_TOOL_OPTIONS consume this exact resolved list.
+for preference in mesaGlThread inputPathElision uploadElision uniformLocationCache; do
+  case "$preference" in
+    mesaGlThread) value="$mesa_gl_thread" ;;
+    inputPathElision) value="$input_path_elision" ;;
+    uploadElision) value="$upload_elision" ;;
+    uniformLocationCache) value="$uniform_location_cache" ;;
+  esac
+  literal=false
+  [ "$value" = 0 ] || literal=true
+  resolved_jvm_options+=("-Dturboism.optimization.$preference=$literal")
+done
+jvm_options=("${resolved_jvm_options[@]}")
+mesa_literal=false
+[ "$mesa_gl_thread" = 0 ] || mesa_literal=true
+if [ "$mesa_declared" = 1 ]; then
+  for index in "${!linux_environment[@]}"; do
+    case "${linux_environment[$index]}" in
+      mesa_glthread=*) linux_environment[$index]="mesa_glthread=$mesa_literal" ;;
+    esac
+  done
+elif [ "$mesa_gl_thread" = 1 ]; then
+  linux_environment+=("mesa_glthread=true")
+  linux_environment_names+=("mesa_glthread")
 fi
 # This launch path always runs under Wine/Proton: publish the managed marker
 # so the JVM-side Proton-default resolution for the scoped options has an
@@ -1011,6 +1104,7 @@ if [ "$dry_run" = 1 ]; then
     "evidenceArchiver=$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
     "localEvidenceDir=$local_evidence_dir" \
     "mesaGlThread=$mesa_gl_thread" \
+    "mesaGlThreadReason=$mesa_gl_thread_reason" \
     "inputPathElision=$input_path_elision"
   for index in "${!resolved_plugins[@]}"; do printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"; done
   for index in "${!resolved_home_files[@]}"; do printf 'homeFile.%s=%s\n' "$index" "${resolved_home_files[$index]}"; done
@@ -2174,34 +2268,8 @@ for option in "${jvm_options[@]}"; do
   option="${option//\{FIXTURE_NAME\}/$fixture_name}"
   all_jvm_options+=("$option")
 done
-# The Proton-scoped options emit an explicit property either way: effective
-# on gets =true, effective off (explicit config false or invalid value)
-# gets =false so the JVM-side Proton default cannot re-enable it. An
-# explicit --jvm-option already in the list wins — these tokens come last
-# in JAVA_TOOL_OPTIONS only when the driver did not declare one.
-if ! array_contains_line all_jvm_options '-Dturboism.optimization.mesaGlThread=true' &&
-   ! array_contains_line all_jvm_options '-Dturboism.optimization.mesaGlThread=false'; then
-  if [ "$mesa_gl_thread" = 1 ]; then
-    all_jvm_options+=('-Dturboism.optimization.mesaGlThread=true')
-  else
-    all_jvm_options+=('-Dturboism.optimization.mesaGlThread=false')
-  fi
-fi
-if ! array_contains_line all_jvm_options '-Dturboism.optimization.inputPathElision=true' &&
-   ! array_contains_line all_jvm_options '-Dturboism.optimization.inputPathElision=false'; then
-  if [ "$input_path_elision" = 1 ]; then
-    all_jvm_options+=('-Dturboism.optimization.inputPathElision=true')
-  else
-    all_jvm_options+=('-Dturboism.optimization.inputPathElision=false')
-  fi
-fi
-# uploadElision is default-on on every platform; only an explicit config
-# false needs propagation here.
-if [ "$upload_elision" = 0 ] &&
-   ! array_contains_line all_jvm_options '-Dturboism.optimization.uploadElision=true' &&
-   ! array_contains_line all_jvm_options '-Dturboism.optimization.uploadElision=false'; then
-  all_jvm_options+=('-Dturboism.optimization.uploadElision=false')
-fi
+# Managed optimization properties were normalized before dry-run; never
+# independently resolve or append a second Mesa/deferred value here.
 java_tool_options=''
 for option in "${all_jvm_options[@]}"; do
   quoted_option="$(windows_java_tool_option "$option")"
@@ -2355,6 +2423,30 @@ if [ "${#ready_markers[@]}" -gt 0 ]; then
   [ "${ready:-0}" = 1 ] || fail "readiness timeout after ${ready_timeout}s"
 fi
 capture_java_gl_evidence ready
+
+# When the combined mesaGlThread option is effective on, the deferred GL
+# error-check contributor must actually have been admitted — without it the
+# run silently becomes glthread-alone, the measured regressive combination.
+# The runtime log marker is authoritative: missing/absent markers are written
+# to evidence and surfaced as a warning so a leg cannot claim the option while
+# only the Mesa half engaged.
+if [ "$mesa_gl_thread" = 1 ]; then
+  log_file="$(latest_runtime_log || true)"
+  deferred_check_state=unknown
+  if [ -n "$log_file" ]; then
+    if runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE'; then
+      deferred_check_state=active
+    elif runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=INACTIVE'; then
+      deferred_check_state=inactive
+    fi
+  fi
+  printf 'schemaVersion=1\nmesaGlThreadEffective=%s\ndeferredCheck=%s\n' \
+    "$mesa_gl_thread" "$deferred_check_state" \
+    > "$evidence_dir/deferred-check.properties"
+  if [ "$deferred_check_state" != active ]; then
+    log "WARNING: mesaGlThread effective on but deferred GL error check is $deferred_check_state; combined-option activation is unverified (risk of the T22 glthread-only regression)"
+  fi
+fi
 
 if [ -n "$trigger_path" ]; then
   log "creating trigger $trigger_path"
