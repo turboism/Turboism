@@ -1431,6 +1431,24 @@ function Disable-CubismShortcutIntegration {
     Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -BatIntegrations $ExistingState.BatIntegrations -LaunchMode "independent"
 }
 
+function Test-CubismReclaimableManagedShortcut {
+    param([string]$Path)
+    # A shortcut left behind by a previous Turboism installation (state lost by
+    # a reinstall) stays reclaimable when it still references Turboism's own
+    # managed launcher; anything else keeps the fail-closed refusal. The check
+    # scans the .lnk payload for the launcher reference instead of resolving
+    # shell COM objects, so it stays deterministic across hosts.
+    try {
+        if (-not (Test-CubismNormalFile $Path)) { return $false }
+        if ((Get-Item -LiteralPath $Path -Force -ErrorAction Stop).Length -gt 65535) { return $false }
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        $ascii = [System.Text.Encoding]::ASCII.GetString($bytes)
+        $unicode = [System.Text.Encoding]::Unicode.GetString($bytes)
+        return ($ascii -like '*launch-cubism-turboism*') -or ($unicode -like '*launch-cubism-turboism*')
+    }
+    catch { return $false }
+}
+
 function Invoke-CubismLaunchConfiguration {
     param(
         [string]$TurboismHome, [string]$StatePath, [object[]]$Candidates, [string]$LaunchMode = "independent",
@@ -1465,7 +1483,8 @@ function Invoke-CubismLaunchConfiguration {
                 foreach ($variant in @("normal", "d3d")) {
                     if ($variant -eq "d3d" -and [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { continue }
                     $path = Get-CubismShortcutPath $candidate $variant $ShortcutDirectory
-                    if ((Test-Path -LiteralPath $path) -and ($oldShortcuts -notcontains $path)) { throw "refusing to overwrite an unowned managed shortcut: $path" }
+                    if ((Test-Path -LiteralPath $path) -and ($oldShortcuts -notcontains $path) -and
+                        -not (Test-CubismReclaimableManagedShortcut -Path $path)) { throw "refusing to overwrite an unowned managed shortcut: $path" }
                     $createdPath = New-CubismManagedShortcut -TurboismHome $TurboismHome -Candidate $candidate -Variant $variant -ShortcutDirectory $ShortcutDirectory
                     [void]$newShortcuts.Add($createdPath); [void]$created.Add($createdPath)
                     [void]$newHashes.Add([pscustomobject]@{ Path = $createdPath; Sha256 = Get-CubismSha256 $createdPath })
