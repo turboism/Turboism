@@ -13420,6 +13420,27 @@
       "descriptor": "(Ljava/io/File;Lcom/live2d/util/a/a;)V"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layered_image_dispose_owned",
+      "kind": "method",
+      "owner": "editor-model-psd-export",
+      "name": "cubism.editor-model.layered-image.dispose-owned",
+      "runtime": "dispose",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()V"
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.class.psd_progress",
       "kind": "class",
       "owner": "editor-model-psd-export",

@@ -23,6 +23,8 @@ public final class EditorRawImagePsdNativeFixture {
     public static Runnable afterSave = () -> {};
     public static Runnable saveFailure = () -> {};
     public static Runnable constructFailure = () -> {};
+    public static Runnable disposeFailure = () -> {};
+    public static SyntheticLayeredImage lastConstructed;
 
     private EditorRawImagePsdNativeFixture() {
     }
@@ -44,6 +46,8 @@ public final class EditorRawImagePsdNativeFixture {
         afterSave = () -> {};
         saveFailure = () -> {};
         constructFailure = () -> {};
+        disposeFailure = () -> {};
+        lastConstructed = null;
     }
 
     public static List<String> events() {
@@ -124,9 +128,16 @@ public final class EditorRawImagePsdNativeFixture {
 
     public static final class SyntheticLayeredImage {
         private final String name;
+        public int disposeCalls;
 
         public SyntheticLayeredImage(final String name) {
             this.name = name;
+        }
+
+        public void dispose() {
+            record("dispose");
+            disposeCalls++;
+            disposeFailure.run();
         }
 
         public String getName() {
@@ -163,12 +174,13 @@ public final class EditorRawImagePsdNativeFixture {
         ) {
             record("construct");
             constructFailure.run();
-            if (parsed == null || parsed.source() != file) {
+            if (parsed == null || !parsed.source().equals(file)) {
                 throw new IllegalStateException("fixture constructor received the wrong parsed file");
             }
             this.name = name;
             constructedTarget = file;
             constructedName = name;
+            lastConstructed = this;
         }
     }
 }

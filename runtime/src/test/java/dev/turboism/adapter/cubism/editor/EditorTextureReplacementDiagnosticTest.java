@@ -1399,6 +1399,8 @@ class EditorTextureReplacementDiagnosticTest {
                 + desc(CallSiteDocument.class).substring(2)
                 + "Ljava/util/List;)V");
 
+        putMethod(selectors, "cubism.editor-model.layered-image.dispose-owned",
+            CallSiteLayeredImage.class, "dispose", "()V");
         putClass(selectors, "cubism.editor-model.psd-document.class", CallSiteParsed.class);
         putClass(selectors, "cubism.editor-model.psd-document-companion.class", CallSiteCompanion.class);
         selectors.put(
@@ -1608,6 +1610,9 @@ class EditorTextureReplacementDiagnosticTest {
 
         public List<?> getChildren() {
             return List.of();
+        }
+
+        public void dispose() {
         }
 
         public void save(final File target, final CallSiteProgress progress) {
