@@ -85,7 +85,8 @@ final class OfficialPluginCatalogCompleteness {
         "button.settings-short",
         "transcript.agent",
         "transcript.system",
-        "transcript.tool"
+        "transcript.tool",
+        "result.failure.line"
     );
 
     private OfficialPluginCatalogCompleteness() {
