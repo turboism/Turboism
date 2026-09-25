@@ -219,9 +219,19 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         return saveOptimization("uploadElision", value);
     }
 
+    @Override
+    public boolean inputPathElision() {
+        return optimization("inputPathElision");
+    }
+
+    @Override
+    public boolean saveInputPathElision(final boolean value) {
+        return saveOptimization("inputPathElision", value);
+    }
+
     /** Opt-in experiments default off; verified optimizations default on. */
     private static final java.util.Set<String> DEFAULT_OFF_OPTIMIZATIONS =
-        java.util.Set.of("incrementalUpdate", "uploadElision");
+        java.util.Set.of("incrementalUpdate", "uploadElision", "inputPathElision");
 
     private boolean optimization(final String name) {
         return config.read().path("launcher").path(name)

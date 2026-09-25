@@ -113,6 +113,22 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /**
+     * Launcher preference: when true the next managed Cubism launch adds
+     * {@code -Dturboism.optimization.inputPathElision=true} so the input-path
+     * elision hook installs (redundant focus/cursor forwards are
+     * short-circuited before they reach the native query). Off by default;
+     * takes effect on the next launch.
+     */
+    default boolean inputPathElision() {
+        return false;
+    }
+
+    /** Persists the input-path elision preference; installation changes require restart. */
+    default boolean saveInputPathElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /** Persists the uniform-location cache preference; installation changes require restart. */
     default boolean saveUniformLocationCache(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");

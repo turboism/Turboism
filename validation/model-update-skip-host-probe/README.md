@@ -1155,3 +1155,159 @@ transform's target set; verified against `Role` targets).
 - The consult adds ~100–200 ns per guarded call even when passing; the
   in-run ABBA comparison includes this cost in both arms' `passed` paths, so
   the measured delta is the net upper bound, not the gross upload time saved.
+
+### Input-path elision upper bound (experimental transform, not a proxy)
+
+The 5.3.03 production JFR attributes ~80 EDT native samples (~4–5 ms/event) to
+per-input-event Win32/Wine focus and cursor calls: `CWidget.requestFocus`
+(→ `peer.requestFocus` → `shouldNativelyFocusHeavyweight`, ~2 calls/event via
+`SGViewWindowManager.mouseWheel` and the unconditional
+`setCurrentViewContext → activateView`) and `CWidget.setCursor` (→
+`Component.setCursor` → `updateCursorImmediately`, ~1–2 calls/event via
+`decideAction/mouseAction → N.a → CECompletePack.setCursorPack`, none of which
+de-duplicate). A third chain (`RepaintManager.validateInvalidComponents →
+Container.validate → updateCursorImmediately`) is driven by the genuine
+zoom-label text change on every wheel event — `JLabel.setText` already
+de-duplicates identical text, so no provably safe third site exists; it is
+reported here, not implemented.
+
+Flags (default OFF):
+
+```text
+-Dturboism.validation.inputPathElision=true   # harness: per-leg gate, off/on/on/off
+-Dturboism.optimization.inputPathElision=true # production opt-in (settings page toggle)
+```
+
+The production switch is wired like `uploadElision`: `launcher.inputPathElision`
+in config.json (persisted via the settings page), emitted only when enabled by
+the managed launcher, hook id `cubism.render.input-path-elision` under the
+startup hook policy, armed at install. When both flags are set the validation
+mode wins — the workload owns the leg gate.
+
+Mechanism — host method-entry transform, JDK reads only:
+
+- `com/live2d/ui/CWidget.requestFocus()V` gains an entry consult of the
+  `turboism.input-path.focus` `Predicate` slot: the bridge elides only when the
+  widget's `JComponent` `isFocusOwner()` and its containing `Window`
+  `isFocused()` — both pure `KeyboardFocusManager` reads — so the skipped
+  forward cannot change observable focus state.
+- `com/live2d/ui/CWidget.setCursor(Lcom/live2d/type/CCursor;)V` gains an entry
+  consult of the `turboism.input-path.cursor` `BiPredicate` slot receiving
+  `(widget, CCursor)`: the bridge elides only when the component is showing,
+  `isCursorSet()` and `getCursor()` is the *identical* `java.awt.Cursor`
+  instance the call would assign (`Cursor` equality is identity; the cursor
+  packs keep a shared `Cursor` field, so unchanged cursor packs hit this
+  rule). A hidden component, an unset cursor field, a different `Cursor`
+  instance and a `null` pack cursor all pass through to the native path.
+- Both reviewed method shapes must equal the official artifact's reference
+  (`ReviewedMethodShape` gate) and both injections must apply, otherwise the
+  class is left untouched (fail-closed). The dependencies the bridge reads —
+  `CWidget.getJComponent()Ljavax/swing/JComponent;` and
+  `CCursor.getJCursor()Ljava/awt/Cursor;` — are shape-verified against the
+  artifact at install. All three reviewed versions (5.2.03/5.3.02/5.3.03)
+  carry bytecode-identical bodies and admit the experiment by digest.
+- Install marker: `TURBOISM_INPUT_PATH elision=ACTIVE sites=2`; the close
+  marker reports `focusCalls/focusElided/focusPassed`,
+  `cursorCalls/cursorElided/cursorPassed` and `observerFailures`.
+- `CWidget` subclasses that do not override these two methods inherit the
+  rewritten bodies; an overriding subclass would bypass the consult (none of
+  the observed hot-path widgets override them — the JFR frames name
+  `CWidget.requestFocus` itself).
+
+Correctness gates per run: `leg.N.canvasPixelDigest` equality across legs,
+`leg.N.focusOwner`/`leg.N.canvasCursor` fingerprints identical on every leg
+(`crossLegFocusOwnerParity`/`crossLegCanvasCursorParity`), plus the existing
+geometry/undo/source parity on pan and ArtMesh legs. OFF legs still evaluate
+the consult and count `passed`, so the ABBA delta is the net effect including
+observer overhead.
+
+```bash
+# wheel ABBA (off/on/on/off legs inside one run); production uploadElision and
+# the uniform cache stay ON in both arms — the delta is the stacked increment.
+# Point the fixture env at the heavy project before launching
+# (TURBOISM_HOST_VALIDATION_FIXTURE_5303=<heavy.cmo3 path> with sha256
+# 029e9a4e…f80c as TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256):
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=inputPath' \
+  --jvm-option '-Dturboism.validation.inputPathElision=true' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --ready-marker 'TURBOISM_INPUT_PATH elision=ACTIVE' \
+  --result-timeout 1200
+
+# pan / artmesh (same flag set; pan expects changedMeshCount=0, artmesh =1):
+bash scripts/preview/run-model-update-skip-host-validation.sh on-pan 5303 <leg-id> ...
+bash scripts/preview/run-model-update-skip-host-validation.sh on-artmesh 5303 <leg-id> ...
+```
+
+A cross-run control without the transform (`-Dturboism.validation.inputPathElision=false`)
+is meaningful; on an unreviewed artifact the install must report
+`TURBOISM_INPUT_PATH installation=NOT_ADMITTED` (fail-closed), so do NOT pass
+`modelUpdateFactor=inputPath` there — the workload requires the installed gate
+and fails by design without it.
+
+### Canvas-composite elision upper bound (experimental transform, not a proxy)
+
+The T19 stacked JFR (`3272baaa`, uploadElision + inputPath armed) attributes
+~17% of EDT native samples to the Swing/GDI composite path: the GLJPanel
+offscreen image is drawn into the shared Swing back buffer
+(`DrawImage.copyImage`/`Blit.Blit`), the back buffer is then blitted to the
+screen via `GDIBlitLoops.nativeBlit` under Wine, and the opaque parent panels
+(`com/live2d/ui/swingImpl/u`) fill their background per frame
+(`FlatPanelUI.update → FillRect`).
+
+Flag (default OFF):
+
+```text
+-Dturboism.validation.canvasCompositeElision=true
+```
+
+Mechanism — two entry consults, both pixel-exact under their gates:
+
+- `javax/swing/RepaintManager$PaintManager.paint(JComponent,JComponent,Graphics,
+  int,int,int,int)Z` (java.desktop, JDK loader, attested against the running
+  VM's own jrt bytes): a `turboism.canvas-composite.paint` `Predicate` slot
+  receives the painting component; `true` returns `false`, selecting the JDK's
+  own direct-paint fallback in `RepaintManager.paint` (`setClip` +
+  `paintToOffscreen` — which paints component+border+children straight into
+  the window graphics). The bridge answers `true` only when the repaint's
+  subtree contains a visible `GLJPanel`, so only canvas repaints bypass the
+  back buffer. The `RepaintManager.paint` caller shape is verified as a
+  dependency so a JDK without the fallback is refused.
+- `com/formdev/flatlaf/ui/FlatPanelUI.update(Graphics,JComponent)V` (FlatLaf
+  jar beside the host artifact, host loader, exact code source): a
+  `turboism.canvas-composite.fill` `BiPredicate` slot receives `(graphics,
+  component)`; `true` returns early, skipping the background fill. The bridge
+  answers `true` only when the panel is opaque and its full bounds are covered
+  by a visible opaque `GLJPanel` subtree — GLJPanel is opaque on the modeling
+  canvas (the host never calls `setTranslucent` there), its readback image is
+  3-component (no alpha) and it paints over its entire bounds, so the fill is
+  provably invisible overdraw.
+
+Research results that did NOT become sites: the repaint region per wheel
+event is the whole canvas (the GL content genuinely changed — not
+shrinkable); the vertical flip runs on the GPU (`fboFlipped` +
+`GLSLTextureRaster` under FBO+GL2ES2) rather than the `readBackIntsForCPUVFlip`
+CPU loop; `glReadPixels` itself is the required readback. `GMatrix44.<init>` /
+`GTransform.getLocalToWorldMatrix` dominate the separate "Java render prep"
+bucket (the `matrixScratch` target).
+
+Install marker: `TURBOISM_CANVAS_COMPOSITE elision=ACTIVE sites=2`; the close
+marker reports `paintElided/paintPassed`, `fillElided/fillPassed` and
+`observerFailures`. Correctness gates per run: `leg.N.canvasPixelDigest`
+equality, `leg.N.windowDigest` equality across legs (`crossLegWindowDigestParity`)
+with `windowDigestMethod`/`windowDistinctColors` recorded, focus/cursor
+fingerprints, and the existing geometry/undo parity on native legs. OFF legs
+still evaluate the consult and count `passed`.
+
+```bash
+# wheel ABBA stacked on production uploadElision + inputPathElision:
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg-id> \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=canvasComposite' \
+  --jvm-option '-Dturboism.validation.canvasCompositeElision=true' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --jvm-option '-Dturboism.optimization.inputPathElision=true' \
+  --ready-marker 'TURBOISM_CANVAS_COMPOSITE elision=ACTIVE' \
+  --result-timeout 1200
+```
+
+(same flag set with `on-pan`/`on-artmesh` for the native drag workloads).

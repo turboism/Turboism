@@ -37,6 +37,12 @@ final class CanvasWheelWorkload {
     private static final String STATE_CONSULT = "turboism.state-elision.consult";
     private static final String STATE_GATE = "turboism.state-elision.gate";
     private static final String STATE_STATS = "turboism.state-elision.stats";
+    private static final String INPUTPATH_PREDICATE = "turboism.input-path.focus";
+    private static final String INPUTPATH_GATE = "turboism.input-path.gate";
+    private static final String INPUTPATH_STATS = "turboism.input-path.stats";
+    private static final String COMPOSITE_PREDICATE = "turboism.canvas-composite.paint";
+    private static final String COMPOSITE_GATE = "turboism.canvas-composite.gate";
+    private static final String COMPOSITE_STATS = "turboism.canvas-composite.stats";
     private static final int WARMUP_PAIRS = 12;
     private static final int MEASURED_PAIRS = 100;
     // Calibration is diagnostic only. Its smaller sample count never satisfies acceptance.
@@ -83,7 +89,7 @@ final class CanvasWheelWorkload {
         final int measuredPairs = calibration ? 8 : MEASURED_PAIRS;
         Files.writeString(state.resolve("wheel-progress.txt"), "stage=canvas-ready\n");
         final String previous = System.getProperty(ENABLE);
-        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook", "matrixScratch", "uploadElision", "redundantState").contains(factor)) {
+        if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook", "matrixScratch", "uploadElision", "redundantState", "inputPath", "canvasComposite").contains(factor)) {
             throw new IllegalArgumentException("unknown benchmark factor");
         }
         final StringBuilder report = new StringBuilder("schemaVersion=1\n")
@@ -130,6 +136,24 @@ final class CanvasWheelWorkload {
                         "redundantState factor requires the redundantStateElision hook installed");
                 }
                 report.append("stateElision.installed=true\n");
+            }
+            if (factor.equals("inputPath")) {
+                final java.util.Properties slots = System.getProperties();
+                if (!(slots.get(INPUTPATH_PREDICATE) instanceof java.util.function.Predicate)
+                    || !(slots.get(INPUTPATH_GATE) instanceof java.util.function.Consumer)) {
+                    throw new IllegalArgumentException(
+                        "inputPath factor requires the inputPathElision hook installed");
+                }
+                report.append("inputPath.installed=true\n");
+            }
+            if (factor.equals("canvasComposite")) {
+                final java.util.Properties slots = System.getProperties();
+                if (!(slots.get(COMPOSITE_PREDICATE) instanceof java.util.function.Predicate)
+                    || !(slots.get(COMPOSITE_GATE) instanceof java.util.function.Consumer)) {
+                    throw new IllegalArgumentException(
+                        "canvasComposite factor requires the canvasCompositeElision hook installed");
+                }
+                report.append("canvasComposite.installed=true\n");
             }
             final boolean uniform = factor.equals("uniformCache") || factor.equals("uniformValues") || factor.equals("uniformSuite");
             final boolean resourceTelemetry = Boolean.getBoolean("turboism.validation.resources");
@@ -180,6 +204,9 @@ final class CanvasWheelWorkload {
             if (factor.equals("redundantState") && diagnostic) throw new IllegalArgumentException("redundantState requires diagnostic profilers OFF");
             final int[] variants = factor.equals("uniformSuite") ? new int[]{0, 1, 2, 2, 1, 0}
                 : diagnostic ? new int[]{1} : new int[]{0, 1, 1, 0};
+            final List<String> legFocusOwners = new ArrayList<>();
+            final List<String> legCanvasCursors = new ArrayList<>();
+            final List<String> legWindowDigests = new ArrayList<>();
             for (int leg = 0; leg < variants.length; leg++) {
                 final int variant = variants[leg];
                 final boolean enabled = variant != 0;
@@ -222,6 +249,20 @@ final class CanvasWheelWorkload {
                             consumer.accept(enabled);
                         }
                         canvas.repaint();
+                    } else if (factor.equals("inputPath")) {
+                        System.setProperty(ENABLE, "true");
+                        // Production uploadElision and the uniform hook keep
+                        // their own armed state; only the input-path gate
+                        // differs between legs.
+                        setInputPathArmed(enabled);
+                        canvas.repaint();
+                    } else if (factor.equals("canvasComposite")) {
+                        System.setProperty(ENABLE, "true");
+                        // Production uploadElision and inputPathElision keep
+                        // their own armed state; only the composite gate
+                        // differs between legs.
+                        setCompositeArmed(enabled);
+                        canvas.repaint();
                     } else if (factor.equals("canvasBuffering")) {
                         System.setProperty(ENABLE, "true");
                         canvas.setDoubleBuffered(enabled ? false : originalCanvasBuffering);
@@ -249,6 +290,8 @@ final class CanvasWheelWorkload {
                 final Map<String, Long> elisionBefore = uploadElisionStats();
                 final Map<String, Long> stateBefore = stateElisionStats();
                 final Map<String, Long> uniformHookBefore = statsSlot(UNIFORM_STATS);
+                final Map<String, Long> inputPathBefore = inputPathStats();
+                final Map<String, Long> compositeBefore = compositeStats();
                 final long[] nanos = new long[measuredPairs * 2];
                 measuredQueueNanos = measuredHandlerNanos = measuredRepaintBarrierNanos = measuredResumeNanos = 0L;
                 final long elapsed;
@@ -363,6 +406,43 @@ final class CanvasWheelWorkload {
                             : uniformHookAfter.get(key) - uniformHookBefore.getOrDefault(key, 0L))
                         .append('\n');
                 }
+                if (factor.equals("inputPath")) {
+                    final Map<String, Long> inputPathAfter = inputPathStats();
+                    for (String key : inputPathAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(p).append("inputPath.").append(key).append('=')
+                            .append(inputPathAfter.get(key)
+                                - inputPathBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                if (factor.equals("canvasComposite")) {
+                    final Map<String, Long> compositeAfter = compositeStats();
+                    for (String key : compositeAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(p).append("canvasComposite.").append(key).append('=')
+                            .append(compositeAfter.get(key)
+                                - compositeBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                final String legFocusOwner = onEdt(CanvasWheelWorkload::focusOwnerFingerprint);
+                final String legCanvasCursor = onEdt(this::canvasCursorFingerprint);
+                legFocusOwners.add(legFocusOwner);
+                legCanvasCursors.add(legCanvasCursor);
+                report.append(p).append("focusOwner=").append(legFocusOwner).append('\n')
+                    .append(p).append("canvasCursor=").append(legCanvasCursor).append('\n');
+                // Window-level parity: canvasPixelDigest only proves the GL
+                // readback, not what reaches the screen. Capture the canvas
+                // parent region on screen via Robot; fall back to an
+                // offscreen printAll render when Robot is unavailable (e.g.
+                // Wine GDI capture limitations) — printAll proves the Swing
+                // composite result but cannot see the real blit.
+                final String[] windowShot = onEdt(this::windowSnapshot);
+                legWindowDigests.add(windowShot[0]);
+                report.append(p).append("windowDigest=").append(windowShot[0]).append('\n')
+                    .append(p).append("windowDigestMethod=").append(windowShot[1]).append('\n')
+                    .append(p).append("windowDistinctColors=").append(windowShot[2]).append('\n');
                 if (resources != null) {
                     for (var entry : resources.snapshot().entrySet()) {
                         report.append(p).append("resources.").append(entry.getKey()).append('=')
@@ -393,6 +473,21 @@ final class CanvasWheelWorkload {
                 }
                 Files.writeString(state.resolve("wheel-benchmark.txt"), report);
             }
+            // The focus owner and the canvas cursor are observable Java-side
+            // state the elision must never disturb: identical fingerprints on
+            // every leg are a correctness gate, not just telemetry.
+            if (legFocusOwners.stream().distinct().count() != 1
+                || legCanvasCursors.stream().distinct().count() != 1) {
+                throw new IllegalStateException("focus/cursor state differs across legs: owners="
+                    + legFocusOwners + " cursors=" + legCanvasCursors);
+            }
+            report.append("crossLegFocusOwnerParity=true\n")
+                .append("crossLegCanvasCursorParity=true\n");
+            if (legWindowDigests.stream().distinct().count() != 1) {
+                throw new IllegalStateException(
+                    "window-level screenshots differ across legs: " + legWindowDigests);
+            }
+            report.append("crossLegWindowDigestParity=true\n");
             if (uniformTrial != null) uniformTrial.requireValid();
             if ((factor.equals("uniformValues") || factor.equals("uniformSuite")) && uniformTrial.snapshot().get("skippedUniformWrites") == 0L) {
                 throw new IllegalStateException("uniform value experiment did not exercise any eligible write");
@@ -704,6 +799,118 @@ final class CanvasWheelWorkload {
         final Map<String, Long> result = new java.util.HashMap<>();
         raw.forEach((k, v) -> { if (k instanceof String key && v instanceof Number value) result.put(key, value.longValue()); });
         return result;
+    }
+
+    /** Arms/disarms the input-path elision bridge for the current leg. */
+    private static void setInputPathArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(INPUTPATH_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("input path elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> inputPathStats() {
+        final Object callback = System.getProperties().get(INPUTPATH_STATS);
+        if (!(callback instanceof Supplier<?> supplier) || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.HashMap<>();
+        raw.forEach((k, v) -> { if (k instanceof String key && v instanceof Number value) result.put(key, value.longValue()); });
+        return result;
+    }
+
+    /** Arms/disarms the canvas-composite elision bridge for the current leg. */
+    private static void setCompositeArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(COMPOSITE_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("canvas composite elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> compositeStats() {
+        final Object callback = System.getProperties().get(COMPOSITE_STATS);
+        if (!(callback instanceof Supplier<?> supplier) || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.HashMap<>();
+        raw.forEach((k, v) -> { if (k instanceof String key && v instanceof Number value) result.put(key, value.longValue()); });
+        return result;
+    }
+
+    /**
+     * Window-level screenshot of the canvas and its parent region. Returns
+     * {@code {digest, method}}: {@code robot} captures real on-screen pixels
+     * (preferred — proves the Wine/GDI composite result); when Robot is
+     * unavailable the fallback re-renders the canvas parent tree into a
+     * BufferedImage via {@code printAll} ({@code printAll} proves the Swing
+     * paint result but cannot observe the actual screen blit).
+     */
+    private String[] windowSnapshot() {
+        final Component parent = canvas.getParent() != null ? canvas.getParent() : canvas;
+        try {
+            final java.awt.Rectangle bounds =
+                new java.awt.Rectangle(parent.getLocationOnScreen(), parent.getSize());
+            final java.awt.image.BufferedImage image =
+                new java.awt.Robot().createScreenCapture(bounds);
+            return imageResult(image, "robot");
+        } catch (Throwable robotFailure) {
+            final int w = Math.max(1, parent.getWidth());
+            final int h = Math.max(1, parent.getHeight());
+            final java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            final java.awt.Graphics2D g = image.createGraphics();
+            try {
+                parent.printAll(g);
+            } finally {
+                g.dispose();
+            }
+            return imageResult(image, "printAll");
+        }
+    }
+
+    private static String[] imageResult(final java.awt.image.BufferedImage image,
+                                        final String method) {
+        try {
+            final java.security.MessageDigest digest =
+                java.security.MessageDigest.getInstance("SHA-256");
+            final java.util.HashSet<Integer> colors = new java.util.HashSet<>();
+            final int[] row = new int[image.getWidth()];
+            for (int y = 0; y < image.getHeight(); y++) {
+                image.getRGB(0, y, image.getWidth(), 1, row, 0, image.getWidth());
+                for (int px : row) {
+                    colors.add(px);
+                    digest.update((byte) (px >>> 16));
+                    digest.update((byte) (px >>> 8));
+                    digest.update((byte) px);
+                }
+            }
+            return new String[] {java.util.HexFormat.of().formatHex(digest.digest()),
+                method, Integer.toString(colors.size())};
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Stable fingerprint of the Java-side focus owner (class + identity). */
+    private static String focusOwnerFingerprint() {
+        final java.awt.Component owner = java.awt.KeyboardFocusManager
+            .getCurrentKeyboardFocusManager().getFocusOwner();
+        return owner == null ? "none"
+            : owner.getClass().getName() + "@" + System.identityHashCode(owner);
+    }
+
+    /** Stable fingerprint of the canvas cursor instance. */
+    private String canvasCursorFingerprint() {
+        final java.awt.Cursor cursor = canvas.getCursor();
+        return cursor == null ? "none"
+            : cursor.getClass().getName() + "@" + System.identityHashCode(cursor)
+                + ":" + cursor.getType();
     }
 
     static long percentile(final long[] sorted, final double fraction) {
