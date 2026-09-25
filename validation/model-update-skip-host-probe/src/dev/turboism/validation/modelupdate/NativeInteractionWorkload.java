@@ -29,6 +29,20 @@ final class NativeInteractionWorkload {
     private final boolean calibration = Boolean.getBoolean("turboism.validation.modelUpdateCalibration");
     private final String factor = System.getProperty("turboism.validation.modelUpdateFactor", "uniformHook");
     private final boolean matrixComparison = factor.equals("matrixScratch");
+    private final boolean elision = factor.equals("uploadElision");
+    private final boolean stateElision = factor.equals("redundantState");
+    private final boolean inputPath = factor.equals("inputPath");
+    private final boolean composite = factor.equals("canvasComposite");
+    private static final String ELISION_GATE = "turboism.upload-elision.gate";
+    private static final String ELISION_STATS = "turboism.upload-elision.stats";
+    private static final String STATE_CONSULT = "turboism.state-elision.consult";
+    private static final String STATE_GATE = "turboism.state-elision.gate";
+    private static final String STATE_STATS = "turboism.state-elision.stats";
+    private static final String INPUTPATH_GATE = "turboism.input-path.gate";
+    private static final String INPUTPATH_STATS = "turboism.input-path.stats";
+    private static final String COMPOSITE_PREDICATE = "turboism.canvas-composite.paint";
+    private static final String COMPOSITE_GATE = "turboism.canvas-composite.gate";
+    private static final String COMPOSITE_STATS = "turboism.canvas-composite.stats";
     private Frame window;
     private JComponent canvas;
     private NativeInteractionHost host;
@@ -37,14 +51,21 @@ final class NativeInteractionWorkload {
     private Point startPoint;
     private boolean spaceDown, mouseDown;
     private final Map<Boolean, Boolean> nativeUndoDirtyPolicy = new java.util.HashMap<>();
+    private final List<String> legBaselineDigests = new ArrayList<>();
+    private final List<String> legMovedDigests = new ArrayList<>();
+    private final List<String> legRestoredDigests = new ArrayList<>();
+    private final List<String> legFocusOwners = new ArrayList<>();
+    private final List<String> legCanvasCursors = new ArrayList<>();
+    private final List<String> legWindowDigests = new ArrayList<>();
     private int lastX, lastY;
 
     NativeInteractionWorkload(String fixture, Path state, String kind) {
         if (fixture == null || fixture.isBlank() || !List.of("pan", "artmesh").contains(kind)) {
             throw new IllegalArgumentException("native interaction requires a fixture and pan/artmesh mode");
         }
-        if (!List.of("uniformHook", "matrixScratch").contains(factor)) {
-            throw new IllegalArgumentException("native interaction factor must be uniformHook or matrixScratch");
+        if (!List.of("uniformHook", "matrixScratch", "uploadElision", "redundantState", "inputPath", "canvasComposite").contains(factor)) {
+            throw new IllegalArgumentException(
+                "native interaction factor must be uniformHook, matrixScratch, uploadElision, redundantState, inputPath or canvasComposite");
         }
         if (Boolean.getBoolean("turboism.uniform-location.shadow")
             || Boolean.getBoolean("turboism.validation.modelUpdateGlCalls")
@@ -66,6 +87,45 @@ final class NativeInteractionWorkload {
             .append("performanceAccepted=false\nlatencyDefinition=drag-event-to-native-paint-barrier-not-presentation\n")
             .append("geometryChecks=source-all-keyforms-interpolated-calculated-raw-bits\n")
             .append("authoringDriver=native-mouse-not-SDK-replaceGeometry\n");
+        if (elision) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get("turboism.upload-elision.predicate")
+                        instanceof java.util.function.BiPredicate<?, ?>)
+                || !(slots.get(ELISION_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "uploadElision factor requires the skippedFrameUploadElision hook installed");
+            }
+            report.append("uploadElision.installed=true\n");
+        }
+        if (stateElision) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get(STATE_CONSULT) instanceof java.lang.invoke.MethodHandle)
+                || !(slots.get(STATE_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "redundantState factor requires the redundantStateElision hook installed");
+            }
+            report.append("stateElision.installed=true\n");
+        }
+        if (inputPath) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get("turboism.input-path.focus")
+                        instanceof java.util.function.Predicate<?>)
+                || !(slots.get(INPUTPATH_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "inputPath factor requires the inputPathElision hook installed");
+            }
+            report.append("inputPath.installed=true\n");
+        }
+        if (composite) {
+            final java.util.Properties slots = System.getProperties();
+            if (!(slots.get(COMPOSITE_PREDICATE)
+                        instanceof java.util.function.Predicate<?>)
+                || !(slots.get(COMPOSITE_GATE) instanceof java.util.function.Consumer<?>)) {
+                throw new IllegalArgumentException(
+                    "canvasComposite factor requires the canvasCompositeElision hook installed");
+            }
+            report.append("canvasComposite.installed=true\n");
+        }
         Files.writeString(state.resolve("interaction-benchmark.txt"), report + "status=PREPARING\n");
         try {
             try (PreparationWatchdog preparation = new PreparationWatchdog(state, 30_000L)) {
@@ -86,14 +146,57 @@ final class NativeInteractionWorkload {
             boolean[] variants = {false, true, true, false};
             for (int leg = 0; leg < variants.length; leg++) {
                 final boolean enabled = variants[leg];
-                edt(() -> { hook.setEnabled(enabled); return null; });
+                edt(() -> {
+                    // uploadElision/redundantState/inputPath/canvasComposite
+                    // legs keep the uniform hook ON (production default,
+                    // matching the wheel runs) and toggle only the experiment
+                    // gate so the legs differ in a single variable.
+                    hook.setEnabled(elision || stateElision || inputPath || composite || enabled);
+                    if (elision) setElisionArmed(enabled);
+                    if (stateElision) setStateElisionArmed(enabled);
+                    if (inputPath) setInputPathArmed(enabled);
+                    if (composite) setCompositeArmed(enabled);
+                    return null;
+                });
                 Files.writeString(state.resolve("interaction-progress.txt"), "leg=" + leg + "\nstage=warmup\n");
                 gesture(enabled, calibration ? 4 : 24, null, "warmup." + leg + ".");
                 Files.writeString(state.resolve("interaction-progress.txt"), "leg=" + leg + "\nstage=measuring\n");
                 gesture(enabled, calibration ? 16 : 200, report, "leg." + leg + ".");
                 Files.writeString(state.resolve("interaction-benchmark.txt"), report);
             }
-            report.append("status=PASS\n");
+            // Every leg must observe the same baseline, moved and restored
+            // geometry; for uploadElision legs this is the cross-leg parity
+            // evidence (pan: all equal; artmesh: moved/restored equal across
+            // OFF and ON legs).
+            if (!legBaselineDigests.isEmpty()
+                && (legBaselineDigests.stream().distinct().count() != 1
+                    || legMovedDigests.stream().distinct().count() != 1
+                    || legRestoredDigests.stream().distinct().count() != 1)) {
+                throw new IllegalStateException("geometry digests differ across legs: baselines="
+                    + legBaselineDigests + " moved=" + legMovedDigests
+                    + " restored=" + legRestoredDigests);
+            }
+            // The focus owner and the canvas cursor are observable Java-side
+            // state the elision must never disturb: identical fingerprints on
+            // every leg are a correctness gate, not just telemetry.
+            if (!legFocusOwners.isEmpty()
+                && (legFocusOwners.stream().distinct().count() != 1
+                    || legCanvasCursors.stream().distinct().count() != 1)) {
+                throw new IllegalStateException("focus/cursor state differs across legs: owners="
+                    + legFocusOwners + " cursors=" + legCanvasCursors);
+            }
+            if (!legWindowDigests.isEmpty()
+                && legWindowDigests.stream().distinct().count() != 1) {
+                throw new IllegalStateException(
+                    "window-level screenshots differ across legs: " + legWindowDigests);
+            }
+            report.append("crossLegBaselineParity=").append(legBaselineDigests.stream().distinct().count() == 1).append('\n')
+                .append("crossLegMovedGeometryParity=").append(legMovedDigests.stream().distinct().count() == 1).append('\n')
+                .append("crossLegRestoredGeometryParity=").append(legRestoredDigests.stream().distinct().count() == 1).append('\n')
+                .append("crossLegFocusOwnerParity=").append(legFocusOwners.stream().distinct().count() == 1).append('\n')
+                .append("crossLegCanvasCursorParity=").append(legCanvasCursors.stream().distinct().count() == 1).append('\n')
+                .append("crossLegWindowDigestParity=").append(legWindowDigests.stream().distinct().count() == 1).append('\n')
+                .append("status=PASS\n");
         } catch (Throwable failure) {
             report.append("status=FAIL\nerror=").append(failure).append('\n');
             Files.writeString(state.resolve("interaction-benchmark.txt"), report);
@@ -121,6 +224,14 @@ final class NativeInteractionWorkload {
         final List<Object> authoringBefore = edt(host::appliedAuthoringEdits);
         final boolean dirtyBefore = edt(host::modified);
         final String beforePixels = kind.equals("artmesh") ? edt(() -> hook.capture(canvas).digest()) : "not-required";
+        final Map<String, Long> elisionBefore = report != null && elision
+            ? uploadElisionStats() : Map.of();
+        final Map<String, Long> stateBefore = report != null && stateElision
+            ? stateElisionStats() : Map.of();
+        final Map<String, Long> inputPathBefore = report != null && inputPath
+            ? inputPathStats() : Map.of();
+        final Map<String, Long> compositeBefore = report != null && composite
+            ? compositeStats() : Map.of();
         final long[] samples = new long[steps], queue = new long[steps], handler = new long[steps], repaint = new long[steps];
         final long[] started = {0L}, elapsed = {0L}, pressNanos = {0L}, releaseNanos = {0L};
         final List<Map<String, Long>> snapshots = new ArrayList<>();
@@ -194,7 +305,7 @@ final class NativeInteractionWorkload {
                 }
             });
             if (snapshots.size() != 2) throw new IllegalStateException("gesture accounting incomplete");
-            hook.requireLeg(snapshots.get(0), snapshots.get(1), enabled, steps);
+            hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || stateElision || inputPath || composite || enabled, steps);
             final var moved = edt(host::geometry);
             List<Integer> changed = NativeInteractionHost.changed(baseline, moved);
             final var movedCamera = edt(host::camera);
@@ -207,14 +318,20 @@ final class NativeInteractionWorkload {
                 + "\nauthoringBefore=" + authoringBefore.size() + "\nauthoringAfter=" + edt(host::appliedAuthoringEdits).size()
                 + "\n" + edt(host::actionState));
             if (report != null) verifyPixelsAtCurrentState(prefix + "moved");
+            String restoredDigest = null;
             if (kind.equals("pan")) {
                 if (cameraBefore.equals(movedCamera) || !changed.isEmpty()
                     || !undoBefore.equals(edt(host::undoState)) || dirtyBefore != edt(host::modified)) {
                     throw new IllegalStateException("pan did not exclusively change camera: changedMeshes=" + changed);
                 }
                 edt(() -> { host.restoreCamera(cameraBefore); return null; }); drain();
-                if (!cameraBefore.equals(edt(host::camera)) || !NativeInteractionHost.changed(baseline, edt(host::geometry)).isEmpty()) {
+                final var restored = edt(host::geometry);
+                if (!cameraBefore.equals(edt(host::camera)) || !NativeInteractionHost.changed(baseline, restored).isEmpty()) {
                     throw new IllegalStateException("pan restoration mismatch");
+                }
+                if (report != null) {
+                    restoredDigest = geometryDigest(restored);
+                    report.append(prefix).append("restoredGeometryDigest=").append(restoredDigest).append('\n');
                 }
             } else {
                 final List<Object> authoringAfter = edt(host::appliedAuthoringEdits);
@@ -240,6 +357,10 @@ final class NativeInteractionWorkload {
                 if (!remainingChanges.isEmpty() || !remainingEdits.equals(authoringBefore)) {
                     throw new IllegalStateException("final native Undo did not restore geometry/history");
                 }
+                if (report != null) {
+                    restoredDigest = geometryDigest(edt(host::geometry));
+                    report.append(prefix).append("restoredGeometryDigest=").append(restoredDigest).append('\n');
+                }
                 // Native undo can keep the document's sticky modified-after-saving flag.
                 // Compare ON to the observed OFF behavior, never clear that flag ourselves.
                 if (!enabled) {
@@ -254,14 +375,22 @@ final class NativeInteractionWorkload {
             }
             if (report != null) {
                 verifyPixelsAtCurrentState(prefix + "restored");
-                edt(() -> { hook.setEnabled(enabled); return null; });
+                edt(() -> { hook.setEnabled(elision || stateElision || inputPath || composite || enabled); return null; });
                 long[] sorted = samples.clone(); Arrays.sort(sorted);
                 long total = Arrays.stream(samples).sum();
                 long frames = NarrowUniformTrial.delta(snapshots.get(0), snapshots.get(1), "completedDisplayFrames");
                 report.append(prefix).append("enabled=").append(enabled).append('\n')
-                    .append(prefix).append("variant=").append(matrixComparison
-                        ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
-                        : (enabled ? "narrow-locations" : "native")).append('\n')
+                    .append(prefix).append("variant=").append(elision
+                        ? (enabled ? "upload-elision-on" : "upload-elision-off")
+                        : stateElision
+                            ? (enabled ? "state-elision-on" : "state-elision-off")
+                        : inputPath
+                            ? (enabled ? "input-path-on" : "input-path-off")
+                        : composite
+                            ? (enabled ? "canvas-composite-on" : "canvas-composite-off")
+                        : matrixComparison
+                            ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
+                            : (enabled ? "narrow-locations" : "native")).append('\n')
                     .append(prefix).append("samples=").append(steps).append('\n')
                     .append(prefix).append("elapsedNanos=").append(elapsed[0]).append('\n')
                     .append(prefix).append("meanNanos=").append(total / steps).append('\n')
@@ -276,6 +405,7 @@ final class NativeInteractionWorkload {
                     .append(prefix).append("renderFramesPerSecond=").append(frames * 1e9 / elapsed[0]).append('\n')
                     .append(prefix).append("rawNanos=").append(Arrays.toString(samples)).append('\n')
                     .append(prefix).append("changedMeshes=").append(changed).append('\n')
+                    .append(prefix).append("changedMeshCount=").append(changed.size()).append('\n')
                     .append(prefix).append("geometryRestored=true\n")
                     .append(prefix).append("movedStatePixelParity=true\n")
                     .append(prefix).append("restoredStatePixelParity=true\n")
@@ -287,6 +417,79 @@ final class NativeInteractionWorkload {
                     .append(value.getKey()).append('=').append(value.getValue() - snapshots.get(0).getOrDefault(value.getKey(), 0L)).append('\n');
                 for (var value : modelSnapshots.get(1).entrySet()) report.append(prefix).append("modelUpdate.")
                     .append(value.getKey()).append('=').append(value.getValue() - modelSnapshots.get(0).getOrDefault(value.getKey(), 0L)).append('\n');
+                if (elision) {
+                    // Counters report the leg delta; gauges and high-water
+                    // marks report the absolute reading (see CanvasWheelWorkload).
+                    final java.util.Set<String> elisionGauges = java.util.Set.of(
+                        "entries", "capacity", "peakEntries", "snapshotBytes",
+                        "snapshotBytesPeak", "mode");
+                    final Map<String, Long> elisionAfter = uploadElisionStats();
+                    for (String key : elisionAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("uploadElision.").append(key).append('=')
+                            .append(elisionGauges.contains(key)
+                                ? elisionAfter.get(key)
+                                : elisionAfter.get(key) - elisionBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                if (stateElision) {
+                    final java.util.Set<String> stateGauges = java.util.Set.of(
+                        "entries", "contexts", "mode");
+                    final Map<String, Long> stateAfter = stateElisionStats();
+                    for (String key : stateAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("stateElision.").append(key).append('=')
+                            .append(stateGauges.contains(key)
+                                ? stateAfter.get(key)
+                                : stateAfter.get(key) - stateBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                if (inputPath) {
+                    final Map<String, Long> inputPathAfter = inputPathStats();
+                    for (String key : inputPathAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("inputPath.").append(key).append('=')
+                            .append(inputPathAfter.get(key)
+                                - inputPathBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                if (composite) {
+                    final Map<String, Long> compositeAfter = compositeStats();
+                    for (String key : compositeAfter.keySet().stream().sorted().toList()) {
+                        if (key.equals("armed")) continue;
+                        report.append(prefix).append("canvasComposite.").append(key).append('=')
+                            .append(compositeAfter.get(key)
+                                - compositeBefore.getOrDefault(key, 0L))
+                            .append('\n');
+                    }
+                }
+                final String legFocusOwner = edt(NativeInteractionWorkload::focusOwnerFingerprint);
+                final String legCanvasCursor = edt(this::canvasCursorFingerprint);
+                legFocusOwners.add(legFocusOwner);
+                legCanvasCursors.add(legCanvasCursor);
+                report.append(prefix).append("focusOwner=").append(legFocusOwner).append('\n')
+                    .append(prefix).append("canvasCursor=").append(legCanvasCursor).append('\n');
+                // Window-level parity: geometry/pixel digests do not observe
+                // the on-screen composite. Capture the canvas parent region
+                // via Robot; fall back to an offscreen printAll render when
+                // Robot is unavailable — printAll proves the Swing paint
+                // result but cannot see the real screen blit.
+                final String[] windowShot = edt(this::windowSnapshot);
+                legWindowDigests.add(windowShot[0]);
+                report.append(prefix).append("windowDigest=").append(windowShot[0]).append('\n')
+                    .append(prefix).append("windowDigestMethod=").append(windowShot[1]).append('\n')
+                    .append(prefix).append("windowDistinctColors=").append(windowShot[2]).append('\n');
+                final String baselineDigest = geometryDigest(baseline);
+                final String movedDigest = geometryDigest(moved);
+                report.append(prefix).append("geometryDigest=").append(baselineDigest).append('\n')
+                    .append(prefix).append("movedGeometryDigest=").append(movedDigest).append('\n');
+                legBaselineDigests.add(baselineDigest);
+                legMovedDigests.add(movedDigest);
+                legRestoredDigests.add(java.util.Objects.requireNonNull(restoredDigest,
+                    "restored digest missing for " + kind));
                 if (resources != null) resources.snapshot().forEach((key, value) -> report.append(prefix)
                     .append("resources.").append(key).append('=').append(value).append('\n'));
             }
@@ -319,7 +522,7 @@ final class NativeInteractionWorkload {
                 + "\nselected=" + selected + "\npoint=" + startPoint + "\n");
             if (!selected) throw new IllegalStateException("native picker found no editable single-ArtMesh target");
             Thread.sleep(600L);
-        } finally { edt(() -> { hook.setEnabled(enabled); return null; }); }
+        } finally { edt(() -> { hook.setEnabled(elision || stateElision || inputPath || composite || enabled); return null; }); }
     }
 
     private record ParityCapture(FrameReadback image, String before, String after) { }
@@ -423,6 +626,205 @@ final class NativeInteractionWorkload {
         values.forEach((key, value) -> { if (key instanceof String name && value instanceof Number n) result.put(name, n.longValue()); });
         return result;
     }
+    /** Arms/disarms the upload-elision bridge for the current leg. */
+    private static void setElisionArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(ELISION_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("upload elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    /** Arms/disarms the redundant-state elision bridge for the current leg. */
+    private static void setStateElisionArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(STATE_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("state elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> stateElisionStats() {
+        final Object callback = System.getProperties().get(STATE_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
+    }
+
+    private static Map<String, Long> uploadElisionStats() {
+        final Object callback = System.getProperties().get(ELISION_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
+    }
+
+    /** Arms/disarms the input-path elision bridge for the current leg. */
+    private static void setInputPathArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(INPUTPATH_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("input path elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> inputPathStats() {
+        final Object callback = System.getProperties().get(INPUTPATH_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
+    }
+
+    /** Arms/disarms the canvas-composite elision bridge for the current leg. */
+    private static void setCompositeArmed(final boolean enabled) {
+        final Object gate = System.getProperties().get(COMPOSITE_GATE);
+        if (enabled && !(gate instanceof java.util.function.Consumer)) {
+            throw new IllegalStateException("canvas composite elision gate absent");
+        }
+        if (gate instanceof java.util.function.Consumer consumer) {
+            consumer.accept(enabled);
+        }
+    }
+
+    private static Map<String, Long> compositeStats() {
+        final Object callback = System.getProperties().get(COMPOSITE_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
+    }
+
+    /**
+     * Window-level screenshot of the canvas and its parent region. Returns
+     * {@code {digest, method, distinctColors}}: {@code robot} captures real
+     * on-screen pixels (preferred — proves the Wine/GDI composite result);
+     * when Robot is unavailable the fallback re-renders the canvas parent
+     * tree via {@code printAll} (proves the Swing paint result but cannot
+     * observe the actual screen blit).
+     */
+    private String[] windowSnapshot() {
+        final Component parent = canvas.getParent() != null ? canvas.getParent() : canvas;
+        try {
+            final java.awt.Rectangle bounds =
+                new java.awt.Rectangle(parent.getLocationOnScreen(), parent.getSize());
+            final java.awt.image.BufferedImage image =
+                new java.awt.Robot().createScreenCapture(bounds);
+            return imageResult(image, "robot");
+        } catch (Throwable robotFailure) {
+            final int w = Math.max(1, parent.getWidth());
+            final int h = Math.max(1, parent.getHeight());
+            final java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            final java.awt.Graphics2D g = image.createGraphics();
+            try {
+                parent.printAll(g);
+            } finally {
+                g.dispose();
+            }
+            return imageResult(image, "printAll");
+        }
+    }
+
+    private static String[] imageResult(final java.awt.image.BufferedImage image,
+                                        final String method) {
+        try {
+            final java.security.MessageDigest digest =
+                java.security.MessageDigest.getInstance("SHA-256");
+            final java.util.HashSet<Integer> colors = new java.util.HashSet<>();
+            final int[] row = new int[image.getWidth()];
+            for (int y = 0; y < image.getHeight(); y++) {
+                image.getRGB(0, y, image.getWidth(), 1, row, 0, image.getWidth());
+                for (int px : row) {
+                    colors.add(px);
+                    digest.update((byte) (px >>> 16));
+                    digest.update((byte) (px >>> 8));
+                    digest.update((byte) px);
+                }
+            }
+            return new String[] {java.util.HexFormat.of().formatHex(digest.digest()),
+                method, Integer.toString(colors.size())};
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Stable fingerprint of the Java-side focus owner (class + identity). */
+    private static String focusOwnerFingerprint() {
+        final Component owner = KeyboardFocusManager
+            .getCurrentKeyboardFocusManager().getFocusOwner();
+        return owner == null ? "none"
+            : owner.getClass().getName() + "@" + System.identityHashCode(owner);
+    }
+
+    /** Stable fingerprint of the canvas cursor instance. */
+    private String canvasCursorFingerprint() {
+        final java.awt.Cursor cursor = canvas.getCursor();
+        return cursor == null ? "none"
+            : cursor.getClass().getName() + "@" + System.identityHashCode(cursor)
+                + ":" + cursor.getType();
+    }
+
+    /** Stable digest over every raw float bit of a Geometry snapshot. */
+    private static String geometryDigest(final NativeInteractionHost.Geometry geometry) {
+        try {
+            final var digest = java.security.MessageDigest.getInstance("SHA-256");
+            final byte[] word = new byte[4];
+            final java.util.function.Consumer<float[]> feed = array -> {
+                for (final float value : array) {
+                    final int bits = Float.floatToRawIntBits(value);
+                    word[0] = (byte) bits;
+                    word[1] = (byte) (bits >>> 8);
+                    word[2] = (byte) (bits >>> 16);
+                    word[3] = (byte) (bits >>> 24);
+                    digest.update(word);
+                }
+            };
+            geometry.interpolated().forEach(feed::accept);
+            geometry.source().forEach(feed::accept);
+            geometry.calculated().forEach(feed::accept);
+            geometry.keyforms().forEach(list -> list.forEach(feed::accept));
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (final java.security.NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException(unavailable);
+        }
+    }
+
     private static void drain() throws Exception { edt(() -> null); }
     private static <T> T edt(Callable<T> action) throws Exception { return edt(action, 10L); }
     private static <T> T edt(Callable<T> action, long seconds) throws Exception {

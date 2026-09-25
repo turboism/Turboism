@@ -123,6 +123,70 @@ expect_rejected windows-env-command 'Windows environment value contains an unsup
 expect_rejected jvm-option-quote 'JVM or hook option contains an unsupported quote' \
   "${base[@]}" --jvm-option '-Dunsafe="quoted"'
 
+# Job-local Linux environment admits only the reviewed Mesa debug names.
+"${base[@]}" --linux-env 'mesa_glthread=true' --linux-env 'MESA_DEBUG=1' \
+  --linux-env 'GALLIUM_HUD_PERIOD=0.5' > "$tmp/linux-env.out"
+grep -Fq 'linuxEnvironmentCount=4' "$tmp/linux-env.out" \
+  || fail 'admitted Linux environment assignments were not accepted'
+grep -Fq 'linuxEnvironment.0=mesa_glthread=true' "$tmp/linux-env.out" \
+  || fail 'mesa_glthread assignment was not preserved verbatim'
+grep -Fq 'linuxEnvironment.2=GALLIUM_HUD_PERIOD=0.5' "$tmp/linux-env.out" \
+  || fail 'GALLIUM_HUD_PERIOD assignment was not preserved verbatim'
+grep -Fq 'linuxEnvironment.3=TURBOISM_PROTON=1' "$tmp/linux-env.out" \
+  || fail 'the managed Proton marker must always be exported on this path'
+
+# Proton-scoped product options default ON here: no staged config still
+# exports mesa_glthread and injects both properties.
+"${base[@]}" > "$tmp/proton-defaults.out"
+grep -Fq 'mesaGlThread=1' "$tmp/proton-defaults.out" \
+  || fail 'absent launcher.mesaGlThread must default on under Proton'
+grep -Fq 'inputPathElision=1' "$tmp/proton-defaults.out" \
+  || fail 'absent launcher.inputPathElision must default on under Proton'
+grep -Fq 'TURBOISM_PROTON=1' "$tmp/proton-defaults.out" \
+  || fail 'managed Proton marker missing from the default export set'
+grep -Fq 'mesa_glthread=true' "$tmp/proton-defaults.out" \
+  || fail 'default-on mesaGlThread must export mesa_glthread=true'
+
+# Explicit config false always wins over the Proton default.
+printf '{"launcher":{"mesaGlThread":false,"inputPathElision":false}}\n' \
+  > "$tmp/off-config.json"
+"${base[@]}" --home-config "$tmp/off-config.json" > "$tmp/proton-off.out"
+grep -Fq 'mesaGlThread=0' "$tmp/proton-off.out" \
+  || fail 'explicit launcher.mesaGlThread=false must disable the option'
+grep -Fq 'inputPathElision=0' "$tmp/proton-off.out" \
+  || fail 'explicit launcher.inputPathElision=false must disable the option'
+if grep -Fq 'linuxEnvironment' "$tmp/proton-off.out" \
+   && grep -Fq 'mesa_glthread=true' "$tmp/proton-off.out"; then
+  fail 'explicit opt-out must not export mesa_glthread=true'
+fi
+
+# Explicit config true keeps both halves enabled.
+printf '{"launcher":{"mesaGlThread":true,"inputPathElision":true}}\n' \
+  > "$tmp/on-config.json"
+"${base[@]}" --home-config "$tmp/on-config.json" > "$tmp/proton-on.out"
+grep -Fq 'mesaGlThread=1' "$tmp/proton-on.out" \
+  || fail 'explicit launcher.mesaGlThread=true must enable the option'
+grep -Fq 'inputPathElision=1' "$tmp/proton-on.out" \
+  || fail 'explicit launcher.inputPathElision=true must enable the option'
+expect_rejected linux-env-format 'Linux environment assignment must use NAME=value' \
+  "${base[@]}" --linux-env 'mesa_glthread'
+expect_rejected linux-env-name 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'LD_PRELOAD=/tmp/pwned.so'
+expect_rejected linux-env-path 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'PATH=/tmp/pwned'
+expect_rejected linux-env-lowercase 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'Mesa_Debug=1'
+expect_rejected linux-env-mesa-lowercase 'not an admitted Mesa debug variable' \
+  "${base[@]}" --linux-env 'MESA_debug=1'
+expect_rejected linux-env-empty 'must use NAME=value' \
+  "${base[@]}" --linux-env 'mesa_glthread='
+expect_rejected linux-env-value-metachar 'unsupported character' \
+  "${base[@]}" --linux-env 'mesa_glthread=true;touch-pwned'
+expect_rejected linux-env-value-substitution 'unsupported character' \
+  "${base[@]}" --linux-env 'mesa_glthread=$(touch-pwned)'
+expect_rejected linux-env-duplicate 'duplicate Linux environment name' \
+  "${base[@]}" --linux-env 'mesa_glthread=true' --linux-env 'mesa_glthread=false'
+
 # A rejected request must not reach either legacy transport name.
 bin="$tmp/bin"
 mkdir -p "$bin"

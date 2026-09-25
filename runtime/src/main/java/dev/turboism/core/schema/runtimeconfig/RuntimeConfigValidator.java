@@ -34,12 +34,14 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
     private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of(
-        "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
+        "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate",
+        "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"
     );
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Set<String> ALLOWED_TEXTURE_ATLAS_FIELDS = Set.of("algorithmId", "parallel");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
-        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache"
+        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
+        "inputPathElision", "mesaGlThread"
     );
 
     public RuntimeConfigValidator() {

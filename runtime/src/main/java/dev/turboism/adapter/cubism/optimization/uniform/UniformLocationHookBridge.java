@@ -36,10 +36,69 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     public static final String MUTATION_BEGIN_PROPERTY = "turboism.uniform-location.mutation.begin";
     /** Typed {@code (long)void} completion on normal and exceptional mutation exits. */
     public static final String MUTATION_END_PROPERTY = "turboism.uniform-location.mutation.end";
+    /**
+     * Typed {@code (Object,String,boolean)int} deferred error-check checkpoint.
+     * Installed by the deferred-GL-error transform on the shader helper: inside
+     * an owned frame it records the checkpoint and returns {@code GL_NO_ERROR}
+     * without a native query; anywhere else it runs the real {@code glGetError}.
+     */
+    public static final String DEFER_QUERY_PROPERTY = "turboism.deferred-error.query";
+    /**
+     * Typed {@code ()Object} frame-exit report consult: returns the throwable the
+     * frame-end deferred check armed (host-equivalent error reporting), or null.
+     */
+    public static final String DEFER_REPORT_PROPERTY = "turboism.deferred-error.report";
     /** Loader-neutral supplier of scalar diagnostics. */
     public static final String STATS_PROPERTY = "turboism.uniform-location.stats";
+
+    /**
+     * Extra handles the deferred error-check path needs: the real
+     * {@code GL.glGetError} for frame-end and pass-through queries, the host
+     * error logger and the host {@code GLException(String)} constructor so the
+     * frame-end report reproduces {@code shader/A.a(GL,String,Z)}'s semantics —
+     * known codes log through {@code util/log/a.b} and throw only when the
+     * first deferred checkpoint passed {@code z=true}; unmapped codes arm
+     * {@code IllegalStateException("Not impl : " + code)} exactly like the
+     * host's default branch. {@code null} keeps deferred checkpoints inert:
+     * {@link #deferQuery} then throws, and the emitted catch falls back to the
+     * real inline query.
+     */
+    public record DeferredAccessors(MethodHandle glGetError, Object logger, MethodHandle log,
+                             MethodHandle exceptionNew) {
+        /**
+         * Resolves the deferred-report host handles without initializing the
+         * Editor; {@code null} when any required shape is absent, which keeps
+         * deferred checkpoints in fail-closed pass-through.
+         *
+         * @param loader the host loader attested by the verified installer
+         * @return the bound accessors, or null when the host shape is absent
+         */
+        public static DeferredAccessors resolve(final ClassLoader loader) {
+            try {
+                final Class<?> gl = Class.forName("com.jogamp.opengl.GL", false, loader);
+                final Class<?> logClass =
+                    Class.forName("com.live2d.util.log.a", false, loader);
+                final Class<?> exception =
+                    Class.forName("com.jogamp.opengl.GLException", false, loader);
+                final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+                return new DeferredAccessors(
+                    lookup.findVirtual(gl, "glGetError", MethodType.methodType(int.class))
+                        .asType(MethodType.methodType(int.class, Object.class)),
+                    lookup.findStaticGetter(logClass, "a", logClass).invoke(),
+                    lookup.findStatic(logClass, "b", MethodType.methodType(void.class, logClass,
+                            Object.class, boolean.class, String.class, int.class, Object.class))
+                        .asType(MethodType.methodType(void.class, Object.class, Object.class,
+                            boolean.class, String.class, int.class, Object.class)),
+                    lookup.findConstructor(exception, MethodType.methodType(void.class, String.class)));
+            } catch (Throwable absent) {
+                return null;
+            }
+        }
+    }
+
     private final FrameUniformLocationCache cache = new FrameUniformLocationCache(4096);
     private final MethodHandle frameToGl, glToContext, currentContext, contextShared, contextCreated;
+    private final DeferredAccessors deferredAccessors;
     private final Map<String, Object> callbacks = new LinkedHashMap<>();
     private final Map<Long, Thread> mutations = new LinkedHashMap<>();
     private long nextMutation;
@@ -51,6 +110,11 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     private long token;
     private long frames, completedFrames, rejectedFrames, sharedFrames, queries, hits, nativeResults,
         failures, glErrors, invalidations, shadowQueries, shadowMismatches;
+    private long deferredChecks, deferredFrames, deferredErrors, deferredThrows, deferredFallbacks;
+    private int deferredQueries;
+    private String deferredContext;
+    private boolean deferredThrowSite;
+    private Throwable deferredReport;
     private String expectedName;
     private int expectedProgram, expectedLocation;
     private boolean expected;
@@ -62,19 +126,27 @@ public final class UniformLocationHookBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when the required accessor shape is absent
      */
     public UniformLocationHookBridge(ClassLoader loader) throws ReflectiveOperationException {
-        this(accessors(loader));
+        this(accessors(loader), DeferredAccessors.resolve(loader));
         supportedGlType = Class.forName("jogamp.opengl.gl4.GL4bcImpl", false, loader);
     }
     private UniformLocationHookBridge(MethodHandle[] accessors) {
-        this(accessors[0], accessors[1], accessors[2], accessors[3], accessors[4]);
+        this(accessors, null);
+    }
+    private UniformLocationHookBridge(MethodHandle[] accessors, DeferredAccessors deferred) {
+        this(accessors[0], accessors[1], accessors[2], accessors[3], accessors[4], deferred);
     }
     UniformLocationHookBridge(MethodHandle frame, MethodHandle context, MethodHandle current,
                               MethodHandle shared, MethodHandle created) {
+        this(frame, context, current, shared, created, null);
+    }
+    UniformLocationHookBridge(MethodHandle frame, MethodHandle context, MethodHandle current,
+                              MethodHandle shared, MethodHandle created, DeferredAccessors deferred) {
         frameToGl = Objects.requireNonNull(frame, "frame");
         glToContext = Objects.requireNonNull(context, "context");
         currentContext = Objects.requireNonNull(current, "current");
         contextShared = Objects.requireNonNull(shared, "shared");
         contextCreated = Objects.requireNonNull(created, "created");
+        deferredAccessors = deferred;
         try {
             MethodHandles.Lookup lookup = MethodHandles.lookup();
             callbacks.put(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY, lookup.findVirtual(getClass(), "lookup",
@@ -87,6 +159,10 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             callbacks.put(INVALIDATE_PROPERTY, lookup.findVirtual(getClass(), "invalidate", MethodType.methodType(void.class)).bindTo(this));
             callbacks.put(MUTATION_BEGIN_PROPERTY, lookup.findVirtual(getClass(), "beginMutation", MethodType.methodType(long.class)).bindTo(this));
             callbacks.put(MUTATION_END_PROPERTY, lookup.findVirtual(getClass(), "endMutation", MethodType.methodType(void.class, long.class)).bindTo(this));
+            callbacks.put(DEFER_QUERY_PROPERTY, lookup.findVirtual(getClass(), "deferQuery",
+                MethodType.methodType(int.class, Object.class, String.class, boolean.class)).bindTo(this));
+            callbacks.put(DEFER_REPORT_PROPERTY, lookup.findVirtual(getClass(), "consumeReport",
+                MethodType.methodType(Object.class)).bindTo(this));
             callbacks.put(STATS_PROPERTY, (Supplier<Map<String, Long>>) this::statistics);
         } catch (ReflectiveOperationException impossible) {
             throw new IllegalStateException("uniform callback signatures unavailable", impossible);
@@ -109,7 +185,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     static List<String> slots() {
         return List.of(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY, UniformLocationCallSiteTransformer.RECORD_PROPERTY,
             BEGIN_PROPERTY, END_PROPERTY, ERROR_PROPERTY, INVALIDATE_PROPERTY,
-            MUTATION_BEGIN_PROPERTY, MUTATION_END_PROPERTY, STATS_PROPERTY);
+            MUTATION_BEGIN_PROPERTY, MUTATION_END_PROPERTY,
+            DEFER_QUERY_PROPERTY, DEFER_REPORT_PROPERTY, STATS_PROPERTY);
     }
 
     /** Returns the default-on preference; explicit false or malformed overrides disable reuse. */
@@ -158,6 +235,9 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     /** Opens an explicitly scoped render invocation; zero means no nested ownership. */
     public synchronized long begin(Object frame) {
         if (!installed || closed || retired) return 0L;
+        // A report armed by an aborted frame must not be consumed by a nested
+        // or later render3d return; any new scope entry disarms it.
+        deferredReport = null;
         try {
             Object gl = (Object) frameToGl.invokeExact(frame);
             Object context = (Object) glToContext.invokeExact(gl);
@@ -174,6 +254,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             if (shared) sharedFrames++;
             token = opened; frameOwner = Thread.currentThread(); frameGl = gl; frameSupported = supported;
             shadow = Boolean.getBoolean(SHADOW_PROPERTY); expected = false;
+            deferredQueries = 0; deferredContext = null; deferredThrowSite = false;
+            deferredReport = null;
             return opened;
         } catch (Throwable problem) {
             retire();
@@ -183,6 +265,23 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     /** Releases only the matching render token and its retained host references. */
     public synchronized void end(long scope) {
         if (frameOwner != Thread.currentThread() || scope == 0L || scope != token) return;
+        // Deferred error checking: the frame's checkpoints skipped their native
+        // queries, so this frame boundary performs the one real glGetError the
+        // host would have consumed at its first deferred checkpoint. A nonzero
+        // result invalidates this frame's whole cache (locations confirmed by
+        // the deferred checkpoints were optimistic) and arms the host-equivalent
+        // report, which the frame-exit emission rethrows after this callback.
+        if (deferredQueries > 0) {
+            try {
+                int observed = (int) deferredAccessors.glGetError().invokeExact(frameGl);
+                deferredFrames++;
+                error(frameGl, observed);
+                reportDeferred(observed);
+            } catch (Throwable problem) {
+                retire();
+            }
+            deferredQueries = 0; deferredContext = null; deferredThrowSite = false;
+        }
         cache.end(scope);
         completedFrames++;
         frameOwner = null; frameGl = null; frameSupported = false; token = 0L; expected = false; expectedName = null;
@@ -241,6 +340,94 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             cache.checkedError(context, error);
         } catch (Throwable problem) { retire(); }
     }
+    /**
+     * Deferred error-check checkpoint emitted by the deferred-GL-error
+     * transform. Inside the owned render frame it records the checkpoint —
+     * first call wins the report context — and returns {@code GL_NO_ERROR}
+     * without a native query. The returned zero then flows through the uniform
+     * lifecycle transform's own emitted error callback, confirming pending
+     * locations within the frame exactly like the reviewed elision emission;
+     * the frame-end real query still invalidates the frame and reports any
+     * observed error, so the optimistic window ends at the frame boundary.
+     * Outside the frame, after close/retire, or without resolved accessors it
+     * runs the real {@code glGetError} (or throws so the emitted catch runs the
+     * real call inline), keeping the site's exact upstream semantics.
+     */
+    public synchronized int deferQuery(Object gl, String context, boolean throwing)
+            throws Throwable {
+        if (!installed || closed || retired || deferredAccessors == null
+            || frameOwner != Thread.currentThread() || gl != frameGl || token == 0L) {
+            deferredFallbacks++;
+            if (deferredAccessors == null) {
+                throw new IllegalStateException("deferred GL error accessor absent");
+            }
+            return (int) deferredAccessors.glGetError().invokeExact(gl);
+        }
+        deferredChecks++;
+        deferredQueries++;
+        if (deferredContext == null) {
+            deferredContext = context;
+            deferredThrowSite = throwing;
+        }
+        return 0;
+    }
+    /**
+     * Frame-exit report consult emitted at every {@code render3d} RETURN. The
+     * throwable armed by the frame-end deferred check is consumed once; a
+     * frame that aborted before its consult leaves nothing behind because
+     * {@link #begin} clears the armed state.
+     */
+    public synchronized Object consumeReport() {
+        final Throwable report = deferredReport;
+        deferredReport = null;
+        return report;
+    }
+    /**
+     * Reports the frame-end error through the host-equivalent path: known
+     * codes log through {@code util/log/a.b} with the first deferred
+     * checkpoint's message and throw {@code GLException} only when that
+     * checkpoint passed {@code z=true}; unmapped codes arm
+     * {@code IllegalStateException("Not impl : " + error)} without logging —
+     * exactly the host method's branches. The exact error location is lost by
+     * design; the error itself is never swallowed.
+     */
+    private void reportDeferred(final int error) {
+        if (error == 0) return;
+        deferredErrors++;
+        final String mapped = switch (error) {
+            case 1280 -> "GL_INVALID_ENUM (1280　無効な列挙　GLenum型の引数が範囲を超えている)";
+            case 1281 -> "GL_INVALID_VALUE ( 1281\t無効な値　引数が範囲を超えている)";
+            case 1282 -> "GL_INVALID_OPERATION ( 1282\t　無効な演算)";
+            case 1285 -> "GL_OUT_OF_MEMORY (1285 実行するのにメモリが足りない)";
+            case 1286 -> "GL_INVALID_FRAMEBUFFER_OPERATION ( 1286 完全じゃないフレームバッファを書いたり読んだりしようとしている)";
+            default -> null;
+        };
+        if (mapped == null) {
+            deferredReport = new IllegalStateException("Not impl : " + error);
+            deferredThrows++;
+            return;
+        }
+        final String message = deferredContext + ": glError " + mapped;
+        try {
+            deferredAccessors.log().invokeExact(deferredAccessors.logger(), (Object) message,
+                false, (String) null, 6, (Object) null);
+        } catch (Throwable ignored) { }
+        if (deferredThrowSite) {
+            deferredReport = newException(message);
+            deferredThrows++;
+        }
+    }
+    /** Builds the host {@code GLException} or a same-message stand-in when unreachable. */
+    private Throwable newException(final String message) {
+        try {
+            if (deferredAccessors != null) {
+                // invoke, not invokeExact: the resolved constructor returns the
+                // host exception type, not Throwable.
+                return (Throwable) deferredAccessors.exceptionNew().invoke(message);
+            }
+        } catch (Throwable ignored) { }
+        return new IllegalStateException(message);
+    }
     /** Conservatively retires the current frame on any covered program mutation. */
     public synchronized void invalidate() {
         cache.invalidate(); frameSupported = false; expected = false; expectedName = null; invalidations++;
@@ -258,6 +445,10 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         result.put("queries", queries); result.put("hits", hits); result.put("nativeResults", nativeResults);
         result.put("glErrors", glErrors); result.put("failures", failures); result.put("invalidations", invalidations);
         result.put("shadowQueries", shadowQueries); result.put("shadowMismatches", shadowMismatches);
+        result.put("deferredChecks", deferredChecks); result.put("deferredFrames", deferredFrames);
+        result.put("deferredErrors", deferredErrors); result.put("deferredThrows", deferredThrows);
+        result.put("deferredFallbacks", deferredFallbacks);
+        result.put("deferredReady", deferredAccessors != null ? 1L : 0L);
         result.put("retained", (long) cache.retained());
         result.put("mutationCoverage", mutationCoverage ? 1L : 0L);
         result.put("mutationsInFlight", (long) mutations.size());
@@ -266,6 +457,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     @Override public synchronized void close() {
         closed = true; installed = false; frameSupported = false; cache.close(); mutations.clear();
         frameOwner = null; frameGl = null; token = 0L; expected = false; expectedName = null;
+        deferredQueries = 0; deferredContext = null; deferredThrowSite = false;
+        deferredReport = null;
         Properties properties = System.getProperties();
         synchronized (properties) {
             callbacks.forEach((key, value) -> { if (properties.get(key) == value) properties.remove(key); });

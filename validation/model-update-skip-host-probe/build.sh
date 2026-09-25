@@ -32,6 +32,8 @@ javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$src/dev/turboism/validation/modelupdate/NarrowUniformTrial.java" \
   "$src/dev/turboism/validation/modelupdate/GpuCompletionProbe.java" \
   "$src/dev/turboism/validation/modelupdate/GlSubmissionProbe.java" \
+  "$src/dev/turboism/validation/modelupdate/GlCallCategory.java" \
+  "$src/dev/turboism/validation/modelupdate/GlRedundancyTracker.java" \
   "$src/dev/turboism/validation/modelupdate/UploadPayloadObserver.java" \
   "$src/dev/turboism/validation/modelupdate/UniformLocationCache.java" \
   "$src/dev/turboism/validation/modelupdate/UniformValueCache.java" \

@@ -132,20 +132,92 @@ class CubismJvmSettingsFileServiceTest {
     }
 
     @Test
-    void onlyReviewedOptimizationsDefaultToTrue() throws Exception {
+    void nativeDefaultsAndExplicitOverrides() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             assertTrue(service.modelUpdateSkip());
             assertTrue(service.uniformLocationCache());
+            assertTrue(service.uploadElision(), "upload elision defaults on everywhere");
             assertFalse(service.incrementalUpdate());
+            assertFalse(service.inputPathElision(), "input-path elision defaults off natively");
+            assertFalse(service.mesaGlThread(), "mesa glthread defaults off natively");
             assertTrue(service.saveIncrementalUpdate(true));
+            assertTrue(service.saveInputPathElision(true));
+            assertTrue(service.saveMesaGlThread(true));
+            assertFalse(service.saveUploadElision(false));
         }
         try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
                 new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
             assertTrue(reopened.incrementalUpdate(), "explicit experimental opt-in survives restart");
+            assertTrue(reopened.inputPathElision(), "explicit input-path opt-in survives restart");
+            assertTrue(reopened.mesaGlThread(), "explicit mesa-glthread opt-in survives restart");
+            assertFalse(reopened.uploadElision(), "explicit upload-elision opt-out survives restart");
             assertTrue(reopened.uniformLocationCache());
             reopened.saveIncrementalUpdate(false);
+            reopened.saveInputPathElision(false);
+            reopened.saveMesaGlThread(false);
+            reopened.saveUploadElision(true);
             assertFalse(reopened.incrementalUpdate());
-            assertFalse(Files.readString(home.resolve("config.json")).contains("incrementalUpdate"));
+            assertFalse(reopened.inputPathElision());
+            assertFalse(reopened.mesaGlThread());
+            assertTrue(reopened.uploadElision());
+            final String saved = Files.readString(home.resolve("config.json"));
+            assertFalse(saved.contains("incrementalUpdate"), "platform default value clears the key");
+            assertFalse(saved.contains("uploadElision"), "platform default value clears the key");
+            assertFalse(saved.contains("inputPathElision"), "platform default value clears the key");
+            assertFalse(saved.contains("mesaGlThread"), "platform default value clears the key");
+        }
+    }
+
+    @Test
+    void protonDefaultsAndExplicitOverrides() throws Exception {
+        final Map<String, String> proton =
+            Map.of(dev.turboism.runtime.env.ProtonEnvironment.MANAGED_MARKER, "1");
+        try (CubismJvmSettingsFileService service = service(proton)) {
+            assertTrue(service.uploadElision(), "upload elision defaults on under Proton too");
+            assertTrue(service.inputPathElision(), "input-path elision defaults on under Proton");
+            assertTrue(service.mesaGlThread(), "mesa glthread defaults on under Proton");
+            assertFalse(service.incrementalUpdate(), "unrelated opt-in stays off");
+            // Saving the platform default removes the key; only explicit
+            // non-default values persist.
+            assertTrue(service.saveInputPathElision(true));
+            assertFalse(Files.readString(home.resolve("config.json")).contains("inputPathElision"));
+            assertFalse(service.saveInputPathElision(false));
+            assertFalse(service.saveMesaGlThread(false));
+            assertFalse(service.inputPathElision());
+            assertFalse(service.mesaGlThread());
+        }
+        try (CubismJvmSettingsFileService reopened = new CubismJvmSettingsFileService(
+                new RuntimeConfigRepository(home, ignored -> { }), home, proton)) {
+            assertFalse(reopened.inputPathElision(), "explicit opt-out survives restart under Proton");
+            assertFalse(reopened.mesaGlThread(), "explicit opt-out survives restart under Proton");
+            final String saved = Files.readString(home.resolve("config.json"));
+            assertTrue(saved.contains("\"inputPathElision\" : false"));
+            assertTrue(saved.contains("\"mesaGlThread\" : false"));
+            // The same explicit opt-out reads false on native too — explicit
+            // values always win over either platform default.
+            try (CubismJvmSettingsFileService nativeReopen = new CubismJvmSettingsFileService(
+                    new RuntimeConfigRepository(home, ignored -> { }), home, Map.of())) {
+                assertFalse(nativeReopen.inputPathElision());
+                assertFalse(nativeReopen.mesaGlThread());
+            }
+        }
+    }
+
+    @Test
+    void protonMarkerVariantsDriveThePlatformDefault() throws Exception {
+        for (final Map<String, String> env : java.util.List.of(
+            Map.of("WINEPREFIX", "/pfx"),
+            Map.of("STEAM_COMPAT_DATA_PATH", "/steam/compat"),
+            Map.of("WINEFSYNC", "1")
+        )) {
+            try (CubismJvmSettingsFileService service = service(env)) {
+                assertTrue(service.inputPathElision(), "env=" + env);
+                assertTrue(service.mesaGlThread(), "env=" + env);
+            }
+        }
+        // Empty marker values carry no signal.
+        try (CubismJvmSettingsFileService service = service(Map.of("WINEPREFIX", ""))) {
+            assertFalse(service.inputPathElision());
         }
     }
 

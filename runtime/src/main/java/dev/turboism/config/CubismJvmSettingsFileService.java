@@ -209,14 +209,62 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         return saveOptimization("uniformLocationCache", value);
     }
 
+    @Override
+    public boolean uploadElision() {
+        return optimization("uploadElision");
+    }
+
+    @Override
+    public boolean saveUploadElision(final boolean value) {
+        return saveOptimization("uploadElision", value);
+    }
+
+    @Override
+    public boolean inputPathElision() {
+        return optimization("inputPathElision");
+    }
+
+    @Override
+    public boolean saveInputPathElision(final boolean value) {
+        return saveOptimization("inputPathElision", value);
+    }
+
+    @Override
+    public boolean mesaGlThread() {
+        return optimization("mesaGlThread");
+    }
+
+    @Override
+    public boolean saveMesaGlThread(final boolean value) {
+        return saveOptimization("mesaGlThread", value);
+    }
+
+    /** Opt-in experiments default off; verified optimizations default on. */
+    private static final java.util.Set<String> DEFAULT_OFF_OPTIMIZATIONS =
+        java.util.Set.of("incrementalUpdate");
+    /**
+     * Platform-defaulted options: unset means on only for the Wine/Proton
+     * launch — the paths they optimize exist only there. Explicit values
+     * always win; the same platform default drives reads and saves so
+     * "value == platform default" removes the key under either host.
+     */
+    private static final java.util.Set<String> PROTON_DEFAULT_OPTIMIZATIONS =
+        java.util.Set.of("inputPathElision", "mesaGlThread");
+
+    private boolean defaultOptimization(final String name) {
+        return PROTON_DEFAULT_OPTIMIZATIONS.contains(name)
+            ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment)
+            : !DEFAULT_OFF_OPTIMIZATIONS.contains(name);
+    }
+
     private boolean optimization(final String name) {
-        return config.read().path("launcher").path(name).asBoolean(!"incrementalUpdate".equals(name));
+        return config.read().path("launcher").path(name)
+            .asBoolean(defaultOptimization(name));
     }
 
     private boolean saveOptimization(final String name, final boolean value) {
         config.update(root -> {
-            final boolean defaultValue = !"incrementalUpdate".equals(name);
-            if (value == defaultValue) {
+            if (value == defaultOptimization(name)) {
                 root.withObject("launcher").remove(name);
             } else {
                 root.withObject("launcher").put(name, value);

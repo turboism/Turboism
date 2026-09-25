@@ -98,6 +98,58 @@ public interface CubismJvmSettingsService {
         return true;
     }
 
+    /**
+     * Launcher preference: when true the next managed Cubism launch enables
+     * the skipped-frame buffer-upload elision hook (content compare, still
+     * gated on skipped frames). On by default on every platform; an explicit
+     * false opts out. Takes effect on the next launch.
+     */
+    default boolean uploadElision() {
+        return false;
+    }
+
+    /** Persists the upload-elision preference; installation changes require restart. */
+    default boolean saveUploadElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: when true the next managed Cubism launch enables
+     * the input-path elision hook (redundant focus/cursor forwards are
+     * short-circuited before they reach the native query). The elided path
+     * only exists under Wine/Proton, so the unset default is on there and
+     * off on native Windows; an explicit value always wins. Takes effect on
+     * the next launch.
+     */
+    default boolean inputPathElision() {
+        return false;
+    }
+
+    /** Persists the input-path elision preference; installation changes require restart. */
+    default boolean saveInputPathElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: under the Linux/Proton launch path the unset
+     * default is on — {@code mesa_glthread=true} is exported and
+     * {@code -Dturboism.optimization.mesaGlThread=true} is added, so Mesa
+     * submits GL work from a dedicated thread while the deferred error-check
+     * hook keeps the shader helper's per-call {@code glGetError} from
+     * flushing it. The pair is one combined option — Mesa threading without
+     * deferred checking was measured a regression. On native Windows the
+     * unset default is off and launches ignore it entirely; an explicit
+     * value always wins. Requires Mesa. Takes effect on next launch.
+     */
+    default boolean mesaGlThread() {
+        return false;
+    }
+
+    /** Persists the mesa-gl-thread preference; installation changes require restart. */
+    default boolean saveMesaGlThread(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /** Persists the uniform-location cache preference; installation changes require restart. */
     default boolean saveUniformLocationCache(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");

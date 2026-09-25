@@ -3,6 +3,9 @@ package dev.turboism.shell;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
+import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionBridge;
+import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer;
+import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsActionHandle;
@@ -268,6 +271,89 @@ final class CubismJvmSettingsContribution {
             },
             true,
             82
+        );
+    }
+
+    /**
+     * Default-on: skips provably unchanged buffer uploads on frames where
+     * the model update was skipped (verified Editor versions only).
+     */
+    static SettingsContribution createUploadElisionToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "upload-elision",
+            "settings.optimization.upload-elision",
+            SkippedFrameUploadElisionBridge.ENABLE_PROPERTY,
+            settings::uploadElision,
+            value -> {
+                if (settings.saveUploadElision(value) != value) {
+                    throw new IllegalStateException("Upload-elision preference was not saved");
+                }
+                return value;
+            },
+            true,
+            83
+        );
+    }
+
+    /**
+     * Platform-defaulted: on under Wine/Proton, off on native Windows — the
+     * elided focus/cursor forwards exist only on the Wine input path. An
+     * explicit saved value always overrides the platform default.
+     */
+    static SettingsContribution createInputPathElisionToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "input-path-elision",
+            "settings.optimization.input-path-elision",
+            InputPathElisionBridge.ENABLE_PROPERTY,
+            settings::inputPathElision,
+            value -> {
+                if (settings.saveInputPathElision(value) != value) {
+                    throw new IllegalStateException("Input-path elision preference was not saved");
+                }
+                return value;
+            },
+            dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(),
+            84
+        );
+    }
+
+    /**
+     * Platform-defaulted, Linux/Mesa only: on under Wine/Proton the launch
+     * exports {@code mesa_glthread=true} and installs the deferred GL
+     * error-check hook so the shader helper's per-call {@code glGetError} no
+     * longer flushes the threaded submitter; off on native Windows, where
+     * launches ignore it entirely. An explicit saved value overrides the
+     * platform default.
+     */
+    static SettingsContribution createMesaGlThreadToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "mesa-gl-thread",
+            "settings.optimization.mesa-gl-thread",
+            DeferredGlErrorCheckTransformer.ENABLE_PROPERTY,
+            settings::mesaGlThread,
+            value -> {
+                if (settings.saveMesaGlThread(value) != value) {
+                    throw new IllegalStateException("Mesa GL-thread preference was not saved");
+                }
+                return value;
+            },
+            dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(),
+            85
         );
     }
 
