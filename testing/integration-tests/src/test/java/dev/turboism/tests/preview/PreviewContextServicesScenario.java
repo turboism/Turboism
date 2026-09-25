@@ -62,11 +62,16 @@ final class PreviewContextServicesScenario {
         final Path ready
     ) throws Exception {
         awaitReady(ready);
-        assertTrue(report.failures().isEmpty());
-        assertEquals(1, report.loaded().size());
-        assertEquals(PreviewContextServicesPluginJarFixture.PLUGIN_ID, report.loaded().get(0).id());
-        assertEquals("ENABLED", report.loaded().get(0).state().name());
-        assertEquals(PreviewContextServicesPluginJarFixture.EXPECTED_MARKER_VALUES, readMarker(ready));
+        final String diagnostics = " marker=" + readMarker(ready)
+            + " loaded=" + report.loaded()
+            + " failures=" + report.failures();
+        assertTrue(report.failures().isEmpty(), "failures must be empty;" + diagnostics);
+        assertEquals(1, report.loaded().size(), "exactly one loaded plugin;" + diagnostics);
+        assertEquals(PreviewContextServicesPluginJarFixture.PLUGIN_ID,
+            report.loaded().get(0).id(), "plugin id;" + diagnostics);
+        assertEquals("ENABLED", report.loaded().get(0).state().name(), "plugin state;" + diagnostics);
+        assertEquals(PreviewContextServicesPluginJarFixture.EXPECTED_MARKER_VALUES, readMarker(ready),
+            "marker values;" + diagnostics);
     }
 
     private static void close(
