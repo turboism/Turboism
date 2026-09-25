@@ -5,6 +5,7 @@ import java.util.Objects;
 /** Runtime-private target identity for the verified native label-color seam. */
 public record NativeLabelColorTarget(Palette palette, String objectId) {
 
+    /** The host palette an {@link NativeLabelColorTarget#objectId()} belongs to. */
     public enum Palette {
         PART,
         DEFORMER,

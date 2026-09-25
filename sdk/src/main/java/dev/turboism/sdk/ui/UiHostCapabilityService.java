@@ -22,14 +22,31 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public interface UiHostCapabilityService {
 
+    /**
+     * Registers a canvas overlay contribution. Closing the returned {@link Registration}
+     * removes the overlay.
+     */
     Registration contributeOverlay(OverlayContribution contribution);
 
+    /**
+     * Registers a bounding-box overlay button contribution. Closing the returned
+     * {@link Registration} removes the button.
+     */
     Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution);
 
+    /**
+     * Returns a snapshot of the typed source context that a host context-menu or UI
+     * invocation is currently attached to.
+     */
     ContextSourceSnapshot contextSource();
 
+    /** Returns an immutable reading of the modeling viewport at call time. */
     ViewportSnapshot viewport();
 
+    /**
+     * Opens a bounded runtime-rendered dialog described by {@code request}. Closing the
+     * returned {@link Registration} dismisses the dialog.
+     */
     Registration openDialog(DialogRequest request);
 
     /**
@@ -55,16 +72,16 @@ public interface UiHostCapabilityService {
         throw new UnsupportedOperationException("async choice dialogs are not available");
     }
 
-    /**
-     * Contributes a runtime-rendered panel owned by the calling plugin.
-     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
-     */
-
     /** Opens a bounded runtime-rendered single-choice dialog. */
     default Optional<String> choose(final ChoiceDialogRequest request) {
         throw new UnsupportedOperationException("choice dialogs are not available");
     }
 
+    /**
+     * Contributes a runtime-rendered panel owned by the calling plugin. Control action IDs
+     * resolve through that plugin's {@code ActionRegistry}; closing the returned
+     * {@link Registration} removes the panel.
+     */
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
     /**
@@ -111,6 +128,10 @@ public interface UiHostCapabilityService {
         throw new UnsupportedOperationException("collapsible-section contribution is unavailable");
     }
 
+    /**
+     * Shows the host file-selection dialog described by {@code request} and returns the chosen
+     * path text, or empty when the user cancelled.
+     */
     Optional<String> requestFile(FileChooserRequest request);
 
     /**
@@ -270,10 +291,22 @@ public interface UiHostCapabilityService {
         return ConditionalCanvasHint.whileTrue(scheduler, this, notification, condition);
     }
 
+    /**
+     * Contributes one context-menu entry. Closing the returned {@link Registration} removes
+     * the entry; see {@link ContextMenuRegistry#contribute}.
+     */
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);
 
+    /**
+     * Contributes one main-toolbar item. Closing the returned {@link Registration} removes
+     * the item.
+     */
     Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution);
 
+    /**
+     * Contributes one palette-toolbar item. Closing the returned {@link Registration} removes
+     * the item.
+     */
     Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution);
 
     /**
@@ -303,5 +336,94 @@ public interface UiHostCapabilityService {
      */
     default Registration contributePaletteFilter(PaletteFilterRegistry.PaletteFilterContribution contribution) {
         throw new UnsupportedOperationException("palette filter contribution is unavailable");
+    }
+
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static UiHostCapabilityService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}; and queries report empty results. */
+    enum Unavailable implements UiHostCapabilityService {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contributeOverlay(final OverlayContribution contribution) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeBoundingBoxOverlayButton(
+            final BoundingBoxOverlayButton contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public ContextSourceSnapshot contextSource() {
+            throw unavailable();
+        }
+
+        @Override public ViewportSnapshot viewport() {
+            throw unavailable();
+        }
+
+        @Override public Registration openDialog(final DialogRequest request) {
+            throw unavailable();
+        }
+
+        @Override public boolean confirmDialog(final DialogRequest request) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeEmbeddedPanel(
+            final EmbeddedPanelContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public Optional<String> requestFile(final FileChooserRequest request) {
+            return Optional.empty();
+        }
+
+        @Override public Registration notifyStatus(final StatusNotification notification) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeContextMenu(
+            final ContextMenuRegistry.ContextMenuContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributeMainToolbar(
+            final MainToolbarRegistry.MainToolbarContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        @Override public Registration contributePaletteToolbar(
+            final PaletteToolbarRegistry.PaletteToolbarContribution contribution
+        ) {
+            throw unavailable();
+        }
+
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("uiHost service is not available");
+        }
     }
 }

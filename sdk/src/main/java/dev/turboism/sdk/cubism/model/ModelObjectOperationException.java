@@ -6,6 +6,7 @@ import java.util.Objects;
 /** Stable failure classification for model-object automation. */
 public final class ModelObjectOperationException extends RuntimeException {
 
+    /** Stable failure classification callers should branch on instead of parsing messages. */
     public enum Code {
         UNAVAILABLE,
         NOT_FOUND,

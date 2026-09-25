@@ -147,6 +147,19 @@ val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
     }
 }
 
+val contractParentAgentTest by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Proves the restricted public event contract parent blocks boot-classpath framework classes under the real agent."
+    dependsOn(previewBundle, ":bootstrap:testClasses")
+    val bootstrapTests = project(":bootstrap").extensions.getByType<SourceSetContainer>().named("test")
+    classpath(bootstrapTests.map { it.output })
+    mainClass.set("dev.turboism.bootstrap.ContractParentVisibilityMain")
+    doFirst {
+        val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
+        setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
+    }
+}
+
 tasks.register("checkPreviewBundleLayout") {
     group = "verification"
     description = "Build and verify the minimum Turboism 0.1 preview bundle layout and probe package isolation."

@@ -1,0 +1,133 @@
+package dev.turboism.sdk.cubism.event;
+
+import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.event.TurboismEvent;
+
+import java.util.Objects;
+
+/** Typed states of the semantic ArtMesh geometry replacement event family. */
+public sealed interface DrawableGeometryEvent extends TurboismEvent
+    permits DrawableGeometryEvent.Before,
+            DrawableGeometryEvent.On,
+            DrawableGeometryEvent.After {
+
+    /** Returns the detached ArtMesh projection participating in the operation. */
+    Drawable drawable();
+
+    /** Synchronous state published before the host geometry replacement. */
+    final class Before implements DrawableGeometryEvent {
+        private final Drawable drawable;
+        private final ArtMeshGeometry requestedGeometry;
+        private final CallbackScope callbackScope;
+        private ArtMeshGeometry geometry;
+
+        public Before(
+            final Drawable drawable,
+            final ArtMeshGeometry requestedGeometry,
+            final ArtMeshGeometry geometry
+        ) {
+            this(drawable, requestedGeometry, geometry, null);
+        }
+
+        private Before(
+            final Drawable drawable,
+            final ArtMeshGeometry requestedGeometry,
+            final ArtMeshGeometry geometry,
+            final CallbackScope callbackScope
+        ) {
+            this.drawable = Objects.requireNonNull(drawable, "drawable");
+            this.requestedGeometry = Objects.requireNonNull(
+                requestedGeometry,
+                "requestedGeometry"
+            );
+            this.geometry = Objects.requireNonNull(geometry, "geometry");
+            this.callbackScope = callbackScope;
+        }
+
+        /** Opens a callback-scoped mutable candidate for the intercepted geometry edit. */
+        public static Callback openCallback(
+            final Drawable drawable,
+            final ArtMeshGeometry requestedGeometry,
+            final ArtMeshGeometry geometry
+        ) {
+            return new Callback(drawable, requestedGeometry, geometry);
+        }
+
+        @Override public Drawable drawable() { return drawable; }
+        /** Returns the geometry value originally requested by the write call. */
+        public ArtMeshGeometry requestedGeometry() { return requestedGeometry; }
+        /** Returns the candidate geometry value that will be applied. */
+        public ArtMeshGeometry geometry() { return geometry; }
+
+        /** Replaces the candidate geometry value for the current callback. */
+        public void setGeometry(final ArtMeshGeometry geometry) {
+            if (callbackScope != null) callbackScope.requireOpen();
+            this.geometry = Objects.requireNonNull(geometry, "geometry");
+        }
+
+        /** One Runtime-owned mutable callback scope. */
+        public static final class Callback implements AutoCloseable {
+            private final CallbackScope scope = new CallbackScope(Thread.currentThread());
+            private final Before event;
+
+            private Callback(
+                final Drawable drawable,
+                final ArtMeshGeometry requestedGeometry,
+                final ArtMeshGeometry geometry
+            ) {
+                event = new Before(drawable, requestedGeometry, geometry, scope);
+            }
+
+            /** Returns the mutable event while this callback scope remains open. */
+            public Before event() {
+                scope.requireOpen();
+                return event;
+            }
+
+            @Override public void close() { scope.close(); }
+        }
+
+        private static final class CallbackScope {
+            private final Thread ownerThread;
+            private boolean open = true;
+
+            private CallbackScope(final Thread ownerThread) { this.ownerThread = ownerThread; }
+
+            private void requireOpen() {
+                if (!open || Thread.currentThread() != ownerThread) {
+                    throw new IllegalStateException(
+                        "Drawable geometry before-event mutation is outside its callback scope."
+                    );
+                }
+            }
+
+            private void close() {
+                requireOpen();
+                open = false;
+            }
+        }
+    }
+
+    /** State published after a successful geometry replacement that changed the value. */
+    record On(
+        Drawable drawable,
+        ArtMeshGeometry oldGeometry,
+        ArtMeshGeometry newGeometry
+    ) implements DrawableGeometryEvent {
+        public On {
+            drawable = Objects.requireNonNull(drawable, "drawable");
+            oldGeometry = Objects.requireNonNull(oldGeometry, "oldGeometry");
+            newGeometry = Objects.requireNonNull(newGeometry, "newGeometry");
+        }
+    }
+
+    /** State published after every successful geometry replacement. */
+    record After(Drawable drawable, ArtMeshGeometry finalGeometry)
+        implements DrawableGeometryEvent {
+        public After {
+            drawable = Objects.requireNonNull(drawable, "drawable");
+            finalGeometry = Objects.requireNonNull(finalGeometry, "finalGeometry");
+        }
+    }
+}

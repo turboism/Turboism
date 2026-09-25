@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -220,6 +221,98 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         assertTrue(operations.workspace().isEmpty());
     }
 
+    @Test
+    void pairedReadResolvesTheControllerAndCurrentDocumentOnce() {
+        SyntheticDocument current = new SyntheticDocument(
+            new SyntheticFileContent(new File("C:/models/demo/current-model.cmo3"))
+        );
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(
+            new SyntheticProject("Demo", List.of(current)),
+            current,
+            new SyntheticMainFrame(new SyntheticDockWrapper(null))
+        );
+        SyntheticAppCtrl.instanceCalls.set(0);
+        SyntheticAppCtrl.currentDocumentCalls.set(0);
+        SyntheticDocument.fileContentCalls.set(0);
+        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
+            resolver(),
+            "5.3.02"
+        );
+
+        var pair = operations.activeProjectAndDocument();
+
+        assertEquals(1, SyntheticAppCtrl.instanceCalls.get(),
+            "one paired read must resolve the application controller once");
+        assertEquals(1, SyntheticAppCtrl.currentDocumentCalls.get(),
+            "one paired read must resolve the current document once");
+        assertEquals(1, SyntheticDocument.fileContentCalls.get(),
+            "the current document listed in the project must not be rebuilt");
+        assertTrue(pair.project().isPresent());
+        assertTrue(pair.document().isPresent());
+        assertEquals(
+            pair.document().orElseThrow().documentId(),
+            pair.project().orElseThrow().documents().get(0).documentId()
+        );
+    }
+
+    @Test
+    void contentDocumentJoinAppendsDocumentIdsInDocumentOrderWithoutDuplicates() {
+        final var contentA = new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "content-a", "A", dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+            Optional.empty(), List.of("doc-existing"), List.of()
+        );
+        final var contentB = new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "content-b", "B", dev.turboism.sdk.cubism.ProjectContentKind.OTHER,
+            Optional.empty(), List.of(), List.of()
+        );
+        final var document1 = new dev.turboism.sdk.cubism.DocumentSnapshot(
+            "doc-1", "One", "documents/doc-1/one.cmo3", Optional.empty(), Optional.empty(),
+            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
+        );
+        final var document2 = new dev.turboism.sdk.cubism.DocumentSnapshot(
+            "doc-2", "Two", "documents/doc-2/two.cmo3", Optional.empty(), Optional.empty(),
+            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
+        );
+        final var document3 = new dev.turboism.sdk.cubism.DocumentSnapshot(
+            "doc-existing", "Three", "documents/doc-existing/three.cmo3",
+            Optional.empty(), Optional.empty(),
+            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
+        );
+
+        final var joined = VerifiedProjectWorkspaceHostOperations.joinDocumentIds(
+            List.of(contentA, contentB),
+            List.of(document1, document2, document3)
+        );
+
+        assertEquals(
+            List.of("doc-existing", "doc-1", "doc-2"),
+            joined.get(0).documentIds(),
+            "document ids append in document order after the content's own ids, without duplicates"
+        );
+        assertEquals(List.of(), joined.get(1).documentIds());
+    }
+
+    @Test
+    void pairedReadKeepsTheDocumentHalfWhenTheProjectReadFails() {
+        SyntheticDocument document = new SyntheticDocument(
+            new SyntheticFileContent(new File("C:/models/demo/model.cmo3"))
+        );
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(
+            new SyntheticProject("Demo", List.of(document)),
+            document,
+            null
+        );
+        VerifiedProjectWorkspaceHostOperations operations = new VerifiedProjectWorkspaceHostOperations(
+            resolverWithout("cubism.project.documents"),
+            "5.3.02"
+        );
+
+        var pair = operations.activeProjectAndDocument();
+
+        assertTrue(pair.project().isEmpty());
+        assertTrue(pair.document().isPresent());
+    }
+
     private static VerifiedMemberResolver resolver() {
         return resolverWithout("");
     }
@@ -258,6 +351,10 @@ class VerifiedProjectWorkspaceHostOperationsTest {
 
     public static final class SyntheticAppCtrl {
         private static SyntheticAppCtrl instance;
+        private static final java.util.concurrent.atomic.AtomicInteger instanceCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
+        private static final java.util.concurrent.atomic.AtomicInteger currentDocumentCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
         private final SyntheticProject project;
         private final SyntheticDocument currentDocument;
         private final SyntheticMainFrame mainFrame;
@@ -277,9 +374,9 @@ class VerifiedProjectWorkspaceHostOperationsTest {
             this.currentDocument = currentDocument;
             this.mainFrame = mainFrame;
         }
-        public static SyntheticAppCtrl instance() { return instance; }
+        public static SyntheticAppCtrl instance() { instanceCalls.incrementAndGet(); return instance; }
         public SyntheticProject currentProject() { return project; }
-        public SyntheticDocument currentDocument() { return currentDocument; }
+        public SyntheticDocument currentDocument() { currentDocumentCalls.incrementAndGet(); return currentDocument; }
         public SyntheticMainFrame mainFrame() { return mainFrame; }
     }
 
@@ -292,9 +389,11 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         public List<SyntheticDocument> documents() { return documents; }
     }
     public static class SyntheticDocument {
+        private static final java.util.concurrent.atomic.AtomicInteger fileContentCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
         private SyntheticFileContent fileContent;
         SyntheticDocument(SyntheticFileContent fileContent) { this.fileContent = fileContent; }
-        public SyntheticFileContent fileContent() { return fileContent; }
+        public SyntheticFileContent fileContent() { fileContentCalls.incrementAndGet(); return fileContent; }
         public void setFileContent(SyntheticFileContent fileContent) { this.fileContent = fileContent; }
     }
     public record SyntheticFileContent(File file) { }

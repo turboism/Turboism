@@ -1,17 +1,25 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionManager;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider;
+import dev.turboism.adapter.cubism.edit.RuntimeEditSessionService;
+import dev.turboism.adapter.cubism.edit.VerifiedEditorEditSessionHost;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionService;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
+import dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider;
+import dev.turboism.adapter.cubism.warp.WarpMirrorRuntimeService;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryAction;
@@ -22,6 +30,7 @@ import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorService;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Canvas;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -48,6 +57,7 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -58,7 +68,8 @@ import java.util.Optional;
 /** Generation-bound natural model view over one verified Editor modeling document. */
 public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider {
+    RuntimeAuthoringTransactionProvider, RuntimeEditSessionProvider,
+    RuntimeWarpMirrorProvider, dev.turboism.adapter.cubism.BorrowedModelRelease {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -72,16 +83,24 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorMorphTargetAccess morphTargetAccess;
     private final EditorModelProfileAccess modelProfileAccess;
     private final EditorObjectReadAccess objectReadAccess;
+    private final EditorSelectionReadAccess selectionReadAccess;
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
     private final EditorPsdSnapshotAccess psdSnapshotAccess;
     private final VerifiedEditorAuthoringTransactionHost authoringHost;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final VerifiedEditorEditSessionHost editSessionHost;
+    private final RuntimeEditSessionManager editSessionManager;
     private final Object generationLock = new Object();
-    private String lazyPublishAttemptedIdentity;
-    private Object activeDocument;
-    private Object activeSource;
-    private Object activeModel;
+    /**
+     * Identity cache for generation tracking only. The bound values are held weakly so that a closed
+     * document, its model source and its model instance do not stay reachable for the whole life of this
+     * access instance; a cleared referent reads as "no previous binding", which is the same comparison
+     * result a different binding would produce anyway.
+     */
+    private WeakReference<Object> activeDocument;
+    private WeakReference<Object> activeSource;
+    private WeakReference<Object> activeModel;
     private long generation;
     private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
@@ -109,7 +128,21 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::authoringNativeBinding,
             this::authoringGeneration
         );
-        this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(authoringHost);
+        final java.util.concurrent.atomic.AtomicBoolean editScopeGate =
+            new java.util.concurrent.atomic.AtomicBoolean();
+        this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(
+            authoringHost,
+            editScopeGate
+        );
+        this.editSessionHost = new VerifiedEditorEditSessionHost(
+            resolver,
+            this::authoringNativeBinding,
+            this::authoringGeneration
+        );
+        this.editSessionManager = new RuntimeEditSessionManager(
+            editSessionHost,
+            editScopeGate
+        );
         this.combinedAccess = new EditorParameterCombinedAccess(
             resolver,
             this::requireCurrent,
@@ -142,7 +175,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator,
+            this::authoringParticipationBinding
         );
 
         this.documentReadAccess = new EditorDocumentReadAccess(
@@ -174,7 +209,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::requireCurrent,
             this.morphTargetAccess,
             this.evaluatedJoin,
-            this::lazyPublishOnce,
             this.hierarchyEditAccess,
             this.authoringCoordinator,
             this::authoringParticipationBinding
@@ -191,6 +225,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             () -> binding()
         );
+        this.selectionReadAccess = new EditorSelectionReadAccess(resolver);
 
     }
 
@@ -199,6 +234,71 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         return new RuntimeAuthoringTransactionService(
             authoringCoordinator,
             () -> authoringHost.binding(pluginId)
+        );
+    }
+
+    /**
+     * Whether this connection's verified evidence admits the live selection read.
+     * When false the snapshot seam reports an honest empty selection instead of
+     * reflecting into the Editor.
+     */
+    public boolean selectionReadAuthorized() {
+        return selectionReadAccess.authorized();
+    }
+
+    /**
+     * Reads the live Editor object selection for the session snapshot seam. Runs on the
+     * Editor host thread; failures propagate rather than masquerading as an empty
+     * selection.
+     */
+    public dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection readHostSelection() {
+        if (!selectionReadAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Editor selection reads require exact verified host evidence."
+            );
+        }
+        return EditorHostThread.dispatch("Cubism Selection", selectionReadAccess::currentSelection);
+    }
+
+    @Override
+    public WarpMirrorService warpMirrorService(final String pluginId) {
+        final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("pluginId must not be blank");
+        }
+        if (!resolver.authorizesFeature(
+            EditorWarpMirrorSelectorContract.ADAPTER_SLICE_ID,
+            EditorWarpMirrorSelectorContract.CAPABILITY_ID,
+            EditorWarpMirrorSelectorContract.REQUIRED_ALIASES
+        )) {
+            return WarpMirrorService.unavailable();
+        }
+        return new WarpMirrorRuntimeService(new EditorWarpMirrorAccess(
+            resolver,
+            objectReadAccess,
+            () -> {
+                final Binding value = binding();
+                return new EditorWarpMirrorAccess.NativeBinding(
+                    value.identity(), value.generation(), value.source(), value.model()
+                );
+            },
+            authoringCoordinator,
+            () -> authoringHost.binding(owner).orElseThrow(() ->
+                new IllegalStateException("Warp mirror authoring binding is unavailable."))
+        ));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.edit.EditSessionService editSessions(
+        final String pluginId,
+        final java.util.function.Supplier<Optional<dev.turboism.sdk.cubism.id.DocumentId>>
+            activeDocumentId
+    ) {
+        return new RuntimeEditSessionService(
+            editSessionManager,
+            editSessionHost,
+            pluginId,
+            activeDocumentId
         );
     }
 
@@ -375,66 +475,43 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         final Object source,
         final Object model
     ) {
+        final boolean changed;
+        final String identity;
         synchronized (generationLock) {
-            if (document != activeDocument || source != activeSource || model != activeModel) {
-                activeDocument = document;
-                activeSource = source;
-                activeModel = model;
+            if (document != cachedIdentity(activeDocument)
+                || source != cachedIdentity(activeSource)
+                || model != cachedIdentity(activeModel)) {
+                changed = generation != 0;
+                activeDocument = new WeakReference<>(document);
+                activeSource = new WeakReference<>(source);
+                activeModel = new WeakReference<>(model);
                 generation = Math.incrementExact(generation);
+            } else {
+                changed = false;
             }
-            return sessionIdentity + ":" + modelId + ":" + generation;
+            identity = sessionIdentity + ":" + modelId + ":" + generation;
         }
+        if (changed) releaseUnboundBorrowedModel();
+        return identity;
+    }
+
+    /** @return the cached identity, or {@code null} when it was never bound or has already been collected. */
+    private static Object cachedIdentity(final WeakReference<Object> cached) {
+        return cached == null ? null : cached.get();
     }
 
     /**
-     * Lazy best-effort publication of the current Editor document model, attempted at most
-     * once per binding identity. Called when the first evaluated read fails with
-     * MODEL_UNAVAILABLE; the mark is written under the generation lock (short critical
-     * section, no resolver invocation inside), the resolution and publish run outside it.
-     *
-     * <p>Resolution follows the same verified alias chain as the host connector's
-     * resolveBorrowedModel. Any missing value or resolution failure yields false: the
-     * original MODEL_UNAVAILABLE failure propagates and this identity is never retried.
-     * A new binding identity (document/model switch) may attempt again.</p>
+     * Drops borrowed Core state after a project close. Editor CModel identity cannot prove
+     * ownership of a Core CubismModel; a future verified acquisition path must rebind it.
      */
-    private boolean lazyPublishOnce(final String identity) {
-        synchronized (generationLock) {
-            if (identity.equals(lazyPublishAttemptedIdentity)) {
-                return false;
-            }
-            lazyPublishAttemptedIdentity = identity;
-        }
+    @Override
+    public void releaseUnboundBorrowedModel() {
         try {
-            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-            if (app == null) {
-                return false;
+            if (evaluatedJoin != null) {
+                evaluatedJoin.releaseBorrowedModelWhenIdle();
             }
-            final Object document = resolver.invoke(
-                "cubism.editor-model.app-controller.current-document", app
-            );
-            if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
-                return false;
-            }
-            final Object source = resolver.invoke(
-                "cubism.editor-model.modeling-document.model-source", document
-            );
-            if (source == null) {
-                return false;
-            }
-            final Object model = resolver.invoke(
-                "cubism.editor-model.model-source.current-instance", source
-            );
-            if (!resolver.isInstance("cubism.editor-model.model.class", model)) {
-                return false;
-            }
-            final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
-            final Object rawModelId = resolver.invoke("cubism.editor-model.guid.value", guid);
-            if (!(rawModelId instanceof String modelId) || modelId.isBlank()) {
-                return false;
-            }
-            return evaluatedJoin.tryPublish(model, sessionIdentity + ":" + modelId);
-        } catch (RuntimeException unavailable) {
-            return false;
+        } catch (RuntimeException releaseFailure) {
+            // A best-effort release must not break the project-file lifecycle listener.
         }
     }
 
@@ -1176,7 +1253,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
             return textureAccess.textures(identity, source, model);
         }
-        @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
+        @Override public Parameters parameters() { current(); return new EditorParameters(identity, source, model); }
         @Override public ParameterGroups parameterGroups() {
             current();
             return parameterGroupsAccess.groups(identity, source, model);
@@ -1243,9 +1320,11 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
     private final class EditorParameters implements Parameters {
         private final String identity;
+        private final Object source;
         private final Object model;
-        private EditorParameters(final String identity, final Object model) {
+        private EditorParameters(final String identity, final Object source, final Object model) {
             this.identity = identity;
+            this.source = source;
             this.model = model;
         }
         private void current() { requireCurrent(identity, model); }
@@ -1274,7 +1353,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 final ParameterId created = parameterStructureAccess.create(
-                    identity, activeSource, model, definition, folderId
+                    identity, source, model, definition, folderId
                 );
                 return new EditorParameter(identity, model, created);
             });
@@ -1284,7 +1363,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 final ParameterId copied = parameterStructureAccess.copy(
-                    identity, activeSource, model, id
+                    identity, source, model, id
                 );
                 return new EditorParameter(identity, model, copied);
             });
@@ -1293,7 +1372,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public void remove(final ParameterId id) {
             EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
-                parameterStructureAccess.remove(identity, activeSource, model, id);
+                parameterStructureAccess.remove(identity, source, model, id);
                 return null;
             });
         }
@@ -1310,7 +1389,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 final List<ParameterId> created = parameterStructureAccess.createMany(
-                    identity, activeSource, model, definitions, folderId
+                    identity, source, model, definitions, folderId
                 );
                 return created.stream()
                     .map(id -> (Parameter) new EditorParameter(identity, model, id))
@@ -1321,7 +1400,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public void removeMany(final List<ParameterId> ids) {
             EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
-                parameterStructureAccess.removeMany(identity, activeSource, model, ids);
+                parameterStructureAccess.removeMany(identity, source, model, ids);
                 return null;
             });
         }
@@ -1470,6 +1549,78 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         Objects.requireNonNull(value, name);
         if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
         return value;
+    }
+
+    /**
+     * Facade selection read (spec 046, T5): the host selection guid list translated to model
+     * object ids on the bound document. The read is gated by the
+     * {@code cubism.editor-model.edit.selection.get-selected-objects} capability row and every
+     * member it needs; when the row or any member is unverified — or no modeling document is
+     * bound — the snapshot reports an empty selection rather than failing.
+     *
+     * @return the selected object ids in host order; empty when unavailable or nothing selected
+     */
+    public List<String> selectedObjectIds() {
+        if (!resolver.authorizesFeature(
+            EditorEditSelectionSelectorContract.ADAPTER_SLICE_ID,
+            EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_CAPABILITY_ID,
+            EditorEditSelectionSelectorContract.GET_SELECTED_OBJECTS_REQUIRED_ALIASES
+        )) {
+            return List.of();
+        }
+        try {
+            final Object app = resolver.invokeStatic(
+                "cubism.editor-model.app-controller.instance");
+            final Object document = app == null ? null : resolver.invoke(
+                "cubism.editor-model.app-controller.current-document", app);
+            if (!resolver.isInstance(
+                "cubism.editor-model.modeling-document.class", document)) {
+                return List.of();
+            }
+            final Object source = resolver.invoke(
+                "cubism.editor-model.modeling-document.model-source", document);
+            final Object updateManager = resolver.invoke(
+                "cubism.editor-model.app-controller.update-manager", app);
+            if (source == null || updateManager == null) {
+                return List.of();
+            }
+            final Object raw = resolver.invoke(
+                "cubism.editor-model.update-manager.selection-guid-list", updateManager);
+            final java.util.Map<String, String> idByGuid = new java.util.HashMap<>();
+            for (final Object object : iterable(
+                resolver.invoke("cubism.editor-model.model-source.all-objects", source))) {
+                final String guid = nullableText(resolver.invoke(
+                    "cubism.editor-model.guid.value",
+                    resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-source.guid", object)));
+                final String id = nullableText(resolver.invoke(
+                    "cubism.editor-model.id.value",
+                    resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-source.id", object)));
+                if (guid != null && id != null) {
+                    idByGuid.put(guid, id);
+                }
+            }
+            final ArrayList<String> ids = new ArrayList<>();
+            for (final Object guid : iterable(raw)) {
+                final String id = idByGuid.get(
+                    nullableText(resolver.invoke("cubism.editor-model.guid.value", guid)));
+                if (id != null) {
+                    ids.add(id);
+                }
+            }
+            return List.copyOf(ids);
+        } catch (RuntimeException failure) {
+            return List.of();
+        }
+    }
+
+    private static Iterable<?> iterable(final Object value) {
+        return value instanceof Iterable<?> iterable ? iterable : List.of();
+    }
+
+    private static String nullableText(final Object value) {
+        return value instanceof String text && !text.isBlank() ? text : null;
     }
 
     record Binding(

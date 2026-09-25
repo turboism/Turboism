@@ -152,7 +152,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)
 - **Publisher:** Turboism Contributors
-- **Plugin license:** Project License (MIT repository code)
+- **Plugin license:** Project License (AGPL-3.0-only repository code)
 - **Plugin ID:** `dev.turboism.plugin.turboism-with-fx`
 - **fx:** An independent third-party program licensed under Apache License 2.0 and redistributed as a reviewed platform payload with its required notices.
 

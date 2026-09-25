@@ -386,6 +386,23 @@ class PreparedStoreTest(unittest.TestCase):
         self.assertEqual(first["digest"], second["digest"])
         self.assertEqual(1, len(list((self.store.root / "prepared").iterdir())))
 
+    def test_graphics_device_is_snapshotted_and_changes_the_prepared_digest(self) -> None:
+        digests = []
+        for device in ("inherit", "nvidia"):
+            request = {**self.request, "argv": [*self.request["argv"], "--graphics-device", device]}
+            prepared = self.prepared.capture(request, self.source, "test:5302")
+            command = self.prepared.command(prepared["digest"], self.base / "evidence")
+            self.assertEqual(device, command[command.index("--graphics-device") + 1])
+            digests.append(prepared["digest"])
+        self.assertNotEqual(*digests)
+
+    def test_unknown_graphics_device_cannot_enter_a_prepared_job(self) -> None:
+        for device in ("", "auto", "NVIDIA", "nvidia; false", "nvidia\nfalse"):
+            request = {**self.request, "argv": [*self.request["argv"], "--graphics-device", device]}
+            with self.assertRaises(queue.QueueError):
+                self.prepared.capture(request, self.source, "test:5302")
+        self.assertEqual([], self.store.jobs())
+
     def test_prepared_tampering_rejected(self) -> None:
         prepared = self.prepared.capture(self.request, self.source, "test:5302")
         command = self.prepared.command(prepared["digest"], self.base / "evidence")
@@ -476,6 +493,135 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "background/args-only"):
             self.prepared.capture({**self.request, "argv": ["--remote-pre-launch", str(fps)]}, self.source, "fps:5302")
 
+    def mcp_request(self):
+        client = self.preview / "mcp-host-validation-client.py"
+        client.write_text("# reviewed stdlib-client fixture, never executed\n")
+        return {"schemaVersion": 1, "environment": {}, "argv": [
+            "--name", "mcp", "--version", "5302", "--agent", str(self.input),
+            "--client-script", str(client) + ":mcp-host-validation-client.py",
+            "--client-python", str(Path(sys.executable).resolve()),
+            "--result-file", "state/mcp-host-validation.properties",
+            "--require-fixture-unchanged"]}
+
+    def test_mcp_client_snapshot_and_pinned_interpreter(self):
+        request = self.mcp_request()
+        descriptor = self.prepared.capture(request, self.source, "mcp:5302")
+        dependency = next(item for item in descriptor["hostDependencies"]
+                          if item["option"] == "mcp-client-python")
+        self.assertEqual(str(Path(sys.executable).resolve()), dependency["path"])
+        command = self.prepared.command(descriptor["digest"], self.base / "evidence")
+        frozen = Path(command[command.index("--client-script") + 1].split(":", 1)[0])
+        (self.preview / "mcp-host-validation-client.py").unlink()
+        self.assertTrue(frozen.read_text().startswith("# reviewed stdlib-client"))
+        self.assertEqual(descriptor, self.prepared.load(descriptor["digest"]))
+        self.assertEqual([], self.store.jobs())
+
+    def test_mcp_missing_duplicate_substituted_or_cross_task_inputs_are_rejected(self):
+        original = self.mcp_request()["argv"]
+        cases = []
+        for flag in ("--client-python", "--client-script", "--result-file"):
+            index = original.index(flag)
+            cases.append(original[:index] + original[index + 2:])
+            cases.append(original + original[index:index + 2])
+        cases.extend([
+            original + ["--remote-post-launch", str(self.input)],
+            original + ["--focus-editor-window"],
+            original + ["--version", "5203"],
+            [item for item in original if item != "--require-fixture-unchanged"],
+        ])
+        for flag, value in (("--client-python", str(self.input)),
+                            ("--client-script", str(self.input) + ":mcp-host-validation-client.py"),
+                            ("--client-script", str(self.preview / "mcp-host-validation-client.py") + ":other.py")):
+            changed = original.copy()
+            changed[changed.index(flag) + 1] = value
+            cases.append(changed)
+        for argv in cases:
+            with self.subTest(argv=argv), self.assertRaises(queue.QueueError):
+                self.prepared.capture({"schemaVersion": 1, "argv": argv}, self.source, "mcp:5302")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({"schemaVersion": 1, "argv": original}, self.source, "other:5302")
+        self.assertEqual([], list((self.store.root / "prepared").iterdir()))
+
+    def test_mcp_interpreter_drift_blocks_before_execution(self):
+        request = self.mcp_request()
+        interpreter = self.base / "test-python"
+        interpreter.write_bytes(b"synthetic interpreter, never executed")
+        interpreter.chmod(0o700)
+        request["argv"][request["argv"].index("--client-python") + 1] = str(interpreter)
+        with mock.patch.object(sys, "executable", str(interpreter)):
+            descriptor = self.prepared.capture(request, self.source, "mcp:5302")
+        interpreter.write_bytes(b"changed interpreter")
+        with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
+            self.prepared.command(descriptor["digest"], self.base / "evidence")
+
+    def memory_request(self):
+        directory = self.source / "scripts/test"
+        directory.mkdir(exist_ok=True)
+        names = ("measure-task-memory.py", "host_memory_identity.py", "host_resource_counters.py")
+        for name in (*names, "start-task-memory-observer.sh"):
+            (directory / name).write_text("# isolated inventory fixture, never executed\n")
+        argv = ["--name", "native-resource", "--version", "5302", "--agent", str(self.input),
+                "--remote-pre-launch", str(directory / "start-task-memory-observer.sh"),
+                "--remote-pre-launch-background", "--remote-pre-launch-arg", str(Path(sys.executable).resolve())]
+        for name in names:
+            argv.extend(["--home-file", str(directory / name) + ":validation/" + name])
+        return {"schemaVersion": 1, "argv": argv, "environment": {}}
+
+    def test_memory_closure_frozen_and_interpreter_recorded(self):
+        request = self.memory_request()
+        descriptor = self.prepared.capture(request, self.source, "native-resource:5302")
+        dependency = next(item for item in descriptor["hostDependencies"] if item["option"] == "memory-observer-python")
+        self.assertEqual(str(Path(sys.executable).resolve()), dependency["path"])
+        command = self.prepared.command(descriptor["digest"], self.base / "evidence")
+        frozen = [Path(command[i + 1].split(":", 1)[0]) for i, value in enumerate(command) if value == "--home-file"]
+        self.assertEqual(3, len(frozen))
+        for path in (self.source / "scripts/test").iterdir():
+            path.unlink()
+        self.assertTrue(all(path.read_text().startswith("# isolated inventory") for path in frozen))
+        self.assertEqual(descriptor, self.prepared.load(descriptor["digest"]))
+        frozen[0].chmod(0o600)
+        frozen[0].write_text("tampered")
+        with self.assertRaisesRegex(queue.QueueError, "digest mismatch"):
+            self.prepared.command(descriptor["digest"], self.base / "evidence")
+        self.assertEqual([], self.store.jobs())
+
+    def test_memory_missing_shadowed_substituted_or_wrong_protocol_rejected(self):
+        original = self.memory_request()["argv"]
+        helper = original.index("--home-file")
+        cases = [original[:helper] + original[helper + 2:],
+                 original + original[helper:helper + 2],
+                 original + ["--home-dir", str(self.source) + ":validation"],
+                 original + ["--remote-pre-launch-args-only"],
+                 original + ["--remote-pre-launch", str(self.source / "scripts/test/start-task-memory-observer.sh")],
+                 original + ["--remote-pre-launch-arg", "extra"],
+                 original + ["--version", "5203"],
+                 original + ["--remote-post-launch", str(self.input)],
+                 [item for item in original if item != "--remote-pre-launch-background"]]
+        substitute = original.copy()
+        substitute[helper + 1] = str(self.input) + ":validation/measure-task-memory.py"
+        cases.append(substitute)
+        alternate = original.copy()
+        alternate[alternate.index("--remote-pre-launch-arg") + 1] = str(self.input)
+        cases.append(alternate)
+        for argv in cases:
+            with self.subTest(argv=argv), self.assertRaises(queue.QueueError):
+                self.prepared.capture({"schemaVersion": 1, "argv": argv}, self.source, "native-resource:5302")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({"schemaVersion": 1, "argv": original}, self.source, "other:5302")
+        self.assertEqual([], list((self.store.root / "prepared").iterdir()))
+
+    def test_memory_interpreter_drift_rejected_without_touching_system_python(self):
+        request = self.memory_request()
+        interpreter = self.base / "test-python"
+        interpreter.write_bytes(b"synthetic interpreter, never executed")
+        interpreter.chmod(0o700)
+        request["argv"][request["argv"].index("--remote-pre-launch-arg") + 1] = str(interpreter)
+        with mock.patch.object(sys, "executable", str(interpreter)):
+            descriptor = self.prepared.capture(request, self.source, "native-resource:5302")
+        interpreter.write_bytes(b"changed interpreter")
+        with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
+            self.prepared.command(descriptor["digest"], self.base / "evidence")
+
     def test_reviewed_environment_language_hook_is_admitted(self) -> None:
         hook = self.preview / "host-locale-environment-language-hook.sh"
         hook.write_text("# reviewed hook fixture, never executed\n")
@@ -506,11 +652,61 @@ class PreparedStoreTest(unittest.TestCase):
                 {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
                 self.source, "host-locale:5302")
 
+    def test_reviewed_plugin_management_restart_hook_is_admitted(self) -> None:
+        hook = self.preview / "plugin-management-restart-remote-pre-launch.sh"
+        hook.write_text("# reviewed hook fixture, never executed\n")
+        # The reviewed protocol is the hook plus its staged state input: without
+        # --home-dir the hook has no pending journal to rebind and fails closed.
+        with self.assertRaisesRegex(queue.QueueError, "staged state"):
+            self.prepared.capture(
+                {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(hook)]},
+                self.source, "plugin-management-direct-jar-restart:5302")
+        state = self.base / "restart-state-source"
+        state.mkdir()
+        prepared = self.prepared.capture(
+            {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(hook),
+                                       "--home-dir", str(state) + ":restart-state"]},
+            self.source, "plugin-management-direct-jar-restart:5302")
+        names = sorted(Path(entry["source"]).name for entry in prepared["sourceInputs"])
+        self.assertEqual(["input with spaces.jar", "plugin-management-restart-remote-pre-launch.sh",
+                          "restart-state-source"], names)
+        # The same file name is not an approval outside scripts/preview.
+        outside = self.base / hook.name
+        outside.write_text("# unreviewed copy\n")
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture(
+                {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(outside),
+                                           "--home-dir", str(state) + ":restart-state"]},
+                self.source, "plugin-management-direct-jar-restart:5302")
+    def test_reviewed_pointer_observer_hook_is_admitted_with_full_protocol(self) -> None:
+        observer = self.preview / "history-pointer-observer.py"
+        observer.write_text("# reviewed read-only pointer collector fixture\n")
+        argv = ["--remote-pre-launch", str(observer),
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+                "--remote-pre-launch-arg", "--task-id", "--remote-pre-launch-arg", "{TASK_ID}"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "test:5302")
+        staged = [entry["path"] for entry in prepared["sourceInputs"]]
+        self.assertTrue(any(path.endswith("history-pointer-observer.py") for path in staged))
+
+    def test_pointer_observer_hook_requires_task_id_protocol(self) -> None:
+        observer = self.preview / "history-pointer-observer.py"
+        observer.write_text("# reviewed read-only pointer collector fixture\n")
+        with self.assertRaisesRegex(queue.QueueError, "task-id protocol"):
+            self.prepared.capture({**self.request, "argv": [
+                "--remote-pre-launch", str(observer),
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only"]},
+                self.source, "test:5302")
+        with self.assertRaisesRegex(queue.QueueError, "task-id protocol"):
+            self.prepared.capture({**self.request, "argv": [
+                "--remote-pre-launch", str(observer),
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+                "--remote-pre-launch-arg", "{TASK_ID}"]}, self.source, "test:5302")
+
     def test_real_runner_prepare_snapshot_and_replay_are_host_side_effect_free(self) -> None:
         tools = Path(__file__).resolve().parents[1] / "preview"
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "fps-resize-driver.sh",
-                     "host_validation.py", "host_validation_queue.py",
+                     "host_validation.py", "host_validation_queue.py", "host_validation_retention.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
         fixture = self.base / "fixture.cmo3"
@@ -547,6 +743,9 @@ class PreparedStoreTest(unittest.TestCase):
             f"q.account_root = lambda: Path({str(self.store.root)!r})\n")
         client_env = {key: value for key, value in env.items() if not key.startswith("TURBOISM_QUEUE_")}
         client_env["PYTHONPATH"] = os.pathsep.join((str(injection), str(self.preview)))
+        # This isolated interpreter resolves the account root to its tiny test queue;
+        # use a test-sized storage reserve, never alter the production policy.
+        queue.atomic_json(self.store.root / "retention-policy.json", {"minFreeGiB": 0.001})
         context = multiprocessing.get_context("spawn")
         stop = context.Event()
         worker = context.Process(target=worker_process, args=(str(self.store.root), stop, 1))

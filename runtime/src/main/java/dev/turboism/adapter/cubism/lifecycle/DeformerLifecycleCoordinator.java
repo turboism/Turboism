@@ -2,12 +2,12 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.event.cubism.DeformerLockEvent;
-import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
-import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
-import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.cubism.event.DeformerLockEvent;
+import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
+import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerBaseAngleEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerFormEvent;
+import dev.turboism.sdk.cubism.event.WarpDeformerGridEvent;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.RotationDeformer;

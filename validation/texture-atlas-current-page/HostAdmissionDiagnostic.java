@@ -8,7 +8,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.ProtectionDomain;
 import java.util.HashSet;
 import java.util.Set;
-import org.objectweb.asm.*;
+import dev.turboism.agent.shaded.asm.*;
 
 /** Test-only observation of swallowed admission exceptions; never changes a decision or launches a host. */
 public final class HostAdmissionDiagnostic {

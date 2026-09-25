@@ -36,6 +36,55 @@ class PluginManagerScopeLifecycleTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
 
     @Test
+    void linkageFailureStillClosesOtherEntrypointsScopeAndSettlesDisable() throws Exception {
+        final RuntimeScheduler scheduler = scheduler(5_000L, 4);
+        final PluginManager manager = new PluginManager(scheduler);
+        final DisposableScope scope = new DisposableScope();
+        final AtomicBoolean scopeClosed = registerCloseProbe(scope);
+        final AtomicInteger remaining = new AtomicInteger();
+        final PluginRuntime runtime = runtime(List.of(new CountOnlyDisablePlugin(remaining), new TurboismPlugin() {
+            @Override public void disable() { throw new NoClassDefFoundError("missing-test-dependency"); }
+        }));
+        runtime.setContext(PluginManagerTestFixtures.context(scope));
+        manager.registerDescriptor(runtime);
+        try {
+            assertEquals(PluginLifecycleState.DISABLE_FAILED,
+                manager.disable(PLUGIN_ID).toCompletableFuture().get(2, TimeUnit.SECONDS));
+            assertEquals(1, remaining.get());
+            assertTrue(scopeClosed.get());
+            assertEquals(PluginLifecycleState.DISABLE_FAILED,
+                manager.disable(PLUGIN_ID).toCompletableFuture().get(1, TimeUnit.SECONDS));
+        } finally {
+            scope.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void fatalDisableFailureSettlesExceptionallyAfterOtherCleanup() throws Exception {
+        final RuntimeScheduler scheduler = scheduler(5_000L, 4);
+        final PluginManager manager = new PluginManager(scheduler);
+        final DisposableScope scope = new DisposableScope();
+        final AtomicBoolean scopeClosed = registerCloseProbe(scope);
+        final StackOverflowError fatal = new StackOverflowError("injected-test-fatal");
+        final PluginRuntime runtime = runtime(new TurboismPlugin() {
+            @Override public void disable() { throw fatal; }
+        });
+        runtime.setContext(PluginManagerTestFixtures.context(scope));
+        manager.registerDescriptor(runtime);
+        try {
+            final ExecutionException failure = assertThrows(ExecutionException.class,
+                () -> manager.disable(PLUGIN_ID).toCompletableFuture().get(2, TimeUnit.SECONDS));
+            assertSame(fatal, failure.getCause());
+            assertTrue(scopeClosed.get());
+            assertEquals(PluginLifecycleState.DISABLE_FAILED, runtime.state());
+        } finally {
+            scope.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
     void enableFailureClosesPluginDisposableScope() throws Exception {
         // Given
         RuntimeScheduler scheduler = scheduler();

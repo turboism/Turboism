@@ -26,7 +26,14 @@ import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.model.AnimationAttribute;
+import dev.turboism.sdk.cubism.model.AnimationAttributeKind;
+import dev.turboism.sdk.cubism.model.AnimationCurveType;
 import dev.turboism.sdk.cubism.model.AnimationDocument;
+import dev.turboism.sdk.cubism.model.AnimationKeyframe;
+import dev.turboism.sdk.cubism.model.AnimationScene;
+import dev.turboism.sdk.cubism.model.AnimationTrack;
+import dev.turboism.sdk.cubism.model.AnimationTrackKind;
 import dev.turboism.sdk.cubism.model.AutoYure;
 import dev.turboism.sdk.cubism.model.ModelProfile;
 import dev.turboism.sdk.cubism.model.MorphTargets;
@@ -337,7 +344,9 @@ class DynamicCubismModelAccessTest {
         assertSame(recording.profile, model.profile());
         assertSame(recording.physics, model.physicsSettings());
         assertSame(recording.autoYure, model.autoYure());
-        assertEquals(List.of(recording.animation), model.animationDocuments());
+        final List<AnimationDocument> sessionAnimations = model.animationDocuments();
+        assertEquals(1, sessionAnimations.size());
+        assertEquals("AnimA", sessionAnimations.get(0).animationName());
         final var sessionTextures = model.textures();
         assertEquals(recording.textures.rawImages(), sessionTextures.rawImages());
         assertSame(
@@ -354,6 +363,8 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, model::physicsSettings);
         assertThrows(IllegalStateException.class, model::autoYure);
         assertThrows(IllegalStateException.class, model::animationDocuments);
+        assertThrows(IllegalStateException.class,
+            sessionAnimations.get(0)::animationName);
         assertThrows(IllegalStateException.class, model::textures);
         assertThrows(IllegalStateException.class, () -> model.parts().find(
             new PartId("PartReturned")
@@ -361,6 +372,339 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, () -> model.drawables().find(
             new ArtMeshId("ArtMeshA")
         ).morphTargets());
+    }
+
+    @Test
+    void sessionAnimationGraphGuardsEveryLevelByGeneration() {
+        final List<String> calls = new ArrayList<>();
+        final CubismModel backend = animationGraphModel(calls);
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        access.connect(() -> backend);
+
+        final CubismModel model = access.active();
+        final List<AnimationDocument> documents = model.animationDocuments();
+        final AnimationDocument document = documents.get(0);
+        final List<AnimationScene> scenes = document.scenes();
+        final AnimationScene scene = scenes.get(0);
+        final AnimationTrack modelTrack = scene.tracks().get(0);
+        final AnimationTrack groupTrack = scene.tracks().get(1);
+        final AnimationTrack childTrack = groupTrack.children().get(0);
+        final List<AnimationAttribute> attributes = childTrack.attributes();
+        final AnimationAttribute attribute = attributes.get(0);
+        assertEquals("AnimDoc", document.animationName());
+        assertEquals("SceneA", scene.name());
+        assertEquals("track-model", modelTrack.name());
+        assertEquals("track-child", childTrack.name());
+        assertEquals("attr-leaf", attribute.id());
+        scene.rename("Renamed");
+        scene.seekTo(12);
+        attribute.setKeyframe(5, 0.5);
+        attribute.offsetKeyframes(3);
+        attribute.removeKeyframe(60);
+        assertEquals(List.of(
+            "model.animationDocuments",
+            "doc.scenes",
+            "scene.tracks",
+            "scene.tracks",
+            "track.children",
+            "track.attributes",
+            "doc.animationName",
+            "scene.name",
+            "track.name",
+            "track.name",
+            "attr.id",
+            "scene.rename",
+            "scene.seekTo",
+            "attr.setKeyframe",
+            "attr.offsetKeyframes",
+            "attr.removeKeyframe"
+        ), calls);
+
+        calls.clear();
+        access.deactivate();
+
+        assertThrows(IllegalStateException.class, model::animationDocuments);
+        assertThrows(IllegalStateException.class, document::animationName);
+        assertThrows(IllegalStateException.class, document::sceneNames);
+        assertThrows(IllegalStateException.class, document::scenes);
+        assertThrows(IllegalStateException.class, scene::name);
+        assertThrows(IllegalStateException.class, scene::tracks);
+        assertThrows(IllegalStateException.class, scene::playheadFrame);
+        assertThrows(IllegalStateException.class, () -> scene.rename("x"));
+        assertThrows(IllegalStateException.class, () -> scene.seekTo(0));
+        assertThrows(IllegalStateException.class, modelTrack::name);
+        assertThrows(IllegalStateException.class, modelTrack::attributes);
+        assertThrows(IllegalStateException.class, groupTrack::children);
+        assertThrows(IllegalStateException.class, childTrack::attributes);
+        assertThrows(IllegalStateException.class, attribute::id);
+        assertThrows(IllegalStateException.class, attribute::keyframes);
+        assertThrows(IllegalStateException.class, () -> attribute.setKeyframe(6, 0.5));
+        assertThrows(IllegalStateException.class, () -> attribute.offsetKeyframes(1));
+        assertThrows(IllegalStateException.class,
+            () -> attribute.copyKeyframesFrom(attribute, false));
+        assertEquals(List.of(), calls);
+    }
+
+    @Test
+    void sessionAnimationCopyRejectsStaleAndForeignSources() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        access.connect(() -> animationGraphModel(new ArrayList<>()));
+        final AnimationAttribute staleSource = access.active().animationDocuments().get(0)
+            .scenes().get(0).tracks().get(1).children().get(0).attributes().get(0);
+
+        final List<String> calls = new ArrayList<>();
+        access.connect(() -> animationGraphModel(calls));
+        final AnimationAttribute target = access.active().animationDocuments().get(0)
+            .scenes().get(0).tracks().get(1).children().get(0).attributes().get(0);
+        final AnimationAttribute sameGeneration = access.active().animationDocuments().get(0)
+            .scenes().get(0).tracks().get(0).attributes().get(0);
+        final AnimationAttribute foreign = rawAnimationAttribute("foreign");
+
+        final List<String> foreignCalls = new ArrayList<>();
+        final DynamicCubismModelAccess foreignAccess = new DynamicCubismModelAccess();
+        foreignAccess.connect(() -> animationGraphModel(foreignCalls));
+        // Align the captured generation number with the target session so only
+        // ownership, not the numeric generation, can reject this source.
+        foreignAccess.connect(() -> animationGraphModel(foreignCalls));
+        final AnimationAttribute foreignAccessSource = foreignAccess.active()
+            .animationDocuments().get(0).scenes().get(0).tracks().get(1)
+            .children().get(0).attributes().get(0);
+        calls.clear();
+        foreignCalls.clear();
+
+        assertThrows(IllegalStateException.class,
+            () -> target.copyKeyframesFrom(staleSource, false));
+        assertThrows(IllegalStateException.class,
+            () -> target.copyKeyframesFrom(foreign, false));
+
+        // A source from a different DynamicCubismModelAccess is not owned by
+        // this session even when both captured the same generation number;
+        // it must be rejected without touching either backend.
+        assertThrows(IllegalStateException.class,
+            () -> target.copyKeyframesFrom(foreignAccessSource, false));
+        foreignAccess.deactivate();
+        assertThrows(IllegalStateException.class,
+            () -> target.copyKeyframesFrom(foreignAccessSource, false));
+
+        assertThrows(NullPointerException.class,
+            () -> target.copyKeyframesFrom(null, false));
+
+        assertEquals(0, target.copyKeyframesFrom(sameGeneration, false));
+        assertEquals(List.of("attr.copyKeyframesFrom"), calls);
+        assertEquals(List.of(), foreignCalls);
+    }
+
+    private static CubismModel animationGraphModel(final List<String> calls) {
+        final AnimationAttribute leaf = animationAttribute("attr-leaf", calls);
+        final AnimationTrack childTrack = animationTrack(
+            "track-child", AnimationTrackKind.IMAGE, List.of(), List.of(leaf), calls
+        );
+        final AnimationTrack modelTrack = animationTrack(
+            "track-model", AnimationTrackKind.LIVE2D_MODEL,
+            List.of(), List.of(animationAttribute("attr-model", calls)), calls
+        );
+        final AnimationTrack groupTrack = animationTrack(
+            "track-group", AnimationTrackKind.GROUP, List.of(childTrack), List.of(), calls
+        );
+        final AnimationScene scene = new AnimationScene() {
+            @Override public String name() {
+                calls.add("scene.name");
+                return "SceneA";
+            }
+            @Override public String guid() { return "scene-guid"; }
+            @Override public Optional<String> tag() { return Optional.empty(); }
+            @Override public java.util.Map<Integer, String> markers() {
+                return java.util.Map.of();
+            }
+            @Override public int startFrame() { return 0; }
+            @Override public int durationFrames() { return 120; }
+            @Override public double framesPerSecond() { return 30.0; }
+            @Override public int width() { return 100; }
+            @Override public int height() { return 100; }
+            @Override public boolean loopMotion() { return false; }
+            @Override public int workspaceStartFrame() { return 0; }
+            @Override public int workspaceEndFrame() { return 60; }
+            @Override public List<AnimationTrack> tracks() {
+                calls.add("scene.tracks");
+                return List.of(modelTrack, groupTrack);
+            }
+            @Override public int playheadFrame() {
+                calls.add("scene.playheadFrame");
+                return 7;
+            }
+            @Override public void seekTo(final int frame) {
+                calls.add("scene.seekTo");
+            }
+            @Override public boolean current() { return true; }
+            @Override public void activate() { calls.add("scene.activate"); }
+            @Override public AnimationCurveType defaultCurveType() {
+                return AnimationCurveType.LINEAR;
+            }
+            @Override public void setDefaultCurveType(final AnimationCurveType curveType) {
+                calls.add("scene.setDefaultCurveType");
+            }
+            @Override public void rename(final String name) {
+                calls.add("scene.rename");
+            }
+        };
+        final AnimationDocument document = new AnimationDocument() {
+            @Override public String animationName() {
+                calls.add("doc.animationName");
+                return "AnimDoc";
+            }
+            @Override public int sceneCount() { return 1; }
+            @Override public Optional<String> currentSceneName() {
+                return Optional.of("SceneA");
+            }
+            @Override public List<String> sceneNames() {
+                calls.add("doc.sceneNames");
+                return List.of("SceneA");
+            }
+            @Override public List<AnimationScene> scenes() {
+                calls.add("doc.scenes");
+                return List.of(scene);
+            }
+        };
+        return new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-anim"); }
+            @Override public Parameters parameters() { throw unsupported(); }
+            @Override public Parts parts() { throw unsupported(); }
+            @Override public Drawables drawables() { throw unsupported(); }
+            @Override public Deformers deformers() { throw unsupported(); }
+            @Override public Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+            @Override public List<AnimationDocument> animationDocuments() {
+                calls.add("model.animationDocuments");
+                return List.of(document);
+            }
+        };
+    }
+
+    private static AnimationTrack animationTrack(
+        final String name,
+        final AnimationTrackKind kind,
+        final List<AnimationTrack> children,
+        final List<AnimationAttribute> attributes,
+        final List<String> calls
+    ) {
+        return new AnimationTrack() {
+            @Override public String guid() { return name + "-guid"; }
+            @Override public String name() {
+                calls.add("track.name");
+                return name;
+            }
+            @Override public AnimationTrackKind kind() { return kind; }
+            @Override public int startFrame() { return 0; }
+            @Override public int durationFrames() { return 60; }
+            @Override public List<Integer> keyframeFrames() { return List.of(); }
+            @Override public boolean visible() { return true; }
+            @Override public boolean editable() { return true; }
+            @Override public boolean muted() { return false; }
+            @Override public boolean repeat() { return false; }
+            @Override public List<AnimationTrack> children() {
+                calls.add("track.children");
+                return children;
+            }
+            @Override public List<AnimationAttribute> attributes() {
+                calls.add("track.attributes");
+                return attributes;
+            }
+            @Override public Optional<String> linkedModelGuid() { return Optional.empty(); }
+            @Override public Optional<String> linkedSceneGuid() { return Optional.empty(); }
+        };
+    }
+
+    private static AnimationAttribute animationAttribute(
+        final String id,
+        final List<String> calls
+    ) {
+        return new AnimationAttribute() {
+            @Override public String id() {
+                calls.add("attr.id");
+                return id;
+            }
+            @Override public String name() { return id; }
+            @Override public String guid() { return id + "-guid"; }
+            @Override public String effectId() { return "effect-param"; }
+            @Override public Optional<ParameterId> parameterId() {
+                return Optional.of(new ParameterId("ParamAngleX"));
+            }
+            @Override public AnimationAttributeKind kind() {
+                return AnimationAttributeKind.FLOAT;
+            }
+            @Override public boolean active() { return true; }
+            @Override public boolean editable() { return true; }
+            @Override public List<AnimationKeyframe> keyframes() {
+                calls.add("attr.keyframes");
+                return List.of();
+            }
+            @Override public void setKeyframe(final int frame, final double value) {
+                calls.add("attr.setKeyframe");
+            }
+            @Override public void setKeyframe(
+                final int frame,
+                final double value,
+                final AnimationCurveType curveType
+            ) {
+                calls.add("attr.setKeyframeCurve");
+            }
+            @Override public void setKeyframe(final int frame, final float x, final float y) {
+                calls.add("attr.setKeyframePoint");
+            }
+            @Override public void removeKeyframe(final int frame) {
+                calls.add("attr.removeKeyframe");
+            }
+            @Override public int offsetKeyframes(final int frameDelta) {
+                calls.add("attr.offsetKeyframes");
+                return 0;
+            }
+            @Override public int scaleKeyframeTimes(final double factor, final int originFrame) {
+                calls.add("attr.scaleKeyframeTimes");
+                return 0;
+            }
+            @Override public int quantizeKeyframes(final int stepFrames) {
+                calls.add("attr.quantizeKeyframes");
+                return 0;
+            }
+            @Override public int copyKeyframesFrom(
+                final AnimationAttribute source,
+                final boolean replace
+            ) {
+                calls.add("attr.copyKeyframesFrom");
+                return 0;
+            }
+            @Override public int applyCurveType(final AnimationCurveType curveType) {
+                calls.add("attr.applyCurveType");
+                return 0;
+            }
+            @Override public int applyCurveType(
+                final AnimationCurveType curveType,
+                final int fromFrame,
+                final int toFrame
+            ) {
+                calls.add("attr.applyCurveTypeRange");
+                return 0;
+            }
+            @Override public void recordKeyframe(
+                final int frame,
+                final AnimationCurveType curveType
+            ) {
+                calls.add("attr.recordKeyframe");
+            }
+            @Override public int bakeEvaluated(
+                final int fromFrame,
+                final int toFrame,
+                final int stepFrames,
+                final AnimationCurveType curveType
+            ) {
+                calls.add("attr.bakeEvaluated");
+                return 0;
+            }
+        };
+    }
+
+    private static AnimationAttribute rawAnimationAttribute(final String id) {
+        return animationAttribute(id, new ArrayList<>());
     }
 
     private static CubismModel modelWithDrawable(final Drawable drawable) {

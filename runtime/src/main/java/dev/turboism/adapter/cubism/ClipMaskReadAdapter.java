@@ -19,16 +19,47 @@ public interface ClipMaskReadAdapter {
     String CAPABILITY_ID = "cubism.clipmask.read";
     String ADAPTER_SLICE_ID = "adapter.clipmask.readonly";
 
+    /**
+     * Reads the current clip-mask snapshot list from the host.
+     *
+     * @return an available result carrying the observed snapshots, or an unavailable
+     *         result whose diagnostic says why the host could not be read; never null
+     */
     AdapterResult<List<ClipMaskSnapshot>> clipMasks();
 
+    /**
+     * The raw host call surface this adapter guards.
+     *
+     * <p>Implementations talk to the real Editor; callers must go through
+     * {@link ClipMaskReadAdapter} so version and capability checks are applied and
+     * host failures become diagnostics instead of exceptions.</p>
+     */
     interface HostOperations {
+        /**
+         * @return the host application version string used for the reviewed-version check
+         */
         String hostVersion();
 
+        /**
+         * @return {@code true} when this host exposes the clip-mask read surface
+         */
         boolean supportsClipMaskRead();
 
+        /**
+         * @return the clip-mask snapshots observed on the host; may be empty, never null
+         * @throws AdapterHostException when the host call fails with a known diagnostic
+         */
         List<ClipMaskSnapshot> clipMasks();
     }
 
+    /**
+     * The outcome of one guarded adapter read: either the observed {@code value} or the
+     * {@link SafeModeDiagnostic} explaining why it is absent.
+     *
+     * @param value the observed value, empty when the read was unavailable; never null
+     * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
+     * @param <T> the observed value type
+     */
     record AdapterResult<T>(
         Optional<T> value,
         Optional<SafeModeDiagnostic> diagnostic
@@ -74,6 +105,17 @@ public interface ClipMaskReadAdapter {
         }
     }
 
+    /**
+     * Guarded implementation of {@link ClipMaskReadAdapter}.
+     *
+     * <p>Every read checks the reviewed host version and the clip-mask capability before
+     * issuing the clip-mask data read — the gate itself already calls
+     * {@link HostOperations#hostVersion()} and
+     * {@link HostOperations#supportsClipMaskRead()}, so admission gates the data read, not
+     * all host access. Observed lists are copied defensively, and
+     * {@link AdapterHostException} and unexpected runtime failures become unavailable
+     * results.</p>
+     */
     final class Impl implements ClipMaskReadAdapter {
         private final Optional<HostOperations> host;
 

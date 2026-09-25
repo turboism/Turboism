@@ -46,10 +46,24 @@ public interface AutoBackupAdapter {
      */
     File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
 
+    /**
+     * An adapter for when no host auto-backup manager is attached.
+     *
+     * @return the fail-closed adapter whose every operation throws
+     *         {@link UnsupportedOperationException}
+     */
     static AutoBackupAdapter safeMode() {
         return SafeMode.INSTANCE;
     }
 
+    /**
+     * An adapter that dispatches every operation onto the host UI thread and delegates to
+     * the given verified host operations.
+     *
+     * @param host the exact-version verified host operations, non-null
+     * @return an adapter bound to that host
+     * @throws NullPointerException if {@code host} is null
+     */
     static AutoBackupAdapter connected(final HostOperations host) {
         Objects.requireNonNull(host, "host");
         return new VerifiedDispatchAutoBackupAdapter(host);
@@ -82,12 +96,26 @@ public interface AutoBackupAdapter {
     /** Exact-version verified primitive host operations (no dispatch, no orchestration). */
     interface HostOperations {
 
+        /**
+         * @return the current host settings snapshot
+         */
         Snapshot settings();
 
+        /**
+         * @param target the settings to apply through the manager setters
+         * @return the settings read back after the mutation
+         */
         Snapshot applySettings(Snapshot target);
 
+        /**
+         * @return the per-document backup snapshot for every file content of the current pack
+         */
         List<Document> documents();
 
+        /**
+         * Attaches the current pack idempotently, then triggers the host's
+         * updateAutoBackup.
+         */
         void triggerBackupNow();
 
 
@@ -95,7 +123,12 @@ public interface AutoBackupAdapter {
         File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
     }
 
+    /**
+     * Fail-closed adapter used when no host is attached: every operation throws
+     * {@link UnsupportedOperationException} and nothing is ever called on the host.
+     */
     enum SafeMode implements AutoBackupAdapter {
+        /** The single fail-closed instance. */
         INSTANCE;
 
         @Override

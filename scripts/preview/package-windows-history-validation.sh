@@ -37,9 +37,9 @@ cat > "$bundle_root/config.json" <<EOF
     "disabledIds": [],
     "denylistedClasses": [],
     "startup": {
-      "skipUpdateCheck": false,
-      "skipSplash": false,
-      "skipInformation": false
+      "skipUpdateCheck": true,
+      "skipSplash": true,
+      "skipInformation": true
     }
   }
 }
@@ -47,17 +47,21 @@ EOF
 
 tmp="$(mktemp -d "$repo_root/build/.history-probe.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism"
+mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
   \( -name "$probe_class.class" -o -name "$probe_class\$*.class" \) \
   -exec cp {} "$tmp/$probe_class_dir/" \;
 cp "$descriptor" "$tmp/META-INF/turboism/plugin.json"
+# PluginJarContract requires the declared i18n base-name catalog inside the jar.
+printf '# History validation probe: no localized messages.\n' \
+  > "$tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$tmp"
   mapfile -t classes < <(find "$probe_class_dir" -type f -printf '%p\n' | LC_ALL=C sort)
   [ "${#classes[@]}" -gt 1 ] || { printf 'error: nested probe classes missing\n' >&2; exit 1; }
   jar --create --file "$bundle_root/plugins/history-validation-probe.jar" \
-    "${classes[@]}" META-INF/turboism/plugin.json
+    "${classes[@]}" META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 if jar tf "$bundle_root/plugins/history-validation-probe.jar" | grep -Eq 'WindowsHistoryManagerValidationProbeTest|\\.java$'; then
   printf 'error: history probe package contains test/source artifacts\n' >&2
@@ -65,17 +69,20 @@ if jar tf "$bundle_root/plugins/history-validation-probe.jar" | grep -Eq 'Window
 fi
 
 rm -rf "$tmp/$probe_class_dir" "$tmp/META-INF/turboism"
-mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism"
+mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
   \( -name "$seed_class.class" -o -name "$seed_class\$*.class" \) \
   -exec cp {} "$tmp/$probe_class_dir/" \;
 cp "$seed_descriptor" "$tmp/META-INF/turboism/plugin.json"
+printf '# History seed validation probe: no localized messages.\n' \
+  > "$tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$tmp"
   mapfile -t classes < <(find "$probe_class_dir" -type f -printf '%p\n' | LC_ALL=C sort)
   [ "${#classes[@]}" -gt 0 ] || { printf 'error: seed classes missing\n' >&2; exit 1; }
   jar --create --file "$bundle_root/plugins/history-seed-validation-probe.jar" \
-    "${classes[@]}" META-INF/turboism/plugin.json
+    "${classes[@]}" META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 if jar tf "$bundle_root/plugins/history-seed-validation-probe.jar" | grep -Eq 'WindowsHistorySeedValidationProbeTest|\.java$'; then
   printf 'error: history seed package contains test/source artifacts\n' >&2

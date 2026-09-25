@@ -1,0 +1,66 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.edit-host",
+  "name": "Edit Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exact-host exerciser for the external-application edit session port (spec 046 T7): session lock, cancellation restoration, commit semantics, semantic edge cases, GetObject reads, and fail-closed behavior on 5.2.03/5.3.02/5.3.03.",
+  "entrypoints": [
+    "dev.turboism.validation.edithost.EditHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.edit",
+      "scope": "application",
+      "reason": "Opens external-application edit sessions through CubismFacade.edit() and runs the edit operation families on the exact host for validation evidence."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the active model document, parameter/object snapshots, and Undo history before and after sessions to verify restoration."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Moves the Undo history once after a committed session to verify single-entry commit semantics and restore the fixture."
+    }
+  ],
+  "capabilities": [
+    "cubism.editor-model.edit.session.edit-begin",
+    "cubism.editor-model.edit.session.edit-end",
+    "cubism.editor-model.edit.session.edit-send-log",
+    "cubism.editor-model.edit.session.edit-send-progress",
+    "cubism.editor-model.edit.session.get-is-edit-approval",
+    "cubism.editor-model.edit.session.notify-undo-cancel",
+    "cubism.editor-model.edit.parameter-key.add-parameter-key",
+    "cubism.editor-model.edit.parameter-key.delete-parameter-key",
+    "cubism.editor-model.edit.parameter-key.move-parameter-key",
+    "cubism.editor-model.edit.parameter-key.get-parameter-keys",
+    "cubism.editor-model.edit.parameter-structure.get-parameter-structure",
+    "cubism.editor-model.edit.parameter-structure.edit-parameter",
+    "cubism.editor-model.edit.selection.get-selected-objects",
+    "cubism.editor-model.edit.selection.add-selected-objects",
+    "cubism.editor-model.edit.selection.clear-selected-objects",
+    "cubism.editor-model.edit.part-object.get-part-structure",
+    "cubism.editor-model.edit.part-object.get-object",
+    "cubism.editor-model.edit.part-object.add-part",
+    "cubism.editor-model.edit.part-object.move-object-on-parts-palette",
+    "cubism.editor-model.edit.deformer.get-deformer-structure"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}

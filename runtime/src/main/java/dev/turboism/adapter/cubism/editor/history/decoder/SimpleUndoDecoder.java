@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 
 import java.util.List;
 
@@ -17,39 +16,35 @@ final class SimpleUndoDecoder implements NativeHistoryDecoder {
         final NativeHistoryDecoderRegistry registry
     ) {
         final VerifiedMemberResolver resolver = context.resolver();
-        if (!NativeHistoryDecoderRegistry.authorized(
-            resolver,
-            EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES
-        )) {
-            return NativeHistoryDecodeResult.unsupported("history.semantic-operation-unmapped");
-        }
         final Object target = resolver.invoke("cubism.editor-history.semantic.simple.target", entry);
         final Object undo = resolver.invoke("cubism.editor-history.semantic.simple.undo", entry);
         final Object redo = resolver.invoke("cubism.editor-history.semantic.simple.redo", entry);
-        if (!isArtMeshForm(resolver, target) || !isArtMeshForm(resolver, undo)) {
+        final ListUndoDecoder.FormFamily family = ListUndoDecoder.FormFamily.of(resolver, undo);
+        if (family == null || !family.isInstance(resolver, target)) {
             return NativeHistoryDecodeResult.unsupported("history.semantic-operation-unmapped");
         }
-        // Live target state is not historical post-state, even at the current cursor:
-        // a later child in the same group may already have changed the same form.
-        if (redo == null) {
+        // The host stores no post state when an entry is committed: SimpleUndo's constructor
+        // assigns targetData and undoData only, and redoData is filled in lazily inside undo().
+        // A freshly committed entry therefore has to be compared against the live target, and only
+        // the decode context can say whether that value is still this entry's own result rather
+        // than a later edit's.
+        final Object post;
+        if (redo != null) {
+            post = redo;
+        } else if (context.mayReadLiveTarget(entry) && family.isInstance(resolver, target)) {
+            post = target;
+        } else {
             return NativeHistoryDecodeResult.unsupported("history.detail.post-state-unavailable");
         }
-        if (!isArtMeshForm(resolver, redo)) {
+        if (!family.isInstance(resolver, post)) {
             return NativeHistoryDecodeResult.unsupported("history.detail.value-unsupported");
         }
-        return ListUndoDecoder.decodeArtMeshForms(
+        return ListUndoDecoder.decodeForms(
             resolver,
             context.boundedLabel(label),
             List.of(undo),
-            List.of(redo)
+            List.of(post),
+            family
         );
-    }
-
-    private static boolean isArtMeshForm(
-        final VerifiedMemberResolver resolver,
-        final Object value
-    ) {
-        return value != null
-            && resolver.isExactInstance("cubism.editor-history.semantic.art-mesh-form.class", value);
     }
 }
