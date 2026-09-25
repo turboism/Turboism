@@ -851,6 +851,88 @@ framebuffer and breaks canvas pixel digests, never use it in measured legs.
 glthread legs are meaningless there — keep `inherit` (iris) for this
 experiment.
 
+### Productized path: `launcher.mesaGlThread` (deferred error check + glthread, default off)
+
+**T24 field result (8 runs, all PASS):** C (elision + glthread) hit
+`uniformLocationHook.hits=662,200` and `glThreadCount=3`; legs 1/2 medians A
+57.3 ms vs C 50.75 ms (−6.5 ms, −11%), every C subleg below A's median, p95
+lower. The one differing pixel digest traced to window geometry (523 px width,
+zoom 13.2), not rendering.
+
+The productized replacement for the test-only elision is the **deferred**
+error check (`DeferredGlErrorCheckTransformer`, hook id
+`cubism.render.mesa-gl-thread`): each in-frame call of
+`shader/A.a(GL,String,Z)` (5.3.x; `shader/y.a` on 5.2.03) becomes a checkpoint
+that records `(context, z)` — first call wins — and returns `GL_NO_ERROR`
+without a native query. At the `SGFramework/g.render3d` frame boundary the
+bridge runs the one real `glGetError` and reports through the host-equivalent
+path: known codes (1280/1281/1282/1285/1286) log through `util/log/a.b` and
+rethrow `GLException(context + ": glError " + mapped)` at the frame's RETURN
+consult only when the first deferred checkpoint passed `z=true`; unmapped
+codes rethrow `IllegalStateException("Not impl : " + code)` without logging —
+exactly the host method's branches. Out-of-frame/foreign-GL/failed-callback
+sites run the real query inline, preserving upstream semantics.
+
+**Semantic difference vs synchronous checking (documented, accepted):** the
+error's exact draw-site attribution is lost — the frame owns the report — but
+the error is never swallowed, and uniform pending locations still confirm
+through the checkpoint's emitted `error(gl, 0)` (identical to the T24-verified
+elision emission); a nonzero frame-end result invalidates the frame's whole
+cache — equivalent-or-more-conservative at frame granularity.
+
+**Activation:** `launcher.mesaGlThread` is the single combined option —
+default off, persisted in `config.json`, exposed in settings UI (label says
+Linux/Mesa-only), validated by `RuntimeConfigValidator`/`ConfigMerge`,
+recognized-but-inert on Windows (`cubism-launch-common.ps1` strips/forwards it
+but never emits the `-D`). Only the Linux/Proton launch path activates it:
+`run-cubism-host-validation.sh` reads the staged `config.json`, exports
+`mesa_glthread=true` into the generated `launch.sh` and appends
+`-Dturboism.optimization.mesaGlThread=true` to `JAVA_TOOL_OPTIONS`. An
+explicit `--linux-env mesa_glthread=...` still wins when the driver pinned the
+experiment. The transform installs after the uniform lifecycle hook and
+admits the uniform-composed shapes via installer-derived probes; it refuses
+to stack on the test-only elision.
+
+**Final acceptance protocol — production defaults vs all new options, across
+wheel/pan/artmesh.** Per workload (`on-wheel`, `on-pan`, `on-artmesh`) run the
+interleaved sequence `A F F A A F F A` (8 runs; A = defaults, F = all
+options). The F leg replaces the staged home config with the
+`launcher.mesaGlThread=true` variant and adds the deferred marker to the
+ready gates:
+
+```bash
+# A = production defaults (uniformLocationCache on; uploadElision/inputPath
+# exercised per leg by the factor below; mesaGlThread absent → off)
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 acc-A-1 \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --jvm-option '-Dturboism.optimization.inputPath=true' --result-timeout 1200
+
+# F = all new options: same flags + the staged config that enables
+# launcher.mesaGlThread (runner then exports mesa_glthread and the -D itself)
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 acc-F-1 \
+  --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
+  --jvm-option '-Dturboism.optimization.uploadElision=true' \
+  --jvm-option '-Dturboism.optimization.inputPath=true' \
+  --home-config "$PWD/testing/host-validation/mesa-gl-thread/config.json" \
+  --ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE' \
+  --result-timeout 1200
+```
+
+Repeat the pair for `on-pan` and `on-artmesh` (same flags; the wrapper maps
+them to the wheel entry with `nativeInteraction`). Compare legs 1/2.
+
+**Validity gates:** F runs require `deferred=ACTIVE` +
+`TURBOISM_UNIFORM_LOCATION installation=COMPLETE` +
+`leg.N.uniformLocationHook.hits>0` + Mesa `ATTENTION` line +
+`java.<pid>.mesa_glthread=true` + `glThreadCount>=1` +
+`launch-environment.properties mesaGlThread=1`; A runs require
+`mesaGlThread=0`, `mesa_glthread=ABSENT`, `glThreadCount=0` and no
+`deferred=ACTIVE` marker. Every run needs identical `canvasPixelDigest`
+across legs and configurations — and per the T24 finding, verify any digest
+divergence against window geometry/zoom evidence before attributing it to
+rendering.
+
 ### Skipped-frame upload elision upper bound (experimental transform, not a proxy)
 
 T08 attribution measured `glBufferSubData` as the largest single native

@@ -40,6 +40,7 @@ final class HookManifestTest {
                 UniformLocationCacheHookContributor.class,
                 // Order-sensitive: must follow the uniform lifecycle transform
                 // (see META-INF/turboism/hooks).
+                DeferredGlErrorCheckHookContributor.class,
                 RedundantStateElisionHookContributor.class,
                 MatrixScratchHookContributor.class,
                 NativeEditBeginHookContributor.class,

@@ -27,6 +27,13 @@ dev.turboism.bootstrap.SkippedFrameUploadElisionHookContributor
 dev.turboism.bootstrap.InputPathElisionHookContributor
 dev.turboism.bootstrap.CanvasCompositeElisionHookContributor
 dev.turboism.bootstrap.UniformLocationCacheHookContributor
+# Must register after the uniform-location lifecycle transformer: the
+# deferred error check consumes the composed method shapes uniform produces
+# on shader/A (or shader/y) and SGFramework/g, and its frame-end query rides
+# the lifecycle bridge's render scope. Retransformation replays the chain in
+# registration order, so this transform observes the uniform output; closing
+# runs in reverse so the uniform restoration baseline stays intact.
+dev.turboism.bootstrap.DeferredGlErrorCheckHookContributor
 # Must register after the uniform-location cache: the lifecycle transformer
 # shape-checks glLinkProgram/glDeleteProgram/* on GL4bcImpl — the same methods
 # this experiment wraps as invalidators. Retransformation replays the chain on

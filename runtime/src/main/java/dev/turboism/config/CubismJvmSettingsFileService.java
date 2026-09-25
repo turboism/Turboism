@@ -229,9 +229,19 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         return saveOptimization("inputPathElision", value);
     }
 
+    @Override
+    public boolean mesaGlThread() {
+        return optimization("mesaGlThread");
+    }
+
+    @Override
+    public boolean saveMesaGlThread(final boolean value) {
+        return saveOptimization("mesaGlThread", value);
+    }
+
     /** Opt-in experiments default off; verified optimizations default on. */
     private static final java.util.Set<String> DEFAULT_OFF_OPTIMIZATIONS =
-        java.util.Set.of("incrementalUpdate", "uploadElision", "inputPathElision");
+        java.util.Set.of("incrementalUpdate", "uploadElision", "inputPathElision", "mesaGlThread");
 
     private boolean optimization(final String name) {
         return config.read().path("launcher").path(name)
