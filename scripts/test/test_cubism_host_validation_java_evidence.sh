@@ -133,5 +133,31 @@ assert data['javaProcessCount'] == '0', data
 assert data['taskProcessCount'] == '1', data
 assert data['task.0.comm'] == 'CubismEditor5.exe', data
 
+# Execute the actual post-readiness evidence block with local log fixtures.
+# installation=COMPLETE alone must never be interpreted as deferred=ACTIVE.
+import shlex
+start = source.index('# When the combined mesaGlThread option is effective on,')
+end = source.index('\nif [ -n "$trigger_path" ]; then', start)
+activation = source[start:end]
+for index, (line, expected) in enumerate([
+    ('TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE targets=fixture', 'active'),
+    ('TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=INACTIVE reason=uniform-seam-unavailable', 'inactive'),
+    ('TURBOISM_DEFERRED_GL_ERROR_CHECK installation=COMPLETE', 'unknown'),
+    ('', 'unknown'),
+]):
+    output = tmp / ('activation-' + str(index))
+    output.mkdir()
+    log = output / 'runtime.log'
+    log.write_text(line + '\n')
+    script = ('set -euo pipefail\nmesa_gl_thread=1\n'
+              + 'evidence_dir=' + shlex.quote(str(output)) + '\n'
+              + 'latest_runtime_log() { printf "%s" ' + shlex.quote(str(log)) + '; }\n'
+              + 'runtime_log_contains() { grep -Fq -- "$2" "$1"; }\n'
+              + 'log() { printf "%s\\n" "$*"; }\n' + activation)
+    result = subprocess.run(['bash', '-c', script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert props(output / 'deferred-check.properties')['deferredCheck'] == expected
+    assert ('WARNING:' in result.stdout) == (expected != 'active'), result.stdout
+
 print('PASS: java evidence collector task binding, java-family match, gl thread scan, diagnostics')
 PY
