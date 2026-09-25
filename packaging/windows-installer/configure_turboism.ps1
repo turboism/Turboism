@@ -661,19 +661,21 @@ if ($MigrateConfig) {
         exit 1
     }
 }
+try { New-Item -ItemType Directory -Path $installerLogDir -Force | Out-Null } catch { }
+Write-InstallerLog "CONFIGURATOR_START" ("applySelection=$ApplyInstallerSelection cleanup=$Cleanup retirePlugins=$RetirePlugins initialize=$InitializeSelection enableShortcuts=$EnableShortcuts disableShortcuts=$DisableShortcuts integrateBat=$IntegrateBat disableBat=$DisableBat elevated=$Elevated")
+
 if ($ApplyInstallerSelection) {
     try {
         Invoke-InstallerPluginSelection
         exit 0
     }
     catch {
+        Write-InstallerLog "APPLY_SELECTION_FAILED" $_.Exception.Message
         Write-Error ("CONFIG_SELECTION_FAILED " + $_.Exception.Message)
         exit 1
     }
 }
 
-try { New-Item -ItemType Directory -Path $installerLogDir -Force | Out-Null } catch { }
-Write-InstallerLog "CONFIGURATOR_START"
 
 if ($Cleanup) {
     try {
@@ -691,6 +693,7 @@ if ($Cleanup) {
         exit 0
     }
     catch {
+        Write-InstallerLog "CLEANUP_FAILED" $_.Exception.Message
         Write-Error $_.Exception.Message
         exit 1
     }
@@ -701,6 +704,7 @@ if ($RetirePlugins) {
         exit 0
     }
     catch {
+        Write-InstallerLog "RETIRE_PLUGINS_FAILED" $_.Exception.Message
         Write-Error $_.Exception.Message
         exit 1
     }
@@ -712,9 +716,11 @@ if ($InitializeSelection) {
         $candidates = @(Get-ConfiguratorCandidates -State $state -DiscoverIfMissing)
         Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $state.BatIntegrations -LaunchMode $state.LaunchMode
         Write-Host "TURBOISM_CUBISM_SELECTION selected=$(@($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count)"
+        Write-InstallerLog "INITIALIZE_SELECTION_OK" ("selected={0}" -f @($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count)
         exit 0
     }
     catch {
+        Write-InstallerLog "INITIALIZE_SELECTION_FAILED" $_.Exception.Message
         Write-Error $_.Exception.Message
         exit 1
     }
@@ -726,11 +732,11 @@ if ($DisableBat -and -not $Elevated) {
         if ($disableBatState.BatIntegrations.Count -eq 0) { exit 0 }
         exit (Invoke-ElevatedConfiguratorMode -Mode "DisableBat")
     }
-    catch { Write-Error $_.Exception.Message; exit 1 }
+    catch { Write-InstallerLog "DISABLE_BAT_FAILED" $_.Exception.Message; Write-Error $_.Exception.Message; exit 1 }
 }
 if ($IntegrateBat -and -not $Elevated) {
     try { exit (Invoke-ElevatedConfiguratorMode -Mode "IntegrateBat") }
-    catch { Write-Error $_.Exception.Message; exit 1 }
+    catch { Write-InstallerLog "INTEGRATE_BAT_FAILED" $_.Exception.Message; Write-Error $_.Exception.Message; exit 1 }
 }
 if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
     try {
@@ -759,14 +765,17 @@ if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
         elseif ($EnableShortcuts) {
             $launch = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -LaunchMode "independent" -ExistingState $state
             Write-Host "TURBOISM_SHORTCUT_INTEGRATION enabled=$($launch.ManagedShortcuts.Count)"
+            Write-InstallerLog "SHORTCUTS_ENABLED" ("count={0}" -f $launch.ManagedShortcuts.Count)
         }
         else {
             Disable-CubismShortcutIntegration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -ExistingState $state
             Write-Host "TURBOISM_SHORTCUT_INTEGRATION disabled"
+            Write-InstallerLog "SHORTCUTS_DISABLED"
         }
         exit 0
     }
     catch {
+        Write-InstallerLog "LAUNCH_CONFIG_FAILED" $_.Exception.Message
         Write-Error $_.Exception.Message
         exit 1
     }
