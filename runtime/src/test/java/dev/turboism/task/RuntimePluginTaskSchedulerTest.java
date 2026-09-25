@@ -2,6 +2,7 @@ package dev.turboism.task;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
@@ -77,6 +78,94 @@ class RuntimePluginTaskSchedulerTest {
         );
         assertEquals("plugin.refresh.low", classified.get().taskType());
         assertTrue(classified.get().payloadDescription().contains("classified"));
+    }
+
+    @Test
+    void longRunningTaskRunsOnLongLanePastTheTaskBudget() throws Exception {
+        runtimeScheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(
+                500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler(
+            "plugin.tasks", runtimeScheduler, scope, new CleanupEvidenceCollector());
+        final AtomicReference<String> workerThread = new AtomicReference<>();
+        final AtomicBoolean interrupted = new AtomicBoolean();
+
+        final TaskSubmission submission = scheduler.submit(new PluginTaskRequest(
+            new TaskId("long-task"),
+            PluginTaskKind.LONG_RUNNING,
+            PluginTaskPriority.NORMAL,
+            token -> {
+                workerThread.set(Thread.currentThread().getName());
+                try {
+                    // Beyond the 500ms TimeLimiter the task executor would enforce.
+                    Thread.sleep(700);
+                } catch (InterruptedException exception) {
+                    interrupted.set(true);
+                }
+            }
+        ));
+
+        assertTrue(submission.accepted());
+        assertEquals(
+            TaskOutcomeStatus.SUCCEEDED,
+            submission.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS).status()
+        );
+        assertTrue(workerThread.get().contains("-long-"),
+            "expected a long-lane worker thread, got " + workerThread.get());
+        assertFalse(interrupted.get(), "long-running work must never be interrupted");
+    }
+
+    @Test
+    void longRunningTaskCancelIsCooperativeAndNeverInterrupts() throws Exception {
+        runtimeScheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(
+                500L, 1, 8, ignored -> { }, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        scope = new DisposableScope();
+        scheduler = new RuntimePluginTaskScheduler(
+            "plugin.tasks", runtimeScheduler, scope, new CleanupEvidenceCollector());
+        final CountDownLatch actionStarted = new CountDownLatch(1);
+        final CountDownLatch actionFinished = new CountDownLatch(1);
+        final AtomicBoolean interrupted = new AtomicBoolean();
+
+        final TaskSubmission submission = scheduler.submit(new PluginTaskRequest(
+            new TaskId("long-cancel"),
+            PluginTaskKind.LONG_RUNNING,
+            PluginTaskPriority.NORMAL,
+            token -> {
+                actionStarted.countDown();
+                while (!token.isCancellationRequested()) {
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException exception) {
+                        interrupted.set(true);
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+                actionFinished.countDown();
+            }
+        ));
+        assertTrue(submission.accepted());
+        assertTrue(actionStarted.await(1, TimeUnit.SECONDS));
+
+        assertTrue(submission.handle().cancel());
+
+        assertEquals(
+            TaskOutcomeStatus.CANCELED,
+            submission.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status()
+        );
+        assertTrue(actionFinished.await(2, TimeUnit.SECONDS),
+            "the running action exits via the cancellation token");
+        assertFalse(interrupted.get(), "cancel must not interrupt long-running work");
     }
 
     @Test
