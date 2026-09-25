@@ -12,19 +12,23 @@ import java.util.Set;
  * used to retire the dirty copy. Only the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts
  * admit it.</p>
  *
- * <p>The reviewed 5.2.03 record declares 157 selectors rather than 173: Cubism 5.2.03's
+ * <p>The reviewed 5.2.03 record declares 204 selectors rather than 220: Cubism 5.2.03's
  * {@code CModelSource} predates the advanced-blend, alias and offscreen-rendering feature
  * predicates, {@code CAliasSource} does not exist in the 5.2.03 artifact, and its
  * {@code CPartSource} does not declare the clip/offscreen/composition members — so those
  * sixteen selectors are absent from the record and from {@link #cubism52Aliases()}. They
- * are not optional on 5.3.x — the 5.3 records still pin all 173 selectors.</p>
+ * are not optional on 5.3.x — the 5.3 records still pin all 220 selectors.</p>
  *
  * <p>Beyond the transform surface (deformer apply, ArtMesh obfuscation, export driver), the
  * record pins the pass-through census reads: every controllable source's stable GUID, ID,
- * parent-deformer edge, clip-mask and family-specific reference reads, content flags, the
- * physics and motion-sync settings identities/signatures, and the host {@code contain*}
- * feature predicates. Pass-through content is never transformed — these selectors exist so
- * its identity and references are pinned and any drift fails closed.</p>
+ * parent-deformer edge, clip-mask and family-specific reference reads, content flags, and
+ * the host {@code contain*} feature predicates. It also pins the physics and motion-sync
+ * settings surface in both directions: the full behavior reads (every input/output/vertex
+ * member, normalization windows, effective forces, mapping checksums) the census uses to
+ * prove content is untouched, and the exact name/ID writers the obfuscation pass applies —
+ * physics through the typed {@code CPhysicsSettingId} setter, motion-sync through the
+ * verified private {@code _id} field. Pass-through content is never transformed; these
+ * selectors exist so its identity and references are pinned and any drift fails closed.</p>
  */
 public final class ProtectedExportVerificationManifest {
 
@@ -46,7 +50,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.protected-export.static",
-        "48af2ec84878f87b241fbd884257aaecd018d7f13c6afbc31bddc7a2ddd1ecec",
+        "91250553ff7ee5565fc68b1608fc13810e689334ea52b7ef0bb787f4e03cab1d",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -55,7 +59,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.protected-export.static",
-        "5253f967a8b860640a34e3ddf03787c5e9fced396d338a40618480f9fe67a1b6",
+        "8f80fb37deb907a5c68c36e32007d225d5a8a57283a89d40a4600eccbaf77d08",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -64,7 +68,7 @@ public final class ProtectedExportVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.protected-export.static",
-        "eebff38c3a43e9f3508581757bfc6818990d48fce9ba7b65e16ae17cb750413f",
+        "fd2325579a29c84890cae7f6257cdbd734893e86c0d181c783adfdb703208c2b",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -207,6 +211,7 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.model-source.current-instance",
         "cubism.protected-export.model-source.document",
         "cubism.protected-export.model-source.guid",
+        "cubism.protected-export.model-source.physics-settings-set",
         "cubism.protected-export.model-source.root-part",
         "cubism.protected-export.model-source.save-model",
         "cubism.protected-export.model.class",
@@ -215,11 +220,19 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.model.reinit-instance-exe",
         "cubism.protected-export.morph-target-set.class",
         "cubism.protected-export.morph-target-set.morph-targets",
-        "cubism.protected-export.motion-sync-setting.checksum",
+        "cubism.protected-export.motion-sync-mapping.checksum",
+        "cubism.protected-export.motion-sync-postproc.checksum",
+        "cubism.protected-export.motion-sync-setting-id.class",
+        "cubism.protected-export.motion-sync-setting-id.create",
         "cubism.protected-export.motion-sync-setting.class",
         "cubism.protected-export.motion-sync-setting.guid",
         "cubism.protected-export.motion-sync-setting.id",
+        "cubism.protected-export.motion-sync-setting.id-field",
+        "cubism.protected-export.motion-sync-setting.mapping",
         "cubism.protected-export.motion-sync-setting.name",
+        "cubism.protected-export.motion-sync-setting.postproc",
+        "cubism.protected-export.motion-sync-setting.set-name",
+        "cubism.protected-export.motion-sync-setting.version",
         "cubism.protected-export.parameter-id.class",
         "cubism.protected-export.parameter-instance.class",
         "cubism.protected-export.parameter-instance.id",
@@ -228,6 +241,7 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.parameter-set.class",
         "cubism.protected-export.parameter-set.parameters",
         "cubism.protected-export.parameter-source.default-value",
+        "cubism.protected-export.parameter-source.guid",
         "cubism.protected-export.parameter-source.id",
         "cubism.protected-export.parameter-source.max-value",
         "cubism.protected-export.parameter-source.min-value",
@@ -241,14 +255,49 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.part.color-composition",
         "cubism.protected-export.part.invert-clipping",
         "cubism.protected-export.part.use-offscreen",
+        "cubism.protected-export.physics-input.angle-scale",
+        "cubism.protected-export.physics-input.reverse",
+        "cubism.protected-export.physics-input.source",
+        "cubism.protected-export.physics-input.translation-scale",
+        "cubism.protected-export.physics-input.type",
+        "cubism.protected-export.physics-input.weight",
+        "cubism.protected-export.physics-output.angle-scale",
+        "cubism.protected-export.physics-output.destination",
+        "cubism.protected-export.physics-output.reverse",
+        "cubism.protected-export.physics-output.translation-scale",
+        "cubism.protected-export.physics-output.type",
+        "cubism.protected-export.physics-output.value-below-minimum",
+        "cubism.protected-export.physics-output.value-exceeded-maximum",
+        "cubism.protected-export.physics-output.vertex-index",
+        "cubism.protected-export.physics-output.weight",
+        "cubism.protected-export.physics-setting-id.class",
+        "cubism.protected-export.physics-setting-id.create",
+        "cubism.protected-export.physics-settings-set.fps",
+        "cubism.protected-export.physics-settings-set.gravity",
+        "cubism.protected-export.physics-settings-set.selected",
+        "cubism.protected-export.physics-settings-set.wind",
         "cubism.protected-export.physics-settings-source.class",
         "cubism.protected-export.physics-settings.enable",
         "cubism.protected-export.physics-settings.guid",
         "cubism.protected-export.physics-settings.id",
         "cubism.protected-export.physics-settings.inputs",
         "cubism.protected-export.physics-settings.name",
+        "cubism.protected-export.physics-settings.normalization-angle-default",
+        "cubism.protected-export.physics-settings.normalization-angle-max",
+        "cubism.protected-export.physics-settings.normalization-angle-min",
+        "cubism.protected-export.physics-settings.normalization-position-default",
+        "cubism.protected-export.physics-settings.normalization-position-max",
+        "cubism.protected-export.physics-settings.normalization-position-min",
         "cubism.protected-export.physics-settings.outputs",
+        "cubism.protected-export.physics-settings.set-id",
+        "cubism.protected-export.physics-settings.set-name",
+        "cubism.protected-export.physics-settings.total-angle",
         "cubism.protected-export.physics-settings.vertices",
+        "cubism.protected-export.physics-vertex.acceleration",
+        "cubism.protected-export.physics-vertex.delay",
+        "cubism.protected-export.physics-vertex.mobility",
+        "cubism.protected-export.physics-vertex.position",
+        "cubism.protected-export.physics-vertex.radius",
         "cubism.protected-export.project.children",
         "cubism.protected-export.project.class",
         "cubism.protected-export.rotation-deformer.class",
@@ -273,6 +322,8 @@ public final class ProtectedExportVerificationManifest {
         "cubism.protected-export.undo-manager.class",
         "cubism.protected-export.undo-manager.edit-count",
         "cubism.protected-export.undo-manager.position",
+        "cubism.protected-export.vector2.x",
+        "cubism.protected-export.vector2.y",
         "cubism.protected-export.warp-deformer.class"
     );
 

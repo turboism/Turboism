@@ -400,7 +400,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-performance-render-scene" ->
                 "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
             case "cubism-5.3.03-protected-export" ->
-                "eebff38c3a43e9f3508581757bfc6818990d48fce9ba7b65e16ae17cb750413f";
+                "fd2325579a29c84890cae7f6257cdbd734893e86c0d181c783adfdb703208c2b";
             case "cubism-5.3.03-project-workspace" ->
                 "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2";
             case "cubism-5.3.03-ui-bounding-box-overlay" ->

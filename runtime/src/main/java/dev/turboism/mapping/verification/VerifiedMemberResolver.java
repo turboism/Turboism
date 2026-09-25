@@ -14,6 +14,9 @@ import java.util.function.Function;
 /** Runtime reflection gateway restricted to exact aliases in a verified access plan. */
 public final class VerifiedMemberResolver {
 
+    /** {@code ACC_FINAL} — not a {@link StaticSelector} constant because no read needs it. */
+    private static final int ACC_FINAL = 0x0010;
+
     private final VerifiedAccessPlan accessPlan;
     private final ClassLoader hostClassLoader;
     // The immutable access plan and defining loader belong to this resolver's lifetime.
@@ -275,6 +278,74 @@ public final class VerifiedMemberResolver {
                 throw resolutionFailure(alias, "Verified host field is not accessible.");
             }
             return field.get(target);
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException
+                 | IllegalArgumentException | LinkageError | SecurityException exception) {
+            throw resolutionFailure(alias, "Verified host field resolution failed safely.");
+        }
+    }
+
+    /**
+     * Writes a verified instance field on the given target object.
+     *
+     * <p>Field writes are restricted to members the record pins as non-static and
+     * non-final: the selector's forbidden flags must exclude {@code static} and
+     * {@code final}, so a field that became immutable since review fails closed
+     * before any write is attempted.</p>
+     *
+     * @param alias the verified field alias
+     * @param target the instance to write on
+     * @param value the new field value
+     * @throws VerifiedAccessException when the alias is unknown, is not an instance
+     *     field, is pinned static/final, or the write fails
+     */
+    public void writeField(final String alias, final Object target, final Object value) {
+        final StaticSelector selector = fieldSelector(alias);
+        if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) != 0) {
+            throw resolutionFailure(alias, "Verified alias is not an instance field.");
+        }
+        if ((selector.forbiddenAccessFlags()
+                & (StaticSelector.ACCESS_STATIC | ACC_FINAL)) != (StaticSelector.ACCESS_STATIC | ACC_FINAL)) {
+            throw resolutionFailure(
+                alias, "Verified instance field is not pinned writable.");
+        }
+        if (target == null) {
+            throw resolutionFailure(alias, "Verified instance field target is unavailable.");
+        }
+        try {
+            final Class<?> owner = Class.forName(
+                selector.ownerInternalName().replace('/', '.'),
+                false,
+                hostClassLoader
+            );
+            if (owner.getClassLoader() != hostClassLoader) {
+                throw resolutionFailure(
+                    alias,
+                    "Verified host classloader attestation no longer matches."
+                );
+            }
+            if (!owner.isInstance(target)) {
+                throw resolutionFailure(
+                    alias, "Verified instance field target type does not match.");
+            }
+            final Class<?> fieldType = MethodType.fromMethodDescriptorString(
+                "()" + selector.descriptor(),
+                hostClassLoader
+            ).returnType();
+            final Field field = owner.getDeclaredField(selector.memberName());
+            if (!field.getDeclaringClass().equals(owner)
+                || !field.getType().equals(fieldType)
+                || !matchesAccess(field.getModifiers(), selector)) {
+                throw resolutionFailure(alias, "Verified host field no longer matches.");
+            }
+            if (Modifier.isFinal(field.getModifiers())) {
+                throw resolutionFailure(alias, "Verified host field is final.");
+            }
+            if (!field.canAccess(target) && !field.trySetAccessible()) {
+                throw resolutionFailure(alias, "Verified host field is not accessible.");
+            }
+            field.set(target, value);
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException

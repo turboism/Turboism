@@ -461,7 +461,6 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         session.expectedParameters = parameterExpectations(session.censusBefore);
         session.expectedPartIds = partIdSet(session.censusBefore);
         session.expectedGlueIds = glueIdSet(session.censusBefore);
-        session.expectedPhysicsIds = physicsIdSet(session.censusBefore);
         session.phase = Phase.COPY_BOUND;
     }
 
@@ -571,6 +570,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY);
             }
         }
+        // Physics and motion-sync settings: same GUID-hash obfuscation — name
+        // and ID only; every behavior value is pinned by the content signature.
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
+                : plan.physicsSettings().entrySet()) {
+            applySettingsRewrite(session, entry, true);
+        }
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
+                : plan.motionSyncSettings().entrySet()) {
+            applySettingsRewrite(session, entry, false);
+        }
         final boolean consistent = onEdt(() -> {
             requireGeneration(session, session.hostGeneration);
             requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
@@ -587,7 +596,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             }
             // Post-mutation census: parts and parameters must be byte-identical
             // to the bound snapshot (flatten may only drop deformer memberships);
-            // every ArtMesh must carry exactly its planned obfuscated identity.
+            // every ArtMesh and every settings source must carry exactly its
+            // planned obfuscated identity with an unchanged behavior signature.
             final ModelCensus after = censusModel(liveSource, OBFUSCATE_FAILED_KEY);
             verifyPostMutationCensus(session, after, plan);
             // The staged key contract reads the post-mutation census: binding
@@ -595,6 +605,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             // non-serializing carriers), so staged key positions are asserted
             // against the surviving authored union, not the pre-mutation one.
             session.stagedParameters = parameterExpectations(after);
+            session.expectedPhysicsSettings = physicsExpectations(after, plan);
+            session.expectedPhysicsSet = after.physicsSetSignature();
             return Boolean.TRUE;
         });
         if (!Boolean.TRUE.equals(consistent)) {
@@ -943,7 +955,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final ProtectedExportStaging.Validation validation = staging.validate(
             session.stagedPick, session.stagedPaths, session.expectedDrawableIds,
             session.stagedParameters, session.expectedPartIds,
-            session.expectedGlueIds, session.expectedPhysicsIds, session.behavior);
+            session.expectedGlueIds, session.expectedPhysicsSettings,
+            session.expectedPhysicsSet, session.behavior);
         if (!validation.valid()) {
             throw new SessionRejection(
                 VALIDATION_FAILED_KEY + ":" + validation.failureKey(),
@@ -1229,9 +1242,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     /**
      * One settings object's pinned identity — a physics or motion-sync setting:
-     * ID, name and an ordered structure signature (enable flag and member counts
-     * for physics; the host's content checksum for motion sync). Settings are
-     * pass-through content; the pin fails closed on any mid-session mutation.
+     * ID, name and an ordered behavior-content signature (every physics
+     * input/output/vertex member; the motion-sync version plus mapping and
+     * post-processing checksums). Obfuscation rewrites the ID and name to the
+     * planned tokens; the signature must compare identical across it, and any
+     * other drift fails closed.
      */
     private record SettingsIdentity(
         String id,
@@ -1243,7 +1258,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     /**
      * Identity snapshot of one model source: parts, ArtMeshes and pass-through
      * members keyed by stable GUID, parameters keyed by ID, physics and
-     * motion-sync settings keyed by stable GUID, every census member's embedded
+     * motion-sync settings keyed by stable GUID, the physics settings-set level
+     * pin (gravity/wind/fps/selection), every census member's embedded
      * content signature, and the host-reported content feature flags.
      */
     private record ModelCensus(
@@ -1253,6 +1269,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         Map<String, PassThroughIdentity> passThrough,
         Map<String, SettingsIdentity> physicsSettings,
         Map<String, SettingsIdentity> motionSyncSettings,
+        List<String> physicsSetSignature,
         Map<String, List<String>> embeddedContent,
         List<String> featureFlags
     ) {
@@ -1447,16 +1464,26 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         // must carry a pinnable identity — anything else rejects rather than
         // pass through untracked.
         final Map<String, SettingsIdentity> physicsSettings =
-            settingsCensus(host.allPhysicsSettings(modelSource), failureKey);
+            settingsCensus(modelSource, host.allPhysicsSettings(modelSource), failureKey);
         final Map<String, SettingsIdentity> motionSyncSettings =
-            settingsCensus(host.allMotionSyncSettings(modelSource), failureKey);
+            settingsCensus(modelSource, host.allMotionSyncSettings(modelSource), failureKey);
+        final List<String> physicsSet =
+            host.physicsSettingsSetSignature(modelSource);
+        if (physicsSet == null) {
+            throw new SessionRejection(failureKey,
+                "protected-export.unpinnable-settings:set");
+        }
         final List<String> featureFlags = new ArrayList<>(
             host.modelFeatureFlags(modelSource));
         java.util.Collections.sort(featureFlags);
+        // Settings maps stay in the host's list order (settingsCensus returns
+        // an unmodifiable insertion-ordered map) — physics3.json enumerates
+        // settings in that order, so positional artifact IDs map by index.
         return new ModelCensus(
             Map.copyOf(parts), Map.copyOf(parameters), Map.copyOf(artMeshes),
-            Map.copyOf(passThrough), Map.copyOf(physicsSettings),
-            Map.copyOf(motionSyncSettings), Map.copyOf(embedded),
+            Map.copyOf(passThrough), physicsSettings,
+            motionSyncSettings, List.copyOf(physicsSet),
+            Map.copyOf(embedded),
             List.copyOf(featureFlags));
     }
 
@@ -1466,6 +1493,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * cannot be pinned rejects the session rather than riding through unseen.
      */
     private Map<String, SettingsIdentity> settingsCensus(
+        final Object modelSource,
         final List<?> settings,
         final String failureKey
     ) {
@@ -1473,7 +1501,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         for (Object setting : settings) {
             final String guid = host.settingsGuid(setting);
             final String id = host.settingsIdString(setting);
-            final List<String> signature = host.settingsSignature(setting);
+            final List<String> signature = host.settingsSignature(modelSource, setting);
             if (guid == null || guid.isBlank() || id == null || id.isBlank()
                 || signature == null) {
                 throw new SessionRejection(failureKey,
@@ -1486,7 +1514,10 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     "protected-export.unpinnable-settings:duplicate-guid");
             }
         }
-        return Map.copyOf(pinned);
+        // Insertion order is the host's settings-list order — the staged
+        // physics3.json enumerates settings in exactly that order, so the
+        // artifact check maps positional IDs to expectations by index.
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(pinned));
     }
 
     /** Bounded family token for an unrecognized settings object. */
@@ -1535,13 +1566,30 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         return Set.copyOf(ids);
     }
 
-    /** Physics setting ID set from the census — validated against physics3.json. */
-    private Set<String> physicsIdSet(final ModelCensus census) {
-        final Set<String> ids = new LinkedHashSet<>();
-        for (SettingsIdentity setting : census.physicsSettings().values()) {
-            ids.add(setting.id());
+    /**
+     * Staged physics expectations in the host's settings-list order — each
+     * entry pairs the planned token identity with the post-mutation behavior
+     * signature the staged {@code physics3.json} must reproduce verbatim.
+     */
+    private static List<ProtectedExportStaging.PhysicsSettingExpectation>
+            physicsExpectations(
+        final ModelCensus census,
+        final ProtectedExportObfuscationPlan.Plan plan
+    ) {
+        final List<ProtectedExportStaging.PhysicsSettingExpectation>
+            expectations = new ArrayList<>();
+        for (Map.Entry<String, SettingsIdentity> entry
+                : census.physicsSettings().entrySet()) {
+            final ProtectedExportObfuscationPlan.Target target =
+                plan.physicsSettings().get(entry.getKey());
+            if (target == null) {
+                throw new SessionRejection(OBFUSCATE_FAILED_KEY,
+                    "settings-identity-drift");
+            }
+            expectations.add(new ProtectedExportStaging.PhysicsSettingExpectation(
+                target.idToken(), target.name(), entry.getValue().signature()));
         }
-        return Set.copyOf(ids);
+        return List.copyOf(expectations);
     }
 
     /**
@@ -1651,9 +1699,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "pass-through-flag-drift");
             }
         }
-        // Settings and content flags never change during a session.
-        if (!before.physicsSettings().equals(after.physicsSettings())
-            || !before.motionSyncSettings().equals(after.motionSyncSettings())) {
+        // Settings carry their planned obfuscated identity after obfuscation:
+        // name and ID must equal the plan exactly, and the behavior signature —
+        // every physics value and reference — must equal the bound snapshot.
+        verifySettingsDrift(before.physicsSettings(), after.physicsSettings(),
+            plan.physicsSettings());
+        verifySettingsDrift(before.motionSyncSettings(), after.motionSyncSettings(),
+            plan.motionSyncSettings());
+        if (!before.physicsSetSignature().equals(after.physicsSetSignature())) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
         }
         // The aggregate contain* flag set is pinned at bind (copy must equal the
@@ -1681,10 +1734,83 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         }
     }
 
+    /**
+     * Settings drift rule after obfuscation: identical GUID sets, identical
+     * behavior signatures, and name/ID equal to the planned tokens — anything
+     * else is a hard rejection.
+     */
+    private static void verifySettingsDrift(
+        final Map<String, SettingsIdentity> before,
+        final Map<String, SettingsIdentity> after,
+        final Map<String, ProtectedExportObfuscationPlan.Target> planned
+    ) {
+        if (!before.keySet().equals(after.keySet())
+            || !before.keySet().equals(planned.keySet())) {
+            throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
+        }
+        for (Map.Entry<String, SettingsIdentity> entry : after.entrySet()) {
+            final SettingsIdentity prior = before.get(entry.getKey());
+            final SettingsIdentity current = entry.getValue();
+            final ProtectedExportObfuscationPlan.Target target =
+                planned.get(entry.getKey());
+            if (!prior.signature().equals(current.signature())
+                || !target.name().equals(current.name())
+                || !target.idToken().equals(current.id())) {
+                throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
+            }
+        }
+    }
+
     private Object resolveArtMesh(final Object modelSource, final String guid) {
         for (Object mesh : host.allArtMeshes(modelSource)) {
             if (guid.equals(host.objectGuid(mesh))) {
                 return mesh;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Applies one settings identity rewrite on the disposable copy: resolve by
+     * stable GUID, write the planned name and ID tokens, re-read to confirm.
+     * Runs on the EDT like every other copy mutation.
+     */
+    private void applySettingsRewrite(
+        final Session session,
+        final Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry,
+        final boolean physics
+    ) throws Exception {
+        final boolean applied = onEdt(() -> {
+            requireGeneration(session, session.hostGeneration);
+            requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
+            final Object liveSource =
+                requireCopyModelSource(session, OBFUSCATE_FAILED_KEY);
+            final Object source = resolveSettings(
+                physics ? host.allPhysicsSettings(liveSource)
+                    : host.allMotionSyncSettings(liveSource),
+                entry.getKey());
+            if (source == null) {
+                return Boolean.FALSE;
+            }
+            final ProtectedExportObfuscationPlan.Target target = entry.getValue();
+            host.setSettingsName(source, target.name());
+            host.setSettingsId(source, target.idToken());
+            return target.name().equals(host.settingsName(source))
+                && target.idToken().equals(host.settingsIdString(source));
+        });
+        if (!Boolean.TRUE.equals(applied)) {
+            throw new SessionRejection(OBFUSCATE_FAILED_KEY);
+        }
+    }
+
+    /**
+     * Resolves a settings source by its stable GUID in the given list;
+     * {@code null} when absent — a plan entry that does not resolve fails closed.
+     */
+    private Object resolveSettings(final List<?> settings, final String guid) {
+        for (Object setting : settings) {
+            if (guid.equals(host.settingsGuid(setting))) {
+                return setting;
             }
         }
         return null;
@@ -2095,7 +2221,15 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             stagedParameters = Map.of();
         volatile Set<String> expectedPartIds = Set.of();
         volatile Set<String> expectedGlueIds = Set.of();
-        volatile Set<String> expectedPhysicsIds = Set.of();
+        /**
+         * Staged physics contract in the host's settings-list order: every
+         * physics3.json setting must carry its token pair plus the pinned
+         * behavior signature, and the Meta block must reproduce the
+         * settings-set tokens in {@link #expectedPhysicsSet}.
+         */
+        volatile List<ProtectedExportStaging.PhysicsSettingExpectation>
+            expectedPhysicsSettings = List.of();
+        volatile List<String> expectedPhysicsSet = List.of();
         volatile List<Path> publishedFiles = List.of();
         volatile boolean originalRestored;
         volatile List<String> cleanupErrors = List.of();

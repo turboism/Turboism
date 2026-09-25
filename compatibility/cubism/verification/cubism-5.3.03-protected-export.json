@@ -1188,6 +1188,17 @@
    "status": "VERIFIED_STATIC"
   },
   {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.model_source_physics_settings_set",
+   "alias": "cubism.protected-export.model-source.physics-settings-set",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+   "memberName": "getPhysicsSettingsSourceSet",
+   "descriptor": "()Lcom/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
    "mappingId": "cubism.mapping.v5_3_03.protected_export.method.model_source_root_part",
    "alias": "cubism.protected-export.model-source.root-part",
    "kind": "method",
@@ -1276,12 +1287,45 @@
    "status": "VERIFIED_STATIC"
   },
   {
-   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_setting_checksum",
-   "alias": "cubism.protected-export.motion-sync-setting.checksum",
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_mapping_checksum",
+   "alias": "cubism.protected-export.motion-sync-mapping.checksum",
    "kind": "method",
-   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
+   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/MotionSyncMappingSetting",
    "memberName": "checksum",
    "descriptor": "()I",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_postproc_checksum",
+   "alias": "cubism.protected-export.motion-sync-postproc.checksum",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/MotionSyncPostProcSetting",
+   "memberName": "checksum",
+   "descriptor": "()I",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.class.motion_sync_setting_id_class",
+   "alias": "cubism.protected-export.motion-sync-setting-id.class",
+   "kind": "class",
+   "ownerInternalName": "com/live2d/cubism/doc/model/id/CMotionSyncSettingId",
+   "memberName": null,
+   "descriptor": null,
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.constructor.motion_sync_setting_id_create",
+   "alias": "cubism.protected-export.motion-sync-setting-id.create",
+   "kind": "constructor",
+   "ownerInternalName": "com/live2d/cubism/doc/model/id/CMotionSyncSettingId",
+   "memberName": "<init>",
+   "descriptor": "(Ljava/lang/String;)V",
    "requiredAccessFlags": 1,
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"
@@ -1320,12 +1364,67 @@
    "status": "VERIFIED_STATIC"
   },
   {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.field.motion_sync_setting_id_field",
+   "alias": "cubism.protected-export.motion-sync-setting.id-field",
+   "kind": "field",
+   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
+   "memberName": "_id",
+   "descriptor": "Lcom/live2d/cubism/doc/model/id/CMotionSyncSettingId;",
+   "requiredAccessFlags": 2,
+   "forbiddenAccessFlags": 24,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_setting_mapping",
+   "alias": "cubism.protected-export.motion-sync-setting.mapping",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
+   "memberName": "getMapping",
+   "descriptor": "()Lcom/live2d/cubism/doc/model/motionSync/MotionSyncMappingSetting;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
    "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_setting_name",
    "alias": "cubism.protected-export.motion-sync-setting.name",
    "kind": "method",
    "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
    "memberName": "getName",
    "descriptor": "()Ljava/lang/String;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_setting_postproc",
+   "alias": "cubism.protected-export.motion-sync-setting.postproc",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
+   "memberName": "getPostProcSetting",
+   "descriptor": "()Lcom/live2d/cubism/doc/model/motionSync/MotionSyncPostProcSetting;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_setting_set_name",
+   "alias": "cubism.protected-export.motion-sync-setting.set-name",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
+   "memberName": "setName",
+   "descriptor": "(Ljava/lang/String;)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.motion_sync_setting_version",
+   "alias": "cubism.protected-export.motion-sync-setting.version",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
+   "memberName": "getMotionSyncVersion",
+   "descriptor": "()Lcom/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource$CEMotionSyncVersion;",
    "requiredAccessFlags": 1,
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"
@@ -1414,6 +1513,17 @@
    "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
    "memberName": "getDefaultValue",
    "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.parameter_source_guid",
+   "alias": "cubism.protected-export.parameter-source.guid",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+   "memberName": "getGuid",
+   "descriptor": "()Lcom/live2d/type/CParameterGuid;",
    "requiredAccessFlags": 1,
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"
@@ -1562,6 +1672,237 @@
    "status": "VERIFIED_STATIC"
   },
   {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_input_angle_scale",
+   "alias": "cubism.protected-export.physics-input.angle-scale",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
+   "memberName": "getAngleScale",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_input_reverse",
+   "alias": "cubism.protected-export.physics-input.reverse",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
+   "memberName": "isReverse",
+   "descriptor": "()Z",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_input_source",
+   "alias": "cubism.protected-export.physics-input.source",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
+   "memberName": "getSource",
+   "descriptor": "()Lcom/live2d/type/CParameterGuid;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_input_translation_scale",
+   "alias": "cubism.protected-export.physics-input.translation-scale",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
+   "memberName": "getTranslationScale",
+   "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_input_type",
+   "alias": "cubism.protected-export.physics-input.type",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
+   "memberName": "getType",
+   "descriptor": "()Lcom/live2d/cubism/doc/gameData/physics/CPhysicsController$CPhysicsSourceType;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_input_weight",
+   "alias": "cubism.protected-export.physics-input.weight",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
+   "memberName": "getWeight",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_angle_scale",
+   "alias": "cubism.protected-export.physics-output.angle-scale",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getAngleScale",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_destination",
+   "alias": "cubism.protected-export.physics-output.destination",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getDestination",
+   "descriptor": "()Lcom/live2d/type/CParameterGuid;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_reverse",
+   "alias": "cubism.protected-export.physics-output.reverse",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "isReverse",
+   "descriptor": "()Z",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_translation_scale",
+   "alias": "cubism.protected-export.physics-output.translation-scale",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getTranslationScale",
+   "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_type",
+   "alias": "cubism.protected-export.physics-output.type",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getType",
+   "descriptor": "()Lcom/live2d/cubism/doc/gameData/physics/CPhysicsController$CPhysicsSourceType;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_value_below_minimum",
+   "alias": "cubism.protected-export.physics-output.value-below-minimum",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getValueBelowMinimum",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_value_exceeded_maximum",
+   "alias": "cubism.protected-export.physics-output.value-exceeded-maximum",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getValueExceededMaximum",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_vertex_index",
+   "alias": "cubism.protected-export.physics-output.vertex-index",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getVertexIndex",
+   "descriptor": "()I",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_output_weight",
+   "alias": "cubism.protected-export.physics-output.weight",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
+   "memberName": "getWeight",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.class.physics_setting_id_class",
+   "alias": "cubism.protected-export.physics-setting-id.class",
+   "kind": "class",
+   "ownerInternalName": "com/live2d/cubism/doc/model/id/CPhysicsSettingId",
+   "memberName": null,
+   "descriptor": null,
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.constructor.physics_setting_id_create",
+   "alias": "cubism.protected-export.physics-setting-id.create",
+   "kind": "constructor",
+   "ownerInternalName": "com/live2d/cubism/doc/model/id/CPhysicsSettingId",
+   "memberName": "<init>",
+   "descriptor": "(Ljava/lang/String;)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_set_fps",
+   "alias": "cubism.protected-export.physics-settings-set.fps",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
+   "memberName": "getSettingFPS",
+   "descriptor": "()Ljava/lang/Integer;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_set_gravity",
+   "alias": "cubism.protected-export.physics-settings-set.gravity",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
+   "memberName": "getGravity",
+   "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_set_selected",
+   "alias": "cubism.protected-export.physics-settings-set.selected",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
+   "memberName": "getSelectedPhysicsSetting",
+   "descriptor": "()Lcom/live2d/type/CPhysicsSettingsGuid;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_set_wind",
+   "alias": "cubism.protected-export.physics-settings-set.wind",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
+   "memberName": "getWind",
+   "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
    "mappingId": "cubism.mapping.v5_3_03.protected_export.class.physics_settings_source_class",
    "alias": "cubism.protected-export.physics-settings-source.class",
    "kind": "class",
@@ -1628,6 +1969,72 @@
    "status": "VERIFIED_STATIC"
   },
   {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_normalization_angle_default",
+   "alias": "cubism.protected-export.physics-settings.normalization-angle-default",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "getNormalizedAngleDefaultValue",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_normalization_angle_max",
+   "alias": "cubism.protected-export.physics-settings.normalization-angle-max",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "getNormalizedAngleValueMax",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_normalization_angle_min",
+   "alias": "cubism.protected-export.physics-settings.normalization-angle-min",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "getNormalizedAngleValueMin",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_normalization_position_default",
+   "alias": "cubism.protected-export.physics-settings.normalization-position-default",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "getNormalizedPositionDefaultValue",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_normalization_position_max",
+   "alias": "cubism.protected-export.physics-settings.normalization-position-max",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "getNormalizedPositionValueMax",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_normalization_position_min",
+   "alias": "cubism.protected-export.physics-settings.normalization-position-min",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "getNormalizedPositionValueMin",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
    "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_outputs",
    "alias": "cubism.protected-export.physics-settings.outputs",
    "kind": "method",
@@ -1639,12 +2046,100 @@
    "status": "VERIFIED_STATIC"
   },
   {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_set_id",
+   "alias": "cubism.protected-export.physics-settings.set-id",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "setId",
+   "descriptor": "(Lcom/live2d/cubism/doc/model/id/CPhysicsSettingId;)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_set_name",
+   "alias": "cubism.protected-export.physics-settings.set-name",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "setName",
+   "descriptor": "(Ljava/lang/String;)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_total_angle",
+   "alias": "cubism.protected-export.physics-settings.total-angle",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
+   "memberName": "getTotalAngle",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
    "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_settings_vertices",
    "alias": "cubism.protected-export.physics-settings.vertices",
    "kind": "method",
    "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
    "memberName": "getVertices",
    "descriptor": "()Lcom/live2d/type/CArrayList;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_vertex_acceleration",
+   "alias": "cubism.protected-export.physics-vertex.acceleration",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
+   "memberName": "getAcceleration",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_vertex_delay",
+   "alias": "cubism.protected-export.physics-vertex.delay",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
+   "memberName": "getDelay",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_vertex_mobility",
+   "alias": "cubism.protected-export.physics-vertex.mobility",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
+   "memberName": "getMobility",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_vertex_position",
+   "alias": "cubism.protected-export.physics-vertex.position",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
+   "memberName": "getPosition",
+   "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.physics_vertex_radius",
+   "alias": "cubism.protected-export.physics-vertex.radius",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
+   "memberName": "getRadius",
+   "descriptor": "()F",
    "requiredAccessFlags": 1,
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"
@@ -1909,6 +2404,28 @@
    "ownerInternalName": "com/live2d/undo/CUndoManager",
    "memberName": "getCurrentPos",
    "descriptor": "()I",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.vector2_x",
+   "alias": "cubism.protected-export.vector2.x",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+   "memberName": "getX",
+   "descriptor": "()F",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_3_03.protected_export.method.vector2_y",
+   "alias": "cubism.protected-export.vector2.y",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+   "memberName": "getY",
+   "descriptor": "()F",
    "requiredAccessFlags": 1,
    "forbiddenAccessFlags": 8,
    "status": "VERIFIED_STATIC"

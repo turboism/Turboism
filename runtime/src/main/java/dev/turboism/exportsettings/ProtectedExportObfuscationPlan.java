@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Pure ArtMesh-obfuscation planner over {@link ProtectedExportHostOperations} reads.
+ * Pure identity-obfuscation planner over {@link ProtectedExportHostOperations} reads.
  *
  * <p>Mirrors the plugin-side {@code ProtectedExportPlanner} token scheme: every ArtMesh
  * receives a deterministic name {@code ArtMesh_<hex>} and drawable-ID token
@@ -23,6 +23,14 @@ import java.util.Set;
  * allocated in this plan. Reserved coverage spans every object of the model source, so
  * a generated token can never alias an identity the export must preserve.</p>
  *
+ * <p>Physics and motion-sync settings join the same scheme with family prefixes:
+ * a physics setting becomes {@code Physics_<hex>}/{@code PhysicsId_<hex>}, a
+ * motion-sync setting {@code MotionSync_<hex>}/{@code MotionSyncId_<hex>}, both
+ * derived from the settings GUID hash through the same collision loop and sharing
+ * the model-wide reserved pools, so a settings token can never collide with an
+ * ArtMesh token or an authored identity. Only identity is rewritten — every
+ * behavior value stays pinned by the census signature.</p>
+ *
  * <p>Missing/blank GUIDs, names or IDs, duplicate GUIDs and duplicate GUID hashes are
  * hard rejections — never skipped.</p>
  */
@@ -30,12 +38,20 @@ public final class ProtectedExportObfuscationPlan {
 
     private static final String NAME_PREFIX = "ArtMesh_";
     private static final String ID_PREFIX = "@";
+    /** Physics settings token prefixes (name / ID). */
+    static final String PHYSICS_NAME_PREFIX = "Physics_";
+    static final String PHYSICS_ID_PREFIX = "PhysicsId_";
+    /** Motion-sync settings token prefixes (name / ID). */
+    static final String MOTION_SYNC_NAME_PREFIX = "MotionSync_";
+    static final String MOTION_SYNC_ID_PREFIX = "MotionSyncId_";
     private static final int INITIAL_HASH_LENGTH = 16;
     private static final int MAX_TARGET_ID_LENGTH = 63;
     private static final int MAX_HASH_PREFIX_LENGTH =
         MAX_TARGET_ID_LENGTH - ID_PREFIX.length();
+    private static final int MAX_SETTINGS_HASH_PREFIX_LENGTH =
+        MAX_TARGET_ID_LENGTH - MOTION_SYNC_ID_PREFIX.length();
 
-    /** One ArtMesh's planned protected identity. */
+    /** One censused identity's planned protected name and ID token. */
     public record Target(String name, String idToken) {
         public Target {
             name = requireText(name, "name");
@@ -44,16 +60,27 @@ public final class ProtectedExportObfuscationPlan {
     }
 
     /**
-     * Deterministic GUID → protected-identity mapping for every censused ArtMesh,
-     * plus the stable GUIDs of every census member admitted as an untouched
-     * pass-through channel (Glue, ArtPath, alias). Pass-through GUIDs never appear
-     * in {@code byGuid}: a pass-through object keeps its authored name, ID and
-     * references.
+     * Deterministic GUID → protected-identity mapping for every censused ArtMesh
+     * and every physics/motion-sync settings source, plus the stable GUIDs of
+     * every census member admitted as an untouched pass-through channel (Glue,
+     * ArtPath, alias). Pass-through GUIDs never appear in the rewrite maps: a
+     * pass-through object keeps its authored name, ID and references.
      */
-    public record Plan(Map<String, Target> byGuid, List<String> passThroughGuids) {
+    public record Plan(
+        Map<String, Target> byGuid,
+        Map<String, Target> physicsSettings,
+        Map<String, Target> motionSyncSettings,
+        List<String> passThroughGuids
+    ) {
         public Plan {
             byGuid = java.util.Collections.unmodifiableMap(
                 new LinkedHashMap<>(Objects.requireNonNull(byGuid, "byGuid")));
+            physicsSettings = java.util.Collections.unmodifiableMap(
+                new LinkedHashMap<>(Objects.requireNonNull(
+                    physicsSettings, "physicsSettings")));
+            motionSyncSettings = java.util.Collections.unmodifiableMap(
+                new LinkedHashMap<>(Objects.requireNonNull(
+                    motionSyncSettings, "motionSyncSettings")));
             passThroughGuids = List.copyOf(Objects.requireNonNull(
                 passThroughGuids, "passThroughGuids"));
         }
@@ -147,6 +174,15 @@ public final class ProtectedExportObfuscationPlan {
                 reservedNames.add(name);
             }
         }
+        // Physics and motion-sync settings live outside the object census as
+        // well: each is identified, its authored identity is reserved, and a
+        // family-prefixed token pair is planned for the rewrite.
+        final Map<String, Object> physicsByGuid = new LinkedHashMap<>();
+        final Map<String, Object> motionSyncByGuid = new LinkedHashMap<>();
+        collectSettings(host, host.allPhysicsSettings(modelSource),
+            reservedIds, reservedNames, physicsByGuid);
+        collectSettings(host, host.allMotionSyncSettings(modelSource),
+            reservedIds, reservedNames, motionSyncByGuid);
 
         final Map<String, Target> result = new LinkedHashMap<>();
         final Set<String> hashes = new LinkedHashSet<>();
@@ -181,9 +217,91 @@ public final class ProtectedExportObfuscationPlan {
                 throw reject("protected-export.obfuscation-unallocatable");
             }
         }
+        final Map<String, Target> physics = allocateSettings(
+            physicsByGuid.keySet(), hashes, reservedNames, reservedIds,
+            usedNames, usedIds, PHYSICS_NAME_PREFIX, PHYSICS_ID_PREFIX);
+        final Map<String, Target> motionSync = allocateSettings(
+            motionSyncByGuid.keySet(), hashes, reservedNames, reservedIds,
+            usedNames, usedIds, MOTION_SYNC_NAME_PREFIX, MOTION_SYNC_ID_PREFIX);
         final List<String> passThrough = new ArrayList<>(passThroughGuids);
         passThrough.sort(Comparator.naturalOrder());
-        return new Plan(result, passThrough);
+        return new Plan(result, physics, motionSync, passThrough);
+    }
+
+    /**
+     * Validates and reserves every settings source of one family (physics or
+     * motion sync). A member of the wrong shape, a blank GUID, a duplicate GUID
+     * or a blank authored name/ID is a hard rejection — the settings census
+     * never lets an unpinnable member ride through.
+     */
+    private static void collectSettings(
+        final ProtectedExportHostOperations host,
+        final List<?> settings,
+        final Set<String> reservedIds,
+        final Set<String> reservedNames,
+        final Map<String, Object> byGuid
+    ) {
+        for (Object setting : settings) {
+            final String guid = setting == null ? null : host.settingsGuid(setting);
+            if (guid == null || guid.isBlank()) {
+                throw reject("protected-export.obfuscation-guid-missing");
+            }
+            if (byGuid.putIfAbsent(guid, setting) != null) {
+                throw reject("protected-export.obfuscation-guid-duplicate");
+            }
+            final String id = host.settingsIdString(setting);
+            final String name = host.settingsName(setting);
+            if (blank(id) || blank(name)) {
+                throw reject("protected-export.obfuscation-identity-missing");
+            }
+            reservedIds.add(id);
+            reservedNames.add(name);
+        }
+    }
+
+    /**
+     * Allocates family-prefixed token pairs for one settings family, sharing the
+     * plan-wide reserved/used pools so a settings token can never collide with
+     * an ArtMesh token, another family's token, or any authored identity.
+     */
+    private static Map<String, Target> allocateSettings(
+        final java.util.Collection<String> guids,
+        final Set<String> hashes,
+        final Set<String> reservedNames,
+        final Set<String> reservedIds,
+        final Set<String> usedNames,
+        final Set<String> usedIds,
+        final String namePrefix,
+        final String idPrefix
+    ) {
+        final Map<String, Target> planned = new LinkedHashMap<>();
+        for (String guid : guids.stream().sorted(Comparator.naturalOrder()).toList()) {
+            final String hash = sha256Hex(guid);
+            if (!hashes.add(hash)) {
+                throw reject("protected-export.obfuscation-hash-collision");
+            }
+            boolean allocated = false;
+            final int ceiling = Math.min(hash.length(), MAX_SETTINGS_HASH_PREFIX_LENGTH);
+            for (int length = INITIAL_HASH_LENGTH; length <= ceiling; length++) {
+                final String suffix = hash.substring(0, length);
+                final String name = namePrefix + suffix;
+                final String idToken = idPrefix + suffix;
+                if (reservedNames.contains(name) || reservedNames.contains(idToken)
+                    || reservedIds.contains(name) || reservedIds.contains(idToken)
+                    || usedNames.contains(name) || usedIds.contains(idToken)) {
+                    continue;
+                }
+                planned.put(guid, new Target(name, idToken));
+                usedNames.add(name);
+                usedIds.add(idToken);
+                allocated = true;
+                break;
+            }
+            if (!allocated) {
+                throw reject("protected-export.obfuscation-unallocatable");
+            }
+        }
+        return planned;
     }
 
     private static boolean blank(final String value) {

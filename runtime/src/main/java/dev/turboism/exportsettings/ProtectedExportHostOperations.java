@@ -230,6 +230,14 @@ public interface ProtectedExportHostOperations {
      */
     String parameterSourceIdString(Object parameterSource);
 
+    /**
+     * Stable GUID string of a parameter source ({@code CParameterSource.getGuid}).
+     * Physics input/output entries reference their parameter through this GUID —
+     * the census resolves it to the pinned parameter ID so a physics reference
+     * that cannot be resolved fails closed.
+     */
+    String parameterSourceGuid(Object parameterSource);
+
     /** Display name of a parameter source, or {@code null} when unreadable. */
     String parameterSourceName(Object parameterSource);
 
@@ -428,12 +436,44 @@ public interface ProtectedExportHostOperations {
     String settingsName(Object settingsSource);
 
     /**
-     * Ordered {@code key=value} structure tokens pinning a settings source's
-     * authored content — for physics, the enable flag and input/output/vertex
-     * counts; for motion sync, the content checksum. {@code null} when the
-     * object is not a recognized settings family (unpinnable → reject).
+     * Ordered {@code key=value} tokens pinning a settings source's authored
+     * <em>behavior content</em> — everything except its name and ID, which the
+     * protected export rewrites to obfuscation tokens. For physics the tokens
+     * carry the enable flag, normalization windows, total angle, and every
+     * input/output/vertex entry with its resolved parameter IDs (the physics
+     * contract preserves parameter references); for motion sync, the version,
+     * mapping and post-processing checksums. A parameter reference that cannot
+     * be resolved against the model's parameter census, or an unreadable
+     * member, makes the signature {@code null} — the census rejects, never
+     * assumes. Ordered.
+     *
+     * @param modelSource the owning model source (parameter reference resolution)
+     * @param settingsSource a physics or motion-sync settings source
      */
-    List<String> settingsSignature(Object settingsSource);
+    List<String> settingsSignature(Object modelSource, Object settingsSource);
+
+    /**
+     * Rewrites a settings source's local name — disposable-copy obfuscation only.
+     */
+    void setSettingsName(Object settingsSource, String name);
+
+    /**
+     * Rewrites a settings source's ID — disposable-copy obfuscation only.
+     * Implementations rebuild the typed host ID object
+     * ({@code CPhysicsSettingId}/{@code CMotionSyncSettingId}); the settings GUID
+     * is never touched.
+     */
+    void setSettingsId(Object settingsSource, String idString);
+
+    /**
+     * Ordered {@code key=value} tokens pinning the physics settings <em>set</em>
+     * level state that governs every contained setting — effective forces
+     * (gravity, wind), the configured FPS, and the selected settings GUID.
+     * Empty when the model carries no physics settings at all; {@code null}
+     * when physics settings exist but the set cannot be pinned (the census
+     * rejects).
+     */
+    List<String> physicsSettingsSetSignature(Object modelSource);
 
     // ------------------------------------------------------------------
     // Export dialog identity + native re-drive
