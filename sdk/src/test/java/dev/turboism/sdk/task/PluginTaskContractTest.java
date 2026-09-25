@@ -23,7 +23,7 @@ class PluginTaskContractTest {
     @Test
     void exposesTheFrozenClosedEnumSets() {
         assertEquals(
-            "COMPUTE,LOW_FREQUENCY_REFRESH",
+            "COMPUTE,LOW_FREQUENCY_REFRESH,LONG_RUNNING",
             names(PluginTaskKind.values())
         );
         assertEquals("NORMAL,LOW", names(PluginTaskPriority.values()));
