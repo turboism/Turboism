@@ -175,6 +175,44 @@ class SubscribeEventProcessorTest {
         ));
     }
 
+    @Test
+    void rejectsSubscriberHostedByNonPublicClass() throws Exception {
+        final Compilation result = compile("""
+            package fixture;
+            import dev.turboism.sdk.event.SubscribeEvent;
+            import dev.turboism.sdk.event.TurboismEvent;
+            final class Subscriber {
+                @SubscribeEvent public void on(TestEvent event) { }
+                public record TestEvent(String value) implements TurboismEvent { }
+            }
+            """);
+
+        assertFalse(result.succeeded());
+        assertTrue(result.diagnostics().getDiagnostics().stream().anyMatch(diagnostic ->
+            diagnostic.getMessage(java.util.Locale.ROOT)
+                .contains("subscriber owner must be a public concrete class")
+        ));
+    }
+
+    @Test
+    void rejectsSubscriberHostedByAbstractClass() throws Exception {
+        final Compilation result = compile("""
+            package fixture;
+            import dev.turboism.sdk.event.SubscribeEvent;
+            import dev.turboism.sdk.event.TurboismEvent;
+            public abstract class Subscriber {
+                @SubscribeEvent public void on(TestEvent event) { }
+                public record TestEvent(String value) implements TurboismEvent { }
+            }
+            """);
+
+        assertFalse(result.succeeded());
+        assertTrue(result.diagnostics().getDiagnostics().stream().anyMatch(diagnostic ->
+            diagnostic.getMessage(java.util.Locale.ROOT)
+                .contains("subscriber owner must be a public concrete class")
+        ));
+    }
+
     private static Compilation compile(final String source) throws Exception {
         return compile(Map.of("fixture/Subscriber.java", source));
     }

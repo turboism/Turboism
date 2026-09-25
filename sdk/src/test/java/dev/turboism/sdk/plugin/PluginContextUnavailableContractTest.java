@@ -1,8 +1,11 @@
 package dev.turboism.sdk.plugin;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
@@ -56,8 +59,11 @@ import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -119,6 +125,9 @@ class PluginContextUnavailableContractTest {
         assertSame(PaletteFilterRegistry.unavailable(), context.paletteFilter());
         assertSame(SceneTableService.unavailable(), context.sceneTable());
         assertSame(UiHostCapabilityService.unavailable(), context.uiHost());
+        assertSame(
+            dev.turboism.sdk.ui.resource.UiResourceService.unavailable(),
+            context.uiResources());
         assertSame(HostDialogAutomationService.unavailable(), context.hostDialogs());
         assertSame(AppearanceService.unavailable(), context.appearance());
         assertSame(WorkspaceService.unavailable(), context.workspace());
@@ -176,6 +185,83 @@ class PluginContextUnavailableContractTest {
         assertFalse(context.runtimeSettings().isAvailable());
         assertFalse(context.mcpConnections().isAvailable());
         assertFalse(context.performanceStats().isAvailable());
+    }
+
+    /**
+     * Permanent parity contract: every optional {@link PluginContext} service accessor maps to
+     * exactly one {@link PluginService} member and back. An optional service accessor is a
+     * {@code default} method whose return type exposes a {@code static unavailable()} sentinel
+     * factory; guaranteed members are abstract accessors and must never gain a member.
+     */
+    @Test
+    void everyOptionalServiceAccessorHasExactlyOnePluginServiceMember() {
+        int optionalAccessors = 0;
+        for (Method method : PluginContext.class.getDeclaredMethods()) {
+            if (!method.isDefault()
+                || !exposesUnavailableSentinel(method.getReturnType())) {
+                continue;
+            }
+            optionalAccessors++;
+            final String memberName = toMemberName(method.getName());
+            assertDoesNotThrow(
+                () -> PluginService.valueOf(memberName),
+                "optional accessor " + method.getName()
+                    + "() has no PluginService." + memberName + " member"
+            );
+        }
+        for (PluginService service : PluginService.values()) {
+            final String accessorName = toAccessorName(service.name());
+            final Method accessor = assertDoesNotThrow(
+                () -> PluginContext.class.getDeclaredMethod(accessorName),
+                "PluginService." + service.name()
+                    + " has no PluginContext." + accessorName + "() accessor"
+            );
+            assertTrue(
+                accessor.isDefault(),
+                "PluginService." + service.name() + " maps to guaranteed accessor "
+                    + accessorName + "(), which must not carry a member"
+            );
+            assertTrue(
+                exposesUnavailableSentinel(accessor.getReturnType()),
+                "PluginService." + service.name() + " maps to accessor " + accessorName
+                    + "() whose return type exposes no unavailable() sentinel"
+            );
+        }
+        assertEquals(
+            optionalAccessors,
+            PluginService.values().length,
+            "optional accessors and PluginService members must be a bijection"
+        );
+    }
+
+    private static boolean exposesUnavailableSentinel(final Class<?> serviceType) {
+        for (Method method : serviceType.getMethods()) {
+            if (method.getName().equals("unavailable")
+                && Modifier.isStatic(method.getModifiers())
+                && method.getParameterCount() == 0
+                && serviceType.isAssignableFrom(method.getReturnType())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String toMemberName(final String accessorName) {
+        return accessorName
+            .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
+            .toUpperCase(Locale.ROOT);
+    }
+
+    private static String toAccessorName(final String memberName) {
+        final StringBuilder name = new StringBuilder();
+        for (String segment : memberName.toLowerCase(Locale.ROOT).split("_")) {
+            if (name.isEmpty()) {
+                name.append(segment);
+            } else {
+                name.append(Character.toUpperCase(segment.charAt(0))).append(segment.substring(1));
+            }
+        }
+        return name.toString();
     }
 
     @Test
