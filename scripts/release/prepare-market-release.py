@@ -21,15 +21,17 @@ only selection validation and staging:
 Strictness rules (fail closed):
 
   * entries unique and ASCII-sorted by Gradle project path;
-  * only known ``:plugins:*`` modules; ``:plugins:core`` and retired plugin
-    ids are rejected; duplicate descriptor ids are rejected;
+  * only known ``:plugins:*`` modules; ``:plugins:core`` (the former core
+    module, now the runtime-owned shell) and retired plugin ids are rejected;
+    duplicate descriptor ids are rejected;
   * descriptor version is authoritative strict MAJOR.MINOR.PATCH;
   * schemaVersion 3 or 4 with a category and ordered non-empty tags is required;
   * schema-v4 public event exports/imports are normalized into store metadata;
   * ``cubismVersions`` is non-empty strict MAJOR.MINOR.PATCH only when the
     descriptor requires Cubism, and must be empty otherwise;
   * selected plugins need complete nonblank ``plugin.name`` and
-    ``plugin.description`` in the declared en, zh-Hans and ja catalogs;
+    ``plugin.description`` in the declared en, ja, ko, zh-Hans and zh-Hant
+    catalogs, matching the Cubism language matrix;
   * repository/support are explicit public HTTPS URLs;
   * trust is fixed to ``official`` and platform to ``windows-x64``: they are
     implicit and never read from the manifest.
@@ -59,14 +61,19 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from plugin_event_metadata import EventMetadataError, normalize_event_metadata, validate_event_routes
+from plugin_event_metadata import (
+    EventMetadataError,
+    normalize_event_contracts,
+    normalize_event_metadata,
+    validate_event_routes,
+)
 
 DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json"
 SIDECAR_NAME = "market-release.json"
 MAX_JAR_BYTES = 16 * 1024 * 1024  # 16 MiB contract ceiling
 STRICT_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 SOURCE_SHA = re.compile(r"^[0-9a-f]{40}$")
-REQUIRED_LOCALES = ("en", "zh-Hans", "ja")
+REQUIRED_LOCALES = ("en", "ja", "ko", "zh-Hans", "zh-Hant")
 REQUIRED_KEYS = ("plugin.name", "plugin.description")
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -312,10 +319,11 @@ def derive_descriptor(document: dict, module: str) -> dict:
         return value
 
     schema_version = document.get("schemaVersion")
-    if schema_version not in (3, 4):
-        raise MarketError(f"plugins/{module}: descriptor schemaVersion must be 3 or 4")
+    if schema_version not in (3, 4, 5):
+        raise MarketError(f"plugins/{module}: descriptor schemaVersion must be 3, 4 or 5")
     try:
         event_exports, event_imports = normalize_event_metadata(document, f"plugins/{module}")
+        event_contracts = normalize_event_contracts(document, f"plugins/{module}")
     except EventMetadataError as failure:
         raise MarketError(str(failure)) from failure
     plugin_id = text("id")
@@ -374,6 +382,7 @@ def derive_descriptor(document: dict, module: str) -> dict:
         "permissions": list(permissions),
         "eventExports": event_exports,
         "eventImports": event_imports,
+        "eventContracts": event_contracts,
         "i18n": {"baseName": base_name, "locales": list(locales)},
     }
 
@@ -384,7 +393,7 @@ def catalog_name(base_name: str, locale: str) -> str:
 
 
 def required_localizations(read_catalog, base_name: str, locales: list) -> dict:
-    """Require nonblank plugin.name/plugin.description in en/zh-Hans/ja."""
+    """Require nonblank plugin.name/plugin.description in every required locale."""
     result = {}
     for locale in REQUIRED_LOCALES:
         if locale not in locales:
@@ -564,6 +573,7 @@ def build_sidecar(revision: str, prepared: list) -> dict:
                 "permissions": descriptor["permissions"],
                 "publishedEvents": descriptor["eventExports"],
                 "subscribedEvents": descriptor["eventImports"],
+                "embeddedContracts": descriptor["eventContracts"],
             },
             "localizations": {
                 locale: {"name": entry["plugin.name"],

@@ -20,152 +20,682 @@
     }
   },
   "tasks": {
+    "mcp": {
+      "description": "Production MCP HTTP discovery, guarded writes, restoration and task-owned normal close with a pinned stdlib client.",
+      "command": "scripts/preview/run-mcp-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
     "atlas": {
-      "description": "Fixed single-invocation current-page Geometry validation; final 2500 explicitly authorized after preliminary PASS.",
+      "description": "Fixed single-invocation current-page layout timing+memory validation; circle/geometry 100/500/1000 across native/new/polygon on 5203/5302/5303.",
       "command": "scripts/preview/run-atlas-host-validation.sh",
-      "versions": ["5303"],
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
       "defaultVariant": "geometry-100-new",
       "variants": {
-        "ui-circle-100-new": ["{version}", "{runLabel}", "ui-circle-100-new"],
-        "ui-circle-100-new-parallel": ["{version}", "{runLabel}", "ui-circle-100-new-parallel"],
-        "ui-circle-100-native": ["{version}", "{runLabel}", "ui-circle-100-native"],
-        "ui-circle-1000-new": ["{version}", "{runLabel}", "ui-circle-1000-new"],
-        "ui-circle-1000-native": ["{version}", "{runLabel}", "ui-circle-1000-native"],
-        "ui-circle-2500-new": ["{version}", "{runLabel}", "ui-circle-2500-new"],
-        "ui-circle-2500-native": ["{version}", "{runLabel}", "ui-circle-2500-native"],
-        "ui-geometry-100-new": ["{version}", "{runLabel}", "ui-geometry-100-new"],
-        "ui-geometry-100-new-parallel": ["{version}", "{runLabel}", "ui-geometry-100-new-parallel"],
-        "ui-geometry-100-native": ["{version}", "{runLabel}", "ui-geometry-100-native"],
-        "ui-geometry-1000-new": ["{version}", "{runLabel}", "ui-geometry-1000-new"],
-        "ui-geometry-1000-native": ["{version}", "{runLabel}", "ui-geometry-1000-native"],
-        "ui-geometry-2500-new": ["{version}", "{runLabel}", "ui-geometry-2500-new"],
-        "ui-geometry-2500-native": ["{version}", "{runLabel}", "ui-geometry-2500-native"],
-        "ui-circle-500-new": ["{version}", "{runLabel}", "ui-circle-500-new"],
-        "ui-circle-500-new-parallel": ["{version}", "{runLabel}", "ui-circle-500-new-parallel"],
-        "ui-circle-500-native": ["{version}", "{runLabel}", "ui-circle-500-native"],
-        "ui-geometry-500-new": ["{version}", "{runLabel}", "ui-geometry-500-new"],
-        "ui-geometry-500-new-parallel": ["{version}", "{runLabel}", "ui-geometry-500-new-parallel"],
-        "ui-geometry-500-native": ["{version}", "{runLabel}", "ui-geometry-500-native"],
-        "geometry-100-new": ["{version}", "{runLabel}", "geometry-100-new"],
-        "geometry-100-native": ["{version}", "{runLabel}", "geometry-100-native"],
-        "geometry-500-new": ["{version}", "{runLabel}", "geometry-500-new"],
-        "geometry-500-native": ["{version}", "{runLabel}", "geometry-500-native"],
-        "geometry-1000-new": ["{version}", "{runLabel}", "geometry-1000-new"],
-        "geometry-1000-native": ["{version}", "{runLabel}", "geometry-1000-native"],
-        "geometry-2500-new": ["{version}", "{runLabel}", "geometry-2500-new"],
-        "geometry-2500-native": ["{version}", "{runLabel}", "geometry-2500-native"]
+        "ui-circle-100-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-100-new"
+        ],
+        "ui-circle-100-new-parallel": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-100-new-parallel"
+        ],
+        "ui-circle-100-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-100-native"
+        ],
+        "ui-circle-1000-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-1000-new"
+        ],
+        "ui-circle-1000-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-1000-native"
+        ],
+        "ui-circle-2500-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-2500-new"
+        ],
+        "ui-circle-2500-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-2500-native"
+        ],
+        "ui-geometry-100-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-100-new"
+        ],
+        "ui-geometry-100-new-parallel": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-100-new-parallel"
+        ],
+        "ui-geometry-100-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-100-native"
+        ],
+        "ui-geometry-1000-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-1000-new"
+        ],
+        "ui-geometry-1000-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-1000-native"
+        ],
+        "ui-geometry-2500-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-2500-new"
+        ],
+        "ui-geometry-2500-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-2500-native"
+        ],
+        "ui-circle-500-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-500-new"
+        ],
+        "ui-circle-500-new-parallel": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-500-new-parallel"
+        ],
+        "ui-circle-500-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-500-native"
+        ],
+        "ui-geometry-500-new": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-500-new"
+        ],
+        "ui-geometry-500-new-parallel": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-500-new-parallel"
+        ],
+        "ui-geometry-500-native": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-500-native"
+        ],
+        "geometry-100-new": [
+          "{version}",
+          "{runLabel}",
+          "geometry-100-new"
+        ],
+        "geometry-100-native": [
+          "{version}",
+          "{runLabel}",
+          "geometry-100-native"
+        ],
+        "geometry-500-new": [
+          "{version}",
+          "{runLabel}",
+          "geometry-500-new"
+        ],
+        "geometry-500-native": [
+          "{version}",
+          "{runLabel}",
+          "geometry-500-native"
+        ],
+        "geometry-1000-new": [
+          "{version}",
+          "{runLabel}",
+          "geometry-1000-new"
+        ],
+        "geometry-1000-native": [
+          "{version}",
+          "{runLabel}",
+          "geometry-1000-native"
+        ],
+        "geometry-2500-new": [
+          "{version}",
+          "{runLabel}",
+          "geometry-2500-new"
+        ],
+        "geometry-2500-native": [
+          "{version}",
+          "{runLabel}",
+          "geometry-2500-native"
+        ],
+        "ui-circle-100-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-100-polygon"
+        ],
+        "ui-circle-500-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-500-polygon"
+        ],
+        "ui-circle-1000-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-circle-1000-polygon"
+        ],
+        "ui-geometry-100-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-100-polygon"
+        ],
+        "ui-geometry-500-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-500-polygon"
+        ],
+        "ui-geometry-1000-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-geometry-1000-polygon"
+        ]
       },
-      "resources": {"host-slot": 1, "display-input": 1, "performance-host": 1}
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      }
     },
     "backup": {
       "description": "Automated backup host validation.",
       "command": "scripts/preview/run-backup-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "resources": {
+        "host-slot": 1
+      },
+      "variants": {
+        "default": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "reduced": [
+          "{version}",
+          "{runLabel}-reduced",
+          "--windows-env",
+          "TURBOISM_REDUCE_AUTO_BACKUP=1"
+        ]
+      },
+      "defaultVariant": "default"
     },
     "backup-interactive": {
       "description": "Human-operated WebDAV backup session.",
       "command": "scripts/preview/run-backup-interactive-session.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1, "display-input": 1, "interactive-desktop": 1},
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "interactive-desktop": 1
+      },
       "runnable": false,
       "blockedReason": "Interactive WebDAV sessions are not supported by the unattended local queue; no configuration is copied or host launched."
     },
     "clipmask-viewer": {
       "description": "Clip-mask viewer SDK and host validation.",
       "command": "scripts/preview/run-clipmask-viewer-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "core-acquisition": {
       "description": "Cubism Core acquisition validation.",
       "command": "scripts/preview/run-core-acquisition-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "dialog-automation": {
       "description": "Host-dialog automation validation requiring an explicit fixture identity.",
       "command": "scripts/preview/run-dialog-automation-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1},
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      },
       "runnable": false,
       "blockedReason": "The wrapper requires caller-supplied --fixture-remote and --fixture-sha256 runner arguments."
     },
     "fps": {
       "description": "FPS counting and render-driving validation; machine-exclusive performance evidence.",
       "command": "scripts/preview/run-fps-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1, "display-input": 1, "performance-host": 1}
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      },
+      "variants": {
+        "default": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75"
+        ],
+        "zgc": [
+          "{version}",
+          "{runLabel}-zgc",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--jvm-option",
+          "-XX:+UseZGC"
+        ],
+        "jfr": [
+          "{version}",
+          "{runLabel}-jfr",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75"
+        ],
+        "opengl": [
+          "{version}",
+          "{runLabel}-opengl",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--jvm-option",
+          "-Dsun.java2d.opengl=true"
+        ],
+        "d3d": [
+          "{version}",
+          "{runLabel}-d3d",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--jvm-option",
+          "-Dsun.java2d.d3d=true"
+        ]
+      },
+      "defaultVariant": "default"
     },
     "host-locale": {
       "description": "Host locale projection validation.",
       "command": "scripts/preview/run-host-locale-host-validation.sh",
-      "versions": ["5203", "5302"],
+      "versions": [
+        "5203",
+        "5302"
+      ],
       "defaultVariant": "system",
       "variants": {
-        "system": ["{version}", "{runLabel}", "--locale", "system"],
-        "en": ["{version}", "{runLabel}", "--locale", "en"],
-        "ja": ["{version}", "{runLabel}", "--locale", "ja"],
-        "ko": ["{version}", "{runLabel}", "--locale", "ko"],
-        "zh-Hans": ["{version}", "{runLabel}", "--locale", "zh-Hans"],
-        "zh-Hant": ["{version}", "{runLabel}", "--locale", "zh-Hant"],
+        "system": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "system"
+        ],
+        "en": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "en"
+        ],
+        "ja": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "ja"
+        ],
+        "ko": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "ko"
+        ],
+        "zh-Hans": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "zh-Hans"
+        ],
+        "zh-Hant": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "zh-Hant"
+        ],
         "environment-ja": [
-          "{version}", "{runLabel}", "--locale", "system", "--environment-language", "ja"
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "system",
+          "--environment-language",
+          "ja"
         ],
         "environment-en": [
-          "{version}", "{runLabel}", "--locale", "system", "--environment-language", "en"
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "system",
+          "--environment-language",
+          "en"
         ]
       },
-      "resources": {"host-slot": 1}
+      "resources": {
+        "host-slot": 1
+      }
+    },
+    "model-update-skip": {
+      "description": "Model-update unchanged-frame skip; repaint resize driver exercises off/probe/on legs; machine-exclusive performance evidence.",
+      "command": "scripts/preview/run-model-update-skip-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      },
+      "variants": {
+        "off": [
+          "off",
+          "{version}",
+          "{runLabel}"
+        ],
+        "probe": [
+          "probe",
+          "{version}",
+          "{runLabel}"
+        ],
+        "on": [
+          "on",
+          "{version}",
+          "{runLabel}"
+        ]
+      },
+      "defaultVariant": "on"
+    },
+    "incremental-update": {
+      "description": "Per-object incremental model update; repaint resize driver exercises off/probe/on legs; machine-exclusive performance evidence.",
+      "command": "scripts/preview/run-incremental-update-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      },
+      "variants": {
+        "off": [
+          "off",
+          "{version}",
+          "{runLabel}"
+        ],
+        "probe": [
+          "probe",
+          "{version}",
+          "{runLabel}"
+        ],
+        "on": [
+          "on",
+          "{version}",
+          "{runLabel}"
+        ]
+      },
+      "defaultVariant": "on"
     },
     "parameter": {
       "description": "Parameter and Editor-object validation.",
       "command": "scripts/preview/run-parameter-host-validation.sh",
-      "versions": ["5203", "5302"],
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
       "defaultVariant": "matrix",
       "variants": {
-        "matrix": ["{version}", "matrix", "{runLabel}"],
-        "model-edit-level": ["{version}", "model-edit-level", "{runLabel}"],
-        "wave1": ["{version}", "wave1", "{runLabel}"],
-        "statistics-read": ["{version}", "statistics-read", "{runLabel}"],
-        "binding-read": ["{version}", "binding-read", "{runLabel}"],
-        "binding-matrix": ["{version}", "binding-matrix", "{runLabel}"],
-        "parameter-menu-smoke": ["{version}", "parameter-menu-smoke", "{runLabel}"],
-        "persist-write": ["{version}", "persist-write", "{runLabel}"],
-        "persist-read": ["{version}", "persist-read", "{runLabel}"],
-        "plugin-scope-close": ["{version}", "plugin-scope-close", "{runLabel}"],
-        "document-close": ["{version}", "document-close", "{runLabel}"],
-        "native-control-background": ["{version}", "native-control-background", "{runLabel}"],
-        "native-control-background-document-close": ["{version}", "native-control-background-document-close", "{runLabel}"],
-        "native-control-background-persist-write": ["{version}", "native-control-background-persist-write", "{runLabel}"],
-        "native-control-background-persist-reopen": ["{version}", "native-control-background-persist-reopen", "{runLabel}"],
-        "native-control-background-persist-final": ["{version}", "native-control-background-persist-final", "{runLabel}"]
+        "matrix": [
+          "{version}",
+          "matrix",
+          "{runLabel}"
+        ],
+        "model-edit-level": [
+          "{version}",
+          "model-edit-level",
+          "{runLabel}"
+        ],
+        "wave1": [
+          "{version}",
+          "wave1",
+          "{runLabel}"
+        ],
+        "statistics-read": [
+          "{version}",
+          "statistics-read",
+          "{runLabel}"
+        ],
+        "binding-read": [
+          "{version}",
+          "binding-read",
+          "{runLabel}"
+        ],
+        "binding-matrix": [
+          "{version}",
+          "binding-matrix",
+          "{runLabel}"
+        ],
+        "parameter-menu-smoke": [
+          "{version}",
+          "parameter-menu-smoke",
+          "{runLabel}"
+        ],
+        "persist-write": [
+          "{version}",
+          "persist-write",
+          "{runLabel}"
+        ],
+        "persist-read": [
+          "{version}",
+          "persist-read",
+          "{runLabel}"
+        ],
+        "plugin-scope-close": [
+          "{version}",
+          "plugin-scope-close",
+          "{runLabel}"
+        ],
+        "document-close": [
+          "{version}",
+          "document-close",
+          "{runLabel}"
+        ],
+        "native-control-background": [
+          "{version}",
+          "native-control-background",
+          "{runLabel}"
+        ],
+        "native-control-background-document-close": [
+          "{version}",
+          "native-control-background-document-close",
+          "{runLabel}"
+        ],
+        "native-control-background-persist-write": [
+          "{version}",
+          "native-control-background-persist-write",
+          "{runLabel}"
+        ],
+        "native-control-background-persist-reopen": [
+          "{version}",
+          "native-control-background-persist-reopen",
+          "{runLabel}"
+        ],
+        "native-control-background-persist-final": [
+          "{version}",
+          "native-control-background-persist-final",
+          "{runLabel}"
+        ],
+        "perf-observe": [
+          "{version}",
+          "perf-observe",
+          "{runLabel}"
+        ],
+        "perf-observe-zgc": [
+          "{version}",
+          "perf-observe-zgc",
+          "{runLabel}"
+        ],
+        "native-baseline": [
+          "{version}",
+          "native-baseline",
+          "{runLabel}"
+        ],
+        "native-tuned": [
+          "{version}",
+          "native-tuned",
+          "{runLabel}"
+        ],
+        "native-tuned2": [
+          "{version}",
+          "native-tuned2",
+          "{runLabel}"
+        ],
+        "native-tuned3": [
+          "{version}",
+          "native-tuned3",
+          "{runLabel}"
+        ],
+        "native-tuned4": [
+          "{version}",
+          "native-tuned4",
+          "{runLabel}"
+        ],
+        "native-tuned5": [
+          "{version}",
+          "native-tuned5",
+          "{runLabel}"
+        ],
+        "native-tuned6": [
+          "{version}",
+          "native-tuned6",
+          "{runLabel}"
+        ],
+        "perf-observe-batch": [
+          "{version}",
+          "perf-observe-batch",
+          "{runLabel}"
+        ],
+        "native-tuned7": [
+          "{version}",
+          "native-tuned7",
+          "{runLabel}"
+        ]
       },
-      "resources": {"host-slot": 1}
+      "resources": {
+        "host-slot": 1
+      }
     },
     "parameter-batch-transfer": {
       "description": "Parameter batch-transfer SDK validation.",
       "command": "scripts/preview/run-parameter-batch-transfer-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "psd-clip-mask": {
       "description": "PSD clip-mask read/write/Undo/Redo validation.",
       "command": "scripts/preview/run-psd-clip-mask-host-validation.sh",
-      "versions": ["5203", "5302"],
+      "versions": [
+        "5203",
+        "5302"
+      ],
       "defaultVariant": "matrix",
       "variants": {
-        "read": ["{version}", "read", "{runLabel}"],
-        "matrix": ["{version}", "matrix", "{runLabel}"]
+        "read": [
+          "{version}",
+          "read",
+          "{runLabel}"
+        ],
+        "matrix": [
+          "{version}",
+          "matrix",
+          "{runLabel}"
+        ]
       },
-      "resources": {"host-slot": 1}
+      "resources": {
+        "host-slot": 1
+      }
     },
     "protected-export": {
       "description": "Protected-export export-settings hook validation for the reviewed 5.2.03, 5.3.02 and 5.3.03 editors: the contributed option must be visible in the native Embedded-Model Export Settings dialog and default-off, an unchecked confirmation must continue the native export path unchanged, a checked candidate must be rejected by the decision gate without a continuation window, and a cancel must reach the bridge cleanup without a continuation window. The copy-binding variant additionally proves the disposable-copy open/restore path before any mutation is admitted. The staged candidate plugin is not part of any release.",
@@ -191,64 +721,269 @@
     "recent-preview": {
       "description": "Recent-file preview and popup validation.",
       "command": "scripts/preview/run-recent-preview-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "selection-lag": {
       "description": "Selection latency evidence; machine-exclusive to keep thresholds meaningful.",
       "command": "scripts/preview/run-selection-lag-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1, "performance-host": 1}
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      },
+      "variants": {
+        "default": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "zgc": [
+          "{version}",
+          "{runLabel}-zgc",
+          "--jvm-option",
+          "-XX:+UseZGC"
+        ]
+      },
+      "defaultVariant": "default"
     },
     "separate-save-path": {
       "description": "Separate project/export save-path validation.",
       "command": "scripts/preview/run-separate-save-path-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "startup-suppression": {
       "description": "Splash, update-check, and information-dialog suppression validation.",
       "command": "scripts/preview/run-startup-suppression-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "status-bar": {
       "description": "Native status-bar contribution validation.",
       "command": "scripts/preview/run-status-bar-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "theme": {
       "description": "Theme and host appearance validation.",
       "command": "scripts/preview/run-theme-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
     },
     "update-check": {
       "description": "Stable update-check request, comparison and rendered UI on an exact host.",
       "command": "scripts/preview/run-update-check-host-validation.sh",
-      "versions": ["5203", "5302", "5303"],
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
       "defaultVariant": "current",
       "variants": {
-        "current": ["{version}", "{runLabel}", "current"],
-        "new": ["{version}", "{runLabel}", "new"],
-        "safe": ["{version}", "{runLabel}", "safe"],
-        "demo": ["{version}", "{runLabel}", "demo"]
+        "current": [
+          "{version}",
+          "{runLabel}",
+          "current"
+        ],
+        "new": [
+          "{version}",
+          "{runLabel}",
+          "new"
+        ],
+        "safe": [
+          "{version}",
+          "{runLabel}",
+          "safe"
+        ],
+        "demo": [
+          "{version}",
+          "{runLabel}",
+          "demo"
+        ]
       },
-      "resources": {"host-slot": 1}
+      "resources": {
+        "host-slot": 1
+      }
     },
     "workspace": {
       "description": "Workspace switching and reconnect validation.",
       "command": "scripts/preview/run-workspace-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1}
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
+    },
+    "edit": {
+      "description": "External-application edit session validation (session lock, cancel restore, commit, semantic edge cases, GetObject reads, fail-closed).",
+      "command": "scripts/preview/run-edit-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "edit-protocol": {
+      "description": "Cubism 5.4-compat external edit API protocol bridge validation: a task-local stdlib WebSocket client replays the official 1.1.0 wire sequence (RegisterPlugin, token persistence, approval polling, EditBegin/End, S1-S6 matrix) against the host's own loopback service on port 22033, then a native 1.0.x regression stage; the probe plugin enables the external-app service, pre-seeds native token authorization and auto-answers the Turboism edit-approval dialog under a kill-switch file.",
+      "command": "scripts/preview/run-edit-protocol-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "animation-timeline": {
+      "description": "Animation workspace SDK validation (enumeration, timeline, playback, scene ops, keyframe/easing writes, evaluated bake, native undo).",
+      "command": "scripts/preview/run-animation-timeline-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
+    },
+    "warp-deformer-alt-symmetry": {
+      "description": "Warp deformer Alt-symmetry reconnaissance: SDK Warp grid baseline, grid write/hook/native-Undo round-trip, optional calibrated Robot Alt-drag observation, and a human-in-the-loop native-ingress observation window on the reviewed 5.2.03/5.3.02/5.3.03 hosts.",
+      "command": "scripts/preview/run-warp-deformer-alt-symmetry-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "defaultVariant": "analyse",
+      "variants": {
+        "analyse": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "drive": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=drive"
+        ],
+        "observe": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=observe"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "workspace": {
+      "description": "Workspace switching and reconnect validation.",
+      "command": "scripts/preview/run-workspace-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
+    },
+    "boundingbox-warp-mirror": {
+      "description": "BoundingBox overlay whole-object Warp mirror: four-direction SDK applies with label/result verification, descendant canvas preservation, atomic Undo/Redo, NO_CHANGE, and fail-closed rejection on 5.3.03.",
+      "command": "scripts/preview/run-boundingbox-warp-mirror-host-validation.sh",
+      "versions": [
+        "5303"
+      ],
+      "defaultVariant": "analyse",
+      "variants": {
+        "analyse": [
+          "{version}",
+          "{runLabel}"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
     }
   }
 }

@@ -26,6 +26,25 @@ class RuntimeCoreModelBackendTest {
     }
 
     @Test
+    void rejectsEditorObjectsBeforePublishingOrReplacingACoreGeneration() {
+        try (RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
+            TestCoreApiFixture.resolver("5.3.02"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow()) {
+            final Object editorModel = new Object();
+            assertThrows(IllegalArgumentException.class,
+                () -> backend.publishBorrowedModel(editorModel, "editor-model"));
+            assertThrows(IllegalStateException.class, () -> backend.modelAccess().active());
+            backend.publishBorrowedModel(coreModel(new float[]{10.0F}), "core-model");
+            final var parameter = backend.modelAccess().active().parameters()
+                .find(new ParameterId("ParamAngleX"));
+            assertThrows(IllegalArgumentException.class,
+                () -> backend.publishBorrowedModel(editorModel, "editor-model"));
+            assertEquals(10.0F, parameter.getValue());
+        }
+    }
+
+    @Test
     void admitsPublishesClearsAndClosesOneRuntimeOwnedBackend() {
         final RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
             TestCoreApiFixture.resolver("5.3.02"),

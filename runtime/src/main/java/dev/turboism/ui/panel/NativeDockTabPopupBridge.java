@@ -57,8 +57,13 @@ public final class NativeDockTabPopupBridge {
         }
     }
 
+    /** Callback invoked after the host appends its own items to a dock-tab popup. */
     @FunctionalInterface
     public interface Handler {
+        /**
+         * @param menu the native popup menu being built
+         * @param palette the palette the menu belongs to
+         */
         void augment(Object menu, Object palette);
     }
 }

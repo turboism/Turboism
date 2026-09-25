@@ -1,0 +1,16 @@
+{
+  "format": "turboism.verification-source-family/v1",
+  "family": "workspace-control",
+  "records": [
+    "cubism-5.2.03-workspace-control.json",
+    "cubism-5.3.02-workspace-control.json",
+    "cubism-5.3.03-workspace-control.json"
+  ],
+  "files": [
+    "dev/turboism/mapping/verification/WorkspaceControlVerificationManifest.java"
+  ],
+  "coverage": true,
+  "packs": [],
+  "extraLiterals": [],
+  "coverageSources": []
+}

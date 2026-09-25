@@ -198,20 +198,34 @@ public final class StartupSuppressionInstaller {
         }
     }
 
+    /** How the Java agent was attached to the JVM. */
     public enum AttachmentMode {
+        /** Attached at JVM launch via {@code -javaagent}; the only admitted mode. */
         PREMAIN,
+        /** Attached to a running JVM; always refused, since the target class may already be loaded. */
         AGENTMAIN
     }
 
+    /** Why one {@link #install} attempt did or did not install the transformer. */
     public enum Status {
+        /** The loaded startup policy did not request suppression, or safe mode is on. */
         NOT_REQUESTED,
+        /** The agent was attached via agentmain; suppression is premain-only. */
         AGENTMAIN_REFUSED,
+        /** The host artifact could not be located, read, or digest-matched to a reviewed profile. */
         ARTIFACT_REJECTED,
+        /** The target host class was already loaded when admission ran. */
         TARGET_ALREADY_LOADED,
+        /** The transformer was added and is active until the installation is closed. */
         INSTALLED,
+        /** Admission passed but the transformer could not be added. */
         INSTALL_FAILED
     }
 
+    /**
+     * The outcome of {@link #install}: the terminal status and the loaded policy. An
+     * {@code INSTALLED} installation owns the transformer and removes it on {@link #close}.
+     */
     public static final class Installation implements AutoCloseable {
         private final Status status;
         private final RuntimeStartupConfig policy;

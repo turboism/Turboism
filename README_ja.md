@@ -4,11 +4,13 @@
 
 ## 著作権と注意事項
 
-Copyright © 2026 Turboism Contributors。Turboism は [MIT License](LICENSE) に基づくオープンソースソフトウェアです。
+Copyright © 2026 Turboism Contributors。Turboism は [AGPL-3.0-only](LICENSE) に基づくオープンソースソフトウェアです。
+
+本バージョンには GNU Affero General Public License 第 3 版のみ（`AGPL-3.0-only`）が適用されます。第三者のコンポーネントおよび個別のライセンス表記があるファイルには、それぞれのライセンスが適用されます。
 
 Turboism は**独立したサードパーティープロジェクト**であり、Live2D Inc. との提携関係はなく、同社による推奨やスポンサー提供も受けていません。Live2D、Cubism および関連する名称・標章の権利は、Live2D Inc. またはそれぞれの権利者に帰属します。Turboism は Cubism Editor を配布せず、そのライセンスを付与・代替したり、認証を回避したりするものではありません。別途、正規のライセンスを取得した Cubism Editor をインストールする必要があります。
 
-インストール前に[エンドユーザー実行声明・免責事項](EULA.md)をお読みください。この声明は MIT License が付与する権利を制限するものではなく、簡体字中国語の正式文書が優先されます。本ソフトウェアは**現状のまま**提供されます。プロジェクトの内容を変更するプラグインや自動化機能を使う前に、独立したバックアップを保存してください。
+インストール前に[エンドユーザー実行声明・免責事項](packaging/eula/EULA.ja.txt)をお読みください。この声明は AGPL-3.0-only が付与する権利を制限するものではなく、簡体字中国語の正式文書が優先されます。本ソフトウェアは**現状のまま**提供されます。プロジェクトの内容を変更するプラグインや自動化機能を使う前に、独立したバックアップを保存してください。
 
 ## プロジェクト概要
 
@@ -83,6 +85,12 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 
 プラグイン開発は、[デモプラグイン](plugins/demo/README.md)、その[ビルド設定](plugins/demo/build.gradle.kts)、[プラグイン記述ファイル](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)を参考に始められます。プラグインは `compileOnly` で `:sdk` に依存し、ランタイムの内部実装や `com.live2d.*` クラスには直接依存しないでください。
 
+このリポジトリの**外側**でプラグインを開発する場合、Turboism 本体のビルドは不要です。各 GitHub Release には `turboism-sdk-<version>.jar`（`.sha256` サイドカー付き）が同梱されます。[templates/plugin-template](templates/plugin-template/) を独立したプロジェクトとしてコピーし、SDK JAR を `libs/` ディレクトリに入れて、その README の手順に従ってください。フレームワーク貢献者は、SDK と `@SubscribeEvent` アノテーションプロセッサをローカル Maven リポジトリに公開し、`mavenLocal()` から `dev.turboism:sdk` と `dev.turboism:event-processor` を解決することもできます：
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
 ```bash
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
@@ -94,6 +102,6 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
 - [アーキテクチャ](ARCHITECTURE.md)と[ロードマップ](ROADMAP.md)
 - [SDK API 契約と互換性](sdk/api-contracts/)、[SDK v10 移行ガイド](sdk/api-contracts/sdk-api-v10-review.md)、[SDK v9](sdk/api-contracts/sdk-api-v9-review.md)・[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) レビューは履歴監査として保持
-- [デモプラグイン](plugins/demo/README.md)
+- [デモプラグイン](plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](templates/plugin-template/)
 - [Java インストーラーの詳細](packaging/java-installer/README-java-installer.md)
 - [リリース手順](RELEASING.md)と[変更履歴](CHANGELOG.md)

@@ -4,11 +4,13 @@
 
 ## 版权声明
 
-Copyright © 2026 Turboism Contributors。Turboism 采用 [MIT License](LICENSE) 开源许可。
+Copyright © 2026 Turboism Contributors。Turboism 采用 [AGPL-3.0-only](LICENSE) 开源许可。
+
+本版本采用 GNU Affero 通用公共许可证第 3 版，仅限该版本（`AGPL-3.0-only`）。第三方组件及明确另行许可的文件继续适用各自的许可。
 
 Turboism 是**独立的第三方项目**，与 Live2D Inc. 不存在隶属关系，也未获得其背书或赞助。Live2D、Cubism 及相关名称、标志的权利归 Live2D Inc. 或相应权利人所有。Turboism 不分发 Cubism Editor，不提供、替代或绕过其许可；你需要另行安装并取得合法授权。
 
-安装前请阅读[最终用户运行声明与免责声明](EULA.md)。该声明不缩减 MIT License 已授予的权利，且以简体中文正式文本为准。软件按**现状**提供；使用可能修改工程内容的插件或自动化功能前，请保留独立备份。
+安装前请阅读[最终用户运行声明与免责声明](EULA.md)。该声明不缩减 AGPL-3.0-only 已授予的权利，且以简体中文正式文本为准。软件按**现状**提供；使用可能修改工程内容的插件或自动化功能前，请保留独立备份。
 
 ## 项目简介
 
@@ -83,6 +85,12 @@ cd Turboism
 
 开发插件时，可从[示例插件](plugins/demo/README.md)、其[构建配置](plugins/demo/build.gradle.kts)和[插件描述文件](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)开始。插件通过 `compileOnly` 依赖 `:sdk`，不要直接依赖运行时内部实现或 `com.live2d.*` 类。
 
+在本仓库**之外**开发插件无需构建 Turboism 本体。每个 GitHub Release 都会附带 `turboism-sdk-<version>.jar`（及其 `.sha256` 校验文件）：将 [templates/plugin-template](templates/plugin-template/) 复制为独立工程，把 SDK JAR 放入其中的 `libs/` 目录，并按其 README 操作即可。框架贡献者也可以把 SDK 与 `@SubscribeEvent` 注解处理器发布到本地 Maven 仓库，然后从 `mavenLocal()` 解析 `dev.turboism:sdk` 和 `dev.turboism:event-processor`：
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
 ```bash
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
@@ -94,6 +102,6 @@ cd Turboism
 - [用户与开发者文档](https://docs.turboism.dev)
 - [架构说明](ARCHITECTURE.md)与[路线图](ROADMAP.md)
 - [SDK API 契约与兼容性](sdk/api-contracts/)及[SDK v10 迁移说明](sdk/api-contracts/sdk-api-v10-review.md)，[SDK v9](sdk/api-contracts/sdk-api-v9-review.md)与[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) 评审保留为历史审计
-- [示例插件](plugins/demo/README.md)
+- [示例插件](plugins/demo/README.md)与独立的[插件模板](templates/plugin-template/)
 - [Java 安装器详细说明](packaging/java-installer/README-java-installer.md)
 - [发布流程](RELEASING.md)与[更新日志](CHANGELOG.md)

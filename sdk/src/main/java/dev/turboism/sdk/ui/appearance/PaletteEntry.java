@@ -7,14 +7,33 @@ import java.util.Optional;
 /** One model-owned projection of a verified Cubism palette entry. */
 public interface PaletteEntry {
 
+    /**
+     * Applies a font-size override, in points. Closing the returned {@link Registration}
+     * removes the override.
+     */
     Registration overrideFontSize(float points);
 
+    /**
+     * Applies a bold override. Closing the returned {@link Registration} removes the override.
+     */
     Registration overrideBold(boolean bold);
 
+    /**
+     * Applies an italic override. Closing the returned {@link Registration} removes the
+     * override.
+     */
     Registration overrideItalic(boolean italic);
 
+    /**
+     * Applies a text-color override. Closing the returned {@link Registration} removes the
+     * override.
+     */
     Registration overrideTextColor(UiColor color);
 
+    /**
+     * Applies a background-color override. Closing the returned {@link Registration} removes
+     * the override.
+     */
     Registration overrideBackgroundColor(UiColor color);
 
     /** Framework-resolved transient overrides, independent of renderer state. */
@@ -23,6 +42,7 @@ public interface PaletteEntry {
     /** Renderer state observed when a verified renderer exposes this entry. */
     Optional<PaletteEntryState> actual();
 
+    /** Returns a fail-closed entry: overrides throw and no state is reported. */
     static PaletteEntry unavailable() {
         return new PaletteEntry() {
             @Override public Registration overrideFontSize(final float points) {

@@ -24,6 +24,22 @@ public final class GeneratedSubscriberCatalogLoader {
         final List<?> entrypoints,
         final ClassLoader pluginClassLoader
     ) {
+        return inspect(entrypoints, pluginClassLoader, java.util.Set.of());
+    }
+
+    /**
+     * Loads a generated subscriber catalog, accepting event types owned by the plugin
+     * artifact, the shared SDK, or one of the plugin's bound contract loaders.
+     *
+     * @param contractLoaders the session-bound contract loaders visible to this plugin
+     */
+    public List<EventSubscriberDescriptor> inspect(
+        final List<?> entrypoints,
+        final ClassLoader pluginClassLoader,
+        final java.util.Collection<ClassLoader> contractLoaders
+    ) {
+        final java.util.Set<ClassLoader> allowed =
+            java.util.Set.copyOf(Objects.requireNonNull(contractLoaders, "contractLoaders"));
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs = pluginClassLoader == null
             ? Map.of()
@@ -38,7 +54,9 @@ public final class GeneratedSubscriberCatalogLoader {
             }
             final int ordinal = entrypointOrdinal;
             final List<EventSubscriberDescriptor> generated = new ArrayList<>();
-            register(catalog, entrypoint, new DescriptorRegistrar(entrypoint, ordinal, generated));
+            register(catalog, entrypoint, new DescriptorRegistrar(
+                entrypoint, ordinal, generated, allowed
+            ));
             generated.sort(java.util.Comparator
                 .comparingInt(EventSubscriberDescriptor::methodOrdinal)
                 .thenComparing(EventSubscriberDescriptor::canonicalSignature));
@@ -134,15 +152,18 @@ public final class GeneratedSubscriberCatalogLoader {
         private final Object entrypoint;
         private final int entrypointOrdinal;
         private final List<EventSubscriberDescriptor> descriptors;
+        private final java.util.Set<ClassLoader> contractLoaders;
 
         private DescriptorRegistrar(
             final Object entrypoint,
             final int entrypointOrdinal,
-            final List<EventSubscriberDescriptor> descriptors
+            final List<EventSubscriberDescriptor> descriptors,
+            final java.util.Set<ClassLoader> contractLoaders
         ) {
             this.entrypoint = entrypoint;
             this.entrypointOrdinal = entrypointOrdinal;
             this.descriptors = descriptors;
+            this.contractLoaders = contractLoaders;
         }
 
         @Override
@@ -155,10 +176,11 @@ public final class GeneratedSubscriberCatalogLoader {
         ) {
             final Class<T> type = Objects.requireNonNull(eventType, "eventType");
             if (type.getClassLoader() != entrypoint.getClass().getClassLoader()
-                && type.getClassLoader() != EventBus.class.getClassLoader()) {
+                && type.getClassLoader() != EventBus.class.getClassLoader()
+                && !contractLoaders.contains(type.getClassLoader())) {
                 throw new IllegalArgumentException(
-                    "Generated subscriber event type must belong to the plugin artifact or SDK: "
-                        + type.getName()
+                    "Generated subscriber event type must belong to the plugin artifact,"
+                        + " the SDK, or a bound event contract: " + type.getName()
                 );
             }
             if (methodOrdinal < 0) {

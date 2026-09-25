@@ -10,10 +10,13 @@ import java.util.Optional;
 /** View of the Cubism host exposed to plugins. */
 public interface CubismFacade {
 
+    /** Returns the host runtime identity and version snapshot. */
     CubismRuntimeSnapshot runtime();
 
+    /** Returns the currently open project, or empty when no project is open. */
     Optional<ProjectSnapshot> activeProject();
 
+    /** Returns the focused document, or empty when none is focused. */
     Optional<DocumentSnapshot> activeDocument();
 
     /**
@@ -49,6 +52,11 @@ public interface CubismFacade {
         return ActiveReadProjections.projectContentOf(activeProject(), activeDocument());
     }
 
+    /**
+     * Returns whether the backing snapshot source currently observes a host session — in
+     * practice whether a project or document is visible to it. This is the source's
+     * observability signal, not a guarantee that a physical host connection is alive.
+     */
     boolean isHostPresent();
 
     /** Returns permission-checked Cubism Core metadata and MOC inspection. */
@@ -89,6 +97,31 @@ public interface CubismFacade {
     }
 
     /**
+     * Returns the external-application editing session service.
+     *
+     * <p>The default fails closed: sessions opened through it admit no operations until a
+     * Runtime backend with verified editor bindings is installed.</p>
+     *
+     * @return the editing session service
+     */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default dev.turboism.sdk.cubism.edit.EditSessionService edit() {
+        return dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
+    }
+
+    /**
+     * Returns whole-object Warp Deformer mirror operations when installed by Runtime.
+     *
+     * <p>The default fails closed and reports every request as unavailable.</p>
+     *
+     * @return whole-object warp mirror service
+     */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror() {
+        return dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
+    }
+
+    /**
      * Returns the legacy queued command transaction manager for Preview compatibility.
      *
      * <p>This queue is not the implementation of {@link #authoringTransactions()}.</p>
@@ -102,6 +135,21 @@ public interface CubismFacade {
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService textureAtlasLayouts() {
         throw new UnsupportedOperationException(
             "Texture atlas layout service is unavailable"
+        );
+    }
+
+    /**
+     * Returns polygon-aware texture-atlas layout access when installed.
+     *
+     * <p>Snapshots carry item outlines from the host's model-image contour source
+     * (or a flagged bounds fallback), per-item layout policies and issued
+     * transforms; {@code apply} writes arbitrary-angle, scaled placements through
+     * the same affine/undo boundary as the rectangle service.</p>
+     */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService textureAtlasPolygonLayouts() {
+        throw new UnsupportedOperationException(
+            "Texture atlas polygon layout service is unavailable"
         );
     }
 
@@ -128,22 +176,27 @@ public interface CubismFacade {
         );
     }
 
+    /** Returns whether a project is currently open. */
     default boolean hasActiveProject() {
         return activeProject().isPresent();
     }
 
+    /** Returns whether a document is currently focused. */
     default boolean hasActiveDocument() {
         return activeDocument().isPresent();
     }
 
+    /** Returns whether the active document owns a Live2D model. */
     default boolean hasActiveModel() {
         return activeModel().isPresent();
     }
 
+    /** Returns whether the active document is an animation scene. */
     default boolean hasActiveAnimation() {
         return activeAnimation().isPresent();
     }
 
+    /** Returns whether the active document is a layered image/PSD document. */
     default boolean hasActiveImageDocument() {
         return activeImageDocument().isPresent();
     }

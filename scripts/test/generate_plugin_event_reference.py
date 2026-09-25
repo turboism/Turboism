@@ -10,7 +10,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from plugin_event_metadata import EventMetadataError, normalize_event_metadata, validate_event_routes
+from plugin_event_metadata import (
+    EventMetadataError,
+    normalize_event_contracts,
+    normalize_event_metadata,
+    validate_event_routes,
+)
 
 DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
 
@@ -28,7 +33,9 @@ def load_descriptors(root: Path) -> list[dict]:
         version = document.get("version")
         if not isinstance(plugin_id, str) or not isinstance(version, str):
             raise EventMetadataError(f"{path}: descriptor id/version must be strings")
-        exports, imports = normalize_event_metadata(document, str(path.relative_to(root)))
+        label = str(path.relative_to(root))
+        exports, imports = normalize_event_metadata(document, label)
+        contracts = normalize_event_contracts(document, label)
         dependencies = document.get("dependencies", [])
         descriptors.append({
             "id": plugin_id,
@@ -37,6 +44,7 @@ def load_descriptors(root: Path) -> list[dict]:
             "dependencies": dependencies,
             "eventExports": exports,
             "eventImports": imports,
+            "eventContracts": contracts,
         })
     descriptors.sort(key=lambda item: item["id"])
     validate_event_routes(descriptors, require_providers=False)
@@ -54,14 +62,20 @@ def render(descriptors: list[dict]) -> str:
         for descriptor in descriptors
         for event in descriptor["eventImports"]
     ]
+    contracts = [
+        (descriptor, contract)
+        for descriptor in descriptors
+        for contract in descriptor["eventContracts"]
+    ]
     lines = [
         "# Plugin Public Events",
         "",
-        "This generated reference lists schema-v4 public event contracts declared by first-party plugin descriptors. Runtime-owned SDK events are documented by their SDK Javadocs and are not plugin exports.",
+        "This generated reference lists schema-v4 public event contracts and schema-v5 embedded contract artifacts declared by first-party plugin descriptors. Runtime-owned SDK events are documented by their SDK Javadocs and are not plugin exports.",
         "",
         f"- First-party descriptors: {len(descriptors)}",
         f"- Published event contracts: {len(exports)}",
         f"- Subscribed event contracts: {len(imports)}",
+        f"- Embedded contract artifacts: {len(contracts)}",
         "",
         "## Published events",
         "",
@@ -92,12 +106,26 @@ def render(descriptors: list[dict]) -> str:
                 f"`{event['contractVersion']}` | `{event['eventType']}` | `{event['abiSha256']}` | "
                 f"`{str(event['required']).lower()}` |"
             )
+    lines.extend(["", "## Embedded contract artifacts", ""])
+    if not contracts:
+        lines.append("No first-party plugin currently embeds a published event contract artifact.")
+    else:
+        lines.extend([
+            "| Plugin | Contract ID | Version | Artifact | Artifact SHA-256 |",
+            "|---|---|---|---|---|",
+        ])
+        for descriptor, contract in contracts:
+            lines.append(
+                f"| `{descriptor['id']}` | `{contract['id']}` | `{contract['version']}` | "
+                f"`{contract['artifact']}` | `{contract['sha256']}` |"
+            )
     lines.extend([
         "",
         "## Governance",
         "",
         "- `eventExports` is the authoritative declaration of a plugin-published public event contract.",
         "- `eventImports` is the authoritative declaration of a dependent plugin's public event subscription contract.",
+        "- `eventContracts` is the authoritative declaration of a schema-v5 embedded contract artifact.",
         "- Private plugin events and Runtime-owned SDK events are intentionally absent from this descriptor inventory.",
         "- Generated output is ASCII-sorted by plugin ID and event route; `checkPluginEventReference` rejects drift.",
         "",

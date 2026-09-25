@@ -1,0 +1,15 @@
+# Opt-in only. Do not install/start from builds or unrelated validation jobs.
+# gc run only reports until retention-policy.json explicitly enables collection
+# AND confirms that every old writer has been retired/upgraded.
+[Unit]
+Description=Report expired Turboism host-validation artifacts
+
+[Service]
+Type=oneshot
+EnvironmentFile=/path/to/turboism/.env
+ExecStart=/usr/bin/env --chdir=${TURBOISM_HOST_VALIDATION_CHECKOUT} /usr/bin/python3 -B scripts/preview/host_validation.py gc run
+UMask=0077
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=infinity
+# No access to a real host is needed; the CLI only observes external processes.

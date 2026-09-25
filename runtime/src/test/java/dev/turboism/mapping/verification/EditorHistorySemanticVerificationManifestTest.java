@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorHistorySemanticVerificationManifestTest {
 
     @Test
-    void semanticFamiliesArePinnedFor5203And5302ButNotClaimedFor5303() {
+    void semanticFamiliesArePinnedFor5203And5302And5303() {
         final Set<String> semanticAliases = semanticAliases();
 
         assertTrue(EditorModelVerificationManifest.cubism52Capabilities().contains(
@@ -31,24 +31,24 @@ class EditorHistorySemanticVerificationManifestTest {
             () -> "5.3.02 missing " + missing(EditorModelVerificationManifest.cubism5302Aliases(), semanticAliases)
         );
 
-        assertFalse(EditorModelVerificationManifest.cubism5303Capabilities().contains(
+        assertTrue(EditorModelVerificationManifest.cubism5303Capabilities().contains(
             EditorHistorySemanticSelectorContract.CAPABILITY_ID
         ));
-        assertTrue(java.util.Collections.disjoint(
-            EditorModelVerificationManifest.cubism5303StaticAliases(),
-            semanticAliases.stream()
-                .filter(alias -> alias.startsWith("cubism.editor-history.semantic."))
-                .collect(java.util.stream.Collectors.toUnmodifiableSet())
-        ));
+        assertTrue(
+            EditorModelVerificationManifest.cubism5303StaticAliases().containsAll(semanticAliases),
+            () -> "5.3.03 missing " + missing(
+                EditorModelVerificationManifest.cubism5303StaticAliases(), semanticAliases
+            )
+        );
         final PinnedVerifiedResolverWorkflow.RuntimeScope runtimeScope =
             EditorModelVerificationManifest.cubism5303RuntimeScope();
-        assertFalse(runtimeScope.capabilityIds().contains(EditorHistorySemanticSelectorContract.CAPABILITY_ID));
-        assertTrue(java.util.Collections.disjoint(
-            runtimeScope.requiredAliases(),
-            semanticAliases.stream()
-                .filter(alias -> alias.startsWith("cubism.editor-history.semantic."))
-                .collect(java.util.stream.Collectors.toUnmodifiableSet())
-        ));
+        assertTrue(runtimeScope.capabilityIds().contains(EditorHistorySemanticSelectorContract.CAPABILITY_ID));
+        assertTrue(
+            runtimeScope.requiredAliases().containsAll(semanticAliases),
+            () -> "5.3.03 runtime scope missing " + missing(
+                runtimeScope.requiredAliases(), semanticAliases
+            )
+        );
     }
 
     @Test
@@ -95,7 +95,10 @@ class EditorHistorySemanticVerificationManifestTest {
         aliases.addAll(EditorHistorySemanticSelectorContract.ADD_REMOVE_DRAWABLE_REQUIRED_ALIASES);
         aliases.addAll(EditorHistorySemanticSelectorContract.ADD_REMOVE_DEFORMER_REQUIRED_ALIASES);
         aliases.addAll(EditorHistorySemanticSelectorContract.ADD_REMOVE_PARAMETER_GROUP_REQUIRED_ALIASES);
+        aliases.addAll(EditorHistorySemanticSelectorContract.PART_MEMBERSHIP_REQUIRED_ALIASES);
         aliases.addAll(EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES);
+        aliases.addAll(EditorHistorySemanticSelectorContract.WARP_FORM_REQUIRED_ALIASES);
+        aliases.addAll(EditorHistorySemanticSelectorContract.ROTATION_FORM_REQUIRED_ALIASES);
         return Set.copyOf(aliases);
     }
 

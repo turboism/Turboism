@@ -100,6 +100,7 @@ public final class RuntimeExportSettingsContributionRegistry
      * invokes plugin code outside {@code lifecycleLock}, and rechecks the registration under
      * that lock. Every selected result is still rejected in this slice.</p>
      */
+    @SuppressWarnings("ReferenceEquality")
     ExportSettingsDecision invoke(
         final String optionId,
         final boolean selected,

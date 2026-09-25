@@ -557,6 +557,139 @@ final class McpParameterDomainTest {
         assertEquals(1, model.bindCalls);
     }
 
+    @Test
+    void malformedParameterTailIsRejectedBeforeAnyWrite() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final Map<String, Object> output = domain(model).call(McpParameterDomain.PARAMETERS_APPLY,
+            Map.of("operations", List.of(
+                Map.of("operation", "set_value", "parameterId", "ParamA", "value", 4), 7)));
+        assertEquals(Boolean.FALSE, output.get("ok"));
+        assertEquals(1f, model.values.get("ParamA").value);
+    }
+
+    @Test
+    void malformedBindingTailIsRejectedBeforeAnyWrite() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final Map<String, Object> output = domain(model).call(McpParameterDomain.BINDINGS_APPLY,
+            Map.of("operations", List.of(Map.of(
+                "operation", "bind", "parameterId", "ParamA",
+                "target", Map.of("type", "art_mesh", "id", "ArtMesh1"),
+                "points", List.of(Map.of("value", 2))), 7)));
+        assertEquals(Boolean.FALSE, output.get("ok"));
+        assertEquals(0, model.bindCalls);
+    }
+
+    @Test
+    void emptyBatchesAreRejectedRatherThanSuccessfulNoOps() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        for (String name : List.of(McpParameterDomain.PARAMETERS_APPLY, McpParameterDomain.BINDINGS_APPLY)) {
+            final Map<String, Object> output = domain(model).call(name, Map.of("operations", List.of()));
+            assertEquals(Boolean.FALSE, output.get("ok"));
+            assertEquals("INVALID_ARGUMENT", object(output.get("error")).get("code"));
+        }
+    }
+
+    @Test
+    void completedCopyKeepsItsReceiptWhenTheFinalSnapshotFails() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        model.parameterListReadFailure = new IllegalStateException("bulk readback failed");
+        final Map<String, Object> envelope = domain(model).toolCatalog().call(
+            McpParameterDomain.PARAMETERS_APPLY, Map.of("operations", List.of(
+                Map.of("operation", "copy", "parameterId", "ParamA"))));
+        final Map<String, Object> output = object(envelope.get("structuredContent"));
+        assertEquals(Boolean.FALSE, envelope.get("isError"));
+        assertEquals(Boolean.TRUE, output.get("ok"));
+        assertTrue(model.values.containsKey("ParamACopy"));
+        final Map<String, Object> result = object(object(list(output.get("results")).get(0)).get("result"));
+        assertEquals("ParamACopy", result.get("id"));
+        assertEquals("APPLIED", result.get("outcome"));
+        assertEquals(Boolean.FALSE, result.get("retryable"));
+        assertEquals(null, output.get("parameters"));
+        assertEquals("bulk readback failed", object(output.get("parameterSnapshotWarning")).get("message"));
+    }
+
+    @Test
+    void setResetAndDefinitionWritesKeepAppliedIdentityOnDetailReadbackFailure() {
+        for (String operation : List.of("set_value", "reset_default", "update_definition")) {
+            final FakeModel model = new FakeModel();
+            model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+            model.definitionFindFailure = new IllegalStateException("detail readback failed");
+            final Map<String, Object> values = new LinkedHashMap<>();
+            values.put("operation", operation);
+            values.put("parameterId", "ParamA");
+            if ("set_value".equals(operation)) values.put("value", 6);
+            if ("update_definition".equals(operation)) values.put("definition", definition("ParamNew", "New", "normal"));
+            final Map<String, Object> envelope = domain(model).toolCatalog().call(
+                McpParameterDomain.PARAMETERS_APPLY, Map.of("operations", List.of(values)));
+            final Map<String, Object> output = object(envelope.get("structuredContent"));
+            assertEquals(Boolean.FALSE, envelope.get("isError"), operation);
+            assertEquals(Boolean.TRUE, output.get("ok"), operation);
+            final Map<String, Object> result = object(object(list(output.get("results")).get(0)).get("result"));
+            assertEquals("APPLIED_WITH_READBACK_WARNING", result.get("outcome"), operation);
+            assertEquals(Boolean.FALSE, result.get("retryable"), operation);
+            final String actualId = "update_definition".equals(operation) ? "ParamNew" : "ParamA";
+            assertEquals(actualId, result.get("parameterId"), operation);
+            assertTrue(model.values.containsKey(actualId));
+            if ("set_value".equals(operation)) assertEquals(6f, model.values.get(actualId).value);
+            if ("reset_default".equals(operation)) assertEquals(0f, model.values.get(actualId).value);
+        }
+    }
+
+    @Test
+    void ambiguousInversionCannotSubmitEvenForAnExistingParameter() {
+        for (String id : List.of("ParamA", "DOES_NOT_EXIST")) {
+            final FakeModel model = new FakeModel();
+            model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+            final Map<String, Object> output = domain(model).call(McpParameterDomain.BINDINGS_APPLY,
+                Map.of("operations", List.of(Map.of("operation", "invert", "parameterId", id,
+                    "targets", List.of(Map.of("type", "art_mesh", "id", "ArtMesh1"))))));
+            assertEquals(Boolean.FALSE, output.get("ok"));
+            assertEquals(0, model.invertCalls);
+        }
+    }
+
+    @Test
+    void explicitAllBindingInversionReturnsEveryAffectedNormalParameter() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        model.add("ParamB", "B", 1, 0, 10, ParameterType.NORMAL);
+        final ParameterBindingTarget target = ParameterBindingTarget.artMesh(new dev.turboism.sdk.cubism.id.ArtMeshId("ArtMesh1"));
+        for (String id : List.of("ParamA", "ParamB")) {
+            model.parameterBindings(new ParameterId(id)).bind(target,
+                List.of(new ParameterBindingPoint(new ParameterBindingPointId("point"), 2)));
+        }
+        final Map<String, Object> envelope = domain(model).toolCatalog().call(McpParameterDomain.BINDINGS_APPLY,
+            Map.of("operations", List.of(Map.of("operation", "invert_all_bindings",
+                "scope", "all_target_bindings",
+                "targets", List.of(Map.of("type", "art_mesh", "id", "ArtMesh1"))))));
+        final Map<String, Object> output = object(envelope.get("structuredContent"));
+        assertEquals(Boolean.TRUE, output.get("ok"));
+        assertEquals(1, model.invertCalls);
+        final Map<String, Object> result = object(object(list(output.get("results")).get(0)).get("result"));
+        assertEquals("all_target_bindings", result.get("scope"));
+        assertEquals(List.of("ParamA", "ParamB"), list(result.get("affectedBindings")).stream()
+            .map(McpParameterDomainTest::object).map(binding -> binding.get("parameterId")).toList());
+    }
+
+    @Test
+    void validShapeRuntimeFailureRetainsEarlierSuccessfulWrites() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final Map<String, Object> output = domain(model).call(McpParameterDomain.PARAMETERS_APPLY,
+            Map.of("stopOnError", true, "operations", List.of(
+                Map.of("operation", "set_value", "parameterId", "ParamA", "value", 4),
+                Map.of("operation", "set_value", "parameterId", "Missing", "value", 5),
+                Map.of("operation", "set_value", "parameterId", "ParamA", "value", 6))));
+        assertEquals(Boolean.FALSE, output.get("ok"));
+        assertEquals(4f, model.values.get("ParamA").value);
+        assertEquals(2, list(output.get("results")).size());
+        assertEquals(Boolean.TRUE, object(list(output.get("results")).get(0)).get("ok"));
+    }
+
     private static void assertOutcomeUnknown(
         final Map<String, Object> output,
         final String message
@@ -672,6 +805,9 @@ final class McpParameterDomainTest {
         private int removeManyCalls;
         private int bindCalls;
         private int unbindCalls;
+        private int invertCalls;
+        private RuntimeException parameterListReadFailure;
+        private RuntimeException definitionFindFailure;
         private RuntimeException unbindFailureAfterWrite;
         private RuntimeException batchFailureAfterWrite;
 
@@ -683,7 +819,10 @@ final class McpParameterDomainTest {
         @Override public ModelId id() { return new ModelId("model"); }
         @Override public Parameters parameters() {
             return new Parameters() {
-                @Override public List<Parameter> all() { return order.stream().map(values::get).map(value -> (Parameter) value).toList(); }
+                @Override public List<Parameter> all() {
+                    if (parameterListReadFailure != null) throw parameterListReadFailure;
+                    return order.stream().map(values::get).map(value -> (Parameter) value).toList();
+                }
                 @Override public Parameter find(final ParameterId id) {
                     findCalls++;
                     final FakeParameter result = values.get(id.value());
@@ -718,7 +857,10 @@ final class McpParameterDomainTest {
                     definitionAllCalls++;
                     return order.stream().map(id -> values.get(id).definition).toList();
                 }
-                @Override public ParameterDefinition find(final ParameterId id) { return ((FakeParameter) parameters().find(id)).definition; }
+                @Override public ParameterDefinition find(final ParameterId id) {
+                    if (definitionFindFailure != null) throw definitionFindFailure;
+                    return ((FakeParameter) parameters().find(id)).definition;
+                }
             };
         }
         @Override public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
@@ -758,7 +900,7 @@ final class McpParameterDomainTest {
         }
         @Override public ParameterBindingBatchOperations parameterBindingBatch() {
             return new ParameterBindingBatchOperations() {
-                @Override public void invert(final List<ParameterBindingTarget> targets) { }
+                @Override public void invert(final List<ParameterBindingTarget> targets) { invertCalls++; }
                 @Override public void transfer(final ParameterBindingTransferPlan plan) {
                     transferBindings(plan, "canonical-transfer");
                     if (batchFailureAfterWrite != null) throw batchFailureAfterWrite;

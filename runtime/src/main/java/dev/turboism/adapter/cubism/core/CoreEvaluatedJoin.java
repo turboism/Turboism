@@ -42,6 +42,7 @@ public final class CoreEvaluatedJoin {
         this.source = Objects.requireNonNull(source, "source");
         this.provider = Objects.requireNonNull(provider, "provider");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
+        source.onModelCleared(this::dropPinnedSnapshot);
     }
 
     /**
@@ -99,11 +100,26 @@ public final class CoreEvaluatedJoin {
     }
 
     /**
-     * Best-effort lazy publication of a resolved Editor document model through the active
-     * source. Returns false when the source cannot accept it (for example when closed).
+     * Requests a non-blocking release of the published borrowed model once no lease is
+     * outstanding. A later publication cancels the request, so a re-bound document is never
+     * disturbed; when the model is actually forgotten the pinned snapshot is dropped, letting a
+     * same-identity re-publish re-trace instead of failing stale forever.
      */
-    public boolean tryPublish(final Object model, final String identity) {
-        return source.tryPublishBorrowedModel(model, identity);
+    public void releaseBorrowedModelWhenIdle() {
+        source.releaseWhenIdle();
+    }
+
+    /**
+     * Forgets the pinned snapshot when the source's borrowed model is cleared. A re-published
+     * model under the same binding identity then re-traces against the new generation instead of
+     * failing closed on the stale pinned generation forever.
+     */
+    private void dropPinnedSnapshot() {
+        synchronized (cacheLock) {
+            cachedIdentity = null;
+            cachedSnapshot = null;
+            cachedDrawablesById = null;
+        }
     }
 
     private CoreStructuralSnapshot traceSnapshot() {

@@ -22,10 +22,9 @@ import java.util.Optional;
  * </ul>
  *
  * <p>The version is taken from the bound {@link VerifiedMemberResolver#cubismVersion()}.
- * The production Editor-model resolver reports {@code 5.2.0} for the exact 5.2.03 patch
+ * The production Editor-model resolver reports {@code 5.2.03} for the exact 5.2.03 patch
  * artifact ({@code EditorModelVerificationManifest.CUBISM_VERSION_5_2_03}) and {@code 5.3.02} for
- * the 5.3.02 artifact; the 5.2 control-appearance record spells the same artifact
- * {@code 5.2.03}. Both spellings route to accessor {@code h}; every other version fails
+ * the 5.3.02 artifact. Every other version fails
  * closed (no profile, deformer filtering disabled).</p>
  */
 record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
@@ -51,7 +50,7 @@ record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
 
     /** Exact-version routing; unknown versions yield no profile (fail closed). */
     static Optional<DeformerNodeSourceProfile> forVersion(final String cubismVersion) {
-        if ("5.2.03".equals(cubismVersion) || "5.2.03".equals(cubismVersion)) {
+        if ("5.2.03".equals(cubismVersion)) {
             return Optional.of(new DeformerNodeSourceProfile(cubismVersion, ACCESSOR_52));
         }
         if ("5.3.02".equals(cubismVersion)) {

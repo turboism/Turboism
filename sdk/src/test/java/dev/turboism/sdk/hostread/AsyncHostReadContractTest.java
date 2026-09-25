@@ -17,6 +17,7 @@ import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,27 +38,40 @@ class AsyncHostReadContractTest {
             new Class<?>[]{PluginContext.class},
             AsyncHostReadContractTest::invokeDefault
         );
-        final UnsupportedOperationException error = assertThrows(
-            UnsupportedOperationException.class,
-            context::hostReads
+        final AsyncHostReadService service = context.hostReads();
+        assertSame(AsyncHostReadService.unavailable(), service);
+        assertFalse(service.isAvailable());
+        final AsyncHostReadSubmission submission = service.submit(new AsyncHostReadRequest(
+            AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT,
+            Duration.ofSeconds(1)
+        ));
+        assertEquals(AsyncHostReadSubmissionStatus.REJECTED, submission.status());
+        assertEquals(
+            AsyncHostReadErrorCode.RUNTIME_UNAVAILABLE,
+            submission.error().orElseThrow().code()
         );
-        assertEquals("async host read service is not available", error.getMessage());
+        assertEquals(
+            "async host read service is not available",
+            submission.error().orElseThrow().message()
+        );
     }
 
     @Test
     void publicApiIsClosedAndExposesNoExecutionOrHostEscapeType() {
         assertEquals(
-            List.of("submit"),
+            List.of("isAvailable", "submit", "unavailable"),
             Arrays.stream(AsyncHostReadService.class.getDeclaredMethods())
                 .filter(method -> Modifier.isPublic(method.getModifiers()))
                 .map(Method::getName)
                 .sorted()
                 .toList()
         );
-        assertEquals(AsyncHostReadSubmission.class,
-            AsyncHostReadService.class.getDeclaredMethods()[0].getReturnType());
-        assertEquals(List.of(AsyncHostReadRequest.class),
-            List.of(AsyncHostReadService.class.getDeclaredMethods()[0].getParameterTypes()));
+        final Method submit = Arrays.stream(AsyncHostReadService.class.getDeclaredMethods())
+            .filter(method -> method.getName().equals("submit"))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(AsyncHostReadSubmission.class, submit.getReturnType());
+        assertEquals(List.of(AsyncHostReadRequest.class), List.of(submit.getParameterTypes()));
 
         final Set<String> forbiddenPrefixes = Set.of(
             "java.lang.Thread",
