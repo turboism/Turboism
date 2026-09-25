@@ -127,6 +127,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Upgrading over an installation whose config.json was written back by the Editor no longer
+  aborts with "config.json could not be validated or updated safely". The installer-side
+  migration schema now accepts the runtime-persisted textureAtlas section (mirroring the Java
+  runtime validator, including field types), and a new executable migration regression covers
+  runtime-persisted sections, unknown-field fail-closed and mistyped values.
 - Installer shortcut enablement no longer fails when a previous Turboism
   installation left managed shortcuts behind without matching installation state
   (for example after deleting an old install folder before reinstalling). A

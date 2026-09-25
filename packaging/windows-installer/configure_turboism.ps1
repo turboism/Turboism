@@ -197,7 +197,8 @@ function Assert-RuntimeConfigV1 {
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "launcher", "reduceAutoBackup",
-        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+        "textureAtlas"
     ) "config.json"
 
     $format = $Document.PSObject.Properties["format"]
@@ -324,6 +325,26 @@ function Assert-RuntimeConfigV1 {
                 -or $path.Length -gt 4096 -or [regex]::IsMatch($path, '[\x00-\x1f]')) {
                 throw "launcher.graalVmPath is invalid"
             }
+        }
+    }
+
+    # Mirror the runtime validator: the Editor's texture-atlas selection store
+    # persists this section, so an upgrade must accept and preserve it.
+    $textureAtlasProperty = $Document.PSObject.Properties["textureAtlas"]
+    if ($null -ne $textureAtlasProperty) {
+        $textureAtlas = $textureAtlasProperty.Value
+        Assert-RuntimeAllowedProperties $textureAtlas @(
+            "algorithmId", "parallel"
+        ) "textureAtlas"
+        $algorithmId = $textureAtlas.PSObject.Properties["algorithmId"]
+        if ($null -ne $algorithmId -and $null -ne $algorithmId.Value) {
+            if ($algorithmId.Value -isnot [string] -or [string]::IsNullOrWhiteSpace($algorithmId.Value)) {
+                throw "textureAtlas.algorithmId must be a non-blank string or null"
+            }
+        }
+        $parallel = $textureAtlas.PSObject.Properties["parallel"]
+        if ($null -ne $parallel -and $parallel.Value -isnot [bool]) {
+            throw "textureAtlas.parallel must be a boolean"
         }
     }
 }
