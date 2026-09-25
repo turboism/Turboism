@@ -58,6 +58,7 @@ final class NativeInteractionWorkload {
     private final List<String> legCanvasCursors = new ArrayList<>();
     private final List<String> legWindowDigests = new ArrayList<>();
     private int lastX, lastY;
+    private String focusPreparation = "acquisition=not-started\n";
 
     NativeInteractionWorkload(String fixture, Path state, String kind) {
         if (fixture == null || fixture.isBlank() || !List.of("pan", "artmesh").contains(kind)) {
@@ -132,8 +133,7 @@ final class NativeInteractionWorkload {
                 preparation.stage("discover");
                 edt(() -> { discover(); return null; }, 180);
                 preparation.stage("focus");
-                edt(() -> { window.toFront(); window.requestFocus(); canvas.requestFocusInWindow(); return null; });
-                Thread.sleep(150L);
+                acquireFocus();
                 preparation.stage("attach-counter");
                 edt(() -> { requireFocus(); hook = NarrowUniformTrial.attach(canvas, matrixComparison); return null; });
                 preparation.stage("scene-inventory");
@@ -598,13 +598,37 @@ final class NativeInteractionWorkload {
         canvas.dispatchEvent(new MouseEvent(canvas, id, System.currentTimeMillis(), modifiers, x, y,
             origin.x + x, origin.y + y, id == MouseEvent.MOUSE_PRESSED || id == MouseEvent.MOUSE_RELEASED || id == MouseEvent.MOUSE_CLICKED ? 1 : 0, false, button));
     }
+    private void acquireFocus() throws Exception {
+        var acquisition = NativeInteractionFocus.acquire(new NativeInteractionFocus.Driver() {
+            @Override public NativeInteractionFocus.State observe() throws Exception {
+                return edt(() -> { host.check(); return NativeInteractionFocus.observe(canvas, window); });
+            }
+            @Override public void requestWindow() throws Exception {
+                edt(() -> { host.check(); window.toFront(); window.requestFocus(); return null; });
+            }
+            @Override public boolean requestCanvas() throws Exception {
+                return edt(() -> {
+                    host.check();
+                    // Record the actual AWT result; a focus change between turns
+                    // is caught by the following ownership observation.
+                    return canvas.requestFocusInWindow();
+                });
+            }
+            @Override public void pause() throws InterruptedException { Thread.sleep(50L); }
+            @Override public long nanoTime() { return System.nanoTime(); }
+        }, TimeUnit.SECONDS.toNanos(3L));
+        focusPreparation = acquisition.diagnostics();
+        if (!acquisition.acquired()) {
+            throw NativeInteractionFocus.refused(state, focusPreparation, acquisition.last());
+        }
+        Files.writeString(state.resolve("interaction-focus.txt"), focusPreparation);
+    }
     private void requireFocus() throws Exception {
         host.check();
-        var focus = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-        Component owner = focus.getFocusOwner();
-        if (focus.getActiveWindow() != window || owner == null
-            || (owner != canvas && !SwingUtilities.isDescendingFrom(owner, canvas))) {
-            throw new IllegalStateException("task canvas does not own keyboard focus; refusing key input");
+        // No diagnostic allocation, counters or I/O on successful timed events.
+        if (!NativeInteractionFocus.owns(canvas, window)) {
+            throw NativeInteractionFocus.refused(state, focusPreparation,
+                NativeInteractionFocus.observe(canvas, window));
         }
     }
     private void discover() throws Exception {
