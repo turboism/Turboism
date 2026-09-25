@@ -318,30 +318,29 @@ try {
     $hyphenD3DCandidate = New-CubismInstallationCandidate -Root $hyphenD3DRoot
     Assert-ManagedLaunch ($hyphenD3DCandidate.D3DBat -like '*CubismEditor5-D3D.bat') "hyphenated official D3D BAT is discovered"
 
-    # A shortcut left behind by a lost-state reinstall is reclaimed only when it
-    # still references Turboism's own managed launcher; foreign files stay refused.
+    # A managed shortcut path is Turboism-owned: a leftover regular file from a
+    # lost-state reinstall is replaced; non-regular entries stay refused.
     $reclaimDir = Join-Path $temp "reclaim-shortcuts"
     New-Item -ItemType Directory -Path $reclaimDir -Force | Out-Null
     $reclaimStatePath = Join-Path $reclaimDir "state.json"
     $root53Candidate = @($candidates | Where-Object { $_.CanonicalRoot -ieq (ConvertTo-CubismCanonicalRoot $root53) })[0]
     $root53Candidate.Selected = $true
     $staleShortcutPath = Get-CubismShortcutPath $root53Candidate "normal" $reclaimDir
-    [System.IO.File]::WriteAllBytes($staleShortcutPath, [System.Text.Encoding]::Unicode.GetBytes('launch-cubism-turboism.ps1 stale from a previous install'))
-    Assert-ManagedLaunch (Test-CubismReclaimableManagedShortcut -Path $staleShortcutPath) "stale Turboism launcher shortcut is reclaimable"
-    [System.IO.File]::WriteAllBytes($staleShortcutPath, [System.Text.Encoding]::ASCII.GetBytes('user shortcut, not turboism'))
-    Assert-ManagedLaunch (-not (Test-CubismReclaimableManagedShortcut -Path $staleShortcutPath)) "foreign shortcut content is not reclaimable"
     $emptyReclaimState = [pscustomobject]@{ Exists = $false; Valid = $true; Installations = @(); ManagedShortcuts = @(); ManagedShortcutHashes = @(); ShortcutTakeovers = @(); BatIntegrations = @(); LaunchMode = "independent" }
+    Remove-Item -LiteralPath $staleShortcutPath -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $staleShortcutPath -Force | Out-Null
     $refusal = $null
     try { Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $reclaimStatePath -Candidates @($root53Candidate) -LaunchMode "independent" -ExistingState $emptyReclaimState -ShortcutDirectory $reclaimDir | Out-Null }
     catch { $refusal = $_.Exception.Message }
-    Assert-ManagedLaunch ($null -ne $refusal -and $refusal -like 'refusing to overwrite an unowned managed shortcut*') "unowned shortcut refusal is preserved"
+    Assert-ManagedLaunch ($null -ne $refusal -and $refusal -like 'refusing to replace a non-regular managed shortcut*') "non-regular managed shortcut is refused"
+    Remove-Item -LiteralPath $staleShortcutPath -Force
+    [System.IO.File]::WriteAllBytes($staleShortcutPath, [System.Text.Encoding]::ASCII.GetBytes('stale regular file from a previous install'))
     if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
-        [System.IO.File]::WriteAllBytes($staleShortcutPath, [System.Text.Encoding]::Unicode.GetBytes('launch-cubism-turboism.ps1 stale from a previous install'))
         $reclaimed = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $reclaimStatePath -Candidates @($root53Candidate) -LaunchMode "independent" -ExistingState $emptyReclaimState -ShortcutDirectory $reclaimDir
-        Assert-ManagedLaunch (@($reclaimed.ManagedShortcuts).Count -eq 1 -and (Test-CubismReclaimableManagedShortcut -Path $staleShortcutPath)) "stale Turboism shortcut is reclaimed and republished"
+        Assert-ManagedLaunch (@($reclaimed.ManagedShortcuts).Count -eq 1 -and (Test-CubismNormalFile $staleShortcutPath)) "stale managed shortcut file is replaced"
     }
     else {
-        Write-Host "ok: reclaim publication leg requires a Windows host"
+        Write-Host "ok: managed shortcut replacement leg requires a Windows host"
     }
     $env:TURBOISM_TEST_OUTPUT = $marker
     $hyphenD3DExit = Invoke-CubismOfficialBat `

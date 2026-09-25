@@ -134,9 +134,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   runtime-persisted sections, unknown-field fail-closed and mistyped values.
 - Installer shortcut enablement no longer fails when a previous Turboism
   installation left managed shortcuts behind without matching installation state
-  (for example after deleting an old install folder before reinstalling). A
-  leftover .lnk is now reclaimed when it still references Turboism's own managed
-  launcher; shortcuts pointing at other targets keep the fail-closed refusal.
+  (for example after deleting an old install folder before reinstalling). The
+  managed shortcut path is Turboism-owned (deterministic name inside the managed
+  Start Menu folder), so a leftover regular file is now replaced directly and
+  only non-regular entries keep the fail-closed refusal.
 - The core shell menus (Settings, Plugin Management, Logs, About and the update check) merged
   back into the single shared localized top-level "Plugins" menu. A recent change routed them
   through the localized display word instead of the reserved shared-root token, which spawned a
