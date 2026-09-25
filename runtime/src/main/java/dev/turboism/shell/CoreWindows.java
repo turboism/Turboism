@@ -28,25 +28,16 @@ import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableRowSorter;
-import javax.imageio.ImageIO;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.LinearGradientPaint;
-import java.awt.RenderingHints;
 import java.util.function.Consumer;
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,15 +61,13 @@ final class CoreWindows implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean();
     private ActiveSettingsAction activeSettingsAction;
     private long pluginDetailsRequest;
-    static final String ABOUT_LOGO_TEXT = "Turboism";
     /** Fixed first-party download page; the client never opens a URL taken from the feed. */
     static final String UPDATE_DOWNLOAD_PAGE = "https://turboism.dev/download";
     private static volatile Consumer<String> testUpdateUrlObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
-    static final String ABOUT_SUPPORT = "https://ifdian.net/a/raintrap341";
-    static final String ABOUT_THANKS = "https://thanks.turboism.dev";
-    private static final Object ABOUT_LOGO_LOCK = new Object();
-    private static volatile Path aboutLogoPng;
+    static final String ABOUT_GITHUB = "https://github.com/turboism/Turboism";
+    static final String ABOUT_EULA = "https://github.com/turboism/Turboism/blob/main/EULA.md";
+    private static final int ABOUT_BODY_WIDTH = 360;
     private PluginTableModel pluginTableModel;
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
@@ -151,15 +140,6 @@ final class CoreWindows implements AutoCloseable {
             pluginDetailsDialog = null;
             aboutDialog = null;
         });
-        final Path logo = aboutLogoPng;
-        if (logo != null) {
-            aboutLogoPng = null;
-            try {
-                Files.deleteIfExists(logo);
-            } catch (IOException ignored) {
-                // best-effort temp file cleanup
-            }
-        }
     }
 
     private JDialog createSettingsDialog() {
@@ -926,7 +906,13 @@ final class CoreWindows implements AutoCloseable {
             }
         });
 
-        dialog.add(content, BorderLayout.CENTER);
+        // Center the pane as a component; the fixed-width table inside the HTML
+        // wraps the tagline and defines the pane's preferred size.
+        final JPanel body = new JPanel(new GridBagLayout());
+        body.setBackground(Color.WHITE);
+        body.add(content, new GridBagConstraints());
+
+        dialog.add(body, BorderLayout.CENTER);
         return dialog;
     }
 
@@ -947,41 +933,40 @@ final class CoreWindows implements AutoCloseable {
     }
 
     /**
-     * Rendering follows the Turboism website style: a 42px bold gradient logo,
-     * the framework version, the product tagline, and the thanks line. Swing's
-     * HTML engine cannot paint {@code linear-gradient} text, so the logo is a
-     * runtime-rendered gradient PNG embedded through {@code <img>}.
+     * The About body is intentionally minimal and centered in the window: the
+     * product name, the framework version, the distribution tagline, and the
+     * homepage, GitHub and EULA links.
      */
     static String aboutHtml(final PluginLocalization i18n, final String version) {
-        final String logo = logoImageTag();
         return "<html><head><meta charset=\"UTF-8\"><style>"
-            + "body{margin:0;width:360px;height:220px;"
+            + "body{margin:0;width:" + ABOUT_BODY_WIDTH + "px;"
             + "font-family:Inter,\"Segoe UI\",\"Microsoft YaHei\",sans-serif;"
             + "background:#ffffff;color:#1f2937;}"
-            + ".subtitle{margin-top:8px;font-size:13px;color:#6b7280;}"
-            + ".bouquet{margin-top:8px;font-size:13px;color:#7c3aed;text-align:center;}"
+            + ".name{font-size:22px;font-weight:bold;text-align:center;}"
+            + ".version{margin-top:4px;font-size:13px;color:#6b7280;text-align:center;}"
+            + ".tagline{margin-top:10px;font-size:11px;color:#9ca3af;text-align:center;}"
             + ".links{margin-top:14px;font-size:12px;text-align:center;}"
             + ".links a{color:#155dfc;text-decoration:none;}"
             + "</style></head><body>"
-            + "<table width=\"360\" height=\"220\" cellpadding=\"0\" cellspacing=\"0\">"
-            + "<tr><td align=\"center\" valign=\"middle\">"
-            + "<div>" + logo + " <span class=\"subtitle\">" + version + "</span></div>"
-            + "<div class=\"bouquet\">" + escapeHtml(i18n.text("about.bouquet")) + "</div>"
-            + "<div class=\"subtitle\">Live2D Cubism Extension Framework</div>"
+            + "<table width=\"" + ABOUT_BODY_WIDTH + "\" cellpadding=\"0\" cellspacing=\"0\">"
+            + "<tr><td align=\"center\">"
+            + "<div class=\"name\">" + escapeHtml(i18n.text("common.turboism")) + "</div>"
+            + "<div class=\"version\">" + escapeHtml(version) + "</div>"
+            + "<div class=\"tagline\">" + escapeHtml(i18n.text("about.tagline")) + "</div>"
             + "<div class=\"links\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
             + escapeHtml(i18n.text("about.homepage")) + "</a> &nbsp;·&nbsp; "
-            + "<a href=\"" + ABOUT_SUPPORT + "\">"
-            + escapeHtml(i18n.text("about.support")) + "</a> &nbsp;·&nbsp; "
-            + "<a href=\"" + ABOUT_THANKS + "\">"
-            + escapeHtml(i18n.text("about.thanks")) + "</a></div>"
+            + "<a href=\"" + ABOUT_GITHUB + "\">"
+            + escapeHtml(i18n.text("about.github")) + "</a> &nbsp;·&nbsp; "
+            + "<a href=\"" + ABOUT_EULA + "\">"
+            + escapeHtml(i18n.text("about.eula")) + "</a></div>"
             + "</td></tr></table>"
             + "</body></html>";
     }
 
     private void openAboutLink(final String value) {
         if (!ABOUT_HOMEPAGE.equals(value)
-            && !ABOUT_SUPPORT.equals(value)
-            && !ABOUT_THANKS.equals(value)) {
+            && !ABOUT_GITHUB.equals(value)
+            && !ABOUT_EULA.equals(value)) {
             return;
         }
         if (!openHttpLink(value)) {
@@ -1044,50 +1029,6 @@ final class CoreWindows implements AutoCloseable {
         } catch (IOException | RuntimeException failure) {
             return false;
         }
-    }
-
-    private static String logoImageTag() {
-        try {
-            return "<img src=\"" + gradientLogoPng().toUri().toURL().toExternalForm()
-                + "\" alt=\"Turboism\">";
-        } catch (IOException unavailable) {
-            return "<span style=\"font-size:42px;font-weight:bold;color:#155dfc;\">Turboism</span>";
-        }
-    }
-
-    static Path gradientLogoPng() throws IOException {
-        final Path cached = aboutLogoPng;
-        if (cached != null) return cached;
-        synchronized (ABOUT_LOGO_LOCK) {
-            if (aboutLogoPng != null) return aboutLogoPng;
-            final Path file = Files.createTempFile("turboism-about-logo-", ".png");
-            try {
-                ImageIO.write(renderGradientLogo(), "png", file.toFile());
-            } catch (IOException failure) {
-                Files.deleteIfExists(file);
-                throw failure;
-            }
-            aboutLogoPng = file;
-            return file;
-        }
-    }
-
-    private static BufferedImage renderGradientLogo() {
-        final Font font = new Font(Font.SANS_SERIF, Font.BOLD, 42);
-        final BufferedImage measure = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
-        final FontMetrics metrics = measure.createGraphics().getFontMetrics(font);
-        final int width = metrics.stringWidth(ABOUT_LOGO_TEXT) + 6;
-        final int height = metrics.getHeight() + 4;
-        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        final Graphics2D graphics = image.createGraphics();
-        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        graphics.setFont(font);
-        graphics.setPaint(new LinearGradientPaint(
-            0f, 0f, width, 0f, new float[]{0f, 1f}, new Color[]{new Color(0x155DFC), new Color(0xFCBB00)}
-        ));
-        graphics.drawString(ABOUT_LOGO_TEXT, 3, metrics.getAscent() + 2);
-        graphics.dispose();
-        return image;
     }
 
     static String frameworkDisplayVersion() {
