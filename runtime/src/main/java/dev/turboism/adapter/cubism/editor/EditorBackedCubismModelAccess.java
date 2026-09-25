@@ -146,11 +146,13 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         this.combinedAccess = new EditorParameterCombinedAccess(
             resolver,
             this::requireCurrent,
-            this::source
+            this::source,
+            this.authoringCoordinator
         );
         this.parameterStructureAccess = new EditorParameterStructureAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator
         );
         this.parameterGroupsAccess = new EditorParameterGroupsAccess(
             resolver,
@@ -159,7 +161,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.defaultKeyformLockAccess = new EditorDefaultKeyformLockAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator
         );
         this.editLevelAccess = new EditorModelEditLevelAccess(
             resolver,
@@ -167,11 +170,13 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.partStructureAccess = new EditorPartStructureAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator
         );
         this.morphTargetAccess = new EditorMorphTargetAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator
         );
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
             resolver,
@@ -182,7 +187,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
         this.documentReadAccess = new EditorDocumentReadAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator
         );
         this.modelInstanceAccess = new EditorModelInstanceAccess(
             resolver,
@@ -190,18 +196,21 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.textureAccess = new EditorTextureAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator
         );
         this.modelProfileAccess = new EditorModelProfileAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator
         );
         this.partOpacityAccess = new EditorPartOpacityAccess(
             resolver,
             this::requireCurrent,
             this.partStructureAccess,
             this.morphTargetAccess,
-            this.hierarchyEditAccess
+            this.hierarchyEditAccess,
+            this.authoringCoordinator
         );
         this.evaluatedJoin = evaluatedJoin;
         this.objectReadAccess = new EditorObjectReadAccess(
@@ -223,7 +232,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.nativeControlAppearanceAccess = new EditorNativeControlAppearanceAccess(
             resolver,
-            () -> binding()
+            () -> binding(),
+            this.authoringCoordinator
         );
         this.selectionReadAccess = new EditorSelectionReadAccess(resolver);
 
@@ -712,6 +722,10 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         final Object source,
         final float expectedValue
     ) {
+        EditorHostThread.requireHostThread("Parameter.setValue");
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Parameter.setValue"
+        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document",
@@ -818,6 +832,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             );
         }
         requireCurrent(expectedIdentity, expectedModel);
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Parameter.updateDefinition"
+        );
         final ParameterBinding parameterBinding = parameter(expectedModel, currentId);
         final Object source = resolver.invoke(
             "cubism.editor-model.parameter.source",
@@ -1270,7 +1287,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 EditorBackedCubismModelAccess.this::requireCurrent,
                 objectReadAccess::parameterBindings,
                 objectReadAccess::bindingTargetSource,
-                EditorBackedCubismModelAccess.this::source
+                EditorBackedCubismModelAccess.this::source,
+                authoringCoordinator
             );
         }
         @Override public ParameterBindingBatchOperations parameterBindingBatch() {
@@ -1282,7 +1300,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 model,
                 EditorBackedCubismModelAccess.this::requireCurrent,
                 objectReadAccess::bindingTargetSource,
-                EditorBackedCubismModelAccess.this::source
+                EditorBackedCubismModelAccess.this::source,
+                authoringCoordinator
             );
         }
         @Override public Canvas canvas() { return modelProfileAccess.canvas(identity, source, model); }

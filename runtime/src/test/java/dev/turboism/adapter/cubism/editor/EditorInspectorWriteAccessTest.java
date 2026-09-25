@@ -348,6 +348,210 @@ class EditorInspectorWriteAccessTest {
         assertFalse(fixture.document.dirty);
     }
 
+    /**
+     * Ambient envelope join: a migrated hand-written envelope inside an authoring transaction
+     * admits its native Undo object into the root edit instead of opening a detached
+     * {@code edit-mode} bracket. Commit produces exactly one native Undo group carrying the
+     * transaction label, and refresh/dirty work is deferred to the coalesced root commit.
+     */
+    @Test
+    void envelopeWritesInsideTransactionJoinTheAmbientRootAndCommitAsOneGroup() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Restyle clip part"),
+            () -> {
+                final var part = access.active().parts().find(new PartId("PartClip"));
+                part.setOpacity(0.5F);
+                part.setId(new PartId("PartClipRenamed"));
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(1, fixture.editMode.edits.size(), "one root edit only");
+        assertEquals(List.of("Restyle clip part"), fixture.editMode.edits);
+        assertEquals(2, fixture.editMode.groups.get(0).undoAddCount,
+            "both envelope writes admit into the single root group");
+        assertEquals(0, fixture.editMode.groups.get(0).groupUndoCount);
+        assertEquals(1, fixture.document.undoManager.entries.size());
+        assertEquals("Restyle clip part",
+            fixture.document.undoManager.entries.get(0).presentationName());
+        assertEquals(0.5F, fixture.partClip.form.opacity);
+        assertEquals("PartClipRenamed", fixture.partClip.source.id.value());
+        assertEquals(List.of("end:false"), fixture.editMode.order);
+        assertTrue(fixture.source.updateCount >= 1, "coalesced update-instances at commit");
+        assertEquals(1, fixture.pack.partRefreshCount);
+        assertEquals(1, fixture.pack.deformerRefreshCount);
+        assertEquals(1, fixture.pack.repaintCount);
+        assertTrue(fixture.document.dirty);
+    }
+
+    /**
+     * Rollback of a transaction containing joined envelope writes must rewind them through the
+     * native {@code undo.group-undo} member while the root bracket is still open — aborting the
+     * bracket alone discards the group without restoring model state.
+     */
+    @Test
+    void envelopeWriteRollbackRunsGroupUndoBeforeAbortAndRestoresModelState() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Restyle clip part"),
+            () -> {
+                final var part = access.active().parts().find(new PartId("PartClip"));
+                part.setOpacity(0.5F);
+                part.setId(new PartId("PartClipRenamed"));
+                throw new IllegalStateException("later step failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(1, fixture.editMode.groups.get(0).groupUndoCount,
+            "native group undo must rewind the admitted envelope undos");
+        assertEquals(List.of("group-undo", "end:true"), fixture.editMode.order,
+            "group-undo must run before the aborting edit-mode.end");
+        assertEquals(1.0F, fixture.partClip.form.opacity,
+            "group undo restores the opacity snapshot");
+        assertEquals("PartClip", fixture.partClip.source.id.value(),
+            "group undo restores the part id snapshot");
+        assertTrue(fixture.document.undoManager.entries.isEmpty());
+        assertEquals(0, fixture.pack.partRefreshCount, "rollback must not refresh");
+        assertEquals(0, fixture.pack.repaintCount);
+        assertFalse(fixture.document.dirty);
+    }
+
+    /**
+     * Mixed transaction: a coordinator-native contribution (glue write) and a migrated
+     * hand-written envelope (part write) share the same root Undo group, and one group-undo
+     * rewinds both on rollback.
+     */
+    @Test
+    void mixedCoordinatorAndEnvelopeWritesShareOneRootGroupAndRollBackTogether() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var committed = service.execute(
+            AuthoringTransactionOptions.of("Mixed write"),
+            () -> {
+                access.active().glues().find(new GlueId("Glue1")).setName("MainGlue");
+                access.active().parts().find(new PartId("PartClip")).setOpacity(0.25F);
+                return null;
+            }
+        );
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, committed.outcome());
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(2, fixture.editMode.groups.get(0).undoAddCount,
+            "glue contribution and part envelope admit into the same root group");
+
+        final Fixture rollbackFixture = new Fixture();
+        Host.document = rollbackFixture.document;
+        final var rollbackAccess =
+            new EditorBackedCubismModelAccess(resolver(false), "session-b");
+        final var rollbackService = ((RuntimeAuthoringTransactionProvider) rollbackAccess)
+            .authoringTransactions("plugin.test");
+        final var rolledBack = rollbackService.execute(
+            AuthoringTransactionOptions.of("Mixed write"),
+            () -> {
+                rollbackAccess.active().glues().find(new GlueId("Glue1")).setName("MainGlue");
+                rollbackAccess.active().parts().find(new PartId("PartClip")).setOpacity(0.25F);
+                throw new IllegalStateException("later step failed");
+            }
+        );
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, rolledBack.outcome());
+        assertEquals(1, rollbackFixture.editMode.groups.get(0).groupUndoCount);
+        assertEquals(List.of("group-undo", "end:true"), rollbackFixture.editMode.order);
+        assertEquals(1.0F, rollbackFixture.partClip.form.opacity);
+        assertEquals("Glue1",
+            rollbackAccess.active().glues().find(new GlueId("Glue1")).name(),
+            "group undo restores the glue name snapshot (raw localName is null again)");
+        assertTrue(rollbackFixture.document.undoManager.entries.isEmpty());
+    }
+
+    /**
+     * Kill switch: {@code turboism.editorAmbientEnvelopeJoin=false} restores the batch-056
+     * wave-1 fail-closed behaviour — a hand-written envelope inside an ambient transaction
+     * rejects with the typed ambient rejection and leaves no Undo entry behind.
+     */
+    @Test
+    void envelopeJoinKillSwitchRestoresFailClosedRejection() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, "false");
+        try {
+            final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+            final var service = ((RuntimeAuthoringTransactionProvider) access)
+                .authoringTransactions("plugin.test");
+
+            final var result = service.execute(
+                AuthoringTransactionOptions.of("Rejected envelope write"),
+                () -> {
+                    final var part = access.active().parts().find(new PartId("PartClip"));
+                    final EditorAmbientTransactionRejection rejection = assertThrows(
+                        EditorAmbientTransactionRejection.class,
+                        () -> part.setId(new PartId("Detached")),
+                        "kill switch must restore fail-closed envelope rejection"
+                    );
+                    assertTrue(rejection.getMessage().contains("detached Undo group"));
+                    return null;
+                }
+            );
+
+            assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
+            assertEquals("PartClip", fixture.partClip.source.id.value());
+            assertEquals(0, fixture.editMode.edits.size(), "no native edit may begin");
+            assertTrue(fixture.document.undoManager.entries.isEmpty());
+            assertEquals(0, fixture.pack.partRefreshCount);
+            assertFalse(fixture.document.dirty);
+        } finally {
+            System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
+        }
+    }
+
+    /**
+     * Kill switch, propagation variant: with admission disabled an envelope rejection that
+     * escapes the callback rolls the root transaction back exactly as in wave 1.
+     */
+    @Test
+    void envelopeJoinKillSwitchPropagatingRejectionRollsBackTheRootTransaction() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, "false");
+        try {
+            final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+            final var service = ((RuntimeAuthoringTransactionProvider) access)
+                .authoringTransactions("plugin.test");
+
+            final var result = service.execute(
+                AuthoringTransactionOptions.of("Envelope write escapes"),
+                () -> {
+                    access.active().parts().find(new PartId("PartClip"))
+                        .setId(new PartId("Detached"));
+                    return null;
+                }
+            );
+
+            assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+            assertEquals("PartClip", fixture.partClip.source.id.value());
+            assertEquals(0, fixture.editMode.edits.size());
+            assertTrue(fixture.document.undoManager.entries.isEmpty());
+            assertFalse(fixture.document.dirty);
+        } finally {
+            System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
+        }
+    }
+
     @Test
     void glueNameIdIntensityAndDrawableWritesUseNativeUndoEnvelope() {
         final Fixture fixture = new Fixture();
@@ -444,6 +648,10 @@ class EditorInspectorWriteAccessTest {
         selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
         selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
         selectors.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
+        selectors.add(method("cubism.editor-model.undo.group-undo", GroupUndo.class, "groupUndo", "()V"));
+        selectors.add(StaticSelector.classSelector("cubism.editor-model.part-form.class", internal(PartForm.class)));
+        selectors.add(method("cubism.editor-model.part-form.opacity", PartForm.class, "opacity", "()F"));
+        selectors.add(method("cubism.editor-model.part-form.set-opacity", PartForm.class, "setOpacity", "(F)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
         selectors.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)));
         selectors.add(method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)));
@@ -589,7 +797,11 @@ class EditorInspectorWriteAccessTest {
             EditorPartInspectorSelectorContract.CAPABILITY_ID,
             EditorDeformerInspectorSelectorContract.CAPABILITY_ID,
             EditorGlueInspectorSelectorContract.CAPABILITY_ID,
-            EditorHistoryReadSelectorContract.CAPABILITY_ID
+            EditorHistoryReadSelectorContract.CAPABILITY_ID,
+            // Ambient envelope admission is gated on the verified group-undo row of the
+            // edit-session begin capability (HostUndoMutationScope).
+            dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract
+                .EDIT_BEGIN_CAPABILITY_ID
         ));
         if (cubism52) {
             capabilities.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
@@ -714,7 +926,7 @@ class EditorInspectorWriteAccessTest {
         final Id id;
         final ParamHandler handler = new ParamHandler();
         String localName;
-        ParamSource(final String id) { this.id = new Id(id); }
+        ParamSource(final String id) { this.id = new Id(id); handler.owner = this; }
         public Id id() { return id; }
         public ParamHandler handler() { return handler; }
         public void setLocalName(final String name) { localName = name; }
@@ -724,6 +936,7 @@ class EditorInspectorWriteAccessTest {
     public static final class PartSource extends ParamSource {
         final List<Object> clipGuids = new ArrayList<>();
         AlphaMode alphaComposition = AlphaMode.OVER;
+        HostPart part;
         PartSource(final String id) { super(id); }
         public void setId(final Id newId) { id.value = newId.value; }
         public PartSource parent() { return null; }
@@ -775,15 +988,46 @@ class EditorInspectorWriteAccessTest {
 
     public static final class ParamHandler {
         int changeCount;
-        public Undo undo(final String name) { return new Undo(); }
+        ParamSource owner;
+        public Undo undo(final String name) {
+            final Undo undo = new Undo();
+            final ParamSource source = owner;
+            if (source != null) {
+                final String idValue = source.id.value();
+                final String nameSnapshot = source.localName;
+                if (source instanceof PartSource partSource) {
+                    final AlphaMode alpha = partSource.alphaComposition;
+                    final List<Object> clips = List.copyOf(partSource.clipGuids);
+                    final PartForm form = partSource.part != null ? partSource.part.form : null;
+                    final float opacity = form != null ? form.opacity : 0.0F;
+                    undo.undoAction = () -> {
+                        source.id.value = idValue;
+                        source.localName = nameSnapshot;
+                        partSource.alphaComposition = alpha;
+                        partSource.clipGuids.clear();
+                        partSource.clipGuids.addAll(clips);
+                        if (form != null) form.opacity = opacity;
+                    };
+                } else {
+                    undo.undoAction = () -> {
+                        source.id.value = idValue;
+                        source.localName = nameSnapshot;
+                    };
+                }
+            }
+            return undo;
+        }
         public Undo changeTargetDeformer(final Model model, final Id id) {
             throw new AssertionError("GUID target writes must not use the ID overload");
         }
         public Undo changeTargetDeformer(final Model model, final DeformerGuid guid, final boolean withUndo) {
             changeCount++;
             final DeformerSource source = Fixture.current.warp.source;
+            final Object before = source.targetGuid;
+            final Undo undo = new Undo();
+            undo.undoAction = () -> source.targetGuid = before;
             source.targetGuid = guid;
-            return new Undo();
+            return undo;
         }
     }
 
@@ -791,7 +1035,9 @@ class EditorInspectorWriteAccessTest {
         final Id id;
         final PartSource source;
         final PartForm form = new PartForm();
-        HostPart(final String id, final PartSource source) { this.id = new Id(id); this.source = source; }
+        HostPart(final String id, final PartSource source) {
+            this.id = new Id(id); this.source = source; source.part = this;
+        }
         public Id id() { return id; }
         public PartSource source() { return source; }
         public PartForm currentForm() { return form; }
@@ -882,18 +1128,39 @@ class EditorInspectorWriteAccessTest {
         public String value() { return value; }
     }
 
-    public static final class GroupUndo extends UndoEntry {
-        final String label;
-        int undoAddCount;
-        GroupUndo(final String label) { super(label); this.label = label; }
-        public boolean add(final Undo undo, final boolean redoable) {
-            undoAddCount++;
-            return true;
-        }
+    public static class Undo extends UndoEntry {
+        // Emulates create-undo-for-all-edit: the undo factory snapshots owner state and
+        // groupUndo replays it. Sites whose fake undo cannot restore leave this no-op.
+        Runnable undoAction = () -> { };
+        Undo() { super(""); }
+        Undo(final String name) { super(name); }
+        public boolean addListener(final Listener listener) { return true; }
+        void undo() { undoAction.run(); }
     }
 
-    public static final class Undo {
-        public boolean addListener(final Listener listener) { return true; }
+    public static final class GroupUndo extends Undo {
+        final EditMode mode;
+        final List<Undo> admitted = new ArrayList<>();
+        int undoAddCount;
+        int groupUndoCount;
+        GroupUndo(final EditMode mode, final String label) {
+            super(label);
+            this.mode = mode;
+        }
+        public boolean add(final Undo undo, final boolean redoable) {
+            undoAddCount++;
+            admitted.add(undo);
+            return true;
+        }
+        // cubism.editor-model.undo.group-undo: rewinds every admitted undo in place while the
+        // edit bracket stays open, exactly like the verified session recovery path.
+        public void groupUndo() {
+            groupUndoCount++;
+            mode.order.add("group-undo");
+            for (int index = admitted.size() - 1; index >= 0; index--) {
+                admitted.get(index).undo();
+            }
+        }
     }
 
     public interface Listener {
@@ -904,18 +1171,20 @@ class EditorInspectorWriteAccessTest {
         final UndoManager manager;
         final List<String> edits = new ArrayList<>();
         final List<GroupUndo> groups = new ArrayList<>();
+        final List<String> order = new ArrayList<>();
         GroupUndo current;
         boolean aborted;
         EditMode(final UndoManager manager) { this.manager = manager; }
         public GroupUndo begin(final String action) {
             edits.add(action);
-            final GroupUndo group = new GroupUndo(action);
+            final GroupUndo group = new GroupUndo(this, action);
             groups.add(group);
             current = group;
             return group;
         }
         public void end(final boolean aborted, final Object unused) {
             this.aborted = aborted;
+            order.add("end:" + aborted);
             if (!aborted && current != null) manager.commit(current);
             current = null;
         }
