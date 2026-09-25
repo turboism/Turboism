@@ -586,12 +586,22 @@ public final class ProtectedExportHostProbeAgent {
                 evidence.put(prefix + "meshPlacement", placement);
             }
             if (physicsOutput) {
-                // Pin the fixture's physics setting IDs so the published
-                // physics3.json can be compared against the exact census set.
+                // Pin the fixture's authored physics identities and parameter
+                // IDs so the published physics3.json can prove identity
+                // obfuscation (canonical positional IDs + hash-token names)
+                // and unchanged parameter references.
                 final List<String> physicsIds = onEdtBounded(APPLY_STEP_MILLIS,
                     () -> physicsSettingIds(original));
                 evidence.put(prefix + "censusPhysicsIds",
                     String.join(",", physicsIds));
+                final List<String> physicsNames = onEdtBounded(APPLY_STEP_MILLIS,
+                    () -> physicsSettingNames(original));
+                evidence.put(prefix + "censusPhysicsNames",
+                    String.join(",", physicsNames));
+                final List<String> parameterIds = onEdtBounded(APPLY_STEP_MILLIS,
+                    () -> modelParameterIds(original));
+                evidence.put(prefix + "censusParameterIds",
+                    String.join(",", parameterIds));
             }
             if (glue) {
                 // Glue variant: build one real Glue relation on the live model
@@ -1678,8 +1688,8 @@ public final class ProtectedExportHostProbeAgent {
     }
 
     /**
-     * The live model's physics setting IDs — the census set a staged
-     * physics3.json must reproduce.
+     * The live model's physics setting IDs — the authored identities that must
+     * never reach the exported artifact.
      */
     private static List<String> physicsSettingIds(final Object document) {
         final Object source = readNoArg(document, "getModelSource");
@@ -1695,10 +1705,75 @@ public final class ProtectedExportHostProbeAgent {
         return List.copyOf(ids);
     }
 
+    /** The live model's authored physics setting names, sorted. */
+    private static List<String> physicsSettingNames(final Object document) {
+        final Object source = readNoArg(document, "getModelSource");
+        final List<String> names = new ArrayList<>();
+        for (Object settings : asList(readNoArg(source, "getAllPhysicsSettings"))) {
+            final Object name = readNoArg(settings, "getName");
+            if (name != null && !name.toString().isBlank()) {
+                names.add(name.toString());
+            }
+        }
+        java.util.Collections.sort(names);
+        return List.copyOf(names);
+    }
+
+    /**
+     * The live model's authored parameter IDs — the reference set physics
+     * input/output entries point at, which protected export must preserve
+     * verbatim (parameter IDs are a contractual identity surface).
+     */
+    private static List<String> modelParameterIds(final Object document) {
+        final Object source = readNoArg(document, "getModelSource");
+        final Object parameterSet = readNoArg(source, "getParameterSourceSet");
+        final List<String> ids = new ArrayList<>();
+        for (Object parameter : asList(readNoArg(parameterSet, "getSources"))) {
+            final Object id = readNoArg(parameter, "getId");
+            final Object value = id == null ? null : readNoArg(id, "getIdString");
+            if (value != null && !value.toString().isBlank()) {
+                ids.add(value.toString());
+            }
+        }
+        java.util.Collections.sort(ids);
+        return List.copyOf(ids);
+    }
+
+    /**
+     * A JSON {@code "[ ... ]"} array slice starting right after
+     * {@code content}'s first {@code key} occurrence — used to scope ID/name
+     * scraping to a single array inside the physics3 document.
+     */
+    private static String jsonArraySlice(final String content, final String key) {
+        final java.util.regex.Matcher keyMatcher = java.util.regex.Pattern
+            .compile("\"" + java.util.regex.Pattern.quote(key) + "\"\\s*:")
+            .matcher(content);
+        if (!keyMatcher.find()) {
+            return "";
+        }
+        final int open = content.indexOf('[', keyMatcher.end());
+        if (open < 0) {
+            return "";
+        }
+        int depth = 0;
+        for (int i = open; i < content.length(); i++) {
+            final char c = content.charAt(i);
+            if (c == '[') {
+                depth++;
+            } else if (c == ']' && --depth == 0) {
+                return content.substring(open, i + 1);
+            }
+        }
+        return content.substring(open);
+    }
+
     /**
      * Post-export physics evidence: the published directory must carry a
-     * physics3.json whose {@code PhysicsSettings[].Id} set equals the censused
-     * setting IDs recorded before the export ran.
+     * physics3.json whose settings carry only non-authored identities —
+     * the native writer canonicalizes IDs positionally
+     * ({@code PhysicsSetting<i>}) while the dictionary names carry the
+     * {@code Physics_<hash>} tokens — and whose parameter references reproduce
+     * the authored parameter ID set verbatim.
      */
     private static void recordPhysicsOutcome(
         final File approved,
@@ -1724,51 +1799,99 @@ public final class ProtectedExportHostProbeAgent {
         }
         try {
             final String content = Files.readString(physics3);
-            final List<String> ids = new ArrayList<>();
-            // Scope to the PhysicsSettings array — Input/Output parameter
-            // entries carry their own Id fields elsewhere in the document.
-            final java.util.regex.Matcher settingsKey = java.util.regex.Pattern
-                .compile("\"(?:PhysicsSettings|physicsSettings)\"\\s*:")
-                .matcher(content);
-            String slice = "";
-            if (settingsKey.find()) {
-                final int open = content.indexOf('[', settingsKey.end());
-                if (open >= 0) {
-                    int depth = 0;
-                    int close = open;
-                    for (int i = open; i < content.length(); i++) {
-                        final char c = content.charAt(i);
-                        if (c == '[') {
-                            depth++;
-                        } else if (c == ']') {
-                            depth--;
-                            if (depth == 0) {
-                                close = i;
-                                break;
-                            }
-                        }
-                    }
-                    slice = content.substring(open, close + 1);
+            final List<String> authored = new ArrayList<>();
+            for (String id : evidence.values
+                .getOrDefault(prefix + "censusPhysicsIds", "").split(",")) {
+                if (!id.isBlank()) {
+                    authored.add(id);
                 }
             }
+            final List<String> authoredNames = new ArrayList<>();
+            for (String name : evidence.values
+                .getOrDefault(prefix + "censusPhysicsNames", "").split(",")) {
+                if (!name.isBlank()) {
+                    authoredNames.add(name);
+                }
+            }
+            // Scoped to the PhysicsSettings array — Input/Output parameter
+            // entries carry their own Id fields elsewhere in the document.
+            final String slice = jsonArraySlice(content, "PhysicsSettings").isEmpty()
+                ? jsonArraySlice(content, "physicsSettings")
+                : jsonArraySlice(content, "PhysicsSettings");
             final java.util.regex.Matcher matcher = java.util.regex.Pattern
                 .compile("\"Id\"\\s*:\\s*\"([^\"]+)\"")
                 .matcher(slice);
+            final List<String> ids = new ArrayList<>();
             while (matcher.find()) {
                 ids.add(matcher.group(1));
             }
             java.util.Collections.sort(ids);
             evidence.put(prefix + "publishedPhysics3Ids", String.join(",", ids));
-            final List<String> expected = new ArrayList<>();
+            final java.util.regex.Pattern canonical = java.util.regex.Pattern
+                .compile("PhysicsSetting\\d+|PhysicsId_[0-9a-f]+");
+            final boolean canonicalIds = !ids.isEmpty()
+                && ids.size() == authored.size()
+                && ids.stream().allMatch(id -> canonical.matcher(id).matches());
+            evidence.put(prefix + "physics3IdsCanonical",
+                Boolean.toString(canonicalIds));
+            final boolean authoredAbsent = ids.stream()
+                .noneMatch(authored::contains);
+            evidence.put(prefix + "physics3AuthoredIdsAbsent",
+                Boolean.toString(authoredAbsent));
+            if (!canonicalIds) {
+                evidence.fail("EXP_PHYSICS3_IDS_NOT_CANONICAL");
+            }
+            if (!authoredAbsent) {
+                evidence.fail("EXP_PHYSICS3_AUTHORED_ID_LEAK");
+            }
+            // Dictionary names must be the planned hash tokens — authored
+            // names never serialize.
+            final String dictionary = jsonArraySlice(content, "PhysicsDictionary");
+            final java.util.regex.Matcher nameMatcher = java.util.regex.Pattern
+                .compile("\"Name\"\\s*:\\s*\"([^\"]+)\"")
+                .matcher(dictionary);
+            final List<String> names = new ArrayList<>();
+            while (nameMatcher.find()) {
+                names.add(nameMatcher.group(1));
+            }
+            evidence.put(prefix + "publishedPhysics3Names",
+                String.join(",", names));
+            final java.util.regex.Pattern nameToken = java.util.regex.Pattern
+                .compile("Physics_[0-9a-f]+");
+            final boolean namesObfuscated = names.size() == authoredNames.size()
+                && names.stream().allMatch(n -> nameToken.matcher(n).matches())
+                && names.stream().noneMatch(authoredNames::contains);
+            evidence.put(prefix + "physics3NamesObfuscated",
+                Boolean.toString(namesObfuscated));
+            if (!namesObfuscated) {
+                evidence.fail("EXP_PHYSICS3_NAMES_NOT_OBFUSCATED");
+            }
+            // Parameter references inside Source/Destination blocks must equal
+            // the authored parameter ID set — obfuscation never remaps them.
+            final java.util.regex.Matcher refMatcher = java.util.regex.Pattern
+                .compile("\"(?:Source|Destination)\"\\s*:\\s*\\{[^}]*"
+                    + "\"Id\"\\s*:\\s*\"([^\"]+)\"")
+                .matcher(content);
+            final java.util.Set<String> refs = new java.util.TreeSet<>();
+            while (refMatcher.find()) {
+                refs.add(refMatcher.group(1));
+            }
+            final List<String> authoredParams = new ArrayList<>();
             for (String id : evidence.values
-                .getOrDefault(prefix + "censusPhysicsIds", "").split(",")) {
+                .getOrDefault(prefix + "censusParameterIds", "").split(",")) {
                 if (!id.isBlank()) {
-                    expected.add(id);
+                    authoredParams.add(id);
                 }
             }
-            java.util.Collections.sort(expected);
-            evidence.put(prefix + "physics3IdsMatch",
-                Boolean.toString(ids.equals(expected)));
+            final boolean refsPreserved = refs.stream()
+                .allMatch(authoredParams::contains);
+            evidence.put(prefix + "physics3ParameterRefs",
+                String.join(",", refs));
+            evidence.put(prefix + "physics3ParamRefsPreserved",
+                Boolean.toString(refsPreserved));
+            if (!refsPreserved) {
+                evidence.fail("EXP_PHYSICS3_PARAM_REFS_DRIFTED");
+            }
         } catch (IOException failure) {
             evidence.put(prefix + "physics3ReadFailure", text(failure));
         }

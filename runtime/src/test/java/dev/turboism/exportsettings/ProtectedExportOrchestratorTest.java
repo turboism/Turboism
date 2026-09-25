@@ -705,27 +705,66 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
+    /**
+     * A fixture physics setting with realistic behavior content: one input and
+     * one output bound to {@code param-1}, three pendulum vertices.
+     */
+    private static FakePhysicsSettings physicsSetting(
+        final String guid,
+        final String id,
+        final String name
+    ) {
+        final FakePhysicsSettings settings =
+            new FakePhysicsSettings(guid, id, name);
+        settings.inputs.add(new FakePhysicsInput(
+            "param-1-guid", 1f, "SRC_TO_X", false));
+        settings.outputs.add(new FakePhysicsOutput(
+            "param-1-guid", 0, 1f, "SRC_TO_X", false));
+        for (int i = 0; i < 3; i++) {
+            settings.vertices.add(new FakePhysicsVertex(
+                i * 0.5f, 0f, 1f, 0.2f, 0.9f, 1f));
+        }
+        return settings;
+    }
+
     @Test
-    void publishesWithPhysicsSettingsPassingThrough() throws Exception {
+    void publishesWithPhysicsSettingsObfuscated() throws Exception {
         final Fixture fixture = new Fixture();
-        // Physics settings live outside getAllObjects — the settings census pins
-        // their identity and structure, and the staged physics3.json (emitted
-        // because the user's physics output checkbox is on) must carry the same
-        // setting IDs.
-        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
-            "phys-1-guid", "PhysicsSetting1", "hair",
-            List.of("enable=true", "inputs=1", "outputs=1", "vertices=3")));
-        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
-            "phys-2-guid", "PhysicsSetting2", "skirt",
-            List.of("enable=true", "inputs=2", "outputs=1", "vertices=6")));
+        // Physics settings live outside getAllObjects — obfuscation rewrites
+        // their name/ID to GUID-hash tokens while every behavior value is
+        // pinned by the content signature, and the staged physics3.json
+        // (emitted because the user's physics output checkbox is on) must
+        // reproduce the content under the canonical positional IDs.
+        fixture.host.original.model.physicsSettings.add(
+            physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.original.model.physicsSettings.add(
+            physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertNull(report.failureKey(), "expected publish: " + report.failureKey());
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey()
+            + " " + report.failureDetail());
         assertTrue(report.published());
-        assertTrue(Files.isRegularFile(
-            fixture.realPick.toPath().getParent().resolve("model.physics3.json")));
+        final Path physics3 =
+            fixture.realPick.toPath().getParent().resolve("model.physics3.json");
+        assertTrue(Files.isRegularFile(physics3));
+        final String body = Files.readString(physics3);
+        assertTrue(body.contains("\"PhysicsSetting1\""), body);
+        assertFalse(body.contains("hairPhys"), "authored ID leaked");
+        assertFalse(body.contains("skirtPhys"), "authored ID leaked");
+        assertFalse(body.contains("\"hair\""), "authored name leaked");
+        // The copy's settings carry the planned tokens — the authored names/IDs
+        // are gone from the exported model.
+        assertTrue(fixture.host.copy.model.physicsSettings.stream()
+            .allMatch(setting -> setting instanceof FakePhysicsSettings physics
+                && physics.id.startsWith("PhysicsId_")
+                && physics.name.startsWith("Physics_")));
+        // The original document is untouched.
+        assertTrue(fixture.host.original.model.physicsSettings.stream()
+            .allMatch(setting -> setting instanceof FakePhysicsSettings physics
+                && (physics.id.equals("hairPhys") || physics.id.equals("skirtPhys"))
+                && (physics.name.equals("hair") || physics.name.equals("skirt"))));
         orchestrator.close();
     }
 
@@ -734,9 +773,8 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // Physics settings pinned but the user's native output checkbox off: no
         // physics3.json is staged and validation must not demand one.
-        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
-            "phys-1-guid", "PhysicsSetting1", "hair",
-            List.of("enable=true", "inputs=1")));
+        fixture.host.original.model.physicsSettings.add(
+            physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.exportWritesPhysics = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -752,12 +790,10 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // The exporter silently drops one physics setting: the staged
         // physics3.json no longer matches the census set — reject.
-        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
-            "phys-1-guid", "PhysicsSetting1", "hair",
-            List.of("enable=true", "inputs=1")));
-        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
-            "phys-2-guid", "PhysicsSetting2", "skirt",
-            List.of("enable=true", "inputs=2")));
+        fixture.host.original.model.physicsSettings.add(
+            physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.original.model.physicsSettings.add(
+            physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
         fixture.host.exportDropsPhysicsSetting = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -771,13 +807,52 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
+    void rejectsWhenStagedPhysicsContentDrifts() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A staged physics3.json whose serialized values no longer match the
+        // pinned census signature is a content rejection, not publishable.
+        fixture.host.original.model.physicsSettings.add(
+            physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.exportMutatesPhysicsContent = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().contains("physics3-content"),
+            "expected physics3-content rejection, got " + report.failureKey());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenPhysicsParameterReferenceIsUnresolvable() throws Exception {
+        final Fixture fixture = new Fixture();
+        // A physics input referencing a parameter GUID the model does not have
+        // cannot be proven preserved — fail closed at the census.
+        final FakePhysicsSettings dangling =
+            physicsSetting("phys-1-guid", "hairPhys", "hair");
+        dangling.inputs.add(new FakePhysicsInput(
+            "ghost-param-guid", 1f, "SRC_TO_X", false));
+        fixture.host.original.model.physicsSettings.add(dangling);
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
+        assertTrue(report.failureDetail().contains("unpinnable-settings"),
+            "expected unpinnable-settings rejection, got " + report.failureDetail());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
     void rejectsWhenSettingsIdentityDriftsDuringFlatten() throws Exception {
         final Fixture fixture = new Fixture();
         // An out-of-band mutation flips a physics signature mid-run; the
         // post-mutation census compares against the bound snapshot.
-        fixture.host.original.model.physicsSettings.add(new FakePhysicsSettings(
-            "phys-1-guid", "PhysicsSetting1", "hair",
-            List.of("enable=true", "inputs=1")));
+        fixture.host.original.model.physicsSettings.add(
+            physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.mutateSettingsMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -1692,6 +1767,8 @@ class ProtectedExportOrchestratorTest {
 
     private static final class FakeParameter {
         final String id;
+        /** Stable GUID — physics input/output entries reference parameters by it. */
+        final String guid;
         final float min;
         final float max;
         final float defaultValue;
@@ -1711,6 +1788,7 @@ class ProtectedExportOrchestratorTest {
             final boolean repeat
         ) {
             this.id = id;
+            this.guid = id + "-guid";
             this.min = min;
             this.max = max;
             this.defaultValue = defaultValue;
@@ -1809,39 +1887,225 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
-    /** A physics settings object: identity plus a pinned structure signature. */
+    /** A physics input entry: parameter GUID reference plus its pinned values. */
+    private static final class FakePhysicsInput {
+        final String paramGuid;
+        final float weight;
+        final String type;
+        final boolean reflect;
+        final float angleScale;
+        final float tx;
+        final float ty;
+
+        FakePhysicsInput(
+            final String paramGuid,
+            final float weight,
+            final String type,
+            final boolean reflect
+        ) {
+            this(paramGuid, weight, type, reflect, 1f, 2f, 3f);
+        }
+
+        FakePhysicsInput(
+            final String paramGuid,
+            final float weight,
+            final String type,
+            final boolean reflect,
+            final float angleScale,
+            final float tx,
+            final float ty
+        ) {
+            this.paramGuid = paramGuid;
+            this.weight = weight;
+            this.type = type;
+            this.reflect = reflect;
+            this.angleScale = angleScale;
+            this.tx = tx;
+            this.ty = ty;
+        }
+    }
+
+    /** A physics output entry: destination parameter, vertex and pinned values. */
+    private static final class FakePhysicsOutput {
+        final String paramGuid;
+        final int vertexIndex;
+        final float weight;
+        final String type;
+        final boolean reflect;
+        final float angleScale;
+        final float tx;
+        final float ty;
+        final float belowMin;
+        final float exceededMax;
+
+        FakePhysicsOutput(
+            final String paramGuid,
+            final int vertexIndex,
+            final float weight,
+            final String type,
+            final boolean reflect
+        ) {
+            this(paramGuid, vertexIndex, weight, type, reflect,
+                4f, 5f, 6f, -30f, 30f);
+        }
+
+        FakePhysicsOutput(
+            final String paramGuid,
+            final int vertexIndex,
+            final float weight,
+            final String type,
+            final boolean reflect,
+            final float angleScale,
+            final float tx,
+            final float ty,
+            final float belowMin,
+            final float exceededMax
+        ) {
+            this.paramGuid = paramGuid;
+            this.vertexIndex = vertexIndex;
+            this.weight = weight;
+            this.type = type;
+            this.reflect = reflect;
+            this.angleScale = angleScale;
+            this.tx = tx;
+            this.ty = ty;
+            this.belowMin = belowMin;
+            this.exceededMax = exceededMax;
+        }
+    }
+
+    /** One pendulum vertex: position plus mobility/delay/acceleration/radius. */
+    private static final class FakePhysicsVertex {
+        final float x;
+        final float y;
+        final float mobility;
+        final float delay;
+        final float acceleration;
+        final float radius;
+
+        FakePhysicsVertex(
+            final float x,
+            final float y,
+            final float mobility,
+            final float delay,
+            final float acceleration,
+            final float radius
+        ) {
+            this.x = x;
+            this.y = y;
+            this.mobility = mobility;
+            this.delay = delay;
+            this.acceleration = acceleration;
+            this.radius = radius;
+        }
+    }
+
+    /**
+     * A physics settings object: identity plus the authored behavior content —
+     * the fake mirrors the real members the census signature pins. Obfuscation
+     * rewrites {@code id}/{@code name} in place, exactly like the host setters.
+     */
     private static final class FakePhysicsSettings {
         final String guid;
-        final String id;
+        String id;
         String name;
-        final List<String> signature;
+        boolean enable = true;
+        final float[] normPosition = {0f, 0f, 1f};
+        final float[] normAngle = {-10f, 0f, 10f};
+        float totalAngle = 90f;
+        final List<FakePhysicsInput> inputs = new ArrayList<>();
+        final List<FakePhysicsOutput> outputs = new ArrayList<>();
+        final List<FakePhysicsVertex> vertices = new ArrayList<>();
 
         FakePhysicsSettings(
             final String guid,
             final String id,
-            final String name,
-            final List<String> signature
+            final String name
         ) {
             this.guid = guid;
             this.id = id;
             this.name = name;
-            this.signature = new ArrayList<>(signature);
+        }
+
+        FakePhysicsSettings copy() {
+            final FakePhysicsSettings copy =
+                new FakePhysicsSettings(guid, id, name);
+            copy.enable = enable;
+            System.arraycopy(normPosition, 0, copy.normPosition, 0, 3);
+            System.arraycopy(normAngle, 0, copy.normAngle, 0, 3);
+            copy.totalAngle = totalAngle;
+            inputs.forEach(input -> copy.inputs.add(new FakePhysicsInput(
+                input.paramGuid, input.weight, input.type, input.reflect,
+                input.angleScale, input.tx, input.ty)));
+            outputs.forEach(output -> copy.outputs.add(new FakePhysicsOutput(
+                output.paramGuid, output.vertexIndex, output.weight,
+                output.type, output.reflect, output.angleScale,
+                output.tx, output.ty, output.belowMin, output.exceededMax)));
+            vertices.forEach(vertex -> copy.vertices.add(new FakePhysicsVertex(
+                vertex.x, vertex.y, vertex.mobility, vertex.delay,
+                vertex.acceleration, vertex.radius)));
+            return copy;
         }
     }
 
-    /** A motion-sync setting object: identity plus the host content checksum. */
+    /** Physics settings-set level state: effective forces, FPS, selection. */
+    private static final class FakePhysicsSet {
+        final float gravityX = 0f;
+        final float gravityY = -1f;
+        final float windX = 0f;
+        final float windY = 0f;
+        final Integer fps = 60;
+        String selectedGuid;
+
+        FakePhysicsSet copy() {
+            final FakePhysicsSet copy = new FakePhysicsSet();
+            copy.selectedGuid = selectedGuid;
+            return copy;
+        }
+    }
+
+    /**
+     * A motion-sync setting object: identity plus the decomposed content pin
+     * (version + mapping/post-processing checksums) — the fake mirrors that the
+     * host's whole-object checksum covers the name, so the census pins the
+     * content components that survive a rename.
+     */
     private static final class FakeMotionSyncSettings {
         final String guid;
-        final String id;
+        String id;
         String name;
-        final List<String> signature;
+        final String version;
+        final int mappingChecksum;
+        final int postProcChecksum;
 
-        FakeMotionSyncSettings(final String guid, final String id,
-            final String name, final int checksum) {
+        FakeMotionSyncSettings(
+            final String guid,
+            final String id,
+            final String name,
+            final int checksum
+        ) {
+            this(guid, id, name, "MOTION_SYNC_V5", checksum, checksum + 1);
+        }
+
+        FakeMotionSyncSettings(
+            final String guid,
+            final String id,
+            final String name,
+            final String version,
+            final int mappingChecksum,
+            final int postProcChecksum
+        ) {
             this.guid = guid;
             this.id = id;
             this.name = name;
-            this.signature = new ArrayList<>(List.of("checksum=" + checksum));
+            this.version = version;
+            this.mappingChecksum = mappingChecksum;
+            this.postProcChecksum = postProcChecksum;
+        }
+
+        FakeMotionSyncSettings copy() {
+            return new FakeMotionSyncSettings(guid, id, name, version,
+                mappingChecksum, postProcChecksum);
         }
     }
 
@@ -1858,6 +2122,8 @@ class ProtectedExportOrchestratorTest {
         final List<Object> unpinnableObjects = new ArrayList<>();
         final List<Object> physicsSettings = new ArrayList<>();
         final List<Object> motionSyncSettings = new ArrayList<>();
+        /** Physics settings-set state — always present like the host's final field. */
+        FakePhysicsSet physicsSet = new FakePhysicsSet();
         // The host enumerates a synthetic root part in getAllParts but never
         // serializes it into exported output.
         final FakePart rootPart =
@@ -1946,6 +2212,7 @@ class ProtectedExportOrchestratorTest {
         volatile boolean exportDropsGlue;
         volatile boolean exportWritesPhysics = true;
         volatile boolean exportDropsPhysicsSetting;
+        volatile boolean exportMutatesPhysicsContent;
         volatile boolean switchActiveDocOnSelect;
         volatile boolean multiplyColor;
         volatile boolean embeddedMorphTargets;
@@ -2135,21 +2402,20 @@ class ProtectedExportOrchestratorTest {
             fresh.model.unpinnableObjects.addAll(original.model.unpinnableObjects);
             for (Object setting : original.model.physicsSettings) {
                 if (setting instanceof FakePhysicsSettings physics) {
-                    fresh.model.physicsSettings.add(new FakePhysicsSettings(
-                        physics.guid, physics.id, physics.name, physics.signature));
+                    fresh.model.physicsSettings.add(physics.copy());
                 } else {
                     fresh.model.physicsSettings.add(setting);
                 }
             }
             for (Object setting : original.model.motionSyncSettings) {
                 if (setting instanceof FakeMotionSyncSettings sync) {
-                    fresh.model.motionSyncSettings.add(new FakeMotionSyncSettings(
-                        sync.guid, sync.id, sync.name,
-                        Integer.parseInt(sync.signature.get(0).substring("checksum=".length()))));
+                    fresh.model.motionSyncSettings.add(sync.copy());
                 } else {
                     fresh.model.motionSyncSettings.add(setting);
                 }
             }
+            fresh.model.physicsSet = original.model.physicsSet == null
+                ? null : original.model.physicsSet.copy();
             copy = fresh;
             project.add(fresh);
             activeDoc = fresh;
@@ -2310,7 +2576,7 @@ class ProtectedExportOrchestratorTest {
                 if (mutateSettingsMidRun && doc == copy) {
                     doc.model.physicsSettings.forEach(setting -> {
                         if (setting instanceof FakePhysicsSettings physics) {
-                            physics.signature.set(0, "enable=false");
+                            physics.enable = !physics.enable;
                         }
                     });
                 }
@@ -2825,15 +3091,118 @@ class ProtectedExportOrchestratorTest {
             return null;
         }
 
+        /**
+         * Behavior-content signature built from the fake's structured members —
+         * the same token grammar the verified host operations produce, so the
+         * staged physics3 comparison exercises the real field mapping.
+         */
         @Override
-        public List<String> settingsSignature(final Object settingsSource) {
+        public List<String> settingsSignature(
+            final Object modelSource,
+            final Object settingsSource
+        ) {
             if (settingsSource instanceof FakePhysicsSettings physics) {
-                return List.copyOf(physics.signature);
+                final List<String> tokens = new ArrayList<>();
+                tokens.add("enable=" + physics.enable);
+                tokens.add("normalization.position=" + physics.normPosition[0]
+                    + "|" + physics.normPosition[1] + "|" + physics.normPosition[2]);
+                tokens.add("normalization.angle=" + physics.normAngle[0]
+                    + "|" + physics.normAngle[1] + "|" + physics.normAngle[2]);
+                tokens.add("totalAngle=" + physics.totalAngle);
+                for (int i = 0; i < physics.inputs.size(); i++) {
+                    final FakePhysicsInput input = physics.inputs.get(i);
+                    final String parameterId = fakeParameterId(
+                        (FakeModel) modelSource, input.paramGuid);
+                    if (parameterId == null) {
+                        return null;
+                    }
+                    tokens.add("input." + i + "=" + parameterId
+                        + "|" + input.weight + "|" + input.type + "|"
+                        + input.reflect + "|" + input.angleScale
+                        + "|" + input.tx + "," + input.ty);
+                }
+                for (int i = 0; i < physics.outputs.size(); i++) {
+                    final FakePhysicsOutput output = physics.outputs.get(i);
+                    final String parameterId = fakeParameterId(
+                        (FakeModel) modelSource, output.paramGuid);
+                    if (parameterId == null) {
+                        return null;
+                    }
+                    tokens.add("output." + i + "=" + parameterId
+                        + "|" + output.vertexIndex + "|" + output.weight
+                        + "|" + output.type + "|" + output.reflect
+                        + "|" + output.angleScale
+                        + "|" + output.tx + "," + output.ty
+                        + "|" + output.belowMin + "|" + output.exceededMax);
+                }
+                for (int i = 0; i < physics.vertices.size(); i++) {
+                    final FakePhysicsVertex vertex = physics.vertices.get(i);
+                    tokens.add("vertex." + i + "=" + vertex.x + "," + vertex.y
+                        + "|" + vertex.mobility + "|" + vertex.delay
+                        + "|" + vertex.acceleration + "|" + vertex.radius);
+                }
+                return List.copyOf(tokens);
             }
             if (settingsSource instanceof FakeMotionSyncSettings sync) {
-                return List.copyOf(sync.signature);
+                return List.of(
+                    "version=" + sync.version,
+                    "mapping.checksum=" + sync.mappingChecksum,
+                    "postproc.checksum=" + sync.postProcChecksum);
             }
             return null;
+        }
+
+        private String fakeParameterId(
+            final FakeModel model,
+            final String paramGuid
+        ) {
+            for (FakeParameter parameter : model.parameters) {
+                if (parameter.guid.equals(paramGuid)) {
+                    return parameter.id;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public void setSettingsName(final Object settingsSource, final String name) {
+            if (settingsSource instanceof FakePhysicsSettings physics) {
+                physics.name = name;
+            } else if (settingsSource instanceof FakeMotionSyncSettings sync) {
+                sync.name = name;
+            }
+        }
+
+        @Override
+        public void setSettingsId(
+            final Object settingsSource,
+            final String idString
+        ) {
+            if (settingsSource instanceof FakePhysicsSettings physics) {
+                physics.id = idString;
+            } else if (settingsSource instanceof FakeMotionSyncSettings sync) {
+                sync.id = idString;
+            }
+        }
+
+        @Override
+        public String parameterSourceGuid(final Object parameterSource) {
+            return parameterSource instanceof FakeParameter parameter
+                ? parameter.guid : null;
+        }
+
+        @Override
+        public List<String> physicsSettingsSetSignature(final Object modelSource) {
+            final FakePhysicsSet set = ((FakeModel) modelSource).physicsSet;
+            if (set == null) {
+                return ((FakeModel) modelSource).physicsSettings.isEmpty()
+                    ? List.of() : null;
+            }
+            return List.of(
+                "gravity=" + set.gravityX + "," + set.gravityY,
+                "wind=" + set.windX + "," + set.windY,
+                "fps=" + set.fps,
+                "selected=" + set.selectedGuid);
         }
 
         @Override
@@ -2948,27 +3317,12 @@ class ProtectedExportOrchestratorTest {
                         staged.getName().replace(".moc3", "") + ".physics3.json");
                     if (exportWritesPhysics && !exportedModel.physicsSettings.isEmpty()) {
                         // The user's physics output checkbox is on: the native
-                        // flow emits physics3.json with every setting ID.
-                        final StringBuilder physicsBody = new StringBuilder(
-                            "{\"Version\":3,\"PhysicsSettings\":[");
-                        boolean first = true;
-                        boolean dropped = false;
-                        for (Object setting : exportedModel.physicsSettings) {
-                            if (exportDropsPhysicsSetting && !dropped) {
-                                dropped = true; // a setting silently dropped by export
-                                continue;
-                            }
-                            if (setting instanceof FakePhysicsSettings physics) {
-                                if (!first) {
-                                    physicsBody.append(',');
-                                }
-                                physicsBody.append("{\"Id\":\"").append(physics.id)
-                                    .append("\"}");
-                                first = false;
-                            }
-                        }
-                        physicsBody.append("]}");
-                        Files.writeString(physicsJson, physicsBody.toString());
+                        // flow emits physics3.json — the writer canonicalizes
+                        // every setting ID to PhysicsSetting<i+1> in list order
+                        // (exactly like the real writer) while the dictionary
+                        // Name carries the obfuscated token.
+                        Files.writeString(physicsJson,
+                            fakePhysics3Json(exportedModel));
                         paths.add(physicsJson.toAbsolutePath().toString());
                         modelRefs.append(",\"Physics\":\"").append(physicsJson.getFileName())
                             .append("\"");
@@ -2997,6 +3351,134 @@ class ProtectedExportOrchestratorTest {
             if (removeCopyOnNativeExport && copy != null) {
                 project.remove(copy);
             }
+        }
+
+        /**
+         * Renders the fake model's physics settings as a {@code physics3.json}
+         * matching the real writer's schema and rounding: IDs canonicalized to
+         * {@code PhysicsSetting<i+1>} in list order, floats through a
+         * three-decimal {@code DecimalFormat}, {@code Scale} chosen by the
+         * output type. {@code exportMutatesPhysicsContent} corrupts one
+         * serialized value — staging must catch it.
+         */
+        private String fakePhysics3Json(final FakeModel model) {
+            final java.text.DecimalFormat fmt = new java.text.DecimalFormat();
+            fmt.setGroupingUsed(false);
+            fmt.setMaximumFractionDigits(3);
+            final List<FakePhysicsSettings> emitted = new ArrayList<>();
+            boolean dropped = false;
+            for (Object setting : model.physicsSettings) {
+                if (exportDropsPhysicsSetting && !dropped) {
+                    dropped = true; // a setting silently dropped by export
+                    continue;
+                }
+                if (setting instanceof FakePhysicsSettings physics) {
+                    emitted.add(physics);
+                }
+            }
+            final StringBuilder out = new StringBuilder("{\"Version\":3,\"Meta\":{");
+            int totalInputs = 0, totalOutputs = 0, totalVertices = 0;
+            for (FakePhysicsSettings physics : emitted) {
+                totalInputs += physics.inputs.size();
+                totalOutputs += physics.outputs.size();
+                totalVertices += physics.vertices.size();
+            }
+            out.append("\"PhysicsSettingCount\":").append(emitted.size())
+                .append(",\"TotalInputCount\":").append(totalInputs)
+                .append(",\"TotalOutputCount\":").append(totalOutputs)
+                .append(",\"VertexCount\":").append(totalVertices);
+            final FakePhysicsSet set = model.physicsSet;
+            if (set != null) {
+                if (set.fps != null) {
+                    out.append(",\"Fps\":").append(set.fps);
+                }
+                out.append(",\"EffectiveForces\":{\"Gravity\":{\"X\":")
+                    .append(fmt.format(set.gravityX)).append(",\"Y\":")
+                    .append(fmt.format(set.gravityY)).append("},\"Wind\":{\"X\":")
+                    .append(fmt.format(set.windX)).append(",\"Y\":")
+                    .append(fmt.format(set.windY)).append("}}");
+            }
+            out.append(",\"PhysicsDictionary\":[");
+            for (int i = 0; i < emitted.size(); i++) {
+                if (i > 0) {
+                    out.append(',');
+                }
+                out.append("{\"Id\":\"PhysicsSetting").append(i + 1)
+                    .append("\",\"Name\":\"").append(emitted.get(i).name).append("\"}");
+            }
+            out.append("]},\"PhysicsSettings\":[");
+            for (int i = 0; i < emitted.size(); i++) {
+                final FakePhysicsSettings physics = emitted.get(i);
+                if (i > 0) {
+                    out.append(',');
+                }
+                out.append("{\"Id\":\"PhysicsSetting").append(i + 1)
+                    .append("\",\"Input\":[");
+                for (int j = 0; j < physics.inputs.size(); j++) {
+                    final FakePhysicsInput input = physics.inputs.get(j);
+                    if (j > 0) {
+                        out.append(',');
+                    }
+                    out.append("{\"Source\":{\"Target\":\"Parameter\",\"Id\":\"")
+                        .append(fakeParameterId(model, input.paramGuid))
+                        .append("\"},\"Weight\":").append(fmt.format(input.weight))
+                        .append(",\"Type\":\"").append(fakeJsonType(input.type))
+                        .append("\",\"Reflect\":").append(input.reflect).append('}');
+                }
+                out.append("],\"Output\":[");
+                for (int j = 0; j < physics.outputs.size(); j++) {
+                    final FakePhysicsOutput output = physics.outputs.get(j);
+                    if (j > 0) {
+                        out.append(',');
+                    }
+                    final float weight =
+                        exportMutatesPhysicsContent ? output.weight * 2f : output.weight;
+                    out.append("{\"Destination\":{\"Target\":\"Parameter\",\"Id\":\"")
+                        .append(fakeParameterId(model, output.paramGuid))
+                        .append("\"},\"VertexIndex\":").append(output.vertexIndex)
+                        .append(",\"Scale\":").append(fmt.format(switch (output.type) {
+                            case "SRC_TO_X" -> output.tx;
+                            case "SRC_TO_Y" -> output.ty;
+                            default -> output.angleScale;
+                        }))
+                        .append(",\"Weight\":").append(fmt.format(weight))
+                        .append(",\"Type\":\"").append(fakeJsonType(output.type))
+                        .append("\",\"Reflect\":").append(output.reflect).append('}');
+                }
+                out.append("],\"Vertices\":[");
+                for (int j = 0; j < physics.vertices.size(); j++) {
+                    final FakePhysicsVertex vertex = physics.vertices.get(j);
+                    if (j > 0) {
+                        out.append(',');
+                    }
+                    out.append("{\"Position\":{\"X\":").append(fmt.format(vertex.x))
+                        .append(",\"Y\":").append(fmt.format(vertex.y))
+                        .append("},\"Mobility\":").append(fmt.format(vertex.mobility))
+                        .append(",\"Delay\":").append(fmt.format(vertex.delay))
+                        .append(",\"Acceleration\":").append(fmt.format(vertex.acceleration))
+                        .append(",\"Radius\":").append(fmt.format(vertex.radius))
+                        .append('}');
+                }
+                out.append("],\"Normalization\":{\"Position\":{\"Minimum\":")
+                    .append(fmt.format(physics.normPosition[0]))
+                    .append(",\"Default\":").append(fmt.format(physics.normPosition[1]))
+                    .append(",\"Maximum\":").append(fmt.format(physics.normPosition[2]))
+                    .append("},\"Angle\":{\"Minimum\":")
+                    .append(fmt.format(physics.normAngle[0]))
+                    .append(",\"Default\":").append(fmt.format(physics.normAngle[1]))
+                    .append(",\"Maximum\":").append(fmt.format(physics.normAngle[2]))
+                    .append("}}}");
+            }
+            return out.append("]}").toString();
+        }
+
+        private static String fakeJsonType(final String type) {
+            return switch (type) {
+                case "SRC_TO_X" -> "X";
+                case "SRC_TO_Y" -> "Y";
+                case "SRC_TO_G_ANGLE" -> "Angle";
+                default -> type;
+            };
         }
 
         @Override

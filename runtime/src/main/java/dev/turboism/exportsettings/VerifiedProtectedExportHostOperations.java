@@ -215,16 +215,90 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String PHYSICS_SETTINGS_GUID = PREFIX + "physics-settings.guid";
     private static final String PHYSICS_SETTINGS_ID = PREFIX + "physics-settings.id";
     private static final String PHYSICS_SETTINGS_NAME = PREFIX + "physics-settings.name";
+    private static final String PHYSICS_SETTINGS_SET_NAME =
+        PREFIX + "physics-settings.set-name";
+    private static final String PHYSICS_SETTINGS_SET_ID =
+        PREFIX + "physics-settings.set-id";
+    private static final String PHYSICS_SETTING_ID_CLASS =
+        PREFIX + "physics-setting-id.class";
+    private static final String PHYSICS_SETTING_ID_CREATE =
+        PREFIX + "physics-setting-id.create";
     private static final String PHYSICS_SETTINGS_ENABLE = PREFIX + "physics-settings.enable";
     private static final String PHYSICS_SETTINGS_INPUTS = PREFIX + "physics-settings.inputs";
     private static final String PHYSICS_SETTINGS_OUTPUTS = PREFIX + "physics-settings.outputs";
     private static final String PHYSICS_SETTINGS_VERTICES =
         PREFIX + "physics-settings.vertices";
+    private static final String PHYSICS_SETTINGS_TOTAL_ANGLE =
+        PREFIX + "physics-settings.total-angle";
+    private static final String PHYSICS_SETTINGS_NORM_POS_MIN =
+        PREFIX + "physics-settings.normalization-position-min";
+    private static final String PHYSICS_SETTINGS_NORM_POS_DEFAULT =
+        PREFIX + "physics-settings.normalization-position-default";
+    private static final String PHYSICS_SETTINGS_NORM_POS_MAX =
+        PREFIX + "physics-settings.normalization-position-max";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MIN =
+        PREFIX + "physics-settings.normalization-angle-min";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT =
+        PREFIX + "physics-settings.normalization-angle-default";
+    private static final String PHYSICS_SETTINGS_NORM_ANGLE_MAX =
+        PREFIX + "physics-settings.normalization-angle-max";
+    private static final String PHYSICS_INPUT_SOURCE = PREFIX + "physics-input.source";
+    private static final String PHYSICS_INPUT_WEIGHT = PREFIX + "physics-input.weight";
+    private static final String PHYSICS_INPUT_TYPE = PREFIX + "physics-input.type";
+    private static final String PHYSICS_INPUT_REVERSE = PREFIX + "physics-input.reverse";
+    private static final String PHYSICS_INPUT_ANGLE_SCALE =
+        PREFIX + "physics-input.angle-scale";
+    private static final String PHYSICS_INPUT_TRANSLATION_SCALE =
+        PREFIX + "physics-input.translation-scale";
+    private static final String PHYSICS_OUTPUT_DESTINATION =
+        PREFIX + "physics-output.destination";
+    private static final String PHYSICS_OUTPUT_VERTEX_INDEX =
+        PREFIX + "physics-output.vertex-index";
+    private static final String PHYSICS_OUTPUT_WEIGHT = PREFIX + "physics-output.weight";
+    private static final String PHYSICS_OUTPUT_TYPE = PREFIX + "physics-output.type";
+    private static final String PHYSICS_OUTPUT_REVERSE = PREFIX + "physics-output.reverse";
+    private static final String PHYSICS_OUTPUT_ANGLE_SCALE =
+        PREFIX + "physics-output.angle-scale";
+    private static final String PHYSICS_OUTPUT_TRANSLATION_SCALE =
+        PREFIX + "physics-output.translation-scale";
+    private static final String PHYSICS_OUTPUT_BELOW_MINIMUM =
+        PREFIX + "physics-output.value-below-minimum";
+    private static final String PHYSICS_OUTPUT_EXCEEDED_MAXIMUM =
+        PREFIX + "physics-output.value-exceeded-maximum";
+    private static final String PHYSICS_VERTEX_POSITION = PREFIX + "physics-vertex.position";
+    private static final String PHYSICS_VERTEX_MOBILITY = PREFIX + "physics-vertex.mobility";
+    private static final String PHYSICS_VERTEX_DELAY = PREFIX + "physics-vertex.delay";
+    private static final String PHYSICS_VERTEX_ACCELERATION =
+        PREFIX + "physics-vertex.acceleration";
+    private static final String PHYSICS_VERTEX_RADIUS = PREFIX + "physics-vertex.radius";
+    private static final String VECTOR2_X = PREFIX + "vector2.x";
+    private static final String VECTOR2_Y = PREFIX + "vector2.y";
+    private static final String PARAMETER_SOURCE_GUID = PREFIX + "parameter-source.guid";
+    private static final String MS_PHYSICS_SETTINGS_SET =
+        PREFIX + "model-source.physics-settings-set";
+    private static final String PHYSICS_SET_GRAVITY = PREFIX + "physics-settings-set.gravity";
+    private static final String PHYSICS_SET_WIND = PREFIX + "physics-settings-set.wind";
+    private static final String PHYSICS_SET_FPS = PREFIX + "physics-settings-set.fps";
+    private static final String PHYSICS_SET_SELECTED =
+        PREFIX + "physics-settings-set.selected";
     private static final String MOTION_SYNC_CLASS = PREFIX + "motion-sync-setting.class";
     private static final String MOTION_SYNC_GUID = PREFIX + "motion-sync-setting.guid";
     private static final String MOTION_SYNC_ID = PREFIX + "motion-sync-setting.id";
+    private static final String MOTION_SYNC_ID_FIELD = PREFIX + "motion-sync-setting.id-field";
     private static final String MOTION_SYNC_NAME = PREFIX + "motion-sync-setting.name";
-    private static final String MOTION_SYNC_CHECKSUM = PREFIX + "motion-sync-setting.checksum";
+    private static final String MOTION_SYNC_SET_NAME =
+        PREFIX + "motion-sync-setting.set-name";
+    private static final String MOTION_SYNC_ID_CLASS = PREFIX + "motion-sync-setting-id.class";
+    private static final String MOTION_SYNC_ID_CREATE =
+        PREFIX + "motion-sync-setting-id.create";
+    private static final String MOTION_SYNC_MAPPING = PREFIX + "motion-sync-setting.mapping";
+    private static final String MOTION_SYNC_POSTPROC =
+        PREFIX + "motion-sync-setting.postproc";
+    private static final String MOTION_SYNC_VERSION = PREFIX + "motion-sync-setting.version";
+    private static final String MOTION_SYNC_MAPPING_CHECKSUM =
+        PREFIX + "motion-sync-mapping.checksum";
+    private static final String MOTION_SYNC_POSTPROC_CHECKSUM =
+        PREFIX + "motion-sync-postproc.checksum";
 
     private static final String DIALOG_CLASS = PREFIX + "export-dialog.class";
     private static final String DIALOG_MODEL_SOURCE = PREFIX + "export-dialog.model-source";
@@ -274,9 +348,29 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         PART_CLIP_GUIDS, PART_INVERT_CLIP, PART_USE_OFFSCREEN,
         PART_COLOR_COMPOSITION, PART_ALPHA_COMPOSITION,
         PHYSICS_SETTINGS_GUID, PHYSICS_SETTINGS_ID, PHYSICS_SETTINGS_NAME,
+        PHYSICS_SETTINGS_SET_NAME, PHYSICS_SETTINGS_SET_ID, PHYSICS_SETTING_ID_CREATE,
         PHYSICS_SETTINGS_ENABLE, PHYSICS_SETTINGS_INPUTS, PHYSICS_SETTINGS_OUTPUTS,
-        PHYSICS_SETTINGS_VERTICES,
-        MOTION_SYNC_GUID, MOTION_SYNC_ID, MOTION_SYNC_NAME, MOTION_SYNC_CHECKSUM,
+        PHYSICS_SETTINGS_VERTICES, PHYSICS_SETTINGS_TOTAL_ANGLE,
+        PHYSICS_SETTINGS_NORM_POS_MIN, PHYSICS_SETTINGS_NORM_POS_DEFAULT,
+        PHYSICS_SETTINGS_NORM_POS_MAX,
+        PHYSICS_SETTINGS_NORM_ANGLE_MIN, PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT,
+        PHYSICS_SETTINGS_NORM_ANGLE_MAX,
+        PHYSICS_INPUT_SOURCE, PHYSICS_INPUT_WEIGHT, PHYSICS_INPUT_TYPE,
+        PHYSICS_INPUT_REVERSE, PHYSICS_INPUT_ANGLE_SCALE,
+        PHYSICS_INPUT_TRANSLATION_SCALE,
+        PHYSICS_OUTPUT_DESTINATION, PHYSICS_OUTPUT_VERTEX_INDEX,
+        PHYSICS_OUTPUT_WEIGHT, PHYSICS_OUTPUT_TYPE, PHYSICS_OUTPUT_REVERSE,
+        PHYSICS_OUTPUT_ANGLE_SCALE, PHYSICS_OUTPUT_TRANSLATION_SCALE,
+        PHYSICS_OUTPUT_BELOW_MINIMUM, PHYSICS_OUTPUT_EXCEEDED_MAXIMUM,
+        PHYSICS_VERTEX_POSITION, PHYSICS_VERTEX_MOBILITY, PHYSICS_VERTEX_DELAY,
+        PHYSICS_VERTEX_ACCELERATION, PHYSICS_VERTEX_RADIUS,
+        VECTOR2_X, VECTOR2_Y, PARAMETER_SOURCE_GUID,
+        MS_PHYSICS_SETTINGS_SET, PHYSICS_SET_GRAVITY, PHYSICS_SET_WIND,
+        PHYSICS_SET_FPS, PHYSICS_SET_SELECTED,
+        MOTION_SYNC_GUID, MOTION_SYNC_ID, MOTION_SYNC_ID_FIELD, MOTION_SYNC_NAME,
+        MOTION_SYNC_SET_NAME, MOTION_SYNC_ID_CREATE,
+        MOTION_SYNC_MAPPING, MOTION_SYNC_POSTPROC, MOTION_SYNC_VERSION,
+        MOTION_SYNC_MAPPING_CHECKSUM, MOTION_SYNC_POSTPROC_CHECKSUM,
         DEFORMER_GUID, DEFORMER_TARGET, DEFORMER_CHILDREN,
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
         GUID_UUID, ID_STRING,
@@ -298,7 +392,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         MODEL_SOURCE_CLASS, MODEL_CLASS, DEFORMER_CLASS, WARP_CLASS, ROTATION_CLASS,
         ART_MESH_CLASS, PART_CLASS, PARAMETER_CLASS, DRAWABLE_CLASS, GLUE_CLASS,
         CONTROLLABLE_CLASS, ART_PATH_CLASS, ALIAS_CLASS,
-        PHYSICS_SETTINGS_CLASS, MOTION_SYNC_CLASS,
+        PHYSICS_SETTINGS_CLASS, PHYSICS_SETTING_ID_CLASS,
+        MOTION_SYNC_CLASS, MOTION_SYNC_ID_CLASS,
         DRAWABLE_ID_CLASS, PARAMETER_ID_CLASS, GUID_CLASS, ID_CLASS,
         PARAMETER_SET_CLASS, PARAMETER_INSTANCE_CLASS,
         ART_MESH_INSTANCE_CLASS, ART_MESH_FORM_CLASS,
@@ -1157,32 +1252,247 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     /**
-     * Structure tokens pinning a settings object's authored content. Physics
-     * carries its enable flag plus input/output/vertex counts — the pendulum
-     * members' exact values stay opaque to the census, so a count loss is the
-     * drift boundary. Motion sync carries the host's own content checksum,
-     * which covers the parameter mapping wholesale. {@code null} marks an
-     * unrecognized settings family — unpinnable, so the census rejects it.
+     * Behavior-content tokens pinning a settings object — everything a physics
+     * evaluation or the serialized {@code physics3.json} depends on, except the
+     * settings name and ID the obfuscation pass rewrites. Physics entries carry
+     * every input/output/vertex member verbatim; parameter references are
+     * resolved through the model's parameter census (GUID → pinned parameter
+     * ID), and a reference that cannot be resolved marks the whole signature
+     * {@code null} — unpinnable, so the census rejects. Motion sync carries the
+     * version plus the mapping and post-processing checksums decomposed so the
+     * planned name/ID rewrite does not masquerade as drift (the host's own
+     * checksum covers the name).
      */
     @Override
-    public List<String> settingsSignature(final Object settingsSource) {
+    public List<String> settingsSignature(
+        final Object modelSource,
+        final Object settingsSource
+    ) {
         if (isPhysicsSettingsSource(settingsSource)) {
-            return List.of(
-                "enable=" + flagValue(PHYSICS_SETTINGS_ENABLE, settingsSource),
-                "inputs=" + listSize(resolver.invoke(PHYSICS_SETTINGS_INPUTS, settingsSource)),
-                "outputs=" + listSize(resolver.invoke(PHYSICS_SETTINGS_OUTPUTS, settingsSource)),
-                "vertices=" + listSize(resolver.invoke(PHYSICS_SETTINGS_VERTICES, settingsSource))
-            );
+            return physicsSettingsSignature(modelSource, settingsSource);
         }
         if (isMotionSyncSettingSource(settingsSource)) {
+            final Object mapping = resolver.invoke(MOTION_SYNC_MAPPING, settingsSource);
+            final Object postProc = resolver.invoke(MOTION_SYNC_POSTPROC, settingsSource);
+            if (mapping == null || postProc == null) {
+                return null;
+            }
             return List.of(
-                "checksum=" + resolver.invoke(MOTION_SYNC_CHECKSUM, settingsSource));
+                "version=" + enumName(resolver.invoke(MOTION_SYNC_VERSION, settingsSource)),
+                "mapping.checksum=" + resolver.invoke(
+                    MOTION_SYNC_MAPPING_CHECKSUM, mapping),
+                "postproc.checksum=" + resolver.invoke(
+                    MOTION_SYNC_POSTPROC_CHECKSUM, postProc));
         }
         return null;
     }
 
-    private static int listSize(final Object value) {
-        return value instanceof List<?> list ? list.size() : -1;
+    /**
+     * Ordered behavior tokens of one physics settings source. The parameter
+     * reference in every input/output resolves through {@code modelSource}'s
+     * parameter census; a GUID that resolves to no parameter makes the setting
+     * unpinnable ({@code null}) — a reference the export cannot preserve must
+     * never slip through.
+     */
+    private List<String> physicsSettingsSignature(
+        final Object modelSource,
+        final Object settingsSource
+    ) {
+        final Map<String, String> parameterIds = parameterIdsByGuid(modelSource);
+        if (parameterIds == null) {
+            return null;
+        }
+        final List<String> tokens = new ArrayList<>();
+        tokens.add("enable=" + flagValue(PHYSICS_SETTINGS_ENABLE, settingsSource));
+        tokens.add("normalization.position=" + floatToken(PHYSICS_SETTINGS_NORM_POS_MIN,
+            settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_DEFAULT, settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_POS_MAX, settingsSource));
+        tokens.add("normalization.angle=" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MIN,
+            settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_DEFAULT, settingsSource)
+            + "|" + floatToken(PHYSICS_SETTINGS_NORM_ANGLE_MAX, settingsSource));
+        tokens.add("totalAngle=" + floatToken(PHYSICS_SETTINGS_TOTAL_ANGLE, settingsSource));
+        final List<?> inputs = listOf(resolver.invoke(PHYSICS_SETTINGS_INPUTS,
+            settingsSource));
+        for (int i = 0; i < inputs.size(); i++) {
+            final Object input = inputs.get(i);
+            if (input == null) {
+                return null;
+            }
+            final String parameterId = physicsParameterId(parameterIds,
+                resolver.invoke(PHYSICS_INPUT_SOURCE, input));
+            if (parameterId == null) {
+                return null;
+            }
+            tokens.add("input." + i + "=" + parameterId
+                + "|" + floatToken(PHYSICS_INPUT_WEIGHT, input)
+                + "|" + enumName(resolver.invoke(PHYSICS_INPUT_TYPE, input))
+                + "|" + flagValue(PHYSICS_INPUT_REVERSE, input)
+                + "|" + floatToken(PHYSICS_INPUT_ANGLE_SCALE, input)
+                + "|" + vectorToken(
+                    resolver.invoke(PHYSICS_INPUT_TRANSLATION_SCALE, input)));
+        }
+        final List<?> outputs = listOf(resolver.invoke(PHYSICS_SETTINGS_OUTPUTS,
+            settingsSource));
+        for (int i = 0; i < outputs.size(); i++) {
+            final Object output = outputs.get(i);
+            if (output == null) {
+                return null;
+            }
+            final String parameterId = physicsParameterId(parameterIds,
+                resolver.invoke(PHYSICS_OUTPUT_DESTINATION, output));
+            if (parameterId == null) {
+                return null;
+            }
+            tokens.add("output." + i + "=" + parameterId
+                + "|" + resolver.invoke(PHYSICS_OUTPUT_VERTEX_INDEX, output)
+                + "|" + floatToken(PHYSICS_OUTPUT_WEIGHT, output)
+                + "|" + enumName(resolver.invoke(PHYSICS_OUTPUT_TYPE, output))
+                + "|" + flagValue(PHYSICS_OUTPUT_REVERSE, output)
+                + "|" + floatToken(PHYSICS_OUTPUT_ANGLE_SCALE, output)
+                + "|" + vectorToken(
+                    resolver.invoke(PHYSICS_OUTPUT_TRANSLATION_SCALE, output))
+                + "|" + floatToken(PHYSICS_OUTPUT_BELOW_MINIMUM, output)
+                + "|" + floatToken(PHYSICS_OUTPUT_EXCEEDED_MAXIMUM, output));
+        }
+        final List<?> vertices = listOf(resolver.invoke(PHYSICS_SETTINGS_VERTICES,
+            settingsSource));
+        for (int i = 0; i < vertices.size(); i++) {
+            final Object vertex = vertices.get(i);
+            if (vertex == null) {
+                return null;
+            }
+            tokens.add("vertex." + i + "=" + vectorToken(
+                resolver.invoke(PHYSICS_VERTEX_POSITION, vertex))
+                + "|" + floatToken(PHYSICS_VERTEX_MOBILITY, vertex)
+                + "|" + floatToken(PHYSICS_VERTEX_DELAY, vertex)
+                + "|" + floatToken(PHYSICS_VERTEX_ACCELERATION, vertex)
+                + "|" + floatToken(PHYSICS_VERTEX_RADIUS, vertex));
+        }
+        return List.copyOf(tokens);
+    }
+
+    /**
+     * Parameter GUID → ID map over the model's parameter census; {@code null}
+     * when any parameter source is unreadable — the census rejects rather than
+     * silently tolerating an unresolvable physics reference.
+     */
+    private Map<String, String> parameterIdsByGuid(final Object modelSource) {
+        final Map<String, String> ids = new LinkedHashMap<>();
+        for (Object parameter : allParameters(modelSource)) {
+            final String guid = parameterSourceGuid(parameter);
+            final String id = parameterSourceIdString(parameter);
+            if (guid == null || guid.isBlank() || id == null || id.isBlank()) {
+                return null;
+            }
+            ids.put(guid, id);
+        }
+        return ids;
+    }
+
+    /**
+     * Resolves a physics input/output parameter GUID to its pinned parameter
+     * ID; {@code null} when the reference cannot be resolved (fail-closed).
+     */
+    private String physicsParameterId(
+        final Map<String, String> parameterIds,
+        final Object parameterGuid
+    ) {
+        final String guid = parameterGuid == null ? null : readGuid(parameterGuid);
+        return guid == null ? null : parameterIds.get(guid);
+    }
+
+    /** Numeric member rendered as a signature token value. */
+    private String floatToken(final String alias, final Object source) {
+        return String.valueOf(resolver.invoke(alias, source));
+    }
+
+    /** {@code GVector2} rendered as {@code x,y}. */
+    private String vectorToken(final Object vector) {
+        if (vector == null) {
+            return "null";
+        }
+        return resolver.invoke(VECTOR2_X, vector)
+            + "," + resolver.invoke(VECTOR2_Y, vector);
+    }
+
+    /**
+     * Physics settings set tokens — effective forces, FPS, and the selected
+     * settings GUID pinned at the set level. A model with no physics settings
+     * contributes no tokens; a model whose physics settings exist but whose
+     * set cannot be read is unpinnable ({@code null} → reject).
+     */
+    @Override
+    public List<String> physicsSettingsSetSignature(final Object modelSource) {
+        final Object set = resolver.isInstance(MODEL_SOURCE_CLASS, modelSource)
+            ? resolver.invoke(MS_PHYSICS_SETTINGS_SET, modelSource)
+            : null;
+        if (set == null) {
+            return allPhysicsSettings(modelSource).isEmpty() ? List.of() : null;
+        }
+        final Object gravity = resolver.invoke(PHYSICS_SET_GRAVITY, set);
+        final Object wind = resolver.invoke(PHYSICS_SET_WIND, set);
+        return List.of(
+            "gravity=" + vectorToken(gravity),
+            "wind=" + vectorToken(wind),
+            "fps=" + resolver.invoke(PHYSICS_SET_FPS, set),
+            "selected=" + readGuid(resolver.invoke(PHYSICS_SET_SELECTED, set)));
+    }
+
+    /**
+     * GUID string of a parameter source — physics input/output entries hold
+     * parameter references as {@code CParameterGuid}, so the census needs the
+     * GUID to resolve the pinned parameter ID.
+     */
+    @Override
+    public String parameterSourceGuid(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        return readGuid(resolver.invoke(PARAMETER_SOURCE_GUID, parameterSource));
+    }
+
+    /**
+     * Rewrites a settings source's local name on the disposable copy —
+     * obfuscation only; never called on the authoring document.
+     */
+    @Override
+    public void setSettingsName(final Object settingsSource, final String name) {
+        if (isPhysicsSettingsSource(settingsSource)) {
+            resolver.invoke(PHYSICS_SETTINGS_SET_NAME, settingsSource,
+                Objects.requireNonNull(name, "name"));
+            return;
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            resolver.invoke(MOTION_SYNC_SET_NAME, settingsSource,
+                Objects.requireNonNull(name, "name"));
+            return;
+        }
+        throw new IllegalStateException("object is not a settings source");
+    }
+
+    /**
+     * Rewrites a settings source's ID on the disposable copy. Physics IDs are
+     * replaced through the typed setter with a rebuilt {@code CPhysicsSettingId};
+     * motion-sync exposes no setter, so its private {@code _id} field is written
+     * through the verified field pin (non-static, non-final). The GUID is never
+     * touched — the obfuscation token derives from it.
+     */
+    @Override
+    public void setSettingsId(final Object settingsSource, final String idString) {
+        Objects.requireNonNull(idString, "idString");
+        if (isPhysicsSettingsSource(settingsSource)) {
+            resolver.invoke(PHYSICS_SETTINGS_SET_ID, settingsSource,
+                resolver.construct(PHYSICS_SETTING_ID_CREATE, idString));
+            return;
+        }
+        if (isMotionSyncSettingSource(settingsSource)) {
+            resolver.writeField(MOTION_SYNC_ID_FIELD, settingsSource,
+                resolver.construct(MOTION_SYNC_ID_CREATE, idString));
+            return;
+        }
+        throw new IllegalStateException("object is not a settings source");
     }
 
     /** Float member of a parameter source, or {@code null} when unreadable. */

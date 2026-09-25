@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,26 @@ public final class ProtectedExportStaging {
         public ParameterExpectation {
             id = Objects.requireNonNull(id, "id");
             keys = keys == null ? List.of() : List.copyOf(keys);
+        }
+    }
+
+    /**
+     * Expected identity + content of one physics settings entry in a staged
+     * {@code physics3.json}: the planned obfuscation tokens (ID and
+     * dictionary name) plus the ordered behavior-content signature captured
+     * from the bound copy's census. Validation parses the signature back into
+     * fields and requires the artifact to reproduce every serialized value —
+     * only the identity tokens may differ from the authored document.
+     */
+    public record PhysicsSettingExpectation(
+        String idToken,
+        String nameToken,
+        List<String> signature
+    ) {
+        public PhysicsSettingExpectation {
+            idToken = Objects.requireNonNull(idToken, "idToken");
+            nameToken = Objects.requireNonNull(nameToken, "nameToken");
+            signature = signature == null ? List.of() : List.copyOf(signature);
         }
     }
 
@@ -205,10 +226,15 @@ public final class ProtectedExportStaging {
      * @param expectedPartIds the copy's part ID set; staged must equal it
      * @param expectedGlueIds the copy's Glue ID set; staged must carry them
      *     verbatim — Glue is pass-through, never re-identified
-     * @param expectedPhysicsIds the copy's physics setting ID set; when the
+     * @param expectedPhysicsSettings expected physics settings in the host's
+     *     settings-list order (token pair + behavior signature); when the
      *     native flow emitted a {@code physics3.json} (the user's own physics
-     *     output checkbox governs whether it is written at all) its setting IDs
-     *     must equal the census set — no drops, no extras
+     *     output checkbox governs whether it is written at all) its settings
+     *     must carry only non-authored IDs — the writer's canonical
+     *     {@code PhysicsSetting<i>} positions or the planned tokens — and every
+     *     serialized value must equal the censused content item-wise
+     * @param expectedPhysicsSet physics settings-set tokens (gravity, wind,
+     *     fps); the staged {@code Meta.EffectiveForces} must reproduce them
      * @param behavior host-side evaluated-geometry oracle captured post-flatten;
      *     when non-null the staged model must reproduce it under the identical
      *     parameter-sample replay, or validation fails closed
@@ -220,7 +246,8 @@ public final class ProtectedExportStaging {
         final Map<String, ParameterExpectation> expectedParameters,
         final Set<String> expectedPartIds,
         final Set<String> expectedGlueIds,
-        final Set<String> expectedPhysicsIds,
+        final List<PhysicsSettingExpectation> expectedPhysicsSettings,
+        final List<String> expectedPhysicsSet,
         final BehaviorSnapshot behavior
     ) {
         if (stagedPick == null || reportedPaths == null || reportedPaths.isEmpty()) {
@@ -269,17 +296,14 @@ public final class ProtectedExportStaging {
                     return Validation.rejected("protected-export.model3-invalid");
                 }
             } else if (name.endsWith(".physics3.json")) {
-                // Physics is pass-through content governed by the user's own
-                // native output checkbox — when a physics3.json was staged, its
-                // setting IDs must exactly reproduce the censused set.
-                final Set<String> physicsIds = physicsSettingIds(path);
-                if (physicsIds == null) {
-                    return Validation.rejected("protected-export.physics3-invalid");
-                }
-                if (!physicsIds.equals(expectedPhysicsIds)) {
-                    return Validation.rejected(
-                        "protected-export.physics3-ids",
-                        setDiffDetail(physicsIds, expectedPhysicsIds));
+                // Physics settings carry obfuscated identities but untouched
+                // behavior: when a physics3.json was staged, its setting IDs
+                // must be exactly the planned tokens and every serialized value
+                // must reproduce the census — parameter references included.
+                final MocFailure physics = validatePhysics3(
+                    path, expectedPhysicsSettings, expectedPhysicsSet);
+                if (physics != null) {
+                    return Validation.rejected(physics.key(), physics.detail());
                 }
             }
         }
@@ -851,35 +875,414 @@ public final class ProtectedExportStaging {
     }
 
     /**
-     * Setting IDs of a staged {@code physics3.json} — the {@code PhysicsSettings[]}
-     * entries' {@code Id} fields. {@code null} when the file cannot be read as a
-     * physics3 document at all (malformed JSON or a missing settings array).
+     * Semantic validation of a staged {@code physics3.json}: the artifact must
+     * reproduce the censused physics content verbatim with only the settings
+     * identities rewritten to non-authored tokens. The native writer
+     * canonicalizes setting IDs positionally ({@code PhysicsSetting1..N} in
+     * settings-list order) before serializing, so an authored or arbitrary ID
+     * can never reach the artifact — each staged entry's {@code Id} must be the
+     * canonical positional form or the planned obfuscation token, and its
+     * {@code Input}/{@code Output}/{@code Vertices}/{@code Normalization}
+     * entries must equal the census signature item-wise (parameter IDs,
+     * indices, flags exact; floats equal after the writer's three-decimal
+     * rounding). The {@code Meta} block reproduces the settings-set pin
+     * (gravity, wind, fps) and the {@code PhysicsDictionary} pairs the
+     * positional IDs with the planned name tokens.
      */
-    private Set<String> physicsSettingIds(final Path physicsJson) {
+    private MocFailure validatePhysics3(
+        final Path physicsJson,
+        final List<PhysicsSettingExpectation> expected,
+        final List<String> expectedSet
+    ) {
+        final JsonNode root;
         try {
-            final JsonNode root = json.readTree(Files.readAllBytes(physicsJson));
-            JsonNode settings = root.get("PhysicsSettings");
-            if (settings == null) {
-                settings = root.get("physicsSettings");
-            }
-            if (settings == null || !settings.isArray()) {
-                return null;
-            }
-            final Set<String> ids = new LinkedHashSet<>();
-            for (JsonNode setting : settings) {
-                JsonNode id = setting.get("Id");
-                if (id == null) {
-                    id = setting.get("id");
-                }
-                if (id == null || !id.isTextual() || id.asText().isBlank()) {
-                    return null;
-                }
-                ids.add(id.asText());
-            }
-            return ids;
+            root = json.readTree(Files.readAllBytes(physicsJson));
         } catch (IOException | RuntimeException failure) {
-            return null;
+            return new MocFailure("protected-export.physics3-invalid", null);
         }
+        if (root == null) {
+            return new MocFailure("protected-export.physics3-invalid", null);
+        }
+        JsonNode settings = root.get("PhysicsSettings");
+        if (settings == null) {
+            settings = root.get("physicsSettings");
+        }
+        if (settings == null || !settings.isArray()) {
+            return new MocFailure("protected-export.physics3-invalid", null);
+        }
+        if (settings.size() != expected.size()) {
+            return new MocFailure("protected-export.physics3-ids",
+                "count=" + settings.size() + "!=" + expected.size());
+        }
+        final JsonNode meta = root.get("Meta");
+        if (meta == null || !meta.isObject()) {
+            return new MocFailure("protected-export.physics3-invalid", "meta-missing");
+        }
+        final JsonNode dictionary = meta.get("PhysicsDictionary");
+        if (!expected.isEmpty()
+            && (dictionary == null || !dictionary.isArray()
+                || dictionary.size() != expected.size())) {
+            return new MocFailure("protected-export.physics3-content",
+                "dictionary-missing");
+        }
+        final Map<String, String> setTokens = new LinkedHashMap<>();
+        for (String token : expectedSet) {
+            final int split = token.indexOf('=');
+            if (split > 0) {
+                setTokens.put(token.substring(0, split), token.substring(split + 1));
+            }
+        }
+        int totalInputs = 0;
+        int totalOutputs = 0;
+        int totalVertices = 0;
+        for (int i = 0; i < expected.size(); i++) {
+            final PhysicsSettingExpectation expectation = expected.get(i);
+            final String positional = "PhysicsSetting" + (i + 1);
+            final JsonNode staged = settings.get(i);
+            final JsonNode stagedId = staged.get("Id") == null
+                ? staged.get("id") : staged.get("Id");
+            if (stagedId == null || !stagedId.isTextual()
+                || (!positional.equals(stagedId.asText())
+                    && !expectation.idToken().equals(stagedId.asText()))) {
+                return new MocFailure("protected-export.physics3-ids",
+                    "setting=" + i + " id=" + textOf(stagedId));
+            }
+            if (dictionary != null && dictionary.isArray() && i < dictionary.size()) {
+                final JsonNode dictEntry = dictionary.get(i);
+                final JsonNode dictId = dictEntry.get("Id");
+                final JsonNode dictName = dictEntry.get("Name");
+                if (dictId == null || !stagedId.asText().equals(textOf(dictId))
+                    || dictName == null
+                    || !expectation.nameToken().equals(textOf(dictName))) {
+                    return new MocFailure("protected-export.physics3-content",
+                        "dictionary." + i + " id=" + textOf(dictId)
+                            + " name=" + textOf(dictName)
+                            + " want=" + expectation.nameToken());
+                }
+            }
+            final ParsedPhysics parsed;
+            try {
+                parsed = ParsedPhysics.parse(expectation.signature());
+            } catch (RuntimeException malformed) {
+                return new MocFailure("protected-export.physics3-content",
+                    "signature-unparseable setting=" + i);
+            }
+            totalInputs += parsed.inputs.size();
+            totalOutputs += parsed.outputs.size();
+            totalVertices += parsed.vertices.size();
+            final String detail = physicsSettingDrift(staged, parsed,
+                expectation.idToken());
+            if (detail != null) {
+                return new MocFailure("protected-export.physics3-content",
+                    expectation.idToken() + " " + detail);
+            }
+        }
+        return physics3Meta(meta, setTokens,
+            expected.size(), totalInputs, totalOutputs, totalVertices);
+    }
+
+    /**
+     * {@code Meta} block checks: counts equal the census totals, EffectiveForces
+     * reproduce the pinned gravity/wind, and a configured FPS must serialize —
+     * a configured-but-dropped FPS is drift, an absent-when-unset field is not.
+     */
+    private static MocFailure physics3Meta(
+        final JsonNode meta,
+        final Map<String, String> setTokens,
+        final int settings,
+        final int inputs,
+        final int outputs,
+        final int vertices
+    ) {
+        if (!intEquals(meta.get("PhysicsSettingCount"), settings)
+            || !intEquals(meta.get("TotalInputCount"), inputs)
+            || !intEquals(meta.get("TotalOutputCount"), outputs)
+            || !intEquals(meta.get("VertexCount"), vertices)) {
+            return new MocFailure("protected-export.physics3-content", "meta-counts");
+        }
+        final String gravity = setTokens.get("gravity");
+        final String wind = setTokens.get("wind");
+        if (gravity != null || wind != null) {
+            final JsonNode forces = meta.get("EffectiveForces");
+            if (forces == null
+                || !vectorEquals(forces.get("Gravity"), gravity)
+                || !vectorEquals(forces.get("Wind"), wind)) {
+                return new MocFailure(
+                    "protected-export.physics3-content", "effective-forces");
+            }
+        }
+        final String fps = setTokens.get("fps");
+        final JsonNode fpsNode = meta.get("Fps");
+        if (fps == null || "null".equals(fps)) {
+            if (fpsNode != null && !fpsNode.isNull()) {
+                return new MocFailure(
+                    "protected-export.physics3-content", "fps-unexpected");
+            }
+        } else {
+            final int expected;
+            try {
+                expected = Integer.parseInt(fps);
+            } catch (NumberFormatException malformed) {
+                return new MocFailure(
+                    "protected-export.physics3-content", "fps-unparseable");
+            }
+            if (!intEquals(fpsNode, expected)) {
+                return new MocFailure(
+                    "protected-export.physics3-content", "fps");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Per-setting field comparison of one staged {@code PhysicsSettings} entry
+     * against the parsed census signature. Returns a bounded drift detail or
+     * {@code null} when every serialized field matches.
+     */
+    private static String physicsSettingDrift(
+        final JsonNode setting,
+        final ParsedPhysics expected,
+        final String idToken
+    ) {
+        final JsonNode normalization = setting.get("Normalization");
+        if (normalization == null
+            || !windowEquals(normalization.get("Position"), expected.normPosition)
+            || !windowEquals(normalization.get("Angle"), expected.normAngle)) {
+            return "normalization";
+        }
+        final JsonNode inputs = setting.get("Input");
+        if (inputs == null || !inputs.isArray()
+            || inputs.size() != expected.inputs.size()) {
+            return "input-count";
+        }
+        for (int i = 0; i < expected.inputs.size(); i++) {
+            final ParsedInput wanted = expected.inputs.get(i);
+            final JsonNode actual = inputs.get(i);
+            final JsonNode source = actual.get("Source");
+            if (source == null
+                || !"Parameter".equals(textOf(source.get("Target")))
+                || !wanted.parameterId().equals(textOf(source.get("Id")))
+                || !floatEquals(actual.get("Weight"), wanted.weight())
+                || !wanted.type().equals(textOf(actual.get("Type")))
+                || !Boolean.valueOf(wanted.reflect())
+                    .equals(boolOf(actual.get("Reflect")))) {
+                return "input." + i;
+            }
+        }
+        final JsonNode outputs = setting.get("Output");
+        if (outputs == null || !outputs.isArray()
+            || outputs.size() != expected.outputs.size()) {
+            return "output-count";
+        }
+        for (int i = 0; i < expected.outputs.size(); i++) {
+            final ParsedOutput wanted = expected.outputs.get(i);
+            final JsonNode actual = outputs.get(i);
+            final JsonNode destination = actual.get("Destination");
+            if (destination == null
+                || !"Parameter".equals(textOf(destination.get("Target")))
+                || !wanted.parameterId().equals(textOf(destination.get("Id")))
+                || !intEquals(actual.get("VertexIndex"), wanted.vertexIndex())
+                || !floatEquals(actual.get("Scale"), wanted.serializedScale())
+                || !floatEquals(actual.get("Weight"), wanted.weight())
+                || !wanted.type().equals(textOf(actual.get("Type")))
+                || !Boolean.valueOf(wanted.reflect())
+                    .equals(boolOf(actual.get("Reflect")))) {
+                return "output." + i;
+            }
+        }
+        final JsonNode vertices = setting.get("Vertices");
+        if (vertices == null || !vertices.isArray()
+            || vertices.size() != expected.vertices.size()) {
+            return "vertex-count";
+        }
+        for (int i = 0; i < expected.vertices.size(); i++) {
+            final ParsedVertex wanted = expected.vertices.get(i);
+            final JsonNode actual = vertices.get(i);
+            final JsonNode position = actual.get("Position");
+            if (position == null
+                || !floatEquals(position.get("X"), wanted.x)
+                || !floatEquals(position.get("Y"), wanted.y)
+                || !floatEquals(actual.get("Mobility"), wanted.mobility)
+                || !floatEquals(actual.get("Delay"), wanted.delay)
+                || !floatEquals(actual.get("Acceleration"), wanted.acceleration)
+                || !floatEquals(actual.get("Radius"), wanted.radius)) {
+                return "vertex." + i;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * One staged float equals the expected value exactly after the writer's
+     * three-decimal rounding — the host emits physics3 values through a
+     * {@code DecimalFormat} capped at three fraction digits, so the comparison
+     * applies the identical half-even rounding to the expected side.
+     */
+    private static boolean floatEquals(final JsonNode node, final float expected) {
+        if (node == null || !node.isNumber()) {
+            return false;
+        }
+        final java.math.BigDecimal wanted = java.math.BigDecimal
+            .valueOf((double) expected)
+            .setScale(3, java.math.RoundingMode.HALF_EVEN);
+        return wanted.compareTo(
+            java.math.BigDecimal.valueOf(node.doubleValue())) == 0;
+    }
+
+    private static boolean intEquals(final JsonNode node, final int expected) {
+        return node != null && node.isNumber()
+            && node.longValue() == expected;
+    }
+
+    private static String textOf(final JsonNode node) {
+        return node == null || !node.isTextual() ? null : node.asText();
+    }
+
+    private static Boolean boolOf(final JsonNode node) {
+        return node == null || !node.isBoolean() ? null : node.asBoolean();
+    }
+
+    /** {@code {"X":x,"Y":y}} equals an {@code "x,y"} token after writer rounding. */
+    private static boolean vectorEquals(final JsonNode node, final String token) {
+        if (node == null || token == null || "null".equals(token)) {
+            return false;
+        }
+        final String[] parts = token.split(",", -1);
+        if (parts.length != 2) {
+            return false;
+        }
+        try {
+            return floatEquals(node.get("X"), Float.parseFloat(parts[0]))
+                && floatEquals(node.get("Y"), Float.parseFloat(parts[1]));
+        } catch (NumberFormatException malformed) {
+            return false;
+        }
+    }
+
+    /** {@code {"Minimum":..,"Default":..,"Maximum":..}} equals {@code "min|def|max"}. */
+    private static boolean windowEquals(final JsonNode node, final float[] window) {
+        return node != null
+            && floatEquals(node.get("Minimum"), window[0])
+            && floatEquals(node.get("Default"), window[1])
+            && floatEquals(node.get("Maximum"), window[2]);
+    }
+
+    /**
+     * Parsed physics signature: the census token list rendered back into the
+     * fields {@code physics3.json} serializes. Tokens the artifact does not
+     * carry (enable, total angle, input/output scale members the format keeps
+     * implicit) stay pinned in-memory and are simply not compared here.
+     */
+    private static final class ParsedPhysics {
+        final float[] normPosition = new float[3];
+        final float[] normAngle = new float[3];
+        final List<ParsedInput> inputs = new ArrayList<>();
+        final List<ParsedOutput> outputs = new ArrayList<>();
+        final List<ParsedVertex> vertices = new ArrayList<>();
+
+        static ParsedPhysics parse(final List<String> signature) {
+            final ParsedPhysics parsed = new ParsedPhysics();
+            for (String token : signature) {
+                final int split = token.indexOf('=');
+                if (split <= 0) {
+                    throw new IllegalArgumentException("malformed token");
+                }
+                final String key = token.substring(0, split);
+                final String[] fields = token.substring(split + 1).split("\\|", -1);
+                if (key.equals("normalization.position")) {
+                    parseWindow(fields, parsed.normPosition);
+                } else if (key.equals("normalization.angle")) {
+                    parseWindow(fields, parsed.normAngle);
+                } else if (key.startsWith("input.")) {
+                    parsed.inputs.add(ParsedInput.parse(fields));
+                } else if (key.startsWith("output.")) {
+                    parsed.outputs.add(ParsedOutput.parse(fields));
+                } else if (key.startsWith("vertex.")) {
+                    parsed.vertices.add(ParsedVertex.parse(fields));
+                }
+                // enable/totalAngle carry no physics3 field — pinned in-memory.
+            }
+            return parsed;
+        }
+
+        private static void parseWindow(final String[] fields, final float[] out) {
+            if (fields.length != 3) {
+                throw new IllegalArgumentException("malformed normalization");
+            }
+            for (int i = 0; i < 3; i++) {
+                out[i] = Float.parseFloat(fields[i]);
+            }
+        }
+    }
+
+    /** physics3 {@code Input[]} entry surface: source parameter, weight, type, reflect. */
+    private record ParsedInput(String parameterId, float weight, String type,
+        boolean reflect) {
+        static ParsedInput parse(final String[] fields) {
+            if (fields.length < 4) {
+                throw new IllegalArgumentException("malformed input token");
+            }
+            return new ParsedInput(fields[0], Float.parseFloat(fields[1]),
+                physicsJsonType(fields[2]), Boolean.parseBoolean(fields[3]));
+        }
+    }
+
+    /**
+     * physics3 {@code Output[]} entry surface. {@code Scale} is emitted
+     * type-dependently by the native writer: X/Y read the translation-scale
+     * axis, angle reads the angle scale — matching the pinned members exactly.
+     */
+    private record ParsedOutput(String parameterId, int vertexIndex, float weight,
+        String type, boolean reflect, float angleScale, float tx, float ty) {
+        static ParsedOutput parse(final String[] fields) {
+            if (fields.length < 9) {
+                throw new IllegalArgumentException("malformed output token");
+            }
+            final String[] scale = fields[6].split(",", -1);
+            if (scale.length != 2) {
+                throw new IllegalArgumentException("malformed output scale");
+            }
+            return new ParsedOutput(fields[0], Integer.parseInt(fields[1]),
+                Float.parseFloat(fields[2]), physicsJsonType(fields[3]),
+                Boolean.parseBoolean(fields[4]), Float.parseFloat(fields[5]),
+                Float.parseFloat(scale[0]), Float.parseFloat(scale[1]));
+        }
+
+        float serializedScale() {
+            return switch (type) {
+                case "X" -> tx;
+                case "Y" -> ty;
+                default -> angleScale;
+            };
+        }
+    }
+
+    /** physics3 {@code Vertices[]} entry surface: position, mobility, delay, accel, radius. */
+    private record ParsedVertex(float x, float y, float mobility, float delay,
+        float acceleration, float radius) {
+        static ParsedVertex parse(final String[] fields) {
+            if (fields.length < 5) {
+                throw new IllegalArgumentException("malformed vertex token");
+            }
+            final String[] position = fields[0].split(",", -1);
+            if (position.length != 2) {
+                throw new IllegalArgumentException("malformed vertex position");
+            }
+            return new ParsedVertex(Float.parseFloat(position[0]),
+                Float.parseFloat(position[1]), Float.parseFloat(fields[1]),
+                Float.parseFloat(fields[2]), Float.parseFloat(fields[3]),
+                Float.parseFloat(fields[4]));
+        }
+    }
+
+    /** physics3 {@code "Type"} spelling of a pinned source-type enum name. */
+    private static String physicsJsonType(final String enumName) {
+        return switch (enumName) {
+            case "SRC_TO_X" -> "X";
+            case "SRC_TO_Y" -> "Y";
+            case "SRC_TO_G_ANGLE" -> "Angle";
+            default -> enumName;
+        };
     }
 
     /**
