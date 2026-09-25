@@ -51,7 +51,7 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     private final Class<?> entry;
     private final InputPathElisionTransformer transformer;
     private final InputPathElisionBridge bridge;
-    private boolean installed, restored;
+    private boolean installed, restored, registered;
 
     VerifiedInputPathElisionInstaller(final Instrumentation instrumentation,
                                       final Path artifact, final ClassLoader loader)
@@ -150,6 +150,7 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
         bridge.install(production);
         try {
             instrumentation.addTransformer(transformer, true);
+            registered = true;
             instrumentation.retransformClasses(entry);
             if (transformer.matches() != 1 || transformer.sites() != 2
                 || transformer.failure() != null) {
@@ -175,13 +176,24 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     @Override public synchronized void close() {
         final Map<String, Long> stats = bridge.snapshot();
         bridge.close();
-        if (!installed) {
+        if (restored || (!installed && !registered && transformer.beforeSha256() == null)) {
             dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
                 "TURBOISM_INPUT_PATH closed" + report(stats) + " installed=false");
             return;
         }
-        instrumentation.removeTransformer(transformer);
+        if (registered) {
+            instrumentation.removeTransformer(transformer);
+            registered = false;
+        }
         try {
+            // A transformer that never observed bytes rewrote nothing.
+            if (transformer.beforeSha256() == null) {
+                restored = true;
+                installed = false;
+                dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
+                    "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
+                return;
+            }
             final byte[] original = capture(entry);
             final String hash = HexFormat.of().formatHex(
                 MessageDigest.getInstance("SHA-256").digest(original));

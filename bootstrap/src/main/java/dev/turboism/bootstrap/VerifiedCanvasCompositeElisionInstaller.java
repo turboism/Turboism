@@ -46,7 +46,7 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
     private final Class<?> fillClass;
     private final CanvasCompositeElisionTransformer transformer;
     private final CanvasCompositeElisionBridge bridge;
-    private boolean installed, restored;
+    private boolean installed, restored, registered;
 
     VerifiedCanvasCompositeElisionInstaller(final Instrumentation instrumentation,
                                             final Path artifact, final ClassLoader loader)
@@ -183,6 +183,7 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
         bridge.install(production);
         try {
             instrumentation.addTransformer(transformer, true);
+            registered = true;
             instrumentation.retransformClasses(paintClass, fillClass);
             if (transformer.matches() != 2 || transformer.sites() != 2
                 || transformer.failure() != null) {
@@ -208,33 +209,36 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
     @Override public synchronized void close() {
         final Map<String, Long> stats = bridge.snapshot();
         bridge.close();
-        if (!installed) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_CANVAS_COMPOSITE closed" + report(stats) + " installed=false");
-            return;
-        }
-        instrumentation.removeTransformer(transformer);
-        try {
-            for (Class<?> entry : List.of(paintClass, fillClass)) {
-                final byte[] original = capture(entry);
-                final String hash = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(original));
-                if (!hash.equals(transformer.beforeSha256(
-                        entry.getName().replace('.', '/')))) {
-                    throw new IllegalStateException(
-                        "canvas composite elision restoration not proven: " + entry.getName());
-                }
+        if (restored) return;
+        IllegalStateException failure = null;
+        if (registered) {
+            try {
+                instrumentation.removeTransformer(transformer);
+                registered = false;
+            } catch (Exception | Error problem) {
+                failure = new IllegalStateException("canvas composite elision restoration failed", problem);
             }
-            restored = true;
-            installed = false;
-        } catch (Exception failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_CANVAS_COMPOSITE closed" + report(stats)
-                    + " restored=false reason=" + failure);
-            throw new IllegalStateException("canvas composite elision restoration failed", failure);
         }
+        for (Class<?> entry : List.of(paintClass, fillClass)) {
+            final String before = transformer.beforeSha256(entry.getName().replace('.', '/'));
+            if (before == null) continue;
+            try {
+                final String hash = HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(capture(entry)));
+                if (!hash.equals(before)) {
+                    throw new IllegalStateException("canvas composite elision restoration not proven: "
+                        + entry.getName());
+                }
+            } catch (Exception | Error problem) {
+                if (failure == null) failure = new IllegalStateException("canvas composite elision restoration failed");
+                failure.addSuppressed(problem);
+            }
+        }
+        installed = false;
+        restored = failure == null;
         dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-            "TURBOISM_CANVAS_COMPOSITE closed" + report(stats) + " restored=true");
+            "TURBOISM_CANVAS_COMPOSITE closed" + report(stats) + " restored=" + restored);
+        if (failure != null) throw failure;
     }
 
     /** Per-site counters for the close marker; gauges stay absolute. */

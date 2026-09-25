@@ -44,7 +44,7 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
     private final RedundantStateElisionTransformer transformer;
     private final RedundantStateElisionBridge bridge;
     private final Path joglArtifact;
-    private boolean installed, restored;
+    private boolean installed, restored, registered;
 
     VerifiedRedundantStateElisionInstaller(final Instrumentation instrumentation,
                                            final Path artifact, final ClassLoader loader)
@@ -90,6 +90,7 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
         }
         try {
             instrumentation.addTransformer(transformer, true);
+            registered = true;
             instrumentation.retransformClasses(entry);
             if (transformer.matches() != 1 || transformer.failure() != null) {
                 throw new IllegalStateException("state elision entry not admitted: "
@@ -118,13 +119,24 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
     @Override public synchronized void close() {
         final Map<String, Long> stats = bridge.tracker().snapshot(false);
         bridge.uninstall();
-        if (!installed) {
+        if (restored || (!installed && !registered && transformer.beforeSha256() == null)) {
             dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
                 "TURBOISM_STATE_ELISION closed " + report(stats) + " installed=false");
             return;
         }
-        instrumentation.removeTransformer(transformer);
+        if (registered) {
+            instrumentation.removeTransformer(transformer);
+            registered = false;
+        }
         try {
+            // A transformer that never observed bytes rewrote nothing.
+            if (transformer.beforeSha256() == null) {
+                restored = true;
+                installed = false;
+                dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
+                    "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
+                return;
+            }
             final byte[] original = capture(entry);
             final String hash = HexFormat.of().formatHex(
                 MessageDigest.getInstance("SHA-256").digest(original));

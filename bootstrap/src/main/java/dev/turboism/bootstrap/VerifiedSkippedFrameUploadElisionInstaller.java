@@ -43,6 +43,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
     private final SkippedFrameUploadElisionBridge bridge;
     private final List<Class<?>> entries = new ArrayList<>();
     private final List<SkippedFrameUploadElisionTransformer> transformers = new ArrayList<>();
+    private final List<SkippedFrameUploadElisionTransformer> registered = new ArrayList<>();
     private boolean installed, restored;
 
     /**
@@ -169,6 +170,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             for (int i = 0; i < entries.size(); i++) {
                 final SkippedFrameUploadElisionTransformer transformer = transformers.get(i);
                 instrumentation.addTransformer(transformer, true);
+                registered.add(transformer);
                 instrumentation.retransformClasses(entries.get(i));
                 if (transformer.matches() != 1 || transformer.guarded() != 2
                     || transformer.failure() != null) {
@@ -178,6 +180,8 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             }
             installed = true;
         } catch (Exception | Error failure) {
+            // Registered transformers and rewritten classes are owned per-item:
+            // close() unwinds whatever was actually applied.
             try {
                 close();
             } catch (Exception | Error cleanup) {
@@ -199,42 +203,44 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
     @Override public synchronized void close() {
         final Map<String, Long> stats = bridge.snapshot();
         bridge.close();
-        if (!installed) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
-                + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
-                + " clears=" + stats.get("clears") + reportTail(stats)
-                + " installed=false");
-            return;
+        if (restored) return;
+        IllegalStateException failure = null;
+        // Detach every registered transformer even when an earlier removal fails.
+        for (final var transformer : List.copyOf(registered)) {
+            try {
+                instrumentation.removeTransformer(transformer);
+                registered.remove(transformer);
+            } catch (Exception | Error problem) {
+                if (failure == null) failure = new IllegalStateException("upload elision restoration failed");
+                failure.addSuppressed(problem);
+            }
         }
-        for (final SkippedFrameUploadElisionTransformer transformer : transformers) {
-            instrumentation.removeTransformer(transformer);
-        }
-        try {
-            for (int i = 0; i < entries.size(); i++) {
-                final byte[] original = capture(entries.get(i));
+        // A failed restoration is retryable after registration has been undone.
+        // beforeSha256 is per class, including successful rewrites before a
+        // later entry failed admission; installed is deliberately irrelevant.
+        for (int i = 0; i < entries.size(); i++) {
+            final String before = transformers.get(i).beforeSha256();
+            if (before == null) continue;
+            try {
                 final String hash = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(original));
-                if (!hash.equals(transformers.get(i).beforeSha256())) {
+                    MessageDigest.getInstance("SHA-256").digest(capture(entries.get(i))));
+                if (!hash.equals(before)) {
                     throw new IllegalStateException("upload elision restoration not proven: "
                         + entries.get(i).getName());
                 }
+            } catch (Exception | Error problem) {
+                if (failure == null) failure = new IllegalStateException("upload elision restoration failed");
+                failure.addSuppressed(problem);
             }
-            restored = true;
-            installed = false;
-        } catch (Exception failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
-                "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
-                + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
-                + " clears=" + stats.get("clears") + reportTail(stats)
-                + " restored=false reason=" + failure);
-            throw new IllegalStateException("upload elision restoration failed", failure);
         }
+        installed = false;
+        restored = failure == null;
         dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap",
             "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
-            + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
-            + " clears=" + stats.get("clears") + reportTail(stats)
-            + " restored=true");
+                + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
+                + " clears=" + stats.get("clears") + reportTail(stats)
+                + " restored=" + restored);
+        if (failure != null) throw failure;
     }
 
     /** Pass-reason, per-kind and content-mode counters for the close marker. */
