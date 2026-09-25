@@ -206,6 +206,78 @@ public class SkippedFrameUploadTrackerTest {
         assertEquals(0L, stats.get("elided"));
     }
 
+    @Test void contentModeComparesFloatPayloadsBitwise() {
+        SkippedFrameUploadTracker tracker =
+            new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        // Distinct quiet NaN payloads compare equal under FloatBuffer.mismatch;
+        // upload equality must instead preserve their raw bits.
+        final FloatBuffer quiet = FloatBuffer.wrap(new float[]{Float.NaN, 1f});
+        final FloatBuffer payload =
+            FloatBuffer.wrap(new float[]{Float.intBitsToFloat(0x7fc00001), 1f});
+        final FloatBuffer quietRepeat =
+            FloatBuffer.wrap(new float[]{Float.NaN, 1f});
+        final FloatBuffer negativeZero =
+            FloatBuffer.wrap(new float[]{-0.0f, 1f});
+        final FloatBuffer positiveZero =
+            FloatBuffer.wrap(new float[]{0.0f, 1f});
+
+        assertFalse(upload(tracker, gl, 7, 8, quiet, 0, 2, true, true),
+            "first upload records the snapshot");
+        assertFalse(upload(tracker, gl, 7, 8, payload, 0, 2, true, true),
+            "a different NaN payload is not the same upload");
+        assertFalse(upload(tracker, gl, 7, 8, quietRepeat, 0, 2, true, true),
+            "re-baseline after the payload-NaN pass");
+        assertTrue(upload(tracker, gl, 7, 8, quietRepeat, 0, 2, true, true),
+            "identical NaN payload bits still elide");
+
+        assertFalse(upload(tracker, gl, 8, 8, negativeZero, 0, 2, true, true),
+            "baseline with -0.0f");
+        assertFalse(upload(tracker, gl, 8, 8, positiveZero, 0, 2, true, true),
+            "+0.0f must not elide against a -0.0f baseline");
+        assertTrue(upload(tracker, gl, 8, 8, positiveZero, 0, 2, true, true),
+            "the re-recorded +0.0f baseline elides");
+
+        var stats = tracker.snapshot(true);
+        assertEquals(2L, stats.get("elided"));
+        assertEquals(3L, stats.get("passContent"),
+            "two NaN payload changes and one signed-zero change");
+    }
+
+    @Test void contentModeComparesDoublePayloadsBitwise() {
+        SkippedFrameUploadTracker tracker =
+            new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        final java.nio.DoubleBuffer quiet =
+            java.nio.DoubleBuffer.wrap(new double[]{Double.NaN, 1.0});
+        final java.nio.DoubleBuffer payload = java.nio.DoubleBuffer.wrap(
+            new double[]{Double.longBitsToDouble(0x7ff8000000000001L), 1.0});
+        assertFalse(upload(tracker, gl, 7, 16, quiet, 0, 2, true, true));
+        assertFalse(upload(tracker, gl, 7, 16, payload, 0, 2, true, true),
+            "a different NaN payload must not elide");
+        assertFalse(upload(tracker, gl, 7, 16,
+                java.nio.DoubleBuffer.wrap(new double[]{Double.NaN, 1.0}), 0, 2, true, true),
+            "re-baseline after the payload-NaN pass");
+        assertTrue(upload(tracker, gl, 7, 16,
+                java.nio.DoubleBuffer.wrap(new double[]{Double.NaN, 1.0}), 0, 2, true, true),
+            "the re-recorded baseline elides");
+        assertEquals(3L, tracker.snapshot(true).get("compares"),
+            "compare runs only on meta-matching consults");
+    }
+
+    @Test void contentModeComparesDoubleSignedZeroInDirectSlices() {
+        SkippedFrameUploadTracker tracker =
+            new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        java.nio.DoubleBuffer buffer = java.nio.ByteBuffer.allocateDirect(32)
+            .asDoubleBuffer();
+        buffer.put(1, -0.0d).put(2, 1d).position(1).limit(3);
+        assertFalse(upload(tracker, gl, 9, 16, buffer, 1, 3, true, true));
+        assertTrue(upload(tracker, gl, 9, 16, buffer, 1, 3, true, true));
+        buffer.put(1, +0.0d);
+        assertFalse(upload(tracker, gl, 9, 16, buffer, 1, 3, true, true));
+        assertTrue(upload(tracker, gl, 9, 16, buffer, 1, 3, true, true));
+        assertEquals(1, buffer.position());
+        assertEquals(3, buffer.limit());
+    }
+
     @Test void contentModeComparesHeapSnapshotAgainstDirectSource() {
         SkippedFrameUploadTracker tracker =
             new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);

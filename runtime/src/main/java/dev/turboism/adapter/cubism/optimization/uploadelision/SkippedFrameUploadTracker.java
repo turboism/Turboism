@@ -21,7 +21,7 @@ import java.util.Map;
  * {@link Compare#IDENTITY} mode the buffer object identity, byte size and
  * position/limit must match the baseline — no payload bytes are compared.
  * In {@link Compare#CONTENT} mode a matching meta signature is additionally
- * verified with {@link Buffer#mismatch} against a private snapshot of the last
+ * verified by raw-bit comparison against a private snapshot of the last
  * uploaded payload; different buffer objects carrying identical bytes elide
  * the same way, and a same-object in-place refill still passes. Snapshots cost
  * memory: {@code snapshotBytes} reports the live retained payload bytes,
@@ -51,7 +51,7 @@ final class SkippedFrameUploadTracker {
     enum Compare {
         /** Object identity + size + region only; no payload reads. */
         IDENTITY,
-        /** Meta signature plus {@link Buffer#mismatch} against a snapshot. */
+        /** Meta signature plus raw-bit comparison against a snapshot. */
         CONTENT
     }
 
@@ -261,13 +261,13 @@ final class SkippedFrameUploadTracker {
             } else if (snapshot instanceof IntBuffer s && current instanceof IntBuffer c) {
                 return s.mismatch(c) < 0;
             } else if (snapshot instanceof FloatBuffer s && current instanceof FloatBuffer c) {
-                return s.mismatch(c) < 0;
+                return floatsBitwiseEqual(s, c);
             } else if (snapshot instanceof ShortBuffer s && current instanceof ShortBuffer c) {
                 return s.mismatch(c) < 0;
             } else if (snapshot instanceof LongBuffer s && current instanceof LongBuffer c) {
                 return s.mismatch(c) < 0;
             } else if (snapshot instanceof DoubleBuffer s && current instanceof DoubleBuffer c) {
-                return s.mismatch(c) < 0;
+                return doublesBitwiseEqual(s, c);
             } else if (snapshot instanceof CharBuffer s && current instanceof CharBuffer c) {
                 return s.mismatch(c) < 0;
             }
@@ -279,8 +279,34 @@ final class SkippedFrameUploadTracker {
     }
 
     /**
+     * Raw-bit comparison: {@link FloatBuffer#mismatch} treats signed zeros and
+     * different NaN payloads as equal, although their uploaded bits differ.
+     * {@code floatToRawIntBits} preserves the payload bits (and signed zero).
+     */
+    private static boolean floatsBitwiseEqual(final FloatBuffer a, final FloatBuffer b) {
+        for (int i = 0; i < a.remaining(); i++) {
+            if (Float.floatToRawIntBits(a.get(a.position() + i))
+                != Float.floatToRawIntBits(b.get(b.position() + i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Raw-bit comparison; see {@link #floatsBitwiseEqual}. */
+    private static boolean doublesBitwiseEqual(final DoubleBuffer a, final DoubleBuffer b) {
+        for (int i = 0; i < a.remaining(); i++) {
+            if (Double.doubleToRawLongBits(a.get(a.position() + i))
+                != Double.doubleToRawLongBits(b.get(b.position() + i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Stores a same-element-type heap copy of the buffer's remaining region
-     * for later {@link Buffer#mismatch} comparisons. Capacity is bounded by
+     * for later raw-bit comparisons. Capacity is bounded by
      * the table size; snapshots replace older ones per entry.
      */
     private void refreshSnapshot(final Entry entry, final Buffer buffer, final long size) {
