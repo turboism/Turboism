@@ -8,6 +8,7 @@
 :plugins:parameter-batch-transfer
 :plugins:perf-stats
 :plugins:physics-editor
+:plugins:protected-export
 :plugins:psd-clip-mask-import
 :plugins:recent-preview
 :plugins:scene-palette-enhancer
