@@ -60,6 +60,8 @@ final class OfficialPluginCatalogCompleteness {
     private static final Pattern I18N_BLOCK = Pattern.compile("\\\"i18n\\\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL);
     private static final Pattern JSON_STRING = Pattern.compile("\\\"([^\\\"]+)\\\"");
     private static final Set<String> REVIEWED_TECHNICAL_EQUAL_KEYS = Set.of(
+        "about.eula",
+        "about.github",
         "common.turboism",
         "plugins.column.id",
         "plugins.details.api",
