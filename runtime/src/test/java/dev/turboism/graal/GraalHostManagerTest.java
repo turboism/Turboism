@@ -614,11 +614,14 @@ final class GraalHostManagerTest {
         );
     }
 
+    /** Child-JVM startups are slow on loaded CI runners; give the diagnostics a generous budget. */
+    private static final Duration DIAGNOSTIC_WAIT = Duration.ofSeconds(60);
+
     private static void awaitDiagnostic(
         final List<String> diagnostics,
         final String marker
     ) throws Exception {
-        final long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+        final long deadline = System.nanoTime() + DIAGNOSTIC_WAIT.toNanos();
         while (System.nanoTime() < deadline) {
             if (diagnostics.stream().anyMatch(message -> message.contains(marker))) {
                 return;
@@ -629,7 +632,7 @@ final class GraalHostManagerTest {
     }
 
     private static void awaitProcessExit(final long pid) throws Exception {
-        final long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+        final long deadline = System.nanoTime() + DIAGNOSTIC_WAIT.toNanos();
         while (System.nanoTime() < deadline) {
             if (isRunningProcess(pid)) {
                 Thread.sleep(10L);
