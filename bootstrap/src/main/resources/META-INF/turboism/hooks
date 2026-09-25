@@ -17,7 +17,30 @@ dev.turboism.bootstrap.TextureUploadPreparationHookContributor
 dev.turboism.bootstrap.WarpPositionProjectionHookContributor
 dev.turboism.bootstrap.ModelUpdateSkipHookContributor
 dev.turboism.bootstrap.IncrementalUpdateHookContributor
+# Must install before the uniform-location cache: both transform
+# shader/A.a(GL,String,Z)I and retransformation replays the chain on original
+# bytes in registration order. With elision upstream, the uniform ERROR-role
+# transformer admits the reviewed composed (elided) shape; the reverse order
+# would fail closed on both sides.
+dev.turboism.bootstrap.GlGetErrorElisionHookContributor
+dev.turboism.bootstrap.SkippedFrameUploadElisionHookContributor
+dev.turboism.bootstrap.InputPathElisionHookContributor
+dev.turboism.bootstrap.CanvasCompositeElisionHookContributor
 dev.turboism.bootstrap.UniformLocationCacheHookContributor
+# Must register after the uniform-location lifecycle transformer: the
+# deferred error check consumes the composed method shapes uniform produces
+# on shader/A (or shader/y) and SGFramework/g, and its frame-end query rides
+# the lifecycle bridge's render scope. Retransformation replays the chain in
+# registration order, so this transform observes the uniform output; closing
+# runs in reverse so the uniform restoration baseline stays intact.
+dev.turboism.bootstrap.DeferredGlErrorCheckHookContributor
+# Must register after the uniform-location cache: the lifecycle transformer
+# shape-checks glLinkProgram/glDeleteProgram/* on GL4bcImpl — the same methods
+# this experiment wraps as invalidators. Retransformation replays the chain on
+# original bytes in registration order, so the lifecycle transformer must run
+# first and see clean bytes; this transform only shape-checks its 21 tracked
+# setters, which the lifecycle observer never touches.
+dev.turboism.bootstrap.RedundantStateElisionHookContributor
 dev.turboism.bootstrap.MatrixScratchHookContributor
 dev.turboism.bootstrap.NativeEditBeginHookContributor
 dev.turboism.bootstrap.EditApiDispatchHookContributor
