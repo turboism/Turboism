@@ -6,22 +6,24 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * The full per-plugin executor footprint: the task executor plus the event-delivery lane.
+ * The full per-plugin executor footprint: the task executor plus the event-delivery and
+ * long-task lanes.
  *
  * <p>One set belongs to exactly one plugin generation. The registry hands a set to the
  * generation's event owner at lifecycle fencing ({@link PluginWorkExecutorRegistry#claim}) and
  * reclaims it at the terminal cleanup tail ({@link PluginWorkExecutorRegistry#release}), so an
  * unloaded generation's worker, timeout, and event threads all die with it and a reloaded
- * generation starts from a fresh circuit-breaker window. The event lane is created lazily so a
- * plugin that never receives events pays nothing for it.</p>
+ * generation starts from a fresh circuit-breaker window. The lanes are created lazily so a
+ * plugin that never receives events or long work pays nothing for them.</p>
  */
 public final class PluginExecutorSet {
 
     private final String pluginId;
     private final PluginWorkExecutor taskExecutor;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
-    private final int eventQueueCapacity;
+    private final PluginWorkExecutorConfiguration configuration;
     private volatile PluginEventLane eventLane;
+    private volatile PluginLongLane longLane;
     private volatile boolean closed;
 
     PluginExecutorSet(
@@ -31,13 +33,13 @@ public final class PluginExecutorSet {
         Clock clock
     ) {
         this.pluginId = pluginId;
+        this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.taskExecutor = new PluginWorkExecutor(
             pluginId,
             configuration,
             diagnosticSink,
             clock
         );
-        this.eventQueueCapacity = configuration.queueCapacity();
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
@@ -56,7 +58,11 @@ public final class PluginExecutorSet {
             synchronized (this) {
                 lane = eventLane;
                 if (lane == null) {
-                    lane = new PluginEventLane(pluginId, eventQueueCapacity, diagnosticSink);
+                    lane = new PluginEventLane(
+                        pluginId,
+                        configuration.queueCapacity(),
+                        diagnosticSink
+                    );
                     eventLane = lane;
                     if (closed) {
                         lane.shutdown();
@@ -68,8 +74,37 @@ public final class PluginExecutorSet {
     }
 
     /**
-     * Shuts the whole set down: the event lane first, then the task executor. Idempotent.
-     * Queued event drains are dropped only by the bounded forced-shutdown tail.
+     * Returns this generation's long-task lane, created on first use. A lane obtained after
+     * {@link #shutdown} is already closed and refuses submissions.
+     */
+    public PluginLongLane longLane() {
+        PluginLongLane lane = longLane;
+        if (lane == null) {
+            synchronized (this) {
+                lane = longLane;
+                if (lane == null) {
+                    lane = new PluginLongLane(
+                        pluginId,
+                        configuration.longLaneConcurrency(),
+                        configuration.queueCapacity(),
+                        configuration.longRunningThreshold(),
+                        configuration.longRunningReportInterval(),
+                        diagnosticSink
+                    );
+                    longLane = lane;
+                    if (closed) {
+                        lane.shutdown();
+                    }
+                }
+            }
+        }
+        return lane;
+    }
+
+    /**
+     * Shuts the whole set down: the event lane first, then the long-task lane, then the task
+     * executor. Idempotent. Queued event drains are dropped only by the bounded
+     * forced-shutdown tail; the long lane cancels cooperatively and never interrupts.
      */
     public void shutdown() {
         closed = true;
@@ -77,13 +112,19 @@ public final class PluginExecutorSet {
             if (eventLane != null) {
                 eventLane.shutdown();
             }
+            if (longLane != null) {
+                longLane.shutdown();
+            }
         }
         taskExecutor.shutdown();
     }
 
     /** Returns {@code true} once every owned pool has terminated. */
     public boolean isTerminated() {
-        final PluginEventLane lane = eventLane;
-        return taskExecutor.isTerminated() && (lane == null || lane.isTerminated());
+        final PluginEventLane events = eventLane;
+        final PluginLongLane longs = longLane;
+        return taskExecutor.isTerminated()
+            && (events == null || events.isTerminated())
+            && (longs == null || longs.isTerminated());
     }
 }

@@ -105,6 +105,18 @@ public final class PluginWorkExecutorRegistry {
     }
 
     /**
+     * Returns this plugin's long-task lane, creating the executor set and the lane on first
+     * use. The lane is lazily constructed inside the set, so plugins that never run long work
+     * pay no lane cost.
+     *
+     * @param pluginId the owning plugin, must not be blank
+     * @return the bounded, interrupt-free long-task lane for this plugin
+     */
+    public PluginLongLane longLane(String pluginId) {
+        return claim(pluginId).longLane();
+    }
+
+    /**
      * Convenience for {@link PluginWorkExecutor#submitCompletion} that creates the plugin's executor if
      * it does not exist yet.
      *

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -68,5 +69,43 @@ public class RuntimeCancellationTokenTest {
 
         assertSame(token, observed.get());
         assertNull(after.get());
+    }
+
+    @Test
+    void givenCancelHook_whenCancelled_thenHookRunsOnce() {
+        final RuntimeCancellationToken token = new RuntimeCancellationToken();
+        final java.util.concurrent.atomic.AtomicInteger calls =
+            new java.util.concurrent.atomic.AtomicInteger();
+        token.onCancel(calls::incrementAndGet);
+
+        token.cancel();
+        token.cancel();
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void givenCancelledToken_whenHookRegistered_thenRunsImmediately() {
+        final RuntimeCancellationToken token = new RuntimeCancellationToken();
+        token.cancel();
+        final java.util.concurrent.atomic.AtomicInteger calls =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+        token.onCancel(calls::incrementAndGet);
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void givenMultipleHooks_whenCancelled_thenAllRun() {
+        final RuntimeCancellationToken token = new RuntimeCancellationToken();
+        final java.util.concurrent.atomic.AtomicInteger calls =
+            new java.util.concurrent.atomic.AtomicInteger();
+        token.onCancel(calls::incrementAndGet);
+        token.onCancel(calls::incrementAndGet);
+
+        token.cancel();
+
+        assertEquals(2, calls.get());
     }
 }
