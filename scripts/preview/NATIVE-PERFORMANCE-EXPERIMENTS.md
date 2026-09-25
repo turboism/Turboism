@@ -1679,3 +1679,8 @@ n8 是这套链路的首次实机有效性证据。
 - **T23 已提交**（gl-attribution@e225d8092，agent dec25e67/probe
   6c251a9d）：A/B/C×3 交错 a806fe0f 4cd4357a 6ff1766c d41821fd
   0039629c 77f16ced 95452622 c6371809 8cdc00cb。
+- **T23 结果**：INCONCLUSIVE——glthread 实已启用（java.exe:gl0），
+  但 B/C uniform 命中=0（elision 切断确认路径，混杂）。
+- **T24 已提交**（gl-attribution@397da398e，agent 60c23c93/probe
+  99289c05）：A/C×4 交错 6d5a85ba 89a43556 4cf636a7 18af79af
+  5d829d4c f8b89996 ef111bfa a4075a88。
