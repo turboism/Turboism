@@ -3,6 +3,7 @@ package dev.turboism.shell;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
+import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionBridge;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -295,6 +296,32 @@ final class CubismJvmSettingsContribution {
             },
             false,
             83
+        );
+    }
+
+    /**
+     * Default-off opt-in: skips redundant focus-owner and cursor forwards on
+     * the widget entry path (verified Editor versions only).
+     */
+    static SettingsContribution createInputPathElisionToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+            i18n,
+            "input-path-elision",
+            "settings.optimization.input-path-elision",
+            InputPathElisionBridge.ENABLE_PROPERTY,
+            settings::inputPathElision,
+            value -> {
+                if (settings.saveInputPathElision(value) != value) {
+                    throw new IllegalStateException("Input-path elision preference was not saved");
+                }
+                return value;
+            },
+            false,
+            84
         );
     }
 
