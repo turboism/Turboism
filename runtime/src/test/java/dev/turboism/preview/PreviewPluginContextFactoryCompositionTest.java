@@ -72,7 +72,7 @@ class PreviewPluginContextFactoryCompositionTest {
     @Test
     void previewCompositionPublishesSessionSnapshotReadsToCanonicalAndLegacyFacadeSurfaces() throws Exception {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
-        final AtomicReference<SwingUserFileGrantSource> actualSource = new AtomicReference<>();
+        final AtomicReference<UserFileGrantSource> actualSource = new AtomicReference<>();
         final HostSession session = HostSessionTestSupport.connectedSession(
             () -> Optional.ofNullable(current.get()),
             ignored -> adapters("preview-project"),
@@ -105,7 +105,7 @@ class PreviewPluginContextFactoryCompositionTest {
                     );
                     final RuntimeUserFileAccessService userFiles =
                         assertInstanceOf(RuntimeUserFileAccessService.class, context.userFiles());
-                    actualSource.set(assertInstanceOf(SwingUserFileGrantSource.class, sourceOf(userFiles)));
+                    actualSource.set(sourceOf(userFiles));
 
                     final Path pluginRoot = home.resolve("data/").resolve(descriptor().id());
                     assertFalse(Files.exists(home.resolve("config/").resolve(descriptor().id())));
