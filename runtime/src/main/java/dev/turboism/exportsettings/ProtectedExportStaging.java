@@ -112,6 +112,7 @@ public final class ProtectedExportStaging {
      * or the parameter is absent.
      */
     public interface CoreParameterWriter {
+        /** Writes {@code value} into {@code parameterId} on the owned model, bypassing SDK read-only projection. */
         void writeParameterValue(OwnedModel model, String parameterId, float value);
     }
 
