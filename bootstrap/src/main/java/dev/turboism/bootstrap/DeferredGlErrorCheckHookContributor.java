@@ -22,7 +22,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
     }
 
     @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!Boolean.getBoolean(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY)) {
+        if (!DeferredGlErrorCheckTransformer.enabledByPreference()) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }

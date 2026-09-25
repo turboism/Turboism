@@ -241,17 +241,30 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
 
     /** Opt-in experiments default off; verified optimizations default on. */
     private static final java.util.Set<String> DEFAULT_OFF_OPTIMIZATIONS =
-        java.util.Set.of("incrementalUpdate", "uploadElision", "inputPathElision", "mesaGlThread");
+        java.util.Set.of("incrementalUpdate");
+    /**
+     * Platform-defaulted options: unset means on only for the Wine/Proton
+     * launch — the paths they optimize exist only there. Explicit values
+     * always win; the same platform default drives reads and saves so
+     * "value == platform default" removes the key under either host.
+     */
+    private static final java.util.Set<String> PROTON_DEFAULT_OPTIMIZATIONS =
+        java.util.Set.of("inputPathElision", "mesaGlThread");
+
+    private boolean defaultOptimization(final String name) {
+        return PROTON_DEFAULT_OPTIMIZATIONS.contains(name)
+            ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment)
+            : !DEFAULT_OFF_OPTIMIZATIONS.contains(name);
+    }
 
     private boolean optimization(final String name) {
         return config.read().path("launcher").path(name)
-            .asBoolean(!DEFAULT_OFF_OPTIMIZATIONS.contains(name));
+            .asBoolean(defaultOptimization(name));
     }
 
     private boolean saveOptimization(final String name, final boolean value) {
         config.update(root -> {
-            final boolean defaultValue = !DEFAULT_OFF_OPTIMIZATIONS.contains(name);
-            if (value == defaultValue) {
+            if (value == defaultOptimization(name)) {
                 root.withObject("launcher").remove(name);
             } else {
                 root.withObject("launcher").put(name, value);

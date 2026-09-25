@@ -275,8 +275,8 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * Default-off opt-in: skips provably unchanged buffer uploads on frames
-     * where the model update was skipped (verified Editor versions only).
+     * Default-on: skips provably unchanged buffer uploads on frames where
+     * the model update was skipped (verified Editor versions only).
      */
     static SettingsContribution createUploadElisionToggle(
         final PluginLocalization i18n,
@@ -295,14 +295,15 @@ final class CubismJvmSettingsContribution {
                 }
                 return value;
             },
-            false,
+            true,
             83
         );
     }
 
     /**
-     * Default-off opt-in: skips redundant focus-owner and cursor forwards on
-     * the widget entry path (verified Editor versions only).
+     * Platform-defaulted: on under Wine/Proton, off on native Windows — the
+     * elided focus/cursor forwards exist only on the Wine input path. An
+     * explicit saved value always overrides the platform default.
      */
     static SettingsContribution createInputPathElisionToggle(
         final PluginLocalization i18n,
@@ -321,16 +322,18 @@ final class CubismJvmSettingsContribution {
                 }
                 return value;
             },
-            false,
+            dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(),
             84
         );
     }
 
     /**
-     * Default-off opt-in, Linux/Mesa only: exports {@code mesa_glthread=true}
-     * on the Linux/Proton launch path and installs the deferred GL error-check
-     * hook so the shader helper's per-call {@code glGetError} no longer flushes
-     * the threaded submitter. Experimental; Windows launches ignore it.
+     * Platform-defaulted, Linux/Mesa only: on under Wine/Proton the launch
+     * exports {@code mesa_glthread=true} and installs the deferred GL
+     * error-check hook so the shader helper's per-call {@code glGetError} no
+     * longer flushes the threaded submitter; off on native Windows, where
+     * launches ignore it entirely. An explicit saved value overrides the
+     * platform default.
      */
     static SettingsContribution createMesaGlThreadToggle(
         final PluginLocalization i18n,
@@ -349,7 +352,7 @@ final class CubismJvmSettingsContribution {
                 }
                 return value;
             },
-            false,
+            dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(),
             85
         );
     }

@@ -851,7 +851,7 @@ framebuffer and breaks canvas pixel digests, never use it in measured legs.
 glthread legs are meaningless there — keep `inherit` (iris) for this
 experiment.
 
-### Productized path: `launcher.mesaGlThread` (deferred error check + glthread, default off)
+### Productized path: `launcher.mesaGlThread` (deferred error check + glthread, Proton default-on)
 
 **T24 field result (8 runs, all PASS):** C (elision + glthread) hit
 `uniformLocationHook.hits=662,200` and `glThreadCount=3`; legs 1/2 medians A
@@ -880,33 +880,52 @@ through the checkpoint's emitted `error(gl, 0)` (identical to the T24-verified
 elision emission); a nonzero frame-end result invalidates the frame's whole
 cache — equivalent-or-more-conservative at frame granularity.
 
-**Activation:** `launcher.mesaGlThread` is the single combined option —
-default off, persisted in `config.json`, exposed in settings UI (label says
-Linux/Mesa-only), validated by `RuntimeConfigValidator`/`ConfigMerge`,
-recognized-but-inert on Windows (`cubism-launch-common.ps1` strips/forwards it
-but never emits the `-D`). Only the Linux/Proton launch path activates it:
-`run-cubism-host-validation.sh` reads the staged `config.json`, exports
-`mesa_glthread=true` into the generated `launch.sh` and appends
-`-Dturboism.optimization.mesaGlThread=true` to `JAVA_TOOL_OPTIONS`. An
-explicit `--linux-env mesa_glthread=...` still wins when the driver pinned the
-experiment. The transform installs after the uniform lifecycle hook and
-admits the uniform-composed shapes via installer-derived probes; it refuses
-to stack on the test-only elision.
+**Activation and platform defaults:** `launcher.mesaGlThread` is the single
+combined option, persisted in `config.json`, exposed in settings UI (label
+says Linux/Mesa-only), validated by `RuntimeConfigValidator`/`ConfigMerge`.
+The default is **platform-aware**: unset resolves to on under Wine/Proton
+and off on native Windows — the paths it optimizes exist only under Proton.
+`launcher.inputPathElision` follows the same rule; `launcher.uploadElision`
+is unset-default-on on every platform. Explicit `true`/`false` always wins
+over the platform default (`CubismJvmSettingsFileService` resolves the
+unset case via `ProtonEnvironment` env markers: the managed launcher
+exports `TURBOISM_PROTON=1`, and the Wine/Proton variables `WINEPREFIX`,
+`WINELOADER`, `WINEDLLPATH`, `WINEESYNC`, `WINEFSYNC`,
+`STEAM_COMPAT_DATA_PATH`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`, `PROTON_LOG`,
+`PROTON_LOG_DIR` are recognized fallbacks — registry probing would require
+native interop the JVM layer does not carry, while Wine itself propagates
+its loader/prefix variables into the Windows process environment).
+On native Windows `cubism-launch-common.ps1` still recognizes/strips the
+keys but never emits the Proton-scoped `-D`s, and the unset default is off.
+On the Linux/Proton launch path `run-cubism-host-validation.sh` resolves
+the staged `config.json` before dry-run: unset or true exports
+`mesa_glthread=true` and `TURBOISM_PROTON=1` into the generated `launch.sh`
+and appends `-Dturboism.optimization.mesaGlThread=true` /
+`-Dturboism.optimization.inputPathElision=true` to `JAVA_TOOL_OPTIONS`;
+explicit false emits `=false` instead and skips the Mesa export (the
+`-D=false` also defeats the JVM-side env-marker default). An explicit
+`--linux-env mesa_glthread=...` or `--jvm-option` still wins when the
+driver pinned the experiment. The transform installs after the uniform
+lifecycle hook and admits the uniform-composed shapes via
+installer-derived probes; it refuses to stack on the test-only elision.
 
-**Final acceptance protocol — production defaults vs all new options, across
+**Final acceptance protocol — combined option off vs on, across
 wheel/pan/artmesh.** Per workload (`on-wheel`, `on-pan`, `on-artmesh`) run the
-interleaved sequence `A F F A A F F A` (8 runs; A = defaults, F = all
-options). The F leg replaces the staged home config with the
+interleaved sequence `A F F A A F F A` (8 runs; A = option explicitly off,
+F = option on). Since the option now defaults on under Proton, the A leg
+must pin it off explicitly via the off-config fixture; the F leg stages the
 `launcher.mesaGlThread=true` variant and adds the deferred marker to the
 ready gates:
 
 ```bash
-# A = production defaults (uniformLocationCache on; uploadElision/inputPath
-# exercised per leg by the factor below; mesaGlThread absent → off)
+# A = option off (explicit false defeats the Proton default-on; runner then
+# emits -D...mesaGlThread=false and skips the mesa_glthread export)
 bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 acc-A-1 \
   --jvm-option '-Dturboism.validation.modelUpdateFactor=uploadElision' \
   --jvm-option '-Dturboism.optimization.uploadElision=true' \
-  --jvm-option '-Dturboism.optimization.inputPath=true' --result-timeout 1200
+  --jvm-option '-Dturboism.optimization.inputPath=true' \
+  --home-config "$PWD/testing/host-validation/mesa-gl-thread-off/config.json" \
+  --result-timeout 1200
 
 # F = all new options: same flags + the staged config that enables
 # launcher.mesaGlThread (runner then exports mesa_glthread and the -D itself)
