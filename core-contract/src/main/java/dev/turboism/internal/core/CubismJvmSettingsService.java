@@ -99,10 +99,10 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Launcher preference: when true the next managed Cubism launch adds
-     * {@code -Dturboism.optimization.uploadElision=true} so the skipped-frame
-     * buffer-upload elision hook installs (content compare, still gated on
-     * skipped frames). Off by default; takes effect on the next launch.
+     * Launcher preference: when true the next managed Cubism launch enables
+     * the skipped-frame buffer-upload elision hook (content compare, still
+     * gated on skipped frames). On by default on every platform; an explicit
+     * false opts out. Takes effect on the next launch.
      */
     default boolean uploadElision() {
         return false;
@@ -114,11 +114,12 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Launcher preference: when true the next managed Cubism launch adds
-     * {@code -Dturboism.optimization.inputPathElision=true} so the input-path
-     * elision hook installs (redundant focus/cursor forwards are
-     * short-circuited before they reach the native query). Off by default;
-     * takes effect on the next launch.
+     * Launcher preference: when true the next managed Cubism launch enables
+     * the input-path elision hook (redundant focus/cursor forwards are
+     * short-circuited before they reach the native query). The elided path
+     * only exists under Wine/Proton, so the unset default is on there and
+     * off on native Windows; an explicit value always wins. Takes effect on
+     * the next launch.
      */
     default boolean inputPathElision() {
         return false;
@@ -130,14 +131,15 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Launcher preference: when true the next managed launch under the
-     * Linux/Proton path exports {@code mesa_glthread=true} and adds
-     * {@code -Dturboism.optimization.mesaGlThread=true}, so Mesa submits GL
-     * work from a dedicated thread while the deferred error-check hook keeps
-     * the shader helper's per-call {@code glGetError} from flushing it. The
-     * pair is one combined option — Mesa threading without deferred checking
-     * was measured a regression. Off by default; experimental, Linux/Mesa
-     * only; Windows launches ignore it entirely. Takes effect on next launch.
+     * Launcher preference: under the Linux/Proton launch path the unset
+     * default is on — {@code mesa_glthread=true} is exported and
+     * {@code -Dturboism.optimization.mesaGlThread=true} is added, so Mesa
+     * submits GL work from a dedicated thread while the deferred error-check
+     * hook keeps the shader helper's per-call {@code glGetError} from
+     * flushing it. The pair is one combined option — Mesa threading without
+     * deferred checking was measured a regression. On native Windows the
+     * unset default is off and launches ignore it entirely; an explicit
+     * value always wins. Requires Mesa. Takes effect on next launch.
      */
     default boolean mesaGlThread() {
         return false;

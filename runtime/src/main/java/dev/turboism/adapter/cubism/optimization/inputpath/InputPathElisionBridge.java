@@ -88,9 +88,17 @@ public final class InputPathElisionBridge implements AutoCloseable {
             MethodType.methodType(Cursor.class));
     }
 
-    /** The production switch; the validation flag is intentionally separate. */
+    /**
+     * The production switch; the validation flag is intentionally separate.
+     * The elided input path exists only under Wine/Proton, so an unset
+     * property defaults to on there and off on native Windows; an explicit
+     * {@code =true}/{@code =false} always wins.
+     */
     public static boolean enabledByPreference() {
-        return Boolean.getBoolean(ENABLE_PROPERTY);
+        final String explicit = System.getProperty(ENABLE_PROPERTY);
+        return explicit == null
+            ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()
+            : Boolean.parseBoolean(explicit);
     }
 
     /** Occupies the consult/gate/stats slots; refuses to replace another installation. */

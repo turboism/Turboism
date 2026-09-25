@@ -1784,8 +1784,8 @@ function Get-CubismManagedJdkOptionTokens {
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uniformLocationCache")) {
         $tokens += "-Dturboism.optimization.uniformLocationCache=false"
     }
-    if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision") {
-        $tokens += "-Dturboism.optimization.uploadElision=true"
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision")) {
+        $tokens += "-Dturboism.optimization.uploadElision=false"
     }
     if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "inputPathElision") {
         $tokens += "-Dturboism.optimization.inputPathElision=true"
@@ -1795,9 +1795,11 @@ function Get-CubismManagedJdkOptionTokens {
 
 function Read-CubismOptimizationPreference {
     param([string]$TurboismHome, [string]$Name)
-    # Experimental paths require explicit opt-in.
-    # Verified frame/query reuse remains default-on for admitted hosts.
-    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "uploadElision" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread"
+    # Verified optimizations default on; the incremental experiment and the
+    # Proton-scoped options default off on this native-Windows path.
+    # inputPathElision/mesaGlThread default on only under Wine/Proton, which
+    # the Linux launcher resolves — this script never runs there.
+    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread"
     if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
     $path = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }
