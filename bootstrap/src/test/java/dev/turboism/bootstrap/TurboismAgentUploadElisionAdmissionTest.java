@@ -19,21 +19,53 @@ final class TurboismAgentUploadElisionAdmissionTest {
     }
 
     @Test
-    void flagOffInstallsNothingAndNeverTouchesTheHost() {
+    void flagOffInstallsNothingAndNeverTouchesTheHost() throws Exception {
         final String prior =
             System.getProperty(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
+        final String priorProduction =
+            System.getProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY);
         System.clearProperty(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
+        // The production preference is default-on; the flag-off contract must
+        // be proven against an explicit opt-out, not an unset property.
+        System.setProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY, "false");
+        final java.util.concurrent.atomic.AtomicInteger instrumentationCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.lang.instrument.Instrumentation instrumentation =
+            (java.lang.instrument.Instrumentation) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {java.lang.instrument.Instrumentation.class},
+                (proxy, method, args) -> {
+                    instrumentationCalls.incrementAndGet();
+                    throw new UnsupportedOperationException(method.getName());
+                });
         try {
             final SkippedFrameUploadElisionHookContributor contributor =
                 new SkippedFrameUploadElisionHookContributor();
-            // The flag gate runs before any host access: install succeeds as a no-op
-            // even though the environment carries no located host.
-            assertNotNull(contributor.install(environment(true)));
+            // The flag gate runs before any host access: install succeeds as a
+            // no-op even though the environment carries no located host, and no
+            // instrumentation method — transformer registration included — is
+            // ever invoked.
+            // Exercise the gate directly: the outer install wrapper swallows host
+            // failures, which would otherwise let a premature host access pass.
+            assertNotNull(contributor.installAdmitted(HookEnvironment.builder()
+                .fullRuntimeAdmission(true)
+                .instrumentation(instrumentation)
+                .build()));
+            org.junit.jupiter.api.Assertions.assertEquals(0, instrumentationCalls.get(),
+                "flag off must not touch the host's instrumentation");
+            assertFalse(System.getProperties().containsKey(
+                SkippedFrameUploadElisionBridge.PREDICATE_PROPERTY));
         } finally {
             if (prior == null) {
                 System.clearProperty(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
             } else {
                 System.setProperty(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY, prior);
+            }
+            if (priorProduction == null) {
+                System.clearProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY);
+            } else {
+                System.setProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY,
+                    priorProduction);
             }
         }
     }
