@@ -278,6 +278,58 @@ public class SkippedFrameUploadTrackerTest {
         assertEquals(3, buffer.limit());
     }
 
+    @Test void contentModeDoesNotRetainTheHostBuffer() throws Exception {
+        SkippedFrameUploadTracker tracker =
+            new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        final FloatBuffer host = FloatBuffer.wrap(new float[]{1f, 2f});
+        assertFalse(upload(tracker, gl, 7, 8, host, 0, 2, true, true));
+        final Object entry = occupiedEntry(tracker);
+        assertNull(field(entry, "buffer"),
+            "content mode must not keep a strong reference to the host buffer");
+        assertNotNull(field(entry, "snapshot"), "the payload snapshot is retained");
+    }
+
+    @Test void clearAllReleasesHostReferences() throws Exception {
+        SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker();
+        assertFalse(upload(tracker));
+        assertFalse(upload(tracker, gl, 9, 16, IntBuffer.allocate(8), 0, 8, true, true));
+        tracker.clearedExternally(SkippedFrameUploadTracker.ClearKind.LIFECYCLE);
+        for (final Object entry : entries(tracker)) {
+            assertNull(field(entry, "gl"), "cleared entry must not retain the GL object");
+            assertNull(field(entry, "buffer"), "cleared entry must not retain the host buffer");
+            assertNull(field(entry, "snapshot"));
+        }
+        assertEquals(0L, tracker.snapshot(true).get("entries"));
+        assertFalse(upload(tracker), "first upload after release establishes a new baseline");
+        assertTrue(upload(tracker), "the new baseline remains usable");
+        tracker.observerFailed();
+        for (Object entry : entries(tracker)) {
+            assertNull(field(entry, "gl"));
+            assertNull(field(entry, "buffer"));
+        }
+    }
+
+    private static Object occupiedEntry(final SkippedFrameUploadTracker tracker)
+            throws Exception {
+        for (final Object entry : entries(tracker)) {
+            if ((boolean) field(entry, "occupied")) return entry;
+        }
+        throw new AssertionError("no occupied entry");
+    }
+
+    private static Object[] entries(final SkippedFrameUploadTracker tracker) throws Exception {
+        final java.lang.reflect.Field field =
+            SkippedFrameUploadTracker.class.getDeclaredField("entries");
+        field.setAccessible(true);
+        return (Object[]) field.get(tracker);
+    }
+
+    private static Object field(final Object instance, final String name) throws Exception {
+        final java.lang.reflect.Field field = instance.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(instance);
+    }
+
     @Test void contentModeComparesHeapSnapshotAgainstDirectSource() {
         SkippedFrameUploadTracker tracker =
             new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
