@@ -292,7 +292,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
             // Stack: [gl]. Park it so the callback arguments order (mh, gl, ctx, z).
             super.visitVarInsn(Opcodes.ASTORE, deferredLocal);
             final Label start = new Label(), end = new Label(), miss = new Label(),
-                failure = new Label(), done = new Label();
+                failure = new Label(), deferred = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
             super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
@@ -310,6 +310,17 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
             super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/invoke/MethodHandle",
                 "invokeExact", "(Ljava/lang/Object;Ljava/lang/String;Z)I", false);
             super.visitLabel(end);
+            // The callback never runs the real query itself: DEFERRED_FALLBACK
+            // means the checkpoint is out of scope and the emitted code runs
+            // glGetError inline — the native call executes exactly once. This
+            // inline call sits outside the guarded region, so its own
+            // exception propagates exactly like the original site's.
+            super.visitInsn(Opcodes.DUP);
+            super.visitLdcInsn(UniformLocationHookBridge.DEFERRED_FALLBACK);
+            super.visitJumpInsn(Opcodes.IF_ICMPNE, deferred);
+            super.visitInsn(Opcodes.POP);
+            realQuery();
+            super.visitLabel(deferred);
             super.visitJumpInsn(Opcodes.GOTO, done);
             // Callback absent or failed: run the real error query inline.
             super.visitLabel(miss);

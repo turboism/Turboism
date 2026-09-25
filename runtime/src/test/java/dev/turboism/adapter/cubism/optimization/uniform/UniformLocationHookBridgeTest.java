@@ -25,9 +25,14 @@ class UniformLocationHookBridgeTest {
     public static final class GL {
         final Context context;
         int error, queries;
+        RuntimeException queryFailure;
         GL(Context context) { this.context = context; }
         public Context getContext() { return context; }
-        public int glGetError() { queries++; return error; }
+        public int glGetError() {
+            queries++;
+            if (queryFailure != null) throw queryFailure;
+            return error;
+        }
     }
     /** Stand-in for {@code com.live2d.util.log.a}: singleton field plus static sink. */
     public static final class Logger {
@@ -374,8 +379,8 @@ class UniformLocationHookBridgeTest {
         }
     }
     /**
-     * Outside an owned frame — and for a foreign GL — the checkpoint falls back
-     * to the real query, preserving the site's exact upstream semantics.
+     * Outside an owned frame — and for a foreign GL — the checkpoint signals
+     * an inline fallback preserving the site's exact upstream semantics.
      */
     @Test void outOfFrameAndForeignGlDeferQueryRunsRealQuery() throws Throwable {
         System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
@@ -383,32 +388,52 @@ class UniformLocationHookBridgeTest {
         GL foreign = new GL(context); foreign.error = 1281;
         try (UniformLocationHookBridge bridge = deferredBridge()) {
             bridge.install();
-            gl.error = 1282;
-            assertEquals(1282, bridge.deferQuery(gl, "outside", true),
-                "no frame: the real glGetError runs");
-            assertEquals(1, gl.queries);
+            assertEquals(UniformLocationHookBridge.DEFERRED_FALLBACK,
+                bridge.deferQuery(gl, "outside", true),
+                "no frame: the emitted code runs the real glGetError inline");
+            assertEquals(0, gl.queries, "the fallback never queries through the bridge");
             long scope = bridge.begin(new Frame(gl));
-            assertEquals(1281, bridge.deferQuery(foreign, "foreign", true),
+            assertEquals(UniformLocationHookBridge.DEFERRED_FALLBACK,
+                bridge.deferQuery(foreign, "foreign", true),
                 "a non-frame GL keeps the real query inside a frame");
-            assertEquals(1, foreign.queries);
-            assertEquals(1, gl.queries);
+            assertEquals(0, foreign.queries);
             bridge.end(scope);
-            assertEquals(1, gl.queries, "no deferred checkpoint ran — no frame-end query");
+            assertEquals(0, gl.queries, "no deferred checkpoint ran — no frame-end query");
             assertTrue(bridge.statistics().get("deferredFallbacks") >= 2L);
         }
     }
-    /** Without resolved deferred accessors the checkpoint throws for the emitted fallback. */
-    @Test void deferQueryWithoutAccessorsThrowsForFallback() throws Throwable {
+    /** Without resolved deferred accessors the checkpoint signals the emitted fallback. */
+    @Test void deferQueryWithoutAccessorsSignalsFallback() throws Throwable {
         Context context = new Context(); GL gl = new GL(context); current = context;
         try (UniformLocationHookBridge bridge = bridge()) {
             bridge.install();
-            assertThrows(IllegalStateException.class,
-                () -> { bridge.deferQuery(gl, "ctx", true); });
+            assertEquals(UniformLocationHookBridge.DEFERRED_FALLBACK,
+                bridge.deferQuery(gl, "ctx", true));
             long scope = bridge.begin(new Frame(gl));
-            assertThrows(IllegalStateException.class,
-                () -> { bridge.deferQuery(gl, "ctx", true); });
+            assertEquals(UniformLocationHookBridge.DEFERRED_FALLBACK,
+                bridge.deferQuery(gl, "ctx", true));
             bridge.end(scope);
             assertEquals(0, gl.queries, "no accessor means nothing may fabricate a result");
+            assertTrue(bridge.statistics().get("deferredFallbacks") >= 2L);
+        }
+    }
+    @Test void frameEndQueryThrowableIsArmedForRethrow() throws Throwable {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context(); GL gl = new GL(context); current = context;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(0, bridge.deferQuery(gl, "shader/A.a", true));
+            final RuntimeException nativeFailure = new RuntimeException("driver lost");
+            gl.queryFailure = nativeFailure;
+            bridge.end(scope);
+            assertEquals(1, gl.queries, "the frame-end real query ran exactly once");
+            assertSame(nativeFailure, bridge.consumeReport(),
+                "the original frame-end throwable is armed for the emitted rethrow");
+            assertNull(bridge.consumeReport(), "the armed report is consumed once");
+            assertEquals(1L, bridge.statistics().get("deferredThrows"));
+            assertEquals(0L, bridge.statistics().get("active"),
+                "a failed real query retires the bridge fail-closed");
         }
     }
     /** An armed report left by an aborted frame is disarmed by the next frame entry. */
