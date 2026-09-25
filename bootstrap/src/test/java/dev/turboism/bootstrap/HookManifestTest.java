@@ -36,6 +36,7 @@ final class HookManifestTest {
                 UniformLocationCacheHookContributor.class,
                 MatrixScratchHookContributor.class,
                 NativeEditBeginHookContributor.class,
+                EditApiDispatchHookContributor.class,
                 TextureAtlasDataModelHookContributor.class,
                 TextureAtlasAutoLayoutHookContributor.class,
                 PerformanceProbeHookContributor.class,
