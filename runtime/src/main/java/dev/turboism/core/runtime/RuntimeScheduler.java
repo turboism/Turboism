@@ -26,8 +26,10 @@ import java.util.function.Consumer;
  * The runtime's single dispatch point for plugin work and delayed callbacks.
  *
  * <p>Every submission is first classified by the {@link WorkBudgetPolicy}: lightweight work goes
- * to the plugin's own executor, heavy or sidecar work is handed to the {@link SidecarDispatcher},
- * and rejected work is dropped after a diagnostic event. Rejection is reported as a return value,
+ * to the plugin's own executor, sidecar work is handed to the {@link SidecarDispatcher}, heavy
+ * work prefers the sidecar and falls back to the plugin's long-task lane when none is available
+ * (except {@code transaction.*}, which keeps strict sidecar-or-reject routing), and rejected
+ * work is dropped after a diagnostic event. Rejection is reported as a return value,
  * never as an exception, so one misbehaving plugin cannot abort the caller.
  *
  * <p>Delayed callbacks share a single daemon timer thread and a global budget of 1024 concurrent
@@ -114,7 +116,8 @@ public final class RuntimeScheduler {
                 bindCancellation(callback),
                 timeoutAction
             ).accepted();
-            case HEAVY, SIDECAR -> dispatchSidecar(task, callback);
+            case HEAVY -> dispatchHeavy(task, callback);
+            case SIDECAR -> dispatchSidecar(task, callback);
             case REJECTED -> {
                 emitRejected(task);
                 yield false;
@@ -127,7 +130,9 @@ public final class RuntimeScheduler {
      * the caller owns and can trip later.
      *
      * <p>Unlike {@link #dispatch}, this does not fall back to the sidecar: a task the policy does
-     * not classify as {@link WorkBudget#LIGHTWEIGHT} is refused outright.
+     * not classify as {@link WorkBudget#LIGHTWEIGHT} is refused outright — except an explicit
+     * {@code plugin.long.*} task, which is rerouted to the plugin's long-task lane (bounded,
+     * interrupt-free, cooperatively cancelled).
      *
      * @param task the work to run
      * @param token cancellation token bound to the executing thread for the duration of the
@@ -135,7 +140,7 @@ public final class RuntimeScheduler {
      * @param callback the body to execute
      * @return the executor's submission; a rejected submission carrying
      *     {@code RUNTIME_UNAVAILABLE} when the scheduler is closed, or {@code POLICY_REJECTED}
-     *     when the policy did not classify the task as lightweight
+     *     when the policy did not classify the task as lightweight or long
      * @throws NullPointerException if any argument is {@code null}
      */
     public PluginWorkSubmission submitLightweight(
@@ -149,14 +154,22 @@ public final class RuntimeScheduler {
         if (closed.get()) {
             return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
-        if (policy.classify(task) != WorkBudget.LIGHTWEIGHT) {
-            emitRejected(task);
-            return rejected(PluginWorkStatus.POLICY_REJECTED, "POLICY_REJECTED");
+        final WorkBudget budget = policy.classify(task);
+        if (budget == WorkBudget.LIGHTWEIGHT) {
+            return executorRegistry.get(task.pluginId()).submit(
+                task,
+                bindCancellation(token, callback)
+            );
         }
-        return executorRegistry.get(task.pluginId()).submit(
-            task,
-            bindCancellation(token, callback)
-        );
+        if (budget == WorkBudget.HEAVY && isLongLaneTask(task)) {
+            return executorRegistry.longLane(task.pluginId()).submit(
+                task,
+                token,
+                bindCancellation(token, callback)
+            );
+        }
+        emitRejected(task);
+        return rejected(PluginWorkStatus.POLICY_REJECTED, "POLICY_REJECTED");
     }
 
     /**
@@ -380,6 +393,43 @@ public final class RuntimeScheduler {
             }
             pluginTaskSchedulerLeases--;
         }
+    }
+
+    /**
+     * Routes heavy work. An explicit {@code plugin.long.*} task always runs on the plugin's
+     * long-task lane. Other heavy work prefers the sidecar; when no sidecar is available it
+     * falls back to the long lane instead of being refused — except {@code transaction.*},
+     * which keeps its strict sidecar-or-reject routing (a host-write lane is a separate wave).
+     */
+    private boolean dispatchHeavy(PluginTask task, Runnable callback) {
+        if (isLongLaneTask(task)) {
+            return submitToLongLane(task, callback);
+        }
+        if (sidecarDispatcher.isAvailable()) {
+            return dispatchSidecar(task, callback);
+        }
+        if (isTransactionTask(task)) {
+            emitRejected(task);
+            return false;
+        }
+        return submitToLongLane(task, callback);
+    }
+
+    private boolean submitToLongLane(PluginTask task, Runnable callback) {
+        final RuntimeCancellationToken token = new RuntimeCancellationToken();
+        return executorRegistry.longLane(task.pluginId())
+            .submit(task, token, bindCancellation(token, callback))
+            .accepted();
+    }
+
+    private static boolean isLongLaneTask(PluginTask task) {
+        final String type = task.taskType();
+        return type != null && type.startsWith("plugin.long.");
+    }
+
+    private static boolean isTransactionTask(PluginTask task) {
+        final String type = task.taskType();
+        return type != null && type.startsWith("transaction.");
     }
 
     private boolean dispatchSidecar(PluginTask task, Runnable callback) {

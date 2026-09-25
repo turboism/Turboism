@@ -11,6 +11,7 @@ import dev.turboism.sdk.plugin.TaskCanceledException;
  */
 public final class RuntimeCancellationToken implements CancellationToken {
 
+    private final java.util.List<Runnable> cancelHooks = new java.util.ArrayList<>();
     private volatile boolean cancelled;
 
     @Override
@@ -26,9 +27,43 @@ public final class RuntimeCancellationToken implements CancellationToken {
     }
 
     /**
-     * Requests cancellation. Idempotent and safe to call from any thread.
+     * Requests cancellation. Idempotent and safe to call from any thread; registered
+     * {@link #onCancel} hooks run once, in registration order.
      */
     public void cancel() {
-        cancelled = true;
+        final java.util.List<Runnable> hooks;
+        synchronized (this) {
+            if (cancelled) {
+                return;
+            }
+            cancelled = true;
+            hooks = java.util.List.copyOf(cancelHooks);
+            cancelHooks.clear();
+        }
+        for (Runnable hook : hooks) {
+            try {
+                hook.run();
+            } catch (RuntimeException ignored) {
+                // One broken hook must not starve the remaining cancellation observers.
+            }
+        }
+    }
+
+    /**
+     * Runs {@code hook} on cancellation. If the token is already cancelled the hook runs
+     * immediately on the calling thread.
+     */
+    public void onCancel(final Runnable hook) {
+        java.util.Objects.requireNonNull(hook, "hook");
+        final boolean runNow;
+        synchronized (this) {
+            runNow = cancelled;
+            if (!runNow) {
+                cancelHooks.add(hook);
+            }
+        }
+        if (runNow) {
+            hook.run();
+        }
     }
 }
