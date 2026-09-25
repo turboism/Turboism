@@ -101,6 +101,12 @@ public final class EditorRawImagePsdSelectorContract {
     /** Releases only detached layered images created for export verification. */
     public static final String LAYERED_IMAGE_DISPOSE_OWNED_ALIAS =
         "cubism.editor-model.layered-image.dispose-owned";
+    public static final String PSD_DOCUMENT_LAYERS_OWNED_ALIAS =
+        "cubism.editor-model.psd-document.layers-owned";
+    public static final String PSD_LAYER_IMAGE_OWNED_ALIAS =
+        "cubism.editor-model.psd-layer.image-owned";
+    public static final String PSD_IMAGE_DISPOSE_OWNED_ALIAS =
+        "cubism.editor-model.psd-image.dispose-owned";
     public static final String PSD_PROGRESS_CLASS_ALIAS =
         "cubism.editor-model.psd-progress.class";
     public static final String PSD_PROGRESS_DEFAULT_ALIAS =
@@ -150,6 +156,9 @@ public final class EditorRawImagePsdSelectorContract {
         LAYERED_IMAGE_FROM_PSD_ALIAS,
         LAYERED_IMAGE_SAVE_PSD_ALIAS,
         LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
+        PSD_DOCUMENT_LAYERS_OWNED_ALIAS,
+        PSD_LAYER_IMAGE_OWNED_ALIAS,
+        PSD_IMAGE_DISPOSE_OWNED_ALIAS,
         PSD_PROGRESS_CLASS_ALIAS,
         PSD_PROGRESS_DEFAULT_ALIAS
     );

@@ -1399,6 +1399,8 @@ class EditorTextureReplacementDiagnosticTest {
                 + desc(CallSiteDocument.class).substring(2)
                 + "Ljava/util/List;)V");
 
+        putMethod(selectors, "cubism.editor-model.psd-document.layers-owned",
+            CallSiteParsed.class, "h", "()[Ljava/lang/Object;");
         putMethod(selectors, "cubism.editor-model.layered-image.dispose-owned",
             CallSiteLayeredImage.class, "dispose", "()V");
         putClass(selectors, "cubism.editor-model.psd-document.class", CallSiteParsed.class);
@@ -1519,6 +1521,7 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     public static final class CallSiteParsed {
+        public Object[] h() { return new Object[0]; }
         final File source;
 
         CallSiteParsed(final File source) {

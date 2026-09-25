@@ -25,6 +25,8 @@ public final class EditorRawImagePsdNativeFixture {
     public static Runnable constructFailure = () -> {};
     public static Runnable disposeFailure = () -> {};
     public static SyntheticLayeredImage lastConstructed;
+    public static SyntheticParsed lastParsed;
+    public static boolean throwOnParsedImageDispose;
 
     private EditorRawImagePsdNativeFixture() {
     }
@@ -48,6 +50,8 @@ public final class EditorRawImagePsdNativeFixture {
         constructFailure = () -> {};
         disposeFailure = () -> {};
         lastConstructed = null;
+        lastParsed = null;
+        throwOnParsedImageDispose = false;
     }
 
     public static List<String> events() {
@@ -86,13 +90,38 @@ public final class EditorRawImagePsdNativeFixture {
 
     public static final class SyntheticParsed {
         private final File source;
+        public final SyntheticParsedImage first = new SyntheticParsedImage();
+        public final SyntheticParsedImage second = new SyntheticParsedImage();
 
         public SyntheticParsed(final File source) {
             this.source = source;
+            lastParsed = this;
+        }
+
+        public SyntheticParsedLayer[] h() {
+            return new SyntheticParsedLayer[] {
+                new SyntheticParsedLayer(first), new SyntheticParsedLayer(null),
+                new SyntheticParsedLayer(first), new SyntheticParsedLayer(second)
+            };
         }
 
         public File source() {
             return source;
+        }
+    }
+
+    public static final class SyntheticParsedLayer {
+        private final SyntheticParsedImage image;
+        public SyntheticParsedLayer(final SyntheticParsedImage image) { this.image = image; }
+        public SyntheticParsedImage c() { return image; }
+    }
+
+    public static final class SyntheticParsedImage {
+        public int disposeCalls;
+        public void dispose() {
+            record("parsed-dispose");
+            disposeCalls++;
+            if (throwOnParsedImageDispose) throw new IllegalStateException("private parsed image cleanup failure");
         }
     }
 

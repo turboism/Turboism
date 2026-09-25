@@ -757,6 +757,9 @@ class EditorRawImagePsdSourceBindingTest {
                 StaticSelector.ACCESS_PUBLIC
             )
         );
+        selectors.put(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS,
+            instanceMethod(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS,
+                SyntheticSourceFixture.PsdDocument.class, "h", "()[Ljava/lang/Object;"));
         selectors.put(
             EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
             instanceMethod(
@@ -1350,6 +1353,8 @@ class EditorRawImagePsdSourceBindingTest {
 
         public static final class PsdDocument {
             public static final Companion a = new Companion();
+
+            public Object[] h() { return new Object[0]; }
 
             private final LayeredImage source;
             private final ParseMode mode;

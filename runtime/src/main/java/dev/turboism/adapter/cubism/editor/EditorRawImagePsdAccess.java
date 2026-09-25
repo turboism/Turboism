@@ -14,6 +14,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.IdentityHashMap;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -318,26 +319,27 @@ final class EditorRawImagePsdAccess {
                 );
             }
 
-            phase = FailurePhase.CONSTRUCT;
-            final Object reconstructed = resolver.construct(
-                "cubism.editor-model.layered-image.from-psd",
-                parsed,
-                targetFile,
-                sourceName
-            );
-            if (!resolver.isInstance(
-                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS,
-                reconstructed
-            )) {
-                return ExportResult.parseFailed(
-                    target,
-                    saveReturned,
-                    pathSafety,
-                    FailurePhase.CONSTRUCT,
-                    "parsed PSD did not reconstruct as the verified CLayeredImage type"
-                );
-            }
+            Object reconstructed = null;
             try {
+                phase = FailurePhase.CONSTRUCT;
+                reconstructed = resolver.construct(
+                    "cubism.editor-model.layered-image.from-psd",
+                    parsed,
+                    targetFile,
+                    sourceName
+                );
+                if (!resolver.isInstance(
+                    EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS,
+                    reconstructed
+                )) {
+                    return ExportResult.parseFailed(
+                        target,
+                        saveReturned,
+                        pathSafety,
+                        FailurePhase.CONSTRUCT,
+                        "parsed PSD did not reconstruct as the verified CLayeredImage type"
+                    );
+                }
                 EditorRawImagePsdIntegrityAccess.Verification integrityVerification;
                 if (beforeSnapshot == null) {
                     integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
@@ -357,15 +359,49 @@ final class EditorRawImagePsdAccess {
                 }
                 return ExportResult.readableUnverified(target, pathSafety, integrityVerification);
             } finally {
-                // This detached reconstruction belongs only to export verification, never the model or Undo.
-                phase = FailurePhase.DISPOSE;
-                resolver.invoke(EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS, reconstructed);
+                // Both objects belong only to this export verification, never the model or Undo.
+                try {
+                    try {
+                        if (resolver.isInstance(EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS, reconstructed)) {
+                            resolver.invoke(EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS, reconstructed);
+                        }
+                    } finally {
+                        disposeOwnedParsedImages(parsed);
+                    }
+                } catch (RuntimeException cleanupFailure) {
+                    phase = FailurePhase.DISPOSE;
+                    throw cleanupFailure;
+                }
             }
         } catch (IOException exception) {
             return ExportResult.targetCheckFailed(target, saveReturned, pathSafety, phase, exception);
         } catch (RuntimeException exception) {
             return ExportResult.failure(target, saveReturned, pathSafety, phase, exception);
         }
+    }
+
+    /** Only the successful parser result created locally by export verification may enter here. */
+    private void disposeOwnedParsedImages(final Object parsed) {
+        final Object value = resolver.invoke(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS, parsed);
+        if (!(value instanceof Object[] layers)) {
+            throw new IllegalStateException("verified PSD layer records are not an array");
+        }
+        final IdentityHashMap<Object, Boolean> images = new IdentityHashMap<>();
+        for (final Object layer : layers) {
+            final Object image = resolver.invoke(EditorRawImagePsdSelectorContract.PSD_LAYER_IMAGE_OWNED_ALIAS, layer);
+            // Group records have no image; a shared image wrapper must be disposed once.
+            if (image != null) images.put(image, Boolean.TRUE);
+        }
+        RuntimeException failure = null;
+        for (final Object image : images.keySet()) {
+            try {
+                resolver.invoke(EditorRawImagePsdSelectorContract.PSD_IMAGE_DISPOSE_OWNED_ALIAS, image);
+            } catch (RuntimeException cleanupFailure) {
+                if (failure == null) failure = cleanupFailure;
+                else failure.addSuppressed(cleanupFailure);
+            }
+        }
+        if (failure != null) throw failure;
     }
 
     private static TargetState inspectTarget(final Path target) throws IOException {

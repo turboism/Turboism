@@ -145,6 +145,36 @@ class EditorRawImagePsdSelectorContractTest {
         );
         assertShape(
             selectors,
+            EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS,
+            StaticSelector.Kind.METHOD,
+            "com/live2d/graphics/psd/CPsdDocument",
+            "h",
+            "()[Lcom/live2d/graphics/psd/layer/o;",
+            17,
+            8
+        );
+        assertShape(
+            selectors,
+            EditorRawImagePsdSelectorContract.PSD_LAYER_IMAGE_OWNED_ALIAS,
+            StaticSelector.Kind.METHOD,
+            "com/live2d/graphics/psd/layer/o",
+            "c",
+            "()Ljp/live2d/type_editor/image/LDImage;",
+            17,
+            8
+        );
+        assertShape(
+            selectors,
+            EditorRawImagePsdSelectorContract.PSD_IMAGE_DISPOSE_OWNED_ALIAS,
+            StaticSelector.Kind.METHOD,
+            "jp/live2d/type_editor/image/LDImage",
+            "dispose",
+            "()V",
+            1,
+            8
+        );
+        assertShape(
+            selectors,
             EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
             StaticSelector.Kind.CLASS,
             "com/live2d/util/a/a",
