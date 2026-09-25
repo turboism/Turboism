@@ -1,6 +1,6 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacityReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import org.junit.jupiter.api.Test;
 
@@ -43,9 +43,9 @@ class EditorPartOpacitySelectorContractTest {
         );
 
         assertTrue(resolver.authorizesFeature(
-            EditorPartOpacity52SelectorContract.ADAPTER_SLICE_ID,
-            EditorPartOpacity52SelectorContract.CAPABILITY_ID,
-            EditorPartOpacity52SelectorContract.REQUIRED_ALIASES
+            EditorPartOpacityReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorPartOpacityReadSelectorContract.CAPABILITY_ID,
+            EditorPartOpacityReadSelectorContract.REQUIRED_ALIASES
         ));
         assertFalse(resolver.authorizesFeature(
             EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID,

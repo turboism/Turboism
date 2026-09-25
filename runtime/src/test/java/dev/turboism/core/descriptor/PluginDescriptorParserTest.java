@@ -348,6 +348,199 @@ class PluginDescriptorParserTest {
         assertEquals(List.of(), legacy.tags());
         assertEquals(List.of(), legacy.eventExports());
         assertEquals(List.of(), legacy.eventImports());
+        assertEquals(List.of(), legacy.eventContracts());
+    }
+
+    @Test
+    void parsesV5EventContracts() throws DescriptorParseException {
+        final String sha256 = "b".repeat(64);
+        final PluginDescriptor descriptor = parser.parse(toStream(v5Descriptor(
+            """
+              "eventContracts": [{
+                "id": "acme.events",
+                "version": "1.2.0",
+                "artifact": "META-INF/turboism/contracts/acme-events-1.2.0.jar",
+                "sha256": "%s"
+              }],
+            """.formatted(sha256)
+        )));
+
+        assertEquals(1, descriptor.eventContracts().size());
+        final PluginDescriptor.EventContract contract =
+            descriptor.eventContracts().get(0);
+        assertEquals("acme.events", contract.id());
+        assertEquals("1.2.0", contract.version());
+        assertEquals(
+            "META-INF/turboism/contracts/acme-events-1.2.0.jar",
+            contract.artifact()
+        );
+        assertEquals(sha256, contract.sha256());
+    }
+
+    @Test
+    void v5DescriptorWithoutEventContractsParsesEmpty() throws DescriptorParseException {
+        final PluginDescriptor descriptor = parser.parse(toStream(v5Descriptor("")));
+        assertEquals(List.of(), descriptor.eventContracts());
+    }
+
+    @Test
+    void rejectsV4EventContractsAsUnknownField() {
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v4Descriptor(
+                """
+                  "eventContracts": [{
+                    "id": "acme.events",
+                    "version": "1.0.0",
+                    "artifact": "META-INF/turboism/contracts/acme.jar",
+                    "sha256": "%s"
+                  }],
+                """.formatted("b".repeat(64))
+            )))
+        );
+        assertEquals("PLUGIN_META_UNKNOWN_FIELD", failure.code());
+    }
+
+    @Test
+    void rejectsV5DuplicateEventContractIds() {
+        final String contract = """
+            {
+              "id": "acme.events",
+              "version": "1.0.0",
+              "artifact": "META-INF/turboism/contracts/%s",
+              "sha256": "%s"
+            }
+            """;
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v5Descriptor(
+                """
+                  "eventContracts": [
+                    %s,
+                    %s
+                  ],
+                """.formatted(
+                    contract.formatted("a.jar", "b".repeat(64)),
+                    contract.formatted("b.jar", "c".repeat(64))
+                )
+            )))
+        );
+        assertEquals("PLUGIN_META_DUPLICATE_EVENT_CONTRACT", failure.code());
+    }
+
+    @Test
+    void rejectsV5ContractArtifactOutsideContractsDirectory() {
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v5Descriptor(
+                """
+                  "eventContracts": [{
+                    "id": "acme.events",
+                    "version": "1.0.0",
+                    "artifact": "META-INF/turboism/libs/acme.jar",
+                    "sha256": "%s"
+                  }],
+                """.formatted("b".repeat(64))
+            )))
+        );
+        assertEquals("PLUGIN_META_BAD_EVENT_CONTRACT_ARTIFACT", failure.code());
+    }
+
+    @Test
+    void rejectsV5ContractArtifactWithNestedPath() {
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v5Descriptor(
+                """
+                  "eventContracts": [{
+                    "id": "acme.events",
+                    "version": "1.0.0",
+                    "artifact": "META-INF/turboism/contracts/nested/acme.jar",
+                    "sha256": "%s"
+                  }],
+                """.formatted("b".repeat(64))
+            )))
+        );
+        assertEquals("PLUGIN_META_BAD_EVENT_CONTRACT_ARTIFACT", failure.code());
+    }
+
+    @Test
+    void rejectsV5ContractWithNonSemverVersion() {
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v5Descriptor(
+                """
+                  "eventContracts": [{
+                    "id": "acme.events",
+                    "version": "1.0",
+                    "artifact": "META-INF/turboism/contracts/acme.jar",
+                    "sha256": "%s"
+                  }],
+                """.formatted("b".repeat(64))
+            )))
+        );
+        assertEquals("PLUGIN_META_BAD_EVENT_CONTRACT_VERSION", failure.code());
+    }
+
+    @Test
+    void rejectsV5ContractWithMalformedSha256() {
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v5Descriptor(
+                """
+                  "eventContracts": [{
+                    "id": "acme.events",
+                    "version": "1.0.0",
+                    "artifact": "META-INF/turboism/contracts/acme.jar",
+                    "sha256": "not-lowercase-hex"
+                  }],
+                """
+            )))
+        );
+        assertEquals("PLUGIN_META_BAD_EVENT_ABI", failure.code());
+    }
+
+    @Test
+    void rejectsV5ContractWithBadEventId() {
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v5Descriptor(
+                """
+                  "eventContracts": [{
+                    "id": "Acme Events!",
+                    "version": "1.0.0",
+                    "artifact": "META-INF/turboism/contracts/acme.jar",
+                    "sha256": "%s"
+                  }],
+                """.formatted("b".repeat(64))
+            )))
+        );
+        assertEquals("PLUGIN_META_BAD_EVENT_ID", failure.code());
+    }
+
+    private static String v5Descriptor(final String eventFields) {
+        return """
+            {
+              "format": "turboism.plugin.meta",
+              "schemaVersion": 5,
+              "id": "dev.turboism.plugin.demo",
+              "name": "Demo Plugin",
+              "version": "0.1.0",
+              "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
+              "turboismApi": "[0.1.0,0.2.0)",
+              "authors": [{ "name": "Turboism Contributors" }],
+              "website": "https://turboism.dev",
+              "resources": [],
+              "i18n": {
+                "baseName": "META-INF/turboism/i18n/messages",
+                "locales": []
+              },
+              "category": "modeling",
+              "tags": [],
+              %s
+              "description": ""
+            }
+            """.formatted(eventFields);
     }
 
     private static String v4Descriptor(final String eventFields) {

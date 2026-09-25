@@ -516,12 +516,27 @@ public final class ThemePackageCodec {
         }
     }
 
+    /**
+     * The user's decision about an incoming theme whose id is already installed: overwrite the
+     * existing package, save under a new id, or abandon the import.
+     */
     public enum ConflictOutcome {
         OVERWRITE,
         SAVE_AS_NEW,
         CANCEL
     }
 
+    /**
+     * Why decoding a package or resolving an id conflict failed.
+     *
+     * <p>The {@code ENTRY_*}, {@code TOTAL_SIZE_LIMIT}, {@code PATH_INVALID} and
+     * {@code MULTIPLE_ROOTS} codes describe archive structure problems,
+     * {@code UTF8_INVALID} and {@code CONTROL_FORBIDDEN} text decoding problems, the
+     * {@code KEY_*} codes and {@code VALUE_LIMIT} properties problems, and
+     * {@code METADATA_INVALID} unusable theme metadata. {@code CONFLICT_CANCELLED},
+     * {@code CONFLICT_BUILTIN}, {@code SAVE_AS_ID_INVALID} and {@code SAVE_AS_ID_CONFLICT} are
+     * produced by {@link ThemePackageCodec#resolveConflict} rather than by decoding.</p>
+     */
     public enum IssueCode {
         ENTRY_UNKNOWN,
         ENTRY_DUPLICATE,

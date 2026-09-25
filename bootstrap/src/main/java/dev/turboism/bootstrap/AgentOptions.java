@@ -135,8 +135,9 @@ record AgentOptions(
         detectionTimeout = Objects.requireNonNull(detectionTimeout, "detectionTimeout");
         performanceProbeOutput = Objects.requireNonNull(performanceProbeOutput, "performanceProbeOutput");
         performanceProbeScenario = Objects.requireNonNull(performanceProbeScenario, "performanceProbeScenario");
-        if (!performanceProbeScenario.equals("camera") && !performanceProbeScenario.equals("edit")) {
-            throw new IllegalArgumentException("performanceProbeScenario must be camera or edit");
+        if (!performanceProbeScenario.equals("camera") && !performanceProbeScenario.equals("edit")
+            && !performanceProbeScenario.equals("images")) {
+            throw new IllegalArgumentException("performanceProbeScenario must be camera, edit or images");
         }
         performanceProbeAgentSha256 = Objects.requireNonNull(performanceProbeAgentSha256, "performanceProbeAgentSha256");
         performanceProbeFixtureSha256 = Objects.requireNonNull(performanceProbeFixtureSha256, "performanceProbeFixtureSha256");
@@ -165,6 +166,24 @@ record AgentOptions(
             throw new IllegalArgumentException(
                 key + " must be a lowercase 64-character SHA-256 when capture is enabled"
             );
+        }
+    }
+
+    static Path defaultHome() {
+        final String configured = System.getProperty("turboism.home");
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        try {
+            final Path location = Path.of(
+                AgentOptions.class.getProtectionDomain().getCodeSource().getLocation().toURI()
+            ).toAbsolutePath().normalize();
+            if (java.nio.file.Files.isRegularFile(location)) {
+                return location.getParent();
+            }
+            return location.resolve("turboism-preview");
+        } catch (java.net.URISyntaxException | RuntimeException exception) {
+            return Path.of("turboism-preview").toAbsolutePath().normalize();
         }
     }
 }

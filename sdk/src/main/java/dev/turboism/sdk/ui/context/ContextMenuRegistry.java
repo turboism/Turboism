@@ -31,6 +31,38 @@ public interface ContextMenuRegistry {
      */
     Registration contribute(ContextMenuContribution contribution);
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static ContextMenuRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: unsupported calls throw a stable {@link UnsupportedOperationException}. */
+    enum Unavailable implements ContextMenuRegistry {
+        INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
+
+        @Override public Registration contribute(final ContextMenuContribution contribution) {
+            Objects.requireNonNull(contribution, "contribution");
+            throw new UnsupportedOperationException("contextMenu registry is not available");
+        }
+    }
+
     /** Host menu a contribution attaches to, and the object kinds that menu can carry. */
     enum Location {
         DEFORMER_TAB(EnumSet.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH)),
@@ -80,6 +112,7 @@ public interface ContextMenuRegistry {
         }
     }
 
+    /** Category of model object a context-menu selection can contain. */
     enum ObjectKind {
         WARP_DEFORMER,
         ROTATION_DEFORMER,
@@ -299,6 +332,7 @@ public interface ContextMenuRegistry {
         }
     }
 
+    /** One validated context-menu entry descriptor. */
     record ContextMenuContribution(
         String id,
         String actionId,
@@ -474,11 +508,13 @@ public interface ContextMenuRegistry {
         }
     }
 
+    /** What a contributed entry operates on: the current selection or the panel tab itself. */
     enum Target {
         SELECTION,
         PANEL_TAB
     }
 
+    /** What a contributed entry does: invoke a registered action or toggle the panel's floating state. */
     enum Operation {
         ACTION,
         TOGGLE_PANEL_FLOATING

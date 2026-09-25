@@ -1,7 +1,9 @@
 Turboism
 Copyright (c) 2026 Turboism Contributors
 
-Turboism is licensed under the MIT License; see the accompanying LICENSE file.
+Turboism is licensed under the GNU Affero General Public License, version 3 only
+(SPDX-License-Identifier: AGPL-3.0-only); see the accompanying LICENSE file.
+Third-party components retain their own licenses and copyright notices.
 Turboism is an independent runtime enhancement tool and plugin framework for
 Live2D Cubism Editor. It is not affiliated with, endorsed by, or sponsored by
 Live2D Inc.

@@ -385,6 +385,161 @@ final class ManagedGraalRuntimeServiceTest {
     }
 
     @Test
+    void startupReconcilesOwnedOrphanMarkerBeforeExpensiveInstall() throws Exception {
+        final Path marker = home.resolve("graal/.runtime-activation");
+        Files.createDirectories(marker.getParent());
+        Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
+        final byte[] archive = archive(Map.of(
+            "graalvm-test/bin/java.exe", new byte[] {1, 2, 3},
+            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
+        ));
+        final RecordingClient client = new RecordingClient(new ResponseSpec(200, Map.of(), archive));
+        final List<Path> probed = new java.util.ArrayList<>();
+        try (ManagedGraalRuntimeService service = service(client, testPlatform(archive), probed::add)) {
+            assertFalse(Files.exists(marker, LinkOption.NOFOLLOW_LINKS));
+            assertEquals(ManagedGraalRuntimeService.State.ABSENT, service.status().state());
+
+            final ManagedGraalRuntimeService.Status result = service.install().completion()
+                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+            assertEquals(ManagedGraalRuntimeService.State.READY, result.state());
+            assertEquals(1, client.requests.size());
+            assertEquals(1, probed.size());
+            assertTrue(Files.isRegularFile(home.resolve("graal/runtime/bin/java.exe")));
+        }
+    }
+
+    @Test
+    void startupClearsOwnedMarkerBesideAValidRuntime() throws Exception {
+        final Path runtime = home.resolve("graal/runtime");
+        Files.createDirectories(runtime.resolve("bin"));
+        Files.write(runtime.resolve("bin/java.exe"), new byte[] {1});
+        Files.writeString(runtime.resolve("release"), release());
+        final Path marker = home.resolve("graal/.runtime-activation");
+        Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
+        final RecordingClient client = new RecordingClient();
+        try (ManagedGraalRuntimeService service = service(
+            client,
+            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
+            ignored -> { }
+        )) {
+            assertEquals(ManagedGraalRuntimeService.State.READY, service.status().state());
+            assertFalse(Files.exists(marker, LinkOption.NOFOLLOW_LINKS));
+            assertTrue(Files.isRegularFile(runtime.resolve("bin/java.exe")));
+            assertTrue(client.requests.isEmpty());
+        }
+    }
+
+    @Test
+    void startupClearsOwnedMarkerAndPreviousBesideAValidRuntime() throws Exception {
+        final Path runtime = home.resolve("graal/runtime");
+        Files.createDirectories(runtime.resolve("bin"));
+        Files.write(runtime.resolve("bin/java.exe"), new byte[] {1});
+        Files.writeString(runtime.resolve("release"), release());
+        final Path previous = home.resolve("graal/.runtime-previous");
+        Files.createDirectories(previous.resolve("bin"));
+        Files.write(previous.resolve("bin/java.exe"), new byte[] {2});
+        Files.writeString(previous.resolve("release"), release());
+        final Path marker = home.resolve("graal/.runtime-activation");
+        Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
+        final RecordingClient client = new RecordingClient();
+        try (ManagedGraalRuntimeService service = service(
+            client,
+            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
+            ignored -> { }
+        )) {
+            assertEquals(ManagedGraalRuntimeService.State.READY, service.status().state());
+            assertFalse(Files.exists(previous, LinkOption.NOFOLLOW_LINKS));
+            assertFalse(Files.exists(marker, LinkOption.NOFOLLOW_LINKS));
+            assertTrue(Files.isRegularFile(runtime.resolve("bin/java.exe")));
+            assertTrue(client.requests.isEmpty());
+        }
+    }
+
+    @Test
+    void startupKeepsOwnedMarkerWhenPresentRuntimeIsInvalid() throws Exception {
+        final Path runtime = home.resolve("graal/runtime");
+        Files.createDirectories(runtime.resolve("bin"));
+        Files.write(runtime.resolve("bin/java.exe"), new byte[] {1});
+        final Path marker = home.resolve("graal/.runtime-activation");
+        Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
+
+        try (ManagedGraalRuntimeService service = service(
+            new RecordingClient(),
+            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
+            ignored -> { }
+        )) {
+            final ManagedGraalRuntimeService.Status status = service.status();
+
+            assertEquals(ManagedGraalRuntimeService.State.FAILED, status.state());
+            assertEquals("GRAAL_RUNTIME_INVALID", status.code());
+            assertEquals(
+                ManagedGraalRuntimeService.GRAAL_VERSION + "\n",
+                Files.readString(marker)
+            );
+        }
+    }
+
+    @Test
+    void startupKeepsUnknownMarkerAndInstallStillRefusesRecovery() throws Exception {
+        final Path marker = home.resolve("graal/.runtime-activation");
+        Files.createDirectories(marker.getParent());
+        Files.writeString(marker, "0.0.0-unknown\n");
+        final byte[] archive = archive(Map.of(
+            "graalvm-test/bin/java.exe", new byte[] {1},
+            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
+        ));
+        final RecordingClient client = new RecordingClient(new ResponseSpec(200, Map.of(), archive));
+        try (ManagedGraalRuntimeService service = service(
+            client, testPlatform(archive), ignored -> { }
+        )) {
+            assertEquals("0.0.0-unknown\n", Files.readString(marker));
+
+            final ManagedGraalRuntimeService.Status result = service.install().completion()
+                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+            assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
+            assertEquals("GRAAL_RUNTIME_RECOVERY_REQUIRED", result.code());
+            assertEquals("0.0.0-unknown\n", Files.readString(marker));
+            assertFalse(Files.exists(home.resolve("graal/runtime"), LinkOption.NOFOLLOW_LINKS));
+        }
+    }
+
+    @Test
+    void startupKeepsLinkedMarkerAndInstallStillRefusesRecovery() throws Exception {
+        final Path marker = home.resolve("graal/.runtime-activation");
+        Files.createDirectories(marker.getParent());
+        final Path target = home.resolve("elsewhere.txt");
+        Files.writeString(target, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
+        try {
+            Files.createSymbolicLink(marker, target);
+        } catch (UnsupportedOperationException | IOException unavailable) {
+            org.junit.jupiter.api.Assumptions.abort("symbolic links unavailable: " + unavailable);
+        }
+        final byte[] archive = archive(Map.of(
+            "graalvm-test/bin/java.exe", new byte[] {1},
+            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
+        ));
+        final RecordingClient client = new RecordingClient(new ResponseSpec(200, Map.of(), archive));
+        try (ManagedGraalRuntimeService service = service(
+            client, testPlatform(archive), ignored -> { }
+        )) {
+            assertTrue(Files.isSymbolicLink(marker));
+
+            final ManagedGraalRuntimeService.Status result = service.install().completion()
+                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+            assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
+            assertEquals("GRAAL_RUNTIME_RECOVERY_REQUIRED", result.code());
+            assertTrue(Files.isSymbolicLink(marker));
+            assertEquals(
+                ManagedGraalRuntimeService.GRAAL_VERSION + "\n",
+                Files.readString(target)
+            );
+        }
+    }
+
+    @Test
     void removalRejectsLinkedDescendantsAndKeepsOutsideFiles() throws Exception {
         final Path outside = home.resolve("outside");
         Files.createDirectories(outside);

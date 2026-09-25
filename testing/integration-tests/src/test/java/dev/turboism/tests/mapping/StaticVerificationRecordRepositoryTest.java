@@ -4,7 +4,7 @@ import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorCont
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacityReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,12 +33,14 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -192,8 +194,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "b6ed488e17c2452eaa085e21fdab23063e93204e66843882925eae63dda9634c",
-            622,
+            "e71db4cdb797fbdd3ec9bd4ae307de7bcf1a690ef784ce6650af44bcb182f397",
+            811,
             EditorModelVerificationManifest.cubism52Aliases(),
             EditorModelVerificationManifest.cubism52Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
@@ -215,7 +217,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            644,
+            832,
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -396,7 +398,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-clipmask" ->
                 "c17a6596497b148fb71e9d9074b97d2967a9697d38e7222848f154e44fb5a597";
             case "cubism-5.3.03-editor-model" ->
-                "4e92ece4cb18cf4d780ae972e221c35f6ad911c3c922e8dbf2d012fcc7c3067b";
+                "b94c7053ac0d451fa3d1c3cf587968e2220d51a3c9c5974d582715ea3bdc2418";
             case "cubism-5.3.03-performance-render-scene" ->
                 "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
             case "cubism-5.3.03-protected-export" ->
@@ -416,7 +418,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-ui-top-menu" ->
                 "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b";
             case "cubism-5.3.03-workspace-control" ->
-                "19a28870070b7f0e5c49060fef15dea087ebd37c7d20963d6aabd55fc5a464da";
+                "50acfcbb92cb83caf07113034001b12e71d032656cab76a652f294dd2b809130";
             default -> throw new IllegalArgumentException("unregistered 5.3.03 record " + fileName);
         };
     }
@@ -468,7 +470,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.2.03", "5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "88811e3a663e595d7b02675fc0e86e486132eb78c96772a90bef3e7d3c7abb94",
+                "558165115b594ba787cc65c7c60162654888a2c1ef032d7dede09271a14061e3",
                 "m.workspace-5.2.03.control.static", "adapter.workspace.control.v5_2",
                 "5.2.03"
             )
@@ -478,7 +480,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.3.02", "5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "cbf5c201267d7aa70d3f82404e9125f61429c7a251457a5a23011c6d6bf27b4f",
+                "2ea801ef1f78342ffaba462bfb3159f3c38f755f823dfe5632f01f8585377440",
                 "m.workspace-5.3.02.control.static", "adapter.workspace.control.v5_3",
                 "5.3.02"
             )
@@ -1290,6 +1292,7 @@ class StaticVerificationRecordRepositoryTest {
 
         final Set<String> verificationIds = new HashSet<>();
         final Set<String> sliceVersions = new HashSet<>();
+        final var slices = new ArrayList<org.junit.jupiter.api.function.Executable>();
         for (Map.Entry<String, Path> discoveredRecord : discovered.entrySet()) {
             final JsonNode record = mapper.readTree(discoveredRecord.getValue().toFile());
             assertTrue(verificationIds.add(record.get("verificationId").asText()),
@@ -1298,8 +1301,11 @@ class StaticVerificationRecordRepositoryTest {
                 + "@" + record.get("cubismVersion").asText();
             assertTrue(sliceVersions.add(sliceVersion),
                 "duplicate (adapterSliceId,cubismVersion): " + sliceVersion);
-            verifySlice(discoveredRecord.getValue(), record, EXPECTATIONS.get(discoveredRecord.getKey()));
+            slices.add(() -> verifySlice(
+                discoveredRecord.getValue(), record, EXPECTATIONS.get(discoveredRecord.getKey())
+            ));
         }
+        assertAll("static verification records", slices);
     }
 
     private Map<String, Path> discoverRecords() throws Exception {
@@ -1339,9 +1345,10 @@ class StaticVerificationRecordRepositoryTest {
         assertEquals(expectation.artifactName(), record.get("artifact").get("name").asText());
         assertEquals(expectation.artifactSize(), record.get("artifact").get("size").asLong());
         assertEquals(expectation.artifactSha256(), record.get("artifact").get("sha256").asText());
-        assertEquals(expectation.recordSha256(), HostArtifactDigest.from(recordPath).sha256());
+        assertEquals(expectation.recordSha256(), HostArtifactDigest.from(recordPath).sha256(),
+            repositoryPath + ": verified record digest drifted");
         assertEquals(expectation.selectorCount(), record.get("selectors").size(),
-            "verified selector count drifted");
+            repositoryPath + ": verified selector count drifted");
 
         final JsonNode pack = mapper.readTree(PROJECT_ROOT.resolve(expectation.packPath()).toFile());
         assertEquals("DRAFT", pack.get("status").asText(), "mapping pack readiness must remain DRAFT");

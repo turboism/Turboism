@@ -11,7 +11,7 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.cubism.ModelUpdateEvent;
+import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;

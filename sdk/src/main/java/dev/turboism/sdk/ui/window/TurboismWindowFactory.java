@@ -39,9 +39,28 @@ public final class TurboismWindowFactory {
     private static final String WINDOW_ICON_RESOURCE =
         "dev/turboism/sdk/ui/window/turboism-window-icon.png";
 
+    private static volatile boolean windowIconResolved;
     private static volatile Image windowIcon;
+    private static volatile Image windowIconOverride;
 
     private TurboismWindowFactory() {
+    }
+
+    /**
+     * Installs a process-wide window icon override returned by
+     * {@link #windowIcon()} and applied by {@link #style(Window)} instead of
+     * the bundled default icon.
+     *
+     * <p>This seam exists for the host branding layer (the core plugin),
+     * which owns the icon assets and the icon-mode setting: it installs the
+     * image matching the main-toolbar button so every plugin-owned window
+     * follows the same product icon. Passing {@code null} removes the
+     * override and restores the bundled default.</p>
+     *
+     * @param icon the override image, or {@code null} to restore the default
+     */
+    public static void installWindowIcon(final Image icon) {
+        windowIconOverride = icon;
     }
 
     /**
@@ -49,18 +68,22 @@ public final class TurboismWindowFactory {
      * {@code null} when the resource is missing or cannot be decoded.
      *
      * <p>The icon is loaded once and cached; a failed load is also cached so
-     * repeated calls do not rescan the classpath.</p>
+     * repeated calls do not rescan the classpath. An icon installed through
+     * {@link #installWindowIcon(Image)} takes precedence over the bundled
+     * default.</p>
      *
      * @return the window icon image, or {@code null} when unavailable
      */
     public static Image windowIcon() {
-        final Image cached = windowIcon;
-        if (cached != null) {
-            return cached;
+        final Image override = windowIconOverride;
+        if (override != null) {
+            return override;
         }
-        final Image loaded = loadWindowIcon();
-        windowIcon = loaded;
-        return loaded;
+        if (!windowIconResolved) {
+            windowIcon = loadWindowIcon();
+            windowIconResolved = true;
+        }
+        return windowIcon;
     }
 
     /**

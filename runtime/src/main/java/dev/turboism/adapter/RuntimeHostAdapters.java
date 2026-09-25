@@ -26,6 +26,7 @@ import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.ui.resource.UiResourceService;
 
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -46,7 +47,8 @@ public record RuntimeHostAdapters(
     RecentFileAdapter recentFiles,
     ScreenshotCaptureAdapter screenshots,
     RecentPreviewContributionAdapter recentPreviews,
-    AutoBackupAdapter autoBackup
+    AutoBackupAdapter autoBackup,
+    UiResourceService uiResources
 ) {
 
     public RuntimeHostAdapters {
@@ -60,6 +62,35 @@ public record RuntimeHostAdapters(
         screenshots = Objects.requireNonNull(screenshots, "screenshots");
         recentPreviews = Objects.requireNonNull(recentPreviews, "recentPreviews");
         autoBackup = Objects.requireNonNull(autoBackup, "autoBackup");
+        uiResources = Objects.requireNonNull(uiResources, "uiResources");
+    }
+
+    /** Compatibility constructor: the UI resource provider stays in fail-closed safe mode. */
+    public RuntimeHostAdapters(
+        final ThemeStatusAdapter themeStatus,
+        final RenderStatusAdapter renderStatus,
+        final ProjectWorkspaceAdapter projectWorkspace,
+        final ClipMaskReadAdapter clipMaskRead,
+        final StatusToolbarAdapter statusToolbar,
+        final UiSurfaceAdapter uiSurface,
+        final RecentFileAdapter recentFiles,
+        final ScreenshotCaptureAdapter screenshots,
+        final RecentPreviewContributionAdapter recentPreviews,
+        final AutoBackupAdapter autoBackup
+    ) {
+        this(
+            themeStatus,
+            renderStatus,
+            projectWorkspace,
+            clipMaskRead,
+            statusToolbar,
+            uiSurface,
+            recentFiles,
+            screenshots,
+            recentPreviews,
+            autoBackup,
+            UiResourceService.unavailable()
+        );
     }
 
     /** Compatibility constructor: recent-preview slots stay in safe mode. */
@@ -218,7 +249,8 @@ public record RuntimeHostAdapters(
             base.recentFiles(),
             base.screenshots(),
             base.recentPreviews(),
-            base.autoBackup()
+            base.autoBackup(),
+            base.uiResources()
         );
     }
 
@@ -233,7 +265,7 @@ public record RuntimeHostAdapters(
         final VerifiedMemberResolver panelResolver
     ) {
         return withVerifiedRecentPreview(
-            base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale.resolve()
+            base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale::resolve
         );
     }
 
@@ -247,12 +279,38 @@ public record RuntimeHostAdapters(
         return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> { });
     }
 
+    /** Connects the verified recent-preview slice with the caller's effective-locale source. */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver,
+        final java.util.function.Supplier<java.util.Locale> locale
+    ) {
+        return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> { });
+    }
+
     /** Connects the recent-preview slice and routes sanitized host diagnostics to the runtime sink. */
     public static RuntimeHostAdapters withVerifiedRecentPreview(
         final RuntimeHostAdapters base,
         final VerifiedMemberResolver projectResolver,
         final VerifiedMemberResolver panelResolver,
         final java.util.Locale locale,
+        final Consumer<String> diagnostics
+    ) {
+        return withVerifiedRecentPreview(base, projectResolver, panelResolver, fixedLocale(locale), diagnostics);
+    }
+
+    /**
+     * Connects the recent-preview slice and routes sanitized host diagnostics to the runtime sink.
+     *
+     * @param locale resolves the effective locale at render time, so a locale settled after this
+     *     bundle's composition is honored
+     */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver,
+        final java.util.function.Supplier<java.util.Locale> locale,
         final Consumer<String> diagnostics
     ) {
         Objects.requireNonNull(base, "base");
@@ -275,8 +333,16 @@ public record RuntimeHostAdapters(
                 panelResolver, files, popup, diagnostics
             )),
             RecentPreviewContributionAdapter.connected(popup),
-            base.autoBackup()
+            base.autoBackup(),
+            base.uiResources()
         );
+    }
+
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
+        final java.util.Locale locale
+    ) {
+        final java.util.Locale required = Objects.requireNonNull(locale, "locale");
+        return () -> required;
     }
 
     /**
@@ -309,7 +375,34 @@ public record RuntimeHostAdapters(
             base.recentFiles(),
             base.screenshots(),
             base.recentPreviews(),
-            AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(autoBackupResolver))
+            AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(autoBackupResolver)),
+            base.uiResources()
+        );
+    }
+
+    /**
+     * Adds one stable, non-closeable SDK view owned by an explicitly composed host-binding resource
+     * owner without preloading or changing any other adapter slot. The caller retains close ownership
+     * of the {@code RuntimeUiResourceService} owner, not this SDK view.
+     */
+    public static RuntimeHostAdapters withUiResources(
+        final RuntimeHostAdapters base,
+        final UiResourceService uiResources
+    ) {
+        Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(uiResources, "uiResources");
+        return new RuntimeHostAdapters(
+            base.themeStatus(),
+            base.renderStatus(),
+            base.projectWorkspace(),
+            base.clipMaskRead(),
+            base.statusToolbar(),
+            base.uiSurface(),
+            base.recentFiles(),
+            base.screenshots(),
+            base.recentPreviews(),
+            base.autoBackup(),
+            uiResources
         );
     }
 }

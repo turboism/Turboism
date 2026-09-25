@@ -98,6 +98,20 @@ public final class FxHostValidationProbe implements CubismPlugin {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(120);
     private static final Duration PROMPT_TIMEOUT = Duration.ofSeconds(240);
 
+    static String mcpRenamePrompt(final String kind, final String id, final String name) {
+        final java.util.Map<String, Object> arguments = java.util.Map.of(
+            "operations", List.of(java.util.Map.of(
+                "operation", "rename", "kind", kind.toLowerCase(java.util.Locale.ROOT), "id", id, "name", name
+            ))
+        );
+        final String json = new String(
+            dev.turboism.protocol.json.StrictJson.bytes(arguments),
+            java.nio.charset.StandardCharsets.UTF_8
+        );
+        return "Use the Turboism MCP tool turboism.model_objects.apply exactly once with these JSON arguments: "
+            + json + "\nDo not rename any other object or perform additional operations.";
+    }
+
     private PluginContext context;
     private Thread validationThread;
 
@@ -171,9 +185,7 @@ public final class FxHostValidationProbe implements CubismPlugin {
                 throw new IllegalStateException("fx did not expose the required provider/model selection");
             }
 
-            final String prompt = "Use the Turboism MCP tool turboism_model_object_rename exactly once. "
-                + "Rename the " + targetKind + " object whose id is exactly " + targetId
-                + " to exactly " + targetName + ". Do not rename any other object.";
+            final String prompt = mcpRenamePrompt(targetKind, targetId, targetName);
             enterPromptAndSend(agentWindow, prompt);
             approvePermissionDialog();
             awaitRename(targetId, targetName);

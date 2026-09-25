@@ -27,9 +27,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -78,10 +77,13 @@ public final class RuntimePerformanceProbeService
     private final PermissionChecker permissionChecker;
     private final Clock clock;
     private final Object lifecycle = new Object();
-    private final List<Consumer<PerformanceSnapshot>> consumers = new ArrayList<>();
+    private final List<Subscription> consumers = new ArrayList<>();
     private final Map<String, RollingSeries> buffers = new LinkedHashMap<>();
-    private final AtomicBoolean running = new AtomicBoolean();
     private ScheduledExecutorService sampler;
+    private ScheduledFuture<?> samplingTask;
+    private long samplingPeriodNanos;
+    private long samplingGeneration;
+    private boolean closed;
     private PerformanceFpsHook hook;
     private long lastTickEpochMs = -1L;
     private long lastRenderCalls = -1L;
@@ -126,6 +128,7 @@ public final class RuntimePerformanceProbeService
         checkPermission();
         final long now = clock.millis();
         synchronized (lifecycle) {
+            requireOpen();
             return buildSnapshot(now, renderCalls());
         }
     }
@@ -141,23 +144,43 @@ public final class RuntimePerformanceProbeService
         if (interval.isZero() || interval.isNegative()) {
             throw new IllegalArgumentException("interval must be positive");
         }
-        synchronized (lifecycle) {
-            if (consumers.isEmpty()) {
-                startSampling(interval);
-            }
-            consumers.add(consumer);
+        final long intervalNanos;
+        try {
+            intervalNanos = interval.toNanos();
+        } catch (ArithmeticException overflow) {
+            throw new IllegalArgumentException("interval exceeds the supported nanosecond range", overflow);
         }
-        return () -> {
-            synchronized (lifecycle) {
-                consumers.remove(consumer);
+        synchronized (lifecycle) {
+            requireOpen();
+            final Subscription subscription = new Subscription(intervalNanos, consumer);
+            consumers.add(subscription);
+            try {
+                if (sampler == null) startSampling();
+                updateCadence();
+                return subscription;
+            } catch (RuntimeException | Error failure) {
+                consumers.remove(subscription);
+                subscription.cancel();
                 if (consumers.isEmpty()) {
-                    stopSampling();
+                    try {
+                        stopSampling();
+                    } catch (RuntimeException | Error cleanup) {
+                        if (cleanup != failure) failure.addSuppressed(cleanup);
+                    }
                 }
+                throw failure;
             }
-        };
+        }
     }
 
-    private void startSampling(final Duration interval) {
+    private void requireOpen() {
+        if (closed) throw new IllegalStateException("Performance sampling service is closed");
+    }
+
+    private void startSampling() {
+        if (hook != null) {
+            throw new IllegalStateException("Previous performance hook cleanup is incomplete");
+        }
         final long now = clock.millis();
         lastTickEpochMs = now;
         lastRenderCalls = renderCalls();
@@ -178,33 +201,43 @@ public final class RuntimePerformanceProbeService
                 );
             }
         }
-        final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactory() {
-                @Override
-                public Thread newThread(final Runnable runnable) {
-                    final Thread thread = new Thread(runnable, "turboism-perf-stats-" + pluginId);
-                    thread.setDaemon(true);
-                    return thread;
-                }
-            }
+        sampler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "turboism-perf-stats-" + pluginId);
+            thread.setDaemon(true);
+            return thread;
+        });
+        lastRenderCalls = renderCalls();
+    }
+
+    /** Changes collection cadence without changing the mounted hook's ownership. */
+    private void updateCadence() {
+        final long period = consumers.stream().mapToLong(value -> value.intervalNanos).min().orElseThrow();
+        if (samplingTask != null && period == samplingPeriodNanos) return;
+        final long generation = samplingGeneration + 1;
+        final long now = System.nanoTime();
+        final long initialDelay = consumers.stream()
+            .mapToLong(value -> Math.max(0L, value.nextDeliveryNanos - now))
+            .min().orElseThrow();
+        final ScheduledFuture<?> replacement = sampler.scheduleAtFixedRate(
+            () -> tick(generation), initialDelay, period, TimeUnit.NANOSECONDS
         );
-        sampler = executor;
-        executor.scheduleAtFixedRate(
-            this::tick,
-            interval.toMillis(),
-            interval.toMillis(),
-            TimeUnit.MILLISECONDS
-        );
+        if (samplingTask != null) samplingTask.cancel(false);
+        samplingTask = replacement;
+        samplingPeriodNanos = period;
+        samplingGeneration = generation;
     }
 
     private void stopSampling() {
+        samplingGeneration++;
+        if (samplingTask != null) samplingTask.cancel(false);
+        samplingTask = null;
+        samplingPeriodNanos = 0L;
         final ScheduledExecutorService executor = sampler;
         sampler = null;
         if (executor != null) {
             executor.shutdownNow();
         }
         final PerformanceFpsHook mounted = hook;
-        hook = null;
         lastTickEpochMs = -1L;
         lastRenderCalls = -1L;
         lastGcCollections = -1L;
@@ -215,12 +248,14 @@ public final class RuntimePerformanceProbeService
         try {
             if (mounted != null) {
                 mounted.close();
+                hook = null;
             }
         } catch (Throwable closeFailure) {
             failure = closeFailure;
         } finally {
             unpublishCharts();
         }
+        if (failure instanceof Error fatal) throw fatal;
         if (failure != null) {
             throw new IllegalStateException(
                 "performance sampling stopped but FPS hook restoration failed",
@@ -229,49 +264,87 @@ public final class RuntimePerformanceProbeService
         }
     }
 
-    private void tick() {
-        if (!running.compareAndSet(false, true)) {
-            return;
-        }
-        try {
-            final long now = clock.millis();
-            final PerformanceSnapshot snapshot;
-            final double gcPauseWindowMillis;
-            synchronized (lifecycle) {
-                if (consumers.isEmpty()) return;
-                snapshot = buildSnapshot(now, renderCalls());
-                lastTickEpochMs = now;
-                lastRenderCalls = snapshot.renderedFrames();
-                gcPauseWindowMillis = lastGcPauseMillis < 0L
-                    ? 0.0
-                    : Math.max(0.0, (double) (snapshot.gcPauseMillis() - lastGcPauseMillis));
-                lastGcCollections = snapshot.gcCollections();
-                lastGcPauseMillis = snapshot.gcPauseMillis();
-            }
-            appendBuffers(snapshot, gcPauseWindowMillis);
-            publishCharts();
-            for (Consumer<PerformanceSnapshot> consumer : List.copyOf(consumers)) {
-                try {
-                    consumer.accept(snapshot);
-                } catch (Throwable failure) {
-                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                        "performance",
-                        "Performance sampling consumer failed safely",
-                        failure
-                    );
+    private void tick(final long generation) {
+        // One executor serializes each sampling session. Do not let an in-flight callback
+        // from a retired executor own admission to a replacement session.
+        final long now = clock.millis();
+        final PerformanceSnapshot snapshot;
+        final double gcPauseWindowMillis;
+        final List<Subscription> due = new ArrayList<>();
+        synchronized (lifecycle) {
+            if (closed || generation != samplingGeneration || consumers.isEmpty()) return;
+            final long monotonicNow = System.nanoTime();
+            for (Subscription subscription : consumers) {
+                if (monotonicNow - subscription.nextDeliveryNanos >= 0L) {
+                    // Keep the subscriber's phase instead of accumulating timer jitter.
+                    // Missed periods are coalesced, never replayed as a callback burst.
+                    final long lateness = monotonicNow - subscription.nextDeliveryNanos;
+                    subscription.nextDeliveryNanos = monotonicNow + subscription.intervalNanos
+                        - lateness % subscription.intervalNanos;
+                    due.add(subscription);
                 }
             }
-        } finally {
-            running.set(false);
+            snapshot = buildSnapshot(now, renderCalls());
+            lastTickEpochMs = now;
+            lastRenderCalls = snapshot.renderedFrames();
+            gcPauseWindowMillis = lastGcPauseMillis < 0L
+                ? 0.0
+                : Math.max(0.0, (double) (snapshot.gcPauseMillis() - lastGcPauseMillis));
+            lastGcCollections = snapshot.gcCollections();
+            lastGcPauseMillis = snapshot.gcPauseMillis();
+            // Publication belongs to the same generation as collection and cannot race close.
+            appendBuffers(snapshot, gcPauseWindowMillis);
+            publishCharts();
+        }
+        for (Subscription subscription : due) {
+            final Consumer<PerformanceSnapshot> consumer = subscription.admit();
+            if (consumer == null) continue;
+            try {
+                consumer.accept(snapshot);
+            } catch (Throwable failure) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "performance",
+                    "Performance sampling consumer failed safely",
+                    failure
+                );
+            }
         }
     }
 
     @Override
     public void close() {
         synchronized (lifecycle) {
+            closed = true;
+            consumers.forEach(Subscription::cancel);
             consumers.clear();
             if (sampler != null || hook != null) {
+                // A failed hook restoration keeps ownership here for a later close retry.
                 stopSampling();
+            }
+        }
+    }
+
+    /** A callback admitted before cancellation may finish; no subsequent callback is admitted. */
+    private final class Subscription implements Registration {
+        private final long intervalNanos;
+        private long nextDeliveryNanos;
+        private Consumer<PerformanceSnapshot> consumer;
+
+        private Subscription(final long intervalNanos, final Consumer<PerformanceSnapshot> consumer) {
+            this.intervalNanos = intervalNanos;
+            this.nextDeliveryNanos = System.nanoTime() + intervalNanos;
+            this.consumer = consumer;
+        }
+
+        private synchronized Consumer<PerformanceSnapshot> admit() { return consumer; }
+        private synchronized void cancel() { consumer = null; }
+
+        @Override public void close() {
+            synchronized (lifecycle) {
+                if (!consumers.remove(this)) return;
+                cancel();
+                if (consumers.isEmpty()) stopSampling();
+                else updateCadence();
             }
         }
     }

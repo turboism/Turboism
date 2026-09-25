@@ -47,6 +47,33 @@ public final class PerformanceProbeTargets {
         return full53Targets();
     }
 
+    /**
+     * Opt-in image-pipeline diagnostics checked against the exact 5.3.02 artifact.
+     * Decode/encode count work at codec entry points; archive and redraw count attempts,
+     * not disk reads, transferred bytes or completed GPU operations. No 5.3.03 admission
+     * is inferred from matching names. Includes the ordinary render/edit timings.
+     *
+     * @return the twelve exact render, edit and image diagnostic selectors
+     */
+    public static List<PerformanceProbeMethodTransformer.Target> cubism5302Images() {
+        final java.util.ArrayList<PerformanceProbeMethodTransformer.Target> targets =
+            new java.util.ArrayList<>(cubism5302());
+        targets.addAll(List.of(
+            target("com/live2d/graphics/CWritableImage$b", "a",
+                "(Ljava/io/InputStream;Lcom/live2d/graphics/n;)Lcom/live2d/graphics/CWritableImage;",
+                PerformanceProbeMetric.IMAGE_DECODE),
+            target("com/live2d/graphics/CWritableImage", "writeImageAsPng",
+                "(Ljava/io/OutputStream;)V", PerformanceProbeMetric.PNG_ENCODE),
+            target("com/live2d/graphics/CImageResource", "archive",
+                "()V", PerformanceProbeMetric.IMAGE_ARCHIVE),
+            target("com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "setupCacheImage$cubism",
+                "(ZLcom/live2d/util/a/a;)V", PerformanceProbeMetric.ATLAS_REBUILD),
+            target("com/live2d/graphics3d/texture/GTexture2D", "redrawTexture",
+                "(Lcom/live2d/graphics3d/a;)V", PerformanceProbeMetric.TEXTURE_REDRAW)
+        ));
+        return List.copyOf(targets);
+    }
+
     private static List<PerformanceProbeMethodTransformer.Target> full53Targets() {
         return List.of(
             target(

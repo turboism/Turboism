@@ -4,11 +4,13 @@
 
 ## Copyright and notices
 
-Copyright © 2026 Turboism Contributors. Turboism is open source under the [MIT License](LICENSE).
+Copyright © 2026 Turboism Contributors. Turboism is open source under the [AGPL-3.0-only license](LICENSE).
+
+This version is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`). Third-party components and files with separate license notices retain their respective licenses.
 
 Turboism is an **independent third-party project**, not affiliated with, endorsed by, or sponsored by Live2D Inc. Live2D, Cubism and related names and marks belong to Live2D Inc. or their respective owners. Turboism does not distribute Cubism Editor or grant, replace or bypass its license; a separately installed, lawfully licensed copy is required.
 
-Read the [End User Runtime Statement and Disclaimer](EULA.md) before installation. It does not reduce the rights granted by the MIT License; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
+Read the [End User Runtime Statement and Disclaimer](packaging/eula/EULA.en.txt) before installation. It does not reduce the rights granted by the AGPL-3.0-only license; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
 
 ## About
 
@@ -83,6 +85,12 @@ On Windows, use `gradlew.bat` instead of `./gradlew`. Make changes on a separate
 
 For plugin development, start with the [demo plugin](plugins/demo/README.md), its [build configuration](plugins/demo/build.gradle.kts) and [plugin descriptor](plugins/demo/src/main/resources/META-INF/turboism/plugin.json). Plugins depend on `:sdk` with `compileOnly` scope; do not directly depend on runtime internals or `com.live2d.*` classes.
 
+Building a plugin **outside** this repository does not require building Turboism. Every GitHub Release ships `turboism-sdk-<version>.jar` (with a `.sha256` sidecar): copy [templates/plugin-template](templates/plugin-template/) as a standalone project, drop the SDK JAR into its `libs/` directory and follow its README. Framework contributors can also publish the SDK and the `@SubscribeEvent` annotation processor to the local Maven repository, then resolve `dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`:
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
 ```bash
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
@@ -93,7 +101,7 @@ The demo is development-only, not part of the release bundle. Run focused tests 
 
 - [User and developer documentation](https://docs.turboism.dev)
 - [Architecture](ARCHITECTURE.md) and [roadmap](ROADMAP.md)
-- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v10 migration notes](sdk/api-contracts/sdk-api-v10-review.md), with the [v9](sdk/api-contracts/sdk-api-v9-review.md) and [v7](sdk/api-contracts/sdk-api-v7-review.md) reviews kept as historical audits
-- [Demo plugin](plugins/demo/README.md)
+- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v11 migration notes](sdk/api-contracts/sdk-api-v11-review.md), with the [v10](sdk/api-contracts/sdk-api-v10-review.md) and [v7](sdk/api-contracts/sdk-api-v7-review.md) reviews kept as historical audits
+- [Demo plugin](plugins/demo/README.md) and the standalone [plugin template](templates/plugin-template/)
 - [Java installer details](packaging/java-installer/README-java-installer.md)
 - [Release process](RELEASING.md) and [changelog](CHANGELOG.md)

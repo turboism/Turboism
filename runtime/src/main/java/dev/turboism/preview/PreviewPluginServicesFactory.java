@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
+import dev.turboism.core.event.PublicEventContractCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.exportsettings.RuntimeExportSettingsAuthority;
 import dev.turboism.exportsettings.RuntimeExportSettingsContributionRegistry;
@@ -49,6 +50,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Path home;
     private final RuntimeScheduler scheduler;
     private final RuntimeEventBroker eventBroker;
+    private final PublicEventContractCatalog eventContracts;
     private final RuntimeHostAdapterAccess hostAccess;
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
@@ -56,6 +58,9 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Locale effectiveLocale;
     private final RuntimePerformanceProbeService performanceProbe;
     private final RuntimePerformanceEventPublisher performanceEvents;
+    private final dev.turboism.adapter.cubism.HostSnapshotSource sessionSnapshotSource;
+    private final dev.turboism.adapter.cubism.SelectionObservationPublisher selectionObserver;
+    private dev.turboism.cleanup.RetryableCleanup cleanup;
     private final dev.turboism.mcp.McpConnectionRegistry mcpConnections =
         new dev.turboism.mcp.McpConnectionRegistry();
     /**
@@ -112,6 +117,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     ) {
         this.home = home;
         this.scheduler = scheduler;
+        this.eventContracts = new PublicEventContractCatalog(eventContractCacheDir(home));
         this.eventBroker = new RuntimeEventBroker(
             scheduler,
             64,
@@ -137,7 +143,8 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                     null,
                     1L
                 )
-            )
+            ),
+            eventContracts
         );
         Objects.requireNonNull(parameterLifecycle, "parameterLifecycle")
             .attachEventBroker(eventBroker);
@@ -171,6 +178,35 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         this.log = log;
         this.failureCollector = failureCollector;
         this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        // One session snapshot source shared by every plugin query facade and the
+        // selection observer: a single invalidation-token domain lets the shared
+        // observation baseline order query results against sampler results.
+        this.sessionSnapshotSource = dev.turboism.adapter.host.HostSessionSnapshotSource
+            .forSession(hostAccess.adapters().projectWorkspace());
+        // Session-scoped selection observation on the bounded host-read lane.
+        this.selectionObserver = new dev.turboism.adapter.cubism.SelectionObservationPublisher(
+            sessionSnapshotSource,
+            hostReadLane,
+            scheduler,
+            eventBroker,
+            eventBroker.observationBaseline(
+                dev.turboism.adapter.cubism.SelectionObservation.class
+            )
+        );
+        this.selectionObserver.signalDemand();
+    }
+
+    private static Path eventContractCacheDir(final Path home) {
+        try {
+            return TurboismHomeLayout.create(home)
+                .runtimeCacheDir()
+                .resolve("event-contracts");
+        } catch (IOException failure) {
+            throw new IllegalStateException(
+                "cannot resolve the runtime cache directory under " + home,
+                failure
+            );
+        }
     }
 
     RuntimeEventBroker.Owner admitEventOwner(final PluginDescriptor descriptor) {
@@ -179,6 +215,24 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
 
     void preflightEventContracts(final PluginDescriptor descriptor) {
         eventBroker.preflight(descriptor);
+    }
+
+    void preflightEventContracts(
+        final PluginDescriptor descriptor,
+        final PublicEventContractCatalog.ContractLease lease
+    ) {
+        eventBroker.preflight(descriptor, lease);
+    }
+
+    PublicEventContractCatalog.ContractLease acquireEventContracts(
+        final PluginDescriptor descriptor,
+        final Path pluginJar
+    ) {
+        return eventContracts.acquire(descriptor, pluginJar);
+    }
+
+    PublicEventContractCatalog eventContracts() {
+        return eventContracts;
     }
 
     RuntimeEventBroker.Owner admitEventOwner(final String pluginId) {
@@ -190,13 +244,23 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        performanceEvents.close();
-        performanceProbe.close();
-        mcpConnections.close();
-        eventBroker.observationBaseline(
-            dev.turboism.sdk.performance.PerformanceProbeService.class
-        ).compareAndSet(performanceProbe, null);
+    public synchronized void close() {
+        if (cleanup == null) {
+            cleanup = new dev.turboism.cleanup.RetryableCleanup(
+                "Shared plugin service cleanup failed",
+                selectionObserver::close,
+                performanceEvents::close,
+                performanceProbe::close,
+                mcpConnections::close,
+                () -> eventBroker.observationBaseline(
+                    dev.turboism.sdk.performance.PerformanceProbeService.class
+                ).compareAndSet(performanceProbe, null),
+                // Retire contract admission; bindings still leased by retained generations stay
+                // usable until their last release, which remains legal after close().
+                eventContracts::close
+            );
+        }
+        cleanup.close();
     }
 
     PreviewPluginServices create(
@@ -315,7 +379,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
             new PreviewDiagnosticReport(), scope,
-            EmptyHostSnapshotSource.INSTANCE,
+            sessionSnapshotSource,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector,
             eventBroker, Objects.requireNonNull(eventOwner, "eventOwner").key(),

@@ -1,0 +1,7 @@
+{
+  "format": "turboism.permission",
+  "schemaVersion": 1,
+  "id": "turboism.cubism.edit",
+  "scope": "application",
+  "reason": "Opens an external-application edit session that locks the editor UI and batches model mutations."
+}

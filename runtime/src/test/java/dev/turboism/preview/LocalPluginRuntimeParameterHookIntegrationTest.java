@@ -117,7 +117,7 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
                     ) { record("after"); }
                     @dev.turboism.sdk.event.SubscribeEvent
                     public void annotatedAfter(
-                        dev.turboism.sdk.event.cubism.ParameterValueEvent.After event
+                        dev.turboism.sdk.cubism.event.ParameterValueEvent.After event
                     ) { record("annotated-after"); }
                 }
                 """.formatted(EVENT_PROPERTY, EVENT_PROPERTY), StandardCharsets.UTF_8);

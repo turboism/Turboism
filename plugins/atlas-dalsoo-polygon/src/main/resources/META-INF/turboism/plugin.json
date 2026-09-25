@@ -1,0 +1,57 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.texture-atlas-dalsoo",
+  "name": "Dalsoo Polygon Packing Algorithm",
+  "version": "0.1.0",
+  "description": "Irregular-polygon texture-atlas packing (Dalsoo kernel port; concave outlines, free rotation, per-item locks).",
+  "entrypoints": [
+    "dev.turboism.plugin.atlasdalsoo.TextureAtlasDalsooPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "MIT (kernel port of whitegreen/Dalsoo-Bin-Packing)",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "zh-Hans"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read atlas item outlines, issued transforms and page state."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply validated polygon layout plans through the host affine/undo boundary."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restore polygon layout settings and per-item policies."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persist polygon layout settings and per-item policies."
+    }
+  ],
+  "capabilities": ["cubism.texture-atlas.layout"],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  },
+  "tags": [
+    "texture-atlas",
+    "packing",
+    "polygon",
+    "auto-layout"
+  ],
+  "category": "modeling"
+}

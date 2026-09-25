@@ -129,7 +129,7 @@ public final class RuntimeScriptService implements ScriptService {
     }
 
     @Override
-    public boolean available() {
+    public boolean isAvailable() {
         return host.configured();
     }
 

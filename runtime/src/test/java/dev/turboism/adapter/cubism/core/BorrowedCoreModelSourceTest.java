@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -211,6 +212,107 @@ class BorrowedCoreModelSourceTest {
         assertNull(closeFailure.get());
         assertFalse(lease.isOpen());
         source.close();
+    }
+
+    @Test
+    void idleReleaseForgetsTheModelImmediatelyWhenNoLeaseIsOutstanding() {
+        final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
+        final AtomicInteger cleared = new AtomicInteger();
+        source.onModelCleared(cleared::incrementAndGet);
+        final SyntheticModel model = new SyntheticModel("model-a");
+        source.publishBorrowedModel(model, "model-a");
+
+        source.releaseWhenIdle();
+        source.releaseWhenIdle();
+
+        assertNull(source.publishedModel());
+        assertEquals(1, cleared.get(), "a repeated idle release stays idempotent");
+        assertEquals(
+            CoreModelFailure.Code.MODEL_UNAVAILABLE,
+            failureCode(source.acquire(provider("5.3.02")))
+        );
+        source.close();
+        assertNoLifecycleCalls(model);
+    }
+
+    @Test
+    void idleReleaseDefersUntilTheLastLeaseDrains() {
+        final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
+        final AtomicInteger cleared = new AtomicInteger();
+        source.onModelCleared(cleared::incrementAndGet);
+        final SyntheticModel model = new SyntheticModel("model-a");
+        source.publishBorrowedModel(model, "model-a");
+        final CoreModelLease lease = source.acquire(provider("5.2.03"))
+            .lease().orElseThrow();
+
+        source.releaseWhenIdle();
+        assertSame(model, source.publishedModel(), "a held lease keeps the model published");
+        assertEquals(
+            "model-a",
+            lease.readForProvider(raw -> ((SyntheticModel) raw).identity())
+        );
+        assertEquals(0, cleared.get());
+
+        lease.close();
+        assertNull(source.publishedModel());
+        assertEquals(1, cleared.get());
+        assertEquals(
+            CoreModelFailure.Code.MODEL_UNAVAILABLE,
+            failureCode(source.acquire(provider("5.3.02")))
+        );
+        source.close();
+    }
+
+    @Test
+    void aLaterPublicationCancelsAPendingIdleRelease() {
+        final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
+        source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
+        final CoreModelLease lease = source.acquire(provider("5.2.03"))
+            .lease().orElseThrow();
+        source.releaseWhenIdle();
+
+        final AtomicReference<Throwable> publishFailure = new AtomicReference<>();
+        final Thread publishing = new Thread(
+            () -> captureFailure(
+                () -> source.publishBorrowedModel(new SyntheticModel("model-b"), "model-b"),
+                publishFailure
+            ),
+            "core-model-republish"
+        );
+        publishing.start();
+        awaitWaiting(publishing);
+
+        lease.close();
+        join(publishing);
+        assertNull(publishFailure.get());
+        final CoreModelLease republished = source.acquire(provider("5.3.02"))
+            .lease().orElseThrow();
+        assertEquals(
+            "model-b",
+            republished.modelIdentity(),
+            "the pending release must not forget the replacement"
+        );
+        republished.close();
+        source.close();
+    }
+
+    @Test
+    void modelClearedListenersFireOnEveryClearPath() {
+        final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
+        final AtomicInteger cleared = new AtomicInteger();
+        source.onModelCleared(cleared::incrementAndGet);
+
+        source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
+        source.releaseWhenIdle();
+        assertEquals(1, cleared.get());
+
+        source.publishBorrowedModel(new SyntheticModel("model-b"), "model-b");
+        source.clearBorrowedModel();
+        assertEquals(2, cleared.get());
+
+        source.publishBorrowedModel(new SyntheticModel("model-c"), "model-c");
+        source.close();
+        assertEquals(3, cleared.get());
     }
 
     private static int readMethodModifiers() {

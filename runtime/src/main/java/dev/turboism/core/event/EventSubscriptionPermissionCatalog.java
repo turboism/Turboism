@@ -3,24 +3,24 @@ package dev.turboism.core.event;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
-import dev.turboism.sdk.event.cubism.DrawableLockEvent;
-import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
-import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
-import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
-import dev.turboism.sdk.event.cubism.EditorExitEvent;
-import dev.turboism.sdk.event.cubism.EditorStartupEvent;
-import dev.turboism.sdk.event.cubism.ModelUpdateEvent;
-import dev.turboism.sdk.event.cubism.DeformerLockEvent;
-import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
-import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
-import dev.turboism.sdk.event.cubism.ParameterValueEvent;
-import dev.turboism.sdk.event.cubism.PartNameEvent;
-import dev.turboism.sdk.event.cubism.PartOpacityEvent;
-import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
-import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
-import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
+import dev.turboism.sdk.cubism.event.DrawableLockEvent;
+import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
+import dev.turboism.sdk.cubism.event.DrawableVisibilityEvent;
+import dev.turboism.sdk.cubism.event.EditorExitEvent;
+import dev.turboism.sdk.cubism.event.EditorStartupEvent;
+import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
+import dev.turboism.sdk.cubism.event.DeformerLockEvent;
+import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
+import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
+import dev.turboism.sdk.cubism.event.PartNameEvent;
+import dev.turboism.sdk.cubism.event.PartOpacityEvent;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerBaseAngleEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerFormEvent;
+import dev.turboism.sdk.cubism.event.WarpDeformerGridEvent;
 import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
@@ -30,6 +30,7 @@ import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
+import dev.turboism.sdk.runtime.PluginLifecycleEvent;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
@@ -59,6 +60,35 @@ public final class EventSubscriptionPermissionCatalog {
         for (String permission : requiredPermissions(type)) {
             checker.check(permission, "event.subscribe." + type.getName());
         }
+    }
+
+    /**
+     * Non-throwing per-delivery permission probe: evaluates the permissions the
+     * <em>concrete</em> event type requires against the owner's checker. A broad
+     * (root/supertype) subscription is therefore authorized per delivered event,
+     * not per subscription type — it receives exactly the subset its owner is
+     * allowed to observe.
+     *
+     * @return true when every required domain permission is granted
+     */
+    public static boolean isPermitted(
+        final Class<? extends EventBus.TurboismEvent> concreteType,
+        final PermissionChecker permissionChecker
+    ) {
+        final PermissionChecker checker = Objects.requireNonNull(
+            permissionChecker,
+            "permissionChecker"
+        );
+        for (String permission : requiredPermissions(
+            Objects.requireNonNull(concreteType, "concreteType")
+        )) {
+            try {
+                checker.check(permission, "event.deliver." + concreteType.getName());
+            } catch (dev.turboism.sdk.permission.CubismPermissionException denied) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Validates that a descriptor declares permissions required by its subscribers. */
@@ -132,6 +162,9 @@ public final class EventSubscriptionPermissionCatalog {
         }
         if (subscriptionType.isAssignableFrom(ActionInvocationEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_ACTION_INVOCATION_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(PluginLifecycleEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_PLUGIN_LIFECYCLE_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
             || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)
