@@ -227,9 +227,14 @@ function New-SyntheticCubism {
     if ($D3D) {
         Set-Content -LiteralPath (Join-Path $root "CubismEditor5_D3D.bat") -Encoding ASCII -Value @(
             "@echo off",
+            'cd /d "%~dp0"',
+            'set JAVA_EXE=app\jre\bin\java.cmd',
             '>>"%TURBOISM_TEST_OUTPUT%" echo D3D=1',
             '>>"%TURBOISM_TEST_OUTPUT%" echo JDK=%JDK_JAVA_OPTIONS%',
-            'exit /b 23'
+            '%JAVA_EXE% ^',
+            '  com.live2d.cubism.CECubismEditorApp ^',
+            '  "%~f1"',
+            'exit /b %ERRORLEVEL%'
         )
     }
     return $root
@@ -251,7 +256,7 @@ try {
     )
     $root52 = New-SyntheticCubism -Name "Live2D" -Version "5.2.03"
     $root53 = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -D3D $true
-    $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02"
+    $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -LeafName "Live2D Cubism 5.3.02 (2)"
     $hyphenD3DRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3.03" -D3D $true
     Move-Item -LiteralPath (Join-Path $hyphenD3DRoot "CubismEditor5_D3D.bat") `
         -Destination (Join-Path $hyphenD3DRoot "CubismEditor5-D3D.bat")

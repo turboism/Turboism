@@ -127,10 +127,10 @@ class CoreShellTest {
         assertTrue(!panel.content().toString().contains("Safe Mode"));
         assertEquals(
             List.of(
-                "Turboism/Settings:turboism.core.settings.open:10",
-                "Turboism/Plugin Management:turboism.core.plugins.open:11",
-                "Turboism/Logs:turboism.core.logs.open:12",
-                "Turboism/About:turboism.core.about.open:13"
+                "Plugins/Settings:turboism.core.settings.open:10",
+                "Plugins/Plugin Management:turboism.core.plugins.open:11",
+                "Plugins/Logs:turboism.core.logs.open:12",
+                "Plugins/About:turboism.core.about.open:13"
             ),
             context.menus().contributions().stream()
                 .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
@@ -928,6 +928,7 @@ class CoreShellTest {
                 @Override
                 public String text(final String key) {
                     return switch (key) {
+                        case "main-toolbar.menu-root.label" -> "Plugins";
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                         case "context-menu.panel-tab.float" -> "Float";
@@ -944,7 +945,8 @@ class CoreShellTest {
 
                 @Override
                 public boolean contains(final String key) {
-                    return key.equals("main-toolbar.settings-menu.label")
+                    return key.equals("main-toolbar.menu-root.label")
+                        || key.equals("main-toolbar.settings-menu.label")
                         || key.equals("main-toolbar.plugins-menu.label")
                         || key.equals("context-menu.panel-tab.float")
                         || key.equals("main-toolbar.logs-menu.label")
