@@ -92,7 +92,11 @@ tasks.register("printBuildInfo") {
     group = "help"
     description = "Print the exact local/CI version identity without building, allocating or publishing"
     val metadata = rootProject.extra["turboismBuildMetadata"] as Map<*, *>
-    doLast { metadata.forEach { (key, value) -> println("$key=$value") } }
+    doLast {
+        metadata.forEach { (key, value) -> println("$key=$value") }
+        println("worktreeId=$resolvedWorktreeId")
+        println("worktreeIdError=${(rootProject.extra["turboismWorktreeIdError"] as String?).orEmpty()}")
+    }
 }
 allprojects {
     group = "dev.turboism"
