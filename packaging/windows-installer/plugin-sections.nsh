@@ -48,29 +48,33 @@ Section "-插件载荷" SecPluginPayload
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0009.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
+      File "/oname=protected-export.jar" "${STAGING_DIR}/plugins/protected-export.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0010.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
+      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0011.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0012.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0013.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0014.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0016.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
       File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
     ${EndIf}
@@ -159,6 +163,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_physics_editor ${LANG_JAPANESE} "物�
 LangString PLUGIN_DESC_dev_turboism_plugin_physics_editor ${LANG_JAPANESE} "Turboism の物理演算エディター。"
 LangString PLUGIN_NAME_dev_turboism_plugin_physics_editor ${LANG_KOREAN} "물리 편집기 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_physics_editor ${LANG_KOREAN} "Turboism 물리 편집기 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_protected_export ${LANG_ENGLISH} "Protected Export 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_protected_export ${LANG_ENGLISH} "Optional protected runtime-model export: works on a task-owned copy, flattens Warp/Rotation deformers, obfuscates ArtMesh identities, validates the complete staged output, then publishes atomically. Admitted only on reviewed Cubism versions and eligible models."
+LangString PLUGIN_NAME_dev_turboism_plugin_protected_export ${LANG_SIMPCHINESE} "受保护导出 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_protected_export ${LANG_SIMPCHINESE} "可选的受保护运行时模型导出：在任务专用副本上扁平化 Warp/Rotation 变形器、混淆 ArtMesh 标识、验证完整暂存输出后原子发布；仅对审查通过的 Cubism 版本与满足准入检查的模型生效。"
+LangString PLUGIN_NAME_dev_turboism_plugin_protected_export ${LANG_JAPANESE} "保護付きエクスポート 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_protected_export ${LANG_JAPANESE} "オプションの保護付きランタイムモデルエクスポートです。タスク専用コピー上でWarp/回転デフォーマを平坦化し、ArtMesh識別子を難読化し、完全なステージング出力を検証してからアトミックに公開します。レビュー済みのCubismバージョンと適格なモデルでのみ有効です。"
+LangString PLUGIN_NAME_dev_turboism_plugin_protected_export ${LANG_KOREAN} "보호된 내보내기 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_protected_export ${LANG_KOREAN} "선택적 보호 런타임 모델 내보내기입니다. 작업 전용 복사본에서 Warp/회전 디포머를 평탄화하고 ArtMesh 식별자를 난독화하며, 완성된 스테이징 출력을 검증한 뒤 원자적으로 게시합니다. 검토된 Cubism 버전과 적격 모델에서만 동작합니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import ${LANG_ENGLISH} "PSD Clip Mask Import Plugin 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import ${LANG_ENGLISH} "Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments with an explicit overwrite policy."
 LangString PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import ${LANG_SIMPCHINESE} "PSD 剪贴蒙版导入插件 0.1.0"
@@ -242,6 +254,9 @@ SectionEnd
 Section "$(PLUGIN_NAME_dev_turboism_plugin_physics_editor)" SEC_dev_turboism_plugin_physics_editor
 SectionEnd
 
+Section "$(PLUGIN_NAME_dev_turboism_plugin_protected_export)" SEC_dev_turboism_plugin_protected_export
+SectionEnd
+
 Section "$(PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import)" SEC_dev_turboism_plugin_psd_clip_mask_import
 SectionEnd
 
@@ -274,6 +289,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "$(PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perf_stats} "$(PLUGIN_DESC_dev_turboism_plugin_perf_stats)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_physics_editor} "$(PLUGIN_DESC_dev_turboism_plugin_physics_editor)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_protected_export} "$(PLUGIN_DESC_dev_turboism_plugin_protected_export)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_psd_clip_mask_import} "$(PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_recent_preview} "$(PLUGIN_DESC_dev_turboism_plugin_recent_preview)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "$(PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer)"
@@ -339,6 +355,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_physics_editor} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_protected_export} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_protected_export} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -385,7 +407,7 @@ FunctionEnd
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）
@@ -469,6 +491,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.physics-editor"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.physics-editor"
+    ${EndIf}
+  ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_protected_export} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.protected-export"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.protected-export"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
