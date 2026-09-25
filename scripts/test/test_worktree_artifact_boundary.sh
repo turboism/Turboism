@@ -35,7 +35,10 @@ for forbidden in "${HOME}/.turboism"; do
 done
 
 # Worktree artifact naming must include the worktree ID for every Gradle project,
-# including official plugin subprojects added after M1.
+# including official plugin subprojects added after M1. Projects that publish
+# byte-exact artifacts exempt themselves from the classifier (archiveClassifier=""),
+# e.g. :sdk and :event-processor, and are skipped here.
+classifier_exempt=" sdk event-processor "
 checked=0
 while IFS= read -r libs_dir; do
   shopt -s nullglob
@@ -46,6 +49,9 @@ while IFS= read -r libs_dir; do
 
   rel="${libs_dir#"${BUILD_DIR}/"}"
   project="${rel%/libs}"
+  case "${classifier_exempt}" in
+    *" ${project} "*) continue ;;
+  esac
   for jar in "${jars[@]}"; do
     name=$(basename -- "${jar}")
     if [[ "${name}" != *"-${WT_ID}.jar" ]]; then

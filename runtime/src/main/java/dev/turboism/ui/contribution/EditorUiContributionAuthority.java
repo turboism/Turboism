@@ -32,11 +32,15 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
     private final Map<EditorUiFamily, EditorUiContributionProvider> providers = new EnumMap<>(EditorUiFamily.class);
     private final Map<EditorUiFamily, Registration> nativeRegistrations = new EnumMap<>(EditorUiFamily.class);
     private final Map<EditorUiFamily, EditorUiContributionFailure> failures = new EnumMap<>(EditorUiFamily.class);
+    private final Map<EditorUiFamily, ReconcileState> reconcileStates = new EnumMap<>(EditorUiFamily.class);
     private final Registration lifecycleRegistration;
     private boolean closed;
 
     public EditorUiContributionAuthority(final EditorUiHostLifecycle hostLifecycle) {
         this.hostLifecycle = Objects.requireNonNull(hostLifecycle, "hostLifecycle");
+        for (EditorUiFamily family : EditorUiFamily.values()) {
+            reconcileStates.put(family, new ReconcileState());
+        }
         this.lifecycleRegistration = hostLifecycle.subscribe(this::onHostChanged);
     }
 
@@ -48,6 +52,13 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
      * floating window are not rebuilt. If reconciliation fails, the contribution is rolled back out
      * of the authority before the failure propagates, so a rejected contribution leaves no state
      * behind.
+     *
+     * <p>Reconciliation is coalesced per family: when another reconcile of the same family is
+     * already running, this call only records the contribution and arms a follow-up pass for the
+     * active reconciler, so the native realization may complete after this method returns. The
+     * logical record is visible through {@link #contributions(EditorUiFamily)} immediately either
+     * way; a coalesced failure is reported through {@link #lastFailure(EditorUiFamily)} instead of
+     * propagating to this call.
      *
      * @param contribution the logical contribution; never a native Editor object
      * @return a registration whose {@code close()} removes the contribution and reconciles again;
@@ -230,6 +241,54 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
     }
 
     private void reconcile(final EditorUiFamily family) {
+        // Reconciles of one family are coalesced, not queued: at most one thread runs the
+        // remove -> provider -> put sequence at a time, and any request arriving while a pass
+        // is in flight only arms `pending` and returns — the active reconciler folds it into
+        // its next pass. Blocking here would deadlock against providers that dispatch to the
+        // EDT synchronously (invokeAndWait): a calling thread parked on a family lock while
+        // waiting for the EDT would deadlock with an EDT-side contribute() for the same
+        // family. The state monitor only ever guards the two flags, so no lock is held while
+        // provider code runs.
+        final ReconcileState state = reconcileStates.get(family);
+        synchronized (state) {
+            state.pending = true;
+            if (state.running) {
+                return;
+            }
+            state.running = true;
+        }
+        try {
+            for (;;) {
+                synchronized (state) {
+                    state.pending = false;
+                }
+                reconcileLocked(family);
+                synchronized (state) {
+                    // Checking pending and clearing running in the same monitor section keeps
+                    // the handoff atomic: a request either arrives before this section and is
+                    // observed here, or after it and finds running == false, so that caller
+                    // becomes the reconciler itself. No wakeup can be lost.
+                    if (!state.pending) {
+                        state.running = false;
+                        return;
+                    }
+                }
+            }
+        } catch (RuntimeException | Error failure) {
+            // Only the active reconciler observes provider failure; it stays responsible for
+            // propagating it to its own caller (contribute() then rolls back its own logical
+            // record as before). Requests that arrived mid-flight keep their pending flag —
+            // running is released with pending still armed, so the next request becomes the
+            // reconciler and retries instead of the work being silently dropped. Callers
+            // whose request was coalesced observe the outcome via lastFailure(family).
+            synchronized (state) {
+                state.running = false;
+            }
+            throw failure;
+        }
+    }
+
+    private void reconcileLocked(final EditorUiFamily family) {
         final EditorUiContributionProvider provider;
         final EditorUiHostSnapshot snapshot;
         final List<EditorUiContribution<?>> familyContributions;
@@ -437,5 +496,14 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         private StoredContribution {
             contribution = Objects.requireNonNull(contribution, "contribution");
         }
+    }
+
+    /**
+     * Coalescing slot for one family's reconcile requests. Both flags are guarded by the
+     * instance's own monitor, which is never held across a provider call.
+     */
+    private static final class ReconcileState {
+        private boolean pending;
+        private boolean running;
     }
 }
