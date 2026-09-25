@@ -1690,3 +1690,9 @@ n8 是这套链路的首次实机有效性证据。
   A/F 16 腿（wheel×8 pan×4 drag×4）b8c09000 eacb646f b67f6e32
   9a8ac557 7c66afcd b94e77d7 16b19f1e ffea6d8b 9823ef79 bd1b9f18
   58bb1c0c 531a4c31 0f9c90fc 01bad54e 7fcd956b b9161829。
+- **T25 结果**：全栈 vs 近生产 wheel −19% / pan −17% / drag −22%，
+  16/16 PASS（b9161829 leg3 455ms 离群、0f9c90fc 几何差异已注明）。
+  用户已批准默认值调整与合并 main。
+- **T26 默认冒烟已提交**（integration/perf-052@00924fc25，agent
+  c7a62d26 修正后值、probe 79150434）：b26f3227 76970314 5e5d7dab
+  8a8064c8（default-wheel/optout-wheel/default-pan/default-drag）。
