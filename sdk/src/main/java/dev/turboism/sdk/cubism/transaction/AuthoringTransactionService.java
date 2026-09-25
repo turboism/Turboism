@@ -11,8 +11,11 @@ import java.util.Objects;
  *
  * <p>The callback runs on the host's UI thread (the Cubism Editor Swing event dispatch thread).
  * It must be brief and must not block or wait for other UI-thread tasks — doing so deadlocks the
- * host. Supported coordinator-backed SDK writes inside the callback join the ambient transaction
- * and commit or roll back with it; SDK writes that manage their own native Undo envelope reject
+ * host. SDK writes inside the callback that produce an admissible native Undo object — both
+ * coordinator-backed writes such as {@code Parameter.setValue} and the migrated hand-written
+ * Undo envelopes — join the ambient transaction's single Undo group and commit or roll back
+ * with it. SDK writes whose native Undo cannot be admitted to the ambient edit (animation
+ * timeline writes, parameter-definition updates, writes that explicitly bypass history) reject
  * with a typed failure instead of creating detached Undo state.</p>
  */
 public interface AuthoringTransactionService {

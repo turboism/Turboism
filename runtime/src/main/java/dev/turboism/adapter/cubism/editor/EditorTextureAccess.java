@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelImageId;
@@ -13,6 +14,7 @@ import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -199,11 +201,43 @@ final class EditorTextureAccess {
         final Operation operation
     ) {
         EditorHostThread.requireHostThread("Cubism texture write");
+        final Object app = resolver.invokeStatic(APP_INSTANCE);
+        final Object document = resolver.invoke(CURRENT_DOCUMENT, app);
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.texture.write",
+                "texture:" + label,
+                label,
+                (edit, transactionLabel) -> {
+                    // Construct-and-redo: the operation applies against the supplied edit and
+                    // returns the undoable; register it on the ambient root exactly as the
+                    // standalone envelope does.
+                    final Object undoable = operation.apply(edit);
+                    if (undoable != edit) registerAppliedUndo(edit, undoable);
+                    final Object listener = resolver.createFunctionalProxy(
+                        UNDO_LISTENER_CLASS,
+                        ignored -> {
+                            resolver.invoke(UPDATE_INSTANCES, source);
+                            refresh(app);
+                            return null;
+                        });
+                    resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
+                },
+                () -> { },
+                () -> true,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    EditorRefreshRequirement.PART_PALETTE,
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            return;
+        }
         EditorAmbientTransactionGuard.requireNoAmbientTransaction(
             authoringCoordinator, label
         );
-        final Object app = resolver.invokeStatic(APP_INSTANCE);
-        final Object document = resolver.invoke(CURRENT_DOCUMENT, app);
         final Object editMode = resolver.invoke(EDIT_MODE, document);
         final Object edit = resolver.invoke(BEGIN_EDIT, editMode, label);
         boolean completed = false;

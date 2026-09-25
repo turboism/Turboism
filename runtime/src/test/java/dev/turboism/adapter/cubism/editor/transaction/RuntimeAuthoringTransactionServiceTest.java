@@ -270,6 +270,14 @@ final class RuntimeAuthoringTransactionServiceTest {
         }
 
         @Override
+        public void undoEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit
+        ) {
+            throw new AssertionError("read-only callback must not undo an edit group");
+        }
+
+        @Override
         public void refresh(
             final EditorAuthoringTransactionCoordinator.Binding expected,
             final Set<EditorRefreshRequirement> requirements
@@ -303,6 +311,7 @@ final class RuntimeAuthoringTransactionServiceTest {
         private int beginCount;
         private int commitCount;
         private int abortCount;
+        private int groupUndoCount;
 
         private void recordThread() {
             calls.incrementAndGet();
@@ -362,6 +371,15 @@ final class RuntimeAuthoringTransactionServiceTest {
             commitCount++;
             entries.add(new HistoryEntry(entries.size(), currentLabel, true));
             revision++;
+        }
+
+        @Override
+        public void undoEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit
+        ) {
+            recordThread();
+            groupUndoCount++;
         }
 
         @Override

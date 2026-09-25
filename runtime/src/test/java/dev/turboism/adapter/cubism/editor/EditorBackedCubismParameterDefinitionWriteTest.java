@@ -4,9 +4,12 @@ import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWrite
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterType;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,12 +18,59 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorBackedCubismParameterDefinitionWriteTest {
 
     @AfterEach
     void clearHost() {
         Host.currentDocument = null;
+    }
+
+    /**
+     * Fail-closed inside an ambient transaction: {@code updateDefinition} runs through the
+     * host-internal parameter-definition Undo, which cannot be admitted into the ambient root
+     * edit, so the write rejects before any host-internal Undo is created.
+     */
+    @Test
+    void definitionUpdateInsideTransactionRejectsBeforeAnyHostUndo() {
+        final Fixture fixture = new Fixture();
+        Host.install(fixture);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true),
+            "session-a"
+        );
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+        final var parameter = access.active().parameters().find(new ParameterId("ParamAngleX"));
+        final ParameterDefinition definition = new ParameterDefinition(
+            new ParameterId("ParamAngleX2"),
+            "Renamed Angle X",
+            -45.0F,
+            5.0F,
+            45.0F,
+            ParameterType.BLEND_SHAPE,
+            true
+        );
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Rejected definition write"),
+            () -> {
+                final EditorAmbientTransactionRejection rejection = assertThrows(
+                    EditorAmbientTransactionRejection.class,
+                    () -> parameter.updateDefinition(definition),
+                    "host-internal definition Undo cannot join the ambient transaction"
+                );
+                assertTrue(rejection.getMessage().contains("detached Undo group"));
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
+        assertEquals(0, fixture.propertyEditor.definitionUpdates,
+            "host-internal definition Undo must not run");
+        assertEquals(0, fixture.editMode.beginCalls);
+        assertTrue(fixture.document.undoManager.entries.isEmpty());
     }
 
     @Test
@@ -358,11 +408,13 @@ class EditorBackedCubismParameterDefinitionWriteTest {
                 ? java.util.Set.of(
                     "cubism.editor-model.read",
                     "cubism.editor-model.write",
+                    "cubism.editor-history.read",
                     EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID
                 )
                 : java.util.Set.of(
                     "cubism.editor-model.read",
-                    "cubism.editor-model.write"
+                    "cubism.editor-model.write",
+                    "cubism.editor-history.read"
                 ),
             List.of(
                 StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
@@ -429,7 +481,16 @@ class EditorBackedCubismParameterDefinitionWriteTest {
                 method("cubism.editor-model.keyform-grid.contains-parameter", KeyformGrid.class, "contains", "(L" + id + ";)Z"),
                 method("cubism.editor-model.parameter-controllable.morph-target-set", ParameterControllable.class, "morphTargetSet", desc(MorphTargetSet.class)),
                 method("cubism.editor-model.morph-target-set.contains-parameter", MorphTargetSet.class, "contains", "(L" + id + ";)Z"),
-                StaticSelector.constructor("cubism.editor-model.parameter-refresh-callback.create", internal(HostRefreshCallback.class), "(L" + operation + ";)V", 0)
+                StaticSelector.constructor("cubism.editor-model.parameter-refresh-callback.create", internal(HostRefreshCallback.class), "(L" + operation + ";)V", 0),
+                method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(UndoManager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)),
+                method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"),
+                method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"),
+                method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"),
+                method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(UndoEntry.class)),
+                method("cubism.editor-history.entry.presentation-name", UndoEntry.class, "presentationName", "()Ljava/lang/String;"),
+                method("cubism.editor-history.entry.significant", UndoEntry.class, "significant", "()Z")
             ),
             Host.class.getClassLoader()
         );
@@ -467,9 +528,27 @@ class EditorBackedCubismParameterDefinitionWriteTest {
 
     public static final class Document {
         final ModelSource source;
+        final UndoManager undoManager = new UndoManager();
         Document(final ModelSource source) { this.source = source; }
         public ModelSource modelSource() { return source; }
+        public UndoManager undoManager() { return undoManager; }
         public Object lastActiveView() { return null; }
+    }
+
+    public static class UndoEntry {
+        private final String name;
+        UndoEntry(final String name) { this.name = name; }
+        public String presentationName() { return name; }
+        public boolean significant() { return true; }
+    }
+
+    public static final class UndoManager {
+        final List<UndoEntry> entries = new ArrayList<>();
+        int position;
+        public List<UndoEntry> entries() { return entries; }
+        public int position() { return position; }
+        public boolean canUndo() { return position > 0; }
+        public boolean canRedo() { return position < entries.size(); }
     }
 
     public static final class ModelSource {

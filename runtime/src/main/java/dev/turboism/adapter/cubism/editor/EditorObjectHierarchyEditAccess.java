@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.history.HierarchyRelationCapture;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 
+import java.util.EnumSet;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -719,12 +721,32 @@ final class EditorObjectHierarchyEditAccess {
         final Runnable mutation
     ) {
         EditorHostThread.requireHostThread("Cubism hierarchy edit");
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, action
-        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
+        );
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.hierarchy.write",
+                "hierarchy:" + Integer.toHexString(System.identityHashCode(objectSource))
+                    + ":" + action,
+                action,
+                (edit, transactionLabel) -> admitObjectUndo(
+                    edit, modelSource, objectSource, action, paletteAlias, kindLabel),
+                mutation,
+                () -> true,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    paletteRequirement(paletteAlias),
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
         );
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode", document
@@ -856,9 +878,6 @@ final class EditorObjectHierarchyEditAccess {
         final boolean parentIsDeformer
     ) {
         EditorHostThread.requireHostThread("Cubism hierarchy create");
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, action
-        );
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document", app
@@ -894,6 +913,44 @@ final class EditorObjectHierarchyEditAccess {
                 refresh(app, paletteAlias);
                 return null;
             }
+        );
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.hierarchy.create",
+                "hierarchy:create:" + operation,
+                action,
+                (edit, transactionLabel) -> {
+                    final Object addUndo = resolver.invoke(
+                        "cubism.editor-model.model-handler.add-source-undo",
+                        modelHandler, objectSource, Integer.valueOf(index));
+                    requireUndoAccepted(edit, addUndo, operation);
+                    if (parentHandler != null) {
+                        final Object parentUndo = resolver.invoke(
+                            "cubism.editor-model.parameter-controllable-handler"
+                                + ".create-undo-for-all-edit",
+                            parentHandler, action);
+                        requireUndoAccepted(edit, parentUndo, operation + " parent attachment");
+                    }
+                    resolver.invoke("cubism.editor-model.undo.add-listener", addUndo, listener);
+                },
+                () -> {
+                    if (parentSource != null) {
+                        attachToParent(objectSource, parentSource, parentIsDeformer, index);
+                    }
+                },
+                () -> true,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    paletteRequirement(paletteAlias),
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, action
         );
         final Object edit = resolver.invoke(
             "cubism.editor-model.edit-mode.begin", editMode, action
@@ -931,6 +988,12 @@ final class EditorObjectHierarchyEditAccess {
                 null
             );
         }
+    }
+
+    private static EditorRefreshRequirement paletteRequirement(final String paletteAlias) {
+        return "cubism.editor-model.complete-pack.update-part-palette".equals(paletteAlias)
+            ? EditorRefreshRequirement.PART_PALETTE
+            : EditorRefreshRequirement.DEFORMER_PALETTE;
     }
 
     private void requireUndoAccepted(

@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
 
+import java.util.EnumSet;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -234,9 +236,6 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
     ) {
         EditorHostThread.requireHostThread("Cubism parameter binding write");
         requireAuthorized(target.type());
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Parameter binding " + action
-        );
         currentGuard.requireCurrent(identity, model);
         final Object objectSource = targetLookup.find(identity, modelSource, model, target);
         final Object grid = resolver.invoke(
@@ -247,6 +246,41 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         final Object document = resolver.invoke(
             "cubism.editor-model.app-controller.current-document",
             app
+        );
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.parameter-binding.mutate",
+                "binding:" + target.type() + ":" + action,
+                "Turboism: " + action,
+                (edit, transactionLabel) -> {
+                    final Object handler = resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-source.handler",
+                        objectSource);
+                    final Object undo = resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-handler"
+                            + ".create-undo-for-all-edit",
+                        handler, "Turboism: " + action);
+                    HostUndoMutationScope.requireUndoAccepted(
+                        resolver.invoke("cubism.editor-model.undo.add", edit, undo,
+                            Boolean.TRUE), "parameter-binding");
+                    final Object listener = resolver.createFunctionalProxy(
+                        "cubism.editor-model.undo-listener.class",
+                        ignored -> {
+                            refresh(app, target.type());
+                            return null;
+                        });
+                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                },
+                () -> mutation.accept(grid),
+                () -> true,
+                bindingRequirements(target.type())
+            );
+            currentGuard.requireCurrent(identity, model);
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, "Parameter binding " + action
         );
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode",
@@ -298,6 +332,20 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
             );
         }
         currentGuard.requireCurrent(identity, model);
+    }
+
+    private static java.util.Set<EditorRefreshRequirement> bindingRequirements(
+        final ParameterBindingTargetType type
+    ) {
+        return EnumSet.of(
+            EditorRefreshRequirement.MODEL_INSTANCES,
+            EditorRefreshRequirement.PARAMETER_PALETTE,
+            type == ParameterBindingTargetType.ART_MESH
+                ? EditorRefreshRequirement.PART_PALETTE
+                : EditorRefreshRequirement.DEFORMER_PALETTE,
+            EditorRefreshRequirement.CANVAS,
+            EditorRefreshRequirement.MARK_DIRTY
+        );
     }
 
     private void refresh(final Object app, final ParameterBindingTargetType type) {
