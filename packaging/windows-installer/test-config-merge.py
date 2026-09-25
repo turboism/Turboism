@@ -135,6 +135,7 @@ BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
 }
 CUBISM_JVMS = {"graalvm", "bundled"}
+MEMORY_PROFILES = {"system", "balanced4g", "balanced4gFastSoft"}
 
 
 def require_string_array(value, name):
@@ -199,6 +200,10 @@ def validate_v1(doc):
         if "cubismJvm" in launcher:
             if not isinstance(launcher["cubismJvm"], str) or launcher["cubismJvm"] not in CUBISM_JVMS:
                 raise ValueError("launcher.cubismJvm is invalid")
+        if "memoryProfile" in launcher:
+            if (not isinstance(launcher["memoryProfile"], str)
+                    or launcher["memoryProfile"] not in MEMORY_PROFILES):
+                raise ValueError("launcher.memoryProfile is invalid")
         for field in BOOLEAN_LAUNCHER_FIELDS:
             if field in launcher and type(launcher[field]) is not bool:
                 raise ValueError("launcher." + field + " must be boolean")
@@ -1407,6 +1412,22 @@ def main():
     for label, out in [("T3", out)]:
         doc = json.loads(out)
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
+
+    # Keep the offline mirror aligned with both installer enum validators.
+    template = json.loads((Path(__file__).parent / "config.template.json").read_text())
+    for profile in sorted(MEMORY_PROFILES):
+        candidate = json.loads(json.dumps(template))
+        candidate["launcher"]["memoryProfile"] = profile
+        check("memoryProfile accepted " + profile, validate_v1(candidate) == candidate)
+    for profile in (None, 42, True, "", "balanced4G", "extreme16g"):
+        candidate = json.loads(json.dumps(template))
+        candidate["launcher"]["memoryProfile"] = profile
+        try:
+            validate_v1(candidate)
+        except ValueError:
+            check("invalid memoryProfile rejected " + repr(profile), True)
+        else:
+            check("invalid memoryProfile rejected " + repr(profile), False)
 
     check_nsis_retirement_contract()
     check_config_migration_contract()

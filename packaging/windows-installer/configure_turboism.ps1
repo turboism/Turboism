@@ -304,12 +304,17 @@ function Assert-RuntimeConfigV1 {
     if ($null -ne $launcherProperty) {
         $launcher = $launcherProperty.Value
         Assert-RuntimeAllowedProperties $launcher @(
-            "cubismJvm", "graalVmPath", "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"
+            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"
         ) "launcher"
         $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
         if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
             -or @("graalvm", "bundled") -cnotcontains $cubismJvm.Value)) {
             throw "launcher.cubismJvm is invalid"
+        }
+        $memoryProfile = $launcher.PSObject.Properties["memoryProfile"]
+        if ($null -ne $memoryProfile -and ($memoryProfile.Value -isnot [string] `
+            -or @("system", "balanced4g", "balanced4gFastSoft") -cnotcontains $memoryProfile.Value)) {
+            throw "launcher.memoryProfile is invalid"
         }
         foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread")) {
             $property = $launcher.PSObject.Properties[$name]
