@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.optimization.inputpath;
 
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.KeyboardFocusManager;
 import java.awt.Window;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -28,11 +29,10 @@ import javax.swing.SwingUtilities;
  * redundancy rules:</p>
  *
  * <ul>
- *   <li>focus: elide when the widget's component {@code isFocusOwner()} and its
- *   containing {@code Window} {@code isFocused()} — both pure Java reads on the
- *   {@link java.awt.KeyboardFocusManager} state, while the native
- *   {@code shouldNativelyFocusHeavyweight} path is the expensive Wine query the
- *   experiment measures;</li>
+ *   <li>focus: elide only when the {@link KeyboardFocusManager}'s focus owner
+ *   IS the component, its focused window IS the component's window, and that
+ *   window {@code isActive()} — requests during activation transitions must
+ *   still reach the original focus forwarder;</li>
  *   <li>cursor: elide when the component is showing, has an explicitly set
  *   cursor ({@code isCursorSet()}) and that cursor is the identical
  *   {@link Cursor} instance the call would assign — {@code Cursor} does not
@@ -187,15 +187,21 @@ public final class InputPathElisionBridge implements AutoCloseable {
         }
     }
 
-    /** Pure Java redundancy rule for the focus forwarder; never touches native state. */
+    /**
+     * Retain requests during activation/focus transitions. These are Java AWT
+     * state checks, not a native focus probe; every condition must hold before
+     * the component's requestFocus forwarder can be redundant.
+     */
     static boolean focusAlreadyHeld(final Component component) {
-        if (component == null || !component.isFocusOwner()) {
-            return false;
-        }
+        if (component == null) return false;
+        final KeyboardFocusManager manager =
+            KeyboardFocusManager.getCurrentKeyboardFocusManager();
         final Window window = component instanceof Window owned
-            ? owned
-            : SwingUtilities.getWindowAncestor(component);
-        return window != null && window.isFocused();
+            ? owned : SwingUtilities.getWindowAncestor(component);
+        return window != null
+            && manager.getFocusOwner() == component
+            && manager.getFocusedWindow() == window
+            && window.isActive();
     }
 
     /** Pure Java redundancy rule for the cursor forwarder; never touches native state. */
