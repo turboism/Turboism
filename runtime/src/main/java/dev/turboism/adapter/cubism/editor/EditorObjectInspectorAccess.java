@@ -686,8 +686,7 @@ final class EditorObjectInspectorAccess {
                         throw unavailable("Editor object Undo handler is unavailable.");
                     }
                     final Object objectUndo = resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-handler"
-                            + ".create-undo-for-all-edit",
+                        "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
                         handler, action);
                     HostUndoMutationScope.requireUndoAccepted(
                         resolver.invoke("cubism.editor-model.undo.add", edit, objectUndo,
@@ -791,8 +790,7 @@ final class EditorObjectInspectorAccess {
                     }
                     // Construct-and-redo: the factory applies the retarget and returns the Undo.
                     final Object changeUndo = resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-handler"
-                            + ".change-target-deformer-guid",
+                        "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
                         handler, model, targetGuid, Boolean.FALSE);
                     HostUndoMutationScope.requireUndoAccepted(
                         resolver.invoke("cubism.editor-model.undo.add", edit, changeUndo,

@@ -576,8 +576,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
                         final Object handler = resolver.invoke(
                             "cubism.editor-model.parameter-controllable-source.handler", source);
                         final Object undo = resolver.invoke(
-                            "cubism.editor-model.parameter-controllable-handler"
-                                + ".create-undo-for-all-edit",
+                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
                             handler, "Turboism: " + action);
                         HostUndoMutationScope.requireUndoAccepted(
                             resolver.invoke("cubism.editor-model.undo.add", edit, undo,
