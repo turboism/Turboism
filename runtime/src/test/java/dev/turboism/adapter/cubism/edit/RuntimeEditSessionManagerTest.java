@@ -782,6 +782,13 @@ final class RuntimeEditSessionManagerTest {
         }
 
         @Override
+        public void undoEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit
+        ) {
+        }
+
+        @Override
         public void refresh(
             final EditorAuthoringTransactionCoordinator.Binding expected,
             final java.util.Set<dev.turboism.adapter.cubism.editor.transaction

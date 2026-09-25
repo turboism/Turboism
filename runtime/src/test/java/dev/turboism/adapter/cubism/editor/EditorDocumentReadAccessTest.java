@@ -20,7 +20,10 @@ import dev.turboism.sdk.cubism.model.AnimationScene;
 import dev.turboism.sdk.cubism.model.AnimationTrackKind;
 import dev.turboism.sdk.cubism.model.AutoYure;
 import dev.turboism.sdk.cubism.model.PhysicsSettings;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.sdk.cubism.model.PhysicsSettingsSource;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -246,6 +249,45 @@ class EditorDocumentReadAccessTest {
 
         final AnimationDocument animation = model.animationDocuments().get(0);
         assertThrows(UnsupportedOperationException.class, animation::scenes);
+    }
+
+    /**
+     * Fail-closed inside an ambient transaction: timeline writes run through the
+     * scene-document {@code edit-mode-base} bracket, a different edit domain that cannot be
+     * admitted into the modeling root edit, so the write rejects before any native edit begins.
+     */
+    @Test
+    void timelineWriteInsideTransactionRejectsWithoutDetachedUndo() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(
+            writeResolver("5.3.02"), "session-a"
+        );
+        final var model = access.active();
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+        final AnimationAttribute parameter = scene1Parameter(model);
+        final SceneDocument sceneDocument = sceneDocument(fixture, 0);
+        final int beganBefore = sceneDocument.editMode.began;
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Rejected timeline write"),
+            () -> {
+                final EditorAmbientTransactionRejection rejection = assertThrows(
+                    EditorAmbientTransactionRejection.class,
+                    () -> parameter.setKeyframe(45, 0.75),
+                    "edit-mode-base envelopes must stay fail-closed inside a transaction"
+                );
+                assertTrue(rejection.getMessage().contains("detached Undo group"));
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
+        assertEquals(beganBefore, sceneDocument.editMode.began,
+            "no scene edit-mode bracket may begin");
+        assertTrue(fixture.document.undoManager().entries().isEmpty(),
+            "no detached Undo entry may be committed");
     }
 
     @Test
@@ -876,6 +918,7 @@ class EditorDocumentReadAccessTest {
         capabilities.add(EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID);
         capabilities.add(EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID);
         capabilities.add(EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID);
+        capabilities.add("cubism.editor-history.read");
         capabilities.remove(excludedCapability);
         return TestVerifiedResolvers.create(
             version,
@@ -1086,6 +1129,15 @@ class EditorDocumentReadAccessTest {
         values.add(method("cubism.editor-model.scene-document.update-modified", SceneDocument.class, "updateModified", "()V"));
         values.add(method("cubism.editor-model.edit-mode-base.begin", EditModeBase.class, "begin", "(Ljava/lang/String;)L" + internal(GroupUndo.class) + ";"));
         values.add(method("cubism.editor-model.edit-mode-base.end", EditModeBase.class, "end", "(ZLjava/lang/Object;)Z"));
+        values.add(method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", "()L" + internal(UndoManager.class) + ";"));
+        values.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)));
+        values.add(method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
+        values.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
+        values.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"));
+        values.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"));
+        values.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(HistoryEntry.class)));
+        values.add(method("cubism.editor-history.entry.presentation-name", HistoryEntry.class, "presentationName", "()Ljava/lang/String;"));
+        values.add(method("cubism.editor-history.entry.significant", HistoryEntry.class, "significant", "()Z"));
         values.add(method("cubism.editor-model.attr.set-value-auto", Attr.class, "setValueAuto", "(ILjava/lang/Object;)V"));
         values.add(method("cubism.editor-model.attr.remove-value-auto", Attr.class, "removeValueAuto", "(I)V"));
         values.add(method("cubism.editor-model.attr.track", Attr.class, "track", "()L" + internal(TrackSource.class) + ";"));
@@ -1197,15 +1249,36 @@ class EditorDocumentReadAccessTest {
 
     public static final class Document {
         private final ModelSource source = new ModelSource();
+        private final UndoManager undoManager = new UndoManager();
         private final java.io.File file = new java.io.File("probe-model-a.cmo3");
 
         public ModelSource modelSource() {
             return source;
         }
 
+        public UndoManager undoManager() {
+            return undoManager;
+        }
+
         public java.io.File file() {
             return file;
         }
+    }
+
+    public static class HistoryEntry {
+        private final String name;
+        HistoryEntry(final String name) { this.name = name; }
+        public String presentationName() { return name; }
+        public boolean significant() { return true; }
+    }
+
+    public static final class UndoManager {
+        final List<HistoryEntry> entries = new ArrayList<>();
+        int position;
+        public List<HistoryEntry> entries() { return entries; }
+        public int position() { return position; }
+        public boolean canUndo() { return position > 0; }
+        public boolean canRedo() { return position < entries.size(); }
     }
 
     public static final class ModelSource {
