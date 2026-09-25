@@ -69,7 +69,7 @@ class EditorRawImagePsdNativeInvocationTest {
             result.layerCompleteness()
         );
         assertEquals(
-            List.of("progress", "name", "save", "parse", "construct", "dispose"),
+            List.of("progress", "name", "save", "parse", "construct", "dispose", "parsed-dispose", "parsed-dispose"),
             EditorRawImagePsdNativeFixture.events()
         );
         assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));
@@ -80,6 +80,8 @@ class EditorRawImagePsdNativeInvocationTest {
         assertEquals("raw-source", EditorRawImagePsdNativeFixture.constructedName);
         assertEquals(0, source.disposeCalls);
         assertEquals(1, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
         assertNotNull(EditorRawImagePsdNativeFixture.lastProgress);
         assertSame(EditorRawImagePsdNativeFixture.DEFAULT_PROGRESS, EditorRawImagePsdNativeFixture.lastProgress);
         assertTrue(Files.isRegularFile(target));
@@ -230,6 +232,35 @@ class EditorRawImagePsdNativeInvocationTest {
         assertFalse(result.observation().toString().contains("private disposal failure"));
         assertEquals(0, source.disposeCalls);
         assertEquals(1, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
+    }
+
+    @Test
+    void cleansOwnedParsedImagesWhenReconstructionFails(@TempDir final Path temp) {
+        EditorRawImagePsdNativeFixture.constructFailure = () -> { throw new IllegalStateException("construction failed"); };
+        final var result = access(resolver("5.3.02", true), (identity, model) -> { })
+            .exportBoundPsd("session-a", new Object(),
+                new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("source"), temp.resolve("construct.psd"));
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.PARSE_FAILED, result.status());
+        assertEquals("CONSTRUCT", result.failurePhase().name());
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
+    }
+
+    @Test
+    void attemptsAllOwnedImagesAndRejectsParsedCleanupFailure(@TempDir final Path temp) {
+        EditorRawImagePsdNativeFixture.throwOnParsedImageDispose = true;
+        final var result = access(resolver("5.3.02", true), (identity, model) -> { })
+            .exportBoundPsd("session-a", new Object(),
+                new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("source"), temp.resolve("parsed-cleanup.psd"));
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.NATIVE_FAILURE, result.status());
+        assertEquals("DISPOSE", result.failurePhase().name());
+        assertFalse(result.outputReadable());
+        assertFalse(result.observation().toString().contains("private parsed image"));
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
+        assertEquals(1, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
     }
 
     @Test
@@ -241,6 +272,8 @@ class EditorRawImagePsdNativeInvocationTest {
             assertDoesNotThrow(() -> access.parseStageOnHostThread(stage, "external-edit.psd")));
         assertSame(EditorRawImagePsdNativeFixture.lastConstructed, incoming);
         assertEquals(0, EditorRawImagePsdNativeFixture.lastConstructed.disposeCalls);
+        assertEquals(0, EditorRawImagePsdNativeFixture.lastParsed.first.disposeCalls);
+        assertEquals(0, EditorRawImagePsdNativeFixture.lastParsed.second.disposeCalls);
         assertEquals(List.of("parse", "construct"), EditorRawImagePsdNativeFixture.events());
     }
 
@@ -329,7 +362,7 @@ class EditorRawImagePsdNativeInvocationTest {
         assertEquals("document switched during PSD export", failure.getMessage());
         assertEquals(2, guardCalls.get());
         assertEquals(
-            List.of("progress", "name", "save", "parse", "construct", "dispose"),
+            List.of("progress", "name", "save", "parse", "construct", "dispose", "parsed-dispose", "parsed-dispose"),
             EditorRawImagePsdNativeFixture.events()
         );
         assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));
@@ -456,6 +489,17 @@ class EditorRawImagePsdNativeInvocationTest {
                     "()Ljava/lang/String;"
                 )
             );
+            selectors.put("cubism.editor-model.psd-document.layers-owned",
+                instanceMethod("cubism.editor-model.psd-document.layers-owned",
+                    EditorRawImagePsdNativeFixture.SyntheticParsed.class, "h",
+                    "()[" + reference(EditorRawImagePsdNativeFixture.SyntheticParsedLayer.class)));
+            selectors.put("cubism.editor-model.psd-layer.image-owned",
+                instanceMethod("cubism.editor-model.psd-layer.image-owned",
+                    EditorRawImagePsdNativeFixture.SyntheticParsedLayer.class, "c",
+                    "()" + reference(EditorRawImagePsdNativeFixture.SyntheticParsedImage.class)));
+            selectors.put("cubism.editor-model.psd-image.dispose-owned",
+                instanceMethod("cubism.editor-model.psd-image.dispose-owned",
+                    EditorRawImagePsdNativeFixture.SyntheticParsedImage.class, "dispose", "()V"));
             selectors.put("cubism.editor-model.layered-image.dispose-owned",
                 instanceMethod("cubism.editor-model.layered-image.dispose-owned",
                     EditorRawImagePsdNativeFixture.SyntheticLayeredImage.class, "dispose", "()V"));
