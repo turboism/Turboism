@@ -7331,6 +7331,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.layered_image_dispose_owned",
+      "alias": "cubism.editor-model.layered-image.dispose-owned",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+      "memberName": "dispose",
+      "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.class.psd_progress",
       "alias": "cubism.editor-model.psd-progress.class",
       "kind": "class",
