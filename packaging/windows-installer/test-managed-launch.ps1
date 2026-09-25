@@ -155,6 +155,20 @@ if ($JdkParserOnly) {
         Assert-ManagedLaunch $uniformInvalid "non-boolean uniform preference fails closed"
         $reconciled = Remove-TurboismJdkOptions '-Xmx2g -Dturboism.optimization.uniformLocationCache=true -Dapp.test=kept -Dturboism.optimization.uniformLocationCache=false'
         Assert-ManagedLaunch ($reconciled -eq '-Xmx2g -Dapp.test=kept') "stale uniform options removed without losing unrelated JVM options"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"uploadElision":false}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-Dturboism.optimization.uploadElision=false') "explicit uploadElision opt-out is emitted on Windows"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -notcontains '-Dturboism.optimization.uploadElision=false') "absent uploadElision preference defaults on"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"inputPathElision":false}}')
+        $protonScopedTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($protonScopedTokens -contains '-Dturboism.optimization.inputPathElision=false') "explicit inputPathElision false still passes through on Windows"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"inputPathElision":true,"mesaGlThread":true}}')
+        $protonScopedTokens = @(Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome)
+        Assert-ManagedLaunch (@($protonScopedTokens | Where-Object { $_ -match 'inputPathElision|mesaGlThread' }).Count -eq 0) "Proton-scoped options never emit =true on native Windows"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"mesaGlThread":false}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-Dturboism.optimization.mesaGlThread=false') "explicit mesaGlThread false still passes through on Windows"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
+        Assert-ManagedLaunch (@((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) | Where-Object { $_ -match 'inputPathElision|mesaGlThread' }).Count -eq 0) "absent Proton-scoped preferences emit nothing on native Windows"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
         Assert-ManagedLaunch ((Read-CubismMemoryProfile -TurboismHome $zgcHome) -eq "system") "absent launcher.memoryProfile defaults to system"
         Assert-ManagedLaunch ((Read-CubismMemoryProfile -TurboismHome "") -eq "system") "missing home resolves the memory profile to system"

@@ -1801,8 +1801,15 @@ function Get-CubismManagedJdkOptionTokens {
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision")) {
         $tokens += "-Dturboism.optimization.uploadElision=false"
     }
-    if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "inputPathElision") {
-        $tokens += "-Dturboism.optimization.inputPathElision=true"
+    # inputPathElision/mesaGlThread are Proton-scoped: the Linux launcher is
+    # the only emitter of their =true flags. This native-Windows path never
+    # emits =true, but an explicit false is still passed through so a stray
+    # Wine/Proton marker on the JVM side can never re-enable them.
+    if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "inputPathElision") {
+        $tokens += "-Dturboism.optimization.inputPathElision=false"
+    }
+    if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "mesaGlThread") {
+        $tokens += "-Dturboism.optimization.mesaGlThread=false"
     }
     return $tokens
 }
@@ -1826,6 +1833,24 @@ function Read-CubismOptimizationPreference {
     if ($null -eq $setting) { return $defaultValue }
     if ($setting.Value -isnot [bool]) { throw "Turboism launcher.$Name setting is invalid" }
     return [bool]$setting.Value
+}
+
+function Read-CubismExplicitFalse {
+    param([string]$TurboismHome, [string]$Name)
+    # True only when launcher.$Name is explicitly persisted as false —
+    # platform defaults are resolved by the caller-aware readers, not here.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $false }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return $false }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $false }
+    $setting = $launcherProperty.Value.PSObject.Properties[$Name]
+    if ($null -eq $setting) { return $false }
+    if ($setting.Value -isnot [bool]) { throw "Turboism launcher.$Name setting is invalid" }
+    return (-not [bool]$setting.Value)
 }
 
 function Read-CubismZgcPreference {
