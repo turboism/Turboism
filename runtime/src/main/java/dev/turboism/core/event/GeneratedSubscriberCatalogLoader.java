@@ -5,6 +5,7 @@ import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
 import dev.turboism.sdk.event.EventSubscriberRegistrar;
 import dev.turboism.sdk.event.GeneratedSubscriberCatalog;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -17,8 +18,8 @@ import java.util.ServiceLoader;
 /** Loads generated catalogs from one plugin artifact and falls back to reviewed reflection. */
 public final class GeneratedSubscriberCatalogLoader {
 
-    private static final System.Logger LOGGER =
-        System.getLogger(GeneratedSubscriberCatalogLoader.class.getName());
+    private static final String COMPONENT =
+        "dev.turboism.core.event.GeneratedSubscriberCatalogLoader";
 
     private final EntrypointSubscriberCatalog fallback = new EntrypointSubscriberCatalog();
 
@@ -55,8 +56,8 @@ public final class GeneratedSubscriberCatalogLoader {
             .collect(java.util.stream.Collectors.toSet());
         for (Class<?> catalogEntrypointType : catalogs.keySet()) {
             if (!entrypointTypes.contains(catalogEntrypointType)) {
-                LOGGER.log(
-                    System.Logger.Level.WARNING,
+                RuntimeDiagnostics.warn(
+                    COMPONENT,
                     "Generated subscriber catalog matches no plugin entrypoint instance: "
                         + catalogEntrypointType.getName()
                 );
