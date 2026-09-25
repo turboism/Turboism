@@ -127,6 +127,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- The core shell menus (Settings, Plugin Management, Logs, About and the update check) merged
+  back into the single shared localized top-level "Plugins" menu. A recent change routed them
+  through the localized display word instead of the reserved shared-root token, which spawned a
+  second identically named top-level menu next to the plugins' shared menu.
+
 - Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
   and document generations throughout the object graph. Keyframe copies reject stale or foreign
   sources while preserving valid copies between active views owned by the same plugin.

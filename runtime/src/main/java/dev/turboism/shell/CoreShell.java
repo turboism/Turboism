@@ -290,7 +290,9 @@ public final class CoreShell implements ShellHandle {
             ignored -> updates.checkManual()
         );
         try {
-            final String root = localized("main-toolbar.menu-root.label", "Plugins");
+            // Reserved shared root token: merges the update item into the same
+            // localized shared root menu as the other core shell menus.
+            final String root = "Turboism";
             context.disposableScope().register(context.menus().contribute(
                 new dev.turboism.sdk.menu.MenuRegistry.MenuContribution() {
                     @Override public String menuPath() {
@@ -681,7 +683,6 @@ public final class CoreShell implements ShellHandle {
                 @Override public String text(final String key) {
                     return switch (key) {
                         case "common.turboism" -> "Turboism";
-                        case "main-toolbar.menu-root.label" -> "Plugins";
                         case "main-toolbar.home.action" -> "Open Turboism";
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
