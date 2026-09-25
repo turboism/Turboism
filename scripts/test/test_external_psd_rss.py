@@ -43,6 +43,90 @@ class RssObservationTests(unittest.TestCase):
         (path / "comm").write_text("java.exe\n")
         (path / "status").write_text("VmRSS:\t120 kB\nVmHWM:\t150 kB\n")
 
+    def holder_fixture(self, pid=123):
+        task = self.root / "task"
+        target = task / "prefix/turboism-psd-test/external-edit.psd"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"fixture")
+        process = self.proc / str(pid)
+        (process / "fd").mkdir(exist_ok=True)
+        (process / "fd/5").symlink_to(target)
+        (process / "fd/6").symlink_to(self.root / "outside/external-edit.psd")
+        (process / "maps").write_text(f"1000-2000 r--p 0000 01:01 1 {target}\n")
+        return task
+
+    def test_failure_holder_snapshot_is_task_scoped_and_read_only(self):
+        task = self.holder_fixture()
+        report = rss.psd_file_holders(self.scope, task)
+        self.assertEqual("OBSERVED", report["status"])
+        self.assertEqual(["fd", "mapping"], [row["kind"] for row in report["holders"]])
+        self.assertTrue(all(row["pid"] == 123 and row["processStartTicks"] == 456
+                            for row in report["holders"]))
+        self.assertTrue(all(row["taskRelativePath"] == "prefix/turboism-psd-test/external-edit.psd"
+                            for row in report["holders"]))
+        self.assertEqual("UNAVAILABLE", report["windowsSharingMode"])
+        self.assertTrue((self.proc / "123/fd/5").is_symlink())
+
+    def test_holder_identity_change_discards_observations(self):
+        task = self.holder_fixture()
+        original = Path.open
+        def change_on_maps(path, *args, **kwargs):
+            if path == self.proc / "123/maps":
+                (self.proc / "123/cgroup").write_text("0::/foreign.scope\n")
+            return original(path, *args, **kwargs)
+        with patch.object(Path, "open", change_on_maps):
+            report = rss.psd_file_holders(self.scope, task)
+        self.assertEqual([], report["holders"])
+        self.assertEqual("PARTIAL", report["status"])
+
+    def test_holder_pid_reuse_discards_observations(self):
+        task = self.holder_fixture()
+        original = Path.open
+        def reuse_on_maps(path, *args, **kwargs):
+            if path == self.proc / "123/maps":
+                self.process(123, 999)
+            return original(path, *args, **kwargs)
+        with patch.object(Path, "open", reuse_on_maps):
+            report = rss.psd_file_holders(self.scope, task)
+        self.assertEqual([], report["holders"])
+        self.assertEqual("PARTIAL", report["status"])
+
+    def test_holder_rejects_symlink_escape_and_foreign_process(self):
+        task = self.holder_fixture()
+        outside = self.root / "outside/turboism-psd-escape"
+        outside.mkdir(parents=True)
+        (task / "escape").symlink_to(outside, target_is_directory=True)
+        (self.proc / "123/fd/7").symlink_to(task / "escape/external-edit.psd")
+        self.process(456, 789)
+        self.holder_fixture(456)
+        (self.proc / "456/cgroup").write_text("0::/foreign.scope\n")
+        (self.scope_path / "cgroup.procs").write_text("123\n456\n")
+        report = rss.psd_file_holders(self.scope, task)
+        self.assertEqual(2, len(report["holders"]))
+        self.assertTrue(all(row["pid"] == 123 for row in report["holders"]))
+        self.assertEqual("PARTIAL", report["status"])
+
+    def test_holder_deadline_and_unsafe_task_rejected(self):
+        task = self.holder_fixture()
+        with patch.object(rss.time, "monotonic", side_effect=[0, 3]):
+            report = rss.psd_file_holders(self.scope, task)
+        self.assertTrue(report["truncated"])
+        self.assertEqual([], report["holders"])
+        link = self.root / "linked-task"
+        link.symlink_to(task, target_is_directory=True)
+        with self.assertRaises(rss.IdentityChanged):
+            rss.psd_file_holders(self.scope, link)
+
+    def test_only_failed_terminal_collects_holders(self):
+        task = self.holder_fixture()
+        terminal = self.root / "result.properties"
+        terminal.write_text("runId=queue-test\nstatus=FAIL\n")
+        report = rss.collect(self.scope, terminal, "queue-test", 1, task)
+        self.assertEqual(2, len(report["psdFileHolders"]["holders"]))
+        terminal.write_text("runId=queue-test\nstatus=PASS\n")
+        with patch.object(rss, "psd_file_holders", side_effect=AssertionError("unexpected diagnostic")):
+            self.assertNotIn("psdFileHolders", rss.collect(self.scope, terminal, "queue-test", 1, task))
+
     def test_exact_process_and_memory_units(self):
         self.assertEqual((123, 456, 120 * 1024, 150 * 1024), self.scope.sample())
         self.process(456, 789, rss.MAIN_CLASS + b"Fake")
