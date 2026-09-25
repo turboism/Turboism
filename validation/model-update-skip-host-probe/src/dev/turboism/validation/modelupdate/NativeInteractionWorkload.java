@@ -305,6 +305,14 @@ final class NativeInteractionWorkload {
                 }
             });
             if (snapshots.size() != 2) throw new IllegalStateException("gesture accounting incomplete");
+            // Persist the completed timing window before untimed geometry/parity
+            // checks: a later capture failure must not erase its hit/invalidation evidence.
+            StringBuilder uniformEvidence = new StringBuilder("steps=").append(steps).append('\n');
+            snapshots.get(1).forEach((key, value) -> uniformEvidence.append(key).append(".before=")
+                .append(snapshots.get(0).getOrDefault(key, 0L)).append('\n')
+                .append(key).append(".after=").append(value).append('\n')
+                .append(key).append(".delta=").append(NarrowUniformTrial.delta(snapshots.get(0), snapshots.get(1), key)).append('\n'));
+            Files.writeString(state.resolve("interaction-uniform-" + prefix + "txt"), uniformEvidence);
             hook.requireLeg(snapshots.get(0), snapshots.get(1), elision || stateElision || inputPath || composite || enabled, steps);
             final var moved = edt(host::geometry);
             List<Integer> changed = NativeInteractionHost.changed(baseline, moved);
