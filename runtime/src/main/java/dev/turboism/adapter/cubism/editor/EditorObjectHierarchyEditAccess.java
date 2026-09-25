@@ -927,8 +927,7 @@ final class EditorObjectHierarchyEditAccess {
                     requireUndoAccepted(edit, addUndo, operation);
                     if (parentHandler != null) {
                         final Object parentUndo = resolver.invoke(
-                            "cubism.editor-model.parameter-controllable-handler"
-                                + ".create-undo-for-all-edit",
+                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
                             parentHandler, action);
                         requireUndoAccepted(edit, parentUndo, operation + " parent attachment");
                     }
