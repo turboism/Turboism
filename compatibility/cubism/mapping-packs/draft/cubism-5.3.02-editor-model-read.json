@@ -12125,27 +12125,6 @@
       "descriptor": "()Ljava/util/List;"
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.modeling-document_file-content-docs",
-      "kind": "method",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.modeling-document.file-content-docs",
-      "runtime": "getFileContentDocs",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "intermediary": "",
-      "descriptor": "()Ljava/util/List;"
-    },
-    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter-controllable-source_extensions",
       "kind": "method",
       "owner": "editor-model-read",
@@ -16778,7 +16757,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.l_field_d",
+      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.l_d",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.registry",
@@ -16799,7 +16778,7 @@
       "descriptor": "Ljava/util/ArrayList;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.registry",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.l_field_d",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.l_d",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -17067,7 +17046,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.x_field_a",
+      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.x_a",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.holder-instance",
@@ -17088,7 +17067,7 @@
       "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.holder-instance",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.x_field_a",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.x_a",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -17146,7 +17125,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_field_p",
+      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_p",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.dialog.remote-checkbox",
@@ -17167,7 +17146,7 @@
       "descriptor": "Lcom/live2d/ui/control/CCheckBox;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_field_p",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_p",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -17254,7 +17233,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_field_a",
+      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_a",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.config.instance",
@@ -17275,7 +17254,7 @@
       "descriptor": "Lcom/live2d/util/UUConfig;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.config.instance",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_field_a",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_a",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -17452,6 +17431,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "ac66369faa7be4e9623c91a7097b25f93846fd81c99a545967212553ff0b4caa"
+    "verificationRecordSha256": "074b3d9ad6c3df7d5398e521a05cf9aaa5e41c20a510eb9855e6dbe299c9bfc9"
   }
 }
