@@ -97,6 +97,16 @@ def synthetic_test() -> None:
         except subprocess.CalledProcessError:
             failed = True
         assert failed, "packaging must reject a staging file that differs from its download pin"
+        # BAT launch integration defaults to checked: installer option and
+        # configurator checkbox stay anchored to the same guarded integration.
+        nsi = (PACKAGE / "installer.nsi").read_text(encoding="utf-8")
+        assert "StrCpy $integrateCubismBat 1" in nsi, "NSIS BAT integration must default to checked"
+        assert "StrCpy $integrateCubismBat 0" not in nsi, "stale unchecked BAT default must not remain"
+        common = (PACKAGE / "cubism-launch-common.ps1").read_text(encoding="utf-8")
+        configurator = (PACKAGE / "configure_turboism.ps1").read_text(encoding="utf-8")
+        assert "function Get-CubismBatIntegrationDefaultChecked {" in common
+        assert "Get-CubismBatIntegrationDefaultChecked -State $state" in configurator
+        assert "$InitialBat" not in configurator and "$InitialShortcuts" not in configurator, "leftover configurator params must stay removed"
         print("INSTALLER_PACKAGING_PASS: thin core, SDK/base retained, offline closure preserved, tampered pin rejected")
 
 

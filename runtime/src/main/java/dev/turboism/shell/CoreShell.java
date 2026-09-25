@@ -140,6 +140,7 @@ public final class CoreShell implements ShellHandle {
                 localization(context), services.atlasCacheReuseSettings()
             )
         ));
+        registerLaunchIntegrationSettings();
         registerUpdateFeatures();
         registerPluginActions();
         registerPanelTabActions();
@@ -259,6 +260,25 @@ public final class CoreShell implements ShellHandle {
             historyProviderRegistration = null;
         }
         logger.info("Turboism core shutdown");
+    }
+
+    /** Contributes the Startup-tab official-BAT integration toggle where it is supported. */
+    private void registerLaunchIntegrationSettings() {
+        try {
+            final BatLaunchIntegrationService integration = BatLaunchIntegrationService.detect();
+            if (integration == null || !integration.supported()) {
+                logger.info("Official BAT launch integration is unavailable; Startup toggle not contributed");
+                return;
+            }
+            context.disposableScope().register(context.uiHost().contributeSettings(
+                LaunchIntegrationSettingsContribution.create(localization(context), integration)
+            ));
+            context.disposableScope().register(context.uiHost().contributeSettings(
+                LaunchIntegrationSettingsContribution.createNote(localization(context))
+            ));
+        } catch (RuntimeException unavailable) {
+            logger.warn("Launch integration contribution unavailable; continuing without it");
+        }
     }
 
     private void registerUpdateFeatures() {

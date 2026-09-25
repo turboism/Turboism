@@ -858,6 +858,15 @@ function Read-CubismInstallationState {
     }
 }
 
+function Get-CubismBatIntegrationDefaultChecked {
+    # Fresh installations default the official-BAT integration on (legacy-style
+    # launch from existing Cubism shortcuts); an existing valid state decides.
+    param([object]$State)
+    if ($null -eq $State -or -not $State.Exists -or -not $State.Valid) { return $true }
+    if ($null -eq $State.PSObject.Properties['BatIntegrations']) { return $false }
+    return @($State.BatIntegrations).Count -gt 0
+}
+
 function Write-CubismInstallationState {
     param(
         [string]$StatePath,

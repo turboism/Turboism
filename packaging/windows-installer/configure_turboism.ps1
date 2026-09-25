@@ -766,7 +766,7 @@ $uiStrings = @{
         Rescan = "Rescan"; Add = "Add folder"; Remove = "Remove"; Save = "Save"; Cancel = "Cancel"
         LaunchMode = "Launch mode"; Independent = "Independent shortcuts (recommended)"; Takeover = "Take over existing Cubism shortcuts"
         ShortcutIntegration = "Create or update Turboism launch shortcuts for selected Cubism installations"
-        BatIntegration = "Modify selected official Cubism BAT files (backed up and reversible)"
+        BatIntegration = "Modify selected official Cubism BAT files (backed up and reversible; checked by default)"
         NoActivation = "No activation path is selected. Turboism will not load from shortcuts or official BAT files. Continue?"
         IndependentHelp = "Creates new Turboism-owned .lnk shortcuts. Existing Cubism shortcuts and official BAT files remain byte-identical."
         TakeoverHelp = "Replaces only existing .lnk shortcuts whose target exactly matches a selected official Cubism BAT. Originals are backed up and restored on cleanup; the official BAT files themselves are never edited."
@@ -787,7 +787,7 @@ $uiStrings = @{
         Rescan = "重新扫描"; Add = "添加文件夹"; Remove = "移除"; Save = "保存"; Cancel = "取消"
         LaunchMode = "启动模式"; Independent = "独立快捷方式（推荐）"; Takeover = "接管现有 Cubism 快捷方式"
         ShortcutIntegration = "为所选 Cubism 安装创建或更新 Turboism 启动快捷方式"
-        BatIntegration = "修改所选 Cubism 官方 BAT（自动备份且可恢复）"
+        BatIntegration = "修改所选 Cubism 官方 BAT（自动备份且可恢复；默认勾选）"
         NoActivation = "没有选择任何激活路径。Turboism 将无法通过快捷方式或官方 BAT 加载。仍要继续吗？"
         IndependentHelp = "新建由 Turboism 管理的 .lnk 快捷方式；现有 Cubism 快捷方式和官方 BAT 文件保持字节不变。"
         TakeoverHelp = "仅替换目标精确匹配所选官方 Cubism BAT 的现有 .lnk 快捷方式；原快捷方式会备份并在清理时恢复，官方 BAT 文件本身始终不会被改写。"
@@ -806,7 +806,7 @@ $uiStrings = @{
         Rescan = "再スキャン"; Add = "フォルダーを追加"; Remove = "削除"; Save = "保存"; Cancel = "キャンセル"
         LaunchMode = "起動モード"; Independent = "独立ショートカット（推奨）"; Takeover = "既存 Cubism ショートカットを引き継ぐ"
         ShortcutIntegration = "選択した Cubism 用の Turboism 起動ショートカットを作成または更新"
-        BatIntegration = "選択した Cubism 公式 BAT を変更（バックアップして復元可能）"
+        BatIntegration = "選択した Cubism 公式 BAT を変更（バックアップして復元可能・既定で選択）"
         NoActivation = "有効化経路が選択されていません。ショートカットまたは公式 BAT から Turboism は読み込まれません。続行しますか？"
         IndependentHelp = "Turboism 所有の新しい .lnk だけを作成し、既存 Cubism ショートカットと公式 BAT のバイト列は変更しません。"
         TakeoverHelp = "選択した公式 Cubism BAT を正確に指す既存 .lnk だけを置換し、元のショートカットをバックアップして復元します。公式 BAT 自体は編集しません。"
@@ -825,7 +825,7 @@ $uiStrings = @{
         Rescan = "다시 검색"; Add = "폴더 추가"; Remove = "제거"; Save = "저장"; Cancel = "취소"
         LaunchMode = "시작 모드"; Independent = "독립 바로 가기(권장)"; Takeover = "기존 Cubism 바로 가기 인계"
         ShortcutIntegration = "선택한 Cubism 설치용 Turboism 시작 바로 가기 만들기 또는 업데이트"
-        BatIntegration = "선택한 Cubism 공식 BAT 수정(바로 가기 생성 전에 백업하고 복원 가능)"
+        BatIntegration = "선택한 Cubism 공식 BAT 수정(바로 가기 생성 전에 백업하고 복원 가능, 기본 선택)"
         NoActivation = "활성화 경로가 선택되지 않았습니다. Turboism은 바로 가기나 공식 BAT에서 로드되지 않습니다. 계속하시겠습니까?"
         IndependentHelp = "Turboism이 소유한 새 .lnk 바로 가기를 만듭니다. 기존 Cubism 바로 가기와 공식 BAT 파일은 바이트 단위로 그대로 유지됩니다."
         TakeoverHelp = "선택한 공식 Cubism BAT를 정확히 가리키는 기존 .lnk 바로 가기만 교체합니다. 원본은 백업되고 정리 시 복원되며, 공식 BAT 파일 자체는 수정하지 않습니다."
@@ -923,12 +923,12 @@ $cubismLabel.Location = New-Object System.Drawing.Point(12, 12); $cubismLabel.Au
 $cubismList = New-Object System.Windows.Forms.CheckedListBox
 $cubismList.Location = New-Object System.Drawing.Point(12, 38); $cubismList.Size = New-Object System.Drawing.Size(1025, 555); $cubismList.CheckOnClick = $true; $cubismList.HorizontalScrollbar = $true; $cubismList.Anchor = 'Top, Bottom, Left, Right'
 $cubismPage.Controls.Add($cubismList)
-$shortcutCheck = New-Object System.Windows.Forms.CheckBox; $shortcutCheck.Text = $S.ShortcutIntegration; $shortcutCheck.Location = New-Object System.Drawing.Point(12, 600); $shortcutCheck.Size = New-Object System.Drawing.Size(1025, 24); $shortcutCheck.Anchor = 'Bottom, Left, Right'; $shortcutCheck.Checked = [bool]$InitialShortcuts -or @($state.ManagedShortcuts).Count -gt 0 -or @($state.ShortcutTakeovers).Count -gt 0; $cubismPage.Controls.Add($shortcutCheck)
+$shortcutCheck = New-Object System.Windows.Forms.CheckBox; $shortcutCheck.Text = $S.ShortcutIntegration; $shortcutCheck.Location = New-Object System.Drawing.Point(12, 600); $shortcutCheck.Size = New-Object System.Drawing.Size(1025, 24); $shortcutCheck.Anchor = 'Bottom, Left, Right'; $shortcutCheck.Checked = @($state.ManagedShortcuts).Count -gt 0 -or @($state.ShortcutTakeovers).Count -gt 0; $cubismPage.Controls.Add($shortcutCheck)
 $modeLabel = New-Object System.Windows.Forms.Label; $modeLabel.Text = $S.LaunchMode; $modeLabel.Location = New-Object System.Drawing.Point(32, 632); $modeLabel.AutoSize = $true; $modeLabel.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($modeLabel)
 $modeBox = New-Object System.Windows.Forms.ComboBox; $modeBox.DropDownStyle = "DropDownList"; $modeBox.Location = New-Object System.Drawing.Point(135, 628); $modeBox.Size = New-Object System.Drawing.Size(902, 24); $modeBox.Anchor = 'Bottom, Left, Right'
 [void]$modeBox.Items.Add($S.Independent); [void]$modeBox.Items.Add($S.Takeover); $modeBox.SelectedIndex = if ($state.LaunchMode -eq "takeover") { 1 } else { 0 }; $cubismPage.Controls.Add($modeBox)
 $modeHelp = New-Object System.Windows.Forms.Label; $modeHelp.Location = New-Object System.Drawing.Point(32, 658); $modeHelp.Size = New-Object System.Drawing.Size(1005, 42); $modeHelp.Anchor = 'Bottom, Left, Right'; $cubismPage.Controls.Add($modeHelp)
-$batCheck = New-Object System.Windows.Forms.CheckBox; $batCheck.Text = $S.BatIntegration; $batCheck.Location = New-Object System.Drawing.Point(12, 704); $batCheck.Size = New-Object System.Drawing.Size(1025, 24); $batCheck.Anchor = 'Bottom, Left, Right'; $batCheck.Checked = [bool]$InitialBat -or @($state.BatIntegrations).Count -gt 0; $cubismPage.Controls.Add($batCheck)
+$batCheck = New-Object System.Windows.Forms.CheckBox; $batCheck.Text = $S.BatIntegration; $batCheck.Location = New-Object System.Drawing.Point(12, 704); $batCheck.Size = New-Object System.Drawing.Size(1025, 24); $batCheck.Anchor = 'Bottom, Left, Right'; $batCheck.Checked = Get-CubismBatIntegrationDefaultChecked -State $state; $cubismPage.Controls.Add($batCheck)
 $cubismStatus = New-Object System.Windows.Forms.Label; $cubismStatus.Location = New-Object System.Drawing.Point(12, 730); $cubismStatus.AutoSize = $true; $cubismStatus.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($cubismStatus)
 $rescanButton = New-Object System.Windows.Forms.Button; $rescanButton.Text = $S.Rescan; $rescanButton.Location = New-Object System.Drawing.Point(12, 752); $rescanButton.Size = New-Object System.Drawing.Size(90, 30); $rescanButton.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($rescanButton)
 $addButton = New-Object System.Windows.Forms.Button; $addButton.Text = $S.Add; $addButton.Location = New-Object System.Drawing.Point(110, 752); $addButton.Size = New-Object System.Drawing.Size(110, 30); $addButton.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($addButton)

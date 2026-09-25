@@ -10,6 +10,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Turboism's own settings window now offers a Startup-tab toggle for the installer-managed official
+  Cubism BAT launch integration (Windows only, exact supported hosts). The checkbox mirrors the
+  installer's managed state and delegates enable/disable to the hash-guarded configurator script
+  (elevated, backed up, restorable); changes apply after the Editor restarts. Together with the
+  installer default change below, the legacy-style launch from existing Cubism shortcuts is now
+  available out of the box and remains one checkbox away in Settings.
+
+### Added
+
 - Animation workspace support in the SDK and runtime: plugins can enumerate animation documents,
   project timelines, tracks, attributes and keyframes, activate and rename scenes, seek playback,
   apply batched keyframe edits and curve types, and record/bake evaluated values. A pure-SDK
@@ -58,6 +67,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Windows installers and the Windows configurator now default the official Cubism BAT launch
+  integration to checked (previously opt-in): fresh NSIS installs and the configurator's Cubism
+  page preselect the hash-guarded BAT modification so existing Cubism shortcuts load Turboism;
+  users can still uncheck it, and unchecking keeps the previous restore-on-save behavior.
+  Welcome-page, option-label and configurator strings were updated in all four UI languages.
 - Ordinary CI now runs both `devCheck` and the complete `checkCompletedCommit` suite on every pull
   request and push to `main`, using Xvfb for display-dependent tests. Coverage guards reject skipped,
   filtered or soft-failed gates; channel checks now follow `main` and include root build inputs.

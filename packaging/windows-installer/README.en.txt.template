@@ -2,9 +2,10 @@
 =================================================
 
 Turboism is a Java agent runtime for the Live2D Cubism editor. By default it
-uses Turboism-owned shortcuts. The NSIS installer can optionally back up and
-modify selected official Cubism startup BAT files so existing shortcuts load
-Turboism; this is explicit, hash-guarded, idempotent, and restored on uninstall.
+uses Turboism-owned shortcuts. The NSIS installer checks, by default, an option
+to back up and modify selected official Cubism startup BAT files so existing
+shortcuts load Turboism (you can uncheck it); this is hash-guarded, idempotent,
+and restored on uninstall.
 
 Optional JavaScript engine
 --------------------------

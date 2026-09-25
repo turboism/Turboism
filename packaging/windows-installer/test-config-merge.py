@@ -926,13 +926,16 @@ def check_launcher_and_shortcut_contract():
               for name in legacy_start_menu)
           and "!insertmacro RemoveLegacyStartMenuShortcuts" in start_menu
           and "!insertmacro RemoveLegacyStartMenuShortcuts" in uninstall)
-    check("L6 installer keeps BAT integration explicit without defensive help copy",
-          "only if explicitly selected" in text
-          and "仅在明确勾选时" in text
-          and "当前支持版本：5.2.03, 5.3.02, 5.3.03" in text
-          and "Currently supported versions: 5.2.03, 5.3.02, 5.3.03" in text
+    check("L6 installer defaults BAT integration on without defensive help copy",
+          "checked by default and can be unchecked" in text
+          and "默认勾选备份并修改" in text
+          and "既定で選択" in text
+          and "기본으로 선택" in text
+          and "StrCpy $integrateCubismBat 1" in text
           and "BatIntegrationHelp" not in text
           and "$integrateCubismBat" in text
+          and "Get-CubismBatIntegrationDefaultChecked" in common
+          and "Get-CubismBatIntegrationDefaultChecked -State $state" in configure
           and "$batCheck" in configure)
     check("L6b Start-menu and BAT controls are independent and reversible",
           "$createStartMenu" in text
