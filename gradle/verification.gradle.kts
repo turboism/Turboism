@@ -638,13 +638,14 @@ val devCheck by tasks.registering {
 
 val resolvedHostValidationWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 
-// Worktree ID resolution no longer fails configuration (see build.gradle.kts), so
-// host-validation tasks fail closed here before touching packaging or the host queue.
-tasks.withType<Exec>().configureEach {
+// Marks an Exec task as a worktree-ID consumer: exports the resolved ID and fails
+// closed on its validation verdict before touching packaging or the host queue.
+// Explicit marking only — an Exec task inherits the caller's environment, so
+// probing the env map would flag every Exec task whenever the variable is set.
+fun Exec.exportHostValidationWorktreeId() {
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
     doFirst {
-        if (environment.containsKey("TURBOISM_WORKTREE_ID")) {
-            (rootProject.extra["turboismWorktreeIdError"] as String?)?.let { throw GradleException(it) }
-        }
+        (rootProject.extra["turboismWorktreeIdError"] as String?)?.let { throw GradleException(it) }
     }
 }
 
@@ -653,7 +654,7 @@ val packageParameterHostValidation by tasks.registering(Exec::class) {
     description = "Packages the test-only SDK probe and parameter host-validation bundle."
     dependsOn("previewBundle", ":plugins:parameter:jar", ":testing:integration-tests:testClasses")
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     commandLine("bash", "scripts/preview/package-windows-parameter-validation.sh")
 }
 
@@ -662,7 +663,7 @@ val packageWorkspaceHostValidation by tasks.registering(Exec::class) {
     description = "Packages the test-only SDK probe and workspace host-validation bundle."
     dependsOn("previewBundle", ":testing:integration-tests:testClasses")
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     commandLine("bash", "scripts/preview/package-windows-workspace-validation.sh")
 }
 
@@ -671,7 +672,7 @@ val packageThemeHostValidation by tasks.registering(Exec::class) {
     description = "Packages the UI theme plugin for exact-host validation."
     dependsOn("previewBundle", ":plugins:ui-theme:jar")
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     commandLine("bash", "scripts/preview/package-windows-theme-validation.sh")
 }
 
@@ -703,7 +704,7 @@ tasks.register<Exec>("validateStatusBarHost5302") {
     description = "Runs the automated exact-host Cubism 5.3.02 native status-bar matrix."
     dependsOn("previewBundle", ":sdk:jar", buildStatusBarHostProbe)
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
 }
 
@@ -721,7 +722,7 @@ fun registerBoundingBoxOverlayHostValidation(name: String, version: String, disp
         description = "Runs the exact-host Cubism $displayVersion bounding-box overlay matrix."
         dependsOn("previewBundle", ":sdk:jar", buildBoundingBoxOverlayHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-bounding-box-overlay-host-validation.sh", version)
     }
 }
@@ -744,7 +745,7 @@ fun registerWarpAltSymmetryHostValidation(name: String, version: String) {
         description = "Runs the exact-host Cubism $version Warp deformer Alt-symmetry reconnaissance probe."
         dependsOn("previewBundle", ":sdk:jar", ":plugins:warp-deformer-alt-symmetry:jar", buildWarpAltSymmetryHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-warp-deformer-alt-symmetry-host-validation.sh", version)
     }
 }
@@ -766,7 +767,7 @@ tasks.register<Exec>("validateBoundingBoxWarpMirrorHost5303") {
     description = "Runs the exact-host Cubism 5.3.03 BoundingBox Warp-mirror reconnaissance probe."
     dependsOn("previewBundle", ":sdk:jar", ":plugins:boundingbox-warp-mirror:jar", buildBoundingBoxWarpMirrorHostProbe)
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     commandLine("bash", "scripts/preview/run-boundingbox-warp-mirror-host-validation.sh", "5303")
 }
 
@@ -784,7 +785,7 @@ fun registerFpsHostValidation(name: String, version: String) {
         description = "Runs the automated exact-host Cubism $version FPS counting session."
         dependsOn("previewBundle", ":sdk:jar", buildFpsHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-fps-host-validation.sh", version)
     }
 }
@@ -806,7 +807,7 @@ fun registerModelUpdateSkipHostValidation(name: String, version: String) {
         description = "Runs the exact-host Cubism $version model-update-skip leg (-PturboismHostValidationMode=off|probe|on)."
         dependsOn("previewBundle", ":sdk:jar", buildModelUpdateSkipHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         val mode = providers.gradleProperty("turboismHostValidationMode").orElse("probe")
         doFirst {
             commandLine(
@@ -837,7 +838,7 @@ fun registerIncrementalUpdateHostValidation(name: String, version: String) {
         description = "Runs the exact-host Cubism $version incremental-update leg (-PturboismHostValidationMode=off|probe|on)."
         dependsOn("previewBundle", ":sdk:jar", buildIncrementalUpdateHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         val mode = providers.gradleProperty("turboismHostValidationMode").orElse("probe")
         doFirst {
             commandLine(
@@ -868,7 +869,7 @@ fun registerSeparateSavePathHostValidation(name: String, version: String, displa
         description = "Runs the automated exact-host Cubism $displayVersion separate-save-path matrix."
         dependsOn("previewBundle", ":sdk:jar", buildSeparateSavePathHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-separate-save-path-host-validation.sh", version)
     }
 }
@@ -881,7 +882,7 @@ val packageClipMaskViewerHostValidation by tasks.registering(Exec::class) {
     description = "Packages the clipmask-viewer plugin and probe exerciser for exact-host validation."
     dependsOn("previewBundle", ":plugins:clipmask-viewer:jar")
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     commandLine("bash", "scripts/preview/package-windows-clipmask-viewer-validation.sh")
 }
 
@@ -899,7 +900,7 @@ fun registerClipMaskViewerHostValidation(name: String, version: String, displayV
         description = "Runs the automated exact-host Cubism $displayVersion clip-mask viewer matrix."
         dependsOn(packageClipMaskViewerHostValidation, buildClipMaskViewerHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-clipmask-viewer-host-validation.sh", version)
     }
 }
@@ -912,7 +913,7 @@ fun registerThemeHostValidation(name: String, version: String, displayVersion: S
         description = "Runs the automated exact-host Cubism $displayVersion theme matrix."
         dependsOn(packageThemeHostValidation, buildThemeHostProbe)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-theme-host-validation.sh", version)
     }
 }
@@ -922,7 +923,7 @@ val packagePsdClipMaskHostValidation by tasks.registering(Exec::class) {
     description = "Packages the PSD clip-mask import plugin and its test-only SDK probe for exact-host validation."
     dependsOn("previewBundle", ":plugins:psd-clip-mask-import:jar", ":testing:integration-tests:testClasses")
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     // Bind the bundle to the exact artifact of the current Gradle jar task;
     // no directory scanning or version heuristics may substitute for it.
     doFirst {
@@ -942,7 +943,7 @@ val checkPsdClipMaskHostValidationBundle by tasks.registering(Exec::class) {
     description = "Asserts the PSD clip-mask host-validation bundle jars carry descriptor-declared i18n catalogs."
     dependsOn(packagePsdClipMaskHostValidation)
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     commandLine("bash", "scripts/preview/check-psd-clip-mask-validation-bundle.sh")
 }
 
@@ -951,7 +952,7 @@ tasks.register<Exec>("validatePsdClipMaskHost5302") {
     description = "Runs the automated exact-host Cubism 5.3.02 PSD clip-mask read/write/Undo/Redo matrix."
     dependsOn(packagePsdClipMaskHostValidation)
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     val mode = providers.gradleProperty("turboismPsdClipMaskValidationMode").orElse("matrix")
     doFirst {
         commandLine(
@@ -968,7 +969,7 @@ tasks.register<Exec>("validatePsdClipMaskHost5203") {
     description = "Runs the automated exact-host Cubism 5.2.03 PSD clip-mask read/write/Undo/Redo matrix."
     dependsOn(packagePsdClipMaskHostValidation)
     workingDir(rootDir)
-    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    exportHostValidationWorktreeId()
     val mode = providers.gradleProperty("turboismPsdClipMaskValidationMode").orElse("matrix")
     doFirst {
         commandLine(
@@ -986,7 +987,7 @@ fun registerParameterHostValidation(name: String, version: String, displayVersio
         description = "Runs the automated exact-host Cubism $displayVersion parameter/editor matrix."
         dependsOn(packageParameterHostValidation)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         val mode = providers.gradleProperty("turboismHostValidationMode").orElse("matrix")
         doFirst {
             commandLine(
@@ -1005,7 +1006,7 @@ fun registerWorkspaceHostValidation(name: String, version: String, displayVersio
         description = "Runs the automated exact-host Cubism $displayVersion workspace matrix."
         dependsOn(packageWorkspaceHostValidation)
         workingDir(rootDir)
-        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-workspace-host-validation.sh", version)
     }
 }
