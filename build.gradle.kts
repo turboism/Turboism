@@ -11,17 +11,48 @@ plugins {
     id("org.izpack.gradle") version "3.2.3"
 }
 
-val defaultWorktreeId = providers.exec {
-    commandLine("bash", "scripts/dev/worktree-id.sh")
-    workingDir(rootProject.layout.projectDirectory)
-}.standardOutput.asText.map { output ->
-    output.trim().ifBlank { rootProject.layout.projectDirectory.asFile.name }
-}
-
-rootProject.extra["turboismResolvedWorktreeId"] = providers.gradleProperty("turboismWorktreeId")
+// scripts/dev/worktree-id.sh owns worktree ID resolution and validation.
+// --resolve prints the sanitized ID on stdout and its validation verdict on
+// stderr without failing, so configuration never fails on a forbidden or
+// malformed ID; tasks that consume the ID fail closed on turboismWorktreeIdError.
+val worktreeIdOverride = providers.gradleProperty("turboismWorktreeId")
     .orElse(providers.environmentVariable("TURBOISM_WORKTREE_ID"))
-    .orElse(defaultWorktreeId)
-    .get()
+val worktreeIdProbe = providers.exec {
+    commandLine("bash", "scripts/dev/worktree-id.sh", "--resolve")
+    workingDir(rootProject.layout.projectDirectory)
+    isIgnoreExitValue = true
+    worktreeIdOverride.orNull?.let { environment("TURBOISM_WORKTREE_ID", it) }
+}
+val worktreeIdProbeSucceeded = runCatching {
+    worktreeIdProbe.result.get().exitValue == 0
+        && worktreeIdProbe.standardOutput.asText.get().trim().isNotBlank()
+}.getOrDefault(false)
+val probedWorktreeId = runCatching {
+    worktreeIdProbe.standardOutput.asText.get().trim()
+}.getOrDefault("")
+val probedWorktreeIdError = runCatching {
+    worktreeIdProbe.standardError.asText.get().trim()
+}.getOrDefault("")
+
+// Best-effort name mangling for the no-bash fallback only; the authoritative
+// verdict stays with the script, so consumers fail closed when it cannot run.
+fun sanitizeWorktreeId(raw: String): String = raw.lowercase()
+    .replace(Regex("[^a-z0-9.-]+"), "-")
+    .trim('-')
+    .replace(Regex("-{2,}"), "-")
+
+val resolvedWorktreeId = probedWorktreeId
+    .ifBlank { sanitizeWorktreeId(worktreeIdOverride.orElse("").get()) }
+    .ifBlank { sanitizeWorktreeId(rootProject.layout.projectDirectory.asFile.name) }
+    .let { if (it.isBlank() || it == "." || it == "..") "worktree" else it }
+
+rootProject.extra["turboismResolvedWorktreeId"] = resolvedWorktreeId
+rootProject.extra["turboismWorktreeIdError"] = if (worktreeIdProbeSucceeded) {
+    probedWorktreeIdError.ifBlank { null }
+} else {
+    "Worktree ID could not be resolved by scripts/dev/worktree-id.sh " +
+        "(bash unavailable or resolution failed); cannot validate $resolvedWorktreeId"
+}
 
 allprojects {
     repositories {
@@ -68,6 +99,7 @@ tasks.register<JavaExec>("mappingReview") {
     val legacyCliArgs = providers.gradleProperty("turboismMappingReviewArgs")
     systemProperty("turboism.worktree.id", rootProject.extra["turboismResolvedWorktreeId"] as String)
     doFirst {
+        (rootProject.extra["turboismWorktreeIdError"] as String?)?.let { throw GradleException(it) }
         if (legacyCliArgs.isPresent) {
             throw GradleException("-PturboismMappingReviewArgs is unsupported; pass -PturboismMappingReviewArgsFile=<path> instead.")
         }

@@ -1,9 +1,12 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.PartId;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -14,13 +17,23 @@ final class EditorPartStructureAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorPartStructureAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, null);
+    }
+
+    EditorPartStructureAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.authoringCoordinator = authoringCoordinator;
     }
 
     PartId add(final String identity, final Object source, final Object model, final PartId id, final PartId parentId) {
@@ -236,10 +249,53 @@ final class EditorPartStructureAccess {
         final String actionName,
         final Supplier<Object> undoSupplier
     ) {
-        requireHostThread();
+        requireHostThread(actionName);
         modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = activeDocumentFor(source, app);
+        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
+        if (ambientJoin.isPresent()) {
+            ambientJoin.orElseThrow().admit(
+                "cubism.part.structure-edit",
+                identity + ":part-structure:" + actionName,
+                actionName,
+                (edit, transactionLabel) -> {
+                    final Object undo = undoSupplier.get();
+                    HostUndoMutationScope.requireUndoAccepted(
+                        resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
+                        actionName
+                    );
+                    final Object listener = resolver.createFunctionalProxy(
+                        "cubism.editor-model.undo-listener.class",
+                        ignored -> {
+                            resolver.invoke(
+                                "cubism.editor-model.model-source.update-instances", source);
+                            refresh(app);
+                            return null;
+                        }
+                    );
+                    requireListenerAccepted(
+                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener),
+                        actionName
+                    );
+                },
+                () -> {
+                    modelGuard.requireCurrent(identity, model);
+                    activeDocumentFor(source, app);
+                },
+                () -> true,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    EditorRefreshRequirement.PART_PALETTE,
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
+            );
+            return;
+        }
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
+            authoringCoordinator, actionName
+        );
         final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
         final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
         boolean completed = false;
@@ -295,10 +351,8 @@ final class EditorPartStructureAccess {
         }
     }
 
-    private static void requireHostThread() {
-        if (!EditorHostThread.isCurrent()) {
-            throw new IllegalStateException("Cubism Part structure write escaped the EDT.");
-        }
+    private static void requireHostThread(final String actionName) {
+        EditorHostThread.requireHostThread("Cubism Part structure write: " + actionName);
     }
 
     private void refresh(final Object app) {

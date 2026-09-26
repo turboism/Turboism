@@ -696,6 +696,318 @@ final class EditorAuthoringTransactionCoordinatorTest {
         ).outcome());
     }
 
+    /**
+     * Rollback byte-parity: a transaction made only of coordinator-native contributions must
+     * keep the wave-1 recovery path verbatim — no {@code undo.group-undo} call, plain
+     * reverse-order compensation, aborting end.
+     */
+    @Test
+    void pureCoordinatorRollbackDoesNotInvokeNativeGroupUndo() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final List<String> compensationOrder = new ArrayList<>();
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Pure coordinator rollback"),
+            () -> {
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("first", value, 0, 1, new ArrayList<>(), true,
+                        compensationOrder));
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("second", value, 1, 2, new ArrayList<>(), true,
+                        compensationOrder));
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(0, value.get());
+        assertEquals(0, fixture.host.groupUndoCount,
+            "pure coordinator rollback must not invoke undo.group-undo");
+        assertEquals(List.of("end:true"), fixture.host.order);
+        assertEquals(List.of("second", "first"), compensationOrder);
+        assertEquals(1, fixture.host.abortCount);
+        assertTrue(fixture.host.history().entries().isEmpty());
+    }
+
+    /**
+     * A migrated hand-written envelope joins via {@code mutateEnvelope}; commit admits its
+     * Undo into the shared root edit without opening a nested bracket.
+     */
+    @Test
+    void envelopeContributionInsideTransactionCommitsIntoTheSharedRootEdit() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final List<Object> admittedEdits = new ArrayList<>();
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Envelope join"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(
+                    envelopeContribution("env", value, 0, 1, fixture.coordinator,
+                        admittedEdits, new ArrayList<>())
+                );
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("native", value, 1, 2, admittedEdits, true));
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(2, value.get());
+        assertEquals(1, fixture.host.beginCount, "one root edit for both contributions");
+        assertEquals(2, admittedEdits.size());
+        assertSame(admittedEdits.get(0), admittedEdits.get(1),
+            "envelope and native contributions share the root edit");
+        assertEquals(0, fixture.host.groupUndoCount);
+    }
+
+    /**
+     * Rollback with at least one envelope contribution must run {@code undo.group-undo} while
+     * the root bracket is still open, then abort the bracket.
+     */
+    @Test
+    void envelopeContributionRollbackRunsGroupUndoBeforeAbortingTheEdit() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        fixture.host.groupUndoAction = () -> value.set(0);
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Envelope rollback"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(
+                    envelopeContribution("env", value, 0, 1, fixture.coordinator,
+                        new ArrayList<>(), new ArrayList<>())
+                );
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(0, value.get());
+        assertEquals(1, fixture.host.groupUndoCount);
+        assertEquals(List.of("group-undo", "end:true"), fixture.host.order,
+            "group-undo must precede the aborting edit-mode.end");
+        assertEquals(1, fixture.host.abortCount);
+        assertTrue(fixture.host.history().entries().isEmpty());
+    }
+
+    /**
+     * The legA3EditModeCancel defect class, transaction side: with a pre-existing redo
+     * tail the abort path ({@code group-undo} + {@code endEdit(true)}) never commits and
+     * never reverts, so the tail must survive rollback untouched.
+     */
+    @Test
+    void envelopeRollbackPreservesAPreExistingRedoTail() {
+        final BindingFixture fixture = new BindingFixture();
+        for (int i = 0; i < 7; i++) {
+            fixture.host.entries.add(new HistoryEntry(i, "pre-" + i, true));
+        }
+        fixture.host.position = 6;
+        final AtomicInteger value = new AtomicInteger();
+        fixture.host.groupUndoAction = () -> value.set(0);
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Tail rollback"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(
+                    envelopeContribution("env", value, 0, 1, fixture.coordinator,
+                        new ArrayList<>(), new ArrayList<>())
+                );
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(1, fixture.host.groupUndoCount);
+        assertEquals(List.of("group-undo", "end:true"), fixture.host.order);
+        assertEquals(7, fixture.host.entries.size());
+        assertEquals(6, fixture.host.position);
+    }
+
+    /**
+     * When the native group undo already restored an envelope contribution (flag-probe
+     * restored), the reverse-order compensation must skip it.
+     */
+    @Test
+    void groupUndoRestoreSkipsCompensationForRestoredEnvelopeContributions() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final List<String> compensationOrder = new ArrayList<>();
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Restored by group undo"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(
+                    envelopeContribution("env", value, 0, 1, fixture.coordinator,
+                        new ArrayList<>(), compensationOrder)
+                );
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(1, fixture.host.groupUndoCount);
+        assertTrue(compensationOrder.isEmpty(),
+            "restored() proved the group undo rewound the contribution; compensation skips it");
+    }
+
+    /**
+     * Partial native recovery: the fake group undo rewinds only the first contribution; the
+     * second's real readback reports unrestored, its compensation runs, and rollback succeeds.
+     */
+    @Test
+    void partialGroupUndoLeavesUnrestoredContributionToCompensation() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger first = new AtomicInteger();
+        final AtomicInteger second = new AtomicInteger();
+        final List<String> compensationOrder = new ArrayList<>();
+        fixture.host.groupUndoAction = () -> first.set(0);
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Partial group undo"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(new EditorUndoContribution(
+                    "envelope.write.first", "envelope-target-first", "First",
+                    (edit, label) -> { },
+                    () -> first.set(1), () -> first.get() == 1,
+                    () -> { compensationOrder.add("first"); first.set(0); },
+                    () -> first.get() == 0, Set.of()
+                ));
+                fixture.coordinator.mutateEnvelope(new EditorUndoContribution(
+                    "envelope.write.second", "envelope-target-second", "Second",
+                    (edit, label) -> { },
+                    () -> second.set(1), () -> second.get() == 1,
+                    () -> { compensationOrder.add("second"); second.set(0); },
+                    () -> second.get() == 0, Set.of()
+                ));
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(1, fixture.host.groupUndoCount);
+        assertEquals(List.of("second"), compensationOrder,
+            "only the unrestored contribution is compensated");
+        assertEquals(0, first.get());
+        assertEquals(0, second.get());
+    }
+
+    /**
+     * An envelope contribution that stays unrestored after group undo and compensation must
+     * produce a typed recovery failure whose diagnostic names the contribution subtype and
+     * target — never a successful rollback.
+     */
+    @Test
+    void unrestoredEnvelopeContributionFailsRecoveryAndNamesTheContribution() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Unrestored envelope"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(new EditorUndoContribution(
+                    "envelope.write.broken", "envelope-target-broken", "Broken",
+                    (edit, label) -> { },
+                    () -> value.set(1), () -> value.get() == 1,
+                    () -> { }, () -> value.get() == 0, Set.of()
+                ));
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.RECOVERY_FAILED, result.outcome());
+        assertEquals(Optional.of("authoring.recovery-failed"), result.diagnosticId());
+        assertEquals(1, fixture.host.groupUndoCount);
+        assertEquals(1, value.get());
+        final String diagnostic = String.valueOf(fixture.host.lastDiagnosticFailure);
+        assertTrue(diagnostic.contains("envelope.write.broken")
+            && diagnostic.contains("envelope-target-broken"),
+            "recovery diagnostic must name the unrestored contribution: " + diagnostic);
+    }
+
+    /**
+     * A failing {@code undo.group-undo} still aborts the bracket and surfaces a typed recovery
+     * failure; unrestored contributions still run their compensation afterward.
+     */
+    @Test
+    void groupUndoFailureStillAbortsAndFailsRecovery() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final List<String> compensationOrder = new ArrayList<>();
+        fixture.host.groupUndoFailure = new IllegalStateException("group undo exploded");
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Group undo failure"),
+            () -> {
+                fixture.coordinator.mutateEnvelope(new EditorUndoContribution(
+                    "envelope.write.env", "envelope-target-env", "Env",
+                    (edit, label) -> { },
+                    () -> value.set(1), () -> value.get() == 1,
+                    () -> { compensationOrder.add("env"); value.set(0); },
+                    () -> value.get() == 0, Set.of()
+                ));
+                throw new IllegalStateException("callback failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.RECOVERY_FAILED, result.outcome(),
+            "a failed group undo means uncertain native state: typed failure, not success");
+        assertEquals(Optional.of("authoring.recovery-failed"), result.diagnosticId());
+        assertEquals(List.of("group-undo", "end:true"), fixture.host.order);
+        assertEquals(List.of("env"), compensationOrder);
+        assertEquals(0, value.get());
+        assertEquals(1, fixture.host.abortCount);
+        assertTrue(String.valueOf(fixture.host.lastDiagnosticFailure)
+            .contains("group undo exploded"));
+    }
+
+    @Test
+    void mutateEnvelopeOutsideAmbientScopeRejects() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+
+        assertThrows(IllegalStateException.class, () -> fixture.coordinator.mutateEnvelope(
+            envelopeContribution("env", value, 0, 1, fixture.coordinator,
+                new ArrayList<>(), new ArrayList<>())
+        ));
+        assertEquals(0, fixture.host.groupUndoCount);
+        assertEquals(0, fixture.host.beginCount);
+    }
+
+    private static EditorUndoContribution envelopeContribution(
+        final String id,
+        final AtomicInteger value,
+        final int before,
+        final int after,
+        final EditorAuthoringTransactionCoordinator coordinator,
+        final List<Object> admittedEdits,
+        final List<String> compensationOrder
+    ) {
+        return new EditorUndoContribution(
+            "envelope.write." + id,
+            "envelope-target-" + id,
+            "Envelope " + id,
+            (edit, label) -> admittedEdits.add(edit),
+            () -> value.set(after),
+            () -> value.get() == after,
+            () -> {
+                compensationOrder.add(id);
+                value.set(before);
+            },
+            coordinator::ambientGroupUndoApplied,
+            EnumSet.of(EditorRefreshRequirement.MODEL_INSTANCES)
+        );
+    }
+
     private static EditorUndoContribution contribution(
         final String id,
         final AtomicInteger value,
@@ -771,6 +1083,12 @@ final class EditorAuthoringTransactionCoordinatorTest {
         private Optional<String> preparedId = Optional.empty();
         private Optional<HistoryAction> lastSemanticAction = Optional.empty();
         private int entriesPerCommit = 1;
+        private int position;
+        private int groupUndoCount;
+        private Runnable groupUndoAction = () -> { };
+        private RuntimeException groupUndoFailure;
+        private final List<String> order = new ArrayList<>();
+        private Throwable lastDiagnosticFailure;
         private Set<EditorRefreshRequirement> lastRefresh = Set.of();
 
         FakeHost(final EditorAuthoringTransactionCoordinator.Binding binding) {
@@ -799,10 +1117,10 @@ final class EditorAuthoringTransactionCoordinatorTest {
                 HistorySnapshot.Availability.AVAILABLE,
                 1,
                 revision,
-                entries.size(),
+                position,
                 List.copyOf(entries),
-                !entries.isEmpty(),
-                false,
+                position > 0,
+                position < entries.size(),
                 "document-binding-1",
                 "manager-binding-1"
             );
@@ -835,6 +1153,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
             final boolean abort
         ) {
             endAttempts++;
+            order.add("end:" + abort);
             detailObservedAtEnd = preparedDetail;
             if (endError != null) throw endError;
             if (failEnd) throw new IllegalStateException("native end uncertain");
@@ -843,10 +1162,24 @@ final class EditorAuthoringTransactionCoordinatorTest {
                 return;
             }
             commitCount++;
+            // A native commit truncates the redo tail before pushing the new entry.
+            entries.subList(position, entries.size()).clear();
             for (int index = 0; index < entriesPerCommit; index++) {
                 entries.add(new HistoryEntry(entries.size(), currentLabel, true));
             }
+            position = entries.size();
             revision++;
+        }
+
+        @Override
+        public void undoEditGroup(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit
+        ) {
+            groupUndoCount++;
+            order.add("group-undo");
+            if (groupUndoFailure != null) throw groupUndoFailure;
+            groupUndoAction.run();
         }
 
         @Override
@@ -894,6 +1227,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
 
         @Override
         public String diagnosticId(final String code, final Throwable failure) {
+            lastDiagnosticFailure = failure;
             return code;
         }
     }

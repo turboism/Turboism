@@ -22,13 +22,20 @@ val detectedGraalTarget = when {
     hostOs.contains("mac") && (hostArch == "aarch64" || hostArch == "arm64") -> "darwin-aarch64"
     else -> null
 }
-val detectedTarget = detectedGraalTarget
-    ?: throw GradleException("Unsupported Graal host platform $hostOs/$hostArch; pass -PgraalHostTarget=<${supportedGraalTargets.joinToString("|")}>.")
-val graalTarget = providers.gradleProperty("graalHostTarget").orElse(detectedTarget).get()
-if (graalTarget !in supportedGraalTargets) {
-    throw GradleException("Unsupported -PgraalHostTarget=$graalTarget")
+// -PgraalHostTarget wins over detection; an unresolvable or unsupported target must
+// not fail configuration of unrelated tasks, only Graal packaging/verification.
+val graalTarget = providers.gradleProperty("graalHostTarget").orElse(provider { detectedGraalTarget })
+fun requireGraalTarget(): String {
+    val target = graalTarget.orNull
+        ?: throw GradleException("Unsupported Graal host platform $hostOs/$hostArch; pass -PgraalHostTarget=<${supportedGraalTargets.joinToString("|")}>.")
+    if (target !in supportedGraalTargets) {
+        throw GradleException("Unsupported -PgraalHostTarget=$target")
+    }
+    return target
 }
-logger.info("Graal host target is $graalTarget" + if (graalTarget == detectedTarget) " (detected)" else " (override)")
+graalTarget.orNull?.takeIf { it in supportedGraalTargets }?.let {
+    logger.info("Graal host target is $it" + if (it == detectedGraalTarget) " (detected)" else " (override)")
+}
 
 val graalVersion = "25.2.4"
 val jacksonDependencies = listOf(
@@ -44,8 +51,17 @@ dependencies {
     // reflectively so Turboism remains Java 17 ABI-compatible while this
     // dedicated process is launched with the matching GraalVM 25.2.4 runtime.
     runtimeOnly("org.graalvm.polyglot:polyglot:$graalVersion")
-    runtimeOnly("org.graalvm.polyglot:js-isolate-$graalTarget-community:$graalVersion")
+    graalTarget.orNull?.takeIf { it in supportedGraalTargets }
+        ?.let { runtimeOnly("org.graalvm.polyglot:js-isolate-$it-community:$graalVersion") }
 
+}
+
+// Graal packaging/execution tasks resolve the host isolate; fail them with a clear
+// error when no supported target can be selected.
+listOf("installDist", "distZip", "distTar", "run").forEach { name ->
+    tasks.named(name) {
+        doFirst { requireGraalTarget() }
+    }
 }
 
 val windowsPreviewDist by tasks.registering(Sync::class) {
@@ -72,8 +88,9 @@ tasks.register("checkGraalHostTargetSelection") {
     description = "Verifies installDist follows the detected/overridden host target and preview stays Windows-amd64."
     dependsOn(tasks.named("installDist"), windowsPreviewDist)
     doLast {
+        val selectedTarget = requireGraalTarget()
         val installLibraries = layout.buildDirectory.dir("install/graal-host/lib").get().asFile.list().orEmpty()
-        val expectedInstallIsolate = "js-isolate-$graalTarget-community-$graalVersion.jar"
+        val expectedInstallIsolate = "js-isolate-$selectedTarget-community-$graalVersion.jar"
         check(expectedInstallIsolate in installLibraries) {
             "installDist is missing $expectedInstallIsolate"
         }

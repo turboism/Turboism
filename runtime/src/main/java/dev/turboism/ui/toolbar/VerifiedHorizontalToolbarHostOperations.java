@@ -3,6 +3,7 @@ package dev.turboism.ui.toolbar;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.HorizontalToolbarContribution;
+import dev.turboism.ui.host.EdtDispatch;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -12,8 +13,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -121,11 +120,10 @@ public final class VerifiedHorizontalToolbarHostOperations implements Horizontal
         host.revalidate();
         host.repaint();
 
-        return () -> onEdt(() -> {
+        return () -> onEdtEventually(() -> {
             host.remove(strip);
             host.revalidate();
             host.repaint();
-            return null;
         });
     }
 
@@ -183,36 +181,15 @@ public final class VerifiedHorizontalToolbarHostOperations implements Horizontal
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.run();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.run();
-                } catch (Throwable throwable) {
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("horizontal-toolbar EDT operation was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("horizontal-toolbar EDT operation failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("horizontal-toolbar EDT operation failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
-        return value;
+        return EdtDispatch.call("horizontal-toolbar EDT operation", operation::run);
+    }
+
+    /**
+     * Idempotent removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a closed contribution is never orphaned.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        EdtDispatch.runEventually("horizontal-toolbar EDT removal", operation);
     }
 
     @FunctionalInterface

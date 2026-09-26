@@ -160,8 +160,34 @@ final class BackupPluginTest {
         ));
         assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=" + artifact.getFileName(), Duration.ofSeconds(2)),
             "the command result must reach the sync target built from the saved config");
+        assertEquals(List.of(dev.turboism.sdk.task.PluginTaskKind.LONG_RUNNING), context.submittedTaskKinds,
+            "save-triggered uploads must run on the long-task lane, not the 5s completion lane");
         assertFalse(context.hasLog("WEBDAV_SYNC_SKIPPED"),
             "a deterministic target must never be skipped");
+    }
+
+    @Test
+    void rejectedUploadTaskIsDiagnosedInsteadOfRunningInline() throws Exception {
+        FakeContext context = new FakeContext();
+        context.rejectTasks = true;
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable();
+        plugin.applySavedConfig(savedConfig());
+        assertTrue(context.awaitLog("WEBDAV_TARGET_READY", Duration.ofSeconds(2)));
+        final java.nio.file.Path artifact = java.nio.file.Files.createTempFile(
+            "turboism-backup-rejected-", ".cmo3"
+        );
+        java.nio.file.Files.writeString(artifact, "backup");
+        context.backupFiles = List.of(artifact.toFile());
+        plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "model:test", "model.cmo3", dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+            java.util.Optional.empty(), List.of()
+        ));
+        assertTrue(context.awaitLog("WEBDAV_SYNC_REJECTED reason=RUNTIME_UNAVAILABLE", Duration.ofSeconds(2)));
+        assertFalse(context.hasLog("WEBDAV_SYNC_UPLOAD"),
+            "a rejected task must not fall back to uploading on the completion lane");
     }
 
     @Test
@@ -318,6 +344,57 @@ final class BackupPluginTest {
         java.nio.file.Path hostBackupDir;
         List<java.io.File> backupFiles = List.of();
         CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupAfterSave;
+        final List<dev.turboism.sdk.task.PluginTaskKind> submittedTaskKinds = new CopyOnWriteArrayList<>();
+        volatile boolean rejectTasks;
+
+        @Override
+        public dev.turboism.sdk.task.PluginTaskScheduler tasks() {
+            return new dev.turboism.sdk.task.PluginTaskScheduler() {
+                @Override
+                public dev.turboism.sdk.task.TaskSubmission submit(
+                    final dev.turboism.sdk.task.PluginTaskRequest request
+                ) {
+                    final dev.turboism.sdk.task.TaskSubmission rejected =
+                        dev.turboism.sdk.task.PluginTaskScheduler.unavailable().submit(request);
+                    if (rejectTasks) {
+                        return rejected;
+                    }
+                    submittedTaskKinds.add(request.kind());
+                    final Thread worker = new Thread(() -> {
+                        try {
+                            request.action().run(new dev.turboism.sdk.plugin.CancellationToken() {
+                                @Override
+                                public boolean isCancellationRequested() {
+                                    return false;
+                                }
+
+                                @Override
+                                public void checkCanceled() {
+                                }
+                            });
+                        } catch (Exception failure) {
+                            logger.warn("TEST_TASK_FAILED " + failure);
+                        }
+                    }, "backup-plugin-test-task");
+                    worker.setDaemon(true);
+                    worker.start();
+                    // The plugin only consumes accepted(); the handle is never inspected.
+                    return new dev.turboism.sdk.task.TaskSubmission(
+                        dev.turboism.sdk.task.TaskSubmissionStatus.ACCEPTED,
+                        rejected.handle(),
+                        Optional.empty()
+                    );
+                }
+
+                @Override
+                public dev.turboism.sdk.task.TaskSubmission scheduleWithFixedDelay(
+                    final dev.turboism.sdk.task.FixedDelayTaskRequest request
+                ) {
+                    return dev.turboism.sdk.task.PluginTaskScheduler.unavailable()
+                        .scheduleWithFixedDelay(request);
+                }
+            };
+        }
 
         @Override
         public PluginDescriptor descriptor() {
