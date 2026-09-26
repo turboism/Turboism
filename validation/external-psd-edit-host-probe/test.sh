@@ -20,6 +20,7 @@ javac --release 17 -Xlint:all -cp "${sdk[0]}:build/external-psd-edit-host-probe.
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/PsdStructuralControlTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbeTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExternalPsdPerformanceSamplerTest.java \
+  validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/OfficialSecondDocumentOpenTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExactHostRowTargetTest.java \
   validation/external-psd-edit-host-probe/test/com/live2d/ui/treeTable/j.java
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
@@ -34,6 +35,11 @@ java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-p
   dev.turboism.validation.externalpsd.ExternalPsdEditHostProbeTest
 java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.ExternalPsdPerformanceSamplerTest
+java -Djava.awt.headless=true -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
+  dev.turboism.validation.externalpsd.OfficialSecondDocumentOpenTest --skip-shape
+if [[ ${#shape_args[@]} -gt 0 ]]; then
+  bash scripts/test/test_official_second_document_open.sh
+fi
 java -Djava.awt.headless=true "${shape_args[@]}" \
   -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.ExactHostRowTargetTest

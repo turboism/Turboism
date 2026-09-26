@@ -17,6 +17,7 @@ javac --release 17 -Xlint:all -cp "${sdk[0]}" -d "$out" \
   "$src/dev/turboism/validation/externalpsd/OfficialPsdFixturePreparation.java" \
   "$src/dev/turboism/validation/externalpsd/ExternalPsdPerformanceSampler.java" \
   "$src/dev/turboism/validation/externalpsd/OfficialPsdReplacementBaseline.java" \
+  "$src/dev/turboism/validation/externalpsd/OfficialSecondDocumentOpen.java" \
   "$src/dev/turboism/validation/externalpsd/WindowsPsdHandleObservation.java" \
   "$src/dev/turboism/validation/externalpsd/AtomicReplaceFileControl.java" \
   "$src/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbe.java"

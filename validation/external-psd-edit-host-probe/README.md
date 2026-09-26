@@ -619,3 +619,19 @@ Performance environment metadata includes the active collector names and read-on
 HotSpot VM options for G1 region size, compressed pointers and object alignment,
 including each option's origin. Unsupported beans/options are UNAVAILABLE. The
 probe never calls `setVMOption`; these fields do not alter collector configuration.
+
+`OfficialSecondDocumentOpen` is a validation-only helper for the F2 preparation
+coordinator. It admits an immutable task-owned `.cmo3` with a fixed SHA, then
+dispatches the reviewed public `command_open(File,true)` once on EDT. Its initial
+document UID/contentId and main window must match the caller's binding. Completion
+requires two distinct native documents/model objects, unique document/content IDs,
+the expected second file path and an unchanged first document observation. Equal
+model GUIDs or raw basenames are allowed; they never establish document identity.
+The observation covers raw names/GUIDs and model-image current/linked/selector keys,
+not layer record contents, ArtMesh bindings, RGB, history or full F2 isolation.
+Dialogs after dispatch are observed until they disappear or the common deadline
+expires; this helper never clicks them. Stop, task loss and expiry invalidate queued
+EDT callbacks without interrupting EDT. The helper is packaged in the probe but is
+not yet selected by a phase or wrapper. Focused tests and exact JAR shape are run by
+`bash scripts/test/test_official_second_document_open.sh`; normal probe tests run
+the host-independent cases, and `test.sh --shape` also runs the exact JAR check.
