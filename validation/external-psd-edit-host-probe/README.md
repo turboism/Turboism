@@ -605,6 +605,16 @@ the aggregate failure count alone does not identify failed disk-path queries.
 Attribute/path observations race with external writers; no match, error code,
 or read-only flag alone proves the cause of the earlier move failure.
 
+Opt-in `-Dturboism.validation.externalpsd.atomicFileControl=true` adds three tiny,
+independent file pairs under a new directory beside the issued PSD before cycle 1:
+unopened target, target held by a READ/NOFOLLOW channel, and target whose read
+channel has closed. Each pair gets one atomic replacement attempt. The control
+records exceptions and validates final bytes; it never opens or alters the issued
+PSD, retries its save, or pauses its watcher. Only control-owned channels close;
+control files remain in the task temp directory. The 2-second budget is checked
+between cases, not a hard OS-call cancellation. These diagnostic runs do not
+establish performance acceptance or identify the real failed PSD's holder.
+
 Performance environment metadata includes the active collector names and read-only
 HotSpot VM options for G1 region size, compressed pointers and object alignment,
 including each option's origin. Unsupported beans/options are UNAVAILABLE. The
