@@ -464,6 +464,27 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("performance.processors",
             Integer.toString(runtime.availableProcessors()));
         result.setProperty("performance.jvm.maxHeapBytes", Long.toString(runtime.maxMemory()));
+        try {
+            result.setProperty("performance.jvm.collectors", ManagementFactory
+                .getGarbageCollectorMXBeans().stream().map(bean -> bean.getName())
+                .collect(java.util.stream.Collectors.joining(",")));
+        } catch (RuntimeException failure) {
+            result.setProperty("performance.jvm.collectors", "UNAVAILABLE");
+        }
+        for (final String option : List.of("UseG1GC", "G1HeapRegionSize",
+            "UseCompressedOops", "UseCompressedClassPointers", "ObjectAlignmentInBytes")) {
+            final String key = "performance.jvm.option." + option;
+            try {
+                final com.sun.management.HotSpotDiagnosticMXBean bean = ManagementFactory
+                    .getPlatformMXBean(com.sun.management.HotSpotDiagnosticMXBean.class);
+                if (bean == null) throw new IllegalStateException("HotSpot diagnostic bean absent");
+                final com.sun.management.VMOption observed = bean.getVMOption(option);
+                result.setProperty(key, observed.getValue());
+                result.setProperty(key + ".origin", observed.getOrigin().name());
+            } catch (RuntimeException | LinkageError failure) {
+                result.setProperty(key, "UNAVAILABLE");
+            }
+        }
         result.setProperty("performance.warmCold", performanceWarmColdDeclaration());
         result.setProperty("performance.rssBytes", "UNAVAILABLE");
         result.setProperty("performance.nativeStableRefresh", "UNAVAILABLE");
