@@ -2,7 +2,7 @@
 # Test-only 025 external PSD edit pipeline probe, through the shared local queue.
 #
 # Environment controls (all optional):
-#   EXTERNAL_PSD_PHASE          pipeline (default) | reopen | gui | structure-native | structure-sdk
+#   EXTERNAL_PSD_PHASE          pipeline (default) | reopen | gui | structure-native | structure-sdk | prepare-second-document
 #   EXTERNAL_PSD_CYCLES         save cycles for pipeline phase
 #   EXTERNAL_PSD_PERSIST=1      append the mediated SAVE_AS persist tail (pipeline only)
 #   EXTERNAL_PSD_CONTENT_PROFILE control7 (default) | f1; passed to the validation probe
@@ -53,6 +53,9 @@ case "$phase" in
       echo 'second-document controls differ from reviewed CMO assets' >&2; exit 2;
     }
     structural_input=(--home-file "$EXTERNAL_PSD_SECOND_DOCUMENT:second-document/prepared-control.cmo3")
+    # The startup home dialog remains visible indefinitely. Use the existing
+    # exact-host startup hook in this task's isolated home; keep dialog gates intact.
+    options+=(--home-config "$root/validation/external-psd-edit-host-probe/second-document-home-config.json")
     ;;
   structure-native|structure-sdk)
     [[ ${EXTERNAL_PSD_CONTENT_PROFILE:-} == f1 ]] || {
