@@ -126,15 +126,15 @@ class StructuralCompareTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.compare()
 
-    def test_sha_and_probe_mismatch_rejected(self):
-        for field in ("fixtureAfterSha256", "identityActualJarSha256", "post-fixture", "probe"):
+    def test_sha_and_artifact_mismatch_rejected(self):
+        for field in ("fixtureAfterSha256", "identityActualJarSha256", "post-fixture", "probe", "agent"):
             with self.subTest(field=field):
                 self.right = self.collection("sdk")
                 detail = self.right[1]["details"]
                 if field == "post-fixture":
                     detail["postContainmentChecks"]["fixtureSourceSha256"] = "e" * 64
-                elif field == "probe":
-                    artifact = detail["postContainmentChecks"]["stagedArtifacts"][1]
+                elif field in ("probe", "agent"):
+                    artifact = detail["postContainmentChecks"]["stagedArtifacts"][int(field == "probe")]
                     artifact["sourceSha256"] = artifact["stagedSha256"] = "e" * 64
                 else:
                     detail[field] = "e" * 64
