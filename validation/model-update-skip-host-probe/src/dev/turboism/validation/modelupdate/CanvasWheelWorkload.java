@@ -214,7 +214,7 @@ final class CanvasWheelWorkload {
                     ? (variant == 0 ? "native" : variant == 1 ? "locations" : "locations-and-values")
                     : matrix ? (enabled ? "locations-and-matrix-scratch" : "locations-only")
                     : narrow ? (enabled ? "narrow-locations" : "native") : enabled ? "on" : "off";
-                final String beforePixels = "modelSkip".equals(factor) ? "not-requested" : capturePixels();
+                final String beforePixels = "modelSkip".equals(factor) ? "not-requested" : capturePixels(leg == 0 ? "restored-start" : null);
                 onEdt(() -> {
                     if (factor.equals("modelSkip")) {
                         System.setProperty(ENABLE, Boolean.toString(enabled));
@@ -275,7 +275,7 @@ final class CanvasWheelWorkload {
                     return null;
                 });
                 onEdt(() -> null);
-                final String afterPixels = "modelSkip".equals(factor) ? "not-requested" : capturePixels();
+                final String afterPixels = "modelSkip".equals(factor) ? "not-requested" : capturePixels(null);
                 if (!beforePixels.equals(afterPixels)) {
                     throw new IllegalStateException("buffering change altered canvas pixels");
                 }
@@ -566,6 +566,7 @@ final class CanvasWheelWorkload {
             onEdt(() -> { setTrialFactor(false); return null; });
             nativeAfter = captureNativeFrame();
         }
+        if (narrowTrial != null) nativeBefore.writeArgbPng(state.resolve("wheel-pixels-" + stateName + ".png"));
         String key = "uniformCache.parity." + stateName + ".";
         report.append(key).append("atomicEdt=").append(narrowTrial != null).append('\n')
             .append(key).append("nativeBefore=").append(nativeBefore.digest()).append('\n')
@@ -610,9 +611,13 @@ final class CanvasWheelWorkload {
         }
     }
 
-    private String capturePixels() throws Exception {
+    private String capturePixels(String diagnosticName) throws Exception {
         if (uniformTrial != null || narrowTrial != null) {
-            return captureNativeFrame().digest();
+            FrameReadback frame = captureNativeFrame();
+            if (narrowTrial != null && diagnosticName != null) {
+                frame.writeArgbPng(state.resolve("wheel-pixels-" + diagnosticName + ".png"));
+            }
+            return frame.digest();
         }
         final java.awt.Rectangle bounds = onEdt(() -> {
             final Point point = canvas.getLocationOnScreen();
