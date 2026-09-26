@@ -77,6 +77,14 @@ public final class OfficialSecondDocumentOpen {
         boolean hasDialog() throws Exception;
         default String dialogDiagnostic() throws Exception { return "dialog details unavailable"; }
         void open(Path cmo) throws Exception;
+        /** Official undo of the given live document; only hosts that bind commands support it. */
+        default void undo(Object nativeDocument) throws Exception {
+            throw new UnsupportedOperationException("undo is not bound by this host");
+        }
+        /** Official redo of the given live document; only hosts that bind commands support it. */
+        default void redo(Object nativeDocument) throws Exception {
+            throw new UnsupportedOperationException("redo is not bound by this host");
+        }
     }
 
     @FunctionalInterface
@@ -401,6 +409,9 @@ public final class OfficialSecondDocumentOpen {
                 || !SHA.equals(digest(artifact))) throw new IllegalStateException("official JAR mismatch");
             bind("instance", app, "access$get_instance$cp", app, true);
             bind("open", app, "command_open", void.class, false, File.class, boolean.class);
+            Class<?> iDocument = type("com.live2d.cubism.doc.IDocument");
+            bind("undo", app, "command_undo", void.class, false, iDocument);
+            bind("redo", app, "command_redo", void.class, false, iDocument);
             bind("docs", app, "getAllModelDocs", List.class, false);
             bind("current", app, "getCurrentDoc", type("com.live2d.cubism.doc.IDocument"), false);
             Class<?> frame = type("com.live2d.cubism.view.CEMainFrameCtrl");
@@ -507,6 +518,12 @@ public final class OfficialSecondDocumentOpen {
 
         @Override public Object currentDocument() throws Exception { return get("current", app()); }
         @Override public void open(Path cmo) throws Exception { get("open", app(), cmo.toFile(), true); }
+        @Override public void undo(Object nativeDocument) throws Exception {
+            get("undo", app(), nativeDocument);
+        }
+        @Override public void redo(Object nativeDocument) throws Exception {
+            get("redo", app(), nativeDocument);
+        }
         private String guid(Object value) throws Exception { return (String) get("guid", value); }
 
         @Override public List<Document> documents() throws Exception {

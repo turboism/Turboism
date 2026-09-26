@@ -1561,11 +1561,14 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("f2.postReplace.sha256", sha256(postBytes));
             if (!written.equals(postRgb)) throw new IllegalStateException(
                 "fresh native export after F2 replace differs from the written mutation");
-            verifyFirstDocumentIsolation(result, prepared, afterRaw, deadline);
+            final OfficialSecondDocumentOpen.Host nativeHost = OfficialSecondDocumentOpen.newNativeHost();
+            verifyFirstDocumentIsolation(result, nativeHost, prepared, afterRaw, deadline);
+            verifyOfficialUndoRedoRefresh(result, nativeHost, prepared, target, afterRaw, deadline);
             result.setProperty("f2.dualInput", "PENDING");
             result.setProperty("f2.actual",
                 "second-document SDK replace APPLIED; fresh export matches written RGB; stale write rejected; "
-                    + "native re-observation shows the first document unchanged");
+                    + "native re-observation shows the first document unchanged; official undo/redo "
+                    + "relations refresh verified");
             result.setProperty("f2.acceptance", "PASS");
         } catch (Exception failure) {
             acceptanceFailure = failure;
@@ -1585,9 +1588,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * no UI interaction, no pixel reads - identity, relation and dirty state only.
      */
     private void verifyFirstDocumentIsolation(final Properties result,
-        final OfficialSecondDocumentOpen.Result prepared, final RawImageId afterRaw,
-        final long deadline) throws Exception {
-        final OfficialSecondDocumentOpen.Host host = OfficialSecondDocumentOpen.newNativeHost();
+        final OfficialSecondDocumentOpen.Host host, final OfficialSecondDocumentOpen.Result prepared,
+        final RawImageId afterRaw, final long deadline) throws Exception {
         final OfficialSecondDocumentOpen.Recheck recheck = structuralEdt(deadline,
             () -> OfficialSecondDocumentOpen.reobserve(prepared, host));
         final var first = recheck.first();
@@ -1621,6 +1623,68 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "second document does not carry the applied replacement raw as every current");
         }
         result.setProperty("f2.firstIsolation", "PASS");
+    }
+
+    /**
+     * FR-008: relations must be re-read after every import, undo and redo. Drives the official
+     * command_undo/command_redo on the live second document and requires the SDK relations to
+     * track each official change (candidate cardinality and current raw) with no stale cache.
+     */
+    private void verifyOfficialUndoRedoRefresh(final Properties result,
+        final OfficialSecondDocumentOpen.Host host, final OfficialSecondDocumentOpen.Result prepared,
+        final Target target, final RawImageId afterRaw, final long deadline) throws Exception {
+        structuralEdt(deadline, () -> {
+            host.undo(prepared.second().nativeDocument());
+            return Boolean.TRUE;
+        });
+        awaitNoDialog(host, deadline);
+        final TextureRelationsSnapshot afterUndo = structuralEdt(deadline, () -> {
+            final TextureRelationsSnapshot relations =
+                context.cubism().model().active().textures().relations();
+            if (!relations.isAvailable()) throw new IllegalStateException(
+                "relations unavailable after official undo");
+            return relations;
+        });
+        final Target undoTarget = pickTarget(afterUndo).orElseThrow(
+            () -> new IllegalStateException("no resolvable current raw after official undo"));
+        result.setProperty("f2.undoRefresh.rawCount", Integer.toString(afterUndo.rawImages().size()));
+        result.setProperty("f2.undoRefresh.current", undoTarget.raw().value());
+        if (afterUndo.rawImages().size() != 1 || !undoTarget.raw().equals(target.raw())) {
+            throw new IllegalStateException(
+                "SDK relations after official undo differ from the pre-replacement state");
+        }
+        structuralEdt(deadline, () -> {
+            host.redo(prepared.second().nativeDocument());
+            return Boolean.TRUE;
+        });
+        awaitNoDialog(host, deadline);
+        final TextureRelationsSnapshot afterRedo = structuralEdt(deadline, () -> {
+            final TextureRelationsSnapshot relations =
+                context.cubism().model().active().textures().relations();
+            if (!relations.isAvailable()) throw new IllegalStateException(
+                "relations unavailable after official redo");
+            return relations;
+        });
+        final Target redoTarget = pickTarget(afterRedo).orElseThrow(
+            () -> new IllegalStateException("no resolvable current raw after official redo"));
+        result.setProperty("f2.redoRefresh.rawCount", Integer.toString(afterRedo.rawImages().size()));
+        result.setProperty("f2.redoRefresh.current", redoTarget.raw().value());
+        if (afterRedo.rawImages().size() != 2 || !redoTarget.raw().equals(afterRaw)) {
+            throw new IllegalStateException(
+                "SDK relations after official redo differ from the replaced state");
+        }
+        result.setProperty("f2.undoRedoRefresh", "PASS");
+    }
+
+    private void awaitNoDialog(final OfficialSecondDocumentOpen.Host host,
+        final long deadline) throws Exception {
+        final long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(10L);
+        while (System.nanoTime() < until) {
+            final Boolean clear = structuralEdt(deadline, () -> Boolean.valueOf(!host.hasDialog()));
+            if (clear) return;
+            Thread.sleep(200L);
+        }
+        throw new IllegalStateException("official dialog still showing after undo/redo");
     }
 
     static void requireStaleEditorReadRejected(final Runnable read) {
