@@ -1761,3 +1761,8 @@ T32: commit773e8caef rejects Mesa-on with deferred INACTIVE/UNKNOWN/COMPLETE/MIS
 Offline validation: existing final devCheck PASS; bootstrap158/0fail/0skip, integration560/0fail/1skip; runtime3955/2fail/49skip, the two headless failures reproduced on exact main; host scripts14/18 with all four failures reproduced on main. T33 focused probe19/19 PASS and probe build PASS. A new negative-test assertion initially mishandled ExecutionException wrapping; original output was preserved and only test unwrapping corrected. No product rebuild was required. No pwsh/native Windows execution. Older cross-version T05/T06, observer T09 and production acquisition T10 remain incomplete; memory work stopped by user, system default unchanged.
 
 Merge preparation: main remains e5424ce5027d049f12be6613f7690550f9984500 and is an ancestor; both checkouts were clean before documentation updates. Existing main-merge authorization and no-push boundary remain valid. No merge has been performed because the new pan tail result conflicts with the broader US-2 non-regression target; the acceptance deviation needs explicit disposition under the project rule against silently lowering requirements.
+
+
+### User disposition (2026-09-26)
+
+After disclosure of the pan p99 increase (78.14→84.97ms, about8.7%) and clarification of the pan workload, the user explicitly instructed “合并到main”. The deviation is accepted for this integration; its measured values and all other limitations remain recorded. This authorizes the local main merge, not a push, and does not turn the tail non-regression target into PASS.
