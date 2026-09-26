@@ -1700,3 +1700,7 @@ n8 是这套链路的首次实机有效性证据。
   修复+同步 main@3ffaf5ea1 后分支至 f2fb6a4c8。
 - **T27 修复后冒烟已提交**（agent bc30133a/probe a90ae65d）：
   ec469091 eab6251c b024662a 81253d1d；pan 须 PASS。
+- **T27 结果**：wheel/optout PASS；pan FAIL（焦点）+ drag FAIL
+  （冷帧 parity）——探针修复后分支至 9f28d2d00。
+- **T28 已提交**（agent 35c29392/probe e63527a4）：5af2bdfc 9d0f777c
+  00c754f9 6c221374。
