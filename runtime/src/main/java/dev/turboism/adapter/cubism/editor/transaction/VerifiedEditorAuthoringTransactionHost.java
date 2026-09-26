@@ -1,8 +1,10 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import dev.turboism.adapter.cubism.editor.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
@@ -26,6 +28,9 @@ import java.util.function.Supplier;
  */
 public final class VerifiedEditorAuthoringTransactionHost
     implements EditorAuthoringTransactionCoordinator.Host {
+
+    private static final String COMPONENT = "authoring-transaction";
+    private static final int DIAGNOSTIC_MESSAGE_LIMIT = 160;
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<NativeBinding> current;
@@ -108,6 +113,7 @@ public final class VerifiedEditorAuthoringTransactionHost
         final EditorAuthoringTransactionCoordinator.Binding binding,
         final String label
     ) {
+        EditorHostThread.requireHostThread("Cubism authoring edit begin");
         final NativeBinding active = currentFor(binding);
         final Object editMode = resolver.invoke(
             "cubism.editor-model.modeling-document.edit-mode",
@@ -135,6 +141,7 @@ public final class VerifiedEditorAuthoringTransactionHost
         final Object edit,
         final boolean abort
     ) {
+        EditorHostThread.requireHostThread("Cubism authoring edit end");
         final Object editMode;
         synchronized (editLock) {
             editMode = editModes.remove(Objects.requireNonNull(edit, "edit"));
@@ -148,6 +155,23 @@ public final class VerifiedEditorAuthoringTransactionHost
             abort,
             null
         );
+    }
+
+    @Override
+    public void undoEditGroup(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final Object edit
+    ) {
+        EditorHostThread.requireHostThread("Cubism authoring edit group undo");
+        currentFor(binding);
+        synchronized (editLock) {
+            if (!editModes.containsKey(Objects.requireNonNull(edit, "edit"))) {
+                throw new IllegalArgumentException(
+                    "Editor authoring edit token is invalid or closed"
+                );
+            }
+        }
+        resolver.invoke("cubism.editor-model.undo.group-undo", edit);
     }
 
     @Override
@@ -351,7 +375,28 @@ public final class VerifiedEditorAuthoringTransactionHost
 
     @Override
     public String diagnosticId(final String code, final Throwable failure) {
-        return Objects.requireNonNull(code, "code");
+        final String checked = Objects.requireNonNull(code, "code");
+        if (failure != null) {
+            // Keep the root cause in the runtime log without widening the SDK-facing
+            // identifier: exception class plus a bounded message, no host internals.
+            RuntimeDiagnostics.warn(
+                COMPONENT,
+                checked
+                    + " failure=" + failure.getClass().getName()
+                    + " message=" + abbreviate(failure.getMessage())
+                    + " suppressed=" + failure.getSuppressed().length
+            );
+        }
+        return checked;
+    }
+
+    private static String abbreviate(final String message) {
+        if (message == null) {
+            return "none";
+        }
+        return message.length() <= DIAGNOSTIC_MESSAGE_LIMIT
+            ? message
+            : message.substring(0, DIAGNOSTIC_MESSAGE_LIMIT) + "…";
     }
 
     private NativeBinding currentFor(

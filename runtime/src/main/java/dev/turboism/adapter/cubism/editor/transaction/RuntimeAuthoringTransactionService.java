@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import dev.turboism.adapter.cubism.editor.EditorHostThread;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
@@ -32,6 +33,13 @@ public final class RuntimeAuthoringTransactionService implements AuthoringTransa
         this.binding = Objects.requireNonNull(binding, "binding");
     }
 
+    /**
+     * Executes one root authoring transaction entirely on the Cubism Editor host thread.
+     *
+     * <p>The binding supplier is evaluated inside the dispatch so the captured host thread,
+     * ambient scope, work callback, native edit, refresh, and history verification are all
+     * confined to the same Swing EDT.</p>
+     */
     @Override
     public <T> AuthoringTransactionResult<T> execute(
         final AuthoringTransactionOptions options,
@@ -42,15 +50,17 @@ public final class RuntimeAuthoringTransactionService implements AuthoringTransa
             "options"
         );
         final AuthoringTransactionWork<T> checkedWork = Objects.requireNonNull(work, "work");
-        final Optional<EditorAuthoringTransactionCoordinator.Binding> current;
-        try {
-            current = Objects.requireNonNull(binding.get(), "binding supplier result");
-        } catch (RuntimeException failure) {
-            return AuthoringTransactionResult.unavailable(BINDING_UNAVAILABLE);
-        }
-        if (current.isEmpty()) {
-            return AuthoringTransactionResult.unavailable(BINDING_UNAVAILABLE);
-        }
-        return coordinator.execute(current.orElseThrow(), checkedOptions, checkedWork);
+        return EditorHostThread.dispatch("Cubism authoring transaction", () -> {
+            final Optional<EditorAuthoringTransactionCoordinator.Binding> current;
+            try {
+                current = Objects.requireNonNull(binding.get(), "binding supplier result");
+            } catch (RuntimeException failure) {
+                return AuthoringTransactionResult.unavailable(BINDING_UNAVAILABLE);
+            }
+            if (current.isEmpty()) {
+                return AuthoringTransactionResult.unavailable(BINDING_UNAVAILABLE);
+            }
+            return coordinator.execute(current.orElseThrow(), checkedOptions, checkedWork);
+        });
     }
 }

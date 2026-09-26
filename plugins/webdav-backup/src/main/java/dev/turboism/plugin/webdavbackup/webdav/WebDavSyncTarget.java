@@ -27,7 +27,9 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Safety: credentials are only ever sent in the {@code Authorization}
  * header; URLs, status codes, and file names may be logged, but never the
- * password (see {@link WebDavConfig#toString()}). Zero third-party
+ * password (see {@link WebDavConfig#toString()}). Redirects are never
+ * followed, so the Authorization header can never be re-issued to another
+ * origin; a 3xx response is a fail-closed diagnostic. Zero third-party
  * dependencies ({@code java.net.http} only).</p>
  */
 public final class WebDavSyncTarget implements BackupSyncTarget {
@@ -52,7 +54,7 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
         HttpClient.Builder builder = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(config.timeoutSeconds()))
-            .followRedirects(HttpClient.Redirect.NORMAL);
+            .followRedirects(HttpClient.Redirect.NEVER);
         if (!config.verifyTls()) {
             builder.sslContext(permissiveSslContext());
         }
@@ -148,6 +150,7 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
                         + " bytes=" + file.length() + " attempts=" + attempt);
                     return;
                 }
+                rejectRedirect("PUT", response);
                 if (response.statusCode() / 100 != 5 && response.statusCode() != 429) {
                     throw new IllegalStateException(
                         "webdav put failed: " + response.statusCode() + " file=" + file.getName()
@@ -178,15 +181,40 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         }
     }
 
+    /**
+     * Builds the request URI from the configured root URL plus the collection
+     * and file name. The root URL may carry its own path (with or without a
+     * trailing slash); each collection/file-name segment is percent-encoded by
+     * the multi-argument {@link URI} constructor, so spaces, {@code #},
+     * {@code %}, {@code ?} and non-ASCII characters in artifact names can
+     * never corrupt the path or spill into a query/fragment. A query or
+     * fragment on the configured root URL is not carried into the request.
+     */
     private URI targetUri(final String collection, final String fileName) {
-        final String base = config.url().toString();
-        final String root = base.endsWith("/") ? base : base + "/";
-        final String path = fileName == null
-            ? collection
-            : (collection.equals("/") ? "/" + fileName : collection + "/" + fileName);
-        // The normalized collection already starts with '/'; strip it to avoid
-        // a double slash after the base root.
-        return URI.create(root + (path.startsWith("/") ? path.substring(1) : path));
+        final URI base = config.url();
+        final StringBuilder path = new StringBuilder();
+        final String basePath = base.getPath() == null ? "" : base.getPath();
+        if (!basePath.isEmpty() && !"/".equals(basePath)) {
+            path.append(basePath.endsWith("/")
+                ? basePath.substring(0, basePath.length() - 1)
+                : basePath);
+        }
+        for (String segment : collection.split("/")) {
+            if (!segment.isEmpty()) {
+                path.append('/').append(segment);
+            }
+        }
+        if (fileName != null) {
+            path.append('/').append(fileName);
+        }
+        if (path.length() == 0) {
+            path.append('/');
+        }
+        try {
+            return new URI(base.getScheme(), base.getAuthority(), path.toString(), null, null);
+        } catch (java.net.URISyntaxException failure) {
+            throw new IllegalStateException("webdav target uri is invalid", failure);
+        }
     }
 
     private HttpRequest.Builder request(
@@ -208,12 +236,52 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
 
     private HttpResponse<Void> send(final HttpRequest request) {
         try {
-            return client.send(request, HttpResponse.BodyHandlers.discarding());
+            final HttpResponse<Void> response =
+                client.send(request, HttpResponse.BodyHandlers.discarding());
+            rejectRedirect(request.method(), response);
+            return response;
         } catch (IOException failure) {
             throw new IllegalStateException("webdav request failed: " + request.method(), failure);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("webdav request interrupted: " + request.method(), interrupted);
+        }
+    }
+
+    /**
+     * Fails closed on any 3xx: the client never follows redirects, so the
+     * Authorization header can only ever reach the configured origin. The
+     * diagnostic carries the redirect status and the target authority only —
+     * never the full {@code Location} value, which may embed server-issued
+     * tokens.
+     */
+    private void rejectRedirect(final String method, final HttpResponse<Void> response) {
+        final int status = response.statusCode();
+        if (status < 300 || status > 399) {
+            return;
+        }
+        final String location = response.headers().firstValue("Location").orElse(null);
+        final String target = redirectAuthority(location);
+        diagnostics.accept("webdav:redirect-not-followed method=" + method
+            + " status=" + status + " location=" + target);
+        throw new IllegalStateException(
+            "webdav " + method + " redirected (status=" + status + ", location=" + target
+                + "); redirects are not followed");
+    }
+
+    private static String redirectAuthority(final String location) {
+        if (location == null || location.isBlank()) {
+            return "<none>";
+        }
+        try {
+            final URI uri = URI.create(location.trim());
+            final String authority = uri.getRawAuthority();
+            if (authority == null) {
+                return "<relative>";
+            }
+            return (uri.getScheme() == null ? "" : uri.getScheme() + "://") + authority;
+        } catch (IllegalArgumentException failure) {
+            return "<invalid>";
         }
     }
 

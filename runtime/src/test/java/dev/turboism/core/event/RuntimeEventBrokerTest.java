@@ -3,10 +3,12 @@ package dev.turboism.core.event;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.event.SubscribeEvent;
@@ -29,12 +31,15 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -688,6 +693,216 @@ class RuntimeEventBrokerTest {
         subscriber.beginClosing();
         assertTrue(subscriber.awaitQuiescence(Duration.ofSeconds(1)));
         scheduler.shutdown();
+    }
+
+    @Test
+    void slowSubscriberDeliveryIsNotInterruptedByTaskTimeLimiter() throws Exception {
+        // Given: a plugin executor whose task time limiter fires long before the subscriber
+        // returns. Event delivery must not inherit that wall-clock interrupt.
+        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics =
+            new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(50, 1, 8, ignored -> { }, CLOCK),
+            new NoOpSidecarDispatcher(),
+            ignored -> { }
+        );
+        final RuntimeEventBroker broker = new RuntimeEventBroker(
+            scheduler, 64, diagnostics::add
+        );
+        final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
+        final CountDownLatch delivered = new CountDownLatch(1);
+        final AtomicBoolean interrupted = new AtomicBoolean();
+        broker.subscribe(subscriber.key(), TestEvent.class, ignored -> {
+            try {
+                Thread.sleep(200L);
+            } catch (InterruptedException exception) {
+                interrupted.set(true);
+                Thread.currentThread().interrupt();
+                return;
+            }
+            delivered.countDown();
+        });
+        publisher.activate();
+        subscriber.activate();
+
+        broker.publish(publisher.key(), new TestEvent("slow"));
+
+        assertTrue(
+            delivered.await(2, TimeUnit.SECONDS),
+            "a subscriber slower than the task timeout must still finish its delivery"
+        );
+        assertFalse(interrupted.get(), "event delivery must never interrupt a subscriber");
+        assertTrue(
+            diagnostics.stream().noneMatch(diagnostic ->
+                diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED),
+            "no subscriber failure may be reported for a merely slow delivery: " + diagnostics
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void eventDeliveryDoesNotCompeteWithSaturatedTaskExecutor() throws Exception {
+        // Given: one worker and a queue of one; plugin task work saturates both.
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(500, 1, 1, ignored -> { }, CLOCK),
+            new NoOpSidecarDispatcher(),
+            ignored -> { }
+        );
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
+        final CountDownLatch delivered = new CountDownLatch(1);
+        broker.subscribe(subscriber.key(), TestEvent.class, ignored -> delivered.countDown());
+        publisher.activate();
+        subscriber.activate();
+
+        final CountDownLatch blockerRunning = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final RuntimeCancellationToken token = new RuntimeCancellationToken();
+        final PluginTask saturatingTask = new PluginTask(
+            "plugin.compute.normal", "dev.example.subscriber", "saturating work", "none"
+        );
+        final PluginWorkSubmission running = scheduler.submitLightweight(
+            saturatingTask,
+            token,
+            () -> {
+                blockerRunning.countDown();
+                await(release);
+            }
+        );
+        assertTrue(running.accepted());
+        assertTrue(blockerRunning.await(1, TimeUnit.SECONDS));
+        assertTrue(
+            scheduler.submitLightweight(saturatingTask, token, () -> { }).accepted(),
+            "the queue slot must be occupied so the task executor is saturated"
+        );
+
+        broker.publish(publisher.key(), new TestEvent("delivery"));
+
+        assertTrue(
+            delivered.await(2, TimeUnit.SECONDS),
+            "event delivery must not queue behind the saturated plugin task executor"
+        );
+        release.countDown();
+        scheduler.shutdown();
+    }
+
+    @Test
+    void eventDeliveryFailuresDoNotOpenTheTaskCircuitBreaker() throws Exception {
+        // Given: drains that exceed the task time limiter must not charge the task circuit.
+        final List<PluginWorkBudgetEvent> workDiagnostics = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(50, 1, 8, workDiagnostics::add, CLOCK),
+            new NoOpSidecarDispatcher(),
+            workDiagnostics::add
+        );
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
+        final int rounds = 4;
+        final List<CountDownLatch> entered = new ArrayList<>();
+        final List<CountDownLatch> release = new ArrayList<>();
+        final AtomicInteger entries = new AtomicInteger();
+        for (int index = 0; index < rounds; index++) {
+            entered.add(new CountDownLatch(1));
+            release.add(new CountDownLatch(1));
+        }
+        broker.subscribe(subscriber.key(), TestEvent.class, ignored -> {
+            final int slot = entries.incrementAndGet() - 1;
+            if (slot < rounds) {
+                entered.get(slot).countDown();
+                await(release.get(slot));
+            }
+        });
+        publisher.activate();
+        subscriber.activate();
+
+        // Four drains each blocked past the 50ms task timeout: enough to open the task
+        // circuit if delivery timeouts were charged to it.
+        for (int index = 0; index < rounds; index++) {
+            broker.publish(publisher.key(), new TestEvent("blocked-" + index));
+            assertTrue(entered.get(index).await(1, TimeUnit.SECONDS));
+            Thread.sleep(100L);
+            release.get(index).countDown();
+            // Let the drain finish so the next publication schedules a fresh drain task.
+            Thread.sleep(50L);
+        }
+
+        final PluginWorkSubmission submission = scheduler.submitLightweight(
+            new PluginTask(
+                "plugin.compute.normal", "dev.example.subscriber", "probe", "none"
+            ),
+            new RuntimeCancellationToken(),
+            () -> { }
+        );
+        assertTrue(
+            submission.accepted(),
+            "event drain failures must not open the plugin task circuit breaker"
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void slowSubscriberIsDiagnosedOncePerOwnerAndEventType() throws Exception {
+        // Given: a broker whose slow-delivery threshold is small enough to trip in-test.
+        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics =
+            new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(
+            scheduler,
+            64,
+            diagnostics::add,
+            ignored -> { },
+            null,
+            Duration.ofMillis(30)
+        );
+        final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
+        final CountDownLatch delivered = new CountDownLatch(2);
+        broker.subscribe(subscriber.key(), TestEvent.class, ignored -> {
+            try {
+                Thread.sleep(60L);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+            delivered.countDown();
+        });
+        publisher.activate();
+        subscriber.activate();
+
+        broker.publish(publisher.key(), new TestEvent("one"));
+        broker.publish(publisher.key(), new TestEvent("two"));
+
+        assertTrue(delivered.await(2, TimeUnit.SECONDS));
+        awaitTrue(() -> diagnostics.stream().anyMatch(diagnostic ->
+            diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW));
+        // The second delivery's dedup check runs right after its latch: give the drain a beat.
+        Thread.sleep(100L);
+        assertEquals(
+            1,
+            diagnostics.stream()
+                .filter(diagnostic -> diagnostic.code()
+                    == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW)
+                .count(),
+            "two slow deliveries of one owner/type pair must diagnose exactly once"
+        );
+        scheduler.shutdown();
+    }
+
+    private static void awaitTrue(
+        final java.util.function.BooleanSupplier condition
+    ) throws InterruptedException {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("condition did not become true in time");
+            }
+            Thread.sleep(5L);
+        }
     }
 
     @Test

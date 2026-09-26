@@ -554,6 +554,56 @@ class LocalPluginRuntimeCloseTest {
         }
     }
 
+    @Test
+    void unloadReclaimsPluginExecutorAndNextExecutorIsFresh() throws Exception {
+        final PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(
+            1, 4, ignored -> { }, Clock.systemUTC()
+        );
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            registry,
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        final HostSession hostSession = new HostSession(Optional::empty);
+        try (PreviewLog log = new PreviewLog(temporary.resolve("exec-reclaim.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                temporary, scheduler, hostSession, log
+            );
+            addLoaded(runtime, loaded(
+                "dev.example.exec",
+                new RecordingPlugin("exec", new ArrayList<>(), false),
+                scope("exec", new ArrayList<>(), false),
+                new URLClassLoader(new URL[0], getClass().getClassLoader())
+            ));
+            // An executor exists once the generation has submitted work; closing the
+            // generation must reclaim it rather than leaving it for runtime shutdown.
+            final dev.turboism.core.runtime.work.PluginWorkExecutor before =
+                registry.get("dev.example.exec");
+
+            runtime.close();
+
+            assertFalse(
+                before.submit(
+                    new dev.turboism.core.runtime.PluginTask(
+                        "plugin.compute.normal", "dev.example.exec", "probe", "none"
+                    ),
+                    () -> { }
+                ).accepted(),
+                "the unloaded generation's executor must be shut down"
+            );
+            final dev.turboism.core.runtime.work.PluginWorkExecutor after =
+                registry.get("dev.example.exec");
+            org.junit.jupiter.api.Assertions.assertNotSame(
+                before, after,
+                "a later executor request must not reuse the reclaimed executor"
+            );
+        } finally {
+            hostSession.close();
+            scheduler.shutdown();
+        }
+    }
+
     private static void awaitTrue(
         final java.util.function.BooleanSupplier condition
     ) throws InterruptedException {

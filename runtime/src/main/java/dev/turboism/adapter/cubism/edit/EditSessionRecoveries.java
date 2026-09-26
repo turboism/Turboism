@@ -46,7 +46,10 @@ public final class EditSessionRecoveries {
      * Returns the official {@code CUndoManager.revert()} recovery: end the native session edit
      * so the group undo lands as one history entry, then revert it — the official cancel path
      * undoes the top entry and removes the range, restoring the model without leaving an undo
-     * record. Only selected when the revert capability row is verified.
+     * record. Only selected when the revert capability row is verified. Committing the session
+     * group truncates every entry above the history cursor, so when the cursor sits below the
+     * entries — a pre-existing redo tail — the recovery delegates to the compensating
+     * sequence, which never commits and therefore preserves the tail.
      */
     public static EditSessionRecovery reverting() {
         return Reverting.INSTANCE;
@@ -156,11 +159,50 @@ public final class EditSessionRecoveries {
     }
 
     /**
+     * Returns whether the history cursor sits at the tip — no committed entry remains undone.
+     * Commit-for-revert truncates the redo tail, so the reverting path is only safe when this
+     * holds; an unreadable or unavailable snapshot cannot prove the absence of a tail and is
+     * reported as not-at-tip.
+     */
+    private static boolean cursorAtHistoryTip(
+        final EditorEditSessionHost host,
+        final EditSessionRecoveryRequest request
+    ) {
+        final HistorySnapshot snapshot;
+        try {
+            snapshot = host.history(request.binding());
+        } catch (RuntimeException failure) {
+            request.diagnose(
+                "edit-session recovery: history snapshot unreadable ("
+                    + failure.getMessage() + "); using the compensating recovery");
+            return false;
+        }
+        if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
+            request.diagnose(
+                "edit-session recovery: history snapshot unavailable; "
+                    + "using the compensating recovery");
+            return false;
+        }
+        if (snapshot.position() < snapshot.entries().size()) {
+            request.diagnose(
+                "edit-session recovery: a redo tail is present (position "
+                    + snapshot.position() + " of " + snapshot.entries().size()
+                    + "); using the compensating recovery");
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Pops every history entry committed above the pre-session position. {@code revert()}
      * undoes the entry at the cursor and truncates the tail — the only verified member that
-     * removes committed entries — so it restores both model state and entry-list equality.
-     * Without a verified revert row the best available step is {@code undoRedoTo}, which moves
-     * the cursor and undoes the entries' model effects but leaves the entries themselves; the
+     * removes committed entries — so it restores both model state and entry-list equality,
+     * but only while the popped index sits beyond the pre-session snapshot: that range was
+     * committed after the session began, so neither the pop nor the truncation can destroy a
+     * pre-session entry (a pre-existing redo tail is always gone by then — any commit already
+     * truncated it). In every other shape — unverified revert, or a cursor still covering
+     * pre-session entries — the best available step is {@code undoRedoTo}, which moves the
+     * cursor and undoes the entries' model effects but leaves the entries themselves; the
      * caller's exact-snapshot verification then reports the residual difference as a typed
      * recovery failure instead of claiming a clean cancel.
      */
@@ -175,7 +217,9 @@ public final class EditSessionRecoveries {
         }
         int guard = snapshot.entries().size() + 1;
         while (snapshot.position() > start && snapshot.canUndo() && guard-- > 0) {
-            if (host.undoRevertVerified(request.binding())) {
+            if (host.undoRevertVerified(request.binding())
+                && request.historyBefore().availability() == HistorySnapshot.Availability.AVAILABLE
+                && snapshot.position() - 1 >= request.historyBefore().entries().size()) {
                 try {
                     host.revert(request.binding());
                 } catch (RuntimeException revertFailure) {
@@ -279,6 +323,15 @@ public final class EditSessionRecoveries {
             Objects.requireNonNull(request, "request");
             if (!sessionGroupIsCurrent(host, request)) {
                 reconcileToStart(host, request);
+                return;
+            }
+            // Commit-for-revert is only safe at the history tip: endEdit(false) truncates
+            // every entry above the cursor, so a pre-existing redo tail would be destroyed
+            // before revert() ever runs — the exact-host legA3EditModeCancel defect. With a
+            // tail (or no snapshot to disprove one) run the compensating sequence instead;
+            // it never commits the session group and leaves the committed list untouched.
+            if (!cursorAtHistoryTip(host, request)) {
+                Compensating.INSTANCE.recover(host, request);
                 return;
             }
             try {
