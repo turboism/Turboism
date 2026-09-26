@@ -1704,3 +1704,60 @@ n8 是这套链路的首次实机有效性证据。
   （冷帧 parity）——探针修复后分支至 9f28d2d00。
 - **T28 已提交**（agent 35c29392/probe e63527a4）：5af2bdfc 9d0f777c
   00c754f9 6c221374。
+
+
+## PERF-052 T29c final fixed-build results (2026-09-26)
+
+Correctness: 12/12 final PASS with safe task-owned cleanup, normal exit, exact host identity and unchanged fixture. No sampled build process exceeded 5% CPU during any run. Mean event-to-native-repaint-barrier latency improved in all three workloads. **The broader US-2 tail non-regression goal is not met by this sample: pan p99 rose 8.7491%. Main merge remains pending disposition of this new acceptance deviation.**
+
+Fixed source `407d3726903f7eafb37f2f777d8941c1ad1f2587`; production agent `4818f859fb9899f05c1418aab62cdd3d759788398117f360aeb9c4835185d64b`; probe `890df24c579448cb869ce9fd14dae03f58eedd289c56e402e1c448b5d3184d99`. Product Java code remains at `adc851609`; later changes are Runner admission, test probe, tests and records. Host: reviewed official 5.3.03, Linux/Proton/i915, heavy fixture SHA `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`.
+
+Per workload: A/F/F/A; A explicitly disables uploadElision/inputPathElision/mesaGlThread, F uses approved defaults. Both arms compare uniformHook legs 1/2, 200 events each, 400 events/run, two runs/arm. Run means are weighted equally. Quantiles below are nearest-rank quantiles of all 800 raw events/arm, not averages of per-leg quantiles. INFO, resources=true; no JFR, GL proxy, forced GPU wait or build during timing. This measures event-to-barrier, not physical FPS. n=2/arm does not establish statistical significance or general applicability.
+
+| Workload | A mean ms | F mean ms | Mean reduction | A/F p95 ms | A/F p99 ms | A/F events >100ms |
+|---|---:|---:|---:|---:|---:|---:|
+| wheel | 57.2862 | 50.4816 | 11.88% | 67.8245 / 68.3533 | 89.9117 / 81.3370 | 1 / 0 |
+| pan | 54.0448 | 48.1385 | 10.93% | 63.0034 / 65.2700 | 78.1363 / 84.9725 | 0 / 0 |
+| drag | 56.9945 | 46.7412 | 17.99% | 73.2878 / 57.3155 | 95.2197 / 63.4925 | 5 / 0 |
+
+Mean benefit: PRIMARY_BENEFIT within this exact configuration. Wheel p95 rose 0.78%; pan p95 rose 3.60% and p99 rose 8.75%; drag p95/p99 improved. Both pan arms had zero >100ms events. These facts do not justify a blanket tail non-regression claim, nor do two runs prove a persistent causal regression. No samples were dropped and no extra retries were taken to select a favorable result.
+
+| Workload/arm | Run mean range ms | Pooled median ms | Uniform hits/queries per selected leg |
+|---|---:|---:|---:|
+| wheel/A | 56.7537–57.8188 | 55.3841 | 662200/670000 |
+| wheel/F | 47.7613–53.2019 | 47.8000 | 670000/670000 |
+| pan/A | 53.3807–54.7089 | 52.6018 | 662200/670000 |
+| pan/F | 46.4391–49.8378 | 45.3231 | 670000/670000 |
+| drag/A | 55.4236–58.5655 | 54.6377 | 664200/673200 |
+| drag/F | 46.5393–46.9430 | 45.6650 | 673200/673200 |
+
+Every F run logged upload/input/deferred ACTIVE, Mesa on and 3 GL threads; every A run had those paths inactive and 0 GL threads. GL error/throw/mismatch counters were zero. Four pan runs had identical full geometry/source/keyform digests across all legs; four drag runs also had identical moved/restored geometry and changed-mesh sets. Native Undo/Redo, full-image fixed-state pixel parity and restoration gates passed.
+
+T33 resolved the cross-task screenshot discrepancy without tolerance or guessed masking: the official GL scene renders the unique task fixture filename in its tab. All full PNGs remain saved. Native official viewport is image rectangle `[2, 28, 521, 868]` within 525×898. Across all four wheel runs, each of the original/alternate/restored-start states has exactly equal full model-viewport RGBA bytes and exactly equal camera metadata (raw wrapper, transform, projection, derived world-to-camera bits). Same-run OFF/OFF/ON/OFF equality still checks the entire image. Official camera/cache/layout identity and metadata stability are checked on the EDT around captures, outside timed legs.
+
+Inverse wheel is not bitwise inverse even in A: wrapper scale changes from `3f800000` to `3f7ffffe`, lookAt changes from zero, and projection bits change. The same transition appears in F. The earlier 88 changed pixels are therefore accompanied by a real native camera-state change; rounded zoom 13.3 was insufficient evidence of exact restoration. This is not an optimization-specific difference, and no camera state was forcibly reset to manufacture parity.
+
+| Run | Job |
+|---|---|
+| t29c-wheel-a-r1 | `6f045bb0-ba66-47f2-b790-3895bb78a8fb` |
+| t29c-wheel-f-r1 | `f49beb38-83fc-40d8-b94d-3ce73e65020f` |
+| t29c-wheel-f-r2 | `73f33398-194d-4cb6-b146-33d8f3ce2944` |
+| t29c-wheel-a-r2 | `fc96b01b-e29a-4d08-b60e-27328fcf5dd8` |
+| t29c-pan-a-r1 | `6e7e20b0-1b7b-4118-87ea-f958e5083c33` |
+| t29c-pan-f-r1 | `a834228d-00ac-4a9b-a1d8-3430b43ef02f` |
+| t29c-pan-f-r2 | `01bda8e9-0dfc-4e68-8563-5b696d682723` |
+| t29c-pan-a-r2 | `95be2b8e-20a1-482f-b0a4-5150f7b44cb1` |
+| t29c-drag-a-r1 | `0065fe47-2479-4a5b-9f7c-997b2a57990d` |
+| t29c-drag-f-r1 | `341f3536-a711-4c3a-a8bb-575378489f8d` |
+| t29c-drag-f-r2 | `f28e000a-5a72-4813-88b3-64d47389c692` |
+| t29c-drag-a-r2 | `10b4a7bd-cacd-4c0d-be82-26aaf57b82f9` |
+
+Evidence: `~/.local/state/turboism/host-validation/jobs/<job>/evidence/lifecycle-result.json` and `turboism-home-logs-state.tar`. Local `build/perf052-review/t29c-final/` contains runs/prepared IDs, captured preflights, per-run audits/raw benchmark JSON, 10-second CPU/progress records, cross-audit, summary and executable audit/monitor scripts. All lifecycle hashes are bound in the per-run audit JSON.
+
+Historical evidence stays separate: T28 four correctness smokes passed using agent35c29392/probe e63527a4, but simultaneous builds invalidate their timing. T29 old-probe first pair had build CPU bursts; T29b pan A also overlapped a build, so all are performance INCONCLUSIVE. T33 diagnostic pair was not pooled into T29c. Two T29c preflights found another managed host and did not submit; later coordinated windows with frank-newt/bold-duck were released after the final safe cleanup.
+
+T32: commit773e8caef rejects Mesa-on with deferred INACTIVE/UNKNOWN/COMPLETE/MISSING before trigger/client and uses existing supervisor cleanup. Four negative cases failed before the fix and passed afterward; ACTIVE/Mesa-off positives remained valid. Independent reviewer70271720 confirmed original major8 closed from exact source, EXIT/finalize path and saved lifecycle evidence. See `build/perf052-review/t32-deferred-admission/independent-review.json`. Earlier contradictory review837643dc is not used as approval.
+
+Offline validation: existing final devCheck PASS; bootstrap158/0fail/0skip, integration560/0fail/1skip; runtime3955/2fail/49skip, the two headless failures reproduced on exact main; host scripts14/18 with all four failures reproduced on main. T33 focused probe19/19 PASS and probe build PASS. A new negative-test assertion initially mishandled ExecutionException wrapping; original output was preserved and only test unwrapping corrected. No product rebuild was required. No pwsh/native Windows execution. Older cross-version T05/T06, observer T09 and production acquisition T10 remain incomplete; memory work stopped by user, system default unchanged.
+
+Merge preparation: main remains e5424ce5027d049f12be6613f7690550f9984500 and is an ancestor; both checkouts were clean before documentation updates. Existing main-merge authorization and no-push boundary remain valid. No merge has been performed because the new pan tail result conflicts with the broader US-2 non-regression target; the acceptance deviation needs explicit disposition under the project rule against silently lowering requirements.
