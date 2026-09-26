@@ -234,6 +234,36 @@ public final class OfficialSecondDocumentOpen {
             + Integer.toHexString(System.identityHashCode(value));
     }
 
+    /** Read-only bounded diagnostics. Editable text/password values are never inspected. */
+    static String componentDiagnostic(java.awt.Component root) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("component read off EDT");
+        var pending = new java.util.ArrayDeque<java.awt.Component>();
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<java.awt.Component, Boolean>());
+        List<String> items = new ArrayList<>();
+        pending.add(root);
+        while (!pending.isEmpty() && items.size() < 48) {
+            var component = pending.removeFirst();
+            if (!seen.add(component)) continue;
+            String label = component instanceof javax.swing.JLabel value ? value.getText()
+                : component instanceof javax.swing.AbstractButton value ? value.getText() : "";
+            items.add(component.getClass().getName() + " bounds=" + component.getBounds()
+                + (label == null || label.isBlank() ? "" : " label=" + diagnosticText(label)));
+            if (component instanceof java.awt.Container container) {
+                for (var child : container.getComponents()) {
+                    if (pending.size() + items.size() >= 48) break;
+                    pending.addLast(child);
+                }
+            }
+        }
+        return items.toString();
+    }
+
+    private static String diagnosticText(String value) {
+        if (value == null) return "";
+        String text = value.replace('\n', ' ').replace('\r', ' ');
+        return text.substring(0, Math.min(200, text.length()));
+    }
+
     private static void checkWindow(Host host, Request request) throws Exception {
         Object actual = host.window();
         if (actual != request.window()) throw new IllegalStateException(
@@ -420,7 +450,9 @@ public final class OfficialSecondDocumentOpen {
             for (Window w : Window.getWindows()) if (w instanceof Dialog d && w.isShowing()) {
                 values.add("class=" + d.getClass().getName() + " identity=" + objectId(d)
                     + " owner=" + objectId(d.getOwner()) + " showing=" + d.isShowing()
-                    + " displayable=" + d.isDisplayable() + " modal=" + d.isModal());
+                    + " displayable=" + d.isDisplayable() + " modal=" + d.isModal()
+                    + " title=" + diagnosticText(d.getTitle()) + " bounds=" + d.getBounds()
+                    + " type=" + d.getType() + " components=" + componentDiagnostic(d));
             }
             return values.toString();
         }
