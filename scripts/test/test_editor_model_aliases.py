@@ -35,6 +35,51 @@ class EditorModelAliasesTest(unittest.TestCase):
         union, _ = CHECKER.record_aliases(ROOT)
         self.assertTrue(broader - union)
 
+    def test_contract_alias_constant_reference_is_followed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contract = root / "runtime/src/main/java/dev/turboism/mapping/verification/selector"
+            contract.mkdir(parents=True)
+            (contract / "SampleContract.java").write_text(
+                "public final class SampleContract {\n"
+                "    public static final String SAMPLE_ALIAS =\n"
+                "        \"cubism.editor-model.sample.member\";\n"
+                "    private SampleContract() { }\n"
+                "}\n", encoding="utf-8")
+            production = root / "runtime/src/main/java/dev/turboism/adapter"
+            production.mkdir(parents=True)
+            (production / "Sample.java").write_text(
+                "final class Sample {\n"
+                "    void run(dev.turboism.mapping.VerifiedMemberResolver resolver, Object target) {\n"
+                "        resolver.invoke(dev.turboism.mapping.verification.selector.SampleContract.SAMPLE_ALIAS, target);\n"
+                "    }\n"
+                "}\n", encoding="utf-8")
+            self.assertEqual(
+                CHECKER.implementation_aliases(root),
+                {"cubism.editor-model.sample.member"})
+
+    def test_unresolvable_or_non_alias_constant_reference_is_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contract = root / "runtime/src/main/java/dev/turboism/mapping/verification/selector"
+            contract.mkdir(parents=True)
+            (contract / "SampleContract.java").write_text(
+                "public final class SampleContract {\n"
+                "    public static final String CLASS_ALIAS = \"cubism.editor-model.sample.class\";\n"
+                "    public static final String UNRELATED = \"cubism.editor-model.other\";\n"
+                "}\n", encoding="utf-8")
+            production = root / "runtime/src/main/java/dev/turboism/adapter"
+            production.mkdir(parents=True)
+            (production / "Sample.java").write_text(
+                "final class Sample {\n"
+                "    void run(dev.turboism.mapping.VerifiedMemberResolver resolver, Object target) {\n"
+                "        resolver.invoke(dev.turboism.mapping.verification.selector.SampleContract.CLASS_ALIAS, target);\n"
+                "        resolver.invoke(dev.turboism.mapping.verification.selector.SampleContract.MISSING_ALIAS, target);\n"
+                "        resolver.invoke(dev.turboism.mapping.verification.selector.SampleContract.UNRELATED, target);\n"
+                "    }\n"
+                "}\n", encoding="utf-8")
+            self.assertEqual(CHECKER.implementation_aliases(root), set())
+
     def test_missing_additive_selector_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
