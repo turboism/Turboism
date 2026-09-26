@@ -597,6 +597,13 @@ or closes an observed handle, opens another process, or retries the move. Query
 failure remains UNAVAILABLE/PARTIAL and the original move exception is rethrown.
 Handle reuse races and absent matches cannot prove absence of a sharing lock;
 this is diagnostic evidence, not performance or editor readiness acceptance.
+Failure metadata also records target/sibling DOS attributes without following
+links or changing attributes. File-type failures and disk-path failures have
+separate last-error histograms; the JNA thread error is cleared before each call
+and captured immediately afterwards. Non-file handles can fail `GetFileType`, so
+the aggregate failure count alone does not identify failed disk-path queries.
+Attribute/path observations race with external writers; no match, error code,
+or read-only flag alone proves the cause of the earlier move failure.
 
 Performance environment metadata includes the active collector names and read-only
 HotSpot VM options for G1 region size, compressed pointers and object alignment,
