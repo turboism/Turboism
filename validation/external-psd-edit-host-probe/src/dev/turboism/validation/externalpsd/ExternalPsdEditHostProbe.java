@@ -2093,6 +2093,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 final SaveCyclesResult cyclesResult = runSaveCycles(
                     result, file, initialTarget, tempFile, revisions, tracker, cycles,
                     validateContent, performanceTimings);
+                runAttributionUndoReleaseProbe(result);
                 final Target currentTarget = cyclesResult.currentTarget();
                 final Target lastBeforeTarget = cyclesResult.lastBeforeTarget();
                 final Mutation marker = cyclesResult.lastMutation();
@@ -5764,8 +5765,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         Mutation lastMutation = null;
         Target currentTarget = initialTarget;
         Target lastBeforeTarget = initialTarget;
+        recordMemoryAttribution(result, "cycles.memoryBaseline.", false);
         for (int i = 1; i <= cycles; i++) {
             final String prefix = "cycle." + i + ".";
+            recordMemoryAttribution(result, prefix + "memoryBefore.", false);
             final Target beforeTarget = currentTarget;
             final byte[] current = Files.readAllBytes(tempFile);
             final CycleWritePlan plan = prepareSaveCycleBytes(
@@ -6007,6 +6010,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 result.setProperty(prefix + "extraRevisions", Integer.toString(revisions.size()));
                 revisions.clear();
             }
+            recordMemoryAttribution(result, prefix + "memoryAfter.", true);
         }
         result.setProperty("cycles.currentRaw", currentTarget.raw().value());
         result.setProperty("cycles.lastBeforeRaw", lastBeforeTarget.raw().value());
@@ -6022,6 +6026,87 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         final int cycles, final boolean validateTargetContent) {
         return prepareSaveCycleBytes(current, cycle, cycles, validateTargetContent,
             PsdValidationContent.Profile.SEVEN_LAYER_CONTROL);
+    }
+
+    /**
+     * Attribution-only undo-release probe: after the cycle loop, pop the top history entry
+n     * via the official undo and re-measure the post-GC heap, then redo. A drop confirms the
+     * retention owner is the host undo history (legitimate retained state); no drop means a
+     * different owner and the diagnostic stays inconclusive. This run is never acceptance.
+     */
+    private void runAttributionUndoReleaseProbe(final Properties result) {
+        if (!memoryAttributionRequested()) return;
+        result.setProperty("attribution.mode", "DIAGNOSTIC_ONLY_NOT_ACCEPTANCE");
+        try {
+            final OfficialSecondDocumentOpen.Host host = OfficialSecondDocumentOpen.newNativeHost();
+            driveAttributionCommand(result, host, true, "attribution.afterOfficialUndo.");
+            driveAttributionCommand(result, host, false, "attribution.afterOfficialRedo.");
+            result.setProperty("attribution.undoReleaseProbe", "COMPLETED");
+        } catch (Throwable failure) {
+            result.setProperty("attribution.undoReleaseProbe", "UNAVAILABLE: " + failure);
+        }
+    }
+
+    private void driveAttributionCommand(final Properties result,
+        final OfficialSecondDocumentOpen.Host host, final boolean undo, final String prefix) {
+        final AtomicReference<Throwable> dispatchFailure = new AtomicReference<>();
+        final Runnable command = () -> {
+            try {
+                if (undo) host.undo(host.currentNativeDocument());
+                else host.redo(host.currentNativeDocument());
+            } catch (Throwable error) {
+                dispatchFailure.set(error);
+            }
+        };
+        try {
+            if (SwingUtilities.isEventDispatchThread()) command.run();
+            else SwingUtilities.invokeAndWait(command);
+        } catch (Exception failure) {
+            dispatchFailure.set(failure);
+        }
+        if (dispatchFailure.get() != null) {
+            result.setProperty(prefix + "status", "FAILED: " + dispatchFailure.get());
+        } else {
+            result.setProperty(prefix + "status", "EXECUTED");
+            recordMemoryAttribution(result, prefix, true);
+        }
+    }
+
+    /** Opt-in per-cycle memory attribution: raw heap pools plus a post-GC retention snapshot. */
+    static boolean memoryAttributionRequested() {
+        return Boolean.parseBoolean(System.getProperty(
+            "turboism.validation.externalpsd.memoryAttribution", "false").strip());
+    }
+
+    private void recordMemoryAttribution(final Properties result, final String prefix,
+        final boolean forceGc) {
+        if (!memoryAttributionRequested()) return;
+        recordMemoryPools(result, prefix + "pools.");
+        if (forceGc) {
+            System.gc();
+            try {
+                Thread.sleep(150L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            recordMemoryPools(result, prefix + "afterGc.");
+        }
+    }
+
+    private static void recordMemoryPools(final Properties result, final String prefix) {
+        for (final java.lang.management.MemoryPoolMXBean pool
+                : ManagementFactory.getMemoryPoolMXBeans()) {
+            if (pool.getType() != java.lang.management.MemoryType.HEAP) continue;
+            final java.lang.management.MemoryUsage usage = pool.getUsage();
+            if (usage == null) continue;
+            final String key = prefix + pool.getName().replaceAll("[^A-Za-z0-9]", "");
+            result.setProperty(key + ".usedBytes", Long.toString(usage.getUsed()));
+            result.setProperty(key + ".committedBytes", Long.toString(usage.getCommitted()));
+        }
+        final java.lang.management.MemoryUsage heap =
+            ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+        result.setProperty(prefix + "heap.usedBytes", Long.toString(heap.getUsed()));
+        result.setProperty(prefix + "heap.committedBytes", Long.toString(heap.getCommitted()));
     }
 
     static CycleWritePlan prepareSaveCycleBytes(final byte[] current, final int cycle,

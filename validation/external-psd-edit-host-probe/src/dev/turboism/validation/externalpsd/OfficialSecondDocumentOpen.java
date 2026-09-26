@@ -77,6 +77,10 @@ public final class OfficialSecondDocumentOpen {
         boolean hasDialog() throws Exception;
         default String dialogDiagnostic() throws Exception { return "dialog details unavailable"; }
         void open(Path cmo) throws Exception;
+        /** The native document object currently active in the app; command hosts only. */
+        default Object currentNativeDocument() throws Exception {
+            throw new UnsupportedOperationException("native current document is not bound by this host");
+        }
         /** Official undo of the given live document; only hosts that bind commands support it. */
         default void undo(Object nativeDocument) throws Exception {
             throw new UnsupportedOperationException("undo is not bound by this host");
@@ -517,6 +521,7 @@ public final class OfficialSecondDocumentOpen {
         }
 
         @Override public Object currentDocument() throws Exception { return get("current", app()); }
+        @Override public Object currentNativeDocument() throws Exception { return get("current", app()); }
         @Override public void open(Path cmo) throws Exception { get("open", app(), cmo.toFile(), true); }
         @Override public void undo(Object nativeDocument) throws Exception {
             get("undo", app(), nativeDocument);

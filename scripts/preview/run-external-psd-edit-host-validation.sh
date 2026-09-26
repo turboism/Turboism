@@ -94,6 +94,9 @@ fi
 if [ -n "${EXTERNAL_PSD_WARM_COLD:-}" ]; then
   options+=("--jvm-option" "-Dturboism.validation.externalpsd.performanceWarmCold=$EXTERNAL_PSD_WARM_COLD")
 fi
+if [ "${EXTERNAL_PSD_MEMORY_ATTRIBUTION:-0}" = "1" ]; then
+  options+=("--jvm-option" "-Dturboism.validation.externalpsd.memoryAttribution=true")
+fi
 if [ -n "${EXTERNAL_PSD_CONTENT_PROFILE:-}" ]; then
   options+=(
     "--jvm-option" "-Dturboism.validation.externalpsd.contentProfile=$EXTERNAL_PSD_CONTENT_PROFILE"
