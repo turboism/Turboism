@@ -374,29 +374,49 @@ public class SkippedFrameUploadTrackerTest {
     @Test void tableGrowsBeyondInitialSlotsAndReportsPeak() {
         SkippedFrameUploadTracker tracker = new SkippedFrameUploadTracker();
         final Object context = new Object();
+        // Normalize identityHashCode(context) ^ name to a fixed input sequence.
+        // This distribution exhausts the eight-slot probe once at the table cap,
+        // independent of JVM object allocation: a legal fail-open, not data loss.
+        final int nameMask = System.identityHashCode(context) ^ 733_103;
         final int distinct = 2_000;   // above the 512-slot first-measure ceiling
-        for (int name = 1; name <= distinct; name++) {
+        final boolean[] recorded = new boolean[distinct + 1];
+        long failedInserts = 0L;
+        for (int ordinal = 1; ordinal <= distinct; ordinal++) {
+            final int name = nameMask ^ ordinal;
             assertFalse(upload(tracker, context, name, 16,
                 payload(context, name), 0, 8, true, true),
-                "first sight of name " + name + " records a baseline");
+                "first sight of name " + name + " must execute the upload");
+            final long failures = tracker.snapshot(true).get("failedInserts");
+            assertTrue(failures == failedInserts || failures == failedInserts + 1,
+                "each first upload either records one baseline or fails open once");
+            recorded[ordinal] = failures == failedInserts;
+            failedInserts = failures;
         }
         var mid = tracker.snapshot(true);
-        assertEquals((long) distinct, mid.get("entries"));
-        assertEquals((long) distinct, mid.get("peakEntries"));
-        assertEquals(0L, mid.get("failedInserts"), "growth covered every buffer");
-        assertTrue(mid.get("capacity") >= 2048L, "table grew past 512");
-        assertTrue(mid.get("grows") >= 2L, "512→1024→2048 growth happened");
+        assertEquals((long) distinct, mid.get("entries") + mid.get("failedInserts"),
+            "every first upload is accounted for, including bounded-probe refusals");
+        assertEquals(mid.get("entries"), mid.get("peakEntries"));
+        assertEquals(1L, mid.get("failedInserts"),
+            "the fixed distribution exercises exactly one capped-table refusal");
+        assertEquals(16_384L, mid.get("capacity"), "growth reaches the table cap");
+        assertEquals(5L, mid.get("grows"), "512→1024→2048→4096→8192→16384");
 
-        // Every recorded baseline still elides after the growth rehash.
-        for (int name = 1; name <= distinct; name++) {
-            assertTrue(upload(tracker, context, name, 16,
+        // Every recorded baseline must elide after rehashing. The refused name
+        // must still execute its upload: a missing baseline cannot become a hit.
+        for (int ordinal = 1; ordinal <= distinct; ordinal++) {
+            final int name = nameMask ^ ordinal;
+            assertEquals(recorded[ordinal], upload(tracker, context, name, 16,
                 payload(context, name), 0, 8, true, true),
-                "name " + name + " must still elide after rehashing");
+                "name " + name + " must elide if and only if its baseline was recorded");
         }
         var stats = tracker.snapshot(true);
-        assertEquals((long) distinct, stats.get("elided"));
+        assertEquals(mid.get("entries"), stats.get("elided"));
         assertEquals((long) distinct * 2, stats.get("calls"));
-        assertEquals(0L, stats.get("failedInserts"));
+        assertEquals((long) distinct + mid.get("failedInserts"), stats.get("passed"));
+        assertEquals(mid.get("failedInserts") * 2, stats.get("failedInserts"));
+        assertEquals(mid.get("entries"), stats.get("entries"));
+        assertEquals(mid.get("peakEntries"), stats.get("peakEntries"));
+        assertEquals(0L, stats.get("observerFailures"));
     }
 
     @Test void snapshotBudgetRefusesNewCopiesAndFailsOpen() {
