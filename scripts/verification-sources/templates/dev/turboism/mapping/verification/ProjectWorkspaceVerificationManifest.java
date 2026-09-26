@@ -91,9 +91,9 @@ public final class ProjectWorkspaceVerificationManifest {
         if (resolver == null) {
             return false;
         }
-        final boolean reviewedVersion = resolver.isExactCubismVersion(CUBISM_VERSION_5_3_03)
-            || resolver.isExactCubismVersion(CUBISM_VERSION_5_3_02)
-            || resolver.isExactCubismVersion(CUBISM_VERSION_5_2_03);
+        final boolean reviewedVersion = resolver.isAdmittedCubismVersion(CUBISM_VERSION_5_3_03)
+            || resolver.isAdmittedCubismVersion(CUBISM_VERSION_5_3_02)
+            || resolver.isAdmittedCubismVersion(CUBISM_VERSION_5_2_03);
         return reviewedVersion && resolver.authorizes(
             ADAPTER_SLICE_ID,
             CAPABILITY_IDS,

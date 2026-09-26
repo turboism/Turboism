@@ -9,7 +9,7 @@ import dev.turboism.sdk.CubismEditor;
  * report {@link #ART_PATH} and {@link #GLUE} entries even though some operations do not accept
  * them as targets.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public enum EditObjectKind {
     PART,
     ART_MESH,

@@ -78,10 +78,35 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         final Path carrierJar,
         final String scenario
     ) throws Exception {
+        this(
+            instrumentation,
+            hostArtifact,
+            hostClassLoader,
+            carrierJar,
+            scenario,
+            java.util.Optional.empty()
+        );
+    }
+
+    /**
+     * Compatibility-aware variant: when the artifact digest is unreviewed, the
+     * probe profile is keyed by the declared generation the host bound to.
+     *
+     * @param admittedGeneration the generation bound to the declared version,
+     *     empty unless the host is declared-generation-bound
+     */
+    VerifiedPerformanceProbeInstaller(
+        final Instrumentation instrumentation,
+        final Path hostArtifact,
+        final ClassLoader hostClassLoader,
+        final Path carrierJar,
+        final String scenario,
+        final java.util.Optional<String> admittedGeneration
+    ) throws Exception {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
-        final ProbeProfile profile = profileForArtifact(digest, scenario);
+        final ProbeProfile profile = profileForArtifact(digest, scenario, admittedGeneration);
         this.cubismVersion = profile.cubismVersion();
         this.artifactSha256 = digest.sha256();
         this.targets = profile.targets();
@@ -102,10 +127,46 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     }
 
     static ProbeProfile profileForArtifact(final HostArtifactDigest artifact, final String scenario) {
+        return profileForArtifact(artifact, scenario, java.util.Optional.empty());
+    }
+
+    static ProbeProfile profileForArtifact(
+        final HostArtifactDigest artifact,
+        final String scenario,
+        final java.util.Optional<String> admittedGeneration
+    ) {
         Objects.requireNonNull(artifact, "artifact");
+        try {
+            return profileForDigest(artifact, scenario);
+        } catch (IllegalArgumentException unreviewed) {
+            if (admittedGeneration.isPresent()) {
+                return profileForVersion(admittedGeneration.orElseThrow(), scenario);
+            }
+            throw unreviewed;
+        }
+    }
+
+    private static ProbeProfile profileForDigest(
+        final HostArtifactDigest artifact,
+        final String scenario
+    ) {
+        final java.util.Optional<String> version = ReviewedHostArtifacts.cubismVersionOf(artifact);
+        if (version.isEmpty()) {
+            throw new IllegalArgumentException("unsupported Cubism artifact for performance probe");
+        }
+        return profileForVersion(version.orElseThrow(), scenario);
+    }
+
+    /**
+     * Probe profile keyed by the declared reviewed generation a compatibility
+     * host bound to, instead of the artifact digest.
+     */
+    private static ProbeProfile profileForVersion(final String cubismVersion, final String scenario) {
         if ("images".equals(scenario)) {
-            if (!ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
-                throw new IllegalArgumentException("image performance diagnostics require the exact Cubism 5.3.02 artifact");
+            if (!ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
+                throw new IllegalArgumentException(
+                    "image performance diagnostics require declared Cubism 5.3.02"
+                );
             }
             return new ProbeProfile(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
                 PerformanceProbeTargets.cubism5302Images());
@@ -113,19 +174,21 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         if (!"camera".equals(scenario) && !"edit".equals(scenario)) {
             throw new IllegalArgumentException("unsupported performance probe scenario");
         }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
+        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
             return new ProbeProfile(
                 ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
                 PerformanceProbeTargets.cubism5302()
             );
         }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
+        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
             return new ProbeProfile(
                 ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
                 PerformanceProbeTargets.cubism5303()
             );
         }
-        throw new IllegalArgumentException("unsupported Cubism artifact for performance probe");
+        throw new IllegalArgumentException(
+            "unsupported declared Cubism version for performance probe: " + cubismVersion
+        );
     }
 
     void install(

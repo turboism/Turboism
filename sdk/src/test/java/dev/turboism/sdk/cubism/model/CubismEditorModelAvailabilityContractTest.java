@@ -10,6 +10,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CubismEditorModelAvailabilityContractTest {
 
@@ -19,10 +20,8 @@ class CubismEditorModelAvailabilityContractTest {
 
     @Test
     void exact5303CoreReadsAndPartAppearanceDeclareNarrowAvailability() throws Exception {
-        assertArrayEquals(
-            ALL_DECLARED,
-            CubismModel.class.getMethod("id").getAnnotation(CubismEditor.class).value()
-        );
+        assertArrayEquals(new String[0], CubismModel.class.getMethod("id").getAnnotation(CubismEditor.class).value());
+        assertEquals("5.2.03", CubismModel.class.getMethod("id").getAnnotation(CubismEditor.class).from());
         assertArrayEquals(
             ALL_DECLARED,
             CubismModel.class.getMethod("parameterDefinitions")
@@ -36,7 +35,8 @@ class CubismEditorModelAvailabilityContractTest {
             .getAnnotation(CubismEditor.class).value());
         assertArrayEquals(ALL_DECLARED, Part.class.getAnnotation(CubismEditor.class).value());
         assertArrayEquals(ALL_DECLARED, Drawable.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ALL_DECLARED, ModelTextures.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(new String[0], ModelTextures.class.getAnnotation(CubismEditor.class).value());
+        assertEquals("5.2.03", ModelTextures.class.getAnnotation(CubismEditor.class).from());
         assertArrayEquals(ONLY_5_3_02, AlphaComposition.class.getAnnotation(CubismEditor.class).value());
     }
 
@@ -69,17 +69,17 @@ class CubismEditorModelAvailabilityContractTest {
     }
 
     @Test
-    void textureAuthoringDeclaresAllThreeExactReviewedVersions() throws Exception {
+    void textureAuthoringAllowsCompatibleVersionsAboveItsDeclaredFloor() throws Exception {
         for (Method method : List.of(
             ModelTextures.class.getMethod("addModelImageGroup", String.class),
             ModelTextures.class.getMethod("removeModelImage", ModelImageId.class),
             ModelTextures.class.getMethod("addTextureAtlas", String.class, int.class, int.class),
-            ModelTextures.class.getMethod("removeTextureAtlas", TextureAtlasId.class)
+            ModelTextures.class.getMethod("removeTextureAtlas", TextureAtlasId.class),
+            ModelTextures.class.getMethod("removeRawImage", RawImageId.class)
         )) {
-            assertArrayEquals(ALL_DECLARED, method.getAnnotation(CubismEditor.class).value());
+            assertArrayEquals(new String[0], method.getAnnotation(CubismEditor.class).value());
+            assertEquals("5.2.03", method.getAnnotation(CubismEditor.class).from());
         }
-        assertArrayEquals(ALL_DECLARED, ModelTextures.class.getMethod("removeRawImage", RawImageId.class)
-            .getAnnotation(CubismEditor.class).value());
     }
 
     private static void assertOnly5302(final Method method) {

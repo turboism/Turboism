@@ -62,6 +62,24 @@ public final class HostUiVersionCheck {
         return Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
     }
 
+    /**
+     * Checks the admitted mapping generation while preserving the real host
+     * version in diagnostics. Only resolver-backed operations supply a distinct
+     * contract generation; SDK version annotations continue to use hostVersion.
+     *
+     * @param capabilityId capability being guarded
+     * @param hostVersion real declared host version
+     * @param contractVersion reviewed source generation of the bound mapping
+     * @return empty when the bound contract generation supports this capability
+     */
+    public static Optional<SafeModeDiagnostic> diagnosticFor(
+        final String capabilityId, final String hostVersion, final String contractVersion
+    ) {
+        Objects.requireNonNull(hostVersion, "hostVersion");
+        return diagnosticFor(capabilityId, contractVersion).isEmpty() ? Optional.empty()
+            : Optional.of(SafeModeDiagnostic.hostVersionUnsupported(capabilityId, hostVersion));
+    }
+
     /** @deprecated pass the affected capability ID explicitly. */
     @Deprecated
     public static Optional<SafeModeDiagnostic> diagnosticFor(final String hostVersion) {

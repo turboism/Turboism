@@ -5,11 +5,14 @@ import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class VerifiedMeshMirrorHookInstallerTest {
+
+    @TempDir Path temporaryHome;
 
     @AfterEach
     void clearBridge() {
@@ -78,14 +83,25 @@ final class VerifiedMeshMirrorHookInstallerTest {
 
         installer.install();
         assertNotNull(installed[0]);
-        installed[0].transform(
+        assertThrows(IllegalStateException.class, installer::defineLazyTargets,
+            "being loaded is not proof that the required targets were transformed");
+        assertNotNull(installed[0].transform(
             null,
             loader,
             TargetMesh.class.getName().replace('.', '/'),
             null,
             TargetMesh.class.getProtectionDomain(),
             classBytes(TargetMesh.class)
-        );
+        ));
+        assertThrows(IllegalStateException.class, installer::defineLazyTargets,
+            "one transformed owner cannot stand in for the remaining required targets");
+        for (final Class<?> type : List.of(TargetWidget.class, TargetDraw.class)) {
+            assertNotNull(installed[0].transform(null, loader, type.getName().replace('.', '/'),
+                null, type.getProtectionDomain(), classBytes(type)));
+        }
+        assertThrows(IllegalStateException.class,
+            () -> installer.defineLazyTargets(new ClassLoader(loader) { }),
+            "binding must use the same loader as the resolved runtime host");
         installer.defineLazyTargets();
         installer.close();
     }
@@ -322,6 +338,79 @@ final class VerifiedMeshMirrorHookInstallerTest {
     }
 
     @Test
+    void hostIdentityRejectionBeforeRuntimeCreationClosesBothPremainMirrors() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final VerifiedMeshMirrorHookInstaller mesh = new VerifiedMeshMirrorHookInstaller(
+            instrumentation(calls), getClass().getClassLoader(), null, null, profile());
+        final VerifiedWarpAltMirrorHookInstaller warp = new VerifiedWarpAltMirrorHookInstaller(
+            instrumentation(calls), getClass().getClassLoader(), null,
+            WarpAltMirrorHostProfile.forReviewedVersion("5.3.02").orElseThrow());
+        mesh.install();
+        warp.install();
+        MeshMirrorHookContributor.CURRENT.set(mesh);
+        WarpAltMirrorHookContributor.CURRENT.set(warp);
+        try {
+            // The observed class comes from a test directory, which the real identity
+            // resolver must reject before creating any Runtime or loading plugins.
+            final AgentOptions options = AgentOptions.parse(
+                "hostClass=" + getClass().getName() + ",timeoutSeconds=1", temporaryHome);
+            final var start = TurboismAgent.class.getDeclaredMethod("start",
+                AgentOptions.class, Instrumentation.class, List.class, List.class);
+            start.setAccessible(true);
+            start.invoke(null, options, instrumentation(new ArrayList<>(), getClass()), List.of(), List.of());
+
+            assertNull(MeshMirrorHookContributor.CURRENT.get());
+            assertNull(WarpAltMirrorHookContributor.CURRENT.get());
+            assertFalse(mesh.isInstalled());
+            assertFalse(warp.installed());
+            assertEquals(2, calls.stream().filter("remove"::equals).count());
+        } finally {
+            MeshMirrorHookContributor.CURRENT.compareAndSet(mesh, null);
+            WarpAltMirrorHookContributor.CURRENT.compareAndSet(warp, null);
+            mesh.close();
+            warp.close();
+        }
+    }
+
+    @Test
+    void warpCleanupFailureStillClosesMeshAndPreservesTheStartupFailure() throws Exception {
+        final VerifiedMeshMirrorHookInstaller mesh = new VerifiedMeshMirrorHookInstaller(
+            instrumentation(new ArrayList<>()), getClass().getClassLoader(), null, null, profile());
+        final Instrumentation faulty = (Instrumentation) Proxy.newProxyInstance(
+            getClass().getClassLoader(), new Class<?>[] {Instrumentation.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "isRetransformClassesSupported" -> true;
+                case "getAllLoadedClasses" -> new Class<?>[0];
+                case "addTransformer" -> null;
+                case "removeTransformer" -> throw new IllegalStateException("warp cleanup failed");
+                default -> defaultValue(method.getReturnType());
+            });
+        final VerifiedWarpAltMirrorHookInstaller warp = new VerifiedWarpAltMirrorHookInstaller(
+            faulty, getClass().getClassLoader(), null,
+            WarpAltMirrorHostProfile.forReviewedVersion("5.3.02").orElseThrow());
+        mesh.install();
+        warp.install();
+        MeshMirrorHookContributor.CURRENT.set(mesh);
+        WarpAltMirrorHookContributor.CURRENT.set(warp);
+        final IllegalArgumentException startupFailure = new IllegalArgumentException("startup rejected");
+        try {
+            final var observed = assertThrows(IllegalArgumentException.class, () ->
+                PreviewRuntimeLauncher.startPreviewRuntime(mesh, warp, () -> { throw startupFailure; }));
+
+            assertSame(startupFailure, observed);
+            assertEquals(1, observed.getSuppressed().length);
+            assertFalse(mesh.isInstalled());
+            assertNull(MeshMirrorHookContributor.CURRENT.get());
+            assertNull(WarpAltMirrorHookContributor.CURRENT.get());
+        } finally {
+            MeshMirrorHookContributor.CURRENT.compareAndSet(mesh, null);
+            WarpAltMirrorHookContributor.CURRENT.compareAndSet(warp, null);
+            mesh.close();
+            warp.close();
+        }
+    }
+
+    @Test
     void duplicateCasCleanupClosesCurrentHookAndRuntime() throws Exception {
         final List<String> calls = new ArrayList<>();
         final VerifiedMeshMirrorHookInstaller candidate = new VerifiedMeshMirrorHookInstaller(
@@ -342,6 +431,42 @@ final class VerifiedMeshMirrorHookInstallerTest {
         assertFalse(candidate.isInstalled());
         assertNull(MeshMirrorHookContributor.CURRENT.get());
         assertTrue(calls.contains("remove"));
+    }
+
+    @Test
+    void duplicateCleanupPreservesRuntimeFailureWhenHookCleanupAlsoFails() {
+        final List<String> calls = new ArrayList<>();
+        final Instrumentation faulty = (Instrumentation) Proxy.newProxyInstance(
+            getClass().getClassLoader(), new Class<?>[] {Instrumentation.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "isRetransformClassesSupported" -> true;
+                case "getAllLoadedClasses" -> new Class<?>[0];
+                case "addTransformer" -> null;
+                case "removeTransformer" -> {
+                    calls.add("remove");
+                    throw new IllegalStateException("hook cleanup failed");
+                }
+                default -> defaultValue(method.getReturnType());
+            });
+        final var warp = new VerifiedWarpAltMirrorHookInstaller(faulty, getClass().getClassLoader(), null,
+            WarpAltMirrorHostProfile.forReviewedVersion("5.3.02").orElseThrow());
+        warp.install();
+        WarpAltMirrorHookContributor.CURRENT.set(warp);
+        final IllegalArgumentException runtimeFailure = new IllegalArgumentException("runtime close failed");
+        try {
+            final var observed = assertThrows(IllegalArgumentException.class, () ->
+                PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(
+                    () -> { throw runtimeFailure; }, null, warp));
+
+            assertSame(runtimeFailure, observed);
+            assertEquals(1, observed.getSuppressed().length);
+            assertEquals(List.of("remove"), calls);
+            assertFalse(warp.installed());
+            assertNull(WarpAltMirrorHookContributor.CURRENT.get());
+        } finally {
+            WarpAltMirrorHookContributor.CURRENT.compareAndSet(warp, null);
+            warp.close();
+        }
     }
 
     @Test
@@ -531,7 +656,15 @@ final class VerifiedMeshMirrorHookInstallerTest {
         return null;
     }
 
-    public static final class TargetMesh { }
-    public static final class TargetWidget { }
-    public static final class TargetDraw { }
+    public static final class TargetMesh {
+        public Object a(final Object point) { return point; }
+        public Object b(final Object point) { return point; }
+        public boolean a(final Object point, final float radius) { return false; }
+    }
+    public static final class TargetWidget {
+        public Object widget(final Object control) { return control; }
+    }
+    public static final class TargetDraw {
+        public void a(final float width, final boolean selected, final float alpha, final Object context) { }
+    }
 }

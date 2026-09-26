@@ -37,19 +37,19 @@ final class TurboismAgentMeshMirrorPolicyTest {
     }
 
     @Test
-    void admitsExact5303AfterFullRuntimeAdmission() {
+    void admitsReviewedProfilesByDeclaredVersion() {
         assertTrue(dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forArtifact(
             ReviewedHostArtifacts.CUBISM_5_3_03
         ).isPresent());
-        assertTrue(MeshMirrorHookContributor.runtimeAdmitted(
-            ReviewedHostArtifacts.CUBISM_5_3_03
-        ));
-        assertTrue(MeshMirrorHookContributor.runtimeAdmitted(
-            ReviewedHostArtifacts.CUBISM_5_3_02
-        ));
-        assertFalse(MeshMirrorHookContributor.runtimeAdmitted(
-            new dev.turboism.mapping.verification.HostArtifactDigest(1L, "0".repeat(64))
-        ));
+        assertTrue(dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forReviewedVersion(
+            "5.3.03"
+        ).isPresent());
+        assertTrue(dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forReviewedVersion(
+            "5.3.02"
+        ).isPresent());
+        assertTrue(dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile.forReviewedVersion(
+            "9.9.99"
+        ).isEmpty());
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 }

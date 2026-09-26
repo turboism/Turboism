@@ -1,7 +1,6 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 /** Contributor for the verified uniform-location cache optimization. */
@@ -18,7 +17,7 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedUniformLocationInstaller.admitted(
-            HostArtifactDigest.from(host.artifact()),
+            host.artifact(),
             NativeOptimizationPolicy.load(environment.options().home()),
             true,
             Runtime.version().feature()

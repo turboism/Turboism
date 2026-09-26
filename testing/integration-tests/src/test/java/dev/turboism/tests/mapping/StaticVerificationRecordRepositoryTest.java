@@ -63,7 +63,7 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "38a9da7d0d6a37b7b37a54499cb788341f5a081bb545c6aafabf3e0fd262ea3f",
+            "1ce278c8286212c29224bdd2dbcbb26f7192f42a34bbc24227a16f59b69b005e",
             23,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
             VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
@@ -106,7 +106,7 @@ class StaticVerificationRecordRepositoryTest {
         "compatibility/cubism/verification/cubism-5.2.03-core-model-read.json",
         coreExpectation("5.2.03", "5.2.03", 36_237L,
             "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
-            "01d59d8b040bcce13c3b4a9b6a9fd731546ccad730692707ad954d1e57f69a87",
+            "68e6ac01d42c53389dfcc1199328e667bc243e44680fa9af5a9a26ed4b24354e",
             72, "5.2.03"),
         "compatibility/cubism/verification/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
@@ -180,7 +180,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.2.03",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "f23f375e3dca62b390752b6e559870ff7ba03303e2445944bf73c4beb1763b8b",
+            "91796c8e80faf12f61043409b25d3403a9263b9391ed7a50275f9c8a38183215",
             "cubism-5.2.03-ui-control-appearance",
             "5.2.03"
         ),
@@ -194,8 +194,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "4b576f47abe2c1ee171a39535898f1278339caac2e5509e890cda82ffed4ec4a",
-            811,
+            "035692e4d28e934a209f28516dbf43dabe816dd9f1c93648ded7443ef99122bb",
+            820,
             EditorModelVerificationManifest.cubism52Aliases(),
             EditorModelVerificationManifest.cubism52Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
@@ -217,7 +217,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            831,
+            840,
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -231,7 +231,7 @@ class StaticVerificationRecordRepositoryTest {
         "compatibility/cubism/verification/cubism-5.3.02-core-model-read.json",
         coreExpectation("5.3.02", "5.3.02", 42_471L,
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-            "416ec0e9e45e1dfd44216969aa02a5171eb0688145b3738f583beb9bafe5131e",
+            "0ac3313310bc1d2d9b4c2baf182bcdee3d91178d19fcf825e7c65bfdb6f20eab",
             74, "5.3.02")
     )))))))))));
 
@@ -299,7 +299,7 @@ class StaticVerificationRecordRepositoryTest {
                     aliases.size(),
                     aliases,
                     aliases,
-                    difference(aliases, classAliases),
+                    recordMethodAliases(repositoryPath),
                     classAliases,
                     packId,
                     packPath,
@@ -316,29 +316,29 @@ class StaticVerificationRecordRepositoryTest {
     private static String expected5303RecordSha(final String fileName) {
         return switch (fileName) {
             case "cubism-5.3.03-autobackup" ->
-                "7ed9f31588a9f9ba9fff3ac9300d9e1e8ff324aac2428b601c94599b8f0070ad";
+                "639036d9d0bc35a480ef18521efc43eec29f26a95c4eea7b136f52e40cf0d74d";
             case "cubism-5.3.03-clipmask" ->
-                "c17a6596497b148fb71e9d9074b97d2967a9697d38e7222848f154e44fb5a597";
+                "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459";
             case "cubism-5.3.03-editor-model" ->
-                "396d5c3578743ff6f26601ba4d050c1bc37a719aadbc39197cc2bb0200712114";
+                "1a777583425d8b651ce2c0b67de99e38a443594107cadd4e81baf0ca2cefa99e";
             case "cubism-5.3.03-performance-render-scene" ->
-                "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
+                "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
             case "cubism-5.3.03-project-workspace" ->
-                "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2";
+                "f52edde0c7d1a59d5bed7dd693f5a74e6946d0b14bbe9e13fedf2c49e6fa5613";
             case "cubism-5.3.03-ui-bounding-box-overlay" ->
-                "d7653ef266f1273822458e7a5bb8736895c88c2b0248d33a5b8e63061c655797";
+                "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000";
             case "cubism-5.3.03-ui-control-appearance" ->
-                "9d6e88817a5596adb5d2057c4269ec01d2c1d7b0c49170aa7003ee289e4c11c0";
+                "6c771b8564af0569ed1c47064f13db20a0da5b8ef3dd1d90d06905311c58f710";
             case "cubism-5.3.03-ui-embedded-panel" ->
-                "089a76ea22fd2dcc688e18bdc2157997416095ba61ab1e290769d92390891065";
+                "efd21e78301e09cb5cdf4d4d80fdbaa78c6f676f8bb813ef28af41a2656dca55";
             case "cubism-5.3.03-ui-main-toolbar" ->
-                "3c3beb4f6574558b735c56d2c08dc07c9b7052c7406cb2fe77d7acd66a6c7d07";
+                "314bd7b643b030cf5b6c6247b314f50b34290c6ef7442c2bd241dcdd7571375b";
             case "cubism-5.3.03-ui-status-bar" ->
-                "c16a15c3d44c7c1d904f80429021b2915a8ea4a8af0dfc907bfe21c1756ec575";
+                "f74152ef76ac4f88daf22ae3670aa8296757f18818f98d8763deea913cd3a1f2";
             case "cubism-5.3.03-ui-top-menu" ->
-                "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b";
+                "8468ba23f43f3176cd20b92851348c719b1b8811b90c5af055fd26bf10f0bfea";
             case "cubism-5.3.03-workspace-control" ->
-                "50acfcbb92cb83caf07113034001b12e71d032656cab76a652f294dd2b809130";
+                "1a1be264fe64c6dc3e2f1ec10cb854a475540ebf1270b93e6d50e01ae6b801fc";
             default -> throw new IllegalArgumentException("unregistered 5.3.03 record " + fileName);
         };
     }
@@ -390,7 +390,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.2.03", "5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "558165115b594ba787cc65c7c60162654888a2c1ef032d7dede09271a14061e3",
+                "1acf44eab99b480b1981c3c14f0229d2f0c5cfefdcc739fa831100a42496be94",
                 "m.workspace-5.2.03.control.static", "adapter.workspace.control.v5_2",
                 "5.2.03"
             )
@@ -400,7 +400,7 @@ class StaticVerificationRecordRepositoryTest {
             workspaceControlExpectation(
                 "5.3.02", "5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "2ea801ef1f78342ffaba462bfb3159f3c38f755f823dfe5632f01f8585377440",
+                "ac52277ae32f617d7aeced4845f15adf91c414b9e206d935a7a904f62e5ecf47",
                 "m.workspace-5.3.02.control.static", "adapter.workspace.control.v5_3",
                 "5.3.02"
             )
@@ -440,7 +440,7 @@ class StaticVerificationRecordRepositoryTest {
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "7434756c7e32e6d817f8117d10554c3334319ab18022510d05289bf79eb7b8ea",
+                "d4aa6e2e20feac7c0f9af1aea365c44ac00d1a913e68085c9f80a89d9cfb70ef",
                 78,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
@@ -506,8 +506,9 @@ class StaticVerificationRecordRepositoryTest {
             );
             final Set<String> aliases = new HashSet<>();
             for (JsonNode selector : root.get("selectors")) {
-                final boolean isClass = "class".equals(selector.get("kind").asText());
-                if (isClass == classes) {
+                final String kind = selector.get("kind").asText();
+                final boolean isClass = "class".equals(kind);
+                if (isClass == classes && !"inherits".equals(kind)) {
                     aliases.add(selector.get("alias").asText());
                 }
             }
@@ -529,7 +530,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "5a9d585bf4b6973f17d49b0684204b6e5d2eef357c72ba9bdc87c2daad1a673f",
+                "14150a41fab8676f60def999820fc56e09cb83ddd5e29ef61852f3209e8b5c60",
                 Set.of("cubism.performance.render-scene"),
                 "cubism-5.2.03-performance-render-scene",
                 "5.2.03"
@@ -543,7 +544,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "c8595cbd6c0bff5c631f9202949b9c5e5d4de15a75d1bfedfbef282cc1667df7",
+                "cf401975fa0e033d7e093a54117a4f78ff5ff218bb9b7c4f7eae5bb7e8f57a92",
                 Set.of(
                     "cubism.performance.render-scene",
                     "cubism.performance.modeling-pre-render-update",
@@ -792,7 +793,7 @@ class StaticVerificationRecordRepositoryTest {
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "9b8e9a30ba2b08be45c4dd3ad262d4d1efbd3779b4584e4dadfdef344c9c00f8",
+                "365bcaa24c0df8aad0e9ae28d4ef7cb72d05780f87d720c8181145784e6e042b",
                 82,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
@@ -843,7 +844,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "370b287fe9961b0f6d37e49dacf8bfdd52ae66ac3ae422be6d8633478e71299f",
+                "70f4979093b0d93cbaa9abb24f769b667c62956ee44a67226fa65db185976059",
                 "cubism-5.3.02-ui-control-appearance",
                 "5.3.02"
             )
@@ -912,7 +913,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "cbe781be54f7c1d67f97c5143a2375932cbe97ec77209ce4320232290af1a81a",
+                "d11b021baf4eb38179924540880179ee8d0569da8d674643072cfbd53cc0611c",
                 "cubism-5.2.03-ui-bounding-box-overlay",
                 "5.2.03"
             )
@@ -925,7 +926,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "ceeaa56bbb690a93170a37427a9fd12a0252b9f34079863048eb7fd89e6c64cc",
+                "743851942ba762ae69c6e1da01274f6605be2153c0081249ed81095ef84321a6",
                 "cubism-5.3.02-ui-bounding-box-overlay",
                 "5.3.02"
             )
@@ -1345,6 +1346,11 @@ class StaticVerificationRecordRepositoryTest {
                 mappingId + " class owner drift");
             assertTrue(selector.get("memberName").isNull(), mappingId + " class member must be null");
             assertTrue(selector.get("descriptor").isNull(), mappingId + " class descriptor must be null");
+        } else if ("inherits".equals(selector.get("kind").asText())) {
+            assertEquals(packEntry.get("runtime").asText(), selector.get("memberName").asText(),
+                mappingId + " inherited type drift");
+            assertTrue(selector.get("descriptor").isNull(), mappingId + " inheritance descriptor must be null");
+            assertTrue(packEntry.get("descriptor").isNull(), mappingId + " DRAFT inheritance descriptor must be null");
         } else {
             methodAliases.add(selector.get("alias").asText());
             assertEquals(packEntry.get("runtime").asText(), selector.get("memberName").asText(),

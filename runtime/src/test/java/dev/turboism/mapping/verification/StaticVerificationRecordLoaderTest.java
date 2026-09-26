@@ -29,6 +29,7 @@ class StaticVerificationRecordLoaderTest {
               "verificationId": "fixture.static",
               "adapterSliceId": "adapter.project-workspace.readonly",
               "capabilityIds": ["cubism.project.read"],
+              "capabilityConditions": {"cubism.project.read": ["structure"]},
               "cubismVersion": "5.3.02",
               "profileId": "cubism-5.3.02",
               "artifact": {

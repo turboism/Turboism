@@ -9,6 +9,7 @@ record StaticVerificationRecord(
     String verificationId,
     String adapterSliceId,
     List<String> capabilityIds,
+    java.util.Map<String, List<String>> capabilityConditions,
     String cubismVersion,
     String profileId,
     HostArtifactFingerprint artifact,
@@ -29,6 +30,9 @@ record StaticVerificationRecord(
         if (new java.util.HashSet<>(capabilityIds).size() != capabilityIds.size()) {
             throw new IllegalArgumentException("capabilityIds must not contain duplicates");
         }
+        capabilityConditions = java.util.Map.copyOf(
+            Objects.requireNonNull(capabilityConditions, "capabilityConditions")
+        );
         cubismVersion = requireText(cubismVersion, "cubismVersion");
         profileId = requireText(profileId, "profileId");
         artifact = Objects.requireNonNull(artifact, "artifact");

@@ -1,7 +1,6 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 
 /** Contributor for the verified texture upload preparation optimization. */
 final class TextureUploadPreparationHookContributor extends NativeOptimizationHookContributor {
@@ -16,7 +15,7 @@ final class TextureUploadPreparationHookContributor extends NativeOptimizationHo
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedTextureUploadPreparationInstaller.admitted(
-            HostArtifactDigest.from(host.artifact()),
+            host.artifact(),
             NativeOptimizationPolicy.load(environment.options().home()),
             true,
             Runtime.version().feature()

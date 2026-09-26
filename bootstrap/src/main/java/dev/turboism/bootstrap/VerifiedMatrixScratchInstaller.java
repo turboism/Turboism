@@ -1,10 +1,9 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodType;
@@ -40,20 +39,20 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
 
     private record Body(String name, String descriptor, List<String> shape) { }
 
-    static boolean admitted(HostArtifactDigest digest, RuntimeStartupConfig config, boolean requested, int jvm) {
-        return requested && jvm >= 17 && config != null && config.hookEnabled(HOOK_ID) && supported(digest);
-    }
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            MatrixScratchTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
-    private static boolean supported(HostArtifactDigest digest) {
-        return ReviewedHostArtifacts.CUBISM_5_2_03.equals(digest)
-            || ReviewedHostArtifacts.CUBISM_5_3_02.equals(digest)
-            || ReviewedHostArtifacts.CUBISM_5_3_03.equals(digest);
+    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
+        return requested && jvm >= 17 && config != null && config.hookEnabled(HOOK_ID)
+            && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
     VerifiedMatrixScratchInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         Path source = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
-        if (!supported(HostArtifactDigest.from(source))) throw new IllegalArgumentException("matrix scratch requires an exact reviewed Editor");
+        final var contract = ReviewedHostContract.requireBound(
+            ReviewedHostContract.resolve(source, CANDIDATES), "matrix scratch");
         if (Runtime.version().feature() < 17 || !instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("matrix scratch requires JVM17+ retransformation");
         }
@@ -91,6 +90,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                 return null;
             }
         };
+        contract.requireUnchanged(source);
     }
 
     private void require(JarFile jar, Path source, ClassLoader loader, Method method,

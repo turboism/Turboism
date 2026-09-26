@@ -1,10 +1,8 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
-import dev.turboism.mapping.verification.EditorModelVerificationManifest;
-import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.CompatibilityResolution;
+import dev.turboism.mapping.verification.CubismHostCompatibilityResolver;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactory;
 import dev.turboism.preview.PreviewRuntime;
 
 import java.io.IOException;
@@ -14,26 +12,39 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 /**
- * Extracts the embedded verification records the located host profile
- * requires and starts the preview runtime with them.
+ * Resolves the located host's declared identity, extracts exactly the
+ * verification records the admission resolution granted, and starts the
+ * preview runtime with them.
  *
- * <p>Record extraction is fail-closed: a missing embedded record aborts the
- * start exactly like a failed admission check did before the hook registry
- * refactor.</p>
+ * <p>The whole-artifact digest no longer decides the product version or
+ * startup eligibility. A byte-identical reviewed artifact takes the exact
+ * path; a declared-but-unreviewed artifact is admitted per slice by the
+ * compatibility resolver and may degrade gracefully. Record extraction stays
+ * fail-closed: a missing embedded record aborts the start.</p>
  */
 final class PreviewRuntimeLauncher {
 
     private PreviewRuntimeLauncher() {
     }
 
-    /** Host artifact resolution outcome handed to {@link #start}. */
+    /**
+     * Host artifact resolution outcome handed to {@link #start}.
+     *
+     * <p>{@code profile} is always the host-declared version.
+     * {@code fullRuntimeAdmission} describes exact artifact admission only;
+     * compatible hosts prove each runtime or premain hook independently.</p>
+     */
     record ResolvedHost(
         HostClassLocator.LocatedHost host,
+        CompatibilityResolution resolution,
         String profile,
-        String coreProfile,
         Path coreArtifact,
         boolean fullRuntimeAdmission
     ) {
+        /** @return whether the host was admitted by structural compatibility */
+        boolean compatibilityAdmission() {
+            return resolution.mode() == CompatibilityResolution.Mode.COMPATIBLE;
+        }
     }
 
     @FunctionalInterface
@@ -42,9 +53,9 @@ final class PreviewRuntimeLauncher {
     }
 
     /**
-     * Awaits the Cubism host class and resolves the reviewed profiles plus the
-     * sibling Core artifact. Empty when the host was never observed; throws
-     * when the artifact is present but fails verification.
+     * Awaits the Cubism host class and resolves declared identity plus slice
+     * admission. Empty when the host was never observed; throws when the host
+     * is present but its identity or base capability fails admission.
      */
     static Optional<ResolvedHost> resolveHost(
         final Instrumentation instrumentation,
@@ -59,20 +70,35 @@ final class PreviewRuntimeLauncher {
             return Optional.empty();
         }
         final HostClassLocator.LocatedHost host = located.orElseThrow();
-        final String profile = EditorModelVerificationManifest.resourceProfileForArtifact(
-            HostArtifactDigest.from(host.artifact())
-        );
-        final Path coreArtifact = host.artifact().resolveSibling("Live2DCubismCore.jar")
+        final Path coreCandidate = host.artifact().resolveSibling("Live2DCubismCore.jar")
             .toAbsolutePath().normalize();
-        if (!Files.isRegularFile(coreArtifact)) {
-            throw new IOException("Exact Cubism Core artifact is missing beside the Editor JAR");
+        final Path coreArtifact = Files.isRegularFile(coreCandidate) ? coreCandidate : null;
+        final CompatibilityResolution resolution = CubismHostCompatibilityResolver.resolve(
+            host.artifact(),
+            coreArtifact
+        );
+        switch (resolution.mode()) {
+            case REJECTED -> throw new IOException(
+                "Cubism host identity rejected: " + resolution.identityProbe().status()
+                    + " — " + resolution.detail()
+            );
+            case COMPATIBLE, VERIFIED -> {
+                if (!resolution.runtimeAdmitted()) {
+                    throw new IOException(
+                        "Cubism host " + resolution.declaredVersion()
+                            + " admitted no base runtime capability: " + resolution.detail()
+                    );
+                }
+            }
+            default -> throw new IllegalStateException("unknown resolution mode");
         }
         return Optional.of(new ResolvedHost(
             host,
-            profile,
-            VerifiedCorePublicApiResolverFactory.profileForArtifact(coreArtifact),
+            resolution,
+            resolution.declaredVersion(),
             coreArtifact,
-            ReviewedHostArtifacts.admitsFullRuntime(profile)
+            resolution.mode() == CompatibilityResolution.Mode.VERIFIED
+                && ReviewedHostArtifacts.admitsFullRuntime(resolution.declaredVersion())
         ));
     }
 
@@ -88,8 +114,11 @@ final class PreviewRuntimeLauncher {
         try {
             return starter.start();
         } catch (Throwable failure) {
-            WarpAltMirrorHookContributor.closeCurrent(warpAltCandidate);
-            MeshMirrorHookContributor.closeCurrent(candidate);
+            try {
+                closePremainRuntimeHooks(candidate, warpAltCandidate);
+            } catch (Throwable cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
             throw failure;
         }
     }
@@ -101,54 +130,109 @@ final class PreviewRuntimeLauncher {
     ) {
         try {
             runtimeClose.run();
-        } finally {
-            WarpAltMirrorHookContributor.closeCurrent(warpAltCandidate);
-            MeshMirrorHookContributor.closeCurrent(candidate);
+        } catch (RuntimeException | Error failure) {
+            try {
+                closePremainRuntimeHooks(candidate, warpAltCandidate);
+            } catch (Throwable cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
+        }
+        closePremainRuntimeHooks(candidate, warpAltCandidate);
+    }
+
+    /** Closes both runtime-dependent premain hooks even when either cleanup fails. */
+    static void closePremainRuntimeHooks(
+        final VerifiedMeshMirrorHookInstaller mesh,
+        final VerifiedWarpAltMirrorHookInstaller warp
+    ) {
+        Throwable failure = null;
+        try {
+            WarpAltMirrorHookContributor.closeCurrent(warp);
+        } catch (Throwable problem) {
+            failure = problem;
+        }
+        try {
+            MeshMirrorHookContributor.closeCurrent(mesh);
+        } catch (Throwable problem) {
+            if (failure == null) failure = problem;
+            else if (failure != problem) failure.addSuppressed(problem);
+        }
+        if (failure != null) {
+            throw new IllegalStateException("premain runtime-hook cleanup failed", failure);
         }
     }
 
     /**
-     * Extracts the record set for the resolved host and starts the preview
-     * runtime.
+     * Extracts the record set the resolution admitted and starts the preview
+     * runtime. Slices the resolution rejected contribute no record, so the
+     * runtime degrades exactly those capabilities.
      */
     static PreviewRuntime start(
         final AgentOptions options,
         final ResolvedHost resolved
     ) throws Throwable {
+        return start(options, resolved, runtime -> { });
+    }
+
+    /** Starts plugins only after the caller finishes binding the runtime-dependent hooks. */
+    static PreviewRuntime start(
+        final AgentOptions options,
+        final ResolvedHost resolved,
+        final java.util.function.Consumer<PreviewRuntime> beforePlugins
+    ) throws Throwable {
+        return start(options, resolved, beforePlugins, runtime -> { });
+    }
+
+    static PreviewRuntime start(
+        final AgentOptions options,
+        final ResolvedHost resolved,
+        final java.util.function.Consumer<PreviewRuntime> beforePlugins,
+        final java.util.function.Consumer<PreviewRuntime> afterPlugins
+    ) throws Throwable {
         final Path home = options.home();
-        final String profile = resolved.profile();
-        final String coreProfile = resolved.coreProfile();
-        final boolean fullRuntimeAdmission = resolved.fullRuntimeAdmission();
-        final HostClassLocator.LocatedHost host = resolved.host();
-        final Path coreArtifact = resolved.coreArtifact();
+        final CompatibilityResolution resolution = resolved.resolution();
         return PreviewRuntime.start(
             home,
-            extract(home, "cubism-" + profile + "-project-workspace.json"),
-            extract(home, "cubism-" + profile + "-editor-model.json"),
-            extract(home, "cubism-" + coreProfile + "-core-model-read.json"),
-            extractIf(home, profile, "ui-main-toolbar", fullRuntimeAdmission),
-            extractIf(home, profile, "ui-embedded-panel", fullRuntimeAdmission),
-            extractIf(home, profile, "ui-top-menu", fullRuntimeAdmission),
-            extractIf(home, profile, "ui-bounding-box-overlay", fullRuntimeAdmission),
-            Optional.ofNullable(
-                extractIf(home, profile, "ui-status-bar", fullRuntimeAdmission)),
-            Optional.ofNullable(
-                extractIf(home, profile, "clipmask",
-                    ClipMaskVerificationManifest.reviewedCubismVersions().contains(profile))),
-            extractIf(home, profile, "autobackup", fullRuntimeAdmission),
-            host.artifact(),
-            coreArtifact,
-            host.classLoader()
+            extractContract(home, resolution, "project-workspace"),
+            extractContract(home, resolution, "editor-model"),
+            extractContract(home, resolution, "core-model-read"),
+            extractContract(home, resolution, "ui-main-toolbar"),
+            extractContract(home, resolution, "ui-embedded-panel"),
+            extractContract(home, resolution, "ui-top-menu"),
+            extractContract(home, resolution, "ui-bounding-box-overlay"),
+            Optional.ofNullable(extractContract(home, resolution, "ui-status-bar")),
+            Optional.ofNullable(extractContract(home, resolution, "clipmask")),
+            extractContract(home, resolution, "autobackup"),
+            resolved.host().artifact(),
+            resolved.coreArtifact(),
+            resolved.host().classLoader(),
+            resolution,
+            beforePlugins,
+            afterPlugins
         );
     }
 
-    private static Path extractIf(
+    /**
+     * Extracts the record bound to {@code sliceId} when admission granted one.
+     * Unadmitted slices contribute {@code null}; admitted slices whose record
+     * fails to extract fail the whole start closed.
+     */
+    private static Path extractContract(
         final Path home,
-        final String profile,
-        final String slice,
-        final boolean admitted
+        final CompatibilityResolution resolution,
+        final String sliceId
     ) throws IOException {
-        return admitted ? extract(home, "cubism-" + profile + "-" + slice + ".json") : null;
+        final CompatibilityResolution.SliceResolution slice = resolution.slice(sliceId);
+        return slice.contract()
+            .map(contract -> {
+                try {
+                    return extract(home, contract.recordFileName());
+                } catch (IOException failure) {
+                    throw new java.io.UncheckedIOException(failure);
+                }
+            })
+            .orElse(null);
     }
 
     private static Path extract(final Path home, final String fileName) throws IOException {

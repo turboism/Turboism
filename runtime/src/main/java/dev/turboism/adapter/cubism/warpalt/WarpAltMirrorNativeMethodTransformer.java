@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -13,6 +14,10 @@ import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.Objects;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -36,9 +41,12 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
     private final WarpAltMirrorHostProfile profile;
     private final ClassLoader expectedClassLoader;
     private final Path expectedArtifact;
+    private final Map<String, String> pinnedClassSha256;
     private final Consumer<String> diagnostic;
     private final AtomicReference<ClassLoader> admittedClassLoader = new AtomicReference<>();
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
+    private final Set<String> transformedOwners = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean active = new AtomicBoolean(true);
 
     public WarpAltMirrorNativeMethodTransformer(
         final WarpAltMirrorHostProfile profile,
@@ -53,11 +61,31 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final Path expectedArtifact,
         final Consumer<String> diagnostic
     ) {
+        this(profile, expectedClassLoader, expectedArtifact, Map.of(), diagnostic);
+    }
+
+    /**
+     * Creates a transformer with proof for the actual loaded class definitions.
+     *
+     * @param profile bound selector contract
+     * @param expectedClassLoader defining loader, or null before first definition
+     * @param expectedArtifact artifact path, or null for an isolated bytecode fixture
+     * @param pinnedClassSha256 class pins from the resolved contract
+     * @param diagnostic diagnostic consumer
+     */
+    public WarpAltMirrorNativeMethodTransformer(
+        final WarpAltMirrorHostProfile profile,
+        final ClassLoader expectedClassLoader,
+        final Path expectedArtifact,
+        final Map<String, String> pinnedClassSha256,
+        final Consumer<String> diagnostic
+    ) {
         this.profile = Objects.requireNonNull(profile, "profile");
         this.expectedClassLoader = expectedClassLoader;
         this.expectedArtifact = expectedArtifact == null
             ? null
             : expectedArtifact.toAbsolutePath().normalize();
+        this.pinnedClassSha256 = Map.copyOf(pinnedClassSha256);
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
@@ -70,7 +98,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final ProtectionDomain protectionDomain,
         final byte[] classfileBuffer
     ) {
-        if (className == null || classfileBuffer == null) return null;
+        if (!active.get() || className == null || classfileBuffer == null) return null;
         final boolean isPointMove = profile.pointMoveOwner().equals(className);
         final boolean isDragTick = profile.dragTickOwner().equals(className);
         final boolean isStrip = profile.stripOwner().equals(className);
@@ -80,7 +108,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
         }
-        if (!admit(loader, protectionDomain)) return null;
+        if (!admit(loader, protectionDomain, className, classfileBuffer)) return null;
 
         final boolean[] transformed = {false};
         try {
@@ -195,7 +223,6 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
 
                         @Override
                         public void visitInsn(final int opcode) {
-                            super.visitInsn(opcode);
                             if (stripLayoutTail && opcode == Opcodes.RETURN) {
                                 visitVarInsn(Opcodes.ALOAD, 0);
                                 visitMethodInsn(
@@ -206,6 +233,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                     false
                                 );
                             }
+                            super.visitInsn(opcode);
                         }
                     };
                 }
@@ -216,6 +244,8 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
             }
             final byte[] transformedBytes = writer.toByteArray();
             outcome(Outcome.TARGET_TRANSFORMED, "WARP_ALT_MIRROR_TARGET_TRANSFORMED owner=" + className);
+            if (!active.get()) return null;
+            transformedOwners.add(className);
             return transformedBytes;
         } catch (RuntimeException failure) {
             reject(Outcome.TRANSFORMATION_FAILED, "WARP_ALT_MIRROR_TRANSFORMATION_FAILED owner=" + className);
@@ -235,14 +265,25 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
 
     /** @return whether the exact target method was transformed successfully */
     public boolean targetTransformed() {
-        return outcome.get() == Outcome.TARGET_TRANSFORMED;
+        return active.get() && outcome.get() == Outcome.TARGET_TRANSFORMED;
+    }
+
+    /** @return internal names of targets that received a successful transformation */
+    public Set<String> transformedOwners() {
+        return Set.copyOf(transformedOwners);
+    }
+
+    /** Permanently prevents new patches before removal or restoration begins. */
+    public void deactivate() {
+        active.set(false);
     }
 
     /**
      * Each expectation is enforced on its own: gating one behind another would let a target
      * pass a check its owner declared, which this fail-closed boundary must never allow.
      */
-    private boolean admit(final ClassLoader loader, final ProtectionDomain protectionDomain) {
+    private boolean admit(final ClassLoader loader, final ProtectionDomain protectionDomain,
+        final String owner, final byte[] bytes) {
         if (loader == null && (expectedClassLoader != null || expectedArtifact != null)) {
             reject(Outcome.BOOTSTRAP_LOADER_REJECTED, "WARP_ALT_MIRROR_BOOTSTRAP_LOADER_REJECTED");
             return false;
@@ -260,8 +301,14 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
             reject(Outcome.SECOND_LOADER_REJECTED, "WARP_ALT_MIRROR_SECOND_LOADER_REJECTED");
             return false;
         }
-        admittedClassLoader.compareAndSet(null, loader);
-        return true;
+        if ((expectedArtifact != null || !pinnedClassSha256.isEmpty())
+            && !ReviewedHostContract.matchesClassBytes(pinnedClassSha256, owner, bytes)) {
+            reject(Outcome.CLASS_BYTES_MISMATCH, "WARP_ALT_MIRROR_CLASS_BYTES_MISMATCH owner=" + owner);
+            return false;
+        }
+        if (admittedClassLoader.compareAndSet(null, loader) || admittedClassLoader.get() == loader) return true;
+        reject(Outcome.SECOND_LOADER_REJECTED, "WARP_ALT_MIRROR_SECOND_LOADER_REJECTED");
+        return false;
     }
 
     /** Resolves the artifact path that defined the transformed class, or null. */
@@ -295,6 +342,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         BOOTSTRAP_LOADER_REJECTED,
         LOADER_MISMATCH,
         ARTIFACT_MISMATCH,
+        CLASS_BYTES_MISMATCH,
         SECOND_LOADER_REJECTED,
         TRANSFORMATION_FAILED
     }

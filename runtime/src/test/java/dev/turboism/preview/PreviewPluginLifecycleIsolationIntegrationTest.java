@@ -24,6 +24,7 @@ import java.util.jar.JarOutputStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * End-to-end lifecycle isolation through the real {@link LocalPluginRuntime}: a plugin whose
@@ -55,6 +56,78 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
 
     @TempDir
     Path temporary;
+
+    @Test
+    void pluginInitCanCallTheHookInstalledByTheBootstrapBarrier() throws Exception {
+        final String callbackKey = "dev.turboism.test.startup-barrier.callback";
+        final Path home = temporary.resolve("barrier-home");
+        writePlugin(home.resolve("plugins"), "ready.jar", "dev.example.ready",
+            "dev/example/ready/ReadyEntrypoint.java", "dev.example.ready.ReadyEntrypoint", """
+                package dev.example.ready;
+                import dev.turboism.sdk.plugin.PluginContext;
+                import dev.turboism.sdk.plugin.TurboismPlugin;
+                import java.util.function.Consumer;
+                public final class ReadyEntrypoint implements TurboismPlugin {
+                    @Override public void init(PluginContext context) {
+                        Consumer<String> callback = (Consumer<String>)
+                            System.getProperties().get("%s");
+                        callback.accept("init");
+                    }
+                }
+                """.formatted(callbackKey));
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        final java.util.List<String> observed = new java.util.concurrent.CopyOnWriteArrayList<>();
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime plugins = new LocalPluginRuntime(
+                home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> { }, SHORT_POLICY);
+            try (PreviewRuntime runtime = PreviewRuntimeTestSupport.runtime(home, log, scheduler, plugins)) {
+                runtime.loadPluginsAfterBootstrap(prepared -> {
+                    assertTrue(plugins.loadedPlugins().isEmpty());
+                    System.getProperties().put(callbackKey, (java.util.function.Consumer<String>) observed::add);
+                }, prepared -> {
+                    assertEquals(1, prepared.loadReport().loaded().size());
+                    assertEquals(dev.turboism.core.lifecycle.PluginLifecycleState.ENABLED,
+                        prepared.loadReport().loaded().get(0).state());
+                    assertEquals(java.util.List.of("init"), observed);
+                    observed.add("consumer-bound");
+                });
+
+                assertTrue(runtime.loadReport().failures().isEmpty(), runtime.loadReport().failures().toString());
+                assertEquals(1, runtime.loadReport().loaded().size());
+                assertEquals(java.util.List.of("init", "consumer-bound"), observed);
+                assertThrows(IllegalStateException.class, () -> runtime.loadPluginsAfterBootstrap(
+                    prepared -> { throw new AssertionError("bootstrap must not run twice"); }));
+            }
+        } finally {
+            System.getProperties().remove(callbackKey);
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void aFailedBootstrapBarrierDoesNotInitializeAnyPluginOrAllowRetry() throws Exception {
+        final Path home = temporary.resolve("failed-barrier-home");
+        writePlugin(home.resolve("plugins"), "normal.jar", NORMAL_ID,
+            "dev/example/normal/NormalEntrypoint.java", "dev.example.normal.NormalEntrypoint", normalSource());
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime plugins = new LocalPluginRuntime(
+                home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> { }, SHORT_POLICY);
+            try (PreviewRuntime runtime = PreviewRuntimeTestSupport.runtime(home, log, scheduler, plugins)) {
+                assertThrows(IllegalArgumentException.class, () -> runtime.loadPluginsAfterBootstrap(
+                    prepared -> { throw new IllegalArgumentException("bootstrap failed"); }));
+                assertTrue(plugins.loadedPlugins().isEmpty());
+                assertTrue(runtime.loadReport().loaded().isEmpty());
+                assertThrows(IllegalStateException.class, () -> runtime.loadPluginsAfterBootstrap(prepared -> { }));
+            }
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
+    }
 
     @Test
     void blockingInitIsFencedLateEnableNeverActivatesAndOtherPluginsLoad() throws Exception {

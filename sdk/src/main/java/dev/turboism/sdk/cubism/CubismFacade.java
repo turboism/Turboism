@@ -104,7 +104,7 @@ public interface CubismFacade {
      *
      * @return the editing session service
      */
-    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @dev.turboism.sdk.CubismEditor(from = "5.2.03", to = "5.3.99")
     default dev.turboism.sdk.cubism.edit.EditSessionService edit() {
         return dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
     }

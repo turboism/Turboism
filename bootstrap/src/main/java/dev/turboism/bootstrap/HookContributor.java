@@ -46,7 +46,7 @@ interface HookContributor {
         HOST_RESOLVED,
 
         /**
-         * Runs after the preview runtime has started.
+         * Runs after host services are prepared, before plugin initialization.
          */
         RUNTIME_STARTED
     }
@@ -74,6 +74,14 @@ interface HookContributor {
      * @throws Exception when installation fails closed
      */
     AutoCloseable install(HookEnvironment environment) throws Exception;
+
+    /**
+     * @return catalog hook contracts this contributor owns; failure or cleanup withdraws
+     *     dependent Editor capabilities before subsequent SDK calls
+     */
+    default java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of();
+    }
 
     /**
      * Binds runtime services into a hook that installed in an earlier phase.

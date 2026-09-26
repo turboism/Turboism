@@ -275,5 +275,13 @@
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     }
-  ]
+  ],
+  "capabilityConditions": {
+    "cubism.project.read": [
+      "structure"
+    ],
+    "cubism.workspace.read": [
+      "structure"
+    ]
+  }
 }

@@ -6,6 +6,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -53,6 +54,8 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
     private final String callbackKey;
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
+    private final java.util.concurrent.atomic.AtomicLong transformations =
+        new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * Creates a transformer for the exact dispatcher entry.
@@ -74,14 +77,17 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
         this.descriptor = requireText(descriptor, "descriptor");
-        if (!descriptor.startsWith("(Ljava/lang/String;L") || !descriptor.endsWith(";)V")) {
+        final Type[] arguments = Type.getArgumentTypes(descriptor);
+        if (arguments.length != 2 || !arguments[0].equals(Type.getType(String.class))
+            || arguments[1].getSort() != Type.OBJECT
+            || !Type.getReturnType(descriptor).equals(Type.VOID_TYPE)) {
             throw new IllegalArgumentException(
                 "descriptor must be (Ljava/lang/String;L<ref>;)V: " + descriptor);
         }
         // The dispatch entry is private final (0x0012); a static or public replacement is not
         // the reviewed shape and must be refused rather than patched.
         this.requiredAccess = Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL;
-        this.forbiddenAccess = Opcodes.ACC_STATIC;
+        this.forbiddenAccess = Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE | Opcodes.ACC_ABSTRACT;
         this.expectedClassLoader = expectedClassLoader;
         this.callbackKey = requireText(callbackKey, "callbackKey");
     }
@@ -94,6 +100,10 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
     /** Human-readable detail for a non-clean outcome, or the empty string. */
     public String diagnostic() {
         return diagnostic.get();
+    }
+
+    long successfulTransformationCount() {
+        return transformations.get();
     }
 
     @Override
@@ -133,10 +143,39 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
 
     private byte[] rewrite(final byte[] classfileBuffer) {
         final int[] matches = {0};
-        final boolean[] patched = {false};
+        final boolean[] hasCode = {false};
+        final boolean[] rejected = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
+        if (!ownerInternalName.equals(reader.getClassName())) {
+            return reject("class bytes do not belong to target owner");
+        }
+        reader.accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override public MethodVisitor visitMethod(
+                final int access, final String name, final String methodDescriptor,
+                final String signature, final String[] exceptions
+            ) {
+                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) return null;
+                matches[0]++;
+                if ((access & requiredAccess) != requiredAccess || (access & forbiddenAccess) != 0) {
+                    rejected[0] = true;
+                }
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override public void visitCode() { hasCode[0] = true; }
+                    @Override public void visitLdcInsn(final Object value) {
+                        if (callbackKey.equals(value)) rejected[0] = true;
+                    }
+                };
+            }
+        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        if (matches[0] != 1 || !hasCode[0] || rejected[0]) {
+            return reject("target shape or existing callback marker rejected: matches=" + matches[0]);
+        }
         final ClassWriter writer = new ClassWriter(
-            reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override protected ClassLoader getClassLoader() {
+                return expectedClassLoader == null ? super.getClassLoader() : expectedClassLoader;
+            }
+        };
         reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(
@@ -151,12 +190,6 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
                 if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
                     return delegate;
                 }
-                matches[0]++;
-                if ((access & requiredAccess) != requiredAccess
-                    || (access & forbiddenAccess) != 0) {
-                    return delegate;
-                }
-                patched[0] = true;
                 return new MethodVisitor(Opcodes.ASM9, delegate) {
                     @Override
                     public void visitCode() {
@@ -171,15 +204,17 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
                 };
             }
         }, ClassReader.EXPAND_FRAMES);
-        if (matches[0] != 1 || !patched[0]) {
-            outcome.set(Outcome.SHAPE_REJECTED);
-            diagnostic.compareAndSet("",
-                ownerInternalName + "." + methodName + descriptor
-                    + " matches=" + matches[0] + " patched=" + patched[0]);
-            return null;
-        }
+        final byte[] result = writer.toByteArray();
         outcome.set(Outcome.PATCHED);
-        return writer.toByteArray();
+        diagnostic.set("");
+        transformations.incrementAndGet();
+        return result;
+    }
+
+    private byte[] reject(final String reason) {
+        outcome.set(Outcome.SHAPE_REJECTED);
+        diagnostic.set(reason);
+        return null;
     }
 
     /**

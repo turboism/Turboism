@@ -17,7 +17,7 @@ import java.util.Objects;
  * @param document the model document the session edits
  * @param options the options the session was opened with
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditSessionOpenResult(DocumentId document, EditSessionOptions options) {
 
     public EditSessionOpenResult {

@@ -19,7 +19,7 @@ final class FpsHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.ordinaryReviewedRuntimeAdmitted();
+        return environment.hookRuntimeAdmitted();
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
@@ -27,7 +27,8 @@ final class FpsHookContributor implements HookContributor {
         final PerformanceFpsHookInstaller installer = new PerformanceFpsHookInstaller(
             environment.instrumentation(),
             host.artifact(),
-            host.classLoader()
+            host.classLoader(),
+            environment.admittedRuntimeGeneration()
         );
         try {
             PerformanceFpsHookRegistry.publish(installer);
