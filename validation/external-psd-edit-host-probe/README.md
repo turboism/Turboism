@@ -597,3 +597,8 @@ or closes an observed handle, opens another process, or retries the move. Query
 failure remains UNAVAILABLE/PARTIAL and the original move exception is rethrown.
 Handle reuse races and absent matches cannot prove absence of a sharing lock;
 this is diagnostic evidence, not performance or editor readiness acceptance.
+
+Performance environment metadata includes the active collector names and read-only
+HotSpot VM options for G1 region size, compressed pointers and object alignment,
+including each option's origin. Unsupported beans/options are UNAVAILABLE. The
+probe never calls `setVMOption`; these fields do not alter collector configuration.
