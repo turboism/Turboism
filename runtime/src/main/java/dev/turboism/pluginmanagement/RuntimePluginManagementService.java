@@ -5,6 +5,7 @@ import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
+import dev.turboism.ui.host.EdtDispatch;
 
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -515,18 +516,32 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     private static Optional<Path> choosePluginPackage() {
-        @SuppressWarnings("unchecked") final Optional<Path>[] selected = new Optional[]{Optional.empty()};
-        final Runnable choose = () -> {
-            final JFileChooser chooser = new TurboismFileChooser();
-            configurePluginJarChooser(chooser);
-            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                selected[0] = Optional.of(chooser.getSelectedFile().toPath());
-            }
-        };
+        final AtomicReference<JFileChooser> active = new AtomicReference<>();
         try {
-            if (SwingUtilities.isEventDispatchThread()) choose.run(); else SwingUtilities.invokeAndWait(choose);
-            return selected[0];
-        } catch (Exception failure) { return Optional.empty(); }
+            return EdtDispatch.call(
+                "plugin-package chooser",
+                EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
+                () -> {
+                    final JFileChooser chooser = new TurboismFileChooser();
+                    active.set(chooser);
+                    configurePluginJarChooser(chooser);
+                    if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                        return Optional.of(chooser.getSelectedFile().toPath());
+                    }
+                    return Optional.<Path>empty();
+                },
+                () -> {
+                    // Post-start interrupt: cancelSelection releases the modal pump so the
+                    // caller stops waiting instead of leaving an orphaned chooser behind.
+                    final JFileChooser chooser = active.get();
+                    if (chooser != null) {
+                        chooser.cancelSelection();
+                    }
+                }
+            );
+        } catch (RuntimeException failure) {
+            return Optional.empty();
+        }
     }
 
 
@@ -624,7 +639,9 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 pending = null;
             }
             afterCloseDeactivated.run();
-            runOnEdtAndWait(() -> {
+            // Cleanup semantics: the cancel must not be dropped on acceptance timeout —
+            // it stays queued and runs when the EDT drains, while close() returns promptly.
+            EdtDispatch.runEventually("plugin-package-chooser close", () -> {
                 final JFileChooser chooser;
                 synchronized (lifecycleLock) {
                     chooser = visible;
@@ -632,18 +649,6 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 if (chooser != null) chooser.cancelSelection();
             });
             if (terminal != null) terminal.accept(Optional.empty());
-        }
-
-        private static void runOnEdtAndWait(final Runnable action) {
-            if (SwingUtilities.isEventDispatchThread()) {
-                action.run();
-                return;
-            }
-            try {
-                SwingUtilities.invokeAndWait(action);
-            } catch (Exception failure) {
-                throw new IllegalStateException("Could not close plugin package chooser on the EDT", failure);
-            }
         }
     }
 

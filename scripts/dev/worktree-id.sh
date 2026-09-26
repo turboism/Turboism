@@ -41,16 +41,28 @@ validate_id() {
   local id="$1"
   if [[ ! "${id}" =~ ^[a-z][a-z0-9-]{2,63}$ ]]; then
     echo "Invalid worktree ID: ${id} (must match [a-z][a-z0-9-]{2,63})" >&2
-    exit 1
+    return 1
   fi
   case "${id}" in
     test|tmp|new|main-copy|my-work)
       echo "Forbidden worktree ID: ${id}" >&2
-      exit 1
+      return 1
       ;;
   esac
+  return 0
 }
 
+resolve_only=0
+if [ "${1:-}" = "--resolve" ]; then
+  resolve_only=1
+fi
+
 id=$(resolve_worktree_id)
-validate_id "${id}"
+if [ "${resolve_only}" -eq 0 ]; then
+  validate_id "${id}" || exit 1
+else
+  # Resolve mode reports the verdict on stderr without failing so build
+  # configuration can proceed; consumers fail closed on that verdict.
+  validate_id "${id}" || true
+fi
 echo "${id}"

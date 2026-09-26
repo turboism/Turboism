@@ -245,15 +245,10 @@ public final class EarlyThemeAppearanceBootstrap {
                 throw new IllegalStateException("Early theme injection failed", exception);
             }
         };
-        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+        dev.turboism.ui.host.EdtDispatch.call("early theme injection", () -> {
             onEdt.run();
-        } else {
-            try {
-                javax.swing.SwingUtilities.invokeAndWait(onEdt);
-            } catch (Exception exception) {
-                throw new IllegalStateException("Early theme injection dispatch failed", exception);
-            }
-        }
+            return null;
+        });
     }
 
     private void registerCustomDefaultsSource(final Map<String, String> colors) throws Exception {

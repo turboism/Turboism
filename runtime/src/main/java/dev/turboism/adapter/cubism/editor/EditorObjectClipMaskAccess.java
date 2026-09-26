@@ -50,6 +50,13 @@ final class EditorObjectClipMaskAccess {
         final Object model,
         final List<ClipMaskReplacement> replacements
     ) {
+        if (!EditorHostThread.isCurrent()) {
+            EditorHostThread.dispatch("Cubism clip-mask write", () -> {
+                replaceArtMeshClipMasks(identity, modelSource, model, replacements);
+                return null;
+            });
+            return;
+        }
         final List<ClipMaskReplacement> batch = List.copyOf(
             Objects.requireNonNull(replacements, "replacements")
         );

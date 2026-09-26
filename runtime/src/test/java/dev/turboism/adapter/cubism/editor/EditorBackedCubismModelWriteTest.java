@@ -1,16 +1,23 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.SwingUtilities;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorBackedCubismModelWriteTest {
 
@@ -149,7 +156,84 @@ class EditorBackedCubismModelWriteTest {
         assertEquals(-5.0F, replacement.parameter.value());
     }
 
+    /**
+     * Regression for the pre-fix defect: a coordinator-backed write invoked inside a transaction
+     * callback used to run on the EDT while the ambient scope lived on the plugin thread, so the
+     * write was rejected as a mismatched scope. The transaction root now runs on the EDT, so the
+     * write joins the ambient root and commits as one native Undo entry.
+     */
+    @Test
+    void parameterWriteInsideTransactionJoinsTheAmbientRootOnTheEdt() {
+        Fixture fixture = new Fixture("model-a", 12.0F);
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+        final AtomicBoolean workOnEdt = new AtomicBoolean();
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Grouped parameter write"),
+            () -> {
+                workOnEdt.set(SwingUtilities.isEventDispatchThread());
+                final var parameter = access.active().parameters()
+                    .find(new ParameterId("ParamAngleX"));
+                parameter.setValue(90.0F);
+                parameter.setValue(10.0F);
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertTrue(workOnEdt.get(), "the transaction callback must run on the Swing EDT");
+        assertEquals(10.0F, fixture.parameter.value());
+        assertEquals(1, fixture.editMode.beginCalls, "both writes share one root native edit");
+        assertEquals(1, fixture.editMode.endCalls);
+        assertEquals(1, fixture.editMode.committedEdits);
+        assertEquals(0, fixture.editMode.cancelledEdits);
+        assertEquals(1, fixture.document.undoManager.entries.size(), "one root Undo entry");
+        assertEquals(
+            "Grouped parameter write",
+            fixture.document.undoManager.entries.get(0).presentationName()
+        );
+        assertTrue(result.receipt().orElseThrow().historyEntryId().isPresent());
+        assertEquals(1, fixture.document.dirtyUpdates);
+    }
+
+    @Test
+    void parameterWriteInsideTransactionRollsBackWithTheAmbientRoot() {
+        Fixture fixture = new Fixture("model-a", 12.0F);
+        Host.install(fixture);
+        EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a"
+        );
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Failing parameter write"),
+            () -> {
+                access.active().parameters().find(new ParameterId("ParamAngleX"))
+                    .setValue(20.0F);
+                throw new IllegalStateException("later transaction step failed");
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(12.0F, fixture.parameter.value(), "rollback restores the parameter");
+        assertEquals(1, fixture.editMode.beginCalls);
+        assertEquals(1, fixture.editMode.cancelledEdits);
+        assertEquals(0, fixture.editMode.committedEdits);
+        assertTrue(fixture.document.undoManager.entries.isEmpty(),
+            "a rolled-back transaction commits no Undo entry");
+    }
+
     private static VerifiedMemberResolver resolver() {
+        return resolver(false);
+    }
+
+    private static VerifiedMemberResolver resolver(final boolean includeHistory) {
         String host = internal(Host.class);
         String document = internal(Document.class);
         String source = internal(ModelSource.class);
@@ -167,11 +251,7 @@ class EditorBackedCubismModelWriteTest {
         String palette = internal(ParameterPalette.class);
         String paletteView = internal(ParameterPaletteView.class);
         String operation = internal(ParameterOperation.class);
-        return TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.write"),
-            List.of(
+        final List<StaticSelector> selectors = new java.util.ArrayList<>(List.of(
                 StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
                 StaticSelector.staticMethod("cubism.editor-model.app-controller.instance", host, "instance", desc(Host.class), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
                 method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", desc(Document.class)),
@@ -229,7 +309,52 @@ class EditorBackedCubismModelWriteTest {
                 method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaintCanvas", "(Z)V"),
                 StaticSelector.classSelector("cubism.editor-model.parameter-operation.class", operation),
                 method("cubism.editor-model.parameter-operation.set-value", ParameterOperation.class, "setValue", "(L" + metadata + ";F)V")
-            ),
+            ));
+        final java.util.Set<String> capabilities = new java.util.HashSet<>(
+            java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.write")
+        );
+        if (includeHistory) {
+            capabilities.add("cubism.editor-history.read");
+            selectors.add(method(
+                "cubism.editor-history.document.undo-manager",
+                Document.class, "undoManager", desc(UndoManager.class)
+            ));
+            selectors.add(StaticSelector.classSelector(
+                "cubism.editor-history.manager.class", internal(UndoManager.class)
+            ));
+            selectors.add(method(
+                "cubism.editor-history.manager.entries",
+                UndoManager.class, "entries", "()Ljava/util/List;"
+            ));
+            selectors.add(method(
+                "cubism.editor-history.manager.position",
+                UndoManager.class, "position", "()I"
+            ));
+            selectors.add(method(
+                "cubism.editor-history.manager.can-undo",
+                UndoManager.class, "canUndo", "()Z"
+            ));
+            selectors.add(method(
+                "cubism.editor-history.manager.can-redo",
+                UndoManager.class, "canRedo", "()Z"
+            ));
+            selectors.add(StaticSelector.classSelector(
+                "cubism.editor-history.entry.class", internal(Undo.class)
+            ));
+            selectors.add(method(
+                "cubism.editor-history.entry.presentation-name",
+                Undo.class, "presentationName", "()Ljava/lang/String;"
+            ));
+            selectors.add(method(
+                "cubism.editor-history.entry.significant",
+                Undo.class, "significant", "()Z"
+            ));
+        }
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            "adapter.editor-model.readwrite",
+            capabilities,
+            selectors,
             Host.class.getClassLoader()
         );
     }
@@ -265,13 +390,16 @@ class EditorBackedCubismModelWriteTest {
     public static final class Document {
         final ModelSource source;
         final EditMode editMode;
+        final UndoManager undoManager;
         int dirtyUpdates;
-        Document(ModelSource source, EditMode editMode) {
+        Document(ModelSource source, EditMode editMode, UndoManager undoManager) {
             this.source = source;
             this.editMode = editMode;
+            this.undoManager = undoManager;
         }
         public ModelSource modelSource() { return source; }
         public EditMode editMode() { return editMode; }
+        public UndoManager undoManager() { return undoManager; }
         public void markDirty() { dirtyUpdates++; }
         public Object lastActiveView() { return null; }
     }
@@ -354,9 +482,12 @@ class EditorBackedCubismModelWriteTest {
     }
 
     public static final class Undo {
+        final String action;
         final float before;
         final java.util.ArrayList<SimpleUndo> edits = new java.util.ArrayList<>();
-        Undo(float before) { this.before = before; }
+        Undo(String action, float before) { this.action = action; this.before = before; }
+        public String presentationName() { return action; }
+        public boolean significant() { return true; }
         public boolean add(SimpleUndo undo, boolean force) {
             if (!force) throw new IllegalArgumentException();
             edits.add(undo);
@@ -387,8 +518,23 @@ class EditorBackedCubismModelWriteTest {
         }
     }
 
+    public static final class UndoManager {
+        final java.util.List<Undo> entries = new java.util.ArrayList<>();
+        int position;
+        public java.util.List<Undo> entries() { return entries; }
+        public int position() { return position; }
+        public boolean canUndo() { return position > 0; }
+        public boolean canRedo() { return position < entries.size(); }
+        void commit(final Undo entry) {
+            while (entries.size() > position) entries.remove(entries.size() - 1);
+            entries.add(entry);
+            position = entries.size();
+        }
+    }
+
     public static final class EditMode {
         final ParameterSet set;
+        final UndoManager manager;
         int beginCalls;
         int endCalls;
         int committedEdits;
@@ -396,12 +542,12 @@ class EditorBackedCubismModelWriteTest {
         boolean activeEdit;
         Undo activeUndo;
         Undo committedUndo;
-        EditMode(ParameterSet set) { this.set = set; }
+        EditMode(ParameterSet set, UndoManager manager) { this.set = set; this.manager = manager; }
         public Undo begin(String action) {
             if (activeEdit) throw new IllegalStateException("previous edit not finished");
             beginCalls++;
             activeEdit = true;
-            activeUndo = new Undo(set.parameters.get(0).value);
+            activeUndo = new Undo(action, set.parameters.get(0).value);
             return activeUndo;
         }
         public boolean end(boolean cancelled, Object undoRedoCallback) {
@@ -413,6 +559,7 @@ class EditorBackedCubismModelWriteTest {
             } else {
                 committedEdits++;
                 committedUndo = activeUndo;
+                manager.commit(activeUndo);
             }
             activeUndo = null;
             return !cancelled;
@@ -475,8 +622,9 @@ class EditorBackedCubismModelWriteTest {
             parameter = new Parameter("ParamAngleX", value);
             parameterSet = new ParameterSet(List.of(parameter));
             Model model = new Model(parameterSet);
-            editMode = new EditMode(parameterSet);
-            document = new Document(new ModelSource(id, model), editMode);
+            final UndoManager undoManager = new UndoManager();
+            editMode = new EditMode(parameterSet, undoManager);
+            document = new Document(new ModelSource(id, model), editMode, undoManager);
             operation = new ParameterOperation(parameterSet);
             completePack = new CompletePack();
             mainFrame = new MainFrame(new ParameterPalette(new ParameterPaletteView(operation)));

@@ -202,6 +202,100 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         }
     }
 
+    /**
+     * A generation that fails mid-load must still return its plugin executor: the failed-load
+     * cleanup path never passes through the normal unload pipeline, so executor reclamation has
+     * to run inside {@code cleanupFailed} instead of waiting for runtime shutdown.
+     */
+    @Test
+    void failedLoadReclaimsPluginExecutor() throws Exception {
+        final String failedId = "dev.example.failed-load";
+        final Path home = temporary.resolve("home");
+        writePlugin(
+            home.resolve("plugins").resolve("00-failing.jar"),
+            failedId,
+            "dev.example.failedload.FailedLoadPlugin",
+            failedLoadEntrypoint(),
+            null,
+            "[]"
+        );
+        final PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(
+            1, 16, ignored -> { }, Clock.systemUTC()
+        );
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            registry,
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        final HostSession host = new HostSession(Optional::empty);
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                home, scheduler, host.adapterAccess(), log
+            );
+            try {
+                // Seed the executor so the reclamation is observable: the plugin's init
+                // task lands on this same instance while the generation is alive.
+                final dev.turboism.core.runtime.work.PluginWorkExecutor executor =
+                    registry.get(failedId);
+                final LocalPluginRuntime.LoadReport report = runtime.loadAll();
+
+                assertTrue(
+                    report.failures().stream().anyMatch(failure ->
+                        failure.pluginId().equals(failedId)),
+                    "the fixture plugin must fail at enable: " + report.failures()
+                );
+                assertFalse(
+                    executor.submit(
+                        new dev.turboism.core.runtime.PluginTask(
+                            "plugin.compute.normal", failedId, "probe", "none"
+                        ),
+                        () -> { }
+                    ).accepted(),
+                    "a failed generation's executor must be reclaimed during load cleanup"
+                );
+                org.junit.jupiter.api.Assertions.assertNotSame(
+                    executor,
+                    registry.get(failedId),
+                    "the reclaimed executor must not be handed out again"
+                );
+            } finally {
+                runtime.close();
+            }
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private static String failedLoadEntrypoint() {
+        return """
+            package dev.example.failedload;
+
+            import dev.turboism.sdk.plugin.PluginContext;
+            import dev.turboism.sdk.plugin.TurboismPlugin;
+            import dev.turboism.sdk.task.PluginTaskKind;
+            import dev.turboism.sdk.task.PluginTaskPriority;
+            import dev.turboism.sdk.task.PluginTaskRequest;
+            import dev.turboism.sdk.task.TaskId;
+
+            public final class FailedLoadPlugin implements TurboismPlugin {
+                @Override public void init(PluginContext context) {
+                    context.tasks().submit(new PluginTaskRequest(
+                        new TaskId("init-work"),
+                        PluginTaskKind.COMPUTE,
+                        PluginTaskPriority.NORMAL,
+                        token -> { }
+                    ));
+                }
+
+                @Override public void enable() {
+                    throw new IllegalStateException("enable fails on purpose");
+                }
+            }
+            """;
+    }
+
     /** Custom event type with no public route and no domain permission requirement. */
     public static final class ProbeEvent implements EventBus.TurboismEvent {
     }

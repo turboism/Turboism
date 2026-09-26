@@ -121,4 +121,16 @@ class WorkBudgetPolicyTest {
         PluginTask task = new PluginTask("heavy-analysis", "demo.plugin", "computeStatistics", "none");
         assertEquals(WorkBudget.REJECTED, policy.classify(task));
     }
+
+    @Test
+    void pluginLongTasksAreHeavy() {
+        assertEquals(
+            WorkBudget.HEAVY,
+            policy.classify(new PluginTask("plugin.long.normal", "demo.plugin", "long work", "none"))
+        );
+        assertEquals(
+            WorkBudget.HEAVY,
+            policy.classify(new PluginTask("plugin.long.low", "demo.plugin", "long work", "none"))
+        );
+    }
 }

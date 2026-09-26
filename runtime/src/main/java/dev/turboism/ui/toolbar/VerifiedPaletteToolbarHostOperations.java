@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
 
 import javax.swing.BorderFactory;
@@ -15,7 +16,6 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.FlowLayout;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -106,12 +106,14 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
 
     @Override
     public void clearContributions() {
-        onEdt(() -> {
+        // Removal semantics: on acceptance timeout the clear stays queued instead of
+        // being dropped — EDT queue order keeps it ahead of any later setContributions,
+        // so a disabled plugin's buttons are never orphaned.
+        onEdtEventually(() -> {
             contributions.clear();
             contributionsVersion++;
             stopPolling();
             resetBinding();
-            return null;
         });
     }
 
@@ -356,36 +358,17 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.run();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.run();
-                } catch (Throwable throwable) {
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("palette-toolbar EDT operation was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("palette-toolbar EDT operation failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("palette-toolbar EDT operation failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
-        return value;
+        // setContributions/reconcile stay "call" semantics: an abandoned update is
+        // reported to the caller and the polling reconcile self-heals the visible state.
+        return EdtDispatch.call("palette-toolbar EDT operation", operation::run);
+    }
+
+    /**
+     * Idempotent removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a cleared contribution set is never orphaned.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        EdtDispatch.runEventually("palette-toolbar EDT removal", operation);
     }
 
     @FunctionalInterface

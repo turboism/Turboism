@@ -143,5 +143,8 @@ public enum PluginService {
     WARP_ALT_MIRROR_PARTICIPATION,
 
     /** {@link PluginContext#viewContextMenu()} */
-    VIEW_CONTEXT_MENU
+    VIEW_CONTEXT_MENU,
+
+    /** {@link PluginContext#uiResources()} */
+    UI_RESOURCES
 }

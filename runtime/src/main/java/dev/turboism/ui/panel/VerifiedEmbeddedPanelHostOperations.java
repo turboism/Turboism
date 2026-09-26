@@ -7,6 +7,7 @@ import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.ui.action.EditorUiActionRouter;
+import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
 
 import java.awt.BorderLayout;
@@ -17,7 +18,6 @@ import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
-import java.lang.reflect.InvocationTargetException;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Objects;
@@ -104,6 +104,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private static final Set<String> WINDOW_MENU_LABELS = Set.of(
         "Window", "ウィンドウ", "视窗", "視窗", "窗口", "창"
     );
+    private static final long FLOAT_RESET_SUPPRESS_MILLIS = 1_500L;
 
     private final VerifiedMemberResolver resolver;
     private final DockTreeTraversal traversal;
@@ -111,7 +112,10 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private final Map<Object, NativePanel> panels = new IdentityHashMap<>();
     private final Map<Object, JPanel> stableContentRoots = java.util.Collections.synchronizedMap(new IdentityHashMap<>());
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
-    private final Map<Object, Long> lastFloatMillis = new IdentityHashMap<>();
+    // Cleared from invalidateHost() off the EDT, so unlike floatingPanels this map is
+    // synchronized; every read/iteration must hold its monitor.
+    private final Map<Object, Long> lastFloatMillis =
+        java.util.Collections.synchronizedMap(new IdentityHashMap<>());
     private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
     private volatile long hostGeneration = Long.MIN_VALUE;
     private final java.util.function.Supplier<java.util.Locale> locale;
@@ -197,6 +201,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             // every handle. Drop refresh roots here as the final lifecycle boundary; handles remain
             // idempotently closeable and cannot resurrect a disposed presentation.
             stableContentRoots.clear();
+            lastFloatMillis.clear();
         }
     }
 
@@ -256,7 +261,9 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     void cleanEmptyDocks(final long expectedGeneration) {
-        onEdt(() -> {
+        // Pruning empty dock boxes is idempotent cleanup: under a wedged EDT the task
+        // stays queued and re-validates the host generation when it eventually runs.
+        onEdtEventually(() -> {
             requireActiveHost(expectedGeneration);
             final NativeDock dock = resolveDock();
             final Object workspace = currentWorkspace(dock);
@@ -271,7 +278,6 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             pruneEmptyBoxes(rootComponent);
             resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, dock.paletteManager());
             refresh(dock);
-            return null;
         });
     }
 
@@ -362,6 +368,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         } catch (RuntimeException | Error failure) {
             final WindowMenuItem installedItem = windowMenuItem;
             final FloatingPanel floating = floatingPanels.remove(palette);
+            lastFloatMillis.remove(palette);
             closed.set(true);
             stableContentRoots.remove(palette);
             panels.remove(palette);
@@ -430,11 +437,14 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 if (!closed.compareAndSet(false, true)) {
                     return;
                 }
-                onEdt(() -> {
+                // Removal stays queued through an acceptance timeout so a disabled plugin
+                // never leaves an orphaned palette behind.
+                onEdtEventually(() -> {
                     PanelCollapsibleContentCoordinator.shared().onPanelRemoved(panelId);
                     panels.remove(palette);
                     stableContentRoots.remove(palette);
                     final FloatingPanel floating = floatingPanels.remove(palette);
+                    lastFloatMillis.remove(palette);
                     closePanel(
                         () -> dockFloatingPanel(floating),
                         () -> removePaletteFromWorkspace(dock, palette),
@@ -446,7 +456,6 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                         () -> removeWindowMenuItem(installedWindowMenuItem),
                         () -> refresh(dock)
                     );
-                    return null;
                 });
             }
         };
@@ -554,6 +563,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         onEdt(() -> {
             if (floatingPanels.containsKey(panel.palette())) {
                 dockFloatingPanel(floatingPanels.remove(panel.palette()));
+                lastFloatMillis.remove(panel.palette());
             } else {
                 floatPanel(panel);
             }
@@ -807,12 +817,14 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         // floatPanel this dispose is that reset, not a user close; merging the
         // panel back into the dock then would drop the floating window right
         // after it appeared. Only merge when the dispose happens outside the
-        // window (a real user close).
-        final long now = System.currentTimeMillis();
-        final boolean recentFloat = lastFloatMillis.values().stream()
-            .anyMatch(at -> now - at < 1_500L);
+        // window (a real user close). The suppression is scoped to the palettes
+        // carried by this frame: an unrelated palette's recent float must not
+        // swallow a genuine user close.
         final List<FloatingFrameLifecycle.Entry> entries = floatingFrameLifecycle.beginClose(frame);
-        if (entries.isEmpty() || !hostActive || recentFloat) {
+        if (entries.isEmpty() || !hostActive) {
+            return;
+        }
+        if (recentFloatSuppressesMerge(lastFloatMillis, entries, System.currentTimeMillis())) {
             return;
         }
         // The dispose transformer fires before the host method returns. Defer the
@@ -866,6 +878,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 );
             }
             floatingPanels.remove(entry.palette());
+            lastFloatMillis.remove(entry.palette());
         }
         refresh(template.panel().dock());
     }
@@ -904,10 +917,37 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 floating.originalBox()
             );
             floatingPanels.remove(palette);
+            lastFloatMillis.remove(palette);
             floatingFrameLifecycle.forget(palette);
             refresh(panel.dock());
             return true;
         });
+    }
+
+    /**
+     * Suppression window check scoped to the disposed frame's own palettes: a palette that
+     * was floated moments ago suppresses the merge for its own frame's reset dispose — an
+     * unrelated palette's recent float must not swallow this frame's genuine user close.
+     */
+    static boolean recentFloatSuppressesMerge(
+        final Map<Object, Long> floatMillis,
+        final List<FloatingFrameLifecycle.Entry> entries,
+        final long nowMillis
+    ) {
+        synchronized (floatMillis) {
+            return entries.stream()
+                .map(entry -> floatMillis.get(entry.palette()))
+                .filter(Objects::nonNull)
+                .anyMatch(at -> nowMillis - at < FLOAT_RESET_SUPPRESS_MILLIS);
+        }
+    }
+
+    Long lastFloatMillisForTest(final Object palette) {
+        return lastFloatMillis.get(palette);
+    }
+
+    void noteFloatForTest(final Object palette, final long atMillis) {
+        lastFloatMillis.put(palette, atMillis);
     }
 
     private void requireActiveHost(final long expectedGeneration) {
@@ -1298,36 +1338,15 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.run();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.run();
-                } catch (Throwable throwable) {
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("embedded-panel EDT operation was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("embedded-panel EDT operation failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("embedded-panel EDT operation failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
-        return value;
+        return EdtDispatch.call("embedded-panel EDT operation", operation::run);
+    }
+
+    /**
+     * Idempotent removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a closed panel is never orphaned.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        EdtDispatch.runEventually("embedded-panel EDT removal", operation);
     }
 
     private record NativePanel(NativeDock dock, Object palette, Object paletteId) {
