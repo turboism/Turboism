@@ -949,6 +949,12 @@ bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 acc-
 Repeat the pair for `on-pan` and `on-artmesh` (same flags; the wrapper maps
 them to the wheel entry with `nativeInteraction`). Compare legs 1/2.
 
+**Runner admission:** When Mesa is effective on, the Runner requires the runtime
+`deferred=ACTIVE` marker before creating a trigger, invoking the client, or accepting
+a result. Inactive or missing activation fails the run and uses the existing scoped
+cleanup; `installation=COMPLETE` alone is insufficient. Mesa-off runs do not require
+this marker.
+
 **Validity gates:** F runs require `deferred=ACTIVE` +
 `TURBOISM_UNIFORM_LOCATION installation=COMPLETE` +
 `leg.N.uniformLocationHook.hits>0` + Mesa `ATTENTION` line +
