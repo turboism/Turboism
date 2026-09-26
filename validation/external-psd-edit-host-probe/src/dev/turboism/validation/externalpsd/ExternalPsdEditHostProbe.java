@@ -1375,36 +1375,44 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "7ed2d0296791cca5f3ad8a7ccd955999a35dc755d32a62268cdfd0007d95b41c",
                 first.identity().documentId(), firstContent, guiBoundWindow,
                 remainingStructuralMillis(deadline)), () -> stopped,
-            () -> structuralTaskActive(deadline), () -> {
-                requireStructuralModelOnEdt(first);
-                verifyCurrentBoundTaskWindowOnEdt(first.identity());
-            });
-        structuralEdt(deadline, () -> {
-            final var document = context.cubism().activeDocument().orElseThrow();
-            final CubismModel model = context.cubism().model().active();
-            final TextureRelationsSnapshot relations = model.textures().relations();
-            final var second = prepared.second();
-            if (officialCurrentHostWindowOnEdt() != guiBoundWindow
-                || !document.documentId().equals(second.documentId())
-                || !document.contentId().equals(Optional.of(second.contentId()))
-                || !model.id().value().equals(second.modelId()) || !relations.isAvailable()
-                || relations.rawImages().size() != 1 || relations.modelImages().size() != 7
-                || !"ba17684e-3801-461f-97ac-7f59dd720bb5".equals(relations.rawImages().get(0).id().value())) {
-                throw new IllegalStateException("second document SDK/native identity or fixed control differs");
-            }
-            final Map<String, OfficialSecondDocumentOpen.Image> sdkImages = new java.util.HashMap<>();
-            for (var image : relations.modelImages()) {
-                sdkImages.put(image.id().value(), new OfficialSecondDocumentOpen.Image(
-                    image.currentRawImageId().orElseThrow().value(),
-                    image.linkedRawImageIds().stream().map(RawImageId::value).toList(),
-                    image.inputsByRawImage().keySet().stream().map(RawImageId::value)
-                        .collect(java.util.stream.Collectors.toSet())));
-            }
-            if (!sdkImages.equals(second.images())) throw new IllegalStateException(
-                "second document SDK/native model-image relations differ");
-            result.setProperty("secondDocument.sdk.binding", relations.binding());
-            result.setProperty("secondDocument.sdk.generation", Long.toString(relations.generation()));
-            return Boolean.TRUE;
+            () -> structuralTaskActive(deadline), (second, completing) -> {
+                if (!completing) {
+                    requireStructuralModelOnEdt(first);
+                    verifyCurrentBoundTaskWindowOnEdt(first.identity());
+                }
+                final var document = context.cubism().activeDocument().orElseThrow();
+                final CubismModel model = context.cubism().model().active();
+                final TextureRelationsSnapshot relations = model.textures().relations();
+                if (officialCurrentHostWindowOnEdt() != guiBoundWindow
+                    || !model.id().value().equals(second.modelId()) || !relations.isAvailable()
+                    || relations.rawImages().size() != second.rawNames().size()
+                    || relations.modelImages().size() != second.images().size()
+                    || !relations.rawImages().stream().map(raw -> raw.id().value())
+                        .collect(java.util.stream.Collectors.toSet()).equals(second.rawNames().keySet())) {
+                    throw new IllegalStateException("second document SDK/native identity or fixed control differs");
+                }
+                final Map<String, OfficialSecondDocumentOpen.Image> sdkImages = new java.util.HashMap<>();
+                for (var image : relations.modelImages()) {
+                    sdkImages.put(image.id().value(), new OfficialSecondDocumentOpen.Image(
+                        image.currentRawImageId().orElseThrow().value(),
+                        image.linkedRawImageIds().stream().map(RawImageId::value).toList(),
+                        image.inputsByRawImage().keySet().stream().map(RawImageId::value)
+                            .collect(java.util.stream.Collectors.toSet())));
+                }
+                if (!sdkImages.equals(second.images())) throw new IllegalStateException(
+                    "second document SDK/native model-image relations differ");
+                result.setProperty("secondDocument.sdk.binding", relations.binding());
+                result.setProperty("secondDocument.sdk.generation", Long.toString(relations.generation()));
+                if (completing && (!second.rawNames().keySet().equals(Set.of(
+                        "ba17684e-3801-461f-97ac-7f59dd720bb5")) || second.images().size() != 7)) {
+                    throw new IllegalStateException("second control identity differs");
+                }
+                result.setProperty("secondDocument.sdk." + (completing ? "second" : "first")
+                    + ".documentId", document.documentId());
+                result.setProperty("secondDocument.sdk." + (completing ? "second" : "first")
+                    + ".contentId", document.contentId().orElseThrow());
+                return new OfficialSecondDocumentOpen.SdkIdentity(
+                    document.documentId(), document.contentId().orElseThrow());
         });
         for (var entry : Map.of("first", prepared.first(), "second", prepared.second()).entrySet()) {
             final String prefix = "secondDocument." + entry.getKey();

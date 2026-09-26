@@ -35,6 +35,7 @@ public final class OfficialSecondDocumentOpen {
 
     private OfficialSecondDocumentOpen() { }
 
+    /** firstDocumentId/firstContentId belong to the SDK, never the native UID namespace. */
     public record Request(Path taskRoot, Path cmo, String sha256, String firstDocumentId,
         String firstContentId, Window window, long timeoutMillis) { }
 
@@ -74,11 +75,16 @@ public final class OfficialSecondDocumentOpen {
         Object currentDocument() throws Exception;
         List<Document> documents() throws Exception;
         boolean hasDialog() throws Exception;
+        default String dialogDiagnostic() throws Exception { return "dialog details unavailable"; }
         void open(Path cmo) throws Exception;
     }
 
     @FunctionalInterface
-    public interface Admission { void check() throws Exception; }
+    public interface Admission { SdkIdentity check(Document nativeDocument, boolean completing) throws Exception; }
+
+    public record SdkIdentity(String documentId, String contentId) {
+        public SdkIdentity { requireText(documentId); requireText(contentId); }
+    }
 
     public static Result open(Request request, BooleanSupplier stopped,
         BooleanSupplier taskBound, Admission admission) throws Exception {
@@ -89,7 +95,7 @@ public final class OfficialSecondDocumentOpen {
 
     static Result run(Request request, BooleanSupplier stopped, BooleanSupplier taskBound,
         Host host) throws Exception {
-        return run(request, stopped, taskBound, host, () -> { });
+        return run(request, stopped, taskBound, host, (document, completing) -> new SdkIdentity(document.documentId(), document.contentId()));
     }
 
     static Result run(Request request, BooleanSupplier stopped, BooleanSupplier taskBound,
@@ -111,9 +117,8 @@ public final class OfficialSecondDocumentOpen {
                 if (docs.size() != 1) throw new IllegalStateException(
                     "second-document preparation requires exactly one initial model document");
                 Document initial = docs.get(0);
-                if (!request.firstDocumentId().equals(initial.documentId())
-                    || !request.firstContentId().equals(initial.contentId())
-                    || initial.nativeDocument() != host.currentDocument()
+                requireFirstSdk(request, admission.check(initial, false));
+                if (initial.nativeDocument() != host.currentDocument()
                     || initial.file().equals(request.cmo().normalize())) throw new IllegalStateException(
                         "initial document identity/path differs");
                 return initial;
@@ -128,7 +133,10 @@ public final class OfficialSecondDocumentOpen {
                     || host.currentDocument() != first.nativeDocument()) throw new IllegalStateException(
                         "initial document changed before command_open");
                 check(allowed);
-                admission.check();
+                requireFirstSdk(request, admission.check(first, false));
+                checkHost(host, request);
+                if (host.currentDocument() != first.nativeDocument()) throw new IllegalStateException(
+                    "native current document changed during SDK admission");
                 check(allowed);
                 host.open(request.cmo().normalize());
                 return null;
@@ -145,6 +153,15 @@ public final class OfficialSecondDocumentOpen {
                     Document candidate = observe(first, host.documents(), request.cmo().normalize());
                     if (candidate != null && host.currentDocument() != candidate.nativeDocument()) {
                         return null;
+                    }
+                    if (candidate != null) {
+                        SdkIdentity sdk = admission.check(candidate, true);
+                        if (request.firstDocumentId().equals(sdk.documentId())
+                            || request.firstContentId().equals(sdk.contentId())) {
+                            throw new IllegalStateException("second SDK document/content identity reused");
+                        }
+                        if (host.currentDocument() != candidate.nativeDocument()) throw new IllegalStateException(
+                            "native current document changed during SDK observation");
                     }
                     check(allowed);
                     return candidate;
@@ -188,9 +205,23 @@ public final class OfficialSecondDocumentOpen {
             && a.images().equals(b.images());
     }
 
+    private static void requireFirstSdk(Request request, SdkIdentity identity) {
+        if (!request.firstDocumentId().equals(identity.documentId())
+            || !request.firstContentId().equals(identity.contentId())) throw new IllegalStateException(
+                "initial SDK document/content identity changed");
+    }
+
+    private static String objectId(Object value) {
+        return value == null ? "null" : value.getClass().getName() + "@"
+            + Integer.toHexString(System.identityHashCode(value));
+    }
+
     private static void checkHost(Host host, Request request) throws Exception {
-        if (host.window() != request.window() || host.hasDialog()) throw new IllegalStateException(
-            "bound host window differs or a dialog requires observation");
+        Object actual = host.window();
+        if (actual != request.window()) throw new IllegalStateException(
+            "bound host window differs: expected=" + objectId(request.window()) + " actual=" + objectId(actual));
+        if (host.hasDialog()) throw new IllegalStateException(
+            "dialog requires observation: " + host.dialogDiagnostic());
     }
 
     private static void check(BooleanSupplier allowed) {
@@ -359,6 +390,17 @@ public final class OfficialSecondDocumentOpen {
             if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("dialog read off EDT");
             for (Window w : Window.getWindows()) if (w instanceof Dialog && w.isShowing()) return true;
             return false;
+        }
+
+        @Override public String dialogDiagnostic() {
+            if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("dialog read off EDT");
+            List<String> values = new ArrayList<>();
+            for (Window w : Window.getWindows()) if (w instanceof Dialog d && w.isShowing()) {
+                values.add("class=" + d.getClass().getName() + " identity=" + objectId(d)
+                    + " owner=" + objectId(d.getOwner()) + " showing=" + d.isShowing()
+                    + " displayable=" + d.isDisplayable() + " modal=" + d.isModal());
+            }
+            return values.toString();
         }
 
         @Override public Object currentDocument() throws Exception { return get("current", app()); }
