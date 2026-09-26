@@ -4,6 +4,8 @@
 # Environment controls (all optional):
 #   EXTERNAL_PSD_PHASE          pipeline (default) | reopen | gui | structure-native | structure-sdk | prepare-second-document
 #   EXTERNAL_PSD_CYCLES         save cycles for pipeline phase
+#   EXTERNAL_PSD_PERFORMANCE=1  opt in to SC-006 sampling (pipeline + f1 + cycles=10 only)
+#   EXTERNAL_PSD_WARM_COLD      warm | cold; recorded in performance evidence
 #   EXTERNAL_PSD_PERSIST=1      append the mediated SAVE_AS persist tail (pipeline only)
 #   EXTERNAL_PSD_CONTENT_PROFILE control7 (default) | f1; passed to the validation probe
 #   EXTERNAL_PSD_STRUCTURE_VARIANT add | delete | merge | canvas (structural phases only)
@@ -85,6 +87,12 @@ case "$phase" in
 esac
 if [ -n "${EXTERNAL_PSD_CYCLES:-}" ]; then
   options+=("--jvm-option" "-Dturboism.validation.externalpsd.cycles=$EXTERNAL_PSD_CYCLES")
+fi
+if [ -n "${EXTERNAL_PSD_PERFORMANCE:-}" ]; then
+  options+=("--jvm-option" "-Dturboism.validation.externalpsd.performance=$EXTERNAL_PSD_PERFORMANCE")
+fi
+if [ -n "${EXTERNAL_PSD_WARM_COLD:-}" ]; then
+  options+=("--jvm-option" "-Dturboism.validation.externalpsd.performanceWarmCold=$EXTERNAL_PSD_WARM_COLD")
 fi
 if [ -n "${EXTERNAL_PSD_CONTENT_PROFILE:-}" ]; then
   options+=(
