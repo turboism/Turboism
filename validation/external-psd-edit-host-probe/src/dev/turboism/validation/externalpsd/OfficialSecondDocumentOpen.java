@@ -110,19 +110,37 @@ public final class OfficialSecondDocumentOpen {
         BooleanSupplier allowed = () -> live.get() && !stopped.getAsBoolean()
             && taskBound.getAsBoolean() && System.nanoTime() < deadline;
         try {
-            Document first = edt(() -> {
-                check(allowed);
-                checkHost(host, request);
-                List<Document> docs = host.documents();
-                if (docs.size() != 1) throw new IllegalStateException(
-                    "second-document preparation requires exactly one initial model document");
-                Document initial = docs.get(0);
-                requireFirstSdk(request, admission.check(initial, false));
-                if (initial.nativeDocument() != host.currentDocument()
-                    || initial.file().equals(request.cmo().normalize())) throw new IllegalStateException(
-                        "initial document identity/path differs");
-                return initial;
-            }, deadline, allowed);
+            Document observedFirst = null;
+            var waitingDialog = new java.util.concurrent.atomic.AtomicReference<>("none");
+            while (observedFirst == null) {
+                if (!allowed.getAsBoolean()) throw new IllegalStateException(
+                    "initial document readiness stopped/expired; last dialog=" + waitingDialog.get());
+                try {
+                    observedFirst = edt(() -> {
+                        check(allowed);
+                        checkWindow(host, request);
+                        if (host.hasDialog()) {
+                            waitingDialog.set(host.dialogDiagnostic());
+                            return null;
+                        }
+                        List<Document> docs = host.documents();
+                        if (docs.size() != 1) throw new IllegalStateException(
+                            "second-document preparation requires exactly one initial model document");
+                        Document initial = docs.get(0);
+                        requireFirstSdk(request, admission.check(initial, false));
+                        if (initial.nativeDocument() != host.currentDocument()
+                            || initial.file().equals(request.cmo().normalize())) throw new IllegalStateException(
+                                "initial document identity/path differs");
+                        return initial;
+                    }, deadline, allowed);
+                } catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException failure) {
+                    throw new IllegalStateException("initial document readiness failed; last dialog="
+                        + waitingDialog.get(), failure);
+                }
+                if (observedFirst == null) Thread.sleep(Math.min(100L, Math.max(1L,
+                    TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()))));
+            }
+            final Document first = observedFirst;
             // Hash off EDT immediately before dispatch; the task owns this immutable input copy.
             validateSource(request);
             edt(() -> {
@@ -216,10 +234,14 @@ public final class OfficialSecondDocumentOpen {
             + Integer.toHexString(System.identityHashCode(value));
     }
 
-    private static void checkHost(Host host, Request request) throws Exception {
+    private static void checkWindow(Host host, Request request) throws Exception {
         Object actual = host.window();
         if (actual != request.window()) throw new IllegalStateException(
             "bound host window differs: expected=" + objectId(request.window()) + " actual=" + objectId(actual));
+    }
+
+    private static void checkHost(Host host, Request request) throws Exception {
+        checkWindow(host, request);
         if (host.hasDialog()) throw new IllegalStateException(
             "dialog requires observation: " + host.dialogDiagnostic());
     }
