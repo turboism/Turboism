@@ -77,15 +77,23 @@ public final class OfficialSecondDocumentOpen {
         void open(Path cmo) throws Exception;
     }
 
+    @FunctionalInterface
+    public interface Admission { void check() throws Exception; }
+
     public static Result open(Request request, BooleanSupplier stopped,
-        BooleanSupplier taskBound) throws Exception {
+        BooleanSupplier taskBound, Admission admission) throws Exception {
         validateSource(request);
         Objects.requireNonNull(request.window(), "bound main window");
-        return run(request, stopped, taskBound, new NativeHost());
+        return run(request, stopped, taskBound, new NativeHost(), Objects.requireNonNull(admission));
     }
 
     static Result run(Request request, BooleanSupplier stopped, BooleanSupplier taskBound,
         Host host) throws Exception {
+        return run(request, stopped, taskBound, host, () -> { });
+    }
+
+    static Result run(Request request, BooleanSupplier stopped, BooleanSupplier taskBound,
+        Host host, Admission admission) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) throw new IllegalStateException(
             "second-document coordinator must run off EDT");
         validateSource(request);
@@ -119,6 +127,8 @@ public final class OfficialSecondDocumentOpen {
                 if (docs.size() != 1 || !unchanged(first, docs.get(0))
                     || host.currentDocument() != first.nativeDocument()) throw new IllegalStateException(
                         "initial document changed before command_open");
+                check(allowed);
+                admission.check();
                 check(allowed);
                 host.open(request.cmo().normalize());
                 return null;

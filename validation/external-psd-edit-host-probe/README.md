@@ -631,7 +631,15 @@ The observation covers raw names/GUIDs and model-image current/linked/selector k
 not layer record contents, ArtMesh bindings, RGB, history or full F2 isolation.
 Dialogs after dispatch are observed until they disappear or the common deadline
 expires; this helper never clicks them. Stop, task loss and expiry invalidate queued
-EDT callbacks without interrupting EDT. The helper is packaged in the probe but is
-not yet selected by a phase or wrapper. Focused tests and exact JAR shape are run by
+EDT callbacks without interrupting EDT. The `prepare-second-document` phase opens
+the fixed original normal control alongside its ten-cycle persisted copy. Set
+`EXTERNAL_PSD_FIXTURE_LOCAL` to the persisted copy and `EXTERNAL_PSD_SECOND_DOCUMENT`
+to the original `prepared-control.cmo3`. The wrapper requires the reviewed SHA of
+both inputs and stages the second under `second-document/prepared-control.cmo3`.
+The phase checks SDK binding/generation in the same EDT operation before opening,
+then compares the active second document's SDK/native identity and model-image
+relations. `secondDocument.status=PREPARED` and phase `PASS` only describe preparation;
+`f2.acceptance=NOT_CLAIMED` remains explicit. No replace, save or Undo is performed.
+Focused tests and exact JAR shape are run by
 `bash scripts/test/test_official_second_document_open.sh`; normal probe tests run
 the host-independent cases, and `test.sh --shape` also runs the exact JAR check.
