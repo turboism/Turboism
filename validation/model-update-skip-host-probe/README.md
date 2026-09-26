@@ -1441,3 +1441,13 @@ state difference after inverse wheel events from a rendering difference. The
 visible zoom label is rounded and alone cannot prove identical camera state.
 PNG images support attribution; structured hook execution, pixel equality,
 identity, and cleanup evidence remain the acceptance gates.
+
+Each PNG has a same-named `.properties` companion, captured in the same EDT
+operation. It records the official model viewport in logical bottom-left and
+image top-left coordinates, canvas dimensions, wrapper camera values, transform,
+projection and derived world-to-camera matrix as raw float bits. The probe checks
+canvas identity, current layout against camera viewport caches, image bounds,
+and metadata stability across the existing captures. It does not refresh camera
+state or change rendering. Cross-task comparisons use the complete official model
+viewport; full PNGs are retained because the surrounding GL tab contains each
+task's different fixture name. Same-run pixel equality still covers the full image.

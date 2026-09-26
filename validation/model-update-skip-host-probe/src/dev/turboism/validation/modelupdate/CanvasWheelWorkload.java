@@ -61,6 +61,7 @@ final class CanvasWheelWorkload {
     private GlSubmissionProbe glProbe;
     private UniformLocationTrial uniformTrial;
     private NarrowUniformTrial narrowTrial;
+    private java.util.concurrent.Callable<String> viewMetadata;
     private long measuredQueueNanos, measuredHandlerNanos, measuredRepaintBarrierNanos,
         measuredResumeNanos;
 
@@ -184,6 +185,10 @@ final class CanvasWheelWorkload {
                     .append("uniformCache.distinctCameraStates=true\n");
             }
             if (narrow) {
+                viewMetadata = onEdt(() -> {
+                    NativeInteractionHost host = new NativeInteractionHost(fixture, window, canvas);
+                    return host::captureMetadata;
+                });
                 narrowTrial = onEdt(() -> NarrowUniformTrial.attach(canvas, matrix));
                 report.append("uniformHook.glProxy=false\n")
                     .append("uniformHook.shadow=").append(uniformShadow).append('\n');
@@ -548,10 +553,19 @@ final class CanvasWheelWorkload {
         if (narrowTrial != null) {
             // Keep hover/action events out of the four same-state controls. Paint
             // synchronously here, never queue a nested EDT wait or change timing.
+            final String[] metadata = {null};
             List<FrameReadback> captures = NativeParitySequence.capture(enabled -> {
+                String before = viewMetadata.call();
                 setTrialFactor(enabled);
-                return narrowTrial.capture(canvas);
+                FrameReadback frame = narrowTrial.capture(canvas);
+                String after = viewMetadata.call();
+                if (!before.equals(after) || (metadata[0] != null && !metadata[0].equals(after))) {
+                    throw new IllegalStateException("camera/viewport changed during parity capture");
+                }
+                metadata[0] = after;
+                return frame;
             });
+            Files.writeString(state.resolve("wheel-pixels-" + stateName + ".properties"), metadata[0]);
             nativeBefore = captures.get(0);
             nativeRepeat = captures.get(1);
             cached = captures.get(2);
@@ -613,10 +627,21 @@ final class CanvasWheelWorkload {
 
     private String capturePixels(String diagnosticName) throws Exception {
         if (uniformTrial != null || narrowTrial != null) {
-            FrameReadback frame = captureNativeFrame();
+            FrameReadback frame;
             if (narrowTrial != null && diagnosticName != null) {
+                final String[] metadata = {null};
+                frame = onEdt(() -> {
+                    String before = viewMetadata.call();
+                    FrameReadback captured = narrowTrial.capture(canvas);
+                    metadata[0] = viewMetadata.call();
+                    if (!before.equals(metadata[0])) {
+                        throw new IllegalStateException("camera/viewport changed during diagnostic capture");
+                    }
+                    return captured;
+                });
+                Files.writeString(state.resolve("wheel-pixels-" + diagnosticName + ".properties"), metadata[0]);
                 frame.writeArgbPng(state.resolve("wheel-pixels-" + diagnosticName + ".png"));
-            }
+            } else frame = captureNativeFrame();
             return frame.digest();
         }
         final java.awt.Rectangle bounds = onEdt(() -> {
