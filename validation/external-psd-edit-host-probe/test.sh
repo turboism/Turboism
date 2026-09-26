@@ -105,7 +105,7 @@ def executable(path, contents):
 
 def run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
                 capture, extra_args=(), content_profile=None, structural_variant=None,
-                expected_code=0):
+                expected_code=0, second_document=None):
     environment = os.environ.copy()
     environment.update({
         "PATH": str(stub_bin) + os.pathsep + environment.get("PATH", ""),
@@ -114,6 +114,10 @@ def run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
         "EXTERNAL_PSD_PHASE": phase,
         "EXTERNAL_PSD_FIXTURE_LOCAL": str(fixture),
     })
+    environment.pop("EXTERNAL_PSD_SECOND_DOCUMENT", None)
+    environment.pop("EXTERNAL_PSD_PERSIST", None)
+    if second_document is not None:
+        environment["EXTERNAL_PSD_SECOND_DOCUMENT"] = str(second_document)
     if phase == "gui":
         environment["EXTERNAL_PSD_WITH_PLUGIN"] = str(plugin)
     else:
@@ -231,5 +235,27 @@ exec /bin/bash "$@"
                 sandbox / f"reject-{phase}-{profile}-{variant}.argv", content_profile=profile,
                 structural_variant=variant, expected_code=2)
 
-print("PASS: external PSD wrapper argv enforces GUI readiness and separate structural controls")
+    second = sandbox / "second.cmo3"
+    second.write_bytes(b"second control")
+    run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin,
+        "prepare-second-document", sandbox / "missing-second.argv", expected_code=2)
+    run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin,
+        "prepare-second-document", sandbox / "wrong-sha.argv", expected_code=2, second_document=second)
+    # Only argv wiring uses a digest stub; the real dry-run checks actual reviewed assets.
+    executable(stub_bin / "sha256sum", """#!/bin/sh
+case "$2" in
+  */fixture.cmo3) printf '%s  %s\\n' 59d5aa5775e86a2917b05a7322f05f0cdcfead994000fede91ab023cab19f308 "$2" ;;
+  */second.cmo3) printf '%s  %s\\n' 7ed2d0296791cca5f3ad8a7ccd955999a35dc755d32a62268cdfd0007d95b41c "$2" ;;
+  *) exit 2 ;;
+esac
+""")
+    args = run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin,
+        "prepare-second-document", sandbox / "second.argv", second_document=second)
+    assert option_values(args, "--home-file") == [str(second) + ":second-document/prepared-control.cmo3"]
+    assert not option_values(args, "--trigger")
+    run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin,
+        "prepare-second-document", sandbox / "wrong-profile.argv", content_profile="f1",
+        expected_code=2, second_document=second)
+
+print("PASS: external PSD wrapper argv enforces GUI readiness and separate structural/second-document controls")
 PY

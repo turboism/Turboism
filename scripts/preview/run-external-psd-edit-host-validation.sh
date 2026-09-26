@@ -8,6 +8,7 @@
 #   EXTERNAL_PSD_CONTENT_PROFILE control7 (default) | f1; passed to the validation probe
 #   EXTERNAL_PSD_STRUCTURE_VARIANT add | delete | merge | canvas (structural phases only)
 #   EXTERNAL_PSD_STRUCTURE_SOURCE  fixed official-writer PSD staged under task home
+#   EXTERNAL_PSD_SECOND_DOCUMENT  reviewed original CMO for prepare-second-document
 #   EXTERNAL_PSD_WITH_PLUGIN    path to the production external-psd-edit jar (gui phase)
 #   EXTERNAL_PSD_FIXTURE_LOCAL  reopen stage: use this saved copy instead of the source
 #   EXTERNAL_PSD_POSTEDITSHA256 / EXTERNAL_PSD_POSTEDITIMAGESHA256 /
@@ -38,6 +39,21 @@ options=(
 )
 structural_input=()
 case "$phase" in
+  prepare-second-document)
+    [[ ${EXTERNAL_PSD_CONTENT_PROFILE:-control7} == control7 && -z ${EXTERNAL_PSD_WITH_PLUGIN:-}
+       && ${EXTERNAL_PSD_PERSIST:-0} == 0 ]] || {
+      echo 'second-document preparation requires control7 without plugin/persist' >&2; exit 2;
+    }
+    [[ ${EXTERNAL_PSD_FIXTURE_LOCAL:-} == /* && -f $EXTERNAL_PSD_FIXTURE_LOCAL
+       && ${EXTERNAL_PSD_SECOND_DOCUMENT:-} == /* && -f $EXTERNAL_PSD_SECOND_DOCUMENT ]] || {
+      echo 'second-document preparation requires absolute first and second CMO files' >&2; exit 2;
+    }
+    [[ $(sha256sum -- "$EXTERNAL_PSD_FIXTURE_LOCAL" | cut -d ' ' -f 1) == 59d5aa5775e86a2917b05a7322f05f0cdcfead994000fede91ab023cab19f308
+       && $(sha256sum -- "$EXTERNAL_PSD_SECOND_DOCUMENT" | cut -d ' ' -f 1) == 7ed2d0296791cca5f3ad8a7ccd955999a35dc755d32a62268cdfd0007d95b41c ]] || {
+      echo 'second-document controls differ from reviewed CMO assets' >&2; exit 2;
+    }
+    structural_input=(--home-file "$EXTERNAL_PSD_SECOND_DOCUMENT:second-document/prepared-control.cmo3")
+    ;;
   structure-native|structure-sdk)
     [[ ${EXTERNAL_PSD_CONTENT_PROFILE:-} == f1 ]] || {
       echo 'structural controls require EXTERNAL_PSD_CONTENT_PROFILE=f1' >&2; exit 2;

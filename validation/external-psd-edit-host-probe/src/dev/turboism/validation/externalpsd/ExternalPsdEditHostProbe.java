@@ -302,6 +302,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                         case "gui" -> runGui(result);
                         case "pipeline" -> runPipeline(result, cycles, performanceTimings);
                         case "structure-native", "structure-sdk" -> runStructuralControl(result, phase);
+                        case "prepare-second-document" -> runSecondDocumentPreparation(result);
                         default -> throw new IllegalStateException("unknown probe phase " + phase);
                     }
                 }
@@ -1347,6 +1348,76 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private static boolean hostOptionLabel(final String label, final char suffix) {
         return label != null && label.trim().endsWith("(" + suffix + ")");
+    }
+
+    /** F2 preparation only: two saved controls coexist; no replacement or isolation claim. */
+    private void runSecondDocumentPreparation(final Properties result) throws Exception {
+        result.setProperty("f2.acceptance", "NOT_CLAIMED");
+        result.setProperty("secondDocument.scope", "OPEN_AND_OBSERVED_IDENTITY_ONLY");
+        structuralRunId = result.getProperty("runId", "");
+        if (structuralRunId.isBlank()) throw new IllegalStateException("second-document task ID missing");
+        if (contentProfile != PsdValidationContent.Profile.SEVEN_LAYER_CONTROL) throw new IllegalArgumentException(
+            "second-document preparation requires control7");
+        final Path home = context.paths().stateDir().toAbsolutePath().normalize().getParent().getParent();
+        final Path source = home.resolve("second-document/prepared-control.cmo3");
+        final Target first = resolveTarget(result);
+        if (!"bd254b80-4cda-4a7e-a187-c4aa4d41ed44".equals(first.raw().value())) {
+            throw new IllegalStateException("first document is not the fixed persisted control");
+        }
+        hostWindowAccess = prepareHostWindowAccess();
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(240L);
+        final String firstContent = structuralEdt(deadline, () -> {
+            requireStructuralModelOnEdt(first);
+            return context.cubism().activeDocument().orElseThrow().contentId().orElseThrow();
+        });
+        final var prepared = OfficialSecondDocumentOpen.open(
+            new OfficialSecondDocumentOpen.Request(home, source,
+                "7ed2d0296791cca5f3ad8a7ccd955999a35dc755d32a62268cdfd0007d95b41c",
+                first.identity().documentId(), firstContent, guiBoundWindow,
+                remainingStructuralMillis(deadline)), () -> stopped,
+            () -> structuralTaskActive(deadline), () -> {
+                requireStructuralModelOnEdt(first);
+                verifyCurrentBoundTaskWindowOnEdt(first.identity());
+            });
+        structuralEdt(deadline, () -> {
+            final var document = context.cubism().activeDocument().orElseThrow();
+            final CubismModel model = context.cubism().model().active();
+            final TextureRelationsSnapshot relations = model.textures().relations();
+            final var second = prepared.second();
+            if (officialCurrentHostWindowOnEdt() != guiBoundWindow
+                || !document.documentId().equals(second.documentId())
+                || !document.contentId().equals(Optional.of(second.contentId()))
+                || !model.id().value().equals(second.modelId()) || !relations.isAvailable()
+                || relations.rawImages().size() != 1 || relations.modelImages().size() != 7
+                || !"ba17684e-3801-461f-97ac-7f59dd720bb5".equals(relations.rawImages().get(0).id().value())) {
+                throw new IllegalStateException("second document SDK/native identity or fixed control differs");
+            }
+            final Map<String, OfficialSecondDocumentOpen.Image> sdkImages = new java.util.HashMap<>();
+            for (var image : relations.modelImages()) {
+                sdkImages.put(image.id().value(), new OfficialSecondDocumentOpen.Image(
+                    image.currentRawImageId().orElseThrow().value(),
+                    image.linkedRawImageIds().stream().map(RawImageId::value).toList(),
+                    image.inputsByRawImage().keySet().stream().map(RawImageId::value)
+                        .collect(java.util.stream.Collectors.toSet())));
+            }
+            if (!sdkImages.equals(second.images())) throw new IllegalStateException(
+                "second document SDK/native model-image relations differ");
+            result.setProperty("secondDocument.sdk.binding", relations.binding());
+            result.setProperty("secondDocument.sdk.generation", Long.toString(relations.generation()));
+            return Boolean.TRUE;
+        });
+        for (var entry : Map.of("first", prepared.first(), "second", prepared.second()).entrySet()) {
+            final String prefix = "secondDocument." + entry.getKey();
+            final var document = entry.getValue();
+            result.setProperty(prefix + ".documentId", document.documentId());
+            result.setProperty(prefix + ".contentId", document.contentId());
+            result.setProperty(prefix + ".modelId", document.modelId());
+            result.setProperty(prefix + ".path", document.file().toString());
+            result.setProperty(prefix + ".rawNames", document.rawNames().toString());
+            result.setProperty(prefix + ".modelImages", document.images().toString());
+        }
+        result.setProperty("secondDocument.commandCalls", Integer.toString(prepared.commandCalls()));
+        result.setProperty("secondDocument.status", "PREPARED");
     }
 
     /** Collects one F5 variant; a separate audit compares independent native/SDK task copies. */
