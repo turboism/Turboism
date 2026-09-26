@@ -10,6 +10,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Turboism's own settings window now offers a Startup-tab toggle for the installer-managed official
+  Cubism BAT launch integration (Windows only, exact supported hosts). The checkbox mirrors the
+  installer's managed state and delegates enable/disable to the hash-guarded configurator script
+  (elevated, backed up, restorable); changes apply after the Editor restarts. Together with the
+  installer default change below, the legacy-style launch from existing Cubism shortcuts is now
+  available out of the box and remains one checkbox away in Settings.
+
+### Added
+
 - Animation workspace support in the SDK and runtime: plugins can enumerate animation documents,
   project timelines, tracks, attributes and keyframes, activate and rename scenes, seek playback,
   apply batched keyframe edits and curve types, and record/bake evaluated values. A pure-SDK
@@ -58,6 +67,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Windows installers and the Windows configurator now default the official Cubism BAT launch
+  integration to checked (previously opt-in): fresh NSIS installs and the configurator's Cubism
+  page preselect the hash-guarded BAT modification so existing Cubism shortcuts load Turboism;
+  users can still uncheck it, and unchecking keeps the previous restore-on-save behavior.
+  Welcome-page, option-label and configurator strings were updated in all four UI languages.
 - Ordinary CI now runs both `devCheck` and the complete `checkCompletedCommit` suite on every pull
   request and push to `main`, using Xvfb for display-dependent tests. Coverage guards reject skipped,
   filtered or soft-failed gates; channel checks now follow `main` and include root build inputs.
@@ -112,6 +126,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   report lines are unchanged.
 
 ### Fixed
+
+- Upgrading over an installation whose config.json was written back by the Editor no longer
+  aborts with "config.json could not be validated or updated safely". The installer-side
+  migration schema now accepts the runtime-persisted textureAtlas section (mirroring the Java
+  runtime validator, including field types), and a new executable migration regression covers
+  runtime-persisted sections, unknown-field fail-closed and mistyped values.
+- Installer shortcut enablement no longer fails when a previous Turboism
+  installation left managed shortcuts behind without matching installation state
+  (for example after deleting an old install folder before reinstalling). The
+  managed shortcut path is Turboism-owned (deterministic name inside the managed
+  Start Menu folder), so a leftover regular file is now replaced directly and
+  only non-regular entries keep the fail-closed refusal.
+- The core shell menus (Settings, Plugin Management, Logs, About and the update check) merged
+  back into the single shared localized top-level "Plugins" menu. A recent change routed them
+  through the localized display word instead of the reserved shared-root token, which spawned a
+  second identically named top-level menu next to the plugins' shared menu.
 
 - Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
   and document generations throughout the object graph. Keyframe copies reject stale or foreign

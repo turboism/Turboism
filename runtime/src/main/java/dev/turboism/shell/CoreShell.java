@@ -140,6 +140,7 @@ public final class CoreShell implements ShellHandle {
                 localization(context), services.atlasCacheReuseSettings()
             )
         ));
+        registerLaunchIntegrationSettings();
         registerUpdateFeatures();
         registerPluginActions();
         registerPanelTabActions();
@@ -261,6 +262,25 @@ public final class CoreShell implements ShellHandle {
         logger.info("Turboism core shutdown");
     }
 
+    /** Contributes the Startup-tab official-BAT integration toggle where it is supported. */
+    private void registerLaunchIntegrationSettings() {
+        try {
+            final BatLaunchIntegrationService integration = BatLaunchIntegrationService.detect();
+            if (integration == null || !integration.supported()) {
+                logger.info("Official BAT launch integration is unavailable; Startup toggle not contributed");
+                return;
+            }
+            context.disposableScope().register(context.uiHost().contributeSettings(
+                LaunchIntegrationSettingsContribution.create(localization(context), integration)
+            ));
+            context.disposableScope().register(context.uiHost().contributeSettings(
+                LaunchIntegrationSettingsContribution.createNote(localization(context))
+            ));
+        } catch (RuntimeException unavailable) {
+            logger.warn("Launch integration contribution unavailable; continuing without it");
+        }
+    }
+
     private void registerUpdateFeatures() {
         final CoreUpdateService updates = services.update();
         if (!updates.available()) return;
@@ -270,7 +290,9 @@ public final class CoreShell implements ShellHandle {
             ignored -> updates.checkManual()
         );
         try {
-            final String root = localized("main-toolbar.menu-root.label", "Plugins");
+            // Reserved shared root token: merges the update item into the same
+            // localized shared root menu as the other core shell menus.
+            final String root = "Turboism";
             context.disposableScope().register(context.menus().contribute(
                 new dev.turboism.sdk.menu.MenuRegistry.MenuContribution() {
                     @Override public String menuPath() {
@@ -661,7 +683,6 @@ public final class CoreShell implements ShellHandle {
                 @Override public String text(final String key) {
                     return switch (key) {
                         case "common.turboism" -> "Turboism";
-                        case "main-toolbar.menu-root.label" -> "Plugins";
                         case "main-toolbar.home.action" -> "Open Turboism";
                         case "main-toolbar.settings-menu.label" -> "Settings";
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";

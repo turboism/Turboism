@@ -155,10 +155,10 @@ LangString TurboismWelcomeTitle ${LANG_SIMPCHINESE} "欢迎安装 Turboism"
 LangString TurboismWelcomeTitle ${LANG_JAPANESE} "Turboism セットアップへようこそ"
 LangString TurboismWelcomeTitle ${LANG_KOREAN} "Turboism 설치 프로그램에 오신 것을 환영합니다"
 
-LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard installs Turboism, an enhanced runtime for Live2D Cubism Editor.$\r$\n$\r$\nInstallation is per-user. On the final options page you may create Turboism shortcuts and, only if explicitly selected, back up and modify official Cubism startup BAT files.$\r$\nCurrently supported versions: 5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\nClick Next to continue."
-LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式。在最后的选项页面中，您可以创建 Turboism 快捷方式；仅在明确勾选时，安装器才会备份并修改 Cubism 官方启动 BAT。$\r$\n当前支持版本：5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n点击“下一步”继续。"
-LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism Editor 用の拡張ランタイム Turboism をインストールします。$\r$\n$\r$\nインストールはユーザー単位です。最後のオプション画面で Turboism ショートカットを作成でき、明示的に選択した場合のみ Cubism 公式起動 BAT をバックアップして変更します。$\r$\n現在対応しているバージョン：5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n「次へ」をクリックして続行します。"
-LangString TurboismWelcomeText ${LANG_KOREAN} "이 마법사는 Live2D Cubism Editor용 확장 런타임인 Turboism을 설치합니다.$\r$\n$\r$\n설치는 사용자 단위로 이루어집니다. 마지막 옵션 페이지에서 Turboism 바로 가기를 만들 수 있으며, 명시적으로 선택한 경우에만 Cubism 공식 시작 BAT 파일을 백업하고 수정합니다.$\r$\n현재 지원 버전: 5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n계속하려면 [다음]을 클릭하세요."
+LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard installs Turboism, an enhanced runtime for Live2D Cubism Editor.$\r$\n$\r$\nInstallation is per-user. On the final options page you may create Turboism shortcuts and back up and modify official Cubism startup BAT files so existing Cubism shortcuts load Turboism. BAT integration is checked by default and can be unchecked.$\r$\nCurrently supported versions: 5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\nClick Next to continue."
+LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式。在最后的选项页面中，您可以创建 Turboism 快捷方式；安装器默认勾选备份并修改 Cubism 官方启动 BAT，使现有 Cubism 快捷方式加载 Turboism，可随时取消勾选。$\r$\n当前支持版本：5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n点击“下一步”继续。"
+LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism Editor 用の拡張ランタイム Turboism をインストールします。$\r$\n$\r$\nインストールはユーザー単位です。最後のオプション画面で Turboism ショートカットを作成でき、既存の Cubism ショートカットで Turboism を読み込めるよう公式起動 BAT のバックアップと変更が既定で選択されています（いつでも解除できます）。$\r$\n現在対応しているバージョン：5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n「次へ」をクリックして続行します。"
+LangString TurboismWelcomeText ${LANG_KOREAN} "이 마법사는 Live2D Cubism Editor용 확장 런타임인 Turboism을 설치합니다.$\r$\n$\r$\n설치는 사용자 단위로 이루어집니다. 마지막 옵션 페이지에서 Turboism 바로 가기를 만들 수 있으며, 기존 Cubism 바로 가기에서 Turboism이 로드되도록 공식 시작 BAT 파일 백업 및 수정이 기본으로 선택되어 있습니다(언제든지 해제할 수 있습니다).$\r$\n현재 지원 버전: 5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n계속하려면 [다음]을 클릭하세요."
 
 LangString LicenseTopText ${LANG_ENGLISH} "Please review the AGPL-3.0-only before installing Turboism. Scroll down to see the full text:"
 LangString LicenseTopText ${LANG_SIMPCHINESE} "请在安装 Turboism 前阅读 AGPL-3.0-only。滚动查看全文："
@@ -374,10 +374,10 @@ LangString DesktopShortcutOption ${LANG_ENGLISH} "Create a Turboism desktop shor
 LangString DesktopShortcutOption ${LANG_SIMPCHINESE} "创建 Turboism 桌面快捷方式"
 LangString DesktopShortcutOption ${LANG_JAPANESE} "Turboism のデスクトップショートカットを作成"
 LangString DesktopShortcutOption ${LANG_KOREAN} "Turboism 바탕 화면 바로 가기 만들기"
-LangString BatIntegrationOption ${LANG_ENGLISH} "Modify the selected official Cubism startup BAT files so existing Cubism shortcuts load Turboism"
-LangString BatIntegrationOption ${LANG_SIMPCHINESE} "修改所选 Cubism 官方启动 BAT，使现有 Cubism 快捷方式加载 Turboism"
-LangString BatIntegrationOption ${LANG_JAPANESE} "選択した Cubism 公式起動 BAT を変更し、既存の Cubism ショートカットで Turboism を読み込む"
-LangString BatIntegrationOption ${LANG_KOREAN} "선택한 Cubism 공식 시작 BAT를 수정하여 기존 Cubism 바로 가기에서 Turboism을 로드하도록 합니다"
+LangString BatIntegrationOption ${LANG_ENGLISH} "Modify the selected official Cubism startup BAT files so existing Cubism shortcuts load Turboism (recommended)"
+LangString BatIntegrationOption ${LANG_SIMPCHINESE} "修改所选 Cubism 官方启动 BAT，使现有 Cubism 快捷方式加载 Turboism（推荐，默认勾选）"
+LangString BatIntegrationOption ${LANG_JAPANESE} "選択した Cubism 公式起動 BAT を変更し、既存の Cubism ショートカットで Turboism を読み込む（推奨・既定で選択）"
+LangString BatIntegrationOption ${LANG_KOREAN} "선택한 Cubism 공식 시작 BAT를 수정하여 기존 Cubism 바로 가기에서 Turboism을 로드하도록 합니다(권장, 기본 선택)"
 LangString NoLaunchWarning ${LANG_ENGLISH} "All normal launch paths are disabled. Turboism will not activate from the Start menu, desktop, or existing Cubism shortcuts. Choose No to go back, or Yes to deliberately continue."
 LangString NoLaunchWarning ${LANG_SIMPCHINESE} "所有常规启动路径均已关闭。Turboism 不会通过开始菜单、桌面或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
 LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路がすべて無効です。Turboism はスタートメニュー、デスクトップ、または既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
@@ -578,7 +578,7 @@ Function .onInit
   StrCpy $CubismDiscoveryComplete 0
   StrCpy $createStartMenu 1
   StrCpy $createDesktopShortcut 1
-  StrCpy $integrateCubismBat 0
+  StrCpy $integrateCubismBat 1
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
 FunctionEnd
 

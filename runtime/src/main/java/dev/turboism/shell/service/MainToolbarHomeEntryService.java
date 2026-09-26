@@ -55,7 +55,13 @@ public final class MainToolbarHomeEntryService {
     private static final String PLUGINS_MENU_LABEL_KEY = "main-toolbar.plugins-menu.label";
     private static final String LOGS_MENU_LABEL_KEY = "main-toolbar.logs-menu.label";
     private static final String ABOUT_MENU_LABEL_KEY = "main-toolbar.about-menu.label";
-    private static final String TURBOISM_MENU_ROOT_KEY = "main-toolbar.menu-root.label";
+    /**
+     * Reserved shared top-level root token consumed by
+     * {@code TopMenuContributionProvider}: every item under this literal first
+     * segment merges into the single shared root menu whose visible label is
+     * the localized plugins word. Never localize this token itself.
+     */
+    private static final String SHARED_MENU_ROOT = "Turboism";
     private static final String TURBOISM_PANEL_TITLE_KEY = "common.turboism";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
     private static final String INSTALLER_ICON_RESOURCE_PATH = "icons/main-toolbar-installer.png";
@@ -206,7 +212,7 @@ public final class MainToolbarHomeEntryService {
     }
 
     private Registration menu(final String label, final String actionId, final int order) {
-        final String menuPath = localized(TURBOISM_MENU_ROOT_KEY, "Plugins") + "/" + label;
+        final String menuPath = SHARED_MENU_ROOT + "/" + label;
         return menus.contribute(new MenuRegistry.MenuContribution() {
             @Override public String menuPath() { return menuPath; }
             @Override public String actionId() { return actionId; }

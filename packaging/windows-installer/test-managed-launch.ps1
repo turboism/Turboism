@@ -227,9 +227,14 @@ function New-SyntheticCubism {
     if ($D3D) {
         Set-Content -LiteralPath (Join-Path $root "CubismEditor5_D3D.bat") -Encoding ASCII -Value @(
             "@echo off",
+            'cd /d "%~dp0"',
+            'set JAVA_EXE=app\jre\bin\java.cmd',
             '>>"%TURBOISM_TEST_OUTPUT%" echo D3D=1',
             '>>"%TURBOISM_TEST_OUTPUT%" echo JDK=%JDK_JAVA_OPTIONS%',
-            'exit /b 23'
+            '%JAVA_EXE% ^',
+            '  com.live2d.cubism.CECubismEditorApp ^',
+            '  "%~f1"',
+            'exit /b %ERRORLEVEL%'
         )
     }
     return $root
@@ -251,7 +256,7 @@ try {
     )
     $root52 = New-SyntheticCubism -Name "Live2D" -Version "5.2.03"
     $root53 = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -D3D $true
-    $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02"
+    $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -LeafName "Live2D Cubism 5.3.02 (2)"
     $hyphenD3DRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3.03" -D3D $true
     Move-Item -LiteralPath (Join-Path $hyphenD3DRoot "CubismEditor5_D3D.bat") `
         -Destination (Join-Path $hyphenD3DRoot "CubismEditor5-D3D.bat")
@@ -312,6 +317,31 @@ try {
     Assert-ManagedLaunch (@($candidates | Where-Object { $_.D3DBat }).Count -eq 1) "D3D BAT is an optional separately named entry"
     $hyphenD3DCandidate = New-CubismInstallationCandidate -Root $hyphenD3DRoot
     Assert-ManagedLaunch ($hyphenD3DCandidate.D3DBat -like '*CubismEditor5-D3D.bat') "hyphenated official D3D BAT is discovered"
+
+    # A managed shortcut path is Turboism-owned: a leftover regular file from a
+    # lost-state reinstall is replaced; non-regular entries stay refused.
+    $reclaimDir = Join-Path $temp "reclaim-shortcuts"
+    New-Item -ItemType Directory -Path $reclaimDir -Force | Out-Null
+    $reclaimStatePath = Join-Path $reclaimDir "state.json"
+    $root53Candidate = @($candidates | Where-Object { $_.CanonicalRoot -ieq (ConvertTo-CubismCanonicalRoot $root53) })[0]
+    $root53Candidate.Selected = $true
+    $staleShortcutPath = Get-CubismShortcutPath $root53Candidate "normal" $reclaimDir
+    $emptyReclaimState = [pscustomobject]@{ Exists = $false; Valid = $true; Installations = @(); ManagedShortcuts = @(); ManagedShortcutHashes = @(); ShortcutTakeovers = @(); BatIntegrations = @(); LaunchMode = "independent" }
+    Remove-Item -LiteralPath $staleShortcutPath -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $staleShortcutPath -Force | Out-Null
+    $refusal = $null
+    try { Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $reclaimStatePath -Candidates @($root53Candidate) -LaunchMode "independent" -ExistingState $emptyReclaimState -ShortcutDirectory $reclaimDir | Out-Null }
+    catch { $refusal = $_.Exception.Message }
+    Assert-ManagedLaunch ($null -ne $refusal -and $refusal -like 'refusing to replace a non-regular managed shortcut*') "non-regular managed shortcut is refused"
+    Remove-Item -LiteralPath $staleShortcutPath -Force
+    [System.IO.File]::WriteAllBytes($staleShortcutPath, [System.Text.Encoding]::ASCII.GetBytes('stale regular file from a previous install'))
+    if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
+        $reclaimed = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $reclaimStatePath -Candidates @($root53Candidate) -LaunchMode "independent" -ExistingState $emptyReclaimState -ShortcutDirectory $reclaimDir
+        Assert-ManagedLaunch (@($reclaimed.ManagedShortcuts).Count -eq 1 -and (Test-CubismNormalFile $staleShortcutPath)) "stale managed shortcut file is replaced"
+    }
+    else {
+        Write-Host "ok: managed shortcut replacement leg requires a Windows host"
+    }
     $env:TURBOISM_TEST_OUTPUT = $marker
     $hyphenD3DExit = Invoke-CubismOfficialBat `
         -OfficialBat $hyphenD3DCandidate.D3DBat `

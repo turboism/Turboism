@@ -67,7 +67,7 @@ Complete the license/declaration prompts, choose the installation directory and 
 
 Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory, plugins and launch options. The wizard offers a language picker (English, Simplified Chinese, Japanese, Korean) before the welcome page; it applies to the installer only. Use the generated Turboism shortcut afterward.
 
-Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
+Integration with the official Cubism startup BAT is **checked by default** and can be unchecked at any time. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
 
 No release package includes managed fx runtime bytes or the development-only Turboism with fx plugin.
 

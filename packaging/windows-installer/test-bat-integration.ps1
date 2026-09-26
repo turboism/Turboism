@@ -74,6 +74,18 @@ try {
     Assert-BatThrows { Restore-CubismBatIntegrations -Records $records } 'conflicting BAT refuses restoration'
     Assert-BatRegression (Test-Path -LiteralPath $records[0].BackupPath) 'conflict retains recovery backup'
     Assert-BatThrows { Get-CubismBatIntegrationText -OriginalText $original -TurboismHome ($homePath + '&bad') } 'command metacharacter is rejected'
+
+    # Fresh state defaults the official-BAT integration on; an existing valid
+    # state decides (installer and configurator share this helper).
+    $missing = [pscustomobject]@{ Exists = $false; Valid = $true; BatIntegrations = @() }
+    Assert-BatRegression (Get-CubismBatIntegrationDefaultChecked -State $missing) 'fresh/missing state defaults BAT integration checked'
+    Assert-BatRegression (Get-CubismBatIntegrationDefaultChecked -State $null) 'null state defaults BAT integration checked'
+    $disabled = [pscustomobject]@{ Exists = $true; Valid = $true; BatIntegrations = @() }
+    Assert-BatRegression (-not (Get-CubismBatIntegrationDefaultChecked -State $disabled)) 'existing state without records defaults unchecked'
+    $integrated = [pscustomobject]@{ Exists = $true; Valid = $true; BatIntegrations = @([pscustomobject]@{ Path = $bat }) }
+    Assert-BatRegression (Get-CubismBatIntegrationDefaultChecked -State $integrated) 'existing integration state stays checked'
+    $invalid = [pscustomobject]@{ Exists = $true; Valid = $false; BatIntegrations = @() }
+    Assert-BatRegression (Get-CubismBatIntegrationDefaultChecked -State $invalid) 'invalid state surfaces fresh default instead of stale value'
     Write-Output "BAT_INTEGRATION_REGRESSION_PASS assertions=$script:Assertions PowerShell=$($PSVersionTable.PSVersion)"
 }
 finally {

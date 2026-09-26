@@ -858,6 +858,15 @@ function Read-CubismInstallationState {
     }
 }
 
+function Get-CubismBatIntegrationDefaultChecked {
+    # Fresh installations default the official-BAT integration on (legacy-style
+    # launch from existing Cubism shortcuts); an existing valid state decides.
+    param([object]$State)
+    if ($null -eq $State -or -not $State.Exists -or -not $State.Valid) { return $true }
+    if ($null -eq $State.PSObject.Properties['BatIntegrations']) { return $false }
+    return @($State.BatIntegrations).Count -gt 0
+}
+
 function Write-CubismInstallationState {
     param(
         [string]$StatePath,
@@ -1456,7 +1465,8 @@ function Invoke-CubismLaunchConfiguration {
                 foreach ($variant in @("normal", "d3d")) {
                     if ($variant -eq "d3d" -and [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { continue }
                     $path = Get-CubismShortcutPath $candidate $variant $ShortcutDirectory
-                    if ((Test-Path -LiteralPath $path) -and ($oldShortcuts -notcontains $path)) { throw "refusing to overwrite an unowned managed shortcut: $path" }
+                    if ((Test-Path -LiteralPath $path) -and ($oldShortcuts -notcontains $path) -and
+                        -not (Test-CubismNormalFile $path)) { throw "refusing to replace a non-regular managed shortcut: $path" }
                     $createdPath = New-CubismManagedShortcut -TurboismHome $TurboismHome -Candidate $candidate -Variant $variant -ShortcutDirectory $ShortcutDirectory
                     [void]$newShortcuts.Add($createdPath); [void]$created.Add($createdPath)
                     [void]$newHashes.Add([pscustomobject]@{ Path = $createdPath; Sha256 = Get-CubismSha256 $createdPath })
