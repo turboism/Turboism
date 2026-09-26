@@ -2428,8 +2428,8 @@ capture_java_gl_evidence ready
 # error-check contributor must actually have been admitted — without it the
 # run silently becomes glthread-alone, the measured regressive combination.
 # The runtime log marker is authoritative: missing/absent markers are written
-# to evidence and surfaced as a warning so a leg cannot claim the option while
-# only the Mesa half engaged.
+# to evidence and rejected before any trigger/client/result processing. The
+# existing EXIT trap and contained supervisor retain evidence and clean up.
 if [ "$mesa_gl_thread" = 1 ]; then
   log_file="$(latest_runtime_log || true)"
   deferred_check_state=unknown
@@ -2444,7 +2444,7 @@ if [ "$mesa_gl_thread" = 1 ]; then
     "$mesa_gl_thread" "$deferred_check_state" \
     > "$evidence_dir/deferred-check.properties"
   if [ "$deferred_check_state" != active ]; then
-    log "WARNING: mesaGlThread effective on but deferred GL error check is $deferred_check_state; combined-option activation is unverified (risk of the T22 glthread-only regression)"
+    fail "mesaGlThread effective on but deferred GL error check is $deferred_check_state; refusing validation workload (risk of the T22 glthread-only regression)"
   fi
 fi
 

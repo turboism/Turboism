@@ -153,11 +153,12 @@ for index, (line, expected) in enumerate([
               + 'evidence_dir=' + shlex.quote(str(output)) + '\n'
               + 'latest_runtime_log() { printf "%s" ' + shlex.quote(str(log)) + '; }\n'
               + 'runtime_log_contains() { grep -Fq -- "$2" "$1"; }\n'
-              + 'log() { printf "%s\\n" "$*"; }\n' + activation)
+              + 'log() { printf "%s\\n" "$*"; }\n'
+              + 'fail() { printf "%s\\n" "$*" >&2; exit 1; }\n' + activation)
     result = subprocess.run(['bash', '-c', script], capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == (0 if expected == 'active' else 1), result.stderr
     assert props(output / 'deferred-check.properties')['deferredCheck'] == expected
-    assert ('WARNING:' in result.stdout) == (expected != 'active'), result.stdout
+    assert ('refusing validation workload' in result.stderr) == (expected != 'active'), result.stderr
 
 print('PASS: java evidence collector task binding, java-family match, gl thread scan, diagnostics')
 PY
