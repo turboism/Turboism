@@ -1440,7 +1440,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         result.setProperty("secondDocument.commandCalls", Integer.toString(prepared.commandCalls()));
         if (f2AcceptanceRequested()) {
-            runSecondDocumentAcceptance(result, firstModel, first);
+            runSecondDocumentAcceptance(result, firstModel, first, prepared);
         } else {
             result.setProperty("f2.acceptance", "NOT_CLAIMED");
         }
@@ -1455,13 +1455,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     /**
      * F2 acceptance in the managed second document: explicit-target SDK replace with decoded
-     * RGB proof, then stale first-document write rejection. Switch-back isolation and official
-     * dual-input remain separate slices and are recorded as PENDING, never as acceptance.
+     * RGB proof, then stale first-document write rejection, then a fresh native object-graph
+     * observation proves the first document is untouched. Official dual-input remains a
+     * separate slice and is recorded as PENDING, never as acceptance.
      */
     private void runSecondDocumentAcceptance(final Properties result, final CubismModel firstModel,
-        final Target firstTarget) throws Exception {
+        final Target firstTarget, final OfficialSecondDocumentOpen.Result prepared)
+        throws Exception {
         result.setProperty("f2.acceptance", "REQUESTED");
-        result.setProperty("f2.scope", "SDK_REPLACE_AND_STALE_WRITE");
+        result.setProperty("f2.scope", "SDK_REPLACE_STALE_WRITE_FIRST_ISOLATION");
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(240L);
         final AtomicReference<Target> resolved = new AtomicReference<>();
         structuralEdt(deadline, () -> {
@@ -1559,10 +1561,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("f2.postReplace.sha256", sha256(postBytes));
             if (!written.equals(postRgb)) throw new IllegalStateException(
                 "fresh native export after F2 replace differs from the written mutation");
-            result.setProperty("f2.switchBackIsolation", "PENDING");
+            verifyFirstDocumentIsolation(result, prepared, afterRaw, deadline);
             result.setProperty("f2.dualInput", "PENDING");
             result.setProperty("f2.actual",
-                "second-document SDK replace APPLIED; fresh export matches written RGB; stale write rejected");
+                "second-document SDK replace APPLIED; fresh export matches written RGB; stale write rejected; "
+                    + "native re-observation shows the first document unchanged");
             result.setProperty("f2.acceptance", "PASS");
         } catch (Exception failure) {
             acceptanceFailure = failure;
@@ -1575,7 +1578,51 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
-    /** A generic read failure or unavailable snapshot is not evidence of stale isolation. */
+    /**
+     * Proves the second-document replacement stayed inside the second document: a fresh native
+     * object-graph observation must show the first document exactly as it was at open time,
+     * while the second document carries the applied replacement raw. No document activation,
+     * no UI interaction, no pixel reads - identity, relation and dirty state only.
+     */
+    private void verifyFirstDocumentIsolation(final Properties result,
+        final OfficialSecondDocumentOpen.Result prepared, final RawImageId afterRaw,
+        final long deadline) throws Exception {
+        final OfficialSecondDocumentOpen.Host host = OfficialSecondDocumentOpen.newNativeHost();
+        final OfficialSecondDocumentOpen.Recheck recheck = structuralEdt(deadline,
+            () -> OfficialSecondDocumentOpen.reobserve(prepared, host));
+        final var first = recheck.first();
+        final boolean rawSetUnchanged = first.rawNames().equals(prepared.first().rawNames());
+        final boolean imagesUnchanged = first.images().equals(prepared.first().images());
+        final boolean dirtyUnchanged = first.dirty() == prepared.first().dirty();
+        final boolean contentGuidUnchanged = first.contentId().equals(prepared.first().contentId());
+        result.setProperty("f2.firstIsolation.documentId", first.documentId());
+        result.setProperty("f2.firstIsolation.rawSet", rawSetUnchanged ? "UNCHANGED" : "CHANGED");
+        result.setProperty("f2.firstIsolation.images", imagesUnchanged ? "UNCHANGED" : "CHANGED");
+        result.setProperty("f2.firstIsolation.dirty", Boolean.toString(first.dirty()));
+        result.setProperty("f2.firstIsolation.dirtyUnchanged", Boolean.toString(dirtyUnchanged));
+        result.setProperty("f2.firstIsolation.contentGuidUnchanged",
+            Boolean.toString(contentGuidUnchanged));
+        if (first.nativeDocument() != prepared.first().nativeDocument()
+            || !first.documentId().equals(prepared.first().documentId())) throw new IllegalStateException(
+            "first document identity changed across the second-document replace");
+        if (!rawSetUnchanged) throw new IllegalStateException(
+            "first document raw identity set changed across the second-document replace");
+        if (!imagesUnchanged) throw new IllegalStateException(
+            "first document model-image relations changed across the second-document replace");
+        if (!dirtyUnchanged) throw new IllegalStateException(
+            "first document dirty state changed across the second-document replace");
+        final var second = recheck.second();
+        final java.util.Set<String> secondCurrents = second.images().values().stream()
+            .map(OfficialSecondDocumentOpen.Image::current).collect(java.util.stream.Collectors.toSet());
+        result.setProperty("f2.secondAfter.rawCount", Integer.toString(second.rawNames().size()));
+        result.setProperty("f2.secondAfter.currentRaw", secondCurrents.toString());
+        if (!second.rawNames().containsKey(afterRaw.value()) || !secondCurrents.equals(Set.of(afterRaw.value()))) {
+            throw new IllegalStateException(
+                "second document does not carry the applied replacement raw as every current");
+        }
+        result.setProperty("f2.firstIsolation", "PASS");
+    }
+
     static void requireStaleEditorReadRejected(final Runnable read) {
         try {
             read.run();

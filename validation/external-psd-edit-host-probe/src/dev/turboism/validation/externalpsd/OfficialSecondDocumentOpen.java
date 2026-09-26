@@ -93,6 +93,54 @@ public final class OfficialSecondDocumentOpen {
         return run(request, stopped, taskBound, new NativeHost(), Objects.requireNonNull(admission));
     }
 
+    /** Fresh native observation of both live documents; no document activation involved. */
+    public record Recheck(Document first, Document second, Object currentDocument) {
+        public Recheck {
+            Objects.requireNonNull(first);
+            Objects.requireNonNull(second);
+            Objects.requireNonNull(currentDocument);
+        }
+    }
+
+    /**
+     * Re-reads both live documents from the official object graph on the EDT. This is pure
+     * observation: unlike {@link #open}, it never dispatches a command and never requires the
+     * first document to be the active one, so isolation can be proven without UI interaction.
+     */
+    public static Recheck reobserve(Result prepared) throws Exception {
+        return reobserve(prepared, newNativeHost());
+    }
+
+    /** Builds the exact-artifact host off the EDT; its reads still require the EDT. */
+    public static Host newNativeHost() throws Exception {
+        return new NativeHost();
+    }
+
+    static Recheck reobserve(Result prepared, Host host) throws Exception {
+        Objects.requireNonNull(prepared);
+        Objects.requireNonNull(host);
+        final List<Document> docs = host.documents();
+        if (docs.size() != 2) throw new IllegalStateException(
+            "re-observation requires exactly two open model documents");
+        Document first = null;
+        Document second = null;
+        for (Document doc : docs) {
+            if (doc.nativeDocument() == prepared.first().nativeDocument()) {
+                if (first != null) throw new IllegalStateException("first document observed twice");
+                first = doc;
+            } else if (doc.nativeDocument() == prepared.second().nativeDocument()) {
+                if (second != null) throw new IllegalStateException("second document observed twice");
+                second = doc;
+            }
+        }
+        if (first == null || second == null) throw new IllegalStateException(
+            "re-observed documents differ from the prepared pair");
+        if (!first.file().equals(prepared.first().file())
+            || !second.file().equals(prepared.second().file())) throw new IllegalStateException(
+                "re-observed document paths differ from the prepared pair");
+        return new Recheck(first, second, host.currentDocument());
+    }
+
     static Result run(Request request, BooleanSupplier stopped, BooleanSupplier taskBound,
         Host host) throws Exception {
         return run(request, stopped, taskBound, host, (document, completing) -> new SdkIdentity(document.documentId(), document.contentId()));
