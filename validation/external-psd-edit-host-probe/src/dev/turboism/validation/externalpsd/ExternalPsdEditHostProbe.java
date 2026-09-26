@@ -5790,20 +5790,41 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (i == 2) {
                 final Path sibling = tempFile.resolveSibling("external-edit.psd.tmp");
                 Files.write(sibling, mutated);
-                try {
-                    Files.move(sibling, tempFile, StandardCopyOption.ATOMIC_MOVE,
-                        StandardCopyOption.REPLACE_EXISTING);
-                } catch (java.io.IOException failure) {
+                // The native host may still hold the previously replaced PSD while its import
+                // settles (wineserver fd evidence, plan 2026-09-26). A real editor surfaces the
+                // sharing failure to the user and the user retries the save; the probe bounds
+                // that retry, snapshots the holder state per attempt, and still fails closed.
+                final int maxMoveAttempts = 12;
+                for (int attempt = 1; ; attempt++) {
+                    final String movePrefix = prefix + (attempt > 1
+                        ? "failedMoveHandles.attempt" + attempt + "." : "failedMoveHandles.");
                     try {
-                        final VerifiedHostArtifact artifact = exactHostArtifactForDialog();
-                        WindowsPsdHandleObservation.observe(result, prefix + "failedMoveHandles.",
-                            artifact.loader(), artifact.artifact(), tempFile, sibling);
-                    } catch (Exception | LinkageError | OutOfMemoryError diagnosticFailure) {
-                        result.setProperty(prefix + "failedMoveHandles.status", "UNAVAILABLE");
-                        result.setProperty(prefix + "failedMoveHandles.diagnostic",
-                            diagnosticFailure.toString());
+                        Files.move(sibling, tempFile, StandardCopyOption.ATOMIC_MOVE,
+                            StandardCopyOption.REPLACE_EXISTING);
+                        if (attempt > 1) {
+                            result.setProperty(prefix + "write.atomicMove.retried", "true");
+                            result.setProperty(prefix + "write.atomicMove.attempts",
+                                Integer.toString(attempt));
+                        }
+                        break;
+                    } catch (java.io.IOException failure) {
+                        try {
+                            final VerifiedHostArtifact artifact = exactHostArtifactForDialog();
+                            WindowsPsdHandleObservation.observe(result, movePrefix,
+                                artifact.loader(), artifact.artifact(), tempFile, sibling);
+                        } catch (Exception | LinkageError | OutOfMemoryError diagnosticFailure) {
+                            result.setProperty(movePrefix + "status", "UNAVAILABLE");
+                            result.setProperty(movePrefix + "diagnostic",
+                                diagnosticFailure.toString());
+                        }
+                        result.setProperty(prefix + "write.atomicMove.rejectedAt",
+                            Integer.toString(attempt));
+                        if (attempt >= maxMoveAttempts
+                            || !(failure instanceof java.nio.file.AccessDeniedException)) {
+                            throw failure;
+                        }
+                        Thread.sleep(400L);
                     }
-                    throw failure;
                 }
             } else if (i == 3) {
                 Files.write(tempFile, mutated);
