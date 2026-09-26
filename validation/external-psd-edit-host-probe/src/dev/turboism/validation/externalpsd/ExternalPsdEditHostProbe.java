@@ -5434,6 +5434,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 recordCycleWrittenPsd(result, prefix, finalWrite, contentProfile);
             }
             lastMutation = mutation;
+            if (i == 1 && Boolean.getBoolean("turboism.validation.externalpsd.atomicFileControl")) {
+                AtomicReplaceFileControl.observe(result, tempFile);
+            }
             final long writeStart = System.nanoTime();
             if (i == 2) {
                 final Path sibling = tempFile.resolveSibling("external-edit.psd.tmp");
