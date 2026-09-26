@@ -587,3 +587,13 @@ changes the atomic-save gate. Limits are a 2-second checkpoint budget (individua
 4096 descriptors per process and 4 MiB of mappings per process; partial coverage
 is explicit. Linux file presence is not Windows sharing-mode or lock proof;
 absence cannot prove that a Windows handle was absent at the failed move.
+
+On an atomic cycle-2 move failure the probe additionally observes only the current
+Cubism JVM's Windows disk handles, using the verified host loader and pinned JNA
+5.6.0 artifact. The x64 system table is capped at 4 MiB; at most 4096 own handles
+are queried with a 2-second checkpoint budget (individual native calls cannot be
+interrupted). Only exact target/sibling matches are emitted. It never duplicates
+or closes an observed handle, opens another process, or retries the move. Query
+failure remains UNAVAILABLE/PARTIAL and the original move exception is rethrown.
+Handle reuse races and absent matches cannot prove absence of a sharing lock;
+this is diagnostic evidence, not performance or editor readiness acceptance.

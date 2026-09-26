@@ -5417,8 +5417,21 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             if (i == 2) {
                 final Path sibling = tempFile.resolveSibling("external-edit.psd.tmp");
                 Files.write(sibling, mutated);
-                Files.move(sibling, tempFile, StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING);
+                try {
+                    Files.move(sibling, tempFile, StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+                } catch (java.io.IOException failure) {
+                    try {
+                        final VerifiedHostArtifact artifact = exactHostArtifactForDialog();
+                        WindowsPsdHandleObservation.observe(result, prefix + "failedMoveHandles.",
+                            artifact.loader(), artifact.artifact(), tempFile, sibling);
+                    } catch (Exception | LinkageError | OutOfMemoryError diagnosticFailure) {
+                        result.setProperty(prefix + "failedMoveHandles.status", "UNAVAILABLE");
+                        result.setProperty(prefix + "failedMoveHandles.diagnostic",
+                            diagnosticFailure.toString());
+                    }
+                    throw failure;
+                }
             } else if (i == 3) {
                 Files.write(tempFile, mutated);
                 Files.write(tempFile, plan.overlapFinalWrite());
