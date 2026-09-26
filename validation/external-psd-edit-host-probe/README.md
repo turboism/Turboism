@@ -649,6 +649,10 @@ document and distinct for the second. Window mismatch and dialog rejection have
 separate diagnostics; dialog diagnostics contain class/owner/visibility, without
 clicking or treating an unknown dialog as permission to continue. `secondDocument.status=PREPARED` and phase `PASS` only describe preparation;
 `f2.acceptance=NOT_CLAIMED` remains explicit. No replace, save or Undo is performed.
+After the switch, a retained first-model SDK reference must reject a relation read
+with the exact Editor stale-generation diagnostic; an unavailable result or unrelated
+failure does not qualify. `secondDocument.staleFirstModelRead=REJECTED` records only
+this read guard, not stale mutation rejection or full replacement isolation.
 Focused tests and exact JAR shape are run by
 `bash scripts/test/test_official_second_document_open.sh`; normal probe tests run
 the host-independent cases, and `test.sh --shape` also runs the exact JAR check.
