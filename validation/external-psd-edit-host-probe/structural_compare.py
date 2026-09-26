@@ -192,8 +192,9 @@ def compare(native_dir, sdk_dir):
     require(native["jobId"] != sdk["jobId"] and native["runId"] != sdk["runId"], "tasks must be independent")
     for key in ("fixtureSha256", "variant", "sourceSha256", "inputDetailsVersion"):
         require(native[key] == sdk[key], "comparison inputs differ: " + key)
-    require(native["artifacts"]["external-psd-edit-host-probe.jar"]
-            == sdk["artifacts"]["external-psd-edit-host-probe.jar"], "collection probe differs")
+    for artifact in ("turboism-agent.jar", "external-psd-edit-host-probe.jar"):
+        require(native["artifacts"][artifact] == sdk["artifacts"][artifact],
+                "collection artifact differs: " + artifact)
     differences = {}
     for stage in STAGES:
         left, right = native["stages"][stage], sdk["stages"][stage]
