@@ -1451,3 +1451,21 @@ and metadata stability across the existing captures. It does not refresh camera
 state or change rendering. Cross-task comparisons use the complete official model
 viewport; full PNGs are retained because the surrounding GL tab contains each
 task's different fixture name. Same-run pixel equality still covers the full image.
+
+
+### PERF-052 final fixed-build campaign
+
+T29c (source407d37269, agent4818f859, probe890df24c) completed 12/12 exact
+5.3.03/Linux/Proton correctness and safe-cleanup runs without sampled build
+interference. A/F/F/A, selected uniformHook legs1/2, n=2/arm: mean latency
+reductions were wheel11.88%, pan10.93%, drag17.99%. This is event-to-native-
+repaint-barrier latency, not physical FPS. The detailed table, full job IDs,
+raw-sample quantiles, camera/viewport diagnosis and limitations are recorded in
+`scripts/preview/NATIVE-PERFORMANCE-EXPERIMENTS.md` and local
+`build/perf052-review/t29c-final/report.md`.
+
+Tail non-regression is not established: pan p99 rose78.1363→84.9725ms
+(+8.75%), despite its mean benefit and zero >100ms events in both arms. Wheel
+p95 rose0.78%. Do not label all performance criteria PASS or reuse the older
+T25 percentages for this build. Main integration awaits disposition of the
+pan tail deviation; existing platform defaults are unchanged.
