@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget;
 import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransformer;
@@ -25,7 +26,7 @@ import java.util.function.Supplier;
 import java.util.jar.JarFile;
 
 /**
- * Exact installation for reviewed Editors and their separately verified JOGL artifact.
+ * Target-verified installation with an independently pinned JOGL artifact.
  * Callbacks are published only after all required transforms succeed. Closing disables
  * reuse first, removes every owned transformer and verifies all original class
  * digests. An installation or restoration failure never becomes a silent success.
@@ -41,15 +42,25 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     private record Target(Class<?> type, ClassFileTransformer transformer, String before,
                           IntSupplier matches, Supplier<String> failure) { }
 
-    static boolean admitted(HostArtifactDigest digest, RuntimeStartupConfig config, boolean requested, int jvm) {
+    private static final List<ReviewedHostContract.Candidate<Map<UniformLocationLifecycleTransformer.Role, String>>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            UniformLocationLifecycleTransformer.reviewedClassSha256(), version -> {
+                final Map<UniformLocationLifecycleTransformer.Role, String> owners = new HashMap<>();
+                for (final var role : UniformLocationLifecycleTransformer.Role.values()) {
+                    owners.put(role, role.ownerForVersion(version));
+                }
+                return Map.copyOf(owners);
+            });
+
+    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
         return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && UniformLocationLifecycleTransformer.supportedEditor(digest);
+            && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
     VerifiedUniformLocationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
-        HostArtifactDigest editor = HostArtifactDigest.from(artifact);
-        if (!UniformLocationLifecycleTransformer.supportedEditor(editor)) {
-            throw new IllegalArgumentException("uniform cache requires a reviewed Editor artifact");
-        }
+        final var contract = ReviewedHostContract.requireBound(
+            ReviewedHostContract.resolve(artifact, CANDIDATES), "uniform cache");
+        final String editorVersion = contract.sourceVersion();
+        final HostArtifactDigest editor = HostArtifactDigest.from(artifact);
         if (Runtime.version().feature() < 17 || !instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("uniform cache requires JVM17+ retransformation");
         }
@@ -69,7 +80,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             UniformLocationCallSiteTransformer query = new UniformLocationCallSiteTransformer(loader, artifact, reference(cubism, shader));
             targets.add(new Target(shader, query, sha256(before), query::matches, query::failure));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
-                Class<?> type = Class.forName(role.owner(editor).replace('/', '.'), false, loader);
+                Class<?> type = Class.forName(role.ownerForVersion(editorVersion).replace('/', '.'), false, loader);
                 Path source = role.programMutations() ? joglArtifact : artifact;
                 ClassLoader ownerLoader = role.programMutations() ? type.getClassLoader() : loader;
                 attest(type, ownerLoader, source);
@@ -78,7 +89,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                 Map<String, List<String>> composed = composedShapes(jar, type, source, ownerLoader, role, editor);
                 for (var method : role.methods().entrySet())
                     verify(jar, type, actual, method.getKey(), method.getValue(), composed.get(method.getKey()));
-                UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(ownerLoader, source, reference(jar, type), role, editor);
+                UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(ownerLoader, source, reference(jar, type), role, editorVersion);
                 composed.forEach(transformer::acceptComposedShape);
                 transformer.onRejection(bridge::retire);
                 targets.add(new Target(type, transformer, sha256(actual), transformer::matches, transformer::failure));
@@ -89,6 +100,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isShared", "()Z", observed);
             verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isCreated", "()Z", observed);
         }
+        contract.requireUnchanged(artifact);
     }
     static void verifyMutationInventory(JarFile jar) throws Exception {
         UniformLocationLifecycleTransformer.verifyMutationInventory(jar);

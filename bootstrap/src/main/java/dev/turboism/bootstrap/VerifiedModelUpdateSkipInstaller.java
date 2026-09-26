@@ -1,11 +1,11 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTarget;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -13,6 +13,7 @@ import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
@@ -36,17 +37,22 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
     private final ModelUpdateSkipBridge bridge;
     private boolean installed, restored;
 
-    static boolean admitted(final HostArtifactDigest digest, final RuntimeStartupConfig config,
+    private static final List<ReviewedHostContract.Candidate<ModelUpdateSkipTarget>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            ModelUpdateSkipTarget.reviewedClassSha256(),
+            version -> ModelUpdateSkipTarget.forReviewedVersion(version).orElse(null));
+
+    static boolean admitted(final Path artifact, final RuntimeStartupConfig config,
                             final boolean requested, final int jvm) {
         return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && ModelUpdateSkipTarget.of(digest).isPresent();
+            && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
     VerifiedModelUpdateSkipInstaller(final Instrumentation instrumentation, final Path artifact,
                                      final ClassLoader loader) throws Exception {
-        target = ModelUpdateSkipTarget.of(HostArtifactDigest.from(artifact))
-            .orElseThrow(() -> new IllegalArgumentException(
-                "model-update skip unsupported host artifact"));
+        final var contract = ReviewedHostContract.requireBound(
+            ReviewedHostContract.resolve(artifact, CANDIDATES), "model-update skip");
+        target = contract.contract();
         if (Runtime.version().feature() < 17) {
             throw new IllegalArgumentException("model-update skip requires JVM17+");
         }
@@ -66,6 +72,7 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
             }
         }
         bridge = new ModelUpdateSkipBridge(target, loader);
+        contract.requireUnchanged(artifact);
     }
 
     private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact)

@@ -14,8 +14,12 @@ import java.util.Objects;
  * bindings for the connected editor build. A refused admission raises a typed {@link
  * EditSessionException} (or {@link dev.turboism.sdk.permission.CubismPermissionException} for
  * permission denial); it never returns a half-open session.
+ *
+ * <p>Compatible 5.2/5.3 builds may use a matched contract after the native-edit
+ * listener and transaction dependencies are ready. The 5.4 line is excluded:
+ * it supplies the native editing protocol and requires a separately reviewed integration.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface EditSessionService {
 
     /**

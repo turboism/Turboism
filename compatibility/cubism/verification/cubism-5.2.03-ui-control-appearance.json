@@ -466,5 +466,25 @@
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     }
-  ]
+  ],
+  "capabilityConditions": {
+    "cubism.editor-ui.control-appearance.parameter-label": [
+      "hook:editor-ui"
+    ],
+    "cubism.editor-ui.control-appearance.parameter-folder": [
+      "hook:editor-ui"
+    ],
+    "cubism.editor-ui.control-appearance.deformer-label": [
+      "hook:editor-ui"
+    ],
+    "cubism.editor-ui.control-appearance.deformer-control-row": [
+      "hook:editor-ui"
+    ],
+    "cubism.editor-ui.control-appearance.part-label": [
+      "hook:editor-ui"
+    ],
+    "cubism.editor-ui.control-appearance.part-folder": [
+      "hook:editor-ui"
+    ]
+  }
 }

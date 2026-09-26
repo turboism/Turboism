@@ -43,6 +43,41 @@ class AutoBackupCoordinatorTest {
     Path temporary;
 
     @Test
+    void unknownDeclarationWithMatchedSelectorsCanMutateSettingsAndProduceABackup() throws Exception {
+        final FakeHost host = new FakeHost();
+        final VerifiedMemberResolver resolver = host.resolver(true, "5.3.99");
+        final AutoBackupCoordinator service = coordinator(resolver, 60_000L);
+
+        final EditorAutoBackupSettings updated = service.updateSettings(
+            new EditorAutoBackupSettings(true, 3, 120, null));
+        final BackupRunResult backup = service.backupNow().toCompletableFuture().get(30, TimeUnit.SECONDS);
+
+        assertEquals("5.3.99", resolver.cubismVersion());
+        assertEquals("5.3.02", resolver.admittedCubismVersion());
+        assertEquals(3, updated.intervalMinutes());
+        assertEquals(120, host.manager.maxMB);
+        assertEquals(1, host.attachCalls);
+        assertEquals(1, host.updateCalls);
+        assertEquals(1, backup.newBackupFiles().size());
+        assertTrue(backup.newBackupFiles().get(0).length() > 0);
+        assertTrue(host.onEdt.get());
+    }
+
+    @Test
+    void unknownDeclarationStillRollsBackAFailedSettingsMutation() {
+        final FakeHost host = new FakeHost();
+        host.failOnSetInterval = true;
+        final AutoBackupCoordinator service = coordinator(host.resolver(true, "5.3.99"), 60_000L);
+
+        assertThrows(RuntimeException.class, () -> service.updateSettings(
+            new EditorAutoBackupSettings(false, 9, 80, null)));
+
+        assertTrue(host.manager.enabled);
+        assertEquals(5, host.manager.interval);
+        assertEquals(50, host.manager.maxMB);
+    }
+
+    @Test
     void settingsReadsThroughTheVerifiedHostOnTheEdt() {
         FakeHost host = new FakeHost();
         AutoBackupCoordinator service = coordinator(host, 60_000L);
@@ -710,6 +745,10 @@ class AutoBackupCoordinatorTest {
         }
 
         VerifiedMemberResolver resolver(final boolean typed) {
+            return resolver(typed, null);
+        }
+
+        VerifiedMemberResolver resolver(final boolean typed, final String declaredVersion) {
             List<StaticSelector> selectors = new ArrayList<>();
             String manager = internal(FakeManager.class);
             String app = internal(FakeApp.class);
@@ -770,6 +809,11 @@ class AutoBackupCoordinatorTest {
                 "()Ljava/lang/String;"));
             if (!typed) {
                 selectors.removeIf(selector -> selector.alias().equals("cubism.auto-backup.manager.instance"));
+            }
+            if (declaredVersion != null) {
+                return TestVerifiedResolvers.createCompatible(
+                    "5.3.02", declaredVersion, AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
+                    AutoBackupVerificationManifest.CAPABILITY_IDS, selectors, FakeHost.class.getClassLoader());
             }
             return TestVerifiedResolvers.create(
                 AutoBackupVerificationManifest.ADAPTER_SLICE_ID,

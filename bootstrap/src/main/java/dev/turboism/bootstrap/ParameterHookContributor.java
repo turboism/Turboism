@@ -16,7 +16,7 @@ final class ParameterHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.ordinaryReviewedRuntimeAdmitted();
+        return environment.hookRuntimeAdmitted();
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {

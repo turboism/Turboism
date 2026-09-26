@@ -23,7 +23,7 @@ final class ObjectContextMenuHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.fullRuntimeAdmission();
+        return environment.hookRuntimeAdmitted();
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
@@ -31,6 +31,8 @@ final class ObjectContextMenuHookContributor implements HookContributor {
         final var host = environment.host().orElseThrow();
         final ObjectContextMenuHostProfile profile = ObjectContextMenuHostProfile.forArtifact(
             HostArtifactDigest.from(host.artifact())
+        ).or(() -> environment.admittedRuntimeGeneration()
+            .flatMap(ObjectContextMenuHostProfile::forReviewedVersion)
         ).orElseThrow(() -> new IllegalStateException(
             "Unsupported object context-menu host artifact"
         ));
@@ -63,6 +65,8 @@ final class ObjectContextMenuHookContributor implements HookContributor {
             final ParameterPointContextMenuHostProfile parameterPointProfile =
                 ParameterPointContextMenuHostProfile.forArtifact(
                     HostArtifactDigest.from(host.artifact())
+                ).or(() -> environment.admittedRuntimeGeneration()
+                    .flatMap(ParameterPointContextMenuHostProfile::forReviewedVersion)
                 ).orElseThrow(() -> new IllegalStateException(
                     "Unsupported parameter-point context-menu host artifact"
                 ));

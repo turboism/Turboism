@@ -11,11 +11,44 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 final class MeshMirrorNativeMethodTransformerTest {
+
+    @Test
+    void actualClassBytesMustMatchTheBoundContractBeforeTheLoaderIsAdmitted() throws Exception {
+        final var profile = MeshMirrorHostProfile.reviewed52And53();
+        final var paths = new PathHolder();
+        final var loader = getClass().getClassLoader();
+        final byte[] original = fixture(profile.meshEditorOwner(), profile);
+        final String pin = sha256(original);
+        final var transformer = new MeshMirrorNativeMethodTransformer(profile, loader, paths.expected,
+            null, null, java.util.Map.of(profile.meshEditorOwner(), pin), ignored -> { });
+        final byte[] changed = original.clone();
+        changed[changed.length - 1] ^= 1;
+
+        assertNull(transformer.transform(null, loader, profile.meshEditorOwner(), null,
+            paths.domain(paths.expected), changed));
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, transformer.outcome());
+        assertNull(transformer.admittedClassLoader());
+        assertTrue(transformer.transformedOwners().isEmpty());
+        assertNotNull(transformer.transform(null, loader, profile.meshEditorOwner(), null,
+            paths.domain(paths.expected), original));
+
+        transformer.deactivate();
+        assertNull(transformer.transform(null, loader, profile.meshEditorOwner(), null,
+            paths.domain(paths.expected), original));
+        assertFalse(transformer.targetTransformed());
+        assertEquals(java.util.Set.of(profile.meshEditorOwner()), transformer.transformedOwners());
+
+        final var missingProof = new MeshMirrorNativeMethodTransformer(profile, loader, paths.expected, null, null);
+        assertNull(missingProof.transform(null, loader, profile.meshEditorOwner(), null,
+            paths.domain(paths.expected), original));
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, missingProof.outcome());
+    }
 
     @Test
     void rejectsWrongProtectionDomainAndLoaderAfterExactFirstAdmission() throws Exception {
@@ -24,7 +57,9 @@ final class MeshMirrorNativeMethodTransformerTest {
         final ClassLoader first = new ClassLoader() { };
         final ClassLoader second = new ClassLoader() { };
         final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(
-            profile, null, paths.expected, null, null, ignored -> { }
+            profile, null, paths.expected, null, null,
+            java.util.Map.of(profile.meshEditorOwner(), sha256(fixture(profile.meshEditorOwner(), profile))),
+            ignored -> { }
         );
         assertNotNull(transformer.transform(
             null, first, profile.meshEditorOwner(), null, paths.domain(paths.expected), fixture(profile.meshEditorOwner(), profile)
@@ -100,6 +135,10 @@ final class MeshMirrorNativeMethodTransformerTest {
                 new java.security.CodeSource(path.toUri().toURL(), (java.security.cert.Certificate[]) null), null
             );
         }
+    }
+
+    private static String sha256(final byte[] bytes) throws Exception {
+        return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     @Test

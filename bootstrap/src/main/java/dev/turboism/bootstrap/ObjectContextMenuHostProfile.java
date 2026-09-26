@@ -28,12 +28,30 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
     static Optional<ObjectContextMenuHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         if (artifact.equals(CUBISM_52)) {
-            return Optional.of(profile("R", "aL", 7, 21, 23, 3, 2));
+            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
         }
         if (artifact.equals(CUBISM_53)) {
-            return Optional.of(profile("T", "aL", 7, 22, 22, 1, 1));
+            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION);
         }
         if (artifact.equals(CUBISM_5303)) {
+            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_03_VERSION);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Resolves the reviewed context-menu profile by declared reviewed
+     * generation for a compatibility host that bound its declared version.
+     */
+    static Optional<ObjectContextMenuHostProfile> forReviewedVersion(final String cubismVersion) {
+        Objects.requireNonNull(cubismVersion, "cubismVersion");
+        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
+            return Optional.of(profile("R", "aL", 7, 21, 23, 3, 2));
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
+            return Optional.of(profile("T", "aL", 7, 22, 22, 1, 1));
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
             return Optional.of(profile("T", "aM", 10, 22, 22, 3, 1));
         }
         return Optional.empty();

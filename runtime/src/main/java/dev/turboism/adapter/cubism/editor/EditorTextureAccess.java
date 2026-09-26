@@ -109,7 +109,7 @@ final class EditorTextureAccess {
     private void requireReadAuthorization() {
         if (!readAuthorized()) {
             throw new UnsupportedOperationException(
-                "Texture-library reading is unavailable without exact verified host evidence."
+                "Texture-library reading is unavailable without an admitted texture contract."
             );
         }
     }
@@ -117,7 +117,7 @@ final class EditorTextureAccess {
     private void requireWriteAuthorization() {
         if (!writeAuthorized()) {
             throw new UnsupportedOperationException(
-                "Texture-library writing is unavailable without exact verified host evidence."
+                "Texture-library writing is unavailable without its verified transaction contract."
             );
         }
     }
@@ -126,12 +126,12 @@ final class EditorTextureAccess {
         if (!resolver.authorizesFeature(
             EditorTextureSelectorContract.ADAPTER_SLICE_ID,
             EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-            resolver.cubismVersion().equals("5.2.03")
+            resolver.isAdmittedCubismVersion("5.2.03")
                 ? EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES
                 : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
         )) {
             throw new UnsupportedOperationException(
-                "Raw image removal is unavailable without its exact non-dialog native Undo route."
+                "Raw image removal is unavailable without its verified non-dialog native Undo route."
             );
         }
     }
@@ -562,7 +562,7 @@ final class EditorTextureAccess {
             requireRawImageRemoval();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
-            if (resolver.cubismVersion().equals("5.2.03")) {
+            if (resolver.isAdmittedCubismVersion("5.2.03")) {
                 // Match the 5.3 handler's false branch: clear this raw image's layer inputs,
                 // then remove only its raw-image entry. Never invoke the 5.2 dialog or layer purge.
                 final List<Object> prepared = prepareRawImageRemoval5203(source, id);

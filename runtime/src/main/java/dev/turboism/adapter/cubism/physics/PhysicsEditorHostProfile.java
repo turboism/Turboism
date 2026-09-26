@@ -56,6 +56,27 @@ public record PhysicsEditorHostProfile(
             && !artifact.equals(CUBISM_5303)) {
             return Optional.empty();
         }
+        return reviewed();
+    }
+
+    /**
+     * Resolves the reviewed selector tuple by declared reviewed generation for
+     * a compatibility host that bound its declared version: the artifact
+     * digest is not identical but the slice contract verified the declared
+     * generation's whole record against it.
+     *
+     * @param cubismVersion host-declared reviewed version
+     * @return the matching profile, or empty for any unreviewed version
+     */
+    public static Optional<PhysicsEditorHostProfile> forReviewedVersion(final String cubismVersion) {
+        Objects.requireNonNull(cubismVersion, "cubismVersion");
+        if (!ReviewedHostArtifacts.admitsFullRuntime(cubismVersion)) {
+            return Optional.empty();
+        }
+        return reviewed();
+    }
+
+    private static Optional<PhysicsEditorHostProfile> reviewed() {
         return Optional.of(new PhysicsEditorHostProfile(
             "com/live2d/cubism/doc/modeling/ui/viewer/physics/ViewerPhysics_GroupList$GroupListPanel",
             "getTableArea", "this$0", "l", "getSources", "getEnable", "setEnable", "getGuid",

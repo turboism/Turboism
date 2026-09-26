@@ -43,6 +43,22 @@ public record ProjectLifecycleHostProfile(
         else if (artifact.equals(CUBISM_53)) version = "5.3.02";
         else if (artifact.equals(CUBISM_5303)) version = "5.3.03";
         else return Optional.empty();
+        return forReviewedVersion(version);
+    }
+
+    /**
+     * Resolves the reviewed lifecycle binding set by declared reviewed
+     * generation for a compatibility host that bound its declared version.
+     *
+     * @param version host-declared reviewed version
+     * @return the matching profile, or empty for any unreviewed version
+     */
+    public static Optional<ProjectLifecycleHostProfile> forReviewedVersion(
+        final String version
+    ) {
+        if (!ReviewedHostArtifacts.admitsFullRuntime(version)) {
+            return Optional.empty();
+        }
 
         final String app = "com/live2d/cubism/CEAppCtrl";
         final String model = "com/live2d/cubism/doc/modeling/CModelingDocument";

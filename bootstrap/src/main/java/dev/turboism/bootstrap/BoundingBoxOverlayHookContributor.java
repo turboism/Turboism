@@ -14,7 +14,7 @@ final class BoundingBoxOverlayHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.fullRuntimeAdmission();
+        return environment.hookRuntimeAdmitted();
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {

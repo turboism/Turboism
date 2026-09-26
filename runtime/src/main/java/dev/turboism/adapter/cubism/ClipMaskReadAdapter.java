@@ -41,6 +41,12 @@ public interface ClipMaskReadAdapter {
         String hostVersion();
 
         /**
+         * Returns the reviewed mapping generation used by these operations. An
+         * unbound implementation defaults to its declared host version.
+         */
+        default String contractVersion() { return hostVersion(); }
+
+        /**
          * @return {@code true} when this host exposes the clip-mask read surface
          */
         boolean supportsClipMaskRead();
@@ -157,7 +163,7 @@ public interface ClipMaskReadAdapter {
         private AdapterResult<List<ClipMaskSnapshot>> callIfSupported(final HostOperations operations) {
             try {
                 final Optional<SafeModeDiagnostic> versionDiagnostic =
-                    HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
+                    HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion(), operations.contractVersion());
                 if (versionDiagnostic.isPresent()) {
                     return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
                 }

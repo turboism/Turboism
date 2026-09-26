@@ -14,10 +14,12 @@ import java.util.List;
  * Editor-authoring operations executed inside the native Undo envelope
  * (edit-mode begin/end with a registered {@code GroupUndo}); every write is
  * undoable through the Editor's Undo history. Common texture-library operations
- * support the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts. Raw-image removal is
- * separately restricted to versions with an admitted non-dialog native route.</p>
+ * require the corresponding read or write capability from an admitted texture
+ * contract. On later versions the write contract must also match the native
+ * edit, Undo, rollback and refresh dependencies. Raw-image removal requires an
+ * admitted non-dialog native route selected from the matched mapping.</p>
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03")
 public interface ModelTextures {
 
     /** Raw layered images registered on the model. */
@@ -35,19 +37,19 @@ public interface ModelTextures {
      * <p>Editor {@code CModelImageGroup} carries no stable guid, so the group is
      * located afterwards through {@link #modelImageGroups()} by group name.</p>
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     void addModelImageGroup(String name);
 
     /** Removes one model image by id. */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     void removeModelImage(ModelImageId id);
 
     /** Creates a new texture atlas with the given canvas size and returns its id. */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     TextureAtlasId addTextureAtlas(String name, int widthPixels, int heightPixels);
 
     /** Removes one texture atlas by id. */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     void removeTextureAtlas(TextureAtlasId id);
 
     /**
@@ -55,6 +57,6 @@ public interface ModelTextures {
      * ArtMeshes and texture atlases. The 5.2.03 route composes exact native Undo factories;
      * the 5.3 routes use the native non-cascading handler. No confirmation dialog is opened.
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.03")
     void removeRawImage(RawImageId id);
 }

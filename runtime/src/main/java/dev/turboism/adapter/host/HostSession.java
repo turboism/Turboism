@@ -131,6 +131,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private ConnectionKey activeConnectionKey;
     private HostAdapterConnection activeConnection;
     private HostAdapterConnection pendingConnectionCleanup;
+    private volatile java.util.Set<String> admittedCubismCapabilities = java.util.Set.of();
     private EditorUiProviderInstaller.Installation activeEditorUiProviders;
     private EditorUiProviderInstaller.Installation pendingEditorUiProviderCleanup;
     private Optional<HostSessionFailure> lastFailure = Optional.empty();
@@ -453,6 +454,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
             activeConnection = candidate;
+            admittedCubismCapabilities = admittedCapabilities(
+                descriptor.verificationEvidence());
             workspaceLayoutCoordinator = candidate.workspaceLayoutCoordinator();
             try {
                 paletteSurfaceCoordinator.bindParameterRowsResolver(candidate.editorModelResolver());
@@ -562,6 +565,24 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public java.util.Optional<String> cubismEditorVersion() {
         return optionalEditorModelResolver().map(
             dev.turboism.mapping.verification.VerifiedMemberResolver::cubismVersion
+        );
+    }
+
+    @Override
+    public java.util.Set<String> admittedCubismCapabilities() {
+        final java.util.Set<String> disabled = optionalEditorModelResolver()
+            .map(dev.turboism.mapping.verification.VerifiedMemberResolver::unavailableCapabilities)
+            .orElse(java.util.Set.of());
+        if (disabled.isEmpty()) return admittedCubismCapabilities;
+        final java.util.Set<String> available = new java.util.HashSet<>(admittedCubismCapabilities);
+        available.removeAll(disabled);
+        return java.util.Set.copyOf(available);
+    }
+
+    @Override
+    public java.util.Optional<String> admittedCubismGeneration() {
+        return optionalEditorModelResolver().map(
+            dev.turboism.mapping.verification.VerifiedMemberResolver::admittedCubismVersion
         );
     }
 
@@ -787,6 +808,32 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     /**
+     * The capability-id union admitted for a connection: every evidence slice's
+     * contract set, falling back to the record's declared capabilities for
+     * contractless (legacy exact) slices. Emptiness fails API availability
+     * closed.
+     */
+    private static java.util.Set<String> admittedCapabilities(
+        final HostVerificationEvidence evidence
+    ) {
+        final java.util.Set<String> capabilities = new java.util.LinkedHashSet<>();
+        java.util.stream.Stream.of(
+            java.util.Optional.of(evidence.projectWorkspace()),
+            evidence.clipMask(),
+            evidence.editorModel(),
+            evidence.coreRuntime(),
+            evidence.mainToolbar(),
+            evidence.embeddedPanel(),
+            evidence.topMenu(),
+            evidence.boundingBoxOverlayButton(),
+            evidence.workspaceControl(),
+            evidence.statusBar(),
+            evidence.autoBackup()
+        ).forEach(slice -> slice.ifPresent(s -> capabilities.addAll(s.capabilities())));
+        return java.util.Set.copyOf(capabilities);
+    }
+
+    /**
      * Binds the native edit ingress for this connection.
      *
      * <p>A resolver that does not admit the listener selectors, or a document that has no history
@@ -859,6 +906,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return new SessionRuntimeHostAdapterAccess(
             dynamic.view(),
             this::cubismEditorVersion,
+            this::admittedCubismCapabilities,
+            this::admittedCubismGeneration,
             dynamicModelAccess,
             history,
             modelAppearanceSource,
@@ -1029,6 +1078,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             try {
                 activeConnection.close();
                 activeConnection = null;
+                admittedCubismCapabilities = java.util.Set.of();
                 objectContextMenuHandler = null;
                 parameterPointMenuHandler = null;
             } catch (Throwable throwable) {

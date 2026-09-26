@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,6 +24,68 @@ class TurboismAgentBootstrapTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void failedBindingClosesOnlyItsInstalledHandleEvenWhenCleanupThrows() throws Exception {
+        final var field = TurboismAgent.class.getDeclaredField("HOOKS");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        final var slot = (AtomicReference<HookRegistry>) field.get(null);
+        final HookRegistry registry = new HookRegistry();
+        final HookRegistry previous = slot.getAndSet(registry);
+        final HookContributor failed = new WarpAltMirrorHookContributor();
+        final HookContributor sibling = new NativeEditBeginHookContributor();
+        final List<String> closed = new ArrayList<>();
+        registry.enroll(failed, () -> {
+            closed.add("failed");
+            throw new IllegalStateException("cleanup rejected");
+        });
+        registry.enroll(sibling, () -> closed.add("sibling"));
+        try {
+            final var bind = TurboismAgent.class.getDeclaredMethod("bindRuntimeHook",
+                HookContributor.class, HookEnvironment.class);
+            bind.setAccessible(true);
+            // No premain installer exists, so the real contributor refuses binding.
+            bind.invoke(null, failed, HookEnvironment.builder().build());
+            bind.invoke(null, failed, HookEnvironment.builder().build());
+
+            assertEquals(List.of("failed"), closed);
+            assertFalse(registry.contains(failed.id()));
+            assertTrue(registry.contains(sibling.id()));
+        } finally {
+            registry.closeAll(ignored -> { }, ignored -> { });
+            slot.set(previous);
+        }
+    }
+
+    @Test
+    void earlyHooksAreUnavailableOrPendingBeforePluginInitialization() {
+        final HookContributor absent = new MeshMirrorHookContributor();
+        final HookContributor premain = new WarpAltMirrorHookContributor();
+        final HookContributor host = new FpsHookContributor();
+        final HookContributor runtime = new NativeEditBeginHookContributor();
+        final List<String> actions = new ArrayList<>();
+
+        TurboismAgent.prepareEarlyHooks(
+            List.of(absent, premain, host, runtime), List.of(premain, host),
+            hook -> actions.add("unavailable:" + hook.id()),
+            hook -> actions.add("pending:" + hook.id()),
+            hook -> actions.add("bind:" + hook.id()));
+
+        assertEquals(List.of(
+            "unavailable:" + absent.id(), "pending:" + premain.id(), "bind:" + host.id()), actions);
+    }
+
+    @Test
+    void missingPremainWarpHookIsExplicitlyWithdrawn() {
+        final HookContributor warp = new WarpAltMirrorHookContributor();
+        final List<String> withdrawn = new ArrayList<>();
+        TurboismAgent.prepareEarlyHooks(List.of(warp), List.of(),
+            hook -> withdrawn.addAll(hook.runtimeHookIds()),
+            hook -> { throw new AssertionError("missing hook cannot become pending"); },
+            hook -> { throw new AssertionError("missing hook cannot bind"); });
+        assertEquals(List.of("warp-alt-mirror"), withdrawn);
+    }
 
     @Test
     void rejectedOptionsDoNotPoisonTheNextStartAttempt() {

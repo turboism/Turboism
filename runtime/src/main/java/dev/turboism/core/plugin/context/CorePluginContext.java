@@ -317,6 +317,8 @@ public final class CorePluginContext implements PluginContext {
         return new DefaultCubismServicesFactory(
             hostAccess.adapters(),
             hostAccess::cubismEditorVersion,
+            hostAccess::admittedCubismCapabilities,
+            hostAccess::admittedCubismGeneration,
             hostAccess.modelAccess(),
             hostAccess.coreRuntimeInfo(),
             hostAccess.parameterLifecycle(),
@@ -592,6 +594,12 @@ public final class CorePluginContext implements PluginContext {
         this.editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
             servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
                 ? defaultFactory.cubismEditorVersion()
+                : java.util.Optional::empty,
+            servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
+                ? defaultFactory.admittedCubismCapabilities()
+                : java.util.Set::of,
+            servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
+                ? defaultFactory.admittedCubismGeneration()
                 : java.util.Optional::empty
         );
         this.cubismServices = servicesFactory.create(

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -15,6 +16,10 @@ import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.Objects;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -25,11 +30,14 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
     private final MeshMirrorHostProfile profile;
     private final ClassLoader expectedClassLoader;
     private final Path expectedArtifact;
+    private final Map<String, String> pinnedClassSha256;
     private final String hostClassName;
     private final Instrumentation helperInstrumentation;
     private final Consumer<String> diagnostic;
     private final AtomicReference<ClassLoader> admittedClassLoader = new AtomicReference<>();
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
+    private final Set<String> transformedOwners = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean active = new AtomicBoolean(true);
 
     public MeshMirrorNativeMethodTransformer(
         final MeshMirrorHostProfile profile,
@@ -57,11 +65,36 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         final Instrumentation helperInstrumentation,
         final Consumer<String> diagnostic
     ) {
+        this(profile, expectedClassLoader, expectedArtifact, hostClassName, helperInstrumentation,
+            Map.of(), diagnostic);
+    }
+
+    /**
+     * Creates a transformer with proof for the actual loaded class definitions.
+     *
+     * @param profile bound selector contract
+     * @param expectedClassLoader defining loader, or null before first definition
+     * @param expectedArtifact artifact path, or null for an isolated bytecode fixture
+     * @param hostClassName optional restriction to one target owner
+     * @param helperInstrumentation instrumentation used to make the bridge available
+     * @param pinnedClassSha256 class pins from the resolved contract
+     * @param diagnostic diagnostic consumer
+     */
+    public MeshMirrorNativeMethodTransformer(
+        final MeshMirrorHostProfile profile,
+        final ClassLoader expectedClassLoader,
+        final Path expectedArtifact,
+        final String hostClassName,
+        final Instrumentation helperInstrumentation,
+        final Map<String, String> pinnedClassSha256,
+        final Consumer<String> diagnostic
+    ) {
         this.profile = Objects.requireNonNull(profile, "profile");
         this.expectedClassLoader = expectedClassLoader;
         this.expectedArtifact = expectedArtifact == null
             ? null
             : expectedArtifact.toAbsolutePath().normalize();
+        this.pinnedClassSha256 = Map.copyOf(pinnedClassSha256);
         this.hostClassName = hostClassName == null ? null : hostClassName.replace('.', '/');
         this.helperInstrumentation = helperInstrumentation;
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
@@ -76,14 +109,14 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         final ProtectionDomain protectionDomain,
         final byte[] classfileBuffer
     ) {
-        if (className == null || classfileBuffer == null) return null;
+        if (!active.get() || className == null || classfileBuffer == null) return null;
         if (!isTargetOwner(className)) return null;
         if (classBeingRedefined != null) {
             reject(Outcome.RETRANSFORM_REJECTED, "MESH_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
         }
         if (hostClassName != null && !hostClassName.equals(className)) return null;
-        if (!admit(loader, protectionDomain)) return null;
+        if (!admit(loader, protectionDomain, className, classfileBuffer)) return null;
 
         final boolean[] transformed = {false};
         final boolean[] linkedInjected = {false};
@@ -367,6 +400,8 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             }
             final byte[] transformedBytes = writer.toByteArray();
             outcome(Outcome.TARGET_TRANSFORMED, "MESH_MIRROR_TARGET_TRANSFORMED owner=" + className);
+            if (!active.get()) return null;
+            transformedOwners.add(className);
             return transformedBytes;
         } catch (RuntimeException failure) {
             reject(Outcome.TRANSFORMATION_FAILED, "MESH_MIRROR_TRANSFORMATION_FAILED owner=" + className);
@@ -386,14 +421,25 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
 
     /** @return whether the exact target method was transformed successfully */
     public boolean targetTransformed() {
-        return outcome.get() == Outcome.TARGET_TRANSFORMED;
+        return active.get() && outcome.get() == Outcome.TARGET_TRANSFORMED;
+    }
+
+    /** @return internal names of targets that received a successful transformation */
+    public Set<String> transformedOwners() {
+        return Set.copyOf(transformedOwners);
+    }
+
+    /** Permanently prevents new patches before removal or restoration begins. */
+    public void deactivate() {
+        active.set(false);
     }
 
     /**
      * Each expectation is enforced on its own: gating one behind another would let a target
      * pass a check its owner declared, which this fail-closed boundary must never allow.
      */
-    private boolean admit(final ClassLoader loader, final ProtectionDomain protectionDomain) {
+    private boolean admit(final ClassLoader loader, final ProtectionDomain protectionDomain,
+        final String owner, final byte[] bytes) {
         if (loader == null && (expectedClassLoader != null || expectedArtifact != null)) {
             reject(Outcome.BOOTSTRAP_LOADER_REJECTED, "MESH_MIRROR_BOOTSTRAP_LOADER_REJECTED");
             return false;
@@ -409,6 +455,11 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         final ClassLoader existing = admittedClassLoader.get();
         if (existing != null && loader != existing) {
             reject(Outcome.LOADER_MISMATCH, "MESH_MIRROR_LOADER_MISMATCH");
+            return false;
+        }
+        if ((expectedArtifact != null || !pinnedClassSha256.isEmpty())
+            && !ReviewedHostContract.matchesClassBytes(pinnedClassSha256, owner, bytes)) {
+            reject(Outcome.CLASS_BYTES_MISMATCH, "MESH_MIRROR_CLASS_BYTES_MISMATCH owner=" + owner);
             return false;
         }
         if (helperInstrumentation != null) {
@@ -523,6 +574,8 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         LOADER_MISMATCH,
         /** The class's code source did not digest-match the admitted artifact. */
         ARTIFACT_MISMATCH,
+        /** The actual class definition differs from the selected contract's class pin. */
+        CLASS_BYTES_MISMATCH,
         /** The class was defined by the bootstrap loader, which is never admitted. */
         BOOTSTRAP_LOADER_REJECTED,
         /** A redefine/retransform attempt was refused; only first definition is admitted. */

@@ -85,6 +85,12 @@ public interface ProjectWorkspaceAdapter {
         String hostVersion();
 
         /**
+         * Returns the reviewed mapping generation used by these operations. An
+         * unbound implementation defaults to its declared host version.
+         */
+        default String contractVersion() { return hostVersion(); }
+
+        /**
          * @return {@code true} when this host exposes the project/workspace read surface
          */
         boolean supportsProjectWorkspaceRead();
@@ -277,7 +283,7 @@ public interface ProjectWorkspaceAdapter {
             final HostOperations operations
         ) {
             try {
-                if (!isReviewedProjectWorkspaceVersion(operations.hostVersion())) {
+                if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
                     return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
                         PROJECT_CAPABILITY_ID,
                         operations.hostVersion()
@@ -301,7 +307,7 @@ public interface ProjectWorkspaceAdapter {
 
         private AdapterResult<ProjectWorkspaceSnapshot> readCombined(final HostOperations operations) {
             try {
-                if (!isReviewedProjectWorkspaceVersion(operations.hostVersion())) {
+                if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
                     return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
                         PROJECT_CAPABILITY_ID,
                         operations.hostVersion()
@@ -332,7 +338,7 @@ public interface ProjectWorkspaceAdapter {
             final Supplier<Optional<T>> supplier
         ) {
             try {
-                if (!isReviewedProjectWorkspaceVersion(operations.hostVersion())) {
+                if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
                     return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
                         capabilityId,
                         operations.hostVersion()

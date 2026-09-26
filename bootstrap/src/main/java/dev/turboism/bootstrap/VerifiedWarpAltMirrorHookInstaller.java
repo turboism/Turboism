@@ -5,7 +5,9 @@ import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorNativeMethodTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -25,6 +27,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     private boolean installed;
     private boolean bound;
     private boolean closed;
+    private Runnable capabilityRevocation = () -> { };
 
     VerifiedWarpAltMirrorHookInstaller(
         final Instrumentation instrumentation,
@@ -42,19 +45,29 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         final WarpAltMirrorHostProfile profile,
         final Consumer<String> diagnostic
     ) {
+        this(instrumentation, hostClassLoader, hostArtifact, profile, Map.of(), diagnostic);
+    }
+
+    VerifiedWarpAltMirrorHookInstaller(
+        final Instrumentation instrumentation,
+        final ClassLoader hostClassLoader,
+        final Path hostArtifact,
+        final WarpAltMirrorHostProfile profile,
+        final Map<String, String> pinnedClassSha256,
+        final Consumer<String> diagnostic
+    ) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
         this.transformer = new WarpAltMirrorNativeMethodTransformer(
             profile,
             hostClassLoader,
             hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
+            pinnedClassSha256,
             this::report
         );
         this.pointMoveClassName = profile.pointMoveOwner().replace('/', '.');
         this.dragTickClassName = profile.dragTickOwner().replace('/', '.');
     }
-
-    /** Dotted binary name for {@code Class.forName}; the profile owner is the slashed internal name. */
 
     /** Installs the transformer during premain; it intentionally stays unbound. */
     void install() {
@@ -70,8 +83,13 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 installed = true;
                 report("WARP_ALT_MIRROR_DIAG stage=TRANSFORMER_REGISTERED");
             } catch (Throwable failure) {
-                instrumentation.removeTransformer(transformer);
                 closed = true;
+                transformer.deactivate();
+                try {
+                    instrumentation.removeTransformer(transformer);
+                } catch (Throwable cleanupFailure) {
+                    if (cleanupFailure != failure) failure.addSuppressed(cleanupFailure);
+                }
                 throw new IllegalStateException("warp alt mirror hook installation failed", failure);
             }
         }
@@ -90,6 +108,9 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             String currentName = pointMoveClassName;
             try {
                 final ClassLoader admitted = transformer.admittedClassLoader();
+                if (admitted != null && hostClassLoader != null && admitted != hostClassLoader) {
+                    throw new IllegalStateException("warp alt mirror runtime loader differs from the transformed host");
+                }
                 final ClassLoader loader = admitted != null ? admitted : hostClassLoader;
                 if (loader == null) {
                     throw new IllegalStateException("warp alt mirror host loader is not admitted");
@@ -109,9 +130,10 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             if (transformer.admittedClassLoader() == null) {
                 throw new IllegalStateException("warp alt mirror host loader is not admitted");
             }
-            if (!transformer.targetTransformed()) {
+            if (!transformer.transformedOwners().containsAll(List.of(
+                pointMoveClassName.replace('.', '/'), dragTickClassName.replace('.', '/')))) {
                 throw new IllegalStateException(
-                    "warp alt mirror exact target was not transformed: outcome=" + transformer.outcome());
+                    "warp alt mirror required targets were not transformed: outcome=" + transformer.outcome());
             }
         }
     }
@@ -141,23 +163,73 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         return transformer.targetTransformed();
     }
 
+    /** Connects runtime capability withdrawal to every close path, including direct close. */
+    void onClose(final Runnable revoke) {
+        Objects.requireNonNull(revoke, "revoke");
+        synchronized (lifecycleLock) {
+            if (closed) {
+                revoke.run();
+            } else {
+                capabilityRevocation = revoke;
+            }
+        }
+    }
+
     @Override
     public void close() {
         synchronized (lifecycleLock) {
             if (closed) return;
             closed = true;
-            try {
-                if (bound) {
-                    NativeWarpAltMirrorBridge.uninstall();
-                    bound = false;
-                }
-                if (installed) {
-                    instrumentation.removeTransformer(transformer);
-                    installed = false;
-                }
-            } finally {
-                report("WARP_ALT_MIRROR_DIAG stage=HOOK_CLOSED");
+            transformer.deactivate();
+            final List<Throwable> failures = new ArrayList<>();
+            try { capabilityRevocation.run(); }
+            catch (Throwable failure) { failures.add(failure); }
+            capabilityRevocation = () -> { };
+            if (bound) {
+                bound = false;
+                try { NativeWarpAltMirrorBridge.uninstall(); }
+                catch (Throwable failure) { failures.add(failure); }
             }
+            if (installed) {
+                installed = false;
+                try {
+                    if (!instrumentation.removeTransformer(transformer)) {
+                        failures.add(new IllegalStateException("warp transformer removal was not confirmed"));
+                    }
+                } catch (Throwable failure) { failures.add(failure); }
+                restoreLoadedTargets(failures);
+            }
+            report("WARP_ALT_MIRROR_DIAG stage=HOOK_CLOSED");
+            if (!failures.isEmpty()) {
+                final IllegalStateException failure = new IllegalStateException("warp hook cleanup incomplete");
+                failures.forEach(failure::addSuppressed);
+                throw failure;
+            }
+        }
+    }
+
+    private void restoreLoadedTargets(final List<Throwable> failures) {
+        final ClassLoader owner = transformer.admittedClassLoader();
+        final var transformed = transformer.transformedOwners();
+        if (owner == null || transformed.isEmpty()) return;
+        try {
+            for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
+                if (type.getClassLoader() != owner || !transformed.contains(type.getName().replace('.', '/'))) {
+                    continue;
+                }
+                try {
+                    if (!instrumentation.isModifiableClass(type)) {
+                        throw new IllegalStateException("warp target is not modifiable: " + type.getName());
+                    }
+                    instrumentation.retransformClasses(type);
+                } catch (Throwable failure) {
+                    failures.add(failure);
+                    report("WARP_ALT_MIRROR_RESTORE_FAILED owner=" + type.getName());
+                }
+            }
+        } catch (Throwable failure) {
+            failures.add(failure);
+            report("WARP_ALT_MIRROR_RESTORE_ENUMERATION_FAILED");
         }
     }
 

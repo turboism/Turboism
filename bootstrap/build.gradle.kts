@@ -13,6 +13,13 @@ dependencies {
     implementation(project(":core-contract"))
 }
 
+tasks.named<Test>("test") {
+    // Forward optional real-host evidence to the forked test JVM.
+    providers.systemProperty("turboism.test.cubismEditorJar").orNull?.let {
+        systemProperty("turboism.test.cubismEditorJar", it)
+    }
+}
+
 tasks.processResources {
     // The record list below is hand-maintained; the root-project gate derives it
     // from compatibility/cubism/verification/ and fails this build on drift.

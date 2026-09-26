@@ -44,6 +44,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
     private final RuntimeHostAdapters hostAdapters;
     private final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion;
+    private final java.util.function.Supplier<java.util.Set<String>> admittedCubismCapabilities;
+    private final java.util.function.Supplier<java.util.Optional<String>> admittedCubismGeneration;
     private final CubismModelAccess modelAccess;
     private final HostSnapshotSource appearanceSource;
     private final CoreRuntimeInfo coreRuntimeInfo;
@@ -71,6 +73,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         this(
             hostAdapters,
             java.util.Optional::empty,
+            java.util.Set::of,
+            java.util.Optional::empty,
             UNAVAILABLE_MODEL_ACCESS,
             UNAVAILABLE_CORE_RUNTIME,
             new ParameterLifecycleCoordinator(),
@@ -94,6 +98,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     DefaultCubismServicesFactory(
         final RuntimeHostAdapters hostAdapters,
         final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion,
+        final java.util.function.Supplier<java.util.Set<String>> admittedCubismCapabilities,
+        final java.util.function.Supplier<java.util.Optional<String>> admittedCubismGeneration,
         final CubismModelAccess modelAccess,
         final CoreRuntimeInfo coreRuntimeInfo,
         final ParameterLifecycleCoordinator parameterLifecycle,
@@ -115,6 +121,12 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.cubismEditorVersion = java.util.Objects.requireNonNull(
             cubismEditorVersion, "cubismEditorVersion"
+        );
+        this.admittedCubismCapabilities = java.util.Objects.requireNonNull(
+            admittedCubismCapabilities, "admittedCubismCapabilities"
+        );
+        this.admittedCubismGeneration = java.util.Objects.requireNonNull(
+            admittedCubismGeneration, "admittedCubismGeneration"
         );
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.appearanceSource = java.util.Objects.requireNonNull(appearanceSource, "appearanceSource");
@@ -153,6 +165,14 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         return cubismEditorVersion;
     }
 
+    java.util.function.Supplier<java.util.Set<String>> admittedCubismCapabilities() {
+        return admittedCubismCapabilities;
+    }
+
+    java.util.function.Supplier<java.util.Optional<String>> admittedCubismGeneration() {
+        return admittedCubismGeneration;
+    }
+
     /** Wiring seam for tests: the adapter this factory forwards to the backup coordinator. */
     AutoBackupAdapter autoBackupAdapter() {
         return autoBackup;
@@ -169,6 +189,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     ) {
         this(
             hostAdapters,
+            java.util.Optional::empty,
+            java.util.Set::of,
             java.util.Optional::empty,
             modelAccess,
             UNAVAILABLE_CORE_RUNTIME,
@@ -311,7 +333,9 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             ),
             backupCoordinator
         );
-        return new CubismEditorApiAvailabilityInterceptor(cubismEditorVersion).intercept(services);
+        return new CubismEditorApiAvailabilityInterceptor(
+            cubismEditorVersion, admittedCubismCapabilities, admittedCubismGeneration
+        ).intercept(services);
     }
 
     /**

@@ -69,6 +69,29 @@ class RuntimeHostAdaptersTrustRootTest {
             adapters.clipMaskRead().clipMasks().value().orElseThrow().get(0).orderedMaskSourceIds());
     }
 
+    @Test
+    void compatibleUnknownHostReadsProjectAndClipMasksThroughTheBoundContracts() {
+        SyntheticHost.instance = host();
+        final var project = compatible(projectResolver(), ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
+            ProjectWorkspaceVerificationManifest.CAPABILITY_IDS, ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES);
+        final var clip = compatible(clipResolver(), ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
+            ClipMaskVerificationManifest.CAPABILITY_IDS, ClipMaskVerificationManifest.REQUIRED_ALIASES);
+        final var adapters = RuntimeHostAdapters.withVerifiedProjectWorkspaceAndClipMask(project, clip);
+        assertEquals("project-session-1", adapters.projectWorkspace().activeProject()
+            .value().orElseThrow().orElseThrow().projectId());
+        assertEquals("target", adapters.clipMaskRead().clipMasks().value().orElseThrow().get(0).targetMeshId());
+        assertEquals("5.3.99", project.cubismVersion());
+        assertEquals("5.3.99", new dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations(clip, "5.3.99").hostVersion());
+    }
+
+    private static VerifiedMemberResolver compatible(
+        final VerifiedMemberResolver exact, final String slice, final java.util.Set<String> capabilities,
+        final java.util.Set<String> aliases
+    ) {
+        return TestVerifiedResolvers.createCompatible("5.3.02", "5.3.99", slice, capabilities,
+            aliases.stream().map(exact::verifiedSelector).toList(), exact.hostClassLoader());
+    }
+
     private static SyntheticHost host() {
         return new SyntheticHost(
             new SyntheticProject("project-session-1", "Project"),
