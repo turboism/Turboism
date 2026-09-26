@@ -1426,7 +1426,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             }
             requireStaleEditorReadRejected(() -> firstModel.textures().relations());
             result.setProperty("secondDocument.staleFirstModelRead", "REJECTED");
-            return null;
+            return Boolean.TRUE;
         });
         for (var entry : Map.of("first", prepared.first(), "second", prepared.second()).entrySet()) {
             final String prefix = "secondDocument." + entry.getKey();
