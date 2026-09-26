@@ -80,14 +80,19 @@ public interface ProtectedExportHostOperations {
     // File content / undo signatures
     // ------------------------------------------------------------------
 
+    /** The file-content handle's backing file, or {@code null} when virtual. */
     File fileContentFile(Object fileContent);
 
+    /** Whether the file content differs from its persisted on-disk state. */
     boolean fileContentModified(Object fileContent);
 
+    /** Current position in the undo manager's edit stack. */
     int undoPosition(Object undoManager);
 
+    /** Total number of edits recorded on the undo stack. */
     int undoEditCount(Object undoManager);
 
+    /** Whether the undo manager currently has an undoable edit. */
     boolean undoCanUndo(Object undoManager);
 
     // ------------------------------------------------------------------
@@ -100,8 +105,10 @@ public interface ProtectedExportHostOperations {
     /** Whether the edit mode is the modeling main edit mode owning the apply command. */
     boolean isMainEditMode(Object editMode);
 
+    /** Clears every selection currently held by the selector. */
     void clearSelection(Object selector);
 
+    /** Number of sources currently selected on the selector. */
     int selectedCount(Object selector);
 
     /** Adds a parameter-controllable source directly to the modeling selector. */
@@ -123,12 +130,16 @@ public interface ProtectedExportHostOperations {
     /** The live model instance of a model source, or {@code null}. */
     Object modelSourceCurrentInstance(Object modelSource);
 
+    /** Every deformer source in the model source, in model order (immutable). */
     List<?> allDeformers(Object modelSource);
 
+    /** Every parameter-controllable object in the model source (immutable). */
     List<?> allObjects(Object modelSource);
 
+    /** Every art mesh source in the model source (immutable). */
     List<?> allArtMeshes(Object modelSource);
 
+    /** Every part source in the model source, including the root (immutable). */
     List<?> allParts(Object modelSource);
 
     /**
@@ -137,6 +148,7 @@ public interface ProtectedExportHostOperations {
      */
     Object rootPart(Object modelSource);
 
+    /** Every parameter in the model source, in model order (immutable). */
     List<?> allParameters(Object modelSource);
 
     /**
@@ -266,6 +278,7 @@ public interface ProtectedExportHostOperations {
     /** Key positions a keyform binding contributes to its parameter (immutable). */
     List<Float> keyformBindingKeys(Object binding);
 
+    /** True when {@code object} is a deformer source. */
     boolean isDeformerSource(Object object);
 
     /**
@@ -284,12 +297,16 @@ public interface ProtectedExportHostOperations {
      */
     String censusFamily(Object object);
 
+    /** True when {@code object} is a warp deformer source. */
     boolean isWarpDeformer(Object object);
 
+    /** True when {@code object} is a rotation deformer source. */
     boolean isRotationDeformer(Object object);
 
+    /** True when {@code object} is an art mesh source. */
     boolean isArtMeshSource(Object object);
 
+    /** True when {@code object} is a part source. */
     boolean isPartSource(Object object);
 
     /**

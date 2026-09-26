@@ -102,7 +102,9 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertRegex(workflow, r"(?m)^  pull_request:\s*$")
         self.assertRegex(workflow, r'(?m)^  push:\n    branches: \["main"\]\s*$')
         self.assertEqual(
-            workflow.count("./gradlew --no-daemon devCheck --console=plain"),
+            workflow.count(
+                "./gradlew --no-daemon devCheck checkCompletedCommit --console=plain"
+            ),
             1,
         )
         self.assertNotIn("checkIntegration", workflow)

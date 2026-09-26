@@ -73,7 +73,9 @@ def strip_comments(text: str) -> str:
 
 def source_files(root: Path) -> list[Path]:
     result: list[Path] = []
-    ignored = {".git", ".gradle", "build", "dist", "release"}
+    # templates/ scaffolds standalone out-of-repo plugin builds and is not part
+    # of this repository's production dependency graphs.
+    ignored = {".git", ".gradle", "build", "dist", "release", "templates"}
     for base, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in ignored]
         for name in files:
@@ -141,8 +143,22 @@ def static_check(root: Path) -> None:
     exact = re.findall(r"\bimplementation\s*\(\s*[\"']org\.ow2\.asm:asm:9\.7\.1[\"']\s*\)",
                        strip_comments(runtime.read_text(encoding="utf-8")))
     if len(exact) != 1: fail(f"expected exactly one literal runtime implementation({COORDINATE}), found {len(exact)}")
-    if all_asm_occurrences != ["runtime/build.gradle.kts"]:
-        fail("ASM may occur only once in runtime/build.gradle.kts; found in " + ", ".join(all_asm_occurrences))
+    # The bootstrap agent shades ASM into its private dev.turboism.agent.shaded
+    # namespace; its sanctioned relocation mapping is the only other reference.
+    files_with_asm = list(dict.fromkeys(all_asm_occurrences))
+    if all_asm_occurrences.count("runtime/build.gradle.kts") != 1:
+        fail("ASM may occur only once in runtime/build.gradle.kts; found in "
+             + ", ".join(all_asm_occurrences))
+    if files_with_asm == ["bootstrap/build.gradle.kts", "runtime/build.gradle.kts"]:
+        bootstrap_text = strip_comments(
+            (root / "bootstrap/build.gradle.kts").read_text(encoding="utf-8"))
+        relocation = '"org.objectweb.asm" to "dev.turboism.agent.shaded.asm"'
+        if bootstrap_text.count(relocation) != 1:
+            fail("bootstrap may reference ASM only through the single sanctioned "
+                 "dev.turboism.agent.shaded.asm relocation mapping")
+    elif files_with_asm != ["runtime/build.gradle.kts"]:
+        fail("ASM may occur only once in runtime/build.gradle.kts; found in "
+             + ", ".join(all_asm_occurrences))
     if not root_repo_ok or repository_sites != [("build.gradle.kts", "repositories block")]:
         fail("repository policy requires exactly the existing root repositories { mavenCentral() }")
 

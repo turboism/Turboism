@@ -338,7 +338,8 @@ def validate_report(path, scenario, agent_sha, fixture_sha, run_properties):
 
     written_at = report.get("writtenAt")
     try:
-        dt.datetime.fromisoformat(str(written_at))
+        # Python 3.10 的 fromisoformat 不接受 Z 后缀；CI 与本地均需可解析。
+        dt.datetime.fromisoformat(str(written_at).replace("Z", "+00:00"))
     except (TypeError, ValueError):
         fail(f"probe report writtenAt {written_at!r} is not ISO-8601")
 

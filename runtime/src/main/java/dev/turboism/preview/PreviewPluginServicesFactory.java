@@ -33,7 +33,7 @@ import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.ui.RuntimeUiScheduler;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.userfile.RuntimeUserFileAccessService;
-import dev.turboism.userfile.SwingUserFileGrantSource;
+import dev.turboism.userfile.UserFileGrantSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -460,12 +460,16 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
             dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
         );
     }
-    static SwingUserFileGrantSource newUserFileGrantSource(
+    static UserFileGrantSource newUserFileGrantSource(
         final String pluginId,
         final RuntimeFailureSink failureSink,
         final CleanupEvidenceCollector cleanupEvidence
     ) {
-        return new SwingUserFileGrantSource(pluginId, failureSink, cleanupEvidence);
+        // The preview runtime has no host window that could carry a Swing chooser,
+        // so user-file requests must report RUNTIME_UNAVAILABLE deterministically —
+        // on headful machines too (an always-available Swing source would either
+        // open a real chooser with nowhere to parent it or hang the plugin).
+        return UserFileGrantSource.unavailable();
     }
 
     private RuntimeUserFileAccessService userFiles(
