@@ -16778,7 +16778,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.l_field_d",
+      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-registry",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.registry",
@@ -16799,7 +16799,7 @@
       "descriptor": "Ljava/util/ArrayList;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.registry",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.l_field_d",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-registry",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -17067,7 +17067,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.x_field_a",
+      "semanticName": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-holder-instance",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.holder-instance",
@@ -17088,7 +17088,7 @@
       "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.holder-instance",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.x_field_a",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_websocket.field.dispatch-holder-instance",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -17146,7 +17146,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_field_p",
+      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.dialog-remote-checkbox",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.dialog.remote-checkbox",
@@ -17167,7 +17167,7 @@
       "descriptor": "Lcom/live2d/ui/control/CCheckBox;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.y_field_p",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.dialog-remote-checkbox",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -17254,7 +17254,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_field_a",
+      "semanticName": "cubism.mapping.v5_3_02.integration_edit_toggle.field.config-instance",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.config.instance",
@@ -17275,7 +17275,7 @@
       "descriptor": "Lcom/live2d/util/UUConfig;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.config.instance",
-        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.UUConfig_field_a",
+        "recordMappingId": "cubism.mapping.v5_3_02.integration_edit_toggle.field.config-instance",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact 5.3.02 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -17452,6 +17452,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "8a5ca253526b2d0a23da16d22c3a3142cd920d61744e99b50b250ce41694bf1b"
+    "verificationRecordSha256": "b5176c878b7cd9dfd01606dd3b39cd180397b372013b5c637ac96b2a5d6f1794"
   }
 }

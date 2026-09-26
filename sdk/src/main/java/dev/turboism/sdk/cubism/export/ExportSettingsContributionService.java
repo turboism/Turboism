@@ -31,6 +31,7 @@ public interface ExportSettingsContributionService {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed {@link #unavailable()} sentinel: every contribution is refused. */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     enum Unavailable implements ExportSettingsContributionService {
         INSTANCE;

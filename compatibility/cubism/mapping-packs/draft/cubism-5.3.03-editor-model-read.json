@@ -21388,7 +21388,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_03.integration_websocket.field.l_field_d",
+      "semanticName": "cubism.mapping.v5_3_03.integration_websocket.field.dispatch-registry",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.registry",
@@ -21409,7 +21409,7 @@
       "descriptor": "Ljava/util/ArrayList;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.registry",
-        "recordMappingId": "cubism.mapping.v5_3_03.integration_websocket.field.l_field_d",
+        "recordMappingId": "cubism.mapping.v5_3_03.integration_websocket.field.dispatch-registry",
         "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact 5.3.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -21677,7 +21677,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_03.integration_websocket.field.x_field_a",
+      "semanticName": "cubism.mapping.v5_3_03.integration_websocket.field.dispatch-holder-instance",
       "kind": "field",
       "owner": "edit-api-bridge",
       "name": "cubism.integration.websocket.dispatch.holder-instance",
@@ -21698,7 +21698,7 @@
       "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;",
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.holder-instance",
-        "recordMappingId": "cubism.mapping.v5_3_03.integration_websocket.field.x_field_a",
+        "recordMappingId": "cubism.mapping.v5_3_03.integration_websocket.field.dispatch-holder-instance",
         "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact 5.3.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
@@ -21756,7 +21756,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.field.y_field_p",
+      "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.field.dialog-remote-checkbox",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.dialog.remote-checkbox",
@@ -21777,7 +21777,7 @@
       "descriptor": "Lcom/live2d/ui/control/CCheckBox;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
-        "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.field.y_field_p",
+        "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.field.dialog-remote-checkbox",
         "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -21864,7 +21864,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.field.UUConfig_field_a",
+      "semanticName": "cubism.mapping.v5_3_03.integration_edit_toggle.field.config-instance",
       "kind": "field",
       "owner": "edit-toggle",
       "name": "cubism.integration.external-app-settings.config.instance",
@@ -21885,7 +21885,7 @@
       "descriptor": "Lcom/live2d/util/UUConfig;",
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.config.instance",
-        "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.field.UUConfig_field_a",
+        "recordMappingId": "cubism.mapping.v5_3_03.integration_edit_toggle.field.config-instance",
         "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact 5.3.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
@@ -21955,7 +21955,7 @@
     "selectorCount": 849,
     "capabilityCount": 105,
     "validationNotes": "DRAFT only. Every selector is statically checked against the exact 5.3.03 JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-    "verificationRecordSha256": "b94c7053ac0d451fa3d1c3cf587968e2220d51a3c9c5974d582715ea3bdc2418",
+    "verificationRecordSha256": "20000d6265ce9334c874ef62e30eda1ac41865ab863d838383099a15da7e8015",
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
