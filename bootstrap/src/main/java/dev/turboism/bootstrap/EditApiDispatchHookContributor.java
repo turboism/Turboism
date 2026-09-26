@@ -47,6 +47,10 @@ final class EditApiDispatchHookContributor implements HookContributor {
         return true;
     }
 
+    @Override public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("edit-api-dispatch", "edit-toggle");
+    }
+
     /**
      * Same ordinary reviewed admission as the other host hooks; the deeper
      * gate is inside {@code VerifiedEditApiDispatchInstaller.fromVerifiedResolver},
@@ -54,7 +58,7 @@ final class EditApiDispatchHookContributor implements HookContributor {
      * feature inert.
      */
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.ordinaryReviewedRuntimeAdmitted();
+        return environment.runtimeSliceAdmitted("editor-model");
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
@@ -78,8 +82,12 @@ final class EditApiDispatchHookContributor implements HookContributor {
             // 051 P2: the native 「编辑」 checkbox replaces the connection-time approval
             // prompt whenever the verified injector surface is admitted. The toggle state
             // is loaded from the host-domain UUConfig key before the bridge gate is chosen.
-            final EditApprovalGate approvalGate = installNativeEditToggle(
-                environment, host, toggleResources)
+            final Optional<EditApprovalGate> nativeToggle = installNativeEditToggle(
+                environment, host, toggleResources);
+            if (nativeToggle.isEmpty()) {
+                runtime.disableEditorCapabilitiesRequiringHook("edit-toggle");
+            }
+            final EditApprovalGate approvalGate = nativeToggle
                 .orElseGet(() -> new SwingEditApprovalGate(java.util.Optional::empty));
             final EditProtocolBridge bridge = new EditProtocolBridge(
                 EditSocketWriter.reflective(),
@@ -89,7 +97,7 @@ final class EditApiDispatchHookContributor implements HookContributor {
                     () -> activeDocument(runtime),
                     approvalGate));
             if (!installer.install(bridge.receiver())) {
-                return () -> { };
+                throw new IllegalStateException("Edit dispatch target was not transformed");
             }
             NativeOptimizationHookContributor.log(
                 environment,
@@ -97,33 +105,48 @@ final class EditApiDispatchHookContributor implements HookContributor {
                     + String.join(",", installer.transformedClassNames())
             );
             final VerifiedEditApiDispatchInstaller installed = installer;
-            return () -> {
-                for (AutoCloseable resource : toggleResources) {
-                    resource.close();
-                }
-                installed.close();
-            };
+            return () -> closeResources(toggleResources, installed);
         } catch (final Throwable failure) {
-            for (AutoCloseable resource : toggleResources) {
-                try {
-                    resource.close();
-                } catch (final Throwable ignored) {
-                    // cleanup is best effort
-                }
-            }
-            if (installer != null) {
-                try {
-                    installer.close();
-                } catch (final Throwable ignored) {
-                    // cleanup is best effort
-                }
+            try {
+                closeResources(toggleResources, installer);
+            } catch (final Throwable cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
             }
             NativeOptimizationHookContributor.log(
                 environment,
                 "Turboism edit-protocol dispatch hook disabled safely: "
                     + failure.getClass().getName() + ": " + failure.getMessage()
             );
-            return () -> { };
+            throw new IllegalStateException("Edit dispatch hook installation failed", failure);
+        }
+    }
+
+    /** Removes the dispatcher first, then all optional toggle resources, despite cleanup failure. */
+    static void closeResources(
+        final java.util.List<AutoCloseable> toggleResources,
+        final AutoCloseable installer
+    ) throws Exception {
+        final java.util.List<AutoCloseable> resources = new java.util.ArrayList<>(toggleResources);
+        if (installer != null) {
+            resources.add(installer);
+        }
+        Throwable first = null;
+        for (int index = resources.size() - 1; index >= 0; index--) {
+            try {
+                resources.get(index).close();
+            } catch (Throwable failure) {
+                if (first == null) {
+                    first = failure;
+                } else if (first != failure) {
+                    first.addSuppressed(failure);
+                }
+            }
+        }
+        if (first instanceof Error error) {
+            throw error;
+        }
+        if (first instanceof Exception exception) {
+            throw exception;
         }
     }
 

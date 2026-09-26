@@ -12,7 +12,7 @@ final class PerformanceProbeHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.fullRuntimeAdmission()
+        return environment.hookRuntimeAdmitted()
             && environment.options().performanceProbeInstall();
     }
 
@@ -25,7 +25,8 @@ final class PerformanceProbeHookContributor implements HookContributor {
                 host.artifact(),
                 host.classLoader(),
                 options.home().resolve("lib/performance-probe-carrier.jar"),
-                options.performanceProbeScenario()
+                options.performanceProbeScenario(),
+                environment.admittedRuntimeGeneration()
             );
         installer.install(
             options.performanceProbeCapture(),

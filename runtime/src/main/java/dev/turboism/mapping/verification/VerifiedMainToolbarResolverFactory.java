@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /** Pinned resolver factory for the verified Cubism Editor main-toolbar slice. */
-public final class VerifiedMainToolbarResolverFactory {
+public final class VerifiedMainToolbarResolverFactory implements SliceResolverFactory {
 
     private final PinnedVerifiedResolverWorkflow workflow = new PinnedVerifiedResolverWorkflow();
 
@@ -40,4 +40,32 @@ public final class VerifiedMainToolbarResolverFactory {
             )
         );
     }
+    /**
+     * Creates a resolver for a slice admitted by structural compatibility. The
+     * catalog-pinned record still anchors verification, but the host artifact
+     * is a structurally matching binary rather than a reviewed release.
+     *
+     * @param reviewedRecord catalog-pinned verification record
+     * @param hostArtifact located host artifact admitted structurally
+     * @param hostClassLoader loader the verified members resolve against
+     * @param contract admitted compatibility contract
+     * @return a resolver limited to the aliases the record authorizes
+     * @throws IOException if the record or artifact cannot be read
+     * @throws IllegalArgumentException if any link in the chain fails
+     * @throws NullPointerException if any argument is {@code null}
+     */
+    public VerifiedMemberResolver createCompatible(
+        final Path reviewedRecord,
+        final Path hostArtifact,
+        final ClassLoader hostClassLoader,
+        final SliceContract contract
+    ) throws IOException {
+        return workflow.createCompatible(
+            reviewedRecord,
+            hostArtifact,
+            hostClassLoader,
+            contract
+        );
+    }
+
 }

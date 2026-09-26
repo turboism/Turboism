@@ -12,9 +12,18 @@ import java.util.Set;
 public final class StaticVerificationRecordValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
-        "verificationId", "adapterSliceId", "capabilityIds", "cubismVersion", "profileId",
+        "verificationId", "adapterSliceId", "capabilityIds", "capabilityConditions",
+        "cubismVersion", "profileId",
         "artifact", "evidenceType", "evidencePath", "owner", "verifiedBy", "verifiedAt",
         "safeMode", "status", "selectors"
+    );
+    private static final Set<String> ALLOWED_CAPABILITY_CONDITIONS = Set.of(
+        "structure", "declaredGeneration",
+        "hook:autobackup", "hook:control-appearance", "hook:edit-api-dispatch",
+        "hook:edit-toggle", "hook:editor-ui", "hook:native-edit-begin",
+        "hook:object-context-menu", "hook:performance-fps", "hook:physics-editor",
+        "hook:protected-export", "hook:texture-atlas", "hook:warp-alt-mirror",
+        "hook:workspace-control"
     );
     private static final Set<String> ALLOWED_ARTIFACT_FIELDS = Set.of("name", "size", "sha256");
     private static final Set<String> ALLOWED_SELECTOR_FIELDS = Set.of(
@@ -22,7 +31,7 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
         "requiredAccessFlags", "forbiddenAccessFlags", "status"
     );
     private static final Set<String> ALLOWED_KINDS = Set.of(
-        "class", "constructor", "method", "field"
+        "class", "constructor", "method", "field", "inherits"
     );
 
     public StaticVerificationRecordValidator() {
@@ -45,6 +54,7 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
         requireStringField(node, "verificationId", "STATIC_VERIFICATION_RECORD_MISSING", errors, source);
         requireStringField(node, "adapterSliceId", "STATIC_VERIFICATION_RECORD_MISSING", errors, source);
         requireArrayField(node, "capabilityIds", "STATIC_VERIFICATION_RECORD_MISSING", errors, source);
+        requireObjectField(node, "capabilityConditions", "STATIC_VERIFICATION_RECORD_MISSING", errors, source);
         requireStringField(node, "cubismVersion", "STATIC_VERIFICATION_RECORD_MISSING", errors, source);
         requireStringField(node, "profileId", "STATIC_VERIFICATION_RECORD_MISSING", errors, source);
         requireObjectField(node, "artifact", "STATIC_VERIFICATION_RECORD_MISSING", errors, source);
@@ -86,6 +96,7 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
                 }
             }
         }
+        validateCapabilityConditions(node, errors, source);
         if (node.has("evidencePath") && node.get("evidencePath").isTextual()
             && isAbsoluteOrTraversingPath(node.get("evidencePath").asText())) {
             errors.add(error(
@@ -132,6 +143,80 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
         validateArtifact(node.get("artifact"), errors, source);
         validateSelectors(node.get("selectors"), errors, source);
         return errors;
+    }
+
+    /**
+     * {@code capabilityConditions} records the support condition every declared
+     * capability needs beyond the slice's selector contract: {@code structure}
+     * for surfaces the contract alone covers, {@code declaredGeneration} for
+     * surfaces that additionally require the host's declared reviewed
+     * generation (transaction bridges and runtime hooks only install there),
+     * and {@code hook:<id>} for surfaces bound to one named hook contract.
+     * When present the object must cover every {@code capabilityIds} entry
+     * exactly once; unknown conditions and uncovered ids fail the record.
+     */
+    private void validateCapabilityConditions(
+        final JsonNode node,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        final JsonNode conditions = node.get("capabilityConditions");
+        if (conditions == null || !conditions.isObject()) {
+            return;
+        }
+        final java.util.Set<String> covered = new java.util.HashSet<>();
+        conditions.fields().forEachRemaining(entry -> {
+            final String capabilityId = entry.getKey();
+            if (!covered.add(capabilityId)) {
+                return;
+            }
+            final JsonNode value = entry.getValue();
+            if (!value.isArray() || value.isEmpty()) {
+                errors.add(error(
+                    "STATIC_VERIFICATION_RECORD_BAD_CAPABILITY_CONDITION",
+                    "capabilityConditions values must be non-empty condition arrays",
+                    "capabilityConditions." + capabilityId,
+                    source
+                ));
+                return;
+            }
+            for (final JsonNode condition : value) {
+                if (!condition.isTextual()
+                    || !ALLOWED_CAPABILITY_CONDITIONS.contains(condition.asText())) {
+                    errors.add(error(
+                        "STATIC_VERIFICATION_RECORD_BAD_CAPABILITY_CONDITION",
+                        "capability condition must be structure, declaredGeneration, or hook:<id>",
+                        "capabilityConditions." + capabilityId,
+                        source
+                    ));
+                }
+            }
+        });
+        final JsonNode capabilityIds = node.get("capabilityIds");
+        if (capabilityIds != null && capabilityIds.isArray()) {
+            final java.util.Set<String> declared = new java.util.LinkedHashSet<>();
+            capabilityIds.forEach(capability -> declared.add(capability.asText()));
+            for (final String capabilityId : covered) {
+                if (!declared.contains(capabilityId)) {
+                    errors.add(error(
+                        "STATIC_VERIFICATION_RECORD_BAD_CAPABILITY_CONDITION",
+                        "capabilityConditions keys must come from capabilityIds",
+                        "capabilityConditions." + capabilityId,
+                        source
+                    ));
+                }
+            }
+            for (final String capabilityId : declared) {
+                if (!covered.contains(capabilityId)) {
+                    errors.add(error(
+                        "STATIC_VERIFICATION_RECORD_CAPABILITY_CONDITION_MISSING",
+                        "every capabilityId must declare its support conditions",
+                        "capabilityIds",
+                        source
+                    ));
+                }
+            }
+        }
     }
 
     private void validateArtifact(
@@ -236,7 +321,7 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
             if (!ALLOWED_KINDS.contains(kind)) {
                 errors.add(error(
                     "STATIC_VERIFICATION_RECORD_BAD_SELECTOR",
-                    "selector kind must be class, constructor, method, or field",
+                    "selector kind must be class, constructor, method, field, or inherits",
                     path + ".kind",
                     source
                 ));
@@ -256,6 +341,22 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
             if ("constructor".equals(kind) || "method".equals(kind) || "field".equals(kind)) {
                 requireSelectorText(selector, "memberName", path, errors, source);
                 requireSelectorText(selector, "descriptor", path, errors, source);
+            }
+            if ("inherits".equals(kind)) {
+                // memberName pins the direct superclass/interface internal name.
+                requireSelectorText(selector, "memberName", path, errors, source);
+                if (selector.has("memberName") && selector.get("memberName").isTextual()) {
+                    final String ancestor = selector.get("memberName").asText();
+                    if (ancestor.startsWith("/") || ancestor.endsWith("/") || ancestor.contains(".")
+                        || ancestor.contains("..") || ancestor.contains("\\")) {
+                        errors.add(error(
+                            "STATIC_VERIFICATION_RECORD_BAD_SELECTOR",
+                            "inherits memberName must be a JVM internal name",
+                            path + ".memberName",
+                            source
+                        ));
+                    }
+                }
             }
             if ("constructor".equals(kind)
                 && selector.has("memberName")

@@ -93,6 +93,105 @@ public final class StaticSelectorVerifier {
         return new StaticVerificationReport(expectedFingerprint, actual, true, results);
     }
 
+    /**
+     * Checks each selector against the class metadata in the jar without a
+     * whole-artifact fingerprint gate.
+     *
+     * <p>This is the structural-compatibility probe used for unreviewed host
+     * builds: the artifact itself is not a reviewed identity, so the report
+     * carries the measured digest alongside one result per selector. A fully
+     * green report only proves the declared class/member tuples exist with the
+     * required signatures and access flags — it is static evidence, never
+     * real-host validation.</p>
+     *
+     * @param artifact host jar to verify
+     * @param selectors selectors to check; must not be empty
+     * @return the measured artifact digest plus one result per selector
+     * @throws IOException if the artifact cannot be read or opened as a jar
+     * @throws IllegalArgumentException if {@code selectors} is empty
+     */
+    public StructureVerificationReport verifyStructure(
+        final Path artifact,
+        final List<StaticSelector> selectors
+    ) throws IOException {
+        Objects.requireNonNull(artifact, "artifact");
+        final List<StaticSelector> requested = List.copyOf(Objects.requireNonNull(selectors, "selectors"));
+        if (requested.isEmpty()) {
+            throw new IllegalArgumentException("selectors must not be empty");
+        }
+        final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
+        final Set<String> duplicateAliases = duplicateAliases(requested);
+        final Map<String, ClassMetadata> cache = new HashMap<>();
+        final List<StaticSelectorResult> results = new ArrayList<>();
+        try (JarFile jar = new JarFile(artifact.toFile(), false)) {
+            for (StaticSelector selector : requested) {
+                if (duplicateAliases.contains(selector.alias())) {
+                    results.add(result(
+                        selector,
+                        StaticVerificationStatus.DUPLICATE_ALIAS,
+                        "Selector alias is duplicated in the verification request."
+                    ));
+                    continue;
+                }
+                results.add(verifySelector(jar, selector, cache));
+            }
+        }
+        return new StructureVerificationReport(digest, results);
+    }
+
+    /**
+     * Verifies a runtime-owned selector contract and attests its owners to the same artifact.
+     *
+     * @param artifact actual host jar to inspect
+     * @param hostClassLoader defining loader for every selector owner
+     * @param selectors reviewed selector contract, without an artifact whitelist
+     * @return structural results; only a fully verified contract is attested
+     * @throws IOException if the artifact or owner resources cannot be read
+     * @throws IllegalArgumentException if runtime sources differ or the artifact changes
+     */
+    public StructureVerificationReport verifyRuntimeStructure(
+        final Path artifact,
+        final ClassLoader hostClassLoader,
+        final List<StaticSelector> selectors
+    ) throws IOException {
+        final StructureVerificationReport report = verifyStructure(artifact, selectors);
+        if (report.allVerified()) {
+            new HostClassSourceAttestor().attest(artifact, hostClassLoader,
+                report.results().stream().map(StaticSelectorResult::selector).toList());
+            if (!report.artifact().equals(HostArtifactDigest.from(artifact))) {
+                throw new IllegalArgumentException("host artifact changed during runtime attestation");
+            }
+        }
+        return report;
+    }
+
+    /**
+     * Structural-verification outcome for an artifact whose whole-file digest is
+     * deliberately not pinned: only the declared selector tuples are checked.
+     *
+     * @param artifact measured size/SHA-256 of the artifact actually examined
+     * @param results one result per requested selector, in request order
+     */
+    public record StructureVerificationReport(
+        HostArtifactDigest artifact,
+        List<StaticSelectorResult> results
+    ) {
+        public StructureVerificationReport {
+            artifact = Objects.requireNonNull(artifact, "artifact");
+            results = List.copyOf(Objects.requireNonNull(results, "results"));
+        }
+
+        /**
+         * @return whether every requested selector verified statically
+         */
+        public boolean allVerified() {
+            return !results.isEmpty()
+                && results.stream().allMatch(
+                    result -> result.status() == StaticVerificationStatus.VERIFIED_STATIC
+                );
+        }
+    }
+
     private StaticSelectorResult verifySelector(
         final JarFile jar,
         final StaticSelector selector,
@@ -115,6 +214,14 @@ public final class StaticSelectorVerifier {
             )
                 ? result(selector, StaticVerificationStatus.VERIFIED_STATIC, "Class signature is verified statically.")
                 : result(selector, StaticVerificationStatus.ACCESS_MISMATCH, "Class access flags do not match.");
+        }
+
+        if (selector.kind() == StaticSelector.Kind.INHERITS) {
+            final String ancestor = selector.memberName();
+            return ancestor.equals(metadata.superName())
+                || metadata.interfaces().contains(ancestor)
+                ? result(selector, StaticVerificationStatus.VERIFIED_STATIC, "Declared ancestor is verified statically.")
+                : result(selector, StaticVerificationStatus.SUPERTYPE_MISMATCH, "Declared superclass/interface does not match.");
         }
 
         final List<MemberMetadata> sameName = metadata.members(selector.kind(), selector.memberName());
@@ -170,14 +277,18 @@ public final class StaticSelectorVerifier {
             final ConstantPool constantPool = readConstantPool(data);
             final int classAccess = data.readUnsignedShort();
             final int thisClassIndex = data.readUnsignedShort();
-            data.readUnsignedShort();
-            skipInterfaces(data);
+            final int superClassIndex = data.readUnsignedShort();
+            final List<String> interfaces = readInterfaces(data, constantPool);
             final List<MemberMetadata> fields = readMembers(data, constantPool.utf8());
             final List<MemberMetadata> methods = readMembers(data, constantPool.utf8());
             skipAttributes(data);
             return new ClassMetadata(
                 classAccess,
                 constantPool.classInternalName(thisClassIndex),
+                superClassIndex == 0
+                    ? null
+                    : constantPool.classInternalName(superClassIndex),
+                interfaces,
                 fields,
                 methods
             );
@@ -209,9 +320,16 @@ public final class StaticSelectorVerifier {
         return new ConstantPool(utf8, classNameIndexes);
     }
 
-    private void skipInterfaces(final DataInputStream data) throws IOException {
+    private List<String> readInterfaces(
+        final DataInputStream data,
+        final ConstantPool constantPool
+    ) throws IOException {
         final int count = data.readUnsignedShort();
-        data.skipNBytes((long) count * 2);
+        final List<String> names = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            names.add(constantPool.classInternalName(data.readUnsignedShort()));
+        }
+        return List.copyOf(names);
     }
 
     private List<MemberMetadata> readMembers(final DataInputStream data, final String[] utf8) throws IOException {
@@ -282,6 +400,8 @@ public final class StaticSelectorVerifier {
     private record ClassMetadata(
         int accessFlags,
         String internalName,
+        String superName,
+        List<String> interfaces,
         List<MemberMetadata> fields,
         List<MemberMetadata> methods
     ) {

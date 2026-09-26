@@ -57,6 +57,7 @@ final class TurboismAgentGlGetErrorElisionAdmissionTest {
 
     private static HookEnvironment environment(final boolean admitted) {
         return HookEnvironment.builder()
+            .profile("5.3.03")
             .fullRuntimeAdmission(admitted)
             .build();
     }

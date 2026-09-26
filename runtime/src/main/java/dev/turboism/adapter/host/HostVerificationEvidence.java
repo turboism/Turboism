@@ -1,8 +1,12 @@
 package dev.turboism.adapter.host;
 
+import dev.turboism.mapping.verification.SliceContract;
+
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Strongly typed, local-only verification evidence for one host-session candidate.
@@ -476,16 +480,71 @@ public record HostVerificationEvidence(
         );
     }
 
-    /** Exact record, artifact, and defining classloader for one verified adapter slice. */
+    /**
+     * Exact record, artifact, and defining classloader for one verified adapter slice.
+     *
+     * <p>{@code contract} is the admission binding chosen by host compatibility
+     * resolution: empty for exact reviewed slices, present for slices admitted
+     * structurally against an unreviewed host. A changed contract is changed
+     * connection material and forces reconnection.</p>
+     */
     public record Slice(
         Path reviewedRecord,
         Path verifiedArtifact,
-        ClassLoader hostClassLoader
+        ClassLoader hostClassLoader,
+        Optional<SliceContract> contract
     ) {
         public Slice {
             reviewedRecord = Objects.requireNonNull(reviewedRecord, "reviewedRecord");
             verifiedArtifact = Objects.requireNonNull(verifiedArtifact, "verifiedArtifact");
             hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+            contract = Objects.requireNonNull(contract, "contract");
+        }
+
+        /**
+         * Exact-review convenience constructor: no compatibility contract.
+         *
+         * @param reviewedRecord reviewed record path
+         * @param verifiedArtifact artifact the record attests
+         * @param hostClassLoader defining classloader
+         */
+        public Slice(
+            final Path reviewedRecord,
+            final Path verifiedArtifact,
+            final ClassLoader hostClassLoader
+        ) {
+            this(reviewedRecord, verifiedArtifact, hostClassLoader, Optional.empty());
+        }
+
+        /**
+         * The capability ids this slice actually admitted. A carried contract
+         * answers first — compatibility admission already stripped
+         * hook-dependent ids — while contractless slices fall back to the
+         * bound record's declared capability list. An unreadable record yields
+         * an empty set, which fails API availability closed.
+         *
+         * @return immutable capability-id set for this slice's admission
+         */
+        public Set<String> capabilities() {
+            return contract
+                .map(SliceContract::capabilities)
+                .orElseGet(() -> declaredCapabilities(reviewedRecord));
+        }
+
+        private static Set<String> declaredCapabilities(final Path record) {
+            try {
+                final com.fasterxml.jackson.databind.JsonNode root =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(java.nio.file.Files.readAllBytes(record));
+                final Set<String> ids = new LinkedHashSet<>();
+                final com.fasterxml.jackson.databind.JsonNode list = root.get("capabilityIds");
+                if (list != null && list.isArray()) {
+                    list.forEach(node -> ids.add(node.asText()));
+                }
+                return Set.copyOf(ids);
+            } catch (java.io.IOException | RuntimeException failure) {
+                return Set.of();
+            }
         }
 
         @Override

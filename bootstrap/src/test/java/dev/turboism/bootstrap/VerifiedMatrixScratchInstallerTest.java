@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
@@ -32,22 +30,29 @@ class VerifiedMatrixScratchInstallerTest {
         else System.getProperties().put(GATE, previousGate);
     }
 
-    @Test void exactReviewedArtifactsNeedExplicitRequestAndPolicy() {
+    @Test void admissionNeedsRequestPolicyJvmAndABoundReviewedContract() {
         var normal = new RuntimeStartupConfig(false, false, false, false);
-        for (var digest : List.of(ReviewedHostArtifacts.CUBISM_5_2_03,
-                ReviewedHostArtifacts.CUBISM_5_3_02, ReviewedHostArtifacts.CUBISM_5_3_03)) {
-            assertTrue(VerifiedMatrixScratchInstaller.admitted(digest, normal, true, 17));
-            assertFalse(VerifiedMatrixScratchInstaller.admitted(digest, normal, false, 17));
-            assertFalse(VerifiedMatrixScratchInstaller.admitted(digest, normal, true, 16));
-            assertFalse(VerifiedMatrixScratchInstaller.admitted(digest,
-                new RuntimeStartupConfig(true, false, false, false), true, 17));
-            assertFalse(VerifiedMatrixScratchInstaller.admitted(digest,
-                new RuntimeStartupConfig(false, false, false, false, false, false, false,
-                    Set.of(VerifiedMatrixScratchInstaller.HOOK_ID)), true, 17));
-        }
-        assertFalse(VerifiedMatrixScratchInstaller.admitted(
-            new HostArtifactDigest(1, "1".repeat(64)), normal, true, 17));
-        assertFalse(VerifiedMatrixScratchInstaller.admitted(null, normal, true, 17));
+        Path missing = Path.of("missing-cubism-host.jar");
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, false, 17));
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 16));
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing,
+            new RuntimeStartupConfig(true, false, false, false), true, 17));
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing,
+            new RuntimeStartupConfig(false, false, false, false, false, false, false,
+                Set.of(VerifiedMatrixScratchInstaller.HOOK_ID)), true, 17));
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 17),
+            "an artifact without a reviewed matrix contract must not admit");
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 25),
+            "newer JVM still requires the reviewed target contract");
+    }
+
+    @Test void admitsRequestedArtifactWhoseMatrixClassesMatchAReviewedContract() {
+        String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
+        assumeTrue(supplied != null && !supplied.isBlank()
+            && Files.isRegularFile(Path.of(supplied)),
+            "no TURBOISM_UNIFORM_HOST_JAR evidence supplied");
+        assertTrue(VerifiedMatrixScratchInstaller.admitted(
+            Path.of(supplied), new RuntimeStartupConfig(false, false, false, false), true, 17));
     }
 
     @Test void startupFailureAndShutdownOwnTheMatrixInstallation() throws Exception {

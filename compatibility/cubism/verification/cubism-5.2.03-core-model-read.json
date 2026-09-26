@@ -813,5 +813,10 @@
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     }
-  ]
+  ],
+  "capabilityConditions": {
+    "cubism.geometry.read": [
+      "structure"
+    ]
+  }
 }

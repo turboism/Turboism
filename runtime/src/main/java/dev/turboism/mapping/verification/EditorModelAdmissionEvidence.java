@@ -42,7 +42,7 @@ public record EditorModelAdmissionEvidence(
      * @throws IllegalArgumentException when the resolver reports an unsupported version
      */
     public static EditorModelAdmissionEvidence forResolver(final VerifiedMemberResolver resolver) {
-        return switch (resolver.cubismVersion()) {
+        return switch (resolver.admittedCubismVersion()) {
             case EditorModelVerificationManifest.CUBISM_VERSION_5_3_02 ->
                 of(EditorModelVerificationManifest.RECORD_5_3_02);
             case EditorModelVerificationManifest.CUBISM_VERSION_5_2_03 ->

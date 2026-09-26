@@ -324,7 +324,25 @@ public final class EditorModelVerificationManifest {
         EditorGlueInspectorSelectorContract.REQUIRED_ALIASES
     );
 
-    public static final Set<String> REQUIRED_ALIASES = union(union(Set.of(
+    /**
+     * Declared type-relation selectors shared by every reviewed record: each
+     * pins a direct superclass or interface the reviewed artifacts assert.
+     * They verify structurally like any other selector, and a host whose type
+     * graph diverged here cannot satisfy the contract at all.
+     */
+    private static final Set<String> TYPE_RELATION_ALIASES = Set.of(
+        "cubism.editor-model.inherits.GroupUndo.extends.ACUndoable",
+        "cubism.editor-model.inherits.GroupUndo.implements.ICTreeAccessible",
+        "cubism.editor-model.inherits.ACUndoable.implements.ICTreeAccessible",
+        "cubism.editor-model.inherits.CUndoManager.implements.ICTreeAccessible",
+        "cubism.editor-model.inherits.CArtMesh.extends.ACDrawable",
+        "cubism.editor-model.inherits.CArtMesh.implements.ICTreeAccessible",
+        "cubism.editor-model.inherits.SimpleUndo.extends.ACUndoable",
+        "cubism.editor-model.inherits.ListUndo.extends.ACUndoable",
+        "cubism.editor-model.inherits.PropertyUndo.extends.ACUndoable"
+    );
+
+    public static final Set<String> REQUIRED_ALIASES = union(TYPE_RELATION_ALIASES, union(union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",
@@ -772,7 +790,7 @@ public final class EditorModelVerificationManifest {
                 )
             )
         )
-    );
+    ));
 
 
     /**

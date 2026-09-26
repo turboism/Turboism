@@ -12,7 +12,7 @@ import java.util.Optional;
  * Typed operations of the deformer family of the editing surface: reading the deformer tree and
  * creating or editing warp and rotation deformers.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface DeformerOps {
 
     /**

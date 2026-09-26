@@ -38,7 +38,7 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
     }
 
     @Override public final boolean admitted(final HookEnvironment environment) {
-        return environment.fullRuntimeAdmission();
+        return environment.runtimeSliceAdmitted(HOOK_SLICE);
     }
 
     @Override public final AutoCloseable install(final HookEnvironment environment) {
@@ -70,6 +70,14 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
      * @throws Exception when installation fails
      */
     abstract AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception;
+
+    /**
+     * Every native optimization contract is recovered against the host's
+     * editor-model classes; the slice gate only decides whether a hook may attempt
+     * its own target proof — {@code ReviewedHostContract} still resolves the actual
+     * target class bytes before any transformation.
+     */
+    static final String HOOK_SLICE = "editor-model";
 
     static void log(final HookEnvironment environment, final String line) {
         final var runtime = environment.runtime();

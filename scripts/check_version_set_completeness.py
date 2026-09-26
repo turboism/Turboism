@@ -31,8 +31,8 @@ CANONICAL = "ReviewedHostArtifacts.CUBISM_*_VERSION"
 REVIEWED_HOST_ARTIFACTS = Path(
     "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
 )
-RELEASE_DETECTOR = Path(
-    "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java"
+COMPATIBILITY_CATALOG = Path(
+    "scripts/verification-sources/families/compatibility-catalog.json"
 )
 AVAILABILITY_POLICY = Path(
     "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java"
@@ -105,12 +105,20 @@ def reviewed_host_artifacts(root: Path) -> tuple[set[str], list[str]]:
     return versions, problems
 
 
-def release_detector(root: Path) -> set[str]:
-    text = _read(root, RELEASE_DETECTOR)
-    match = re.search(r"pinnedBuild\(final String version\)\s*\{(.*?)\n\s*\}", text, re.DOTALL)
-    if match is None:
-        raise CompletenessError(f"{RELEASE_DETECTOR}: pinnedBuild switch not found")
-    return set(re.findall(r'case\s+"(5\.\d{1,2}\.\d{2})"', match.group(1)))
+def compatibility_catalog(root: Path) -> set[str]:
+    try:
+        document = json.loads(_read(root, COMPATIBILITY_CATALOG))
+    except json.JSONDecodeError as exc:
+        raise CompletenessError(f"{COMPATIBILITY_CATALOG}: invalid JSON: {exc}") from exc
+    records = document.get("records")
+    if not isinstance(records, list) or not records:
+        raise CompletenessError(f"{COMPATIBILITY_CATALOG}: records list not found")
+    versions = set()
+    for entry in records:
+        match = re.fullmatch(r"cubism-(5\.\d{1,2}\.\d{2})-[^.]+\.json", str(entry))
+        if match:
+            versions.add(match.group(1))
+    return versions
 
 
 def availability_policy(root: Path) -> set[str]:
@@ -196,7 +204,7 @@ def collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     problems.extend(profile_problems)
     sites = {
         CANONICAL: canonical,
-        "CubismEditorReleaseDetector.pinnedBuild": release_detector(root),
+        "compatibility-catalog.json record versions": compatibility_catalog(root),
         "CubismEditorAvailabilityPolicy.REVIEWED_VERSIONS": availability_policy(root),
         "bootstrap/build.gradle.kts record list": bootstrap_records(root),
         "host-validation-tasks.json task versions": tasks,

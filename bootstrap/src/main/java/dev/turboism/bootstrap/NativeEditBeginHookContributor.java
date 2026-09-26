@@ -23,8 +23,12 @@ final class NativeEditBeginHookContributor implements HookContributor {
         return true;
     }
 
+    @Override public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("native-edit-begin");
+    }
+
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.ordinaryReviewedRuntimeAdmitted();
+        return environment.runtimeSliceAdmitted("editor-model");
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
@@ -61,7 +65,7 @@ final class NativeEditBeginHookContributor implements HookContributor {
                 "Turboism native edit entry hook disabled safely: "
                     + failure.getClass().getName()
             );
-            return () -> { };
+            throw new IllegalStateException("Native edit entry hook installation failed", failure);
         }
     }
 }

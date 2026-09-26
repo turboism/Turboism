@@ -283,6 +283,15 @@ tasks.named<Test>("test") {
     @Suppress("UNCHECKED_CAST")
     val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
     systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
+    // Optional real-host evidence paths for gated sample tests; absent means skip.
+    listOf(
+        "turboism.test.cubismEditorJar",
+        "turboism.test.cubismCoreJar",
+        "turboism.test.cubism5302Jar",
+        "turboism.test.verificationDir"
+    ).forEach { name ->
+        providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
+    }
     filter {
         excludeTestsMatching(
             "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"

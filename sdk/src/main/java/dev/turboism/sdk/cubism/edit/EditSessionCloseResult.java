@@ -17,7 +17,7 @@ import java.util.Optional;
  * @param diagnosticId stable diagnostic id; present iff {@code outcome} is
  *     {@link EditSessionCloseOutcome#FAILED}
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditSessionCloseResult(
         EditSessionCloseOutcome outcome,
         Optional<CancelSource> cancelSource,

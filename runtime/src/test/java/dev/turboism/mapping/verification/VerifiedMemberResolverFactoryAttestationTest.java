@@ -74,6 +74,7 @@ class VerifiedMemberResolverFactoryAttestationTest {
               "verificationId":"fixture.attested",
               "adapterSliceId":"adapter.test",
               "capabilityIds":["test.capability"],
+              "capabilityConditions":{"test.capability":["structure"]},
               "cubismVersion":"5.3.02",
               "profileId":"fixture",
               "artifact":{"name":"host.jar","size":%d,"sha256":"%s"},

@@ -152,6 +152,101 @@ class StaticSelectorVerifierTest {
         ));
     }
 
+    @Test
+    void verifiesDeclaredSuperclassFromJarMetadata() throws Exception {
+        Path artifact = jarContaining(DerivedTarget.class);
+        HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
+
+        StaticVerificationReport report = new StaticSelectorVerifier().verify(
+            artifact,
+            fingerprint,
+            List.of(StaticSelector.inheritsFrom(
+                "sample.mapping.inherits-superclass",
+                "sample.inherits.superclass",
+                internalName(DerivedTarget.class),
+                internalName(SampleTarget.class)
+            ))
+        );
+
+        assertEquals(StaticVerificationStatus.VERIFIED_STATIC, report.results().get(0).status());
+    }
+
+    @Test
+    void verifiesDeclaredInterfaceFromJarMetadata() throws Exception {
+        Path artifact = jarContaining(DerivedTarget.class);
+        HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
+
+        StaticVerificationReport report = new StaticSelectorVerifier().verify(
+            artifact,
+            fingerprint,
+            List.of(StaticSelector.inheritsFrom(
+                "sample.mapping.inherits-interface",
+                "sample.inherits.interface",
+                internalName(DerivedTarget.class),
+                internalName(SampleContract.class)
+            ))
+        );
+
+        assertEquals(StaticVerificationStatus.VERIFIED_STATIC, report.results().get(0).status());
+    }
+
+    @Test
+    void rejectsWrongSuperclassFromJarMetadata() throws Exception {
+        Path artifact = jarContaining(DerivedTarget.class);
+        HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
+
+        StaticVerificationReport report = new StaticSelectorVerifier().verify(
+            artifact,
+            fingerprint,
+            List.of(StaticSelector.inheritsFrom(
+                "sample.mapping.inherits-wrong-superclass",
+                "sample.inherits.wrong-superclass",
+                internalName(DerivedTarget.class),
+                "java/lang/String"
+            ))
+        );
+
+        assertEquals(StaticVerificationStatus.SUPERTYPE_MISMATCH, report.results().get(0).status());
+    }
+
+    @Test
+    void rejectsUndeclaredInterfaceFromJarMetadata() throws Exception {
+        Path artifact = jarContaining(DerivedTarget.class);
+        HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
+
+        StaticVerificationReport report = new StaticSelectorVerifier().verify(
+            artifact,
+            fingerprint,
+            List.of(StaticSelector.inheritsFrom(
+                "sample.mapping.inherits-missing-interface",
+                "sample.inherits.missing-interface",
+                internalName(DerivedTarget.class),
+                "java/io/Closeable"
+            ))
+        );
+
+        assertEquals(StaticVerificationStatus.SUPERTYPE_MISMATCH, report.results().get(0).status());
+    }
+
+    @Test
+    void reportsMissingOwnerForInheritsSelector() throws Exception {
+        Path artifact = jarContaining(DerivedTarget.class);
+        HostArtifactFingerprint fingerprint = HostArtifactFingerprint.from("5.3.02", artifact);
+
+        StaticVerificationReport report = new StaticSelectorVerifier().verify(
+            artifact,
+            fingerprint,
+            List.of(StaticSelector.inheritsFrom(
+                "sample.mapping.inherits-missing-owner",
+                "sample.inherits.missing-owner",
+                "missing/HostClass",
+                internalName(SampleTarget.class)
+            ))
+        );
+
+        assertEquals(StaticVerificationStatus.CLASS_MISSING, report.results().get(0).status());
+    }
+
     private static Path jarContaining(final Class<?> type) throws Exception {
         Path jar = Files.createTempFile("turboism-selector-fixture", ".jar");
         String entryName = internalName(type) + ".class";
@@ -168,12 +263,27 @@ class StaticSelectorVerifierTest {
         return type.getName().replace('.', '/');
     }
 
-    static final class SampleTarget {
+    static class SampleTarget {
         SampleTarget(final String ignored) {
         }
 
         String greet(final String name) {
             return "Hello " + name;
+        }
+    }
+
+    interface SampleContract {
+        String contract();
+    }
+
+    static final class DerivedTarget extends SampleTarget implements SampleContract {
+        DerivedTarget() {
+            super("derived");
+        }
+
+        @Override
+        public String contract() {
+            return "derived";
         }
     }
 }

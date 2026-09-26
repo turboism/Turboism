@@ -1,16 +1,16 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseBridge;
 import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Owns one opt-in, exact-5.3.02 PNG archive optimization and its bytecode restoration. */
@@ -23,16 +23,20 @@ final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
     private boolean installed;
     private boolean restored;
 
-    static boolean admitted(final HostArtifactDigest digest, final RuntimeStartupConfig config,
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            ImageArchiveReuseTransformer.reviewedClassSha256(), version -> HOOK_ID);
+
+    static boolean admitted(final Path artifact, final RuntimeStartupConfig config,
                             final boolean requested) {
-        return requested && config.hookEnabled(HOOK_ID) && ReviewedHostArtifacts.CUBISM_5_3_02.equals(digest);
+        return requested && config.hookEnabled(HOOK_ID)
+            && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
     VerifiedImageArchiveReuseInstaller(final Instrumentation instrumentation, final Path artifact,
                                       final ClassLoader hostLoader) throws Exception {
-        if (!ReviewedHostArtifacts.CUBISM_5_3_02.equals(HostArtifactDigest.from(artifact))) {
-            throw new IllegalArgumentException("image archive reuse requires exact Cubism 5.3.02");
-        }
+        final var contract = ReviewedHostContract.requireBound(
+            ReviewedHostContract.resolve(artifact, CANDIDATES), "image archive reuse");
         this.instrumentation = instrumentation;
         target = Class.forName("com.live2d.graphics.CImageResource",false,hostLoader);
         final Class<?> image = Class.forName("com.live2d.graphics.CWritableImage",false,hostLoader);
@@ -43,6 +47,7 @@ final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
         }
         transformer = new ImageArchiveReuseTransformer(hostLoader,artifact);
         bridge = new ImageArchiveReuseBridge(target,image);
+        contract.requireUnchanged(artifact);
     }
 
     synchronized void install() throws Exception {

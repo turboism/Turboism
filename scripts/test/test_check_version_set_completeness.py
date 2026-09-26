@@ -30,18 +30,15 @@ public final class ReviewedHostArtifacts {
 }
 """
 
-RELEASE_DETECTOR = """
-final class CubismEditorReleaseDetector {
-    private static int pinnedBuild(final String version) {
-        return switch (version) {
-            case "5.2.03" -> 502_030_002;
-            case "5.3.02" -> 503_020_001;
-            case "5.3.03" -> 503_030_001;
-            default -> throw new IllegalArgumentException(version);
-        };
-    }
-}
-"""
+COMPATIBILITY_CATALOG = json.dumps({
+    "format": "turboism.verification-source-family/v1",
+    "family": "compatibility-catalog",
+    "records": [
+        "cubism-5.2.03-editor-model.json",
+        "cubism-5.3.02-editor-model.json",
+        "cubism-5.3.03-editor-model.json",
+    ],
+})
 
 AVAILABILITY_POLICY = """
 final class CubismEditorAvailabilityPolicy {
@@ -79,7 +76,7 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
         path.write_text(text, encoding="utf-8")
 
     put(CHECK.REVIEWED_HOST_ARTIFACTS.as_posix(), REVIEWED_HOST_ARTIFACTS)
-    put(CHECK.RELEASE_DETECTOR.as_posix(), RELEASE_DETECTOR)
+    put(CHECK.COMPATIBILITY_CATALOG.as_posix(), COMPATIBILITY_CATALOG)
     put(CHECK.AVAILABILITY_POLICY.as_posix(), AVAILABILITY_POLICY)
     put(CHECK.BOOTSTRAP_BUILD.as_posix(), BOOTSTRAP)
     put(CHECK.HOST_VALIDATION_PY.as_posix(), HOST_VALIDATION_PY)
@@ -114,15 +111,17 @@ class VersionSetCompletenessTest(unittest.TestCase):
             write_tree(root)
             self.assertEqual([], violations(root))
 
-    def test_missing_release_detector_arm_fails(self):
+    def test_missing_catalog_record_version_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / CHECK.RELEASE_DETECTOR
+            path = root / CHECK.COMPATIBILITY_CATALOG
             path.write_text(path.read_text().replace(
-                '            case "5.3.03" -> 503_030_001;\n', ""
+                '"cubism-5.3.02-editor-model.json",', ""
             ))
-            self.assertTrue(any("pinnedBuild" in v for v in violations(root)))
+            self.assertTrue(
+                any("compatibility-catalog" in v for v in violations(root))
+            )
 
     def test_dropped_availability_version_fails(self):
         with tempfile.TemporaryDirectory() as directory:

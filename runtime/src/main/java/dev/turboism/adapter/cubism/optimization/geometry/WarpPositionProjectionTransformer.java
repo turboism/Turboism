@@ -8,6 +8,7 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -30,7 +31,7 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
     private volatile String beforeSha256, failure;
     private volatile int matches;
 
-    /** Reference bytes come from the digest-pinned official artifact. */
+    /** Reference bytes come from the installer's verified target-class snapshot. */
     public WarpPositionProjectionTransformer(ClassLoader loader, Path artifact, byte[] reference) {
         this.loader = loader;
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
@@ -137,4 +138,23 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
         }
     }
     private record Handler(Label start, Label end, Label target, String type) { }
+
+    /**
+     * SHA-256 of the consumer and dependency classes this hook rewrites and verifies, keyed by internal name, per reviewed generation. A
+     * repackaged or differently-declared artifact binds this hook only when
+     * one distinct contract's pins match every class entry; identical contracts merge.
+     */
+    public static Map<String, Map<String, String>> reviewedClassSha256() {
+        return REVIEWED_CLASS_SHA256;
+    }
+
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+        Map.of(
+        "5.3.02", Map.ofEntries(
+            Map.entry("com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension", "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f"),
+            Map.entry("com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm", "174959b444c2a5c13bbd05962b98824a67a7cb1a363f583e5d6e129bea12c117"),
+            Map.entry("com/live2d/cubism/doc/model/deformer/warp/WarpPointRef", "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d"),
+            Map.entry("com/live2d/graphics3d/type/GVector2", "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"),
+            Map.entry("com/live2d/graphics3d/type/f", "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"),
+            Map.entry("com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource", "b4f6c06285ec42dc90fb17ca03fb37994ccc11b3749da5624e63160c48b1566f")));
 }

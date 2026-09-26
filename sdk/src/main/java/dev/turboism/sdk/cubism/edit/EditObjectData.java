@@ -9,7 +9,7 @@ import dev.turboism.sdk.CubismEditor;
  * ArtPath data, so requests for ArtPath objects fail closed instead of producing a partially
  * populated record.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public sealed interface EditObjectData
         permits EditArtMeshData, EditPartData, EditWarpDeformerData, EditRotationDeformerData, EditGlueData {
 

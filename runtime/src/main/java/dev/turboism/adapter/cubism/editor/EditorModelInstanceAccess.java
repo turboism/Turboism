@@ -148,8 +148,8 @@ final class EditorModelInstanceAccess {
     }
 
     private boolean supportsOnionSkin() {
-        return resolver.isExactCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_VERSION)
-            || resolver.isExactCubismVersion(
+        return resolver.isAdmittedCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_VERSION)
+            || resolver.isAdmittedCubismVersion(
                 EditorModelInstanceReadSelectorContract.CUBISM_5_3_03_VERSION
             );
     }

@@ -80,7 +80,7 @@ final class WorkspaceControlAdmission {
         final String adapterSliceId
     ) {
         return resolver != null
-            && resolver.isExactCubismVersion(cubismVersion)
+            && resolver.isAdmittedCubismVersion(cubismVersion)
             && resolver.authorizes(adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES);
     }
 

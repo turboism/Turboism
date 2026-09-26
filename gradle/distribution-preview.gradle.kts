@@ -199,8 +199,13 @@ private fun verifyPreviewBundle(root: File) {
 
 private fun verifyPreviewLaunchers(root: File) {
     val launcher = root.resolve("launch-cubism-turboism.ps1").readText()
-    if (launcher.contains("cubism-hook-agent", true) || launcher.contains("JAVA_TOOL_OPTIONS", true)) {
-        throw GradleException("Preview launcher must not reuse the legacy agent or JAVA_TOOL_OPTIONS")
+    // Reading inherited heap options preserves an explicit user setting. The
+    // preview must still pass its own options as arguments, never through an
+    // environment assignment (including an indirect .NET setter).
+    if (launcher.contains("cubism-hook-agent", true) ||
+        launcher.contains("env:JAVA_TOOL_OPTIONS", true) ||
+        launcher.contains("SetEnvironmentVariable", true)) {
+        throw GradleException("Preview launcher must not reuse the legacy agent or write JVM option environment variables")
     }
     val requiredGraalLauncherTokens = listOf(
         "[string]${'$'}CubismJava",

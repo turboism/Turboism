@@ -72,11 +72,15 @@ host adapters, and latency-sensitive work. The public SDK Javadocs define the
 script API; use Graal scripts for isolated automation and Java plugins for full
 runtime integration.
 
-Run `configure_turboism.ps1` first. It discovers only supported Cubism 5.2.03
-and 5.3.02 roots, checks the official `CubismEditor5.bat`, bundled Java
-launcher, and application JAR shape, and stores its bounded selection in the
-Turboism-owned `cubism-installations.json` state file. Manual folder selection
-is available for installations not found by bounded discovery.
+Run `configure_turboism.ps1` first. It checks the official `CubismEditor5.bat`,
+bundled Java launcher, and application JAR, then reads the declared Cubism
+release identity and compatibility verdict through the agent's static probe.
+Reviewed artifacts appear as Ready; other artifacts that pass the compatibility
+probe appear as Compatible. A declaration alone is displayed separately, and
+individual features and hooks are checked again at startup. The configurator
+stores selected roots in the Turboism-owned `cubism-installations.json` state
+file. Manual folder selection is available for installations not found by
+bounded discovery.
 
 The configurator creates one explicit Start Menu entry per selected root and a
 separate D3D entry only when that root supplies an official D3D BAT. The generic

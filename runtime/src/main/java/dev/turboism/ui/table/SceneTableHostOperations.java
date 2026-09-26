@@ -1,6 +1,5 @@
 package dev.turboism.ui.table;
 
-import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.sdk.ui.table.SceneTableService;
 
 import javax.swing.JTable;
@@ -30,7 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Exact-artifact Runtime Scene table bridge with fail-closed host member binding. */
+/** Runtime Scene table bridge with attested, fail-closed host member binding. */
 public final class SceneTableHostOperations implements RuntimeSceneTableService.Host,
     dev.turboism.ui.filter.PaletteFilterHostOperations.SceneFilterSink {
 
@@ -66,9 +65,7 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
 
     public SceneTableHostOperations() {
         this(
-            (artifact, loader) -> SceneTableHostProfile.forArtifact(
-                HostArtifactDigest.from(artifact)
-            ).map(profile -> profile.bind(loader)),
+            SceneTableHostProfile::bindArtifact,
             SceneTableHostOperations::resolvePalette,
             (delay, operation) -> {
                 final javax.swing.Timer retry = new javax.swing.Timer(delay, ignored -> operation.run());
@@ -99,7 +96,7 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
     }
 
     /**
-     * Admits and pre-binds one exact verified host artifact before Scene palette discovery starts.
+     * Verifies and pre-binds the actual host contract before Scene palette discovery starts.
      * Unsupported artifacts and artifact-read or member-binding failures never enter polling.
      */
     public State connect(final Path verifiedArtifact, final ClassLoader hostClassLoader) {

@@ -48,6 +48,19 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             return this == ERROR && ReviewedHostArtifacts.CUBISM_5_2_03.equals(editor)
                 ? "com/live2d/graphics3d/shader/y" : owner;
         }
+
+        /**
+         * Returns this role's owner for a declared reviewed version, independent of
+         * the whole-artifact digest.
+         */
+        public String ownerForVersion(String editorVersion) {
+            if (!supportedEditorVersion(editorVersion)) {
+                throw new IllegalArgumentException("unreviewed uniform lifecycle Editor");
+            }
+            return this == ERROR
+                && ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
+                ? "com/live2d/graphics3d/shader/y" : owner;
+        }
         /** Returns the fixed target method descriptors. */
         public Map<String, String> methods() { return methods; }
         /** Whether this role needs begin/finally-end program mutation accounting. */
@@ -74,7 +87,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
      * @throws IllegalArgumentException if a required body or error-query site is absent
      */
     public UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference, Role role) {
-        this(loader, artifact, reference, role, role.owner());
+        this(role, role.owner(), loader, artifact, reference);
     }
 
     /**
@@ -87,7 +100,20 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
      */
     public UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference,
                                                Role role, HostArtifactDigest editor) {
-        this(loader, artifact, reference, role, role.owner(editor));
+        this(role, role.owner(editor), loader, artifact, reference);
+    }
+
+    /**
+     * Selects the lifecycle owner from an admitted declared Editor version.
+     * @param loader the exact defining loader
+     * @param artifact the attested source archive
+     * @param reference the matching original class bytes
+     * @param role the lifecycle operation family
+     * @param editorVersion the reviewed Editor version the host's contract bound to
+     */
+    public UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference,
+                                               Role role, String editorVersion) {
+        this(role, role.ownerForVersion(editorVersion), loader, artifact, reference);
     }
 
     /** Returns whether an Editor artifact has a reviewed lifecycle mapping. */
@@ -97,8 +123,24 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             || ReviewedHostArtifacts.CUBISM_5_3_03.equals(editor);
     }
 
-    private UniformLocationLifecycleTransformer(ClassLoader loader, Path artifact, byte[] reference,
-                                                Role role, String owner) {
+    /** Returns whether a declared Editor version has a reviewed lifecycle mapping. */
+    public static boolean supportedEditorVersion(String editorVersion) {
+        return ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(editorVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(editorVersion);
+    }
+
+    /**
+     * SHA-256 of every Editor-side host class this hook rewrites or verifies, keyed
+     * by internal name, per reviewed generation. The bundled JOGL artifact keeps its
+     * own whole-artifact pin and is not part of this map.
+     */
+    public static Map<String, Map<String, String>> reviewedClassSha256() {
+        return REVIEWED_CLASS_SHA256;
+    }
+
+    private UniformLocationLifecycleTransformer(Role role, String owner, ClassLoader loader,
+                                                Path artifact, byte[] reference) {
         this.owner = owner;
         this.loader = Objects.requireNonNull(loader, "loader");
         this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
@@ -395,4 +437,22 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             super.visitLabel(done);
         }
     }
+
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+        Map.of(
+        "5.2.03", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/GShader", "172952b8b422f3b6b0610bc614672cad7259e33e5186e5128401dd40dadef7da"),
+            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "061f5ffc2b99495dc5996514838773c5d9b2eaf9cb5bc8d5fe8c934529f1c34f"),
+            Map.entry("com/live2d/graphics3d/a", "894406054708ff0f17592fa17e83e69231d5b3f946fb30aed1f01a6cef5a01cb"),
+            Map.entry("com/live2d/graphics3d/shader/y", "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc")),
+        "5.3.02", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
+            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d95e1daf66299fde63580f0588a6b256bcd67ddd1dfd412acbd7ee71a78b3ba9"),
+            Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+        "5.3.03", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
+            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d50f44d3ad15d2c4d1c7b42df3c7e5098819c9c54ddbfb6b543a1c256bd49443"),
+            Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")));
 }

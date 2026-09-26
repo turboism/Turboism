@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -27,7 +28,7 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
     private volatile String failure;
     private volatile int matches;
 
-    /** The installer supplies reference bytes from the digest-pinned official artifact. */
+    /** The installer supplies reference bytes from its verified target-class snapshot. */
     public FloatArrayParseTransformer(ClassLoader loader, Path artifact, byte[] reviewedClass) {
         expectedLoader = loader;
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
@@ -153,4 +154,18 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
     }
 
     private record Jump(int index, int opcode, Label target) { }
+
+    /**
+     * SHA-256 of the serializer class this hook rewrites, keyed by internal name, per reviewed generation. A
+     * repackaged or differently-declared artifact binds this hook only when
+     * one distinct contract's pins match every class entry; identical contracts merge.
+     */
+    public static Map<String, Map<String, String>> reviewedClassSha256() {
+        return REVIEWED_CLASS_SHA256;
+    }
+
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+        Map.of(
+        "5.3.02", Map.ofEntries(
+            Map.entry("com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")));
 }

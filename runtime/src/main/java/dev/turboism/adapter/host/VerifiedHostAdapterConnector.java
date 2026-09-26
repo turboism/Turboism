@@ -13,6 +13,8 @@ import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationMan
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
+import dev.turboism.mapping.verification.SliceContract;
+import dev.turboism.mapping.verification.SliceResolverFactory;
 import dev.turboism.mapping.verification.TopMenuVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedBoundingBoxOverlayButtonResolverFactory;
 import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
@@ -79,18 +81,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     VerifiedHostAdapterConnector() {
         this(
             new VerifiedRuntimeHostAdaptersFactory()::create,
-            slice -> new VerifiedEditorModelResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
             (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
                 resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()
             ),
-            slice -> new VerifiedMainToolbarResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
-            slice -> new VerifiedEmbeddedPanelResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
+            slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
             null,
             null,
             null,
@@ -98,9 +94,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             VerifiedHostAdapterConnector::productionAppearanceProvider,
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -108,18 +102,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     VerifiedHostAdapterConnector(final VerifiedAdapterFactory factory) {
         this(
             factory,
-            slice -> new VerifiedEditorModelResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
             (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
                 resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()
             ),
-            slice -> new VerifiedMainToolbarResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
-            slice -> new VerifiedEmbeddedPanelResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
+            slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
             null,
             null,
             null,
@@ -127,9 +115,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> unavailableAppearanceProvider(),
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -144,9 +130,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             null, null, null, null, null, null, null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> unavailableAppearanceProvider(),
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -162,9 +146,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             null, null, null, null, null, null, null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> unavailableAppearanceProvider(),
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             coreBackendFactory
         );
     }
@@ -182,9 +164,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
             null, null, editorUiPluginResources, editorUiActionRouter, null, null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(), appearanceProviderFactory,
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -202,9 +182,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             null, null, editorUiPluginResources, editorUiActionRouter, null, null,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> unavailableAppearanceProvider(),
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -223,14 +201,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             factory, editorResolverFactory, editorAccessFactory, mainToolbarResolverFactory,
             embeddedPanelResolverFactory, null, editorUiPluginResources, editorUiActionRouter,
             embeddedPanelActivation,
-            slice -> new VerifiedTopMenuResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedTopMenuResolverFactory()),
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> unavailableAppearanceProvider(),
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -252,9 +226,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             embeddedPanelActivation, topMenuResolverFactory,
             new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
             ignored -> unavailableAppearanceProvider(),
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -276,9 +248,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             embeddedPanelResolverFactory, null, editorUiPluginResources, editorUiActionRouter,
             embeddedPanelActivation, topMenuResolverFactory, dockMaintenance,
             ignored -> unavailableAppearanceProvider(),
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -302,9 +272,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             embeddedPanelResolverFactory, boundingBoxOverlayResolverFactory, editorUiPluginResources,
             editorUiActionRouter, embeddedPanelActivation, topMenuResolverFactory, dockMaintenance,
             appearanceProviderFactory,
-            slice -> new VerifiedWorkspaceControlResolverFactory().create(
-                slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()
-            ),
+            slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
             VerifiedHostAdapterConnector::coreMaterial
         );
     }
@@ -524,7 +492,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final TextureAtlasDataModelCapture capture
     ) {
         final VerifiedTextureAtlasSelectorContract.Profile profile =
-            VerifiedTextureAtlasSelectorContract.profileFor(resolver.cubismVersion()).orElse(null);
+            VerifiedTextureAtlasSelectorContract.profileFor(resolver.admittedCubismVersion()).orElse(null);
         if (profile == null) {
             return null;
         }
@@ -535,11 +503,77 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         ) ? new VerifiedTextureAtlasLayoutProvider(resolver, sessionId, capture, profile) : null;
     }
 
+    /**
+     * Dispatch seam: slices carrying an admitted {@link SliceContract} create a
+     * compatibility-bound resolver, everything else keeps the exact reviewed
+     * path unchanged.
+     */
+    private static VerifiedMemberResolver resolverForSlice(
+        final HostVerificationEvidence.Slice slice,
+        final SliceResolverFactory factory
+    ) throws java.io.IOException {
+        // Only a contract marked compatible takes the structural path; exact
+        // bindings (and exact-mode contracts) keep the reviewed-artifact check.
+        final SliceContract contract = slice.contract()
+            .filter(SliceContract::compatible)
+            .orElse(null);
+        return contract == null
+            ? factory.create(
+                slice.reviewedRecord(),
+                slice.verifiedArtifact(),
+                slice.hostClassLoader()
+            )
+            : factory.createCompatible(
+                slice.reviewedRecord(),
+                slice.verifiedArtifact(),
+                slice.hostClassLoader(),
+                contract
+            );
+    }
+
+    /**
+     * Admission evidence for a slice: exact slices keep the manifest's
+     * reviewed-artifact lookup; compatibility-bound slices report the
+     * host-declared version and the measured live artifact digest so
+     * diagnostics never portray an unreviewed binary as reviewed.
+     */
+    private static <T> T sliceAdmissionEvidence(
+        final HostVerificationEvidence.Slice slice,
+        final java.util.function.Function<HostArtifactDigest, T> exactEvidence,
+        final CompatEvidenceFactory<T> compatEvidence
+    ) throws java.io.IOException {
+        final HostArtifactDigest artifact = HostArtifactDigest.from(slice.verifiedArtifact());
+        final SliceContract contract = slice.contract()
+            .filter(SliceContract::compatible)
+            .orElse(null);
+        return contract == null
+            ? exactEvidence.apply(artifact)
+            : compatEvidence.create(contract, artifact);
+    }
+
+    @FunctionalInterface
+    private interface CompatEvidenceFactory<T> {
+        T create(SliceContract contract, HostArtifactDigest artifact);
+    }
+
     private static dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission(
         final HostVerificationEvidence.Slice slice,
         final VerifiedMemberResolver resolver
     ) {
         try {
+            final SliceContract contract = slice.contract()
+                .filter(SliceContract::compatible)
+                .orElse(null);
+            if (contract != null) {
+                final HostArtifactDigest actual = HostArtifactDigest.from(slice.verifiedArtifact());
+                return new dev.turboism.mapping.verification.EditorModelAdmissionEvidence(
+                    contract.declaredVersion(),
+                    actual.size(),
+                    actual.sha256(),
+                    contract.adapterSliceId(),
+                    contract.recordSha256()
+                );
+            }
             return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forArtifact(
                 HostArtifactDigest.from(slice.verifiedArtifact())
             );
@@ -553,14 +587,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     ) throws Exception {
         if (evidence.coreRuntime().isEmpty()) return null;
         final HostVerificationEvidence.Slice slice = evidence.coreRuntime().orElseThrow();
-        final VerifiedMemberResolver resolver = new VerifiedCorePublicApiResolverFactory().create(
-            slice.reviewedRecord(),
-            slice.verifiedArtifact(),
-            slice.hostClassLoader()
-        );
+        final VerifiedMemberResolver resolver = resolverForSlice(slice, new VerifiedCorePublicApiResolverFactory());
         final var admission = RuntimeCoreModelBackend.admit(
             resolver,
-            CoreVersionExpectation.reviewedProfile(resolver.cubismVersion())
+            CoreVersionExpectation.reviewedProfile(resolver.admittedCubismVersion())
         );
         if (!admission.isSuccess()) {
             throw new IllegalArgumentException(
@@ -596,8 +626,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final HostVerificationEvidence.Slice slice = evidence.mainToolbar().orElseThrow();
         return new ToolbarMaterial(
             mainToolbarResolverFactory.create(slice),
-            MainToolbarVerificationManifest.admissionForArtifact(
-                HostArtifactDigest.from(slice.verifiedArtifact())
+            sliceAdmissionEvidence(
+                slice,
+                MainToolbarVerificationManifest::admissionForArtifact,
+                (contract, artifact) -> new MainToolbarVerificationManifest.AdmissionEvidence(
+                    contract.declaredVersion(),
+                    artifact.size(),
+                    artifact.sha256(),
+                    contract.adapterSliceId(),
+                    contract.recordSha256()
+                )
             )
         );
     }
@@ -612,8 +650,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final HostVerificationEvidence.Slice slice = evidence.embeddedPanel().orElseThrow();
         return new PanelMaterial(
             embeddedPanelResolverFactory.create(slice),
-            EmbeddedPanelVerificationManifest.admissionForArtifact(
-                HostArtifactDigest.from(slice.verifiedArtifact())
+            sliceAdmissionEvidence(
+                slice,
+                EmbeddedPanelVerificationManifest::admissionForArtifact,
+                (contract, artifact) -> new EmbeddedPanelVerificationManifest.AdmissionEvidence(
+                    contract.declaredVersion(),
+                    artifact.size(),
+                    artifact.sha256(),
+                    contract.adapterSliceId(),
+                    contract.recordSha256()
+                )
             )
         );
     }
@@ -649,8 +695,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final HostVerificationEvidence.Slice slice = evidence.topMenu().orElseThrow();
         return new TopMenuMaterial(
             topMenuResolverFactory.create(slice),
-            TopMenuVerificationManifest.admissionForArtifact(
-                HostArtifactDigest.from(slice.verifiedArtifact())
+            sliceAdmissionEvidence(
+                slice,
+                TopMenuVerificationManifest::admissionForArtifact,
+                (contract, artifact) -> new TopMenuVerificationManifest.AdmissionEvidence(
+                    contract.declaredVersion(),
+                    artifact.size(),
+                    artifact.sha256(),
+                    contract.adapterSliceId(),
+                    contract.recordSha256()
+                )
             )
         );
     }
@@ -664,9 +718,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final HostVerificationEvidence.Slice slice = evidence.boundingBoxOverlayButton().orElseThrow();
         return new OverlayMaterial(
             boundingBoxOverlayResolverFactory.create(slice),
-            BoundingBoxOverlayButtonVerificationManifest.admissionForArtifact(
-                HostArtifactDigest.from(slice.verifiedArtifact())
-            )
+            sliceAdmissionEvidence(
+                slice,
+                BoundingBoxOverlayButtonVerificationManifest::admissionForArtifact,
+                (contract, artifact) -> new BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence(
+                    contract.declaredVersion(),
+                    artifact.size(),
+                    artifact.sha256()
+                )
+            ),
+            slice.contract()
+                .filter(SliceContract::compatible)
+                .map(SliceContract::recordSha256)
+                .orElse(null)
         );
     }
 
@@ -965,7 +1029,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         EditorUiProviderAdmission.admitted(
                             EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
                             hostGeneration,
-                            verificationEvidence(overlay.admission())
+                            verificationEvidence(overlay.admission(), overlay.contractRecordSha256())
                         ),
                         new VerifiedBoundingBoxOverlayButtonHostOperations(
                             overlay.resolver(),
@@ -1163,14 +1227,17 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     }
 
     private static EditorUiProviderAdmission.VerificationEvidence verificationEvidence(
-        final BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence evidence
+        final BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence evidence,
+        final String contractRecordSha256
     ) {
         return new EditorUiProviderAdmission.VerificationEvidence(
             evidence.cubismVersion(), evidence.artifactSize(), evidence.artifactSha256(),
             evidence.adapterSliceId(),
-            BoundingBoxOverlayButtonVerificationManifest.recordSha256ForVersion(
-                evidence.cubismVersion()
-            )
+            contractRecordSha256 != null
+                ? contractRecordSha256
+                : BoundingBoxOverlayButtonVerificationManifest.recordSha256ForVersion(
+                    evidence.cubismVersion()
+                )
         );
     }
 
@@ -1194,7 +1261,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     private record OverlayMaterial(
         VerifiedMemberResolver resolver,
-        BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence admission
+        BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence admission,
+        String contractRecordSha256
     ) {
     }
 
@@ -1283,9 +1351,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         if (!java.nio.file.Files.isRegularFile(slice.verifiedArtifact())) {
             return unavailableAppearanceProvider();
         }
-        final HostArtifactDigest artifact = HostArtifactDigest.from(slice.verifiedArtifact());
-        final String version = dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest
-            .versionForArtifact(artifact);
+        // Compatibility-bound slices resolve the provider against the admitted
+        // contract's source version; exact slices keep the artifact lookup.
+        final String version = slice.contract().isPresent()
+            ? slice.contract().orElseThrow().sourceVersion()
+            : dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest
+                .versionForArtifact(HostArtifactDigest.from(slice.verifiedArtifact()));
         return productionAppearanceProviderForVersion(
             version,
             new SwingFlatLafHostOperations(slice.hostClassLoader())

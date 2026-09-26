@@ -10,6 +10,11 @@ import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.lang.instrument.ClassFileTransformer;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -160,6 +165,181 @@ class VerifiedNativeEditBeginHookInstallerTest {
             System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY),
             "a refused install must not leave the receiver registered"
         );
+    }
+
+    @Test
+    void retransformationWithoutAnActualPatchDoesNotCountAsInstalled() {
+        final InstrumentedHost fixture = new InstrumentedHost(false, false, 0);
+        final var installer = fixture.installer();
+
+        try (installer) {
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
+            assertFalse(installer.isInstalled());
+            assertTrue(fixture.transformers.isEmpty());
+            assertFalse(System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
+        }
+    }
+
+    @Test
+    void changedTargetIsRejectedDespiteAnAdmittedSelector() {
+        final InstrumentedHost fixture = new InstrumentedHost(true, true, 0);
+        final var installer = fixture.installer();
+
+        try (installer) {
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
+            assertFalse(installer.isInstalled());
+            assertTrue(fixture.transformers.isEmpty());
+            assertFalse(System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
+        }
+    }
+
+    @Test
+    void partialTransformerRegistrationFailureIsRolledBack() {
+        final InstrumentedHost fixture = new InstrumentedHost(true, false, 2);
+        final var installer = fixture.installer();
+
+        try (installer) {
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
+            assertFalse(installer.isInstalled());
+            assertTrue(fixture.transformers.isEmpty());
+            assertFalse(System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
+        }
+    }
+
+    @Test
+    void bothInstalledEntryMethodsActuallyCallTheReceiverAndCloseRestoresThem() throws Exception {
+        final InstrumentedHost fixture = new InstrumentedHost(true, false, 0);
+        final var installer = fixture.installer();
+        final List<String> received = new ArrayList<>();
+        try {
+            installer.install(received::add);
+            assertTrue(installer.isInstalled());
+            assertEquals(Set.of(MODELING_OWNER.replace('/', '.'), INHERITED_OWNER.replace('/', '.')),
+                Set.copyOf(installer.retransformedClassNames()));
+            final ClassLoader patchedLoader = fixture.loader(fixture.applied);
+            for (final String owner : List.of(MODELING_OWNER, INHERITED_OWNER)) {
+                final Class<?> type = Class.forName(owner.replace('/', '.'), true, patchedLoader);
+                type.getMethod("beginEdit", String.class).invoke(type.getConstructor().newInstance(), owner);
+            }
+            assertEquals(List.of(MODELING_OWNER, INHERITED_OWNER), received);
+            installer.install(received::add);
+            assertEquals(2, fixture.transformers.size(), "install is idempotent");
+        } finally {
+            installer.close();
+        }
+        assertFalse(installer.isInstalled());
+        assertTrue(fixture.transformers.isEmpty());
+        assertFalse(System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
+        for (final String owner : List.of(MODELING_OWNER, INHERITED_OWNER)) {
+            org.junit.jupiter.api.Assertions.assertArrayEquals(fixture.original.get(owner), fixture.applied.get(owner));
+        }
+    }
+
+    @Test
+    void anotherInstallersReceiverIsNeverReplacedOrRemoved() {
+        final InstrumentedHost fixture = new InstrumentedHost(true, false, 0);
+        final var installer = fixture.installer();
+        final Object existing = new Object();
+        System.getProperties().put(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY, existing);
+        try {
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
+            org.junit.jupiter.api.Assertions.assertSame(existing,
+                System.getProperties().get(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
+            assertTrue(fixture.transformers.isEmpty());
+        } finally {
+            installer.close();
+            System.getProperties().remove(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY, existing);
+        }
+    }
+
+    private static final class InstrumentedHost {
+        private final Map<String, byte[]> original = new LinkedHashMap<>();
+        private final Map<String, byte[]> applied = new LinkedHashMap<>();
+        private final Map<String, Class<?>> loaded = new LinkedHashMap<>();
+        private final List<ClassFileTransformer> transformers = new ArrayList<>();
+        private final ClassLoader hostLoader;
+        private final Instrumentation instrumentation;
+        private int registrations;
+
+        private InstrumentedHost(final boolean transform, final boolean changed, final int failRegistration) {
+            original.put(MODELING_OWNER, classBytes(MODELING_OWNER, changed ? "changedEntry" : "beginEdit"));
+            original.put(INHERITED_OWNER, classBytes(INHERITED_OWNER, "beginEdit"));
+            original.put("com/live2d/undo/GroupUndo", classBytes("com/live2d/undo/GroupUndo", null));
+            applied.putAll(original);
+            hostLoader = loader(original);
+            instrumentation = (Instrumentation) java.lang.reflect.Proxy.newProxyInstance(
+                LOADER, new Class<?>[]{Instrumentation.class}, (proxy, method, args) -> switch (method.getName()) {
+                    case "isRetransformClassesSupported", "isModifiableClass" -> true;
+                    case "getAllLoadedClasses" -> loaded.values().toArray(Class<?>[]::new);
+                    case "addTransformer" -> {
+                        if (++registrations == failRegistration) {
+                            throw new IllegalStateException("registration failed");
+                        }
+                        transformers.add((ClassFileTransformer) args[0]);
+                        yield null;
+                    }
+                    case "removeTransformer" -> transformers.remove(args[0]);
+                    case "retransformClasses" -> {
+                        for (final Class<?> type : (Class<?>[]) args[0]) {
+                            final String name = type.getName().replace('.', '/');
+                            byte[] bytes = original.get(name);
+                            if (transform) {
+                                for (final ClassFileTransformer transformer : List.copyOf(transformers)) {
+                                    final byte[] patched = transformer.transform(
+                                        type.getModule(), hostLoader, name, type, null, bytes);
+                                    if (patched != null) bytes = patched;
+                                }
+                            }
+                            applied.put(name, bytes);
+                        }
+                        yield null;
+                    }
+                    case "toString" -> "InstrumentedHost";
+                    default -> null;
+                });
+        }
+
+        private ClassLoader loader(final Map<String, byte[]> definitions) {
+            return new ClassLoader(LOADER) {
+                @Override protected Class<?> findClass(final String name) throws ClassNotFoundException {
+                    final byte[] bytes = definitions.get(name.replace('.', '/'));
+                    if (bytes == null) throw new ClassNotFoundException(name);
+                    final Class<?> type = defineClass(name, bytes, 0, bytes.length);
+                    loaded.put(name, type);
+                    return type;
+                }
+            };
+        }
+
+        private VerifiedNativeEditBeginHookInstaller installer() {
+            return VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                TestVerifiedResolvers.create("5.3.02", EditorHistoryIngressSelectorContract.ADAPTER_SLICE_ID,
+                    Set.of(EditorHistoryIngressSelectorContract.CAPABILITY_ID), bothEntries(), hostLoader),
+                hostLoader);
+        }
+
+        private static byte[] classBytes(final String owner, final String method) {
+            final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+            writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
+            final var constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+            constructor.visitCode();
+            constructor.visitVarInsn(Opcodes.ALOAD, 0);
+            constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            constructor.visitInsn(Opcodes.RETURN);
+            constructor.visitMaxs(0, 0);
+            constructor.visitEnd();
+            if (method != null) {
+                final var entry = writer.visitMethod(Opcodes.ACC_PUBLIC, method, DESCRIPTOR, null, null);
+                entry.visitCode();
+                entry.visitInsn(Opcodes.ACONST_NULL);
+                entry.visitInsn(Opcodes.ARETURN);
+                entry.visitMaxs(0, 0);
+                entry.visitEnd();
+            }
+            writer.visitEnd();
+            return writer.toByteArray();
+        }
     }
 
     @Test

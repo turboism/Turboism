@@ -1,7 +1,6 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBridge;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 
 /** Contributor for the verified float-array parse cache optimization. */
 final class FloatArrayParseCacheHookContributor extends NativeOptimizationHookContributor {
@@ -16,7 +15,7 @@ final class FloatArrayParseCacheHookContributor extends NativeOptimizationHookCo
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedFloatArrayParseCacheInstaller.admitted(
-            HostArtifactDigest.from(host.artifact()),
+            host.artifact(),
             NativeOptimizationPolicy.load(environment.options().home()),
             true
         )) {

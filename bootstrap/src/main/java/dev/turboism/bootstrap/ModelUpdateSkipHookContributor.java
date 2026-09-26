@@ -1,7 +1,6 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 
 /** Contributor for the verified unchanged-frame model update skip optimization. */
 final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContributor {
@@ -17,7 +16,7 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedModelUpdateSkipInstaller.admitted(
-            HostArtifactDigest.from(host.artifact()),
+            host.artifact(),
             NativeOptimizationPolicy.load(environment.options().home()),
             true,
             Runtime.version().feature()

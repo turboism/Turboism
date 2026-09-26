@@ -108,9 +108,9 @@ public final class NativeEditToggleInjector {
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(state, "state");
-        if (!verified.isExactCubismVersion("5.2.03")
-            && !verified.isExactCubismVersion("5.3.02")
-            && !verified.isExactCubismVersion("5.3.03")) {
+        if (!verified.isAdmittedCubismVersion("5.2.03")
+            && !verified.isAdmittedCubismVersion("5.3.02")
+            && !verified.isAdmittedCubismVersion("5.3.03")) {
             return Optional.empty();
         }
         if (!verified.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, REQUIRED_ALIASES)) {

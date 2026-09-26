@@ -923,5 +923,10 @@
       "forbiddenAccessFlags": 0,
       "status": "VERIFIED_STATIC"
     }
-  ]
+  ],
+  "capabilityConditions": {
+    "cubism.editor-ui.top-menu": [
+      "hook:editor-ui"
+    ]
+  }
 }

@@ -1,11 +1,11 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTarget;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -39,18 +39,23 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
     private final IncrementalUpdateBridge bridge;
     private boolean installed, restored;
 
-    static boolean admitted(final HostArtifactDigest digest, final RuntimeStartupConfig config,
+    private static final List<ReviewedHostContract.Candidate<IncrementalUpdateTarget>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            IncrementalUpdateTarget.reviewedClassSha256(),
+            version -> IncrementalUpdateTarget.forReviewedVersion(version).orElse(null));
+
+    static boolean admitted(final Path artifact, final RuntimeStartupConfig config,
                             final boolean requested, final int jvm) {
         return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && IncrementalUpdateTarget.of(digest).isPresent();
+            && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
     VerifiedIncrementalUpdateInstaller(final Instrumentation instrumentation,
                                        final Path artifact, final ClassLoader loader)
             throws Exception {
-        target = IncrementalUpdateTarget.of(HostArtifactDigest.from(artifact))
-            .orElseThrow(() -> new IllegalArgumentException(
-                "incremental update unsupported host artifact"));
+        final var contract = ReviewedHostContract.requireBound(
+            ReviewedHostContract.resolve(artifact, CANDIDATES), "incremental update");
+        target = contract.contract();
         if (Runtime.version().feature() < 17) {
             throw new IllegalArgumentException("incremental update requires JVM17+");
         }
@@ -79,6 +84,7 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
             }
         }
         bridge = new IncrementalUpdateBridge(target, loader);
+        contract.requireUnchanged(artifact);
     }
 
     private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact)

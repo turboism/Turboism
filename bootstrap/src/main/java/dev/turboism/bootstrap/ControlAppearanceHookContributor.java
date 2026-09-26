@@ -14,18 +14,16 @@ final class ControlAppearanceHookContributor implements HookContributor {
     }
 
     @Override public boolean admitted(final HookEnvironment environment) {
-        return environment.fullRuntimeAdmission();
+        return environment.hookRuntimeAdmitted();
     }
 
     @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
-        final var resolver = new VerifiedControlAppearanceResolverFactory().create(
-            environment.verificationRecord(
-                "cubism-" + environment.profile() + "-ui-control-appearance.json"
-            ),
-            host.artifact(),
-            host.classLoader()
+        final var resolver = environment.sliceResolver(
+            new VerifiedControlAppearanceResolverFactory(),
+            "cubism-" + environment.profile() + "-ui-control-appearance.json",
+            "ui-control-appearance"
         );
         final long generation =
             runtime.hostAccess().paletteAppearanceCoordinator().hostGeneration();

@@ -34,15 +34,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
 
-    private static final long CUBISM_5203_SIZE = ReviewedHostArtifacts.CUBISM_5_2_03.size();
-    private static final String CUBISM_5203_SHA256 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
-
-    private static final long CUBISM_5302_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
-    private static final String CUBISM_5302_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
-
-    private static final long CUBISM_5303_SIZE = ReviewedHostArtifacts.CUBISM_5_3_03.size();
-    private static final String CUBISM_5303_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_03.sha256();
-
     /**
      * How long the deferred loaded-target retransform waits for the host
      * FlatLaf look-and-feel before it runs anyway: the startup race window
@@ -69,12 +60,72 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         final Path hostArtifact,
         final ClassLoader hostClassLoader
     ) throws Exception {
+        this(instrumentation, hostArtifact, hostClassLoader, java.util.Optional.empty());
+    }
+
+    /**
+     * Same admission as {@link #PerformanceFpsHookInstaller(Instrumentation, Path, ClassLoader)}
+     * plus a compatibility fallback: when the artifact digest is not a reviewed
+     * build but the host bound its declared reviewed generation, targets are
+     * keyed by that generation's reviewed bytecode contract.
+     *
+     * @param admittedGeneration the generation the resolution bound to the
+     *     declared version, empty unless the host is declared-generation-bound
+     */
+    PerformanceFpsHookInstaller(
+        final Instrumentation instrumentation,
+        final Path hostArtifact,
+        final ClassLoader hostClassLoader,
+        final java.util.Optional<String> admittedGeneration
+    ) throws Exception {
         this(
             instrumentation,
             hostArtifact,
             hostClassLoader,
-            fpsTargetsFor(HostArtifactDigest.from(hostArtifact)),
+            fpsTargets(HostArtifactDigest.from(hostArtifact), admittedGeneration),
             LAF_READY_TIMEOUT_MILLIS
+        );
+    }
+
+    private static List<PerformanceProbeMethodTransformer.Target> fpsTargets(
+        final HostArtifactDigest digest,
+        final java.util.Optional<String> admittedGeneration
+    ) {
+        final java.util.Optional<String> reviewedVersion =
+            ReviewedHostArtifacts.cubismVersionOf(digest);
+        if (reviewedVersion.isPresent()) {
+            return fpsTargetsForVersion(reviewedVersion.orElseThrow());
+        }
+        if (admittedGeneration.isPresent()) {
+            return fpsTargetsForVersion(admittedGeneration.orElseThrow());
+        }
+        throw new IllegalArgumentException(
+            "unsupported Cubism artifact for FPS counting"
+                + " (expected Cubism 5.2.03, 5.3.02, or 5.3.03; got size=" + digest.size()
+                + " sha256=" + digest.sha256() + ")"
+        );
+    }
+
+    /**
+     * FPS counting targets keyed by the declared reviewed generation rather
+     * than the artifact digest. Only reachable for declared-generation-bound
+     * compatibility hosts, whose declared identity already pinned a reviewed
+     * runtime version.
+     */
+    static List<PerformanceProbeMethodTransformer.Target> fpsTargetsForVersion(
+        final String cubismVersion
+    ) {
+        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
+            return PerformanceProbeTargets.cubism5203();
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
+            return renderSceneTargets(PerformanceProbeTargets.cubism5302());
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
+            return renderSceneTargets(PerformanceProbeTargets.cubism5303());
+        }
+        throw new IllegalArgumentException(
+            "unsupported Cubism version for FPS counting: " + cubismVersion
         );
     }
 
@@ -100,28 +151,14 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     }
 
     /**
-     * FPS counting targets for one reviewed host artifact. Each exact version
-     * routes through its own target list; the 5.2.03 entry is verified against
-     * the exact 5.2.03 bytecode and is never inferred from 5.3.02. Unreviewed
+     * FPS counting targets for one reviewed host artifact, keyed by the reviewed
+     * version the digest belongs to rather than the digest itself. Unreviewed
      * artifacts fail closed.
      */
     static List<PerformanceProbeMethodTransformer.Target> fpsTargetsFor(
         final HostArtifactDigest digest
     ) {
-        if (digest.size() == CUBISM_5203_SIZE && CUBISM_5203_SHA256.equals(digest.sha256())) {
-            return PerformanceProbeTargets.cubism5203();
-        }
-        if (digest.size() == CUBISM_5302_SIZE && CUBISM_5302_SHA256.equals(digest.sha256())) {
-            return renderSceneTargets(PerformanceProbeTargets.cubism5302());
-        }
-        if (digest.size() == CUBISM_5303_SIZE && CUBISM_5303_SHA256.equals(digest.sha256())) {
-            return renderSceneTargets(PerformanceProbeTargets.cubism5303());
-        }
-        throw new IllegalArgumentException(
-            "unsupported Cubism artifact for FPS counting"
-                + " (expected Cubism 5.2.03, 5.3.02, or 5.3.03; got size=" + digest.size()
-                + " sha256=" + digest.sha256() + ")"
-        );
+        return fpsTargets(digest, java.util.Optional.empty());
     }
 
     private static List<PerformanceProbeMethodTransformer.Target> renderSceneTargets(

@@ -12,7 +12,7 @@ import java.util.Optional;
  * @param customColor the custom hex color; required iff {@code type} is
  *     {@link EditLabelColorType#CUSTOM}, absent otherwise
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditLabelColor(EditLabelColorType type, Optional<String> customColor) {
 
     public EditLabelColor {

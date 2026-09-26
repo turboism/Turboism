@@ -130,6 +130,72 @@ class PinnedVerifiedResolverWorkflowTest {
         }
     }
 
+    @Test
+    void compatibleResolverDoesNotRestoreDroppedCapabilities() throws Exception {
+        final Fixture fixture = fixture("compatible");
+        final SliceContract contract = new SliceContract(
+            "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
+            "9.8.8", 908080001, HostArtifactDigest.from(fixture.artifact()),
+            true, Set.of(), java.util.Map.of(CAPABILITY, "hook:native-edit-begin")
+        );
+        try (URLClassLoader loader = fixture.loader()) {
+            final VerifiedMemberResolver resolver = workflow.createCompatible(
+                fixture.record(), fixture.artifact(), loader, contract
+            );
+            assertEquals("9.8.8", resolver.cubismVersion());
+            assertEquals(VERSION, resolver.admittedCubismVersion());
+            assertFalse(resolver.authorizesFeature(SLICE, CAPABILITY, fixture.aliases()),
+                "runtime construction must preserve the compatibility capability decision");
+        }
+    }
+
+    @Test
+    void compatibleResolverRetainsAdmittedCapabilityAndActualHostVersion() throws Exception {
+        final Fixture fixture = fixture("compatible");
+        final SliceContract contract = new SliceContract(
+            "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
+            "9.8.8", 908080001, HostArtifactDigest.from(fixture.artifact()),
+            true, Set.of(CAPABILITY), java.util.Map.of()
+        );
+        try (URLClassLoader loader = fixture.loader()) {
+            final VerifiedMemberResolver resolver = workflow.createCompatible(
+                fixture.record(), fixture.artifact(), loader, contract
+            );
+            assertTrue(resolver.authorizesFeature(SLICE, CAPABILITY, fixture.aliases()));
+            assertEquals("compatible", resolver.invoke(INSTANCE_ALIAS, resolver.invokeStatic(STATIC_ALIAS)));
+            assertEquals("9.8.8", resolver.cubismVersion());
+        }
+    }
+
+    @Test
+    void repackNeedsFreshProbeEvidenceBeforeRuntimeBinding() throws Exception {
+        final Fixture fixture = fixture("compatible");
+        final HostArtifactDigest original = HostArtifactDigest.from(fixture.artifact());
+        final SliceContract prior = new SliceContract(
+            "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
+            "9.8.8", 908080001, original, true, Set.of(CAPABILITY), java.util.Map.of()
+        );
+        // ZIP readers accept a trailing comment byte. The class surface stays
+        // unchanged, but the earlier probe no longer describes this archive.
+        Files.write(fixture.artifact(), new byte[] {0}, StandardOpenOption.APPEND);
+        try (URLClassLoader loader = fixture.loader()) {
+            final var failure = assertThrows(IllegalArgumentException.class, () -> workflow.createCompatible(
+                fixture.record(), fixture.artifact(), loader, prior
+            ));
+            assertEquals("host artifact changed since compatibility probing", failure.getMessage());
+
+            final SliceContract refreshed = new SliceContract(
+                "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
+                "9.8.8", 908080001, HostArtifactDigest.from(fixture.artifact()),
+                true, Set.of(CAPABILITY), java.util.Map.of()
+            );
+            final VerifiedMemberResolver resolver = workflow.createCompatible(
+                fixture.record(), fixture.artifact(), loader, refreshed
+            );
+            assertEquals("compatible", resolver.invoke(INSTANCE_ALIAS, resolver.invokeStatic(STATIC_ALIAS)));
+        }
+    }
+
     private Fixture fixture(final String value) throws Exception {
         Path root = Files.createDirectory(tempDir.resolve("fixture-" + value));
         Path sources = Files.createDirectories(root.resolve("src/synthetic/host"));
@@ -171,6 +237,7 @@ class PinnedVerifiedResolverWorkflowTest {
         root.put("verificationId", "synthetic.static");
         root.put("adapterSliceId", SLICE);
         root.putArray("capabilityIds").add(CAPABILITY);
+        root.putObject("capabilityConditions").putArray(CAPABILITY).add("structure");
         root.put("cubismVersion", VERSION);
         root.put("profileId", PROFILE);
         ObjectNode artifact = root.putObject("artifact");

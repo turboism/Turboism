@@ -35,5 +35,10 @@
     {"mappingId":"cubism.mapping.v5_3_02.m15.clipmask.class.drawable_guid","alias":"cubism.clipmask.drawable-guid.class","kind":"class","ownerInternalName":"com/live2d/type/CDrawableGuid","memberName":null,"descriptor":null,"requiredAccessFlags":1,"forbiddenAccessFlags":0,"status":"VERIFIED_STATIC"},
     {"mappingId":"cubism.mapping.v5_3_02.m15.clipmask.class.guid","alias":"cubism.clipmask.guid.class","kind":"class","ownerInternalName":"com/live2d/type/Guid","memberName":null,"descriptor":null,"requiredAccessFlags":1,"forbiddenAccessFlags":0,"status":"VERIFIED_STATIC"},
     {"mappingId":"cubism.mapping.v5_3_02.m15.clipmask.method.guid_string","alias":"cubism.clipmask.guid.value","kind":"method","ownerInternalName":"com/live2d/type/Guid","memberName":"getUuidString","descriptor":"()Ljava/lang/String;","requiredAccessFlags":1,"forbiddenAccessFlags":8,"status":"VERIFIED_STATIC"}
-  ]
+  ],
+  "capabilityConditions": {
+    "cubism.clipmask.read": [
+      "structure"
+    ]
+  }
 }

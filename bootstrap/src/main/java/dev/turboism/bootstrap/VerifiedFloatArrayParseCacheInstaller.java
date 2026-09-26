@@ -1,16 +1,16 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBridge;
 import dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
@@ -24,14 +24,18 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
     private boolean installed;
     private boolean restored;
 
-    static boolean admitted(HostArtifactDigest digest, RuntimeStartupConfig config, boolean requested) {
-        return requested && config.hookEnabled(HOOK_ID) && ReviewedHostArtifacts.CUBISM_5_3_02.equals(digest);
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
+        ReviewedHostContract.candidates(
+            FloatArrayParseTransformer.reviewedClassSha256(), version -> HOOK_ID);
+
+    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested) {
+        return requested && config.hookEnabled(HOOK_ID)
+            && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
     VerifiedFloatArrayParseCacheInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
-        if (!ReviewedHostArtifacts.CUBISM_5_3_02.equals(HostArtifactDigest.from(artifact))) {
-            throw new IllegalArgumentException("float array reuse requires exact Cubism 5.3.02");
-        }
+        final var contract = ReviewedHostContract.requireBound(
+            ReviewedHostContract.resolve(artifact, CANDIDATES), "float array reuse");
         this.instrumentation = instrumentation;
         target = Class.forName(FloatArrayParseTransformer.TARGET.replace('/', '.'), false, loader);
         if (target.getClassLoader() != loader || !artifact.toAbsolutePath().normalize().equals(
@@ -42,6 +46,7 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
              var input = jar.getInputStream(jar.getJarEntry(FloatArrayParseTransformer.TARGET + ".class"))) {
             transformer = new FloatArrayParseTransformer(loader, artifact, input.readAllBytes());
         }
+        contract.requireUnchanged(artifact);
     }
 
     synchronized void install() throws Exception {

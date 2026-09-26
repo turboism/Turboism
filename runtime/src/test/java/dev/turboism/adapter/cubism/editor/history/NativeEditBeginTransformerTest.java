@@ -112,6 +112,42 @@ class NativeEditBeginTransformerTest {
         );
     }
 
+    @Test
+    void alreadyInstrumentedBytesAreNotInstrumentedAgain() {
+        final NativeEditBeginTransformer transformer = transformer(DESCRIPTOR);
+        final byte[] patched = transformer.transform(null, null, OWNER, null, null, fixtureClass(DESCRIPTOR));
+
+        assertNotNull(patched);
+        assertNull(transformer.transform(null, null, OWNER, null, null, patched));
+        assertEquals(1, transformer.successfulTransformationCount());
+    }
+
+    @Test
+    void abstractNativeAndStaticEntriesCannotProduceInstallationEvidence() {
+        for (final int flags : new int[]{Opcodes.ACC_ABSTRACT, Opcodes.ACC_NATIVE, Opcodes.ACC_STATIC}) {
+            final ClassWriter writer = new ClassWriter(0);
+            new org.objectweb.asm.ClassReader(fixtureClass(DESCRIPTOR)).accept(
+                new org.objectweb.asm.ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override public MethodVisitor visitMethod(
+                        final int access, final String name, final String descriptor,
+                        final String signature, final String[] exceptions
+                    ) {
+                        final MethodVisitor visitor = super.visitMethod(
+                            NAME.equals(name) ? access | flags : access, name, descriptor, signature, exceptions);
+                        if (NAME.equals(name) && flags != Opcodes.ACC_STATIC) {
+                            visitor.visitEnd();
+                            return null;
+                        }
+                        return visitor;
+                    }
+                }, 0);
+            final NativeEditBeginTransformer transformer = transformer(DESCRIPTOR);
+
+            assertNull(transformer.transform(null, null, OWNER, null, null, writer.toByteArray()));
+            assertEquals(0, transformer.successfulTransformationCount());
+        }
+    }
+
     private static NativeEditBeginTransformer transformer(final String descriptor) {
         return new NativeEditBeginTransformer(OWNER, NAME, descriptor, null, KEY);
     }

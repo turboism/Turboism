@@ -11,11 +11,54 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class WarpAltMirrorNativeMethodTransformerTest {
+
+    @Test
+    void actualClassBytesMustMatchTheBoundContractEvenWithTheCorrectCodeSource() throws Exception {
+        final var profile = WarpAltMirrorHostProfile.reviewed5302And5303();
+        final var artifact = java.nio.file.Path.of("/tmp/warp-bound-contract.jar");
+        final var loader = getClass().getClassLoader();
+        final var domain = new java.security.ProtectionDomain(
+            new java.security.CodeSource(artifact.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
+        final byte[] original = fixture(profile, profile.pointMoveOwner());
+        final String pin = java.util.HexFormat.of().formatHex(
+            java.security.MessageDigest.getInstance("SHA-256").digest(original));
+        final var transformer = new WarpAltMirrorNativeMethodTransformer(profile, loader, artifact,
+            java.util.Map.of(profile.pointMoveOwner(), pin), ignored -> { });
+        final byte[] changed = original.clone();
+        changed[changed.length - 1] ^= 1;
+
+        assertNull(transformer.transform(null, loader, profile.pointMoveOwner(), null, domain, changed));
+        assertEquals(WarpAltMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, transformer.outcome());
+        assertNull(transformer.admittedClassLoader());
+        assertTrue(transformer.transformedOwners().isEmpty());
+        assertNotNull(transformer.transform(null, loader, profile.pointMoveOwner(), null, domain, original));
+
+        final var missingProof = new WarpAltMirrorNativeMethodTransformer(profile, loader, artifact, ignored -> { });
+        assertNull(missingProof.transform(null, loader, profile.pointMoveOwner(), null, domain, original));
+        assertEquals(WarpAltMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, missingProof.outcome());
+    }
+
+    @Test
+    void deactivationRetainsRestorationInventoryButPreventsNewPatches() {
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
+        final WarpAltMirrorNativeMethodTransformer transformer =
+            new WarpAltMirrorNativeMethodTransformer(profile, getClass().getClassLoader());
+        assertNotNull(transformer.transform(null, getClass().getClassLoader(),
+            profile.pointMoveOwner(), null, null, fixture(profile, profile.pointMoveOwner())));
+
+        transformer.deactivate();
+
+        assertNull(transformer.transform(null, getClass().getClassLoader(),
+            profile.dragTickOwner(), null, null, fixture(profile, profile.dragTickOwner())));
+        assertEquals(java.util.Set.of(profile.pointMoveOwner()), transformer.transformedOwners());
+        assertFalse(transformer.targetTransformed());
+    }
 
     @Test
     void transformsOnlyTheExactReviewedDragMoveMethod() {
@@ -135,6 +178,56 @@ final class WarpAltMirrorNativeMethodTransformerTest {
         ));
         assertEquals(
             WarpAltMirrorNativeMethodTransformer.Outcome.ARTIFACT_MISMATCH, transformer.outcome());
+    }
+
+    @Test
+    void stripLayoutCallbackPrecedesEveryNormalReturn() {
+        final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, profile.stripOwner(), null, "java/lang/Object", null);
+        final MethodVisitor layout = writer.visitMethod(Opcodes.ACC_PUBLIC,
+            profile.stripLayoutMethod(), profile.stripLayoutDescriptor(), null, null);
+        layout.visitCode();
+        final org.objectweb.asm.Label secondExit = new org.objectweb.asm.Label();
+        layout.visitVarInsn(Opcodes.ALOAD, 1);
+        layout.visitJumpInsn(Opcodes.IFNULL, secondExit);
+        layout.visitInsn(Opcodes.RETURN);
+        layout.visitLabel(secondExit);
+        layout.visitInsn(Opcodes.RETURN);
+        layout.visitMaxs(0, 0);
+        layout.visitEnd();
+        writer.visitEnd();
+
+        final var transformer = new WarpAltMirrorNativeMethodTransformer(profile, null);
+        final byte[] transformed = transformer.transform(null, null, profile.stripOwner(),
+            null, null, writer.toByteArray());
+        assertNotNull(transformed);
+        final List<String> exits = new ArrayList<>();
+        new ClassReader(transformed).accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(final int access, final String name, final String descriptor,
+                final String signature, final String[] exceptions) {
+                if (!name.equals(profile.stripLayoutMethod())
+                    || !descriptor.equals(profile.stripLayoutDescriptor())) return null;
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitMethodInsn(final int opcode, final String owner, final String calledName,
+                        final String calledDescriptor, final boolean isInterface) {
+                        if (opcode == Opcodes.INVOKESTATIC
+                            && owner.equals("dev/turboism/adapter/cubism/warpalt/NativeWarpAltMirrorBridge")
+                            && calledName.equals("positionStripButton")
+                            && calledDescriptor.equals("(Ljava/lang/Object;)V")) exits.add("position");
+                    }
+
+                    @Override
+                    public void visitInsn(final int opcode) {
+                        if (opcode == Opcodes.RETURN) exits.add("return");
+                    }
+                };
+            }
+        }, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
+        assertEquals(List.of("position", "return", "position", "return"), exits,
+            "a callback emitted after RETURN is unreachable and cannot support the feature");
     }
 
     @Test
