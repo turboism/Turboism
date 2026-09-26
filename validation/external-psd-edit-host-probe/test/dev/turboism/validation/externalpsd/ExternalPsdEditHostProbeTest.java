@@ -78,7 +78,7 @@ import dev.turboism.sdk.plugin.Registration;
 
 /** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
-    private static void windowsHandleTableIsBoundedAndProcessScoped() {
+    private static void windowsHandleTableIsBoundedAndProcessScoped() throws Exception {
         final java.nio.ByteBuffer table = java.nio.ByteBuffer.allocate(96)
             .order(java.nio.ByteOrder.LITTLE_ENDIAN);
         table.putLong(0, 2);
@@ -108,6 +108,37 @@ public final class ExternalPsdEditHostProbeTest {
                 "C:/task/external-edit.psd")
             || WindowsPsdHandleObservation.sameWindowsPath("C:/task/external-edit.psd.tmp",
                 "C:/task/external-edit.psd")) throw new AssertionError("inexact target match");
+        final Properties diagnostic = new Properties();
+        WindowsPsdHandleObservation.recordQueryFailure(diagnostic, "handles.", "fileType", 6);
+        WindowsPsdHandleObservation.recordQueryFailure(diagnostic, "handles.", "path", 6);
+        WindowsPsdHandleObservation.recordQueryFailure(diagnostic, "handles.", "path", 6);
+        WindowsPsdHandleObservation.recordQueryFailure(diagnostic, "handles.", "path", -1);
+        if (!"1".equals(diagnostic.getProperty("handles.fileType.lastError.6"))
+            || !"2".equals(diagnostic.getProperty("handles.path.lastError.6"))
+            || !"1".equals(diagnostic.getProperty("handles.path.lastError.4294967295")))
+            throw new AssertionError("query stages or unsigned error codes conflated");
+        final Path attributeFile = Files.createTempFile("handle-attributes-test-", ".psd");
+        try {
+            Files.write(attributeFile, new byte[] {1, 2, 3});
+            WindowsPsdHandleObservation.recordAttributes(diagnostic, "attributes.", attributeFile);
+            if (Files.getFileStore(attributeFile).supportsFileAttributeView("dos")) {
+                if (!"OBSERVED".equals(diagnostic.getProperty("attributes.status"))
+                    || !"true".equals(diagnostic.getProperty("attributes.regularFile"))
+                    || !"3".equals(diagnostic.getProperty("attributes.size")))
+                    throw new AssertionError("existing DOS attributes not observed");
+            } else if (!"UNAVAILABLE".equals(diagnostic.getProperty("attributes.status"))) {
+                throw new AssertionError("unsupported DOS view reported as observed");
+            }
+            if (!java.util.Arrays.equals(Files.readAllBytes(attributeFile), new byte[] {1, 2, 3}))
+                throw new AssertionError("attribute observation modified file");
+            WindowsPsdHandleObservation.recordAttributes(diagnostic, "missing.",
+                attributeFile.resolveSibling(attributeFile.getFileName() + ".missing"));
+            if (!"UNAVAILABLE".equals(diagnostic.getProperty("missing.status"))
+                || diagnostic.containsKey("missing.readOnly"))
+                throw new AssertionError("missing file attributes fabricated");
+        } finally {
+            Files.deleteIfExists(attributeFile);
+        }
     }
 
     public static void main(final String[] args) throws Exception {
