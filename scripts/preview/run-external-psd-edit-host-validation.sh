@@ -9,6 +9,8 @@
 #   EXTERNAL_PSD_STRUCTURE_VARIANT add | delete | merge | canvas (structural phases only)
 #   EXTERNAL_PSD_STRUCTURE_SOURCE  fixed official-writer PSD staged under task home
 #   EXTERNAL_PSD_SECOND_DOCUMENT  reviewed original CMO for prepare-second-document
+#   EXTERNAL_PSD_F2_ACCEPTANCE=1  prepare-second-document only: run the F2 SDK replace
+#                                 + stale-write-rejection acceptance slice in the second document
 #   EXTERNAL_PSD_WITH_PLUGIN    path to the production external-psd-edit jar (gui phase)
 #   EXTERNAL_PSD_FIXTURE_LOCAL  reopen stage: use this saved copy instead of the source
 #   EXTERNAL_PSD_POSTEDITSHA256 / EXTERNAL_PSD_POSTEDITIMAGESHA256 /
@@ -53,6 +55,9 @@ case "$phase" in
       echo 'second-document controls differ from reviewed CMO assets' >&2; exit 2;
     }
     structural_input=(--home-file "$EXTERNAL_PSD_SECOND_DOCUMENT:second-document/prepared-control.cmo3")
+    if [ "${EXTERNAL_PSD_F2_ACCEPTANCE:-0}" == "1" ]; then
+      options+=("--jvm-option" "-Dturboism.validation.externalpsd.f2Acceptance=true")
+    fi
     # The startup home dialog remains visible indefinitely. Use the existing
     # exact-host startup hook in this task's isolated home; keep dialog gates intact.
     options+=(--home-config "$root/validation/external-psd-edit-host-probe/second-document-home-config.json")

@@ -1439,7 +1439,140 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty(prefix + ".modelImages", document.images().toString());
         }
         result.setProperty("secondDocument.commandCalls", Integer.toString(prepared.commandCalls()));
+        if (f2AcceptanceRequested()) {
+            runSecondDocumentAcceptance(result, firstModel, first);
+        } else {
+            result.setProperty("f2.acceptance", "NOT_CLAIMED");
+        }
         result.setProperty("secondDocument.status", "PREPARED");
+    }
+
+    /** The F2 acceptance slice is explicit opt-in; preparation-only runs stay NOT_CLAIMED. */
+    static boolean f2AcceptanceRequested() {
+        return Boolean.parseBoolean(System.getProperty(
+            "turboism.validation.externalpsd.f2Acceptance", "false").strip());
+    }
+
+    /**
+     * F2 acceptance in the managed second document: explicit-target SDK replace with decoded
+     * RGB proof, then stale first-document write rejection. Switch-back isolation and official
+     * dual-input remain separate slices and are recorded as PENDING, never as acceptance.
+     */
+    private void runSecondDocumentAcceptance(final Properties result, final CubismModel firstModel,
+        final Target firstTarget) throws Exception {
+        result.setProperty("f2.acceptance", "REQUESTED");
+        result.setProperty("f2.scope", "SDK_REPLACE_AND_STALE_WRITE");
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(240L);
+        final AtomicReference<Target> resolved = new AtomicReference<>();
+        structuralEdt(deadline, () -> {
+            final var document = context.cubism().activeDocument().orElseThrow();
+            if (!document.documentId().equals(
+                    result.getProperty("secondDocument.sdk.second.documentId"))) {
+                throw new IllegalStateException("active document is not the prepared second document");
+            }
+            final CubismModel model = context.cubism().model().active();
+            final TextureRelationsSnapshot relations = model.textures().relations();
+            if (!relations.isAvailable()) {
+                throw new IllegalStateException("second document relations unavailable");
+            }
+            final Target picked = pickTarget(relations).orElseThrow(() ->
+                new IllegalStateException("second document has no resolvable current raw"));
+            resolved.set(new Target(picked.artMesh(), picked.modelImage(), picked.raw(),
+                picked.rawReplaced(), new TargetIdentity(document.documentId(), model.id().value(),
+                    relations.binding(), relations.generation(), picked.modelImage().value(),
+                    picked.artMesh().id().value(), picked.raw().value())));
+            return Boolean.TRUE;
+        });
+        final Target target = resolved.get();
+        if (firstTarget.identity().documentId().equals(target.identity().documentId())) {
+            throw new IllegalStateException("first and second document identities do not differ");
+        }
+        result.setProperty("f2.target.documentId", target.identity().documentId());
+        result.setProperty("f2.target.raw", target.raw().value());
+        result.setProperty("f2.target.generation", Long.toString(target.identity().generation()));
+        final TempTracker tracker = new TempTracker();
+        Throwable acceptanceFailure = null;
+        try {
+            final TrackedExport baseline = exportTracked(result, target.raw(), tracker, "f2Baseline");
+            final byte[] baselineBytes = Files.readAllBytes(baseline.path());
+            final PsdValidationContent.Fingerprint baselineRgb =
+                targetFingerprint(baselineBytes, "F2 second-document baseline", contentProfile);
+            recordTargetFingerprint(result, "f2.baseline.targetRgb", baselineRgb);
+            result.setProperty("f2.baseline.sha256", sha256(baselineBytes));
+            final byte[] mutated = PsdValidationContent.invertTargetLayerRgb(
+                baselineBytes, contentProfile);
+            final PsdValidationContent.Fingerprint written =
+                targetFingerprint(mutated, "F2 second-document mutation", contentProfile);
+            if (baselineRgb.equals(written)) throw new IllegalStateException(
+                "F2 RGB mutation did not change the decoded target content");
+            recordTargetFingerprint(result, "f2.mutation.targetRgb", written);
+            result.setProperty("f2.mutation.sha256", sha256(mutated));
+            final Deque<RevisionEvent> revisions = new ArrayDeque<>();
+            RawImageId afterRaw = null;
+            final Registration subscription = baseline.file().observeSaves(revision -> {
+                synchronized (revisions) {
+                    revisions.add(new RevisionEvent(revision, System.nanoTime()));
+                    revisions.notifyAll();
+                }
+            });
+            try {
+                assertNoRevision(revisions, 500L, "F2 baseline revision replayed");
+                requireTargetBinding(result, target, "f2.writeAdmission", 0L);
+                if (!structuralTaskActive(deadline)) {
+                    throw new IllegalStateException("F2 write cancelled");
+                }
+                Files.write(baseline.path(), mutated);
+                final PsdFileRevision revision = awaitRevision(revisions, 20).revision();
+                if (!sha256(mutated).equals(sha256(Files.readAllBytes(baseline.path())))) {
+                    throw new IllegalStateException("F2 issued file changed unexpectedly before replace");
+                }
+                final CompletionStage<PsdReplaceResult> stage = structuralEdt(deadline, () -> {
+                    requireTargetBinding(result, target, "f2.replaceAdmission", 0L);
+                    return context.cubism().model().active().textures()
+                        .replaceRawImagePsd(target.raw(), baseline.file(), revision);
+                });
+                final PsdReplaceResult replaced = stage.toCompletableFuture().get(
+                    remainingStructuralMillis(deadline), TimeUnit.MILLISECONDS);
+                recordImportCompletion(result, "f2", replaced);
+                if (replaced.status() != PsdReplaceResult.Status.APPLIED
+                    || !replaced.before().equals(target.raw())
+                    || !replaced.consumedRevision().equals(Optional.of(revision))) {
+                    throw new IllegalStateException(
+                        "F2 second-document replacement was not APPLIED/consumed");
+                }
+                result.setProperty("f2.afterRaw", replaced.after().map(RawImageId::value)
+                    .orElse(UNAVAILABLE_VALUE));
+                afterRaw = replaced.after().orElse(target.raw());
+                requireStaleEditorReadRejected(() -> firstModel.textures()
+                    .replaceRawImagePsd(firstTarget.raw(), baseline.file(), revision));
+                result.setProperty("f2.staleWriteTarget", "REJECTED");
+                assertNoRevision(revisions, 500L, "F2 revision delivered twice");
+            } finally {
+                subscription.close();
+            }
+            final TrackedExport post = exportTracked(result,
+                afterRaw != null ? afterRaw : target.raw(), tracker, "f2PostReplace");
+            final byte[] postBytes = Files.readAllBytes(post.path());
+            final PsdValidationContent.Fingerprint postRgb =
+                targetFingerprint(postBytes, "F2 post-replace fresh export", contentProfile);
+            recordTargetFingerprint(result, "f2.postReplace.targetRgb", postRgb);
+            result.setProperty("f2.postReplace.sha256", sha256(postBytes));
+            if (!written.equals(postRgb)) throw new IllegalStateException(
+                "fresh native export after F2 replace differs from the written mutation");
+            result.setProperty("f2.switchBackIsolation", "PENDING");
+            result.setProperty("f2.dualInput", "PENDING");
+            result.setProperty("f2.actual",
+                "second-document SDK replace APPLIED; fresh export matches written RGB; stale write rejected");
+            result.setProperty("f2.acceptance", "PASS");
+        } catch (Exception failure) {
+            acceptanceFailure = failure;
+            throw failure;
+        } catch (Error failure) {
+            acceptanceFailure = failure;
+            throw failure;
+        } finally {
+            stopAllPreservingPrimary(tracker, result, acceptanceFailure);
+        }
     }
 
     /** A generic read failure or unavailable snapshot is not evidence of stale isolation. */
