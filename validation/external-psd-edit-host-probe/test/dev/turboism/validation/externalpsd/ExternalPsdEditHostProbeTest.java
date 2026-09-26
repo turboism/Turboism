@@ -78,7 +78,40 @@ import dev.turboism.sdk.plugin.Registration;
 
 /** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
+    private static void windowsHandleTableIsBoundedAndProcessScoped() {
+        final java.nio.ByteBuffer table = java.nio.ByteBuffer.allocate(96)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        table.putLong(0, 2);
+        table.putLong(24, 123); table.putLong(32, 456);
+        table.putLong(64, 999); table.putLong(72, 888);
+        if (!WindowsPsdHandleObservation.currentHandles(table, 96, 123).equals(List.of(456L)))
+            throw new AssertionError("foreign process handle included");
+        for (long badCount : new long[] {-1, 3, Long.MAX_VALUE}) {
+            table.putLong(0, badCount);
+            try {
+                WindowsPsdHandleObservation.currentHandles(table, 96, 123);
+                throw new AssertionError("invalid native count accepted");
+            } catch (IllegalArgumentException expected) { }
+        }
+        table.putLong(0, 2);
+        for (int badLength : new int[] {-1, 0, 15, 95, 97}) {
+            try {
+                WindowsPsdHandleObservation.currentHandles(table, badLength, 123);
+                throw new AssertionError("invalid native length accepted");
+            } catch (IllegalArgumentException expected) { }
+        }
+        final String backslash = Character.toString((char) 92);
+        final String extended = backslash.repeat(2) + "?" + backslash;
+        if (!WindowsPsdHandleObservation.sameWindowsPath(extended + "C:/Task/external-edit.psd",
+                "c:/task/external-edit.psd")
+            || WindowsPsdHandleObservation.sameWindowsPath("C:/foreign/external-edit.psd",
+                "C:/task/external-edit.psd")
+            || WindowsPsdHandleObservation.sameWindowsPath("C:/task/external-edit.psd.tmp",
+                "C:/task/external-edit.psd")) throw new AssertionError("inexact target match");
+    }
+
     public static void main(final String[] args) throws Exception {
+        windowsHandleTableIsBoundedAndProcessScoped();
         testNativeCompositionPreservation();
         testPopupTriggerDispatch();
         testSyntheticTargetDiagnostics();
