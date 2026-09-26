@@ -78,6 +78,34 @@ import dev.turboism.sdk.plugin.Registration;
 
 /** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
+    private static void atomicFileControlLeavesIssuedFileUntouched() throws Exception {
+        final Path root = Files.createTempDirectory("atomic-control-test-").toRealPath();
+        final Path issued = root.resolve("issued.psd");
+        final byte[] bytes = {8, 9, 10, 11};
+        Files.write(issued, bytes);
+        final Properties observed = new Properties();
+        AtomicReplaceFileControl.observe(observed, issued);
+        if (!"OBSERVED".equals(observed.getProperty("atomicFileControl.status")))
+            throw new AssertionError("file control did not complete: " + observed);
+        for (String mode : List.of("unopened", "heldRead", "closedRead")) {
+            if (!"true".equals(observed.getProperty("atomicFileControl." + mode + ".contentConsistent")))
+                throw new AssertionError("control did not verify final state: " + mode);
+        }
+        if (!"MOVED".equals(observed.getProperty("atomicFileControl.unopened.status"))
+            || !"MOVED".equals(observed.getProperty("atomicFileControl.closedRead.status")))
+            throw new AssertionError("unheld controls unexpectedly rejected: " + observed);
+        if (!java.util.Arrays.equals(bytes, Files.readAllBytes(issued)))
+            throw new AssertionError("issued PSD changed by diagnostic");
+        final Properties missingParent = new Properties();
+        AtomicReplaceFileControl.observe(missingParent, root.resolve("missing/issued.psd"));
+        if (!"UNAVAILABLE".equals(missingParent.getProperty("atomicFileControl.status"))
+            || Files.exists(root.resolve("missing")))
+            throw new AssertionError("unverified parent created by control");
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) Files.delete(path);
+        }
+    }
+
     private static void windowsHandleTableIsBoundedAndProcessScoped() throws Exception {
         final java.nio.ByteBuffer table = java.nio.ByteBuffer.allocate(96)
             .order(java.nio.ByteOrder.LITTLE_ENDIAN);
@@ -143,6 +171,7 @@ public final class ExternalPsdEditHostProbeTest {
 
     public static void main(final String[] args) throws Exception {
         windowsHandleTableIsBoundedAndProcessScoped();
+        atomicFileControlLeavesIssuedFileUntouched();
         testNativeCompositionPreservation();
         testPopupTriggerDispatch();
         testSyntheticTargetDiagnostics();
