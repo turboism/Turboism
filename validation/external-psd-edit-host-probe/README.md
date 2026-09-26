@@ -623,7 +623,7 @@ probe never calls `setVMOption`; these fields do not alter collector configurati
 `OfficialSecondDocumentOpen` is a validation-only helper for the F2 preparation
 coordinator. It admits an immutable task-owned `.cmo3` with a fixed SHA, then
 dispatches the reviewed public `command_open(File,true)` once on EDT. Its initial
-document UID/contentId and main window must match the caller's binding. Completion
+SDK document/content identity and main window must match the caller's binding. Completion
 requires two distinct native documents/model objects, unique document/content IDs,
 the expected second file path and an unchanged first document observation. Equal
 model GUIDs or raw basenames are allowed; they never establish document identity.
@@ -637,8 +637,12 @@ the fixed original normal control alongside its ten-cycle persisted copy. Set
 to the original `prepared-control.cmo3`. The wrapper requires the reviewed SHA of
 both inputs and stages the second under `second-document/prepared-control.cmo3`.
 The phase checks SDK binding/generation in the same EDT operation before opening,
-then compares the active second document's SDK/native identity and model-image
-relations. `secondDocument.status=PREPARED` and phase `PASS` only describe preparation;
+then compares model/raw/model-image relations within the same EDT callback as
+native current-document observation. SDK session IDs are deliberately separate from
+native document UID/content GUID; each namespace must remain stable for the first
+document and distinct for the second. Window mismatch and dialog rejection have
+separate diagnostics; dialog diagnostics contain class/owner/visibility, without
+clicking or treating an unknown dialog as permission to continue. `secondDocument.status=PREPARED` and phase `PASS` only describe preparation;
 `f2.acceptance=NOT_CLAIMED` remains explicit. No replace, save or Undo is performed.
 Focused tests and exact JAR shape are run by
 `bash scripts/test/test_official_second_document_open.sh`; normal probe tests run
