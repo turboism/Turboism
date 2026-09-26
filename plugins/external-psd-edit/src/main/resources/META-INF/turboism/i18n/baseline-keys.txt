@@ -8,8 +8,8 @@ external-psd-edit.error.export-failed
 external-psd-edit.error.model-unavailable
 external-psd-edit.error.no-selection
 external-psd-edit.error.open-failed
-external-psd-edit.error.relations-unavailable
 external-psd-edit.error.refresh-unavailable
+external-psd-edit.error.relations-unavailable
 external-psd-edit.error.replace-failed
 external-psd-edit.error.unresolved
 external-psd-edit.error.unsupported
