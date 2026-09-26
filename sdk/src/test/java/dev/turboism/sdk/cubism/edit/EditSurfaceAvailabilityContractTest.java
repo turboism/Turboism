@@ -117,9 +117,12 @@ final class EditSurfaceAvailabilityContractTest {
         final List<Class<?>> types = new ArrayList<>();
         while (roots.hasMoreElements()) {
             final URL root = roots.nextElement();
-            // Only the production classes directory counts: test classes share this package
-            // and must not be mistaken for surface types.
-            if (!"file".equals(root.getProtocol()) || !root.getPath().contains("/main/")) {
+            // Only the production classes directory counts: test classes share this
+            // package and must not be mistaken for surface types. Match the specific
+            // Gradle output segment instead of any "/main/" — the build directory
+            // itself can be named "main" (worktree id = branch name on CI).
+            if (!"file".equals(root.getProtocol())
+                || !root.getPath().contains("/classes/java/main/")) {
                 continue;
             }
             final File directory = new File(root.toURI());
