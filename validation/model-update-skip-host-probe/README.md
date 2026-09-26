@@ -1469,3 +1469,8 @@ Tail non-regression is not established: pan p99 rose78.1363→84.9725ms
 p95 rose0.78%. Do not label all performance criteria PASS or reuse the older
 T25 percentages for this build. Main integration awaits disposition of the
 pan tail deviation; existing platform defaults are unchanged.
+
+
+### User disposition (2026-09-26)
+
+After disclosure of the pan p99 increase (78.14→84.97ms, about8.7%) and clarification of the pan workload, the user explicitly instructed “合并到main”. The deviation is accepted for this integration; its measured values and all other limitations remain recorded. This authorizes the local main merge, not a push, and does not turn the tail non-regression target into PASS.
