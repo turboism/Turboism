@@ -202,6 +202,7 @@ public final class ExternalPsdEditHostProbeTest {
         testPersistEvidenceGate();
         testPersistSaveLifecycleGate();
         testContentProfileSelection();
+        testF2AcceptanceGate();
         testSharedModelImageRelationGate();
         testF1TargetSelection();
         testSaveAsAdmissionGate();
@@ -302,6 +303,28 @@ public final class ExternalPsdEditHostProbeTest {
             "F1 requires RGB shape/content validation before mutation");
         expectIllegalArgument(() -> ExternalPsdEditHostProbe.parseContentProfile("unknown"),
             "unknown content profile is rejected before any export or mutation");
+    }
+
+    private static void testF2AcceptanceGate() {
+        final String property = "turboism.validation.externalpsd.f2Acceptance";
+        final String previous = System.getProperty(property);
+        try {
+            System.clearProperty(property);
+            assertTrue(!ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+                "F2 acceptance is opt-in and must stay off without the property");
+            System.setProperty(property, "true");
+            assertTrue(ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+                "F2 acceptance runs only when explicitly requested");
+            System.setProperty(property, "false");
+            assertTrue(!ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+                "F2 acceptance treats false as off");
+            System.setProperty(property, "unexpected");
+            assertTrue(!ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+                "F2 acceptance fails closed for unrecognized values");
+        } finally {
+            if (previous == null) System.clearProperty(property);
+            else System.setProperty(property, previous);
+        }
     }
 
     private static void testPerformanceAdmission() {
