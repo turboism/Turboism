@@ -636,6 +636,11 @@ the fixed original normal control alongside its ten-cycle persisted copy. Set
 `EXTERNAL_PSD_FIXTURE_LOCAL` to the persisted copy and `EXTERNAL_PSD_SECOND_DOCUMENT`
 to the original `prepared-control.cmo3`. The wrapper requires the reviewed SHA of
 both inputs and stages the second under `second-document/prepared-control.cmo3`.
+This phase also stages `second-document-home-config.json` into its isolated home.
+Only the existing exact-host `skipInformation` startup hook is enabled, preventing
+the persistent startup home/announcement window; update checks and splash behavior
+are unchanged. All unknown-dialog gates remain in force. The config's `worktreeId`
+must start with a letter, as required by the runtime validator.
 The phase checks SDK binding/generation in the same EDT operation before opening,
 then compares model/raw/model-image relations within the same EDT callback as
 native current-document observation. SDK session IDs are deliberately separate from
