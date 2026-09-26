@@ -1366,6 +1366,10 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         hostWindowAccess = prepareHostWindowAccess();
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(240L);
+        final CubismModel firstModel = structuralEdt(deadline, () -> {
+            requireStructuralModelOnEdt(first);
+            return context.cubism().model().active();
+        });
         final String firstContent = structuralEdt(deadline, () -> {
             requireStructuralModelOnEdt(first);
             return context.cubism().activeDocument().orElseThrow().contentId().orElseThrow();
@@ -1414,6 +1418,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 return new OfficialSecondDocumentOpen.SdkIdentity(
                     document.documentId(), document.contentId().orElseThrow());
         });
+        structuralEdt(deadline, () -> {
+            if (!structuralTaskActive(deadline) || officialCurrentHostWindowOnEdt() != guiBoundWindow
+                || !context.cubism().activeDocument().orElseThrow().documentId().equals(
+                    result.getProperty("secondDocument.sdk.second.documentId"))) {
+                throw new IllegalStateException("second document changed before stale-read observation");
+            }
+            requireStaleEditorReadRejected(() -> firstModel.textures().relations());
+            result.setProperty("secondDocument.staleFirstModelRead", "REJECTED");
+            return null;
+        });
         for (var entry : Map.of("first", prepared.first(), "second", prepared.second()).entrySet()) {
             final String prefix = "secondDocument." + entry.getKey();
             final var document = entry.getValue();
@@ -1426,6 +1440,18 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         result.setProperty("secondDocument.commandCalls", Integer.toString(prepared.commandCalls()));
         result.setProperty("secondDocument.status", "PREPARED");
+    }
+
+    /** A generic read failure or unavailable snapshot is not evidence of stale isolation. */
+    static void requireStaleEditorReadRejected(final Runnable read) {
+        try {
+            read.run();
+        } catch (IllegalStateException failure) {
+            if ("Cubism model reference is stale for the active Editor model generation."
+                .equals(failure.getMessage())) return;
+            throw failure;
+        }
+        throw new IllegalStateException("old Editor model reference remained readable after document switch");
     }
 
     /** Collects one F5 variant; a separate audit compares independent native/SDK task copies. */

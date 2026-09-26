@@ -170,6 +170,7 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     public static void main(final String[] args) throws Exception {
+        testStaleEditorReadEvidence();
         windowsHandleTableIsBoundedAndProcessScoped();
         atomicFileControlLeavesIssuedFileUntouched();
         testNativeCompositionPreservation();
@@ -4840,6 +4841,25 @@ public final class ExternalPsdEditHostProbeTest {
         if (!Arrays.equals(expected, actual)) {
             throw new AssertionError(message + " expected length=" + expected.length
                 + " actual length=" + actual.length);
+        }
+    }
+
+    private static void testStaleEditorReadEvidence() {
+        ExternalPsdEditHostProbe.requireStaleEditorReadRejected(() -> {
+            throw new IllegalStateException(
+                "Cubism model reference is stale for the active Editor model generation.");
+        });
+        boolean rejected = false;
+        try {
+            ExternalPsdEditHostProbe.requireStaleEditorReadRejected(() -> {});
+        } catch (IllegalStateException expected) { rejected = true; }
+        assertTrue(rejected, "readable old model must fail stale-read evidence");
+        var unrelated = new IllegalStateException("relations unavailable");
+        try {
+            ExternalPsdEditHostProbe.requireStaleEditorReadRejected(() -> { throw unrelated; });
+            throw new AssertionError("unrelated read failure accepted as stale");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected == unrelated, "unrelated read failure must propagate");
         }
     }
 
