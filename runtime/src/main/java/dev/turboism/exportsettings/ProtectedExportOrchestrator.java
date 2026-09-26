@@ -76,6 +76,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     /** EDT marshalling seam; production wraps SwingUtilities, tests run inline. */
     public interface EdtDispatcher {
+        /** Runs {@code action} on the EDT and returns its result, blocking the caller. */
         <T> T call(Callable<T> action) throws Exception;
 
         /** Posts {@code task} to the EDT without blocking the caller. */

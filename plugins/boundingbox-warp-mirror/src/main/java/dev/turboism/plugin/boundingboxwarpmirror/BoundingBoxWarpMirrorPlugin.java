@@ -168,7 +168,7 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
             final String reason = failure.blockerCodes().stream()
                 .findFirst()
                 .map(code -> blockerText(localization, code))
-                .orElseGet(() -> localization.text("result.blocker.WRITE_FAILED"));
+                .orElseGet(() -> localization.text("result.blocker.write-failed"));
             message.append(localization.format(
                 "result.failure.line", failure.targetId(), reason)).append('\n');
         }

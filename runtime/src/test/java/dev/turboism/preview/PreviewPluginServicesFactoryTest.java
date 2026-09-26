@@ -3,7 +3,12 @@ package dev.turboism.preview;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.failure.RuntimeFailureCollector;
-import dev.turboism.userfile.SwingUserFileGrantSource;
+import dev.turboism.sdk.ui.UserFileErrorCode;
+import dev.turboism.sdk.ui.UserFileLifetime;
+import dev.turboism.sdk.ui.UserFileMode;
+import dev.turboism.sdk.ui.UserFileRequest;
+import dev.turboism.sdk.ui.UserFileRequestStatus;
+import dev.turboism.userfile.UserFileGrantSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.Locale;
@@ -32,25 +37,30 @@ final class PreviewPluginServicesFactoryTest {
     }
 
     @Test
-    void createsFreshSwingGrantSourceForEachPlugin() {
+    void createsFreshUnavailableGrantSourceForEachPlugin() {
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
-        final SwingUserFileGrantSource first = PreviewPluginServicesFactory.newUserFileGrantSource(
+        final UserFileGrantSource first = PreviewPluginServicesFactory.newUserFileGrantSource(
             "plugin.one",
             failures,
             evidence
         );
-        final SwingUserFileGrantSource second = PreviewPluginServicesFactory.newUserFileGrantSource(
+        final UserFileGrantSource second = PreviewPluginServicesFactory.newUserFileGrantSource(
             "plugin.two",
             failures,
             evidence
         );
 
+        // The stateless sources hold no resources; requesting from either completes
+        // with an Unavailable decision without touching any UI.
         try {
-            assertNotSame(first, second);
-        } finally {
-            first.close();
-            second.close();
+            final UserFileGrantSource.Decision decision = first.request(new UserFileRequest(
+                "context-fixture-file", "Select fixture file", java.util.List.of("txt"),
+                UserFileMode.READ, UserFileLifetime.ONE_OPERATION
+            )).toCompletableFuture().get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals(UserFileGrantSource.Unavailable.INSTANCE, decision);
+        } catch (final Exception failure) {
+            throw new AssertionError(failure);
         }
     }
 
