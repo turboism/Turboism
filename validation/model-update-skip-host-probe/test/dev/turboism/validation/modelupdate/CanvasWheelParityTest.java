@@ -23,7 +23,8 @@ public final class CanvasWheelParityTest {
         Object previousStats = System.getProperties().get(NarrowUniformTrial.STATS);
         NarrowUniformTrial trial = new NarrowUniformTrial();
         Canvas canvas = new Canvas(incorrectCachedImage);
-        CanvasWheelWorkload workload = new CanvasWheelWorkload("fixture", Path.of("unused"));
+        Path state = java.nio.file.Files.createTempDirectory("wheel-parity-");
+        CanvasWheelWorkload workload = new CanvasWheelWorkload("fixture", state);
         set(workload, "canvas", canvas);
         set(workload, "narrowTrial", trial);
         var verify = CanvasWheelWorkload.class.getDeclaredMethod("verifyUniformPixelsAtState", String.class, StringBuilder.class);
@@ -42,11 +43,17 @@ public final class CanvasWheelParityTest {
                 if (!(failure.getCause() instanceof IllegalStateException)
                     || !failure.getCause().getMessage().contains("pixel mismatch")) throw failure;
             }
+            var saved = javax.imageio.ImageIO.read(state.resolve("wheel-pixels-fixed.png").toFile());
+            if (saved.getRGB(0, 0) != Color.BLUE.getRGB() || saved.getRGB(7, 7) != Color.RED.getRGB()) {
+                throw new AssertionError("diagnostic must preserve the original atomic native capture");
+            }
             EventQueue.invokeAndWait(() -> { });
             if (!canvas.transitioned) throw new AssertionError("queued action was dropped");
             if (!canvas.variants.equals(List.of(false, false, true, false))) throw new AssertionError("capture order changed");
             if (!report.toString().contains("distinctPixelsAtLeast=")) throw new AssertionError("nonblank evidence missing");
         } finally {
+            java.nio.file.Files.deleteIfExists(state.resolve("wheel-pixels-fixed.png"));
+            java.nio.file.Files.deleteIfExists(state);
             EventQueue.invokeAndWait(trial::close);
             if (previousStats == null) System.getProperties().remove(NarrowUniformTrial.STATS);
             else System.getProperties().put(NarrowUniformTrial.STATS, previousStats);

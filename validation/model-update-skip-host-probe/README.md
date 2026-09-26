@@ -1428,3 +1428,16 @@ bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 <leg
 ```
 
 (same flag set with `on-pan`/`on-artmesh` for the native drag workloads).
+
+
+### Native wheel pixel diagnostics
+
+The narrow uniform trial saves `wheel-pixels-original.png`,
+`wheel-pixels-alternate.png`, and `wheel-pixels-restored-start.png` under its
+validation state directory. These lossless ARGB files come from the already
+captured native canvas paints, outside timed legs; saving them does not add a
+paint or change any pixel equality assertion. They help distinguish a camera
+state difference after inverse wheel events from a rendering difference. The
+visible zoom label is rounded and alone cannot prove identical camera state.
+PNG images support attribution; structured hook execution, pixel equality,
+identity, and cleanup evidence remain the acceptance gates.

@@ -52,6 +52,16 @@ final class FrameReadback {
         }
         return new FrameReadback(width, height, 0, 0, pixels.clone());
     }
+    /** Lossless diagnostic only, outside timed work; raw GL layouts are not ARGB. */
+    void writeArgbPng(java.nio.file.Path destination) throws java.io.IOException {
+        if (format != 0 || type != 0) throw new IllegalArgumentException("PNG requires canvas ARGB capture");
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(
+            width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        image.setRGB(0, 0, width, height, words, 0, width);
+        if (!javax.imageio.ImageIO.write(image, "png", destination.toFile())) {
+            throw new java.io.IOException("PNG writer unavailable");
+        }
+    }
     int pixels() { return words.length; }
     int distinctPixels() {
         HashSet<Integer> unique = new HashSet<>();
