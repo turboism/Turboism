@@ -1,5 +1,14 @@
 # Model-update and uniform-location experiments
 
+## Current evidence boundary (PERF-052 final review)
+
+The dated experiments below retain their original results. T25's 17–22% latency
+reductions predate the correctness fixes and must not be quoted as measurements
+of the final build. T28 passed wheel/optout/pan/ArtMesh correctness on `9f28d2d00`,
+but concurrent builds contaminated its timings. The later `adc851609` build
+requires its own final exact-host results; a rebuilt JAR or offline PASS is not
+that evidence. Physical presentation FPS and native Windows remain unmeasured.
+
 ## Independent matrix-scratch comparison
 
 The `matrixScratch` factor keeps the verified uniform-location cache ON in every
@@ -875,10 +884,13 @@ sites run the real query inline, preserving upstream semantics.
 
 **Semantic difference vs synchronous checking (documented, accepted):** the
 error's exact draw-site attribution is lost — the frame owns the report — but
-the error is never swallowed, and uniform pending locations still confirm
-through the checkpoint's emitted `error(gl, 0)` (identical to the T24-verified
-elision emission); a nonzero frame-end result invalidates the frame's whole
-cache — equivalent-or-more-conservative at frame granularity.
+the error is never swallowed. In the reviewed production path, a synthetic
+checkpoint zero does **not** confirm pending uniform locations. Only the real
+frame-end `GL_NO_ERROR` confirms them; confirmed entries may be reused in the
+next frame on the same context/thread with complete program-mutation coverage.
+Errors, exceptions, context/thread changes and program mutations invalidate
+reuse. The first cold frame therefore has no confirmed hits. T23/T24's
+synthetic-zero experiment above is historical, not this production contract.
 
 **Activation and platform defaults:** `launcher.mesaGlThread` is the single
 combined option, persisted in `config.json`, exposed in settings UI (label
@@ -887,16 +899,12 @@ The default is **platform-aware**: unset resolves to on under Wine/Proton
 and off on native Windows — the paths it optimizes exist only under Proton.
 `launcher.inputPathElision` follows the same rule; `launcher.uploadElision`
 is unset-default-on on every platform. Explicit `true`/`false` always wins
-over the platform default (`CubismJvmSettingsFileService` resolves the
-unset case via `ProtonEnvironment` env markers: the managed launcher
-exports `TURBOISM_PROTON=1`, and the Wine/Proton variables `WINEPREFIX`,
-`WINELOADER`, `WINEDLLPATH`, `WINEESYNC`, `WINEFSYNC`,
-`STEAM_COMPAT_DATA_PATH`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`, `PROTON_LOG`,
-`PROTON_LOG_DIR` are recognized fallbacks — registry probing would require
-native interop the JVM layer does not carry, while Wine itself propagates
-its loader/prefix variables into the Windows process environment).
-On native Windows `cubism-launch-common.ps1` still recognizes/strips the
-keys but never emits the Proton-scoped `-D`s, and the unset default is off.
+over the platform default. `ProtonEnvironment` prefers Wine filesystem facts:
+`system32/winecfg.exe`, or `Z:\proc\self` with `stat` and `maps`. Only the explicit
+managed marker `TURBOISM_PROTON=1` is a fallback; ambient `WINE*`, `STEAM*` and
+`PROTON*` variables do not establish Wine. This is a conservative heuristic,
+not tamper-proof attestation. On native Windows, `cubism-launch-common.ps1`
+never emits Proton-specific true flags, but preserves explicit false overrides.
 On the Linux/Proton launch path `run-cubism-host-validation.sh` resolves
 the staged `config.json` before dry-run: unset or true exports
 `mesa_glthread=true` and `TURBOISM_PROTON=1` into the generated `launch.sh`
@@ -1002,8 +1010,9 @@ Mechanism — host call-site transform, no GL proxy:
     upper bound.
   - `content`: meta signature (size + region) must match AND the payload is
     compared byte-for-byte against a retained snapshot of the last uploaded
-    content via `Buffer.mismatch` (JDK vectorized compare). Different buffer
-    objects with equal bytes elide; the same buffer object mutated in place
+    content. Float/Double comparisons use raw IEEE bits, preserving signed
+    zero and NaN payload distinctions; other element types use typed mismatch.
+    Different buffer objects with equal bytes elide; the same buffer object mutated in place
     still passes (the host's `a(float[])`/`a(int[])` path refills the reused
     direct buffer). Snapshots retain one payload copy per tracked entry —
     `snapshotBytes` reports the retained total (the experiment's memory cost,
@@ -1272,11 +1281,11 @@ zoom-label text change on every wheel event — `JLabel.setText` already
 de-duplicates identical text, so no provably safe third site exists; it is
 reported here, not implemented.
 
-Flags (default OFF):
+Validation defaults off; production defaults on under Proton:
 
 ```text
 -Dturboism.validation.inputPathElision=true   # harness: per-leg gate, off/on/on/off
--Dturboism.optimization.inputPathElision=true # production opt-in (settings page toggle)
+-Dturboism.optimization.inputPathElision=true # production switch (Proton default-on; explicit override)
 ```
 
 The production switch is wired like `uploadElision`: `launcher.inputPathElision`
@@ -1289,9 +1298,10 @@ Mechanism — host method-entry transform, JDK reads only:
 
 - `com/live2d/ui/CWidget.requestFocus()V` gains an entry consult of the
   `turboism.input-path.focus` `Predicate` slot: the bridge elides only when the
-  widget's `JComponent` `isFocusOwner()` and its containing `Window`
-  `isFocused()` — both pure `KeyboardFocusManager` reads — so the skipped
-  forward cannot change observable focus state.
+  widget's component is exactly the `KeyboardFocusManager` focus owner,
+  its containing window is exactly the focused window, and `Window.isActive()`
+  is true. Activation transitions therefore pass through. These are Java AWT
+  state checks, not independent proof of native desktop focus.
 - `com/live2d/ui/CWidget.setCursor(Lcom/live2d/type/CCursor;)V` gains an entry
   consult of the `turboism.input-path.cursor` `BiPredicate` slot receiving
   `(widget, CCursor)`: the bridge elides only when the component is showing,
