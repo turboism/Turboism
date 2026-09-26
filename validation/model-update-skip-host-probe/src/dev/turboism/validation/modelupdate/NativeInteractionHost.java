@@ -116,6 +116,56 @@ final class NativeInteractionHost {
         return new Camera(number(call(camera, "getCameraScale")), number(call(look, "getX")),
             number(call(look, "getY")), number(call(look, "getZ")));
     }
+    /** Read-only, EDT-confined state associated with a logical-component ARGB capture. */
+    String captureMetadata() throws Exception {
+        check();
+        Object area = call(view, "getViewArea");
+        Object panel = call(call(area, "getTabbedBox"), "getViewPanel");
+        if (call(panel, "getJComponent") != canvas) {
+            throw new IllegalStateException("viewport canvas identity differs");
+        }
+        int[] rect = rectangle(call(area, "getViewAreaViewport"));
+        int[] cached = rectangle(call(manager, "getViewportRect"));
+        int[] component = rectangle(call(manager, "getComponentRect"));
+        int[] bounds = rectangle(call(panel, "getViewportBounds"));
+        int[] image = {rect[0], height - rect[1] - rect[3], rect[2], rect[3]};
+        if (!java.util.Arrays.equals(rect, cached)
+            || component[2] != width || component[3] != height
+            || !java.util.Arrays.equals(bounds, new int[] {0, 0, width, height})
+            || !java.util.Arrays.equals(image, rectangle(call(manager, "getViewportRectOnComponent")))
+            || image[0] < 0 || image[1] < 0 || image[2] <= 0 || image[3] <= 0
+            || (long) image[0] + image[2] > width || (long) image[1] + image[3] > height) {
+            throw new IllegalStateException("native viewport metadata mismatch");
+        }
+        Camera wrapper = camera();
+        Object actual = call(manager, "getCamera");
+        Object transform = call(actual, "getTransform");
+        StringBuilder result = new StringBuilder("schemaVersion=1\n")
+            .append("canvas.width=").append(width).append("\ncanvas.height=").append(height)
+            .append("\nviewport.logicalBottomLeft=").append(java.util.Arrays.toString(rect))
+            .append("\nviewport.imageTopLeft=").append(java.util.Arrays.toString(image)).append('\n');
+        rawBits(result, "camera.wrapper", new float[] {wrapper.scale(), wrapper.x(), wrapper.y(), wrapper.z()});
+        for (String field : List.of("Position", "EulerAngles", "Scale")) {
+            Object vector = call(transform, "get" + field);
+            rawBits(result, "camera.transform." + field, new float[] {number(call(vector, "getX")),
+                number(call(vector, "getY")), number(call(vector, "getZ"))});
+        }
+        rawBits(result, "camera.projection", ((float[]) call(call(actual, "getProjectionMatrix"), "a")).clone());
+        rawBits(result, "camera.worldToCameraDerived", ((float[]) call(call(actual, "getWorldToCameraMatrix"), "a")).clone());
+        return result.toString();
+    }
+    private static int[] rectangle(Object rect) throws Exception {
+        return new int[] {((Number) call(rect, "getX")).intValue(), ((Number) call(rect, "getY")).intValue(),
+            ((Number) call(rect, "getWidth")).intValue(), ((Number) call(rect, "getHeight")).intValue()};
+    }
+    private static void rawBits(StringBuilder out, String key, float[] values) {
+        out.append(key).append(".rawBits=");
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) out.append(',');
+            out.append(Integer.toHexString(Float.floatToRawIntBits(values[i])));
+        }
+        out.append('\n');
+    }
     void restoreCamera(Camera saved) throws Exception {
         check();
         Object look = call(camera, "getCameraLookAt");

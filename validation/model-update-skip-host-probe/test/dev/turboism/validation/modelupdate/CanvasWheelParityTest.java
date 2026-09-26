@@ -14,12 +14,13 @@ import javax.swing.JComponent;
 /** Executes the real wheel parity path, without a Cubism/GL host. */
 public final class CanvasWheelParityTest {
     public static void main(String[] args) throws Exception {
-        exercise(false);
-        exercise(true);
+        exercise(false, false);
+        exercise(true, false);
+        exercise(false, true);
         System.out.println("CanvasWheelParityTest PASS (real wheel path, queued action, exact mismatch rejection)");
     }
 
-    private static void exercise(boolean incorrectCachedImage) throws Exception {
+    private static void exercise(boolean incorrectCachedImage, boolean changingMetadata) throws Exception {
         Object previousStats = System.getProperties().get(NarrowUniformTrial.STATS);
         NarrowUniformTrial trial = new NarrowUniformTrial();
         Canvas canvas = new Canvas(incorrectCachedImage);
@@ -27,6 +28,10 @@ public final class CanvasWheelParityTest {
         CanvasWheelWorkload workload = new CanvasWheelWorkload("fixture", state);
         set(workload, "canvas", canvas);
         set(workload, "narrowTrial", trial);
+        set(workload, "viewMetadata", (java.util.concurrent.Callable<String>) () -> {
+            if (!EventQueue.isDispatchThread()) throw new AssertionError("metadata left EDT");
+            return "camera=" + (changingMetadata ? canvas.frames : 0) + "\n";
+        });
         var verify = CanvasWheelWorkload.class.getDeclaredMethod("verifyUniformPixelsAtState", String.class, StringBuilder.class);
         verify.setAccessible(true);
         StringBuilder report = new StringBuilder();
@@ -36,13 +41,17 @@ public final class CanvasWheelParityTest {
                     "queries", canvas.frames, "hits", canvas.hits));
             try {
                 Object digest = verify.invoke(workload, "fixed", report);
-                if (incorrectCachedImage) throw new AssertionError("changed cached pixel was accepted");
+                if (incorrectCachedImage || changingMetadata) throw new AssertionError("changed cached pixel was accepted");
                 if (!(digest instanceof String value) || value.length() != 64) throw new AssertionError("digest missing");
             } catch (InvocationTargetException failure) {
-                if (!incorrectCachedImage) throw new AssertionError("queued action split wheel parity controls", failure.getCause());
-                if (!(failure.getCause() instanceof IllegalStateException)
-                    || !failure.getCause().getMessage().contains("pixel mismatch")) throw failure;
+                if (!incorrectCachedImage && !changingMetadata) throw new AssertionError("queued action split wheel parity controls", failure.getCause());
+                Throwable cause = failure.getCause();
+                if (cause instanceof java.util.concurrent.ExecutionException) cause = cause.getCause();
+                if (!(cause instanceof IllegalStateException)
+                    || !cause.getMessage().contains(changingMetadata ? "camera/viewport changed" : "pixel mismatch")) throw failure;
             }
+            if (changingMetadata) return;
+            if (!java.nio.file.Files.readString(state.resolve("wheel-pixels-fixed.properties")).equals("camera=0\n")) throw new AssertionError("metadata absent");
             var saved = javax.imageio.ImageIO.read(state.resolve("wheel-pixels-fixed.png").toFile());
             if (saved.getRGB(0, 0) != Color.BLUE.getRGB() || saved.getRGB(7, 7) != Color.RED.getRGB()) {
                 throw new AssertionError("diagnostic must preserve the original atomic native capture");
@@ -52,6 +61,7 @@ public final class CanvasWheelParityTest {
             if (!canvas.variants.equals(List.of(false, false, true, false))) throw new AssertionError("capture order changed");
             if (!report.toString().contains("distinctPixelsAtLeast=")) throw new AssertionError("nonblank evidence missing");
         } finally {
+            java.nio.file.Files.deleteIfExists(state.resolve("wheel-pixels-fixed.properties"));
             java.nio.file.Files.deleteIfExists(state.resolve("wheel-pixels-fixed.png"));
             java.nio.file.Files.deleteIfExists(state);
             EventQueue.invokeAndWait(trial::close);
