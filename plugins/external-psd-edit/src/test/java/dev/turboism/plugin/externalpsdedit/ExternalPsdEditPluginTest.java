@@ -154,6 +154,9 @@ class ExternalPsdEditPluginTest {
         final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
         assertNotNull(file);
         assertTrue(file.subscribedBeforeOpen, "saves must be subscribed before opening");
+        assertEquals(List.of("external-psd-edit.status.preparing", "external-psd-edit.status.exporting",
+                "external-psd-edit.status.editing"),
+            context.uiHost().notifications().stream().map(n -> n.id()).toList());
         assertEquals(1, file.openCalls.get());
         assertTrue(context.uiHost().notifications().stream()
             .anyMatch(n -> n.id().equals("external-psd-edit.status.editing")));
@@ -696,7 +699,8 @@ class ExternalPsdEditPluginTest {
         assertEquals(0, plugin.liveSessions());
         assertTrue(file.stopped.get());
         assertTrue(context.uiHost().notifications().stream()
-            .anyMatch(n -> n.id().equals("external-psd-edit.error.session-failed")));
+            .anyMatch(n -> n.id().equals("external-psd-edit.error.session-failed")
+                && n.message().startsWith("external-psd-edit.error.subscribe-failed")));
     }
 
     @Test
