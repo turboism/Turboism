@@ -34,11 +34,15 @@ import java.util.regex.Pattern;
  *    initial plugin selection;
  *  - existing current-schema config: validate the complete v1 value contract,
  *    then update only disabledPlugins when the installer selection changed;
- *  - existing legacy v0 config: migrate the explicit known field set to v1,
- *    validate the result, preserve user settings, move legacy launcher fields
- *    into launcher, and then apply the installer plugin selection;
- *  - unknown/future schemas, invalid, oversized (> 64 KiB), symlinked, or
- *    escaping config targets fail closed without truncating the original;
+ *  - any other ownable config document (a legacy or future schemaVersion,
+ *    unknown fields, or fields carrying invalid values) is normalized to v1:
+ *    recognized fields with valid values are carried forward, everything else
+ *    is dropped rather than rejected, and the installer plugin selection is
+ *    then applied;
+ *  - only a document whose {@code format} explicitly declares a different
+ *    product is refused, since foreign data must never be rewritten;
+ *  - unparseable, oversized (> 64 KiB), symlinked, or escaping config targets
+ *    fail closed without truncating the original;
  *  - the read is bounded on the actual bytes (not a raceable size check) and
  *    never follows a symlink;
  *  - writes use a temporary sibling plus an atomic replace only: if atomic
@@ -121,7 +125,7 @@ final class ConfigMerge {
             }
             @SuppressWarnings("unchecked")
             Map<String, Object> map = (Map<String, Object>) parsed;
-            requireCanonical(map);
+            requireOwnedFormat(map);
             return map;
         } catch (IOException e) {
             throw new ConfigException("cannot read config.json: " + e.getMessage(), e);
@@ -826,14 +830,11 @@ final class ConfigMerge {
 
     private static final String RUNTIME_CONFIG_FORMAT = "turboism.runtime.config";
     private static final long CURRENT_SCHEMA_VERSION = 1L;
-    private static final Set<String> V0_FIELDS = Set.of(
-            "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-            "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-            "hooks", "launcher", "cubismJvm", "graalVmPath");
     private static final Set<String> V1_FIELDS = Set.of(
             "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
             "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-            "hooks", "launcher", "reduceAutoBackup");
+            "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
+            "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> LOCALES = Set.of(
@@ -846,6 +847,10 @@ final class ConfigMerge {
             "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
             "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
             "inputPathElision", "mesaGlThread");
+    private static final Set<String> TEXTURE_ATLAS_FIELDS = Set.of(
+            "algorithmId", "parallel");
+    private static final Set<String> LEGACY_ROOT_LAUNCHER_FIELDS = Set.of(
+            "cubismJvm", "graalVmPath");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
             "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
             "inputPathElision", "mesaGlThread");
@@ -855,22 +860,18 @@ final class ConfigMerge {
     private static final Pattern WORKTREE_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{2,63}$");
 
     /**
-     * Admits the current schema and the single explicit legacy v0 shape. Current documents are
-     * validated with the same value rules as the runtime before an installer operation may use
-     * them. Missing schemaVersion means v0; future schemas fail closed.
+     * Ownership gate applied when an existing config.json is read. Only a
+     * document that explicitly declares another product's format string is
+     * refused — the installer must never rewrite foreign data. Every other
+     * parseable object is accepted here and normalized to the current schema
+     * before use, so unknown fields, unrecognized schema versions, and
+     * invalid values no longer block an install.
      */
-    private static void requireCanonical(Map<String, Object> map) throws ConfigException {
-        final long schema = schemaVersion(map);
+    private static void requireOwnedFormat(Map<String, Object> map) throws ConfigException {
         final Object format = map.get("format");
-        if (schema == CURRENT_SCHEMA_VERSION) {
-            validateCurrent(map);
-            return;
-        }
-        if (schema != 0L) {
-            throw new ConfigException("no runtime config migration is available from schemaVersion " + schema);
-        }
-        if (format != null && !RUNTIME_CONFIG_FORMAT.equals(format)) {
-            throw new ConfigException("legacy config.json format is unsupported: " + format);
+        if (format instanceof String && !RUNTIME_CONFIG_FORMAT.equals(format)) {
+            throw new ConfigException(
+                    "config.json declares an unsupported runtime config format: " + format);
         }
     }
 
@@ -943,9 +944,12 @@ final class ConfigMerge {
         if (map.containsKey("useTextIcon") && !(map.get("useTextIcon") instanceof Boolean)) {
             throw new ConfigException("existing config.json useTextIcon must be a boolean");
         }
-        if (map.containsKey("reduceAutoBackup")
-                && !(map.get("reduceAutoBackup") instanceof Boolean)) {
-            throw new ConfigException("existing config.json reduceAutoBackup must be a boolean");
+        for (String field : List.of(
+                "reduceAutoBackup", "meshTriangulationHashFix",
+                "atlasTileBbox", "atlasCacheReuse")) {
+            if (map.containsKey(field) && !(map.get(field) instanceof Boolean)) {
+                throw new ConfigException("existing config.json " + field + " must be a boolean");
+            }
         }
 
         if (map.containsKey("hooks")) {
@@ -995,14 +999,48 @@ final class ConfigMerge {
             if (launcher.containsKey("graalVmPath")) {
                 final Object path = launcher.get("graalVmPath");
                 if (!(path instanceof String)
-                        || ((String) path).isBlank()
-                        || ((String) path).length() > 4_096
-                        || ((String) path).chars().anyMatch(character -> character < 0x20)) {
+                        || !validGraalVmPath((String) path)) {
                     throw new ConfigException(
                             "existing config.json launcher.graalVmPath is invalid");
                 }
             }
         }
+
+        if (map.containsKey("textureAtlas")) {
+            final Map<?, ?> atlas = requireObject(map.get("textureAtlas"), "textureAtlas");
+            requireAllowedFields(atlas, TEXTURE_ATLAS_FIELDS, "textureAtlas");
+            if (atlas.containsKey("algorithmId")) {
+                final Object algorithm = atlas.get("algorithmId");
+                if (algorithm != null
+                        && (!(algorithm instanceof String) || ((String) algorithm).isBlank())) {
+                    throw new ConfigException(
+                            "existing config.json textureAtlas.algorithmId is invalid");
+                }
+            }
+            if (atlas.containsKey("parallel") && !(atlas.get("parallel") instanceof Boolean)) {
+                throw new ConfigException(
+                        "existing config.json textureAtlas.parallel must be a boolean");
+            }
+        }
+    }
+
+    private static boolean validGraalVmPath(String path) {
+        return !path.isBlank() && path.length() <= 4_096
+                && path.chars().noneMatch(character -> character < 0x20);
+    }
+
+    private static List<String> stringListOrNull(Object value) {
+        if (!(value instanceof List<?>)) {
+            return null;
+        }
+        final List<String> strings = new ArrayList<>();
+        for (Object entry : (List<?>) value) {
+            if (!(entry instanceof String)) {
+                return null;
+            }
+            strings.add((String) entry);
+        }
+        return strings;
     }
 
     private static Map<?, ?> requireObject(Object value, String field) throws ConfigException {
@@ -1041,60 +1079,166 @@ final class ConfigMerge {
         }
     }
 
-    static Map<String, Object> migrateToCurrent(Map<String, Object> legacy) throws ConfigException {
-        final long schema = schemaVersion(legacy);
-        if (schema == CURRENT_SCHEMA_VERSION) {
-            validateCurrent(legacy);
-            return legacy;
+    /**
+     * Normalizes any ownable config document to the current v1 schema. A
+     * document that already passes the v1 contract is returned unchanged.
+     * Otherwise every recognized field whose value satisfies the v1 rules is
+     * carried forward — including legacy root-level {@code cubismJvm} /
+     * {@code graalVmPath}, which are lifted into {@code launcher} — and every
+     * unknown field or invalid value is dropped rather than rejected. The
+     * result is fully validated before it is returned, so normalization can
+     * never emit a document the runtime would refuse.
+     */
+    static Map<String, Object> normalizeToCurrent(Map<String, Object> source)
+            throws ConfigException {
+        try {
+            validateCurrent(source);
+            return source;
+        } catch (ConfigException invalid) {
+            // Fall through to tolerant normalization.
         }
-        if (schema != 0L) {
-            throw new ConfigException("no runtime config migration is available from schemaVersion " + schema);
+
+        final Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("format", RUNTIME_CONFIG_FORMAT);
+        normalized.put("schemaVersion", CURRENT_SCHEMA_VERSION);
+
+        final Object worktree = source.get("worktreeId");
+        if (worktree instanceof String
+                && WORKTREE_ID_PATTERN.matcher((String) worktree).matches()) {
+            normalized.put("worktreeId", worktree);
+        } else {
+            normalized.put("worktreeId", WORKTREE_ID);
         }
-        for (String field : legacy.keySet()) {
-            if (!V0_FIELDS.contains(field)) {
-                throw new ConfigException("legacy config.json contains an unsupported field: " + field);
+
+        final List<String> pluginDirs = stringListOrNull(source.get("pluginDirs"));
+        if (pluginDirs == null) {
+            normalized.put("pluginDirs", List.of(PLUGIN_DIR));
+        } else {
+            final List<String> safe = new ArrayList<>();
+            for (String path : pluginDirs) {
+                if (!path.startsWith("/") && !path.startsWith("\\\\") && !path.contains("..")) {
+                    safe.add(path);
+                }
+            }
+            normalized.put("pluginDirs", List.copyOf(safe));
+        }
+
+        final List<String> disabled = stringListOrNull(source.get("disabledPlugins"));
+        if (disabled != null) {
+            // Empty ids are meaningless to the selection merge; drop them so a
+            // malformed entry cannot abort the install later in mergeDisabled.
+            final List<String> ids = new ArrayList<>();
+            for (String id : disabled) {
+                if (!id.isEmpty()) {
+                    ids.add(id);
+                }
+            }
+            normalized.put("disabledPlugins", List.copyOf(ids));
+        }
+
+        final Object logLevel = source.get("logLevel");
+        if (logLevel instanceof String && LOG_LEVELS.contains(logLevel)) {
+            normalized.put("logLevel", logLevel);
+        }
+        final Object maxLogStorage = source.get("maxLogStorageMiB");
+        if (maxLogStorage instanceof Long
+                && (Long) maxLogStorage >= 1L && (Long) maxLogStorage <= 4_096L) {
+            normalized.put("maxLogStorageMiB", maxLogStorage);
+        }
+        final Object locale = source.get("locale");
+        if (locale instanceof String && LOCALES.contains(locale)) {
+            normalized.put("locale", locale);
+        }
+        for (String field : List.of(
+                "safeMode", "useTextIcon", "reduceAutoBackup",
+                "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse")) {
+            if (source.get(field) instanceof Boolean) {
+                normalized.put(field, source.get(field));
             }
         }
-        final Map<String, Object> migrated = new LinkedHashMap<>();
-        migrated.put("format", RUNTIME_CONFIG_FORMAT);
-        migrated.put("schemaVersion", CURRENT_SCHEMA_VERSION);
-        migrated.put("worktreeId", WORKTREE_ID);
-        migrated.put("pluginDirs", List.of(PLUGIN_DIR));
-        migrated.put("launcher", new LinkedHashMap<>(Map.of("cubismJvm", "graalvm")));
-        for (String field : List.of(
-                "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
-                "locale", "safeMode", "useTextIcon", "diagnostics", "hooks")) {
-            if (legacy.containsKey(field)) migrated.put(field, legacy.get(field));
+        if (source.containsKey("diagnostics")) {
+            normalized.put("diagnostics", source.get("diagnostics"));
+        }
+
+        if (source.get("hooks") instanceof Map<?, ?>) {
+            final Map<?, ?> sourceHooks = (Map<?, ?>) source.get("hooks");
+            final Map<String, Object> hooks = new LinkedHashMap<>();
+            for (String field : List.of("disabledIds", "denylistedClasses")) {
+                final List<String> values = stringListOrNull(sourceHooks.get(field));
+                if (values != null) {
+                    hooks.put(field, List.copyOf(values));
+                }
+            }
+            if (sourceHooks.get("startup") instanceof Map<?, ?>) {
+                final Map<?, ?> sourceStartup = (Map<?, ?>) sourceHooks.get("startup");
+                final Map<String, Object> startup = new LinkedHashMap<>();
+                for (String field : STARTUP_FIELDS) {
+                    if (sourceStartup.get(field) instanceof Boolean) {
+                        startup.put(field, sourceStartup.get(field));
+                    }
+                }
+                hooks.put("startup", startup);
+            }
+            normalized.put("hooks", hooks);
+        }
+
+        if (source.get("textureAtlas") instanceof Map<?, ?>) {
+            final Map<?, ?> sourceAtlas = (Map<?, ?>) source.get("textureAtlas");
+            final Map<String, Object> atlas = new LinkedHashMap<>();
+            if (sourceAtlas.containsKey("algorithmId")) {
+                final Object algorithm = sourceAtlas.get("algorithmId");
+                if (algorithm == null
+                        || (algorithm instanceof String && !((String) algorithm).isBlank())) {
+                    atlas.put("algorithmId", algorithm);
+                }
+            }
+            if (sourceAtlas.get("parallel") instanceof Boolean) {
+                atlas.put("parallel", sourceAtlas.get("parallel"));
+            }
+            normalized.put("textureAtlas", atlas);
         }
 
         final Map<String, Object> launcher = new LinkedHashMap<>();
-        final Object existingLauncher = legacy.get("launcher");
-        if (existingLauncher != null) {
-            if (!(existingLauncher instanceof Map<?, ?>)) {
-                throw new ConfigException("legacy config.json launcher must be an object");
+        if (source.get("launcher") instanceof Map<?, ?>) {
+            final Map<?, ?> sourceLauncher = (Map<?, ?>) source.get("launcher");
+            final Object cubismJvm = sourceLauncher.get("cubismJvm");
+            if (cubismJvm instanceof String && CUBISM_JVMS.contains(cubismJvm)) {
+                launcher.put("cubismJvm", cubismJvm);
             }
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) existingLauncher).entrySet()) {
-                if (!(entry.getKey() instanceof String) || !LAUNCHER_FIELDS.contains(entry.getKey())) {
-                    throw new ConfigException("legacy config.json contains an unsupported launcher field: "
-                            + entry.getKey());
+            final Object graalVmPath = sourceLauncher.get("graalVmPath");
+            if (graalVmPath instanceof String && validGraalVmPath((String) graalVmPath)) {
+                launcher.put("graalVmPath", graalVmPath);
+            }
+            final Object profile = sourceLauncher.get("memoryProfile");
+            if (profile instanceof String && MEMORY_PROFILES.contains(profile)) {
+                launcher.put("memoryProfile", profile);
+            }
+            for (String field : BOOLEAN_LAUNCHER_FIELDS) {
+                if (sourceLauncher.get(field) instanceof Boolean) {
+                    launcher.put(field, sourceLauncher.get(field));
                 }
-                launcher.put((String) entry.getKey(), entry.getValue());
             }
-        } else {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defaults = (Map<String, Object>) migrated.get("launcher");
-            launcher.putAll(defaults);
         }
-        for (String field : LAUNCHER_FIELDS) {
-            if (!legacy.containsKey(field)) continue;
-            if (launcher.containsKey(field) && existingLauncher != null) {
-                throw new ConfigException("legacy config.json defines " + field + " twice");
+        // Legacy root-level JVM fields are lifted into launcher; a launcher
+        // value already present takes precedence and the root copy is dropped.
+        for (String field : LEGACY_ROOT_LAUNCHER_FIELDS) {
+            if (!source.containsKey(field) || launcher.containsKey(field)) {
+                continue;
             }
-            launcher.put(field, legacy.get(field));
+            final Object value = source.get(field);
+            final boolean valid = "cubismJvm".equals(field)
+                    ? value instanceof String && CUBISM_JVMS.contains(value)
+                    : value instanceof String && validGraalVmPath((String) value);
+            if (valid) {
+                launcher.put(field, value);
+            }
         }
-        migrated.put("launcher", launcher);
-        validateCurrent(migrated);
-        return migrated;
+        if (!launcher.isEmpty()) {
+            normalized.put("launcher", launcher);
+        }
+
+        validateCurrent(normalized);
+        return normalized;
     }
     /**
      * Loads the canonical template bundled with the installer. The template is
