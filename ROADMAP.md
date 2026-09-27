@@ -205,6 +205,29 @@ Every hook requires necessity evidence, exact version routing, bounded execution
 - developer documentation and examples;
 - predictable preview-to-stable promotion.
 
+### SDK API freeze checkpoint
+
+The first stable release establishes the SDK compatibility baseline: from that
+point the public SDK surface only grows additively, and breaking changes wait
+for a new major line. Until the freeze, additive growth is deliberately
+converged rather than open-ended — new surface lands only where a real
+consumer needs it.
+
+Required pre-freeze work:
+
+- migrate every event type into the canonical `dev.turboism.sdk.cubism.event`
+  package and reject the retired `dev.turboism.sdk.event.cubism` package in
+  module-boundary checks;
+- unify `PluginContext` optional-surface semantics on `unavailable()`
+  singletons plus `isAvailable()` probing, so third-party plugins meet one
+  unavailability contract.
+
+After the freeze these are the only sanctioned SDK change classes:
+
+- additive interfaces, methods, factories and enum constants;
+- documentation and contract clarifications that do not alter behavior;
+- internal refactorings that keep every public signature and sentinel stable.
+
 ### Product readiness
 
 - relocatable preview/release bundle;

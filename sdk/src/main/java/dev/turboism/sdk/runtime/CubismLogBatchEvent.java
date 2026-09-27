@@ -1,6 +1,6 @@
 package dev.turboism.sdk.runtime;
 
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.List;
 import java.util.Objects;
@@ -17,7 +17,7 @@ import java.util.Objects;
 public record CubismLogBatchEvent(
     List<Entry> entries,
     long droppedEntries
-) implements EventBus.TurboismEvent {
+) implements TurboismEvent {
 
     public CubismLogBatchEvent {
         entries = List.copyOf(Objects.requireNonNull(entries, "entries"));

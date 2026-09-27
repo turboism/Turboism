@@ -178,6 +178,10 @@ def candidate_notes(root, receipt, context):
         extractor = _load_script('localized_beta_notes', Path(__file__).parent.parent/'extract-release-notes.py')
         english = extractor.extract((Path(root)/'CHANGELOG.md').read_text(encoding='utf-8'),base)
         locales = reviewed_locales(root, base, english)
+        # Candidates publish to all four reviewed languages; stable_metadata stays
+        # lenient so it can still reproduce the binding of pre-existing releases.
+        require({'zh', 'ja', 'ko'} <= set(locales),
+                'Reviewed release notes must include zh, ja and ko translations')
     body = locales['en'].rstrip()+f"\n\nSource: {receipt['sourceRevision']}\nBuild: {receipt['buildNumber']}\n\n"
     body += metadata_marker(receipt['version'], receipt['sourceRevision'], locales, context)
     body += '<!-- turboism-build-v1 '+json.dumps(receipt,sort_keys=True,separators=(',',':'))+' -->\n'

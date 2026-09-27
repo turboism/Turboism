@@ -8,10 +8,13 @@ public interface SceneTableService {
 
     String SCENE_TABLE_ID = "scene";
 
+    /** Sets the header label of one column of the named table. */
     void setHeader(String tableId, String columnId, String label);
 
+    /** Moves one item to {@code position} in the named table. */
     void setItemPosition(String tableId, String itemId, int position);
 
+    /** Applies {@code itemIds} as the complete row order of the named table. */
     default void setItemOrder(final String tableId, final List<String> itemIds) {
         for (int index = 0; index < itemIds.size(); index++) {
             setItemPosition(tableId, itemIds.get(index), index);
@@ -22,28 +25,44 @@ public interface SceneTableService {
     default void setManualReordering(final String tableId, final boolean enabled) {
     }
 
+    /**
+     * Reports whether a live runtime surface backs this instance.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+
+    /** Returns a fail-closed service: every call is a no-op. */
     static SceneTableService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Notification that a table column header was clicked. */
     record HeaderClick(String tableId, String columnId) {
     }
 
+    /** Notification that manual dragging reordered items within one scope. */
     record ItemOrderChanged(String tableId, String scopeId, List<String> itemIds) {
         public ItemOrderChanged {
             itemIds = List.copyOf(itemIds);
         }
     }
 
+    /** One table column descriptor. */
     record Column(String id, String label) {
     }
 
+    /** One table row: an item id plus cell text keyed by column id. */
     record Item(String id, Map<String, String> cells) {
         public Item {
             cells = Map.copyOf(cells);
         }
     }
 
+    /** Immutable snapshot of one table's columns and items within a scope. */
     record TableSnapshot(String tableId, String scopeId, List<Column> columns, List<Item> items) {
         public TableSnapshot {
             scopeId = scopeId == null ? "" : scopeId;
@@ -56,8 +75,13 @@ public interface SceneTableService {
         }
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements SceneTableService {
         INSTANCE;
+
+        @Override public boolean isAvailable() {
+            return false;
+        }
 
         @Override
         public void setHeader(final String tableId, final String columnId, final String label) {

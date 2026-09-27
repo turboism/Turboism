@@ -75,13 +75,20 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
     }
 
     private static TextureAtlasAutoLayoutDialogContributor contributor() {
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
-            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
-        registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
-            "native", "Native", false, null
-        ));
+        return contributor(new RuntimeTextureAtlasLayoutAlgorithmRegistry());
+    }
+
+    private static TextureAtlasAutoLayoutDialogContributor contributor(
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry
+    ) {
         registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
             "maxrects", "MaxRects-BSSF", true,
+            (items, constraints) -> new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan(
+                4096, 4096, 1, java.util.List.of()
+            )
+        ));
+        registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+            "dalsoo", "Dalsoo Polygon", true, true,
             (items, constraints) -> new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan(
                 4096, 4096, 1, java.util.List.of()
             )
@@ -152,23 +159,37 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
         final GridBagConstraints spacerConstraints = new GridBagConstraints();
         spacerConstraints.gridy = 5;
         center.add(spacer, spacerConstraints);
-        System.getProperties().put(
-            TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY,
-            TextureAtlasAutoLayoutDialogContributor.ALGO_MAXRECTS
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        registry.selectionState().select(
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection(
+                TextureAtlasAutoLayoutDialogContributor.ALGO_MAXRECTS, false
+            )
         );
         try {
-            contributor().injectInto(center);
-            assertEquals(8, grid.getConstraints(spacer).gridy);
+            contributor(registry).injectInto(center);
+            assertEquals(16, grid.getConstraints(spacer).gridy);
 
             JComboBox<?> combo = null;
             for (java.awt.Component component : center.getComponents()) {
-                if (component instanceof JComboBox<?> candidate) combo = candidate;
+                if (component instanceof JComboBox<?> candidate
+                    && candidate.getItemCount() > 0
+                    && "Native (Cubism)".equals(candidate.getItemAt(0))) {
+                    combo = candidate;
+                }
             }
             assertNotNull(combo);
             assertEquals(1, combo.getSelectedIndex());
             assertEquals("MaxRects-BSSF", combo.getItemAt(combo.getSelectedIndex()));
+            assertEquals(3, combo.getItemCount());
 
             combo.setSelectedIndex(0);
+            // The synthetic native entry selects the "native" id through the runtime
+            // selection and mirrors it onto the bridge property.
+            assertEquals(
+                TextureAtlasAutoLayoutDialogContributor.ALGO_NATIVE,
+                registry.selectionState().selection().algorithmId()
+            );
             assertEquals(
                 TextureAtlasAutoLayoutDialogContributor.ALGO_NATIVE,
                 System.getProperty(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY)
@@ -194,10 +215,19 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             assertNotNull(observation);
             assertEquals(center, observation.center());
             assertEquals("Layout algorithm", observation.algorithmLabel().getText());
-            assertEquals(2, observation.algorithmCombo().getItemCount());
+            assertEquals(3, observation.algorithmCombo().getItemCount());
             assertEquals("Parallel search", observation.parallelLabel().getText());
             assertNotNull(observation.parallelCheck());
             assertEquals(2, observation.algorithms().size());
+            assertTrue(observation.optionControls().containsKey("rotation"));
+            assertTrue(observation.optionControls().containsKey("lockPreset"));
+            assertTrue(observation.optionControls().containsKey("scaleMode"));
+            assertTrue(observation.optionControls().containsKey("fixedScale"));
+            assertTrue(observation.optionControls()
+                .containsKey("autoScaleTolerance"));
+            assertTrue(observation.optionControls()
+                .containsKey("autoScaleMaxTry"));
+            assertTrue(observation.optionControls().containsKey("kernel"));
         } finally {
             System.getProperties().remove(
                 TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY
@@ -242,15 +272,23 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
     @Test
     void parallelCheckboxDisabledForNonParallelAlgorithm() {
         final JPanel center = new JPanel(new GridBagLayout());
-        System.getProperties().put(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY, "native");
-        System.getProperties().put(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY, "true");
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        // Explicit native selection is stored under the "native" id, distinct from unset.
+        registry.selectionState().select(
+            new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection("native", true)
+        );
         try {
-            contributor().injectInto(center);
+            contributor(registry).injectInto(center);
             javax.swing.JCheckBox check = null;
             javax.swing.JComboBox<?> combo = null;
             for (java.awt.Component component : center.getComponents()) {
                 if (component instanceof javax.swing.JCheckBox candidate) check = candidate;
-                if (component instanceof javax.swing.JComboBox<?> candidate) combo = candidate;
+                if (component instanceof javax.swing.JComboBox<?> candidate
+                    && candidate.getItemCount() > 0
+                    && "Native (Cubism)".equals(candidate.getItemAt(0))) {
+                    combo = candidate;
+                }
             }
             assertNotNull(check);
             assertNotNull(combo);
@@ -258,12 +296,174 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             assertFalse(check.isEnabled());
             assertFalse(check.isSelected());
             assertEquals("false", System.getProperty(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY));
+            assertFalse(registry.selectionState().selection().parallel());
 
             combo.setSelectedIndex(1);
             assertTrue(check.isEnabled());
         } finally {
             System.getProperties().remove(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY);
             System.getProperties().remove(TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY);
+        }
+    }
+
+    @Test
+    void polygonOptionControlsEnabledOnlyForPolygonAlgorithms() {
+        final JPanel center = new JPanel(new GridBagLayout());
+        final AtomicReference<Object> received = new AtomicReference<>();
+        System.getProperties().put(
+            TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
+            (Consumer<Object>) received::set);
+        System.getProperties().put(
+            TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY, "native");
+        try {
+            contributor().injectInto(center);
+            final var observation =
+                (TextureAtlasAutoLayoutDialogContributor.DialogObservation)
+                    received.get();
+            assertNotNull(observation);
+            for (final var control : observation.optionControls().values()) {
+                assertFalse(control.isEnabled(),
+                    "non-polygon algorithm must disable option controls");
+            }
+            // dalsoo declares supportsPolygonOptions
+            observation.algorithmCombo().setSelectedIndex(2);
+            for (final var control : observation.optionControls().values()) {
+                assertTrue(control.isEnabled() || control
+                    == observation.optionControls().get("fixedScale"),
+                    "polygon algorithm must enable option controls");
+            }
+            // back to a rect-only algorithm: everything disabled again
+            observation.algorithmCombo().setSelectedIndex(1);
+            for (final var control : observation.optionControls().values()) {
+                assertFalse(control.isEnabled());
+            }
+        } finally {
+            System.getProperties().remove(
+                TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY);
+            System.getProperties().remove(
+                TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY);
+        }
+    }
+
+    @Test
+    void scaleModeGatesScaleFields() {
+        final JPanel center = new JPanel(new GridBagLayout());
+        final AtomicReference<Object> received = new AtomicReference<>();
+        System.getProperties().put(
+            TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
+            (Consumer<Object>) received::set);
+        try {
+            contributor().injectInto(center);
+            final var observation =
+                (TextureAtlasAutoLayoutDialogContributor.DialogObservation)
+                    received.get();
+            assertNotNull(observation);
+            observation.algorithmCombo().setSelectedIndex(2); // dalsoo
+            @SuppressWarnings("unchecked")
+            final JComboBox<String> scaleMode =
+                (JComboBox<String>) observation.optionControls().get("scaleMode");
+            final var fixedScale = observation.optionControls().get("fixedScale");
+            final var tolerance =
+                observation.optionControls().get("autoScaleTolerance");
+            final var maxTry =
+                observation.optionControls().get("autoScaleMaxTry");
+            // auto mode (default): fixedScale off, tolerance/maxTry on
+            assertFalse(fixedScale.isEnabled());
+            assertTrue(tolerance.isEnabled());
+            assertTrue(maxTry.isEnabled());
+            scaleMode.setSelectedIndex(1); // fixed
+            assertEquals("false", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_KEY));
+            assertTrue(fixedScale.isEnabled());
+            assertFalse(tolerance.isEnabled());
+            assertFalse(maxTry.isEnabled());
+            scaleMode.setSelectedIndex(0); // auto
+            assertEquals("true", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_KEY));
+        } finally {
+            for (final String key : new String[] {
+                TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
+                TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY,
+                TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY,
+                TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_KEY}) {
+                System.getProperties().remove(key);
+            }
+        }
+    }
+
+    @Test
+    void optionControlsBridgeToSystemProperties() {
+        final JPanel center = new JPanel(new GridBagLayout());
+        final AtomicReference<Object> received = new AtomicReference<>();
+        System.getProperties().put(
+            TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
+            (Consumer<Object>) received::set);
+        try {
+            contributor().injectInto(center);
+            final var observation =
+                (TextureAtlasAutoLayoutDialogContributor.DialogObservation)
+                    received.get();
+            assertNotNull(observation);
+            observation.algorithmCombo().setSelectedIndex(2); // dalsoo
+            @SuppressWarnings("unchecked")
+            final JComboBox<String> rotation =
+                (JComboBox<String>) observation.optionControls().get("rotation");
+            @SuppressWarnings("unchecked")
+            final JComboBox<String> lock =
+                (JComboBox<String>) observation.optionControls().get("lockPreset");
+            @SuppressWarnings("unchecked")
+            final JComboBox<String> kernel =
+                (JComboBox<String>) observation.optionControls().get("kernel");
+            rotation.setSelectedIndex(2);
+            assertEquals("FREE", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.ROTATION_KEY));
+            lock.setSelectedIndex(4);
+            assertEquals("ANGLE_SCALE", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.LOCK_PRESET_KEY));
+            kernel.setSelectedIndex(1);
+            assertEquals("dalalah", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.KERNEL_KEY));
+
+            final javax.swing.JTextField fixedScale =
+                (javax.swing.JTextField) observation.optionControls()
+                    .get("fixedScale");
+            fixedScale.setText("150");
+            fixedScale.postActionEvent();
+            assertEquals("150", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.FIXED_SCALE_PERCENT_KEY));
+            // invalid input reverts to the last committed value
+            fixedScale.setText("bogus");
+            fixedScale.postActionEvent();
+            assertEquals("150", fixedScale.getText());
+
+            final javax.swing.JTextField tolerance =
+                (javax.swing.JTextField) observation.optionControls()
+                    .get("autoScaleTolerance");
+            tolerance.setText("0.02");
+            tolerance.postActionEvent();
+            assertEquals("20", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_TOLERANCE_KEY));
+
+            final javax.swing.JTextField maxTry =
+                (javax.swing.JTextField) observation.optionControls()
+                    .get("autoScaleMaxTry");
+            maxTry.setText("7");
+            maxTry.postActionEvent();
+            assertEquals("7", System.getProperty(
+                TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_MAX_TRY_KEY));
+        } finally {
+            for (final String key : new String[] {
+                TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
+                TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY,
+                TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY,
+                TextureAtlasAutoLayoutDialogContributor.ROTATION_KEY,
+                TextureAtlasAutoLayoutDialogContributor.LOCK_PRESET_KEY,
+                TextureAtlasAutoLayoutDialogContributor.KERNEL_KEY,
+                TextureAtlasAutoLayoutDialogContributor.FIXED_SCALE_PERCENT_KEY,
+                TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_TOLERANCE_KEY,
+                TextureAtlasAutoLayoutDialogContributor.AUTO_SCALE_MAX_TRY_KEY}) {
+                System.getProperties().remove(key);
+            }
         }
     }
 

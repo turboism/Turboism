@@ -49,7 +49,7 @@ class HostDialogAutomationValidationProbeTest {
     @Test
     void outcomeVocabularyMatchesTheFrameworkContract() {
         assertEquals(
-            "[ACTED, NOT_FOUND, TIMEOUT, AMBIGUOUS, UNSUPPORTED]",
+            "[ACTED, NOT_FOUND, TIMEOUT, AMBIGUOUS, UNSUPPORTED, UNAVAILABLE]",
             java.util.Arrays.toString(HostDialogOutcome.values())
         );
     }

@@ -140,8 +140,14 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
         );
     }
 
+    /** Route from a context-menu activation to the owning plugin's action registry. */
     @FunctionalInterface
     public interface ContextActionRouter {
+        /**
+         * @param pluginId the plugin that owns the action
+         * @param actionId the action id within that plugin
+         * @param context the action context carrying the menu selection
+         */
         void invoke(String pluginId, String actionId, ActionRegistry.ActionContext context);
     }
 

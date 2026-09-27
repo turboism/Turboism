@@ -26,7 +26,7 @@ public final class VerifiedRuntimeHostAdaptersFactory {
     private final VerifiedProjectWorkspaceResolverFactory projectResolverFactory;
     private final VerifiedClipMaskResolverFactory clipMaskResolverFactory;
     private final VerifiedStatusBarResolverFactory statusBarResolverFactory;
-    private final java.util.Locale locale;
+    private final java.util.function.Supplier<java.util.Locale> locale;
     private final Consumer<String> diagnostics;
 
     public VerifiedRuntimeHostAdaptersFactory() {
@@ -34,7 +34,7 @@ public final class VerifiedRuntimeHostAdaptersFactory {
             new VerifiedProjectWorkspaceResolverFactory(),
             new VerifiedClipMaskResolverFactory(),
             new VerifiedStatusBarResolverFactory(),
-            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+            () -> java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
             ignored -> { }
         );
     }
@@ -47,6 +47,24 @@ public final class VerifiedRuntimeHostAdaptersFactory {
     /** Production factory with a sanitized recent-preview diagnostics sink. */
     public VerifiedRuntimeHostAdaptersFactory(
         final java.util.Locale effectiveLocale,
+        final Consumer<String> diagnostics
+    ) {
+        this(fixedLocale(effectiveLocale), diagnostics);
+    }
+
+    /**
+     * Production factory: receives the runtime's shared effective-locale source, so
+     * locale settled after this factory's composition is honored at render time.
+     */
+    public VerifiedRuntimeHostAdaptersFactory(
+        final java.util.function.Supplier<java.util.Locale> effectiveLocale
+    ) {
+        this(effectiveLocale, ignored -> { });
+    }
+
+    /** Production factory with an effective-locale source and a sanitized diagnostics sink. */
+    public VerifiedRuntimeHostAdaptersFactory(
+        final java.util.function.Supplier<java.util.Locale> effectiveLocale,
         final Consumer<String> diagnostics
     ) {
         this(
@@ -66,7 +84,7 @@ public final class VerifiedRuntimeHostAdaptersFactory {
             projectResolverFactory,
             clipMaskResolverFactory,
             new VerifiedStatusBarResolverFactory(),
-            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+            () -> java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
             ignored -> { }
         );
     }
@@ -90,7 +108,7 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         final VerifiedStatusBarResolverFactory statusBarResolverFactory,
         final java.util.Locale locale
     ) {
-        this(projectResolverFactory, clipMaskResolverFactory, statusBarResolverFactory, locale, ignored -> { });
+        this(projectResolverFactory, clipMaskResolverFactory, statusBarResolverFactory, fixedLocale(locale), ignored -> { });
     }
 
     VerifiedRuntimeHostAdaptersFactory(
@@ -100,11 +118,28 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         final java.util.Locale locale,
         final Consumer<String> diagnostics
     ) {
+        this(projectResolverFactory, clipMaskResolverFactory, statusBarResolverFactory, fixedLocale(locale), diagnostics);
+    }
+
+    VerifiedRuntimeHostAdaptersFactory(
+        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+        final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
+        final VerifiedStatusBarResolverFactory statusBarResolverFactory,
+        final java.util.function.Supplier<java.util.Locale> locale,
+        final Consumer<String> diagnostics
+    ) {
         this.projectResolverFactory = Objects.requireNonNull(projectResolverFactory, "projectResolverFactory");
         this.clipMaskResolverFactory = Objects.requireNonNull(clipMaskResolverFactory, "clipMaskResolverFactory");
         this.statusBarResolverFactory = Objects.requireNonNull(statusBarResolverFactory, "statusBarResolverFactory");
         this.locale = Objects.requireNonNull(locale, "locale");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
+    }
+
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
+        final java.util.Locale locale
+    ) {
+        final java.util.Locale required = Objects.requireNonNull(locale, "locale");
+        return () -> required;
     }
 
     /**

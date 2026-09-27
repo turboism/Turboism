@@ -110,12 +110,12 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
      * usable with the initial refresh and no polling.
      */
     private dev.turboism.sdk.task.PluginTaskScheduler taskScheduler() {
-        try {
-            return context.tasks();
-        } catch (RuntimeException unavailable) {
+        final dev.turboism.sdk.task.PluginTaskScheduler scheduler = context.tasks();
+        if (!scheduler.isAvailable()) {
             logger.warn("History panel task scheduler unavailable; pane shows without polling");
             return null;
         }
+        return scheduler;
     }
 
     private void dismissPanel() {

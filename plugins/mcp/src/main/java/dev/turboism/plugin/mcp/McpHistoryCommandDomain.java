@@ -576,7 +576,30 @@ final class McpHistoryCommandDomain {
             entry("property", value.property().orElse(null)),
             entry("before", value.before().orElse(null)),
             entry("after", value.after().orElse(null)),
-            entry("context", historyEditContext(value.context()))
+            entry("context", historyEditContext(value.context())),
+            entry(
+                "relation",
+                value.relation().map(McpHistoryCommandDomain::historyRelationChange).orElse(null)
+            )
+        );
+    }
+
+    private static Map<String, Object> historyRelationChange(
+        final dev.turboism.sdk.cubism.history.HistoryRelationChange value
+    ) {
+        return immutableMap(
+            entry("kind", value.kind().name()),
+            entry("before", historyRelationEndpoint(value.before())),
+            entry("after", historyRelationEndpoint(value.after()))
+        );
+    }
+
+    private static Map<String, Object> historyRelationEndpoint(
+        final dev.turboism.sdk.cubism.history.HistoryRelationChange.Endpoint value
+    ) {
+        return immutableMap(
+            entry("state", value.state().name()),
+            entry("target", value.target().map(McpHistoryCommandDomain::historyTarget).orElse(null))
         );
     }
 

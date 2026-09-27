@@ -1,0 +1,4 @@
+plugin.description
+plugin.name
+protected-export.option
+protected-export.unavailable
