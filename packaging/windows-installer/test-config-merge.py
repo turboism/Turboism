@@ -755,8 +755,8 @@ def check_configurator_flow_contract():
           and "Anchor = 'Top, Bottom, Left, Right'" in configure)
     check("CF5 candidate selection resolves exact versions from application artifacts",
           "Get-CubismVersionFromArtifact" in common
-          and "ReviewedHostArtifactCli" in common
-          and "HostArtifactDigest.from" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifactCli.java").read_text(encoding="utf-8")
+          and "CubismHostProbeCli" in common
+          and "HostArtifactDigest.from" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java").read_text(encoding="utf-8")
           and "Get-CubismVersionFromPath" not in common
           and "application artifacts are selectable" in common)
     check("CF6 BAT integration is selected in the configurator after candidates",

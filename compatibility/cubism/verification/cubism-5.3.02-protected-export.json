@@ -2441,5 +2441,10 @@
    "forbiddenAccessFlags": 0,
    "status": "VERIFIED_STATIC"
   }
- ]
+ ],
+  "capabilityConditions": {
+    "cubism.protected-export.orchestration": [
+      "hook:protected-export"
+    ]
+  }
 }

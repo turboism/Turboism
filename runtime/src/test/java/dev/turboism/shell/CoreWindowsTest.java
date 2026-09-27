@@ -6,8 +6,10 @@ import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import javax.swing.JCheckBox;
+import java.awt.GraphicsEnvironment;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -217,6 +219,8 @@ class CoreWindowsTest {
 
     @Test
     void pluginCatalogRefreshRunsOffTheEdt() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(),
+            "plugins dialog requires a visible AWT display");
         final java.util.concurrent.CountDownLatch catalogCalled =
             new java.util.concurrent.CountDownLatch(1);
         final java.util.concurrent.atomic.AtomicReference<Thread> catalogThread =

@@ -86,7 +86,8 @@ class CorePluginContextAvailableServicesTest {
             PluginService.WORKSPACE_LAYOUT,
             PluginService.RUNTIME_SETTINGS,
             PluginService.MCP_CONNECTIONS,
-            PluginService.UI_RESOURCES
+            PluginService.UI_RESOURCES,
+            PluginService.EXPORT_SETTINGS
         );
         final Set<PluginService> expectedPresent = Set.of(
             PluginService.PARAMETER_QUERY,
