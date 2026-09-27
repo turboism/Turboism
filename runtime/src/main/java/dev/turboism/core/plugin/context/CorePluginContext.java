@@ -135,7 +135,7 @@ public final class CorePluginContext implements PluginContext {
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     public CorePluginContext(final Dependencies dependencies) {
-        this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
+        this(dependencies, PluginContextEnvironment.safeMode().build());
     }
 
     /** Production composition seam for a verified, fail-closed host-session view. */
@@ -143,16 +143,7 @@ public final class CorePluginContext implements PluginContext {
         final Dependencies dependencies,
         final RuntimeHostAdapterAccess hostAccess
     ) {
-        this(
-            dependencies,
-            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
-            hostAccess,
-            null,
-            null,
-            null,
-            null,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAccess).build());
     }
 
     public CorePluginContext(
@@ -160,16 +151,9 @@ public final class CorePluginContext implements PluginContext {
         final RuntimeHostAdapterAccess hostAccess,
         final PluginLocalization localization
     ) {
-        this(
-            dependencies,
-            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
-            hostAccess,
-            localization,
-            null,
-            null,
-            null,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAccess)
+            .localization(localization)
+            .build());
     }
 
     public CorePluginContext(
@@ -178,16 +162,10 @@ public final class CorePluginContext implements PluginContext {
         final PluginLocalization localization,
         final PluginTaskScheduler taskScheduler
     ) {
-        this(
-            dependencies,
-            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
-            hostAccess,
-            localization,
-            taskScheduler,
-            null,
-            null,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAccess)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .build());
     }
 
     public CorePluginContext(
@@ -197,16 +175,11 @@ public final class CorePluginContext implements PluginContext {
         final PluginTaskScheduler taskScheduler,
         final PluginStorage pluginStorage
     ) {
-        this(
-            dependencies,
-            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
-            hostAccess,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            null,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAccess)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .pluginStorage(pluginStorage)
+            .build());
     }
 
     public CorePluginContext(
@@ -217,19 +190,12 @@ public final class CorePluginContext implements PluginContext {
         final PluginStorage pluginStorage,
         final UserFileAccessService userFileAccessService
     ) {
-        this(
-            dependencies,
-            servicesFactory(
-                Objects.requireNonNull(hostAccess, "hostAccess"),
-                userFileAccessService
-            ),
-            hostAccess,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAccess)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .pluginStorage(pluginStorage)
+            .userFiles(userFileAccessService)
+            .build());
     }
 
     public CorePluginContext(
@@ -243,13 +209,13 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            hostAccess,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            asyncHostReadService,
-            null
+            PluginContextEnvironment.builder(hostAccess)
+                .localization(Objects.requireNonNull(localization, "localization"))
+                .taskScheduler(Objects.requireNonNull(taskScheduler, "taskScheduler"))
+                .pluginStorage(Objects.requireNonNull(pluginStorage, "pluginStorage"))
+                .userFiles(Objects.requireNonNull(userFileAccessService, "userFileAccessService"))
+                .hostReads(Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"))
+                .build()
         );
     }
 
@@ -265,17 +231,14 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            servicesFactory(
-                Objects.requireNonNull(hostAccess, "hostAccess"),
-                Objects.requireNonNull(userFileAccessService, "userFileAccessService")
-            ),
-            hostAccess,
-            Objects.requireNonNull(localization, "localization"),
-            Objects.requireNonNull(taskScheduler, "taskScheduler"),
-            Objects.requireNonNull(pluginStorage, "pluginStorage"),
-            Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
-            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"),
-            runtimeSettings
+            PluginContextEnvironment.builder(hostAccess)
+                .localization(Objects.requireNonNull(localization, "localization"))
+                .taskScheduler(Objects.requireNonNull(taskScheduler, "taskScheduler"))
+                .pluginStorage(Objects.requireNonNull(pluginStorage, "pluginStorage"))
+                .userFiles(Objects.requireNonNull(userFileAccessService, "userFileAccessService"))
+                .hostReads(Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"))
+                .runtimeSettings(runtimeSettings)
+                .build()
         );
     }
 
@@ -292,18 +255,15 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            servicesFactory(
-                Objects.requireNonNull(hostAccess, "hostAccess"),
-                Objects.requireNonNull(userFileAccessService, "userFileAccessService")
-            ),
-            hostAccess,
-            Objects.requireNonNull(localization, "localization"),
-            Objects.requireNonNull(taskScheduler, "taskScheduler"),
-            Objects.requireNonNull(pluginStorage, "pluginStorage"),
-            Objects.requireNonNull(userFileAccessService, "userFileAccessService"),
-            Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"),
-            runtimeSettings,
-            fileChooserHistory
+            PluginContextEnvironment.builder(hostAccess)
+                .localization(Objects.requireNonNull(localization, "localization"))
+                .taskScheduler(Objects.requireNonNull(taskScheduler, "taskScheduler"))
+                .pluginStorage(Objects.requireNonNull(pluginStorage, "pluginStorage"))
+                .userFiles(Objects.requireNonNull(userFileAccessService, "userFileAccessService"))
+                .hostReads(Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"))
+                .runtimeSettings(runtimeSettings)
+                .fileChooserHistory(fileChooserHistory)
+                .build()
         );
     }
 
@@ -321,57 +281,16 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
-            hostAccess,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            asyncHostReadService,
-            runtimeSettings,
-            fileChooserHistory
-        );
-        // Reuse the existing exact-version/safe-mode interceptor. The getter below returns this
-        // service directly; registration is inert and does not claim native host readiness.
-        this.exportSettingsContributionService = editorApiAvailability.wrapForTesting(
-            Objects.requireNonNull(exportSettings, "exportSettings"),
-            ExportSettingsContributionService.class
-        );
-    }
-
-    private static DefaultCubismServicesFactory servicesFactory(
-        final RuntimeHostAdapterAccess hostAccess
-    ) {
-        return servicesFactory(hostAccess, null);
-    }
-
-    private static DefaultCubismServicesFactory servicesFactory(
-        final RuntimeHostAdapterAccess hostAccess,
-        final UserFileAccessService userFiles
-    ) {
-        return new DefaultCubismServicesFactory(
-            hostAccess.adapters(),
-            hostAccess::cubismEditorVersion,
-            hostAccess::admittedCubismCapabilities,
-            hostAccess::admittedCubismGeneration,
-            hostAccess.modelAccess(),
-            hostAccess.coreRuntimeInfo(),
-            hostAccess.parameterLifecycle(),
-            hostAccess.partLifecycle(),
-            hostAccess.editorObjectLifecycle(),
-            hostAccess.physicsEditorCoordinator(),
-            hostAccess.modelAppearanceSource(),
-            hostAccess.paletteAppearanceCoordinator(),
-            hostAccess.textureAtlasLayouts(),
-            hostAccess.textureAtlasNativeInvocations(),
-            hostAccess.textureAtlasEditorUi(),
-            hostAccess.textureAtlasEditorSession(),
-            hostAccess.textureAtlasAlgorithms(),
-            hostAccess.editorCommands(),
-            userFiles instanceof dev.turboism.adapter.cubism.command.EditorFileCommandResolver resolver
-                ? resolver
-                : dev.turboism.adapter.cubism.command.EditorFileCommandResolver.unavailable(),
-            hostAccess.adapters().autoBackup(),
-            hostAccess.history()
+            PluginContextEnvironment.builder(hostAccess)
+                .localization(Objects.requireNonNull(localization, "localization"))
+                .taskScheduler(Objects.requireNonNull(taskScheduler, "taskScheduler"))
+                .pluginStorage(Objects.requireNonNull(pluginStorage, "pluginStorage"))
+                .userFiles(Objects.requireNonNull(userFileAccessService, "userFileAccessService"))
+                .hostReads(Objects.requireNonNull(asyncHostReadService, "asyncHostReadService"))
+                .runtimeSettings(runtimeSettings)
+                .fileChooserHistory(fileChooserHistory)
+                .exportSettings(Objects.requireNonNull(exportSettings, "exportSettings"))
+                .build()
         );
     }
 
@@ -379,7 +298,7 @@ public final class CorePluginContext implements PluginContext {
         final Dependencies dependencies,
         final RuntimeHostAdapters hostAdapters
     ) {
-        this(dependencies, hostAdapters, null, null, null, null, null);
+        this(dependencies, PluginContextEnvironment.builder(hostAdapters).build());
     }
 
     CorePluginContext(
@@ -387,7 +306,9 @@ public final class CorePluginContext implements PluginContext {
         final RuntimeHostAdapters hostAdapters,
         final PluginLocalization localization
     ) {
-        this(dependencies, hostAdapters, localization, null, null, null, null);
+        this(dependencies, PluginContextEnvironment.builder(hostAdapters)
+            .localization(localization)
+            .build());
     }
 
     CorePluginContext(
@@ -396,7 +317,10 @@ public final class CorePluginContext implements PluginContext {
         final PluginLocalization localization,
         final PluginTaskScheduler taskScheduler
     ) {
-        this(dependencies, hostAdapters, localization, taskScheduler, null, null, null);
+        this(dependencies, PluginContextEnvironment.builder(hostAdapters)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .build());
     }
 
     CorePluginContext(
@@ -406,15 +330,11 @@ public final class CorePluginContext implements PluginContext {
         final PluginTaskScheduler taskScheduler,
         final PluginStorage pluginStorage
     ) {
-        this(
-            dependencies,
-            hostAdapters,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            null,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAdapters)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .pluginStorage(pluginStorage)
+            .build());
     }
 
     CorePluginContext(
@@ -425,15 +345,12 @@ public final class CorePluginContext implements PluginContext {
         final PluginStorage pluginStorage,
         final UserFileAccessService userFileAccessService
     ) {
-        this(
-            dependencies,
-            hostAdapters,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAdapters)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .pluginStorage(pluginStorage)
+            .userFiles(userFileAccessService)
+            .build());
     }
 
     CorePluginContext(
@@ -445,16 +362,13 @@ public final class CorePluginContext implements PluginContext {
         final UserFileAccessService userFileAccessService,
         final AsyncHostReadService asyncHostReadService
     ) {
-        this(
-            dependencies,
-            new DefaultCubismServicesFactory(hostAdapters),
-            hostAdapters,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            asyncHostReadService
-        );
+        this(dependencies, PluginContextEnvironment.builder(hostAdapters)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .pluginStorage(pluginStorage)
+            .userFiles(userFileAccessService)
+            .hostReads(asyncHostReadService)
+            .build());
     }
 
     /** Test composition seam: package-private {@link RuntimeHostAdapters} view with an injected file-chooser history service. */
@@ -468,150 +382,37 @@ public final class CorePluginContext implements PluginContext {
         final AsyncHostReadService asyncHostReadService,
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
     ) {
-        this(
-            dependencies,
-            new DefaultCubismServicesFactory(hostAdapters),
-            hostAdapters,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            asyncHostReadService
-        );
-        this.fileChooserHistory = fileChooserHistory == null
-            ? null
-            : editorApiAvailability.wrapForTesting(
-                fileChooserHistory,
-                dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class
-            );
+        this(dependencies, PluginContextEnvironment.builder(hostAdapters)
+            .localization(localization)
+            .taskScheduler(taskScheduler)
+            .pluginStorage(pluginStorage)
+            .userFiles(userFileAccessService)
+            .hostReads(asyncHostReadService)
+            .fileChooserHistory(fileChooserHistory)
+            .build());
     }
 
     CorePluginContext(final Dependencies dependencies, final CubismServicesFactory cubismServicesFactory) {
-        this(
-            dependencies,
-            cubismServicesFactory,
-            RuntimeHostAdapters.safeMode(),
-            null,
-            null,
-            null,
-            null,
-            null
-        );
+        this(dependencies, PluginContextEnvironment.safeMode()
+            .servicesFactory(Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory"))
+            .build());
     }
 
-    private CorePluginContext(
+    /**
+     * Primary environment-based composition constructor for {@link CorePluginContext}.
+     *
+     * @param dependencies immutable plugin dependencies and registries
+     * @param environment assembled host environment and scoped services
+     */
+    public CorePluginContext(
         final Dependencies dependencies,
-        final CubismServicesFactory cubismServicesFactory,
-        final RuntimeHostAdapters hostAdapters,
-        final PluginLocalization localization,
-        final PluginTaskScheduler taskScheduler,
-        final PluginStorage pluginStorage,
-        final UserFileAccessService userFileAccessService,
-        final AsyncHostReadService asyncHostReadService
+        final PluginContextEnvironment environment
     ) {
-        this(
-            dependencies,
-            cubismServicesFactory,
-            null,
-            hostAdapters,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            asyncHostReadService
-        );
-    }
-
-    private CorePluginContext(
-        final Dependencies dependencies,
-        final CubismServicesFactory cubismServicesFactory,
-        final RuntimeHostAdapterAccess hostAccess,
-        final PluginLocalization localization,
-        final PluginTaskScheduler taskScheduler,
-        final PluginStorage pluginStorage,
-        final UserFileAccessService userFileAccessService,
-        final AsyncHostReadService asyncHostReadService
-    ) {
-        this(
-            dependencies, cubismServicesFactory, hostAccess,
-            localization, taskScheduler, pluginStorage, userFileAccessService, asyncHostReadService, null
-        );
-    }
-
-    private CorePluginContext(
-        final Dependencies dependencies,
-        final CubismServicesFactory cubismServicesFactory,
-        final RuntimeHostAdapterAccess hostAccess,
-        final PluginLocalization localization,
-        final PluginTaskScheduler taskScheduler,
-        final PluginStorage pluginStorage,
-        final UserFileAccessService userFileAccessService,
-        final AsyncHostReadService asyncHostReadService,
-        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings
-    ) {
-        this(
-            dependencies,
-            cubismServicesFactory,
-            hostAccess,
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            asyncHostReadService,
-            runtimeSettings,
-            null
-        );
-    }
-
-    private CorePluginContext(
-        final Dependencies dependencies,
-        final CubismServicesFactory cubismServicesFactory,
-        final RuntimeHostAdapterAccess hostAccess,
-        final PluginLocalization localization,
-        final PluginTaskScheduler taskScheduler,
-        final PluginStorage pluginStorage,
-        final UserFileAccessService userFileAccessService,
-        final AsyncHostReadService asyncHostReadService,
-        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
-        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory
-    ) {
-        this(
-            dependencies,
-            cubismServicesFactory,
-            hostAccess,
-            Objects.requireNonNull(hostAccess, "hostAccess").adapters(),
-            localization,
-            taskScheduler,
-            pluginStorage,
-            userFileAccessService,
-            asyncHostReadService
-        );
-        this.runtimeSettings = runtimeSettings;
-        this.fileChooserHistory = fileChooserHistory == null
-            ? null
-            : editorApiAvailability.wrapForTesting(
-                fileChooserHistory,
-                dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class
-            );
-    }
-
-    private CorePluginContext(
-        final Dependencies dependencies,
-        final CubismServicesFactory cubismServicesFactory,
-        final RuntimeHostAdapterAccess hostAccess,
-        final RuntimeHostAdapters hostAdapters,
-        final PluginLocalization localization,
-        final PluginTaskScheduler taskScheduler,
-        final PluginStorage pluginStorage,
-        final UserFileAccessService userFileAccessService,
-        final AsyncHostReadService asyncHostReadService
-    ) {
-        // A composition that already injected a session-scoped source keeps it:
-        // one shared source means every plugin query facade and the runtime
-        // selection observer read in the same invalidation-token domain. Other
-        // sources are still replaced by the per-session projection here.
+        Objects.requireNonNull(dependencies, "dependencies");
+        final PluginContextEnvironment env = Objects.requireNonNull(environment, "environment");
+        final RuntimeHostAdapterAccess hostAccess = env.hostAccess();
         this.dependencies = hostAccess == null
-            ? Objects.requireNonNull(dependencies, "dependencies")
+            ? dependencies
             : dependencies.withHostSnapshotSource(
                 dependencies.hostSnapshotSource() instanceof HostSessionSnapshotSource
                     ? dependencies.hostSnapshotSource()
@@ -620,11 +421,9 @@ public final class CorePluginContext implements PluginContext {
                         hostAccess::currentHostSelection
                     )
             );
-        final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
+        final RuntimeHostAdapters adapters = env.hostAdapters();
         this.uiResourceService = adapters.uiResources();
-        final CubismServicesFactory servicesFactory = Objects.requireNonNull(
-            cubismServicesFactory, "cubismServicesFactory"
-        );
+        final CubismServicesFactory servicesFactory = env.servicesFactory();
         this.editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
             servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
                 ? defaultFactory.cubismEditorVersion()
@@ -637,31 +436,31 @@ public final class CorePluginContext implements PluginContext {
                 : java.util.Optional::empty
         );
         this.cubismServices = servicesFactory.create(
-                this.dependencies,
-                taskScheduler instanceof dev.turboism.task.RuntimePluginTaskScheduler runtimeTasks
-                    ? runtimeTasks
-                    : null
-            );
+            this.dependencies,
+            env.taskScheduler() instanceof dev.turboism.task.RuntimePluginTaskScheduler runtimeTasks
+                ? runtimeTasks
+                : null
+        );
         this.backupCoordinator = this.cubismServices.backupService()
             instanceof dev.turboism.adapter.cubism.backup.AutoBackupCoordinator coordinator
                 ? coordinator
                 : null;
-        this.mainToolbarRegistry = dependencies.mainToolbar();
-        this.paletteToolbarRegistry = dependencies.paletteToolbar();
-        this.paletteFilterRegistry = dependencies.paletteFilter();
-        this.contextMenuRegistry = dependencies.contextMenu();
-        this.pluginConfigRegistry = dependencies.config();
-        this.localization = localization;
+        this.mainToolbarRegistry = this.dependencies.mainToolbar();
+        this.paletteToolbarRegistry = this.dependencies.paletteToolbar();
+        this.paletteFilterRegistry = this.dependencies.paletteFilter();
+        this.contextMenuRegistry = this.dependencies.contextMenu();
+        this.pluginConfigRegistry = this.dependencies.config();
+        this.localization = env.localization();
         bindContributionLocalization(
             this.mainToolbarRegistry,
             this.paletteToolbarRegistry,
             this.paletteFilterRegistry,
-            localization
+            this.localization
         );
-        this.taskScheduler = taskScheduler;
-        this.pluginStorage = pluginStorage;
-        this.userFileAccessService = userFileAccessService;
-        this.asyncHostReadService = asyncHostReadService;
+        this.taskScheduler = env.taskScheduler();
+        this.pluginStorage = env.pluginStorage();
+        this.userFileAccessService = env.userFileAccessService();
+        this.asyncHostReadService = env.asyncHostReadService();
         final RuntimeMeshMirrorAxisService sharedMeshMirrorAxis = hostAccess == null
             ? new RuntimeMeshMirrorAxisService()
             : hostAccess.meshMirrorAxisService();
@@ -683,8 +482,6 @@ public final class CorePluginContext implements PluginContext {
             meshPermissionChecker,
             this.dependencies.disposableScope()
         );
-        // Participation and counterpart resolution are owned by the mirror bridge, because both
-        // only mean anything while it holds live host handles for an edit in progress.
         this.meshEditService = new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditService(
             new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditService(),
             meshPermissionChecker
@@ -803,7 +600,7 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.disposableScope(),
                 adapters.statusToolbar(),
                 adapters.uiSurface(),
-                localization,
+                this.localization,
                 dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess),
                 this.dependencies.logger()
             )
@@ -814,7 +611,7 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.disposableScope(),
                 adapters.statusToolbar(),
                 adapters.uiSurface(),
-                localization,
+                this.localization,
                 dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess),
                 hostAccess.editorUiContributions(),
                 hostAccess.embeddedPanelActivation(),
@@ -844,6 +641,25 @@ public final class CorePluginContext implements PluginContext {
                     this.dependencies.actions()
                 )
             );
+        }
+        this.runtimeSettings = env.runtimeSettings();
+        this.fileChooserHistory = env.fileChooserHistory() == null
+            ? null
+            : editorApiAvailability.wrapForTesting(
+                env.fileChooserHistory(),
+                dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class
+            );
+        if (env.exportSettings() != null) {
+            this.exportSettingsContributionService = editorApiAvailability.wrapForTesting(
+                env.exportSettings(),
+                ExportSettingsContributionService.class
+            );
+        }
+        if (env.scriptService() != null) {
+            this.scriptService = env.scriptService();
+        }
+        if (env.mcpConnectionService() != null) {
+            this.mcpConnectionService = env.mcpConnectionService();
         }
     }
 
