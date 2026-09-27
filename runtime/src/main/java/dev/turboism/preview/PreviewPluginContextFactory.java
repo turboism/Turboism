@@ -155,11 +155,20 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                 requestedScope,
                 eventOwner
             );
+            final dev.turboism.core.plugin.context.PluginContextEnvironment environment =
+                dev.turboism.core.plugin.context.PluginContextEnvironment.builder(hostAccess)
+                    .localization(services.localization())
+                    .taskScheduler(services.taskScheduler())
+                    .pluginStorage(services.pluginStorage())
+                    .userFiles(services.userFiles())
+                    .hostReads(services.hostReads())
+                    .fileChooserHistory(fileChooserHistory)
+                    .exportSettings(services.exportSettings())
+                    .mcpConnectionService(services.mcpConnections())
+                    .build();
             final CorePluginContext context = new CorePluginContext(
-                services.dependencies().withConfig(services.typedConfig()), hostAccess,
-                services.localization(), services.taskScheduler(), services.pluginStorage(),
-                services.userFiles(), services.hostReads(), null,
-                fileChooserHistory, services.exportSettings()
+                services.dependencies().withConfig(services.typedConfig()),
+                environment
             );
             context.installScriptService(new dev.turboism.script.RuntimeScriptService(
                 home,
@@ -168,7 +177,6 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                 graalHost,
                 diagnostic -> log.warn(requestedDescriptor.id(), diagnostic)
             ));
-            context.installMcpConnectionService(services.mcpConnections());
             return new PluginContextBundle(
                 context, services.localization(), services.cleanupEvidence(), eventOwner
             );

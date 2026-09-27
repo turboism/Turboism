@@ -113,21 +113,16 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
      * live-document read fails propagates instead of being masked.
      */
     dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection currentHostSelection() {
-        final AccessLease lease;
-        try {
-            lease = acquireActiveLease();
-        } catch (IllegalStateException noActiveModel) {
-            return dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection.empty();
-        }
-        try {
-            if (lease.modelAccess() instanceof dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess editorBacked
-                && editorBacked.selectionReadAuthorized()) {
-                return editorBacked.readHostSelection();
+        return withActiveLeaseOrFallback(
+            dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection::empty,
+            lease -> {
+                if (lease.modelAccess() instanceof dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess editorBacked
+                    && editorBacked.selectionReadAuthorized()) {
+                    return editorBacked.readHostSelection();
+                }
+                return dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection.empty();
             }
-            return dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection.empty();
-        } finally {
-            release(lease);
-        }
+        );
     }
 
     @Override
@@ -147,27 +142,22 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                     "options"
                 );
                 final AuthoringTransactionWork<T> checkedWork = Objects.requireNonNull(work, "work");
-                final AccessLease lease;
-                try {
-                    lease = acquireActiveLease();
-                } catch (IllegalStateException unavailable) {
-                    return AuthoringTransactionResult.unavailable(
+                return withActiveLeaseOrFallback(
+                    () -> AuthoringTransactionResult.unavailable(
                         "cubism.authoring.transactions.host-unavailable"
-                    );
-                }
-                try {
-                    if (!(lease.modelAccess() instanceof RuntimeAuthoringTransactionProvider provider)) {
-                        return AuthoringTransactionResult.unavailable(
-                            "cubism.authoring.transactions.provider-unavailable"
+                    ),
+                    lease -> {
+                        if (!(lease.modelAccess() instanceof RuntimeAuthoringTransactionProvider provider)) {
+                            return AuthoringTransactionResult.unavailable(
+                                "cubism.authoring.transactions.provider-unavailable"
+                            );
+                        }
+                        return provider.authoringTransactions(owner).execute(
+                            checkedOptions,
+                            checkedWork
                         );
                     }
-                    return provider.authoringTransactions(owner).execute(
-                        checkedOptions,
-                        checkedWork
-                    );
-                } finally {
-                    release(lease);
-                }
+                );
             }
         };
     }
@@ -188,25 +178,20 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             public boolean isEditApproved(final dev.turboism.sdk.plugin.PluginContext context)
                     throws dev.turboism.sdk.cubism.edit.EditSessionException {
                 Objects.requireNonNull(context, "context");
-                final AccessLease lease;
-                try {
-                    lease = acquireActiveLease();
-                } catch (IllegalStateException unavailable) {
-                    throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                return withActiveLeaseOrThrow(
+                    unavailable -> new dev.turboism.sdk.cubism.edit.EditUnavailableException(
                         "cubism.edit.unavailable", "The Cubism edit surface is unavailable"
-                    );
-                }
-                try {
-                    if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
-                        throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
-                            "cubism.edit.unavailable",
-                            "Editor edit sessions are unavailable on this host"
-                        );
+                    ),
+                    lease -> {
+                        if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
+                            throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                                "cubism.edit.unavailable",
+                                "Editor edit sessions are unavailable on this host"
+                            );
+                        }
+                        return provider.editSessions(owner, checkedDocument).isEditApproved(context);
                     }
-                    return provider.editSessions(owner, checkedDocument).isEditApproved(context);
-                } finally {
-                    release(lease);
-                }
+                );
             }
 
             @Override
@@ -218,62 +203,53 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 Objects.requireNonNull(context, "context");
                 Objects.requireNonNull(document, "document");
                 Objects.requireNonNull(options, "options");
-                final AccessLease lease;
-                try {
-                    lease = acquireActiveLease();
-                } catch (IllegalStateException unavailable) {
-                    throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                return withActiveLeaseOrThrow(
+                    unavailable -> new dev.turboism.sdk.cubism.edit.EditUnavailableException(
                         "cubism.edit.unavailable", "The Cubism edit surface is unavailable"
-                    );
-                }
-                try {
-                    if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
-                        throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
-                            "cubism.edit.unavailable",
-                            "Editor edit sessions are unavailable on this host"
-                        );
+                    ),
+                    lease -> {
+                        if (!(lease.modelAccess() instanceof RuntimeEditSessionProvider provider)) {
+                            throw new dev.turboism.sdk.cubism.edit.EditUnavailableException(
+                                "cubism.edit.unavailable",
+                                "Editor edit sessions are unavailable on this host"
+                            );
+                        }
+                        return provider.editSessions(owner, checkedDocument).open(context, document, options);
                     }
-                    return provider.editSessions(owner, checkedDocument).open(context, document, options);
-                } finally {
-                    release(lease);
-                }
-            }
-            };
-        }
-
-        @Override
-        public WarpMirrorService warpMirrorService(final String pluginId) {
-            final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
-            if (owner.isEmpty()) {
-                throw new IllegalArgumentException("pluginId must not be blank");
-            }
-        return request -> {
-            final WarpMirrorRequest checked = Objects.requireNonNull(request, "request");
-            final AccessLease lease;
-            try {
-                lease = acquireActiveLease();
-            } catch (IllegalStateException unavailable) {
-                return WarpMirrorResult.blocked(java.util.List.of(new WarpMirrorBlocker(
-                    WarpMirrorBlockerCode.UNAVAILABLE,
-                    "The Editor host session is unavailable.")));
-            }
-            try {
-                if (!(lease.modelAccess() instanceof RuntimeWarpMirrorProvider provider)) {
-                    return WarpMirrorResult.blocked(java.util.List.of(new WarpMirrorBlocker(
-                        WarpMirrorBlockerCode.UNAVAILABLE,
-                        "The Warp mirror provider is unavailable on this host.")));
-                }
-                return provider.warpMirrorService(owner).apply(checked);
-            } finally {
-                release(lease);
+                );
             }
         };
     }
 
     @Override
+    public WarpMirrorService warpMirrorService(final String pluginId) {
+        final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("pluginId must not be blank");
+        }
+        return request -> {
+            final WarpMirrorRequest checked = Objects.requireNonNull(request, "request");
+            return withActiveLeaseOrFallback(
+                () -> WarpMirrorResult.blocked(java.util.List.of(new WarpMirrorBlocker(
+                    WarpMirrorBlockerCode.UNAVAILABLE,
+                    "The Editor host session is unavailable."
+                ))),
+                lease -> {
+                    if (!(lease.modelAccess() instanceof RuntimeWarpMirrorProvider provider)) {
+                        return WarpMirrorResult.blocked(java.util.List.of(new WarpMirrorBlocker(
+                            WarpMirrorBlockerCode.UNAVAILABLE,
+                            "The Warp mirror provider is unavailable on this host."
+                        )));
+                    }
+                    return provider.warpMirrorService(owner).apply(checked);
+                }
+            );
+        };
+    }
+
+    @Override
     public CubismModel active() {
-        final AccessLease lease = acquireActiveLease();
-        try {
+        return withActiveLease(lease -> {
             final CubismModel model = Objects.requireNonNull(lease.modelAccess().active(), "active model");
             return new SessionModel(
                 lease.generation(),
@@ -281,19 +257,12 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 Objects.requireNonNull(model.id(), "active model id"),
                 model
             );
-        } finally {
-            release(lease);
-        }
+        });
     }
 
     @Override
     public void requireCreateSupported(final ModelObjectCreateRequest request) {
-        final AccessLease lease = acquireActiveLease();
-        try {
-            createProvider(lease).requireCreateSupported(request);
-        } finally {
-            release(lease);
-        }
+        withActiveLeaseVoid(lease -> createProvider(lease).requireCreateSupported(request));
     }
 
     @Override
@@ -2444,14 +2413,66 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
     }
 
-    @Override
-    public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
+    @FunctionalInterface
+    private interface LeaseAction<T, E extends Throwable> {
+        T apply(AccessLease lease) throws E;
+    }
+
+    private <T> T withActiveLease(final Function<AccessLease, T> action) {
         final AccessLease lease = acquireActiveLease();
         try {
-            return labelAuthoring(lease).readNativeLabelColor(target);
+            return action.apply(lease);
         } finally {
             release(lease);
         }
+    }
+
+    private void withActiveLeaseVoid(final java.util.function.Consumer<AccessLease> action) {
+        final AccessLease lease = acquireActiveLease();
+        try {
+            action.accept(lease);
+        } finally {
+            release(lease);
+        }
+    }
+
+    private <T> T withActiveLeaseOrFallback(
+        final java.util.function.Supplier<T> fallbackWhenUnavailable,
+        final Function<AccessLease, T> action
+    ) {
+        final AccessLease lease;
+        try {
+            lease = acquireActiveLease();
+        } catch (IllegalStateException unavailable) {
+            return fallbackWhenUnavailable.get();
+        }
+        try {
+            return action.apply(lease);
+        } finally {
+            release(lease);
+        }
+    }
+
+    private <T, E extends Throwable> T withActiveLeaseOrThrow(
+        final Function<IllegalStateException, E> exceptionMapper,
+        final LeaseAction<T, E> action
+    ) throws E {
+        final AccessLease lease;
+        try {
+            lease = acquireActiveLease();
+        } catch (IllegalStateException unavailable) {
+            throw exceptionMapper.apply(unavailable);
+        }
+        try {
+            return action.apply(lease);
+        } finally {
+            release(lease);
+        }
+    }
+
+    @Override
+    public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
+        return withActiveLease(lease -> labelAuthoring(lease).readNativeLabelColor(target));
     }
 
     @Override
@@ -2459,12 +2480,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         final NativeLabelColorTarget target,
         final NativeLabelColor color
     ) {
-        final AccessLease lease = acquireActiveLease();
-        try {
-            labelAuthoring(lease).setNativeLabelColor(target, color);
-        } finally {
-            release(lease);
-        }
+        withActiveLeaseVoid(lease -> labelAuthoring(lease).setNativeLabelColor(target, color));
     }
 
 
