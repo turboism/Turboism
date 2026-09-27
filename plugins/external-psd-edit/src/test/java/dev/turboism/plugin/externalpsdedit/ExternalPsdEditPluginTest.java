@@ -1980,6 +1980,13 @@ class ExternalPsdEditPluginTest {
         @Override public List<AtlasTexture> textureAtlases() { return List.of(); }
         @Override
         public TextureRelationsSnapshot relations() {
+            throw new AssertionError("External editing must not query the full layer graph");
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sources(
+            final dev.turboism.sdk.cubism.model.TextureSourceQuery query
+        ) {
             relationReads.incrementAndGet();
             final TextureRelationsSnapshot sampled = relations;
             final Runnable hook = relationReadHook;
@@ -1987,7 +1994,33 @@ class ExternalPsdEditPluginTest {
             if (hook != null) {
                 hook.run();
             }
-            return sampled;
+            if (!sampled.isAvailable()) {
+                return dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.unavailable();
+            }
+            final var meshes = sampled.artMeshInputs().stream()
+                .filter(mesh -> query.artMeshes().contains(mesh.id())).toList();
+            final var imageIds = new java.util.HashSet<>(query.modelImages());
+            for (final var mesh : meshes) {
+                if (mesh.currentInputIndex().isEmpty()) { continue; }
+                final var current = mesh.inputs().get(mesh.currentInputIndex().getAsInt());
+                if (current.kind() == TextureInputBinding.Kind.ATLAS) {
+                    mesh.inputs().forEach(input -> input.modelImageId().ifPresent(imageIds::add));
+                } else {
+                    current.modelImageId().ifPresent(imageIds::add);
+                }
+            }
+            final var images = sampled.modelImages().stream()
+                .filter(image -> imageIds.contains(image.id()))
+                .map(image -> new dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.ModelImageSource(
+                    image.id(), image.currentRawImageId())).toList();
+            final var rawIds = new java.util.HashSet<RawImageId>();
+            images.forEach(image -> image.currentRawImageId().ifPresent(rawIds::add));
+            return new dev.turboism.sdk.cubism.model.TextureSourcesSnapshot(
+                dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.Availability.AVAILABLE,
+                sampled.binding(), sampled.generation(), sampled.revision(),
+                sampled.rawImages().stream().filter(raw -> rawIds.contains(raw.id()))
+                    .map(RawImageDetails::rawImage).toList(),
+                images, meshes);
         }
 
         @Override

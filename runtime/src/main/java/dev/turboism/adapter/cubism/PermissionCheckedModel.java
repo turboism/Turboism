@@ -100,6 +100,11 @@ final class PermissionCheckedModel implements CubismModel {
                 facade.requireModelRead("model.textures.relations");
                 return textures.relations();
             }
+            @Override public dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sources(
+                final dev.turboism.sdk.cubism.model.TextureSourceQuery query) {
+                facade.requireModelRead("model.textures.sources");
+                return textures.sources(java.util.Objects.requireNonNull(query, "query"));
+            }
             @Override
             public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdExportResult>
                 exportRawImagePsd(final dev.turboism.sdk.cubism.id.RawImageId source) {

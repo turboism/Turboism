@@ -134,6 +134,53 @@ class EditorTextureRelationsAccessTest {
     }
 
     @Test
+    void scopesSourcesToSelectedArtMeshesAndTheirCurrentRawImages() {
+        final Fixture fixture = new Fixture();
+        final AtomicInteger guards = new AtomicInteger();
+        final var access = new EditorTextureRelationsAccess(resolver("5.3.02", true),
+            (identity, model) -> guards.incrementAndGet(), () -> 42L);
+        final var snapshot = access.sources("session-a", fixture.source, fixture.model,
+            new dev.turboism.sdk.cubism.model.TextureSourceQuery(
+                java.util.Set.of(new ArtMeshId("mesh-a")), java.util.Set.of()));
+        assertTrue(snapshot.isAvailable());
+        assertEquals(List.of(new ArtMeshId("mesh-a")),
+            snapshot.artMeshInputs().stream().map(ArtMeshTextureInputs::id).toList());
+        assertEquals(List.of(new ModelImageId("model-a")),
+            snapshot.modelImages().stream().map(image -> image.id()).toList());
+        assertEquals(List.of(new RawImageId("raw-a")),
+            snapshot.rawImages().stream().map(image -> image.id()).toList());
+        for (final var raw : List.of(fixture.rawA, fixture.rawB, fixture.rawC, fixture.rawD)) {
+            assertEquals(0, raw.childrenReads.get(), "source query must not walk layer trees");
+        }
+        final var images = fixture.source.textureManager.allModelImages;
+        assertEquals(1, images.get(0).environmentReads.get());
+        assertEquals(0, images.get(1).environmentReads.get(), "unselected image must not be resolved");
+        for (final var image : images) {
+            assertEquals(0, image.inputFilterEnv.layerReads.get(), "no selector maps in source query");
+        }
+        assertEquals(2, guards.get());
+    }
+
+    @Test
+    void emptySourceQueryReadsBindingOnlyWithoutTextureManager() {
+        final Fixture fixture = new Fixture();
+        final AtomicInteger guards = new AtomicInteger();
+        final var access = new EditorTextureRelationsAccess(resolver("5.3.02", true),
+            (identity, model) -> guards.incrementAndGet(), () -> 42L);
+        final var snapshot = access.sources("session-a", fixture.source, fixture.model,
+            new dev.turboism.sdk.cubism.model.TextureSourceQuery(
+                java.util.Set.of(), java.util.Set.of()));
+        assertTrue(snapshot.isAvailable());
+        assertEquals("session-a", snapshot.binding());
+        assertEquals(42L, snapshot.generation());
+        assertTrue(snapshot.rawImages().isEmpty());
+        assertTrue(snapshot.modelImages().isEmpty());
+        assertTrue(snapshot.artMeshInputs().isEmpty());
+        assertEquals(0, fixture.source.textureManagerCalls.get());
+        assertEquals(2, guards.get());
+    }
+
+    @Test
     void projectsTheVerifiedManyToManyRelationGraphWithoutLeakingHostObjects() {
         final Fixture fixture = new Fixture();
         final AtomicInteger guardCalls = new AtomicInteger();
@@ -821,6 +868,7 @@ class EditorTextureRelationsAccessTest {
         private final PsdDocument psdDoc;
         private final List<LayerEntry> children;
         private final AtomicInteger psdFileReads = new AtomicInteger();
+        private final AtomicInteger childrenReads = new AtomicInteger();
 
         LayeredImage(
             final HostId guid,
@@ -881,6 +929,7 @@ class EditorTextureRelationsAccessTest {
         }
 
         public List<LayerEntry> getChildren() {
+            childrenReads.incrementAndGet();
             return children;
         }
     }
@@ -892,6 +941,7 @@ class EditorTextureRelationsAccessTest {
         private final int height;
         private final List<HostId> linkedRawImageGuids;
         private final FilterEnv inputFilterEnv;
+        private final AtomicInteger environmentReads = new AtomicInteger();
 
         ModelImage(
             final HostId guid,
@@ -930,6 +980,7 @@ class EditorTextureRelationsAccessTest {
         }
 
         public FilterEnv getInputFilterEnv() {
+            environmentReads.incrementAndGet();
             return inputFilterEnv;
         }
     }
@@ -937,6 +988,7 @@ class EditorTextureRelationsAccessTest {
     public static final class FilterEnv {
         private final boolean hasLayerInputData;
         private final SelectorMap layerInputData;
+        private final AtomicInteger layerReads = new AtomicInteger();
         private final boolean hasCurrentImageGuid;
         private final HostId currentImageGuid;
 
@@ -953,10 +1005,12 @@ class EditorTextureRelationsAccessTest {
         }
 
         public boolean getHasLayerInputData() {
+            layerReads.incrementAndGet();
             return hasLayerInputData;
         }
 
         public SelectorMap getLayerInputData() {
+            layerReads.incrementAndGet();
             return layerInputData;
         }
 

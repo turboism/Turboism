@@ -61,6 +61,10 @@ class PsdModelTexturesDynamicForwardingTest {
         access.connect(() -> delegateModel);
 
         final ModelTextures sessionTextures = access.active().textures();
+        final var query = new dev.turboism.sdk.cubism.model.TextureSourceQuery(
+            java.util.Set.of(), java.util.Set.of());
+        assertSame(delegateTextures.sourceSnapshot, sessionTextures.sources(query));
+        assertSame(query, delegateTextures.sourceQuery);
         final var export = sessionTextures.exportRawImagePsd(SOURCE);
         final var replace = sessionTextures.replaceRawImagePsd(TARGET, FILE, REVISION);
 
@@ -80,6 +84,7 @@ class PsdModelTexturesDynamicForwardingTest {
         assertEquals(1, admissions[0]);
 
         access.deactivate();
+        assertThrows(IllegalStateException.class, () -> sessionTextures.sources(query));
         assertThrows(IllegalStateException.class, delegateTextures.admission::run);
         assertThrows(IllegalStateException.class, () -> port.exportPsdTo(SOURCE, destination, () -> { }));
         assertEquals(1, admissions[0]);
@@ -121,6 +126,17 @@ class PsdModelTexturesDynamicForwardingTest {
         private CompletionStage<PsdReplaceResult> replaceStage;
         private Runnable admission;
         private Path destination;
+        private dev.turboism.sdk.cubism.model.TextureSourceQuery sourceQuery;
+        private final dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sourceSnapshot =
+            dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.unavailable();
+
+        @Override
+        public dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sources(
+            final dev.turboism.sdk.cubism.model.TextureSourceQuery query
+        ) {
+            sourceQuery = query;
+            return sourceSnapshot;
+        }
 
         @Override
         public Observation exportPsdTo(final RawImageId source, final Path destination, final Runnable admission) {

@@ -18,6 +18,8 @@ import dev.turboism.sdk.cubism.model.RawLayerDetails;
 import dev.turboism.sdk.cubism.model.RawTexture;
 import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
+import dev.turboism.sdk.cubism.model.TextureSourceQuery;
+import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -156,6 +158,93 @@ final class EditorTextureRelationsAccess {
         );
     }
 
+    /** Scoped identity reads only: no layer tree, selector map, group or pixel observation. */
+    TextureSourcesSnapshot sources(final String identity, final Object source, final Object model,
+        final TextureSourceQuery query) {
+        Objects.requireNonNull(query, "query");
+        if (!isAvailable()) return TextureSourcesSnapshot.unavailable();
+        return EditorHostThread.dispatch("Cubism texture sources", () -> {
+            modelGuard.requireCurrent(identity, model);
+            final List<ArtMeshTextureInputs> inputs = new ArrayList<>();
+            final List<TextureSourcesSnapshot.ModelImageSource> images = new ArrayList<>();
+            final List<RawTexture> raws = new ArrayList<>();
+            if (!query.artMeshes().isEmpty() || !query.modelImages().isEmpty()) {
+                final Object manager = requireObject(resolver.invoke(TEXTURE_MANAGER, source), "texture manager");
+                final Map<ModelImageId, Object> imageIndex = new LinkedHashMap<>();
+                for (final Object image : list(resolver.invoke(ALL_MODEL_IMAGES, manager), "model images")) {
+                    requireInstance(MODEL_IMAGE_CLASS, image, "model image");
+                    final ModelImageId id = new ModelImageId(guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image"));
+                    if (imageIndex.put(id, image) != null) throw unavailable("Duplicate model image identity.");
+                }
+                final Set<ModelImageId> requested = new LinkedHashSet<>(query.modelImages());
+                final List<ArtMeshRead> meshes = readSelectedArtMeshes(source, model, query.artMeshes());
+                final Set<String> atlasIds = meshes.isEmpty() ? Set.of() : readAtlasIds(manager);
+                for (final ArtMeshRead mesh : meshes) {
+                    final ArtMeshTextureInputs value = readArtMeshInputs(mesh, imageIndex.keySet(), atlasIds,
+                        new LinkedHashMap<>());
+                    inputs.add(value);
+                    if (value.currentInputIndex().isEmpty()) continue;
+                    final TextureInputBinding current = value.inputs().get(value.currentInputIndex().getAsInt());
+                    if (current.kind() == TextureInputBinding.Kind.MODEL_IMAGE) {
+                        current.modelImageId().ifPresent(requested::add);
+                    } else if (current.kind() == TextureInputBinding.Kind.ATLAS) {
+                        value.inputs().forEach(input -> input.modelImageId().ifPresent(requested::add));
+                    }
+                }
+                final Set<RawImageId> rawIds = new LinkedHashSet<>();
+                for (final ModelImageId id : requested) {
+                    final Object image = imageIndex.get(id);
+                    if (image == null) continue;
+                    final Object env = resolver.invoke(MODEL_IMAGE_INPUT_FILTER_ENV, image);
+                    if (env != null) requireInstance(FILTER_ENV_CLASS, env, "model image filter environment");
+                    final Optional<RawImageId> raw = env == null ? Optional.empty() : readCurrentRawImage(env);
+                    images.add(new TextureSourcesSnapshot.ModelImageSource(id, raw));
+                    raw.ifPresent(rawIds::add);
+                }
+                if (!rawIds.isEmpty()) {
+                    final Set<RawImageId> seen = new HashSet<>();
+                    for (final Object wrapper : list(resolver.invoke(RAW_IMAGES, manager), "raw images")) {
+                        final Object raw = requireObject(resolver.invoke(WRAPPER_IMAGE, wrapper), "raw image");
+                        requireInstance(LAYERED_IMAGE_CLASS, raw, "raw image");
+                        final RawImageId id = new RawImageId(guidValue(resolver.invoke(LAYERED_IMAGE_GUID, raw), "raw image"));
+                        if (!rawIds.contains(id)) continue;
+                        if (!seen.add(id)) throw unavailable("Duplicate requested raw image identity.");
+                        raws.add(immutableRawTexture(id, raw));
+                    }
+                }
+            }
+            modelGuard.requireCurrent(identity, model);
+            return new TextureSourcesSnapshot(TextureSourcesSnapshot.Availability.AVAILABLE,
+                identity, generationSupplier.getAsLong(), revision.incrementAndGet(), raws, images, inputs);
+        });
+    }
+
+    private List<ArtMeshRead> readSelectedArtMeshes(final Object source, final Object model,
+        final Set<ArtMeshId> requested) {
+        if (requested.isEmpty()) return List.of();
+        final List<ArtMeshRead> selected = new ArrayList<>();
+        final Set<ArtMeshId> ids = new HashSet<>();
+        final Set<Object> selectedSources = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (final Object candidate : list(resolver.invoke(ALL_ART_MESH_SOURCES, source), "ArtMesh sources")) {
+            final ArtMeshId id = new ArtMeshId(stringValue(resolver.invoke(OBJECT_ID_VALUE,
+                resolver.invoke(OBJECT_ID, candidate)), "ArtMesh ID"));
+            if (!requested.contains(id)) continue;
+            requireInstance(ART_MESH_SOURCE_CLASS, candidate, "ArtMesh source");
+            if (!ids.add(id) || !selectedSources.add(candidate)) throw unavailable("Duplicate selected ArtMesh.");
+            selected.add(new ArtMeshRead(candidate, id));
+        }
+        if (selected.isEmpty()) return List.of();
+        final Set<Object> matched = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (final Object instance : list(resolver.invoke(ALL_ART_MESHES, model), "ArtMesh instances")) {
+            final Object candidate = resolver.invoke(ART_MESH_SOURCE, instance);
+            if (!selectedSources.contains(candidate)) continue;
+            requireInstance(ART_MESH_CLASS, instance, "ArtMesh instance");
+            if (!matched.add(candidate)) throw unavailable("Duplicate selected ArtMesh instance.");
+        }
+        if (matched.size() != selectedSources.size()) throw unavailable("Selected ArtMesh has no active instance.");
+        return List.copyOf(selected);
+    }
+
     /** All native relation selectors run in one synchronous host-thread read boundary. */
     private TextureRelationsSnapshot relationsOnHostThread(
         final String identity,
@@ -176,7 +265,7 @@ final class EditorTextureRelationsAccess {
         final Map<ModelImageId, LinkedHashSet<ArtMeshId>> users = new LinkedHashMap<>();
         final List<ArtMeshTextureInputs> artMeshInputs = new ArrayList<>(meshes.size());
         for (final ArtMeshRead mesh : meshes) {
-            final ArtMeshTextureInputs inputs = readArtMeshInputs(mesh, modelImageRead, atlasIds, users);
+            final ArtMeshTextureInputs inputs = readArtMeshInputs(mesh, modelImageRead.byId.keySet(), atlasIds, users);
             artMeshInputs.add(inputs);
         }
 
@@ -438,7 +527,7 @@ final class EditorTextureRelationsAccess {
 
     private ArtMeshTextureInputs readArtMeshInputs(
         final ArtMeshRead mesh,
-        final ModelImageRead modelImages,
+        final Set<ModelImageId> modelImages,
         final Set<String> atlasIds,
         final Map<ModelImageId, LinkedHashSet<ArtMeshId>> users
     ) {
@@ -459,7 +548,7 @@ final class EditorTextureRelationsAccess {
             final TextureInputBinding binding = textureInput(input, modelImages, atlasIds);
             values.add(binding);
             binding.modelImageId().ifPresent(id -> {
-                if (modelImages.byId.containsKey(id)) {
+                if (modelImages.contains(id)) {
                     users.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(mesh.id);
                 }
             });
@@ -480,7 +569,7 @@ final class EditorTextureRelationsAccess {
 
     private TextureInputBinding textureInput(
         final Object input,
-        final ModelImageRead modelImages,
+        final Set<ModelImageId> modelImages,
         final Set<String> atlasIds
     ) {
         if (resolver.isInstance(MODEL_INPUT_CLASS, input)) {
@@ -491,7 +580,7 @@ final class EditorTextureRelationsAccess {
             final ModelImageId id = new ModelImageId(guidValue(guid, "model image texture input"));
             return TextureInputBinding.modelImage(
                 id,
-                modelImages.byId.containsKey(id)
+                modelImages.contains(id)
                     ? TextureInputBinding.ResolutionState.RESOLVED
                     : TextureInputBinding.ResolutionState.UNAVAILABLE
             );

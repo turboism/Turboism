@@ -8,6 +8,9 @@ import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ModelImageRelation;
+import dev.turboism.sdk.cubism.model.TextureSourceQuery;
+import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot;
+import dev.turboism.sdk.cubism.model.TextureSourcesSnapshot.ModelImageSource;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
@@ -111,7 +114,7 @@ final class ExternalPsdEditSessionManager {
         notifyStatus("external-psd-edit.status.preparing", "INFO",
             text("external-psd-edit.status.preparing"));
         final CubismModel model;
-        final TextureRelationsSnapshot relations;
+        final TextureSourcesSnapshot relations;
         final ModelId modelId;
         String preparationStage = "active-model";
         try {
@@ -119,7 +122,7 @@ final class ExternalPsdEditSessionManager {
             preparationStage = "model-textures";
             final ModelTextures textures = model.textures();
             preparationStage = "texture-relations";
-            relations = textures.relations();
+            relations = textures.sources(sourceQuery(artMeshes));
             preparationStage = "model-id";
             modelId = model.id();
         } catch (RuntimeException unavailable) {
@@ -277,7 +280,7 @@ final class ExternalPsdEditSessionManager {
         long currentGeneration = -1L;
         try {
             final CubismModel model = context.cubism().model().active();
-            final TextureRelationsSnapshot relations = model.textures().relations();
+            final TextureSourcesSnapshot relations = model.textures().sources(new TextureSourceQuery(Set.of(), Set.of()));
             if (relations.isAvailable()) {
                 currentBinding = relations.binding();
                 currentModel = model.id();
@@ -481,10 +484,10 @@ final class ExternalPsdEditSessionManager {
         }
 
         final CubismModel model;
-        final TextureRelationsSnapshot relations;
+        final TextureSourcesSnapshot relations;
         try {
             model = context.cubism().model().active();
-            relations = model.textures().relations();
+            relations = model.textures().sources(sourceQuery(Set.of()));
         } catch (RuntimeException unavailable) {
             for (final Session session : snapshot) {
                 pauseForRelationRefresh(session, sampledVersions.get(session),
@@ -1066,9 +1069,15 @@ final class ExternalPsdEditSessionManager {
             relations.binding(), relations.generation())) {
             return false;
         }
-        return uniqueRawForModelImages(relations, session.key.modelImageIds())
-            .map(observedAfter::equals)
-            .orElse(false);
+        if (relations.rawImages().stream().filter(raw -> raw.id().equals(observedAfter)).count() != 1) return false;
+        for (final ModelImageId id : session.key.modelImageIds()) {
+            final List<ModelImageRelation> matches = relations.modelImages().stream()
+                .filter(image -> image.id().equals(id)).toList();
+            if (matches.size() != 1 || !matches.get(0).currentRawImageId().filter(observedAfter::equals).isPresent()) {
+                return false;
+            }
+        }
+        return !session.key.modelImageIds().isEmpty();
     }
 
     /** Stops and removes a session whose binding or target is no longer trustworthy. */
@@ -1148,10 +1157,20 @@ final class ExternalPsdEditSessionManager {
         }
     }
 
+    private TextureSourceQuery sourceQuery(final Set<ArtMeshId> selected) {
+        final Set<ModelImageId> anchors = new LinkedHashSet<>();
+        synchronized (sessions) {
+            for (final Session session : sessions.values()) {
+                if (session.isLive()) anchors.addAll(session.key.modelImageIds());
+            }
+        }
+        return new TextureSourceQuery(selected, anchors);
+    }
+
     private TargetResolution resolveTarget(final Session session) {
         try {
             final CubismModel model = context.cubism().model().active();
-            final TextureRelationsSnapshot relations = model.textures().relations();
+            final TextureSourcesSnapshot relations = model.textures().sources(sourceQuery(Set.of()));
             if (!relations.isAvailable()) {
                 return TargetResolution.unavailable("relations unavailable");
             }
@@ -1176,7 +1195,7 @@ final class ExternalPsdEditSessionManager {
 
     private boolean hasLiveSessionCollision(
         final Session session,
-        final TextureRelationsSnapshot relations,
+        final TextureSourcesSnapshot relations,
         final RawImageId raw
     ) {
         synchronized (sessions) {
@@ -1196,7 +1215,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private Optional<TargetSeed> targetSeed(
-        final TextureRelationsSnapshot relations,
+        final TextureSourcesSnapshot relations,
         final ModelId modelId,
         final RawImageId raw
     ) {
@@ -1205,7 +1224,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private Optional<SessionKey> sessionKeyForRaw(
-        final TextureRelationsSnapshot relations,
+        final TextureSourcesSnapshot relations,
         final ModelId modelId,
         final RawImageId raw
     ) {
@@ -1214,7 +1233,7 @@ final class ExternalPsdEditSessionManager {
         }
         final List<ModelImageId> imageIds = relations.modelImages().stream()
             .filter(value -> value.currentRawImageId().filter(raw::equals).isPresent())
-            .map(ModelImageRelation::id)
+            .map(ModelImageSource::id)
             .toList();
         if (imageIds.isEmpty() || Set.copyOf(imageIds).size() != imageIds.size()) {
             return Optional.empty();
@@ -1224,7 +1243,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private Optional<RawImageId> uniqueRawForModelImages(
-        final TextureRelationsSnapshot relations,
+        final TextureSourcesSnapshot relations,
         final Set<ModelImageId> imageIds
     ) {
         if (imageIds.isEmpty()) {
@@ -1232,7 +1251,7 @@ final class ExternalPsdEditSessionManager {
         }
         final Set<RawImageId> candidates = new LinkedHashSet<>();
         for (final ModelImageId imageId : imageIds) {
-            final List<ModelImageRelation> matches = relations.modelImages().stream()
+            final List<ModelImageSource> matches = relations.modelImages().stream()
                 .filter(value -> value.id().equals(imageId))
                 .toList();
             if (matches.size() != 1) {
@@ -1254,7 +1273,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private Optional<RawImageId> currentRawImage(
-        final TextureRelationsSnapshot relations,
+        final TextureSourcesSnapshot relations,
         final ArtMeshId artMesh
     ) {
         ArtMeshTextureInputs matched = null;
@@ -1304,7 +1323,7 @@ final class ExternalPsdEditSessionManager {
     }
 
     private Optional<RawImageId> rawForModelImageInput(
-        final TextureRelationsSnapshot relations,
+        final TextureSourcesSnapshot relations,
         final TextureInputBinding input
     ) {
         if (!input.isResolved() || input.kind() != TextureInputBinding.Kind.MODEL_IMAGE
@@ -1312,7 +1331,7 @@ final class ExternalPsdEditSessionManager {
             return Optional.empty();
         }
         final ModelImageId modelImageId = input.modelImageId().orElseThrow();
-        final List<ModelImageRelation> imageMatches = relations.modelImages().stream()
+        final List<ModelImageSource> imageMatches = relations.modelImages().stream()
             .filter(value -> value.id().equals(modelImageId))
             .toList();
         if (imageMatches.size() != 1) {
@@ -1447,7 +1466,7 @@ final class ExternalPsdEditSessionManager {
 
     private record ResolvedTarget(
         CubismModel model,
-        TextureRelationsSnapshot relations,
+        TextureSourcesSnapshot relations,
         RawImageId rawImageId
     ) {
     }

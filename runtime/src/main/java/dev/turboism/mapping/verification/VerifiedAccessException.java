@@ -89,6 +89,7 @@ public final class VerifiedAccessException extends RuntimeException {
         return HostFailureCategory.UNKNOWN;
     }
 
+    /** Sanitized native failure category, without host paths or exception messages. */
     public enum HostFailureCategory {
         UNKNOWN, OUT_OF_MEMORY, IO, NULL_POINTER, ILLEGAL_ARGUMENT, ILLEGAL_STATE,
         INDEX_OUT_OF_BOUNDS, SECURITY, LINKAGE

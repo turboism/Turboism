@@ -701,6 +701,12 @@ final class EditorTextureAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sources(
+            final dev.turboism.sdk.cubism.model.TextureSourceQuery query) {
+            return relationAccess.sources(identity, source, model, query);
+        }
+
+        @Override
         public Observation exportPsdTo(final RawImageId sourceId, final Path destination, final Runnable admission) {
             Objects.requireNonNull(admission, "admission");
             final AtomicBoolean exportGuardSeen = new AtomicBoolean();
@@ -810,7 +816,7 @@ final class EditorTextureAccess {
 
             final TextureRelationsSnapshot before = relationAccess.relations(identity, source, model);
             final EditorRawImagePsdSourceBinding.BindingResult binding =
-                psdSourceBinding.bindOnHostThread(source, target);
+                psdSourceBinding.bindIdentityOnHostThread(source, target);
             if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED) {
                 return new Replacement(
                     "TARGET_NOT_FOUND", true, false, false, false, false, Optional.empty(),

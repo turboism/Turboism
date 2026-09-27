@@ -133,46 +133,13 @@ class EditorRawImagePsdSelectorContractTest {
             1,
             8
         );
-        assertShape(
-            selectors,
-            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_DISPOSE_OWNED_ALIAS,
-            StaticSelector.Kind.METHOD,
-            "com/live2d/cubism/doc/resources/CLayeredImage",
-            "dispose",
-            "()V",
-            17,
-            8
-        );
-        assertShape(
-            selectors,
-            EditorRawImagePsdSelectorContract.PSD_DOCUMENT_LAYERS_OWNED_ALIAS,
-            StaticSelector.Kind.METHOD,
-            "com/live2d/graphics/psd/CPsdDocument",
-            "h",
-            "()[Lcom/live2d/graphics/psd/layer/o;",
-            17,
-            8
-        );
-        assertShape(
-            selectors,
-            EditorRawImagePsdSelectorContract.PSD_LAYER_IMAGE_OWNED_ALIAS,
-            StaticSelector.Kind.METHOD,
-            "com/live2d/graphics/psd/layer/o",
-            "c",
-            "()Ljp/live2d/type_editor/image/LDImage;",
-            17,
-            8
-        );
-        assertShape(
-            selectors,
-            EditorRawImagePsdSelectorContract.PSD_IMAGE_DISPOSE_OWNED_ALIAS,
-            StaticSelector.Kind.METHOD,
-            "jp/live2d/type_editor/image/LDImage",
-            "dispose",
-            "()V",
-            1,
-            8
-        );
+        for (final String retired : java.util.List.of(
+            "cubism.editor-model.layered-image.dispose-owned",
+            "cubism.editor-model.psd-document.layers-owned",
+            "cubism.editor-model.psd-layer.image-owned",
+            "cubism.editor-model.psd-image.dispose-owned")) {
+            org.junit.jupiter.api.Assertions.assertFalse(selectors.containsKey(retired));
+        }
         assertShape(
             selectors,
             EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
