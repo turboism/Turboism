@@ -517,7 +517,7 @@ public final class PreviewRuntime implements AutoCloseable {
             runtime.bindExportSettingsAuthority(exportSettings);
             runtime.bindProtectedExportOrchestrator(protectedExport);
             runtime.writeInitialReports(hostState);
-            runtime.publishStartupBanner();
+            runtime.publishStartupBanner(verifiedHostClassLoader);
             publishNativeStartupNotice(verifiedHostClassLoader, log);
             startupTimer.completed("reports-and-banner", message -> log.info("startup", message));
             return runtime;
@@ -663,7 +663,7 @@ public final class PreviewRuntime implements AutoCloseable {
         }
     }
 
-    private void publishStartupBanner() {
+    private void publishStartupBanner(final ClassLoader hostClassLoader) {
         final LocalPluginRuntime.StartupEnvironment environment =
             pluginRuntime.startupEnvironment();
         final dev.turboism.graal.GraalHostConfiguration graal =
@@ -675,7 +675,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final String graalJs = environment.discoveredScriptCount()
             + " discovered; host " + (graal.enabled() ? "available" : "unavailable");
         STARTUP_BANNER.publish(
-            List.of(log::banner),
+            List.of(log::banner, rendered -> publishHostBanner(hostClassLoader, rendered)),
             new StartupBanner.Details(
                 StartupBanner.frameworkDisplayVersion(),
                 System.getProperty("java.version", "unavailable"),
@@ -685,6 +685,26 @@ public final class PreviewRuntime implements AutoCloseable {
                 graalJs
             )
         );
+    }
+
+    private void publishHostBanner(final ClassLoader hostClassLoader, final String banner) {
+        CubismLoggerBridge bridge = null;
+        try {
+            bridge = CubismLoggerBridge.connect(hostClassLoader);
+            for (final String line : banner.split("\\n", -1)) {
+                bridge.write(PreviewLog.Level.INFO, "startup", line, null);
+            }
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+            log.debug("runtime", "Native startup banner was unavailable");
+        } finally {
+            if (bridge != null) {
+                try {
+                    bridge.close();
+                } catch (RuntimeException | LinkageError failure) {
+                    log.debug("runtime", "Native startup logger cleanup was unavailable");
+                }
+            }
+        }
     }
 
     private static String sourceLabel(
