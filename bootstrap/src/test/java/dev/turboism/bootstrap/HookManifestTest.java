@@ -27,6 +27,7 @@ final class HookManifestTest {
                 ParameterHookContributor.class,
                 ProjectLifecycleHookContributor.class,
                 FileChooserHistoryHookContributor.class,
+                ExportSettingsHookContributor.class,
                 ImageArchiveReuseHookContributor.class,
                 FloatArrayParseCacheHookContributor.class,
                 TextureUploadPreparationHookContributor.class,

@@ -1,19 +1,3 @@
-pluginManagement {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-    }
-    resolutionStrategy {
-        eachPlugin {
-            // The bootstrap packaging plugin is built-time only and resolves its
-            // implementation module from Maven Central like every other dependency.
-            if (requested.id.id == "com.gradleup.shadow") {
-                useModule("com.gradleup.shadow:shadow-gradle-plugin:${requested.version}")
-            }
-        }
-    }
-}
-
 rootProject.name = "turboism-root"
 
 include(
@@ -42,6 +26,7 @@ include(
     "plugins:psd-clip-mask-import",
     "plugins:atlas-maxrects-bssf",
     "plugins:atlas-dalsoo-polygon",
+    "plugins:protected-export",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
     "plugins:history-panel",

@@ -101,7 +101,7 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용하세요. 변경 사
 
 - [사용자 및 개발자 문서](https://docs.turboism.dev)
 - [아키텍처](ARCHITECTURE.md)와 [로드맵](ROADMAP.md)
-- [SDK API 계약 및 호환성](sdk/api-contracts/), [SDK v10 마이그레이션 안내](sdk/api-contracts/sdk-api-v10-review.md), [SDK v9](sdk/api-contracts/sdk-api-v9-review.md)·[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) 리뷰는 이력 감사로 유지
+- [SDK API 계약 및 호환성](sdk/api-contracts/), [SDK v11 마이그레이션 안내](sdk/api-contracts/sdk-api-v11-review.md), [v10](sdk/api-contracts/sdk-api-v10-review.md)·[v7](sdk/api-contracts/sdk-api-v7-review.md) 리뷰는 이력 감사로 유지
 - [데모 플러그인](plugins/demo/README.md)과 독립형 [플러그인 템플릿](templates/plugin-template/)
 - [Java 설치 프로그램 상세 안내](packaging/java-installer/README-java-installer.md)
 - [릴리스 절차](RELEASING.md)와 [변경 기록](CHANGELOG.md)

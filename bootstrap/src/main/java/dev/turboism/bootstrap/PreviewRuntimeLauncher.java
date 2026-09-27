@@ -204,6 +204,13 @@ final class PreviewRuntimeLauncher {
             Optional.ofNullable(extractContract(home, resolution, "ui-status-bar")),
             Optional.ofNullable(extractContract(home, resolution, "clipmask")),
             extractContract(home, resolution, "autobackup"),
+            // The protected-export slice is pinned for the same exact reviewed builds as the
+            // export-settings hook; the same gate also selects its orchestration record.
+            Optional.ofNullable(
+                ExportSettingsHookContributor.runtimeAdmitted(
+                    resolved.profile(), resolved.fullRuntimeAdmission())
+                    ? extract(home, "cubism-" + resolved.profile() + "-protected-export.json")
+                    : null),
             resolved.host().artifact(),
             resolved.coreArtifact(),
             resolved.host().classLoader(),

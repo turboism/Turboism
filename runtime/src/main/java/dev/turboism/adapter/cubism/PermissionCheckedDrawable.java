@@ -133,7 +133,7 @@ final class PermissionCheckedDrawable
         final int index
     ) {
         facade.requireModelWrite("artMesh.setParentDeformer");
-        delegate.setParent(facade.unwrapDeformer(parent), index);
+        delegate.setParent(facade.unwrapDeformer(wrapperOwner, parent), index);
     }
     @Override public boolean visible() {
         facade.requireModelRead("artMesh.visible");

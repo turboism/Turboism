@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class EditorObjectReadSelectorContractTest {
 
@@ -28,6 +29,8 @@ class EditorObjectReadSelectorContractTest {
         final String evidenceDirectory,
         final String recordName
     ) throws Exception {
+        assumeTrue(LEGACY_EVIDENCE != null,
+            "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
             PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
@@ -100,6 +103,11 @@ class EditorObjectReadSelectorContractTest {
         return current;
     }
 
+    /**
+     * Resolves the machine-local legacy Cubism evidence directory, or {@code null} when it is
+     * not configured and not staged; the exact-artifact tests skip in that case. A configured
+     * but missing directory stays a hard error.
+     */
     private static Path locateLegacyEvidence() {
         final String configured = System.getenv("TURBOISM_LEGACY_CUBISM_REF");
         if (configured != null && !configured.isBlank()) {
@@ -115,7 +123,7 @@ class EditorObjectReadSelectorContractTest {
             if (Files.isDirectory(candidate)) return candidate;
             current = current.getParent();
         }
-        throw new IllegalStateException("legacy Cubism evidence directory is unavailable");
+        return null;
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {

@@ -604,6 +604,19 @@ final class EditorObjectReadAccess {
             core.requireCurrentDeformerSource(identity, source, model, nodeSource);
             hierarchyEditAccess.remove(identity, source, model, nodeSource, "Deformer");
         }
+        @Override public void applyToChildren(final Deformer deformer) {
+            Objects.requireNonNull(deformer, "deformer");
+            final Object nodeSource = nativeSourceOf(deformer, "Deformer");
+            core.requireCurrentDeformerSource(identity, source, model, nodeSource);
+            requireHierarchyEditAccess();
+            hierarchyEditAccess.applyToChildren(
+                identity,
+                source,
+                model,
+                nodeSource,
+                () -> core.requireCurrentDeformerSource(identity, source, model, nodeSource)
+            );
+        }
     }
 
     private final class EditorWarpDeformers implements WarpDeformers {

@@ -21,7 +21,8 @@
     "cubism-5.2.03-ui-status-bar",
     "cubism-5.2.03-ui-top-menu",
     "cubism-5.2.03-workspace-control",
-    "cubism-5.2.03-autobackup"
+    "cubism-5.2.03-autobackup",
+    "cubism-5.2.03-protected-export"
   ],
   "status": "DRAFT",
   "source": "legacy-inventory",
