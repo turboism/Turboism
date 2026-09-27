@@ -42,11 +42,6 @@
       "reason": "Persists the selected theme package after a successful host appearance apply."
     },
     {
-      "id": "turboism.ui.context-menu.contribute",
-      "scope": "application",
-      "reason": "Adds theme management context-menu items."
-    },
-    {
       "id": "turboism.cubism.project.read",
       "scope": "application",
       "reason": "Reads the SDK theme status snapshot through the project-scoped Cubism read capability."

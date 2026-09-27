@@ -29,7 +29,6 @@ public final class ParameterPlugin implements CubismPlugin {
     private static final String TRANSFER_PARAMETER_CONTEXT_MENU_ID = "parameter.bindings.transfer.parameter";
     private static final String TRANSFER_DEFORMER_CONTEXT_MENU_ID = "parameter.bindings.transfer.deformer";
     private static final String TRANSFER_PART_CONTEXT_MENU_ID = "parameter.bindings.transfer.part";
-    private static final String TRANSFER_WORKSPACE_CONTEXT_MENU_ID = "parameter.bindings.transfer.workspace";
 
     private final ParameterCsvService.CsvContentProvider csvContentProvider;
     private PluginContext context;
@@ -106,17 +105,6 @@ public final class ParameterPlugin implements CubismPlugin {
                 TRANSFER_PART_CONTEXT_MENU_ID,
                 text("parameter.bindings.transfer"),
                 ContextMenuRegistry.Location.PART_TAB,
-                java.util.Set.of(
-                    ContextMenuRegistry.ObjectKind.ART_MESH,
-                    ContextMenuRegistry.ObjectKind.WARP_DEFORMER,
-                    ContextMenuRegistry.ObjectKind.ROTATION_DEFORMER
-                ),
-                110
-            );
-            registerContextMenu(
-                TRANSFER_WORKSPACE_CONTEXT_MENU_ID,
-                text("parameter.bindings.transfer"),
-                ContextMenuRegistry.Location.WORKSPACE_OBJECT,
                 java.util.Set.of(
                     ContextMenuRegistry.ObjectKind.ART_MESH,
                     ContextMenuRegistry.ObjectKind.WARP_DEFORMER,
