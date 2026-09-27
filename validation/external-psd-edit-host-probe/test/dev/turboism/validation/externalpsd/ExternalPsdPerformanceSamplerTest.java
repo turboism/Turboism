@@ -65,6 +65,27 @@ public final class ExternalPsdPerformanceSamplerTest {
         } finally {
             actual.close();
         }
+        final var directory = java.nio.file.Files.createTempDirectory("export-profile-recorder-test-");
+        final ExportProfileRecorder recorder = new ExportProfileRecorder(directory);
+        try {
+            recorder.stage("synthetic-idle");
+            Thread.sleep(1100L);
+            recorder.finish();
+            recorder.close();
+            final var output = directory.resolve("export-profile.tsv");
+            final String before = java.nio.file.Files.readString(output);
+            Thread.sleep(1100L);
+            require(before.equals(java.nio.file.Files.readString(output)), "closed recorder cannot keep writing");
+            require(before.contains("synthetic-idle"), "sampling stage is recorded");
+            require(java.nio.file.Files.readString(directory.resolve("export-profile-summary.txt"))
+                .contains("acceptance=NOT_CLAIMED"), "diagnostics never imply performance acceptance");
+        } finally {
+            recorder.close();
+            try (var files = java.nio.file.Files.list(directory)) {
+                for (final var file : files.toList()) java.nio.file.Files.delete(file);
+            }
+            java.nio.file.Files.delete(directory);
+        }
         final ExternalPsdPerformanceSampler blocked = new ExternalPsdPerformanceSampler(
             clock::get, heap::get, () -> 0L, queue::add);
         blocked.tick();

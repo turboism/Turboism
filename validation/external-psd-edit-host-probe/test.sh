@@ -11,7 +11,11 @@ fi
 bash validation/external-psd-edit-host-probe/build.sh
 id="$(bash scripts/dev/worktree-id.sh)"
 shopt -s nullglob
-sdk=("build/worktree/$id/sdk/libs/"sdk-*.jar)
+if [[ -n ${EXTERNAL_PSD_SDK_JAR:-} ]]; then
+  sdk=("$EXTERNAL_PSD_SDK_JAR")
+else
+  sdk=("build/worktree/$id/sdk/libs/"sdk-*.jar)
+fi
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 javac --release 17 -Xlint:all -cp "${sdk[0]}:build/external-psd-edit-host-probe.jar" -d "$out" \
@@ -204,7 +208,7 @@ exec /bin/bash "$@"
     effective_trigger = triggers[-1]  # shared Runner's last occurrence is authoritative
     assert effective_trigger == fixed_trigger, triggers
 
-    for phase in ("pipeline", "reopen"):
+    for phase in ("pipeline", "reopen", "export-profile"):
         phase_args = run_wrapper(
             sandbox, wrapper, runner, stub_bin, fixture, plugin, phase,
             sandbox / f"{phase}.argv")
