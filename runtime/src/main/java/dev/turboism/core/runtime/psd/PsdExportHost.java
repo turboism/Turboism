@@ -14,13 +14,24 @@ public interface PsdExportHost {
     /** Runs current-model export with policy revalidation on the native host thread. */
     Observation exportPsdTo(RawImageId source, Path destination, Runnable admission);
 
-    /** Factual native observation, not authorization to issue an SDK file handle. */
+    /**
+     * Factual native observation, not authorization to issue an SDK file handle.
+     * sourceName is the observed raw-image display name, not a path or identity; runtime validates
+     * it as a safe PSD basename before publishing the temporary file. Empty means unavailable.
+     */
     record Observation(String nativeStatus, String integrityStatus, boolean readable, boolean structureMatches,
-                       Optional<Failure> failure) {
+                       Optional<Failure> failure, String sourceName) {
         public Observation {
             Objects.requireNonNull(nativeStatus, "nativeStatus");
             Objects.requireNonNull(integrityStatus, "integrityStatus");
             Objects.requireNonNull(failure, "failure");
+            Objects.requireNonNull(sourceName, "sourceName");
+        }
+
+        public Observation(final String nativeStatus, final String integrityStatus,
+                           final boolean readable, final boolean structureMatches,
+                           final Optional<Failure> failure) {
+            this(nativeStatus, integrityStatus, readable, structureMatches, failure, "");
         }
 
         public Observation(final String nativeStatus, final String integrityStatus,

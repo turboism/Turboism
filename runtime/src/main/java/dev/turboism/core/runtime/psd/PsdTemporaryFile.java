@@ -18,7 +18,7 @@ import java.util.Objects;
 final class PsdTemporaryFile {
     private final Path root;
     private final Path directory;
-    private final Path file;
+    private Path file;
     private final Object rootKey;
     private final Object directoryKey;
 
@@ -57,7 +57,41 @@ final class PsdTemporaryFile {
         return file;
     }
 
-    /** Immutable display metadata; grants no path access and does not reopen the live file. */
+    /** Called only before handle publication/watcher creation; never overwrites another file. */
+    void useSourceName(final String sourceName) throws IOException {
+        final String name = safePsdName(sourceName);
+        Path current = validatedPath();
+        final Path named = directory.resolve(name);
+        if (!fileName().equals(name)) {
+            if (current.equals(named)) {
+                // Windows Path equality ignores case; use a distinct intermediate for case-only names.
+                final Path intermediate = directory.resolve("rename-" + java.util.UUID.randomUUID() + ".psd");
+                Files.move(current, intermediate);
+                file = intermediate;
+                current = validatedPath();
+            }
+            // No REPLACE_EXISTING: even an unexpected file/link in our private directory is retained.
+            Files.move(current, named);
+            file = named;
+            validatedPath();
+        }
+    }
+
+    private static String safePsdName(final String sourceName) {
+        final String fallback = "external-edit.psd";
+        if (sourceName == null || sourceName.isBlank() || sourceName.endsWith(".")
+            || sourceName.endsWith(" ") || sourceName.codePoints().anyMatch(c ->
+                c < 32 || "<>:\"/\\\\|?*".indexOf(c) >= 0)) return fallback;
+        final String stem = sourceName.split("\\.", 2)[0].stripTrailing();
+        if (stem.matches("(?iu)(CON|PRN|AUX|NUL|CONIN\\$|CONOUT\\$|COM[1-9¹²³]|LPT[1-9¹²³])")) {
+            return fallback;
+        }
+        final String name = sourceName.toLowerCase(java.util.Locale.ROOT).endsWith(".psd")
+            ? sourceName : sourceName + ".psd";
+        return name.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 255 ? fallback : name;
+    }
+
+    /** Display metadata frozen before handle publication; grants no path access. */
     String fileName() {
         return file.getFileName().toString();
     }

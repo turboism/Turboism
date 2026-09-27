@@ -357,7 +357,8 @@ final class EditorRawImagePsdAccess {
                         );
                     }
                 }
-                return ExportResult.readableUnverified(target, pathSafety, integrityVerification);
+                return ExportResult.readableUnverified(target, pathSafety, integrityVerification)
+                    .withSourceName(sourceName);
             } finally {
                 // Both objects belong only to this export verification, never the model or Undo.
                 try {
@@ -503,7 +504,8 @@ final class EditorRawImagePsdAccess {
         String failureType,
         String failureMessage,
         EditorRawImagePsdIntegrityAccess.Verification integrityVerification,
-        VerifiedAccessException.HostFailureCategory failureCategory
+        VerifiedAccessException.HostFailureCategory failureCategory,
+        String sourceName
     ) {
         ExportResult {
             Objects.requireNonNull(status, "status");
@@ -513,6 +515,24 @@ final class EditorRawImagePsdAccess {
             Objects.requireNonNull(failurePhase, "failurePhase");
             Objects.requireNonNull(integrityVerification, "integrityVerification");
             Objects.requireNonNull(failureCategory, "failureCategory");
+            Objects.requireNonNull(sourceName, "sourceName");
+        }
+
+        ExportResult(
+            final ExportStatus status, final Path target, final TargetPathSafety targetPathSafety,
+            final boolean saveReturned, final boolean outputReadable, final LayerCompleteness layerCompleteness,
+            final FailurePhase failurePhase, final String failureType, final String failureMessage,
+            final EditorRawImagePsdIntegrityAccess.Verification integrityVerification,
+            final VerifiedAccessException.HostFailureCategory failureCategory
+        ) {
+            this(status, target, targetPathSafety, saveReturned, outputReadable, layerCompleteness,
+                failurePhase, failureType, failureMessage, integrityVerification, failureCategory, "");
+        }
+
+        private ExportResult withSourceName(final String name) {
+            return new ExportResult(status, target, targetPathSafety, saveReturned, outputReadable,
+                layerCompleteness, failurePhase, failureType, failureMessage, integrityVerification,
+                failureCategory, name);
         }
 
         ExportResult(
@@ -531,7 +551,7 @@ final class EditorRawImagePsdAccess {
                 outputReadable, integrityVerification.rootNameMatches() && integrityVerification.dimensionsMatch()
                     && integrityVerification.layerTreeMatches(),
                 failurePhase == FailurePhase.NONE ? Optional.empty() : Optional.of(new PsdExportHost.Failure(
-                    failurePhase.name(), failureCategory.name(), saveReturned)));
+                    failurePhase.name(), failureCategory.name(), saveReturned)), sourceName);
         }
 
         ExportResult(
