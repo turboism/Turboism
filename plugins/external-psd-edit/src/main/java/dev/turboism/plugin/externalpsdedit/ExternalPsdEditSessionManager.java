@@ -108,6 +108,8 @@ final class ExternalPsdEditSessionManager {
             return;
         }
 
+        notifyStatus("external-psd-edit.status.preparing", "INFO",
+            text("external-psd-edit.status.preparing"));
         final CubismModel model;
         final TextureRelationsSnapshot relations;
         final ModelId modelId;
@@ -334,6 +336,8 @@ final class ExternalPsdEditSessionManager {
             sessions.put(target.key(), session);
         }
         ensureRefreshScheduled();
+        notifyStatus("external-psd-edit.status.exporting", "INFO",
+            format("external-psd-edit.status.exporting", target.rawImageId().value()));
         try {
             final CompletionStage<PsdExportResult> export =
                 textures.exportRawImagePsd(target.rawImageId());
@@ -638,8 +642,7 @@ final class ExternalPsdEditSessionManager {
         final PsdEditFile exportedFile = result.file().orElse(null);
         if (exportedFile == null) {
             failSession(session, format(
-                "external-psd-edit.error.export-failed",
-                session.rawImageId().value() + " (file unavailable)"));
+                "external-psd-edit.error.export-handle-unavailable", session.rawImageId().value()));
             return;
         }
         final boolean retainedForSubscription;
@@ -664,8 +667,7 @@ final class ExternalPsdEditSessionManager {
             }
         } catch (RuntimeException subscribeFailure) {
             failSession(session, format(
-                "external-psd-edit.error.export-failed",
-                session.rawImageId().value() + " (subscribe failed)"));
+                "external-psd-edit.error.subscribe-failed", session.rawImageId().value()));
             return;
         }
 
