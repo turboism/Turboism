@@ -84,6 +84,7 @@ class RuntimePsdExportServiceTest {
 
     @Test
     void readableObservationFromSessionBoundPortIssuesHandleAndBaseline() throws Exception {
+        final AtomicReference<Path> exportedPath = new AtomicReference<>();
         final AtomicBoolean active = new AtomicBoolean(true);
         final RuntimePsdExportService service = service(active, allowAll(), Runnable::run);
         try {
@@ -96,16 +97,21 @@ class RuntimePsdExportServiceTest {
                     final RawImageId source, final Path destination, final Runnable admission) {
                     admission.run();
                     try {
+                        exportedPath.set(destination);
                         Files.writeString(destination, "runtime PSD export fixture");
                     } catch (IOException failure) {
                         throw new IllegalStateException(failure);
                     }
-                    return new PsdExportHost.Observation("EXPORTED", "MATCHED", true, true);
+                    return new PsdExportHost.Observation("EXPORTED", "MATCHED", true, true,
+                        java.util.Optional.empty(), "原本 PSD.PSD");
                 }
             };
 
             final PsdExportResult result = awaitCompletion(service.exportRawImagePsd(host, SOURCE));
 
+            assertFalse(Files.exists(exportedPath.get()));
+            assertEquals("runtime PSD export fixture", Files.readString(
+                exportedPath.get().resolveSibling("原本 PSD.PSD")));
             assertEquals(PsdExportResult.Status.EXPORTED, result.status());
             assertTrue(result.file().isPresent());
             assertTrue(result.initialRevision().isPresent());

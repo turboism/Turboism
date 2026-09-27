@@ -33,6 +33,57 @@ class PsdTemporaryFileTest {
     }
 
     @Test
+    void sourceNamesPreserveUnicodeCaseAndIsolateIdenticalNames() throws Exception {
+        for (final String name : new String[] {"模型 原图.psd", "Original.PSD", "没有扩展名"}) {
+            final PsdTemporaryFile first = PsdTemporaryFile.createIn(temporaryRoot);
+            final PsdTemporaryFile second = PsdTemporaryFile.createIn(temporaryRoot);
+            final Path original = first.validatedPath();
+            Files.writeString(original, "PSD contents");
+            first.useSourceName(name);
+            second.useSourceName(name);
+            assertEquals(name.equals("没有扩展名") ? name + ".psd" : name, first.fileName());
+            assertEquals(first.fileName(), second.fileName());
+            assertNotEquals(first.validatedPath(), second.validatedPath());
+            assertEquals("PSD contents", Files.readString(first.validatedPath()));
+            assertFalse(Files.exists(original));
+        }
+    }
+
+    @Test
+    void sourceNameCanDifferOnlyInCaseFromTheFallback() throws Exception {
+        final PsdTemporaryFile target = PsdTemporaryFile.createIn(temporaryRoot);
+        target.useSourceName("EXTERNAL-EDIT.PSD");
+        try (var paths = Files.list(target.validatedPath().getParent())) {
+            assertEquals(java.util.List.of("EXTERNAL-EDIT.PSD"),
+                paths.map(path -> path.getFileName().toString()).toList());
+        }
+    }
+
+    @Test
+    void unsafeNamesFallBackWithoutEscapingTheAllocation() throws Exception {
+        for (final String name : new String[] {null, "", " ", ".", "..", "../outside.psd",
+            "C:\\outside.psd", "/outside.psd", "a/b.psd", "a:b.psd", "a?b", "a\u0000b",
+            "a\nb", "CON.psd", "nul", "COM1.PSD", "LPT².psd", "trailing.", "trailing ",
+            "中".repeat(100)}) {
+            final PsdTemporaryFile target = PsdTemporaryFile.createIn(temporaryRoot);
+            final Path original = target.validatedPath();
+            target.useSourceName(name);
+            assertEquals(original, target.validatedPath(), String.valueOf(name));
+            assertEquals("external-edit.psd", target.fileName());
+        }
+    }
+
+    @Test
+    void renamingNeverOverwritesAnExistingFile() throws Exception {
+        final PsdTemporaryFile target = PsdTemporaryFile.createIn(temporaryRoot);
+        final Path original = target.validatedPath();
+        final Path occupied = Files.writeString(original.resolveSibling("original.psd"), "untouched");
+        assertThrows(IOException.class, () -> target.useSourceName("original.psd"));
+        assertEquals("untouched", Files.readString(occupied));
+        assertEquals(original, target.validatedPath());
+    }
+
+    @Test
     void writesStayInTempAndValidationDoesNotRemoveTheFile() throws Exception {
         final Path source = Files.writeString(temporaryRoot.resolve("original.psd"), "original");
         final PsdTemporaryFile target = PsdTemporaryFile.createIn(temporaryRoot);
@@ -80,6 +131,8 @@ class PsdTemporaryFileTest {
         Files.delete(file);
         Files.createSymbolicLink(file, outside);
         assertThrows(IOException.class, target::validatedPath);
+        assertEquals("untouched", Files.readString(outside));
+        assertThrows(IOException.class, () -> target.useSourceName("original.psd"));
         assertEquals("untouched", Files.readString(outside));
     }
 
